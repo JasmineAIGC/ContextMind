@@ -271,7 +271,7 @@ class ContextEngine:
         try:
             session = await self._fetch_session()
             history_count = len(session.events) if session.events else 0
-        except:
+        except Exception:
             pass
         
         # 提取用户画像摘要

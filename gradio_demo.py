@@ -256,7 +256,9 @@ class GradioDemo:
         title = f"{symbol} {engine_name.upper().replace('_', ' ')} 引擎"
         if is_debug:
             title += " [详细]"
-        logger.info("┌─ " + title + " " + "─" * (74 - len(title)) + "┐")
+        # 确保边框宽度计算不会产生负数
+        title_padding = max(0, 74 - len(title))
+        logger.info("┌─ " + title + " " + "─" * title_padding + "┐")
         
         # 简洁模式内容
         logger.info("│ ⚙️  处理中...")
@@ -302,9 +304,15 @@ class GradioDemo:
         
         # 打印用户输入顶部边框
         logger.info("╔" + "═" * 78 + "╗")
-        logger.info(f"║  👤 用户输入: {user_input:<62} ║")
-        turn_number = self.engines['basic'].user_state.interaction_count + 1 if 'basic' in self.engines else 1
-        logger.info(f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{turn_number}轮对话{' ' * 20}║")
+        # 截断过长的用户输入以适应边框宽度
+        user_input_display = user_input[:60] + "..." if len(user_input) > 60 else user_input
+        # 动态计算填充空格，确保对齐
+        padding = 62 - len(user_input_display)
+        logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
+        # 动态计算时间行的填充空格
+        time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{turn_number}轮对话"
+        time_padding = 78 - len(time_str) - 1  # -1 for closing ║
+        logger.info(time_str + ' ' * time_padding + "║")
         logger.info("╚" + "═" * 78 + "╝")
         logger.info("")  # 空行
         
