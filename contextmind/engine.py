@@ -495,7 +495,8 @@ class ContextEngine:
         
         memory_text = "\n".join(raw_entries)
         
-        logger.debug(f"从长期记忆中检索到 {len(top_memories)} 条相关记忆")
+        # 记忆检索成功，不需要打印详细日志
+        # 详细信息通过 memory_hits 返回给调用方处理
         return memory_text, raw_entries
 
     def _build_search_queries(self, query: str) -> List[str]:
@@ -684,35 +685,8 @@ class ContextEngine:
                     parsed = json.loads(cleaned_result)
                     knowledge.update(parsed)
                     
-                    # 详细记录提取的知识
-                    facts_count = len(knowledge.get('important_facts', []))
-                    events_count = len(knowledge.get('key_events', []))
-                    user_profile = knowledge.get('user_profile_updates', {})
-                    
-                    logger.debug(f"✅ 成功提取知识: {facts_count} 个重要事实")
-                    
-                    # 详细信息只在debug模式下显示
-                    logger.debug(f"   📊 重要事实详情:")
-                    for i, fact in enumerate(knowledge.get('important_facts', []), 1):
-                        logger.debug(f"      {i}. {fact}")
-                    
-                    if events_count > 0:
-                        logger.debug(f"   🎯 关键事件: {events_count} 条")
-                        for i, event in enumerate(knowledge.get('key_events', []), 1):
-                            logger.debug(f"      {i}. {event}")
-                    
-                    # 记录用户画像更新
-                    profile_updates = []
-                    for key, value in user_profile.items():
-                        if value is not None and str(value).strip():
-                            profile_updates.append(f"{key}: {value}")
-                    
-                    if profile_updates:
-                        logger.debug(f"   👤 用户画像更新: {', '.join(profile_updates)}")
-                    
-                    emotional_state = knowledge.get('emotional_state')
-                    if emotional_state:
-                        logger.debug(f"   😊 情绪状态: {emotional_state}")
+                    # 知识提取成功，不需要打印详细日志
+                    # 详细信息通过 ContextTurnResult 返回给调用方处理
                 except json.JSONDecodeError as e:
                     logger.warning(f"知识提取结果JSON解析失败: {e}")
                     logger.warning(f"原始结果: {result[:200]}")
@@ -793,13 +767,8 @@ class ContextEngine:
                     )
                     await self.session_service.append_event(session=temp_session, event=event)
                 
-                # 详细记录存储的知识
-                logger.debug(f"💾 已将 {len(facts_to_store)} 条知识存储到临时session")
-                
-                # 详细信息只在debug模式下显示
-                logger.debug(f"   📋 存储的知识详情:")
-                for i, fact in enumerate(facts_to_store, 1):
-                    logger.debug(f"      {i}. {fact[:100]}{'...' if len(fact) > 100 else ''}")
+                # 知识存储成功，不需要打印详细日志
+                # 详细信息通过 ContextTurnResult 返回给调用方处理
                 
         except Exception as e:
             logger.warning(f"Failed to persist knowledge to memory: {str(e)}")
@@ -854,7 +823,7 @@ class ContextEngine:
                 # 直接存储到当前session
                 await self.session_service.append_event(session=session, event=summary_event)
                 
-                logger.debug(f"已生成并存储对话总结: {summary[:50]}...")
+                # 总结已生成并存储，不需要打印详细日志
         except Exception as e:
             logger.warning(f"Failed to perform periodic summary: {str(e)}")
 
@@ -885,7 +854,7 @@ class ContextEngine:
                 
                 # 更新session_id
                 self._session_id = new_session.id
-                logger.debug(f"Cleaned up old events: {len(old_events)} -> {len(recent_events)}")
+                # 清理完成，不需要打印详细日志
         except Exception as e:
             logger.warning(f"Failed to cleanup old events: {str(e)}")
 
