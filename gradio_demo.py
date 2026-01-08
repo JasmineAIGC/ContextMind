@@ -162,7 +162,6 @@ class GradioDemo:
         """为长期记忆引擎植入种子数据。"""
         if 'long_term' in self.engines:
             # 尝试从文件加载记忆种子
-            from pathlib import Path
             seed_file = Path(__file__).parent / "data" / "memory_seeds.txt"
             memory_seeds = []
             

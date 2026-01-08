@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
+import json
 import re
+import string
 import textwrap
 from typing import List, Optional, Sequence, Tuple
 import uuid
@@ -683,7 +685,6 @@ class ContextEngine:
             result = self._extract_actual_response(result)
             
             if result and len(result) > 20:
-                import json
                 try:
                     # 尝试修复常见的JSON格式问题
                     cleaned_result = result.strip()
@@ -738,7 +739,6 @@ class ContextEngine:
     
     def _remove_invalid_json_chars(self, json_str: str) -> str:
         """移除JSON中的非法字符"""
-        import string
         # 保留可打印字符和Unicode字符
         cleaned = ''.join(char for char in json_str if char in string.printable or ord(char) > 127)
         return cleaned

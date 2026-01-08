@@ -48,3 +48,6 @@ logs/
 # Temporary files
 /tmp/
 *.tmp
+
+# Test files (keeping them out of repo for now)
+test_*.py
