@@ -50,6 +50,11 @@ logger.debug("环境变量已从 .env 文件加载")
 
 
 class GradioDemo:
+    # Box formatting constants
+    BOX_BORDER_WIDTH = 78
+    BOX_CONTENT_WIDTH = 62
+    BOX_TITLE_WIDTH = 74
+    
     def __init__(self):
         """初始化 Gradio 演示"""
         self.engines = {}
@@ -67,6 +72,7 @@ class GradioDemo:
         ]
         self.conversation_history = []
         self.current_bot_message = ""
+        self.turn_counter = 0  # 添加轮次计数器
         
     async def initialize_engines(self):
         """初始化三种引擎"""
@@ -203,6 +209,9 @@ class GradioDemo:
     
     async def start_new_conversation(self, is_initial_start: bool = False):
         """开始新对话，并重置引擎状态"""
+        # 重置轮次计数器
+        self.turn_counter = 0
+        
         if not is_initial_start:
             logger.info("🔄 [Gradio] 开始新一轮对话，重置所有引擎状态...")
             # 重新创建引擎实例以确保完全重置
@@ -257,7 +266,7 @@ class GradioDemo:
         if is_debug:
             title += " [详细]"
         # 确保边框宽度计算不会产生负数
-        title_padding = max(0, 74 - len(title))
+        title_padding = max(0, self.BOX_TITLE_WIDTH - len(title))
         logger.info("┌─ " + title + " " + "─" * title_padding + "┐")
         
         # 简洁模式内容
@@ -302,18 +311,21 @@ class GradioDemo:
         from datetime import datetime
         start_time = time.time()
         
+        # 增加轮次计数器
+        self.turn_counter += 1
+        
         # 打印用户输入顶部边框
-        logger.info("╔" + "═" * 78 + "╗")
+        logger.info("╔" + "═" * self.BOX_BORDER_WIDTH + "╗")
         # 截断过长的用户输入以适应边框宽度
         user_input_display = user_input[:60] + "..." if len(user_input) > 60 else user_input
         # 动态计算填充空格，确保对齐
-        padding = 62 - len(user_input_display)
+        padding = self.BOX_CONTENT_WIDTH - len(user_input_display)
         logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
         # 动态计算时间行的填充空格
-        time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{turn_number}轮对话"
-        time_padding = 78 - len(time_str) - 1  # -1 for closing ║
+        time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{self.turn_counter}轮对话"
+        time_padding = self.BOX_BORDER_WIDTH - len(time_str) - 1  # -1 for closing ║
         logger.info(time_str + ' ' * time_padding + "║")
-        logger.info("╚" + "═" * 78 + "╝")
+        logger.info("╚" + "═" * self.BOX_BORDER_WIDTH + "╝")
         logger.info("")  # 空行
         
         try:
@@ -382,6 +394,7 @@ class GradioDemo:
     async def _get_single_response(self, name, engine, user_input):
         """获取单个引擎的回复"""
         from contextmind.logger import get_logger, ContextMindLogger
+        import logging
         logger = get_logger(__name__)
         
         try:
@@ -389,7 +402,7 @@ class GradioDemo:
             result = await engine.process_turn(user_input)
             
             # 使用新的 box 格式化日志
-            is_debug = ContextMindLogger.get_current_level() <= 10  # DEBUG level is 10
+            is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
             self._log_engine_box(name, result, is_debug)
             
             return result.response
