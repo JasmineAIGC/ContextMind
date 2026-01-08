@@ -145,8 +145,8 @@ class InteractiveDemo:
             await self.engines['long_term'].seed_memory(memory_seeds)
 
     def _get_base_prompt(self) -> str:
-        """获取基础系统提示词"""
-        return """你是优逸花客服，正在给用户打电话提醒申请预留额度。你的回复必须专业、简洁、直接，严格遵守客服话术规范。"""
+        """获取基础系统提示词 - 仅包含核心角色定义"""
+        return """你是优逸花客服，负责电话外呼。你的回复必须专业、简洁、直接，严格遵守客服话术规范。"""
 
     def _get_user_profile(self) -> dict:
         """获取用户画像"""
