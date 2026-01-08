@@ -347,20 +347,25 @@ class ContextEngine:
         logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...")
 
         try:
-            # 确保当前 session 存在
-            await self._ensure_session()
-            session = await self._fetch_session()
+            # 创建一个专门的 session 来存储种子知识
+            seed_session = await self.session_service.create_session(
+                app_name=self.app_name,
+                user_id=self.user_id,
+            )
 
-            # 将种子数据作为系统事件添加到当前 session
+            # 将种子数据作为系统事件添加到 session
             for fact in facts:
                 event = Event(
                     invocation_id=self._new_invocation_id(),
                     author="system",
                     content=Content(role="system", parts=[Part(text=f"[预设知识] {fact}")]),
                 )
-                await self.session_service.append_event(session=session, event=event)
+                await self.session_service.append_event(session=seed_session, event=event)
             
-            logger.info(f"✅ {len(facts)} facts seeded successfully.")
+            # 关键修复：将 session 持久化到 Memory Service
+            await self.memory_service.add_session_to_memory(seed_session)
+            
+            logger.info(f"✅ {len(facts)} facts seeded and persisted to memory successfully.")
 
         except Exception as e:
             logger.error(f"❌ Failed to seed memory: {e}")
@@ -479,6 +484,7 @@ class ContextEngine:
                 continue
         
         if not all_memories:
+            logger.debug("🔍 长期记忆检索：未找到相关记忆")
             return "", []
 
         # 3. 按相关性分数排序
@@ -495,8 +501,11 @@ class ContextEngine:
         
         memory_text = "\n".join(raw_entries)
         
-        # 记忆检索成功，不需要打印详细日志
-        # 详细信息通过 memory_hits 返回给调用方处理
+        # 增强日志：显示检索到的记忆内容
+        logger.info(f"🧠 检索到 {len(top_memories)} 条长期记忆:")
+        for i, mem in enumerate(top_memories, 1):
+            logger.info(f"  [{i}] {mem['text'][:100]}..." if len(mem['text']) > 100 else f"  [{i}] {mem['text']}")
+        
         return memory_text, raw_entries
 
     def _build_search_queries(self, query: str) -> List[str]:
@@ -752,9 +761,9 @@ class ContextEngine:
                     facts_to_store.append(f"[用户偏好] {', '.join(pref_text)}")
             
             # 将提取的知识作为独立事件存储到记忆中
-            # 创建一个临时session来存储这些记忆
+            # 创建一个专门的 session 来存储提取的知识
             if facts_to_store:
-                temp_session = await self.session_service.create_session(
+                knowledge_session = await self.session_service.create_session(
                     app_name=self.app_name,
                     user_id=self.user_id,
                 )
@@ -765,10 +774,12 @@ class ContextEngine:
                         author="system",
                         content=Content(role="system", parts=[Part(text=fact)]),
                     )
-                    await self.session_service.append_event(session=temp_session, event=event)
+                    await self.session_service.append_event(session=knowledge_session, event=event)
                 
-                # 知识存储成功，不需要打印详细日志
-                # 详细信息通过 ContextTurnResult 返回给调用方处理
+                # 关键修复：将知识 session 持久化到 Memory Service
+                await self.memory_service.add_session_to_memory(knowledge_session)
+                
+                logger.debug(f"💾 Persisted {len(facts_to_store)} knowledge facts to memory.")
                 
         except Exception as e:
             logger.warning(f"Failed to persist knowledge to memory: {str(e)}")
