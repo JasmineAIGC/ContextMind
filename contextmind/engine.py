@@ -44,6 +44,13 @@ class ContextTurnResult:
     reasoning: str
     response: str
     memory_hits: List[str] = field(default_factory=list)
+    # 新增字段用于日志展示
+    history_count: int = 0
+    profile_summary: str = ""
+    rules_count: int = 0
+    memory_count: int = 0
+    turn_number: int = 0
+    processing_time: float = 0.0
 
 
 @dataclass
@@ -174,11 +181,8 @@ class ContextEngine:
 
     async def process_turn(self, user_input: str) -> ContextTurnResult:
         """处理单轮对话的核心流程。"""
-        # 记录处理开始
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        logger.info(f"\n{'='*50}", extra={'engine_type': engine_type})
-        logger.info(f"🚀 开始处理用户输入 (第{self.user_state.interaction_count + 1}轮)", extra={'engine_type': engine_type})
-        logger.info(f"📝 用户输入: {user_input}", extra={'engine_type': engine_type})
+        import time
+        start_time = time.time()
         
         # 1. 验证输入
         user_input = user_input.strip()
@@ -188,13 +192,11 @@ class ContextEngine:
         # 2. 确保 Session 存在
         try:
             await self._ensure_session()
-            logger.debug(f"✅ Session已准备就绪", extra={'engine_type': engine_type})
         except Exception as e:
             raise RuntimeError(f"Failed to ensure session: {str(e)}") from e
 
         # 3. 更新交互次数
         self.user_state.interaction_count += 1
-        logger.debug(f"📊 交互次数更新: {self.user_state.interaction_count}", extra={'engine_type': engine_type})
 
         # 4. 将用户输入写入 Session（仅当需要保留历史时）
         if self._max_recent_events > 0:
@@ -206,12 +208,10 @@ class ContextEngine:
                     content=Content(role="user", parts=[Part(text=user_input)]),
                 )
                 await self.session_service.append_event(session=session, event=user_event)
-                logger.debug(f"💾 用户输入已保存到Session", extra={'engine_type': engine_type})
             except Exception as e:
                 raise RuntimeError(f"Failed to append user event to session: {str(e)}") from e
 
         # 5. 收集上下文信息
-        logger.debug(f"🔍 开始收集上下文信息...", extra={'engine_type': engine_type})
         try:
             history_text = await self._collect_recent_history()
             memory_text, memory_hits = await self._retrieve_memory(query=user_input)
@@ -263,12 +263,27 @@ class ContextEngine:
         except Exception as e:
             logger.debug(f"Failed to perform periodic summary: {str(e)}")
 
-        # 12. 记录结果
-        logger.info(f"\n💬 机器人输出: {response}", extra={'engine_type': engine_type})
-        logger.debug(f"\n{'='*30}", extra={'engine_type': engine_type})
-        logger.debug(f"📋 生成的prompt: {prompt}", extra={'engine_type': engine_type})
-        logger.debug(f"\n🔍 记忆检索结果: {', '.join(memory_hits)}", extra={'engine_type': engine_type})
-        logger.debug(f"\n💾 对话后信息: 交互次数={self.user_state.interaction_count}", extra={'engine_type': engine_type})
+        # 12. 收集元数据用于日志展示
+        processing_time = time.time() - start_time
+        
+        # 计算历史数量
+        history_count = 0
+        try:
+            session = await self._fetch_session()
+            history_count = len(session.events) if session.events else 0
+        except:
+            pass
+        
+        # 提取用户画像摘要
+        profile_summary = ""
+        if self.user_profile and self.user_profile.get("姓名"):
+            profile_summary = self.user_profile.get("姓名", "")
+        
+        # 计算规则数量
+        rules_count = len(self.business_rules) if self.business_rules else 0
+        
+        # 计算记忆数量
+        memory_count = len(memory_hits)
 
         # 13. 返回结果
         return ContextTurnResult(
@@ -276,6 +291,12 @@ class ContextEngine:
             reasoning="",  # 可以从LLM获取推理过程
             response=response,
             memory_hits=memory_hits,
+            history_count=history_count,
+            profile_summary=profile_summary,
+            rules_count=rules_count,
+            memory_count=memory_count,
+            turn_number=self.user_state.interaction_count,
+            processing_time=processing_time,
         )
 
     # =============================================================================

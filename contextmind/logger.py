@@ -19,76 +19,7 @@ ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
 
 
-class EngineFormatter(logging.Formatter):
-    """为不同引擎添加标识的格式化器"""
 
-    ENGINE_COLORS = {
-        'basic': '\033[94m',      # 蓝色
-        'short_term': '\033[93m', # 黄色
-        'long_term': '\033[92m',  # 绿色
-        'default': '\033[0m'      # 默认
-    }
-    
-    ENGINE_SYMBOLS = {
-        'basic': '🔵',
-        'short_term': '🟡',
-        'long_term': '🟢',
-        'default': '📝'
-    }
-    
-    LEVEL_SYMBOLS = {
-        logging.INFO: '📋',
-        logging.DEBUG: '🔍',
-        logging.WARNING: '⚠️',
-        logging.ERROR: '❌',
-        logging.CRITICAL: '💥'
-    }
-    
-    RESET = '\033[0m'
-
-    def format(self, record):
-        # 从record中获取引擎类型
-        engine_type = getattr(record, 'engine_type', 'default')
-        symbol = self.ENGINE_SYMBOLS.get(engine_type, self.ENGINE_SYMBOLS['default'])
-        level_symbol = self.LEVEL_SYMBOLS.get(record.levelno, '')
-        
-        # 添加引擎标识到日志消息
-        original_msg = record.msg
-        
-        # 对不同级别的日志应用不同的格式化策略
-        if record.levelno == logging.INFO:
-            # INFO级别为主日志，使用更明显的格式和间隔
-            if '开始处理用户输入' in original_msg:
-                # 对话开始时使用更长的分隔线，突出显示
-                record.msg = f"\n{'='*80}\n{level_symbol} {symbol} [{engine_type.upper()}] {original_msg}\n{'='*80}"
-            elif '机器人输出' in original_msg:
-                # 对话结束时同样使用长分隔线
-                record.msg = f"{level_symbol} {symbol} [{engine_type.upper()}] {original_msg}\n{'='*80}\n"
-            elif original_msg.strip() == '='*40 or original_msg.strip() == '='*80:
-                # 如果是分隔线，保持原样
-                record.msg = f"{original_msg}"
-            else:
-                # 普通INFO日志，使用标准格式并添加空行
-                record.msg = f"\n{level_symbol} {symbol} [{engine_type.upper()}] {original_msg}"
-        elif record.levelno == logging.DEBUG:
-            # DEBUG级别为次日志，使用缩进区分
-            if any(keyword in original_msg for keyword in ['生成的prompt:', '当前对话历史', '检索到的记忆', '成功提取知识', '重要事实详情', '关键事件']):
-                # 重要的DEBUG信息，使用较少缩进
-                record.msg = f"\n  {level_symbol} {symbol} [{engine_type.upper()}] {original_msg}"
-            else:
-                # 普通DEBUG信息，使用更多缩进
-                record.msg = f"    {level_symbol} {symbol} [{engine_type.upper()}] {original_msg}"
-        else:
-            # WARNING、ERROR、CRITICAL级别，使用醒目的格式
-            record.msg = f"\n{level_symbol} {symbol} [{engine_type.upper()}] {original_msg}"
-        
-        # 格式化
-        result = super().format(record)
-        
-        # 恢复原始消息
-        record.msg = original_msg
-        
-        return result
 
 
 class ContextMindLogger:
@@ -128,15 +59,18 @@ class ContextMindLogger:
         # 清除现有的handlers
         root_logger.handlers.clear()
         
-        # 设置日志格式
-        log_format = '%(asctime)s - %(levelname)-8s - %(name)-15s - %(message)s'
-        formatter = EngineFormatter(fmt=log_format, datefmt='%Y-%m-%d %H:%M:%S')
+        # 设置日志格式 - 简化格式，不再使用EngineFormatter
+        log_format = '%(message)s'
+        formatter = logging.Formatter(fmt=log_format)
 
         # 过滤掉第三方库的冗余日志
         logging.getLogger('httpx').setLevel(logging.WARNING)
         logging.getLogger('httpcore').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('openai').setLevel(logging.WARNING)
+        
+        # 完全禁用 asyncio 的 DEBUG 日志
+        logging.getLogger('asyncio').setLevel(logging.WARNING)
         
         # 添加控制台handler
         if log_to_console:
