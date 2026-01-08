@@ -54,6 +54,7 @@ class GradioDemo:
     BOX_BORDER_WIDTH = 78
     BOX_CONTENT_WIDTH = 62
     BOX_TITLE_WIDTH = 74
+    USER_INPUT_MAX_DISPLAY_LENGTH = 60
     
     def __init__(self):
         """初始化 Gradio 演示"""
@@ -295,11 +296,13 @@ class GradioDemo:
             logger.debug(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
         
         # 回复内容
-        reply_preview = result.response[:60] + "..." if len(result.response) > 60 else result.response
+        reply_preview = (result.response[:self.USER_INPUT_MAX_DISPLAY_LENGTH] + "..." 
+                        if len(result.response) > self.USER_INPUT_MAX_DISPLAY_LENGTH 
+                        else result.response)
         logger.info(f"│ 🤖 回复: {reply_preview}")
         
-        # 底部边框
-        logger.info("└" + "─" * 77 + "┘")
+        # 底部边框 - 使用常量保持一致性
+        logger.info("└" + "─" * (self.BOX_BORDER_WIDTH - 1) + "┘")
         logger.info("")  # 空行
     
     async def get_responses(self, user_input):
@@ -317,13 +320,15 @@ class GradioDemo:
         # 打印用户输入顶部边框
         logger.info("╔" + "═" * self.BOX_BORDER_WIDTH + "╗")
         # 截断过长的用户输入以适应边框宽度
-        user_input_display = user_input[:60] + "..." if len(user_input) > 60 else user_input
-        # 动态计算填充空格，确保对齐
-        padding = self.BOX_CONTENT_WIDTH - len(user_input_display)
+        user_input_display = (user_input[:self.USER_INPUT_MAX_DISPLAY_LENGTH] + "..." 
+                             if len(user_input) > self.USER_INPUT_MAX_DISPLAY_LENGTH 
+                             else user_input)
+        # 动态计算填充空格，确保对齐，防止负数
+        padding = max(0, self.BOX_CONTENT_WIDTH - len(user_input_display))
         logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
-        # 动态计算时间行的填充空格
+        # 动态计算时间行的填充空格，防止负数
         time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{self.turn_counter}轮对话"
-        time_padding = self.BOX_BORDER_WIDTH - len(time_str) - 1  # -1 for closing ║
+        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 for closing ║
         logger.info(time_str + ' ' * time_padding + "║")
         logger.info("╚" + "═" * self.BOX_BORDER_WIDTH + "╝")
         logger.info("")  # 空行
