@@ -245,7 +245,7 @@ class GradioDemo:
                 session = await engine.get_current_session()
                 await engine.session_service.append_event(session=session, event=event)
             except Exception as e:
-                logger.warning(f"[Gradio] 添加开场白到引擎 {engine_name} 失败: {e}", extra={'engine_type': engine_name.upper()})
+                logger.warning(f"[Gradio] 添加开场白到引擎 {engine_name} 失败: {e}")
         
         return self.conversation_history
     
@@ -362,19 +362,19 @@ class GradioDemo:
                 # 添加所有机器人回复到历史
                 self.conversation_history.append({"role": "user", "content": user_input})
                 
-                logger.debug(f"获取到的回复:", extra={'engine_type': 'default'})
-                logger.debug(f"   basic: {responses.get('basic', 'None')[:50]}...", extra={'engine_type': 'basic'})
-                logger.debug(f"   short_term: {responses.get('short_term', 'None')[:50]}...", extra={'engine_type': 'short_term'})
-                logger.debug(f"   long_term: {responses.get('long_term', 'None')[:50]}...", extra={'engine_type': 'long_term'})
+                logger.debug(f"获取到的回复:")
+                logger.debug(f"   basic: {responses.get('basic', 'None')[:50]}...")
+                logger.debug(f"   short_term: {responses.get('short_term', 'None')[:50]}...")
+                logger.debug(f"   long_term: {responses.get('long_term', 'None')[:50]}...")
                 
                 # 添加三条回复到对话历史
                 if responses.get('basic') and not responses['basic'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🔵 基础对话: {responses['basic']}"})
-                    logger.debug("已添加基础对话回复到历史", extra={'engine_type': 'basic'})
+                    logger.debug("已添加基础对话回复到历史")
                 
                 if responses.get('short_term') and not responses['short_term'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🟡 短期记忆: {responses['short_term']}"})
-                    logger.debug("已添加短期记忆回复到历史", extra={'engine_type': 'short_term'})
+                    logger.debug("已添加短期记忆回复到历史")
                 
                 if responses.get('long_term') and not responses['long_term'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🟢 长期记忆: {responses['long_term']}"})

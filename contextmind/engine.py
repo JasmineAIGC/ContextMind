@@ -344,8 +344,7 @@ class ContextEngine:
             logger.warning("Memory service is not configured, cannot seed memory.")
             return
 
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...", extra={'engine_type': engine_type})
+        logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...")
 
         try:
             # 使用一个临时的 session 来添加记忆
@@ -364,10 +363,10 @@ class ContextEngine:
             
             # 持久化到 memory
             await self.memory_service.persist_session(session=temp_session)
-            logger.info(f"✅ {len(facts)} facts seeded successfully.", extra={'engine_type': engine_type})
+            logger.info(f"✅ {len(facts)} facts seeded successfully.")
 
         except Exception as e:
-            logger.error(f"❌ Failed to seed memory: {e}", extra={'engine_type': engine_type})
+            logger.error(f"❌ Failed to seed memory: {e}")
 
     async def _generate_response_with_retry(self, prompt: str) -> str:
         """生成回复，带重试机制。"""
@@ -621,9 +620,6 @@ class ContextEngine:
 
     async def _extract_knowledge_from_session(self, session: Session) -> dict:
         """从 session 中提取结构化知识，用于长期记忆存储。"""
-        # 获取引擎类型
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        
         knowledge = {
             "user_profile_updates": {},  # 用户画像更新
             "key_events": [],    # 关键事件
@@ -696,17 +692,17 @@ class ContextEngine:
                     events_count = len(knowledge.get('key_events', []))
                     user_profile = knowledge.get('user_profile_updates', {})
                     
-                    logger.debug(f"✅ 成功提取知识: {facts_count} 个重要事实", extra={'engine_type': engine_type})
+                    logger.debug(f"✅ 成功提取知识: {facts_count} 个重要事实")
                     
                     # 详细信息只在debug模式下显示
-                    logger.debug(f"   📊 重要事实详情:", extra={'engine_type': engine_type})
+                    logger.debug(f"   📊 重要事实详情:")
                     for i, fact in enumerate(knowledge.get('important_facts', []), 1):
-                        logger.debug(f"      {i}. {fact}", extra={'engine_type': engine_type})
+                        logger.debug(f"      {i}. {fact}")
                     
                     if events_count > 0:
-                        logger.debug(f"   🎯 关键事件: {events_count} 条", extra={'engine_type': engine_type})
+                        logger.debug(f"   🎯 关键事件: {events_count} 条")
                         for i, event in enumerate(knowledge.get('key_events', []), 1):
-                            logger.debug(f"      {i}. {event}", extra={'engine_type': engine_type})
+                            logger.debug(f"      {i}. {event}")
                     
                     # 记录用户画像更新
                     profile_updates = []
@@ -715,11 +711,11 @@ class ContextEngine:
                             profile_updates.append(f"{key}: {value}")
                     
                     if profile_updates:
-                        logger.debug(f"   👤 用户画像更新: {', '.join(profile_updates)}", extra={'engine_type': engine_type})
+                        logger.debug(f"   👤 用户画像更新: {', '.join(profile_updates)}")
                     
                     emotional_state = knowledge.get('emotional_state')
                     if emotional_state:
-                        logger.debug(f"   😊 情绪状态: {emotional_state}", extra={'engine_type': engine_type})
+                        logger.debug(f"   😊 情绪状态: {emotional_state}")
                 except json.JSONDecodeError as e:
                     logger.warning(f"知识提取结果JSON解析失败: {e}")
                     logger.warning(f"原始结果: {result[:200]}")
@@ -744,9 +740,6 @@ class ContextEngine:
 
     async def _persist_session_to_memory(self) -> None:
         """在每轮结束后，将提取的知识存储到长期记忆，而不是原始对话。"""
-        # 获取引擎类型
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        
         if not self.memory_service:
             return
 
@@ -804,12 +797,12 @@ class ContextEngine:
                     await self.session_service.append_event(session=temp_session, event=event)
                 
                 # 详细记录存储的知识
-                logger.debug(f"💾 已将 {len(facts_to_store)} 条知识存储到临时session", extra={'engine_type': engine_type})
+                logger.debug(f"💾 已将 {len(facts_to_store)} 条知识存储到临时session")
                 
                 # 详细信息只在debug模式下显示
-                logger.debug(f"   📋 存储的知识详情:", extra={'engine_type': engine_type})
+                logger.debug(f"   📋 存储的知识详情:")
                 for i, fact in enumerate(facts_to_store, 1):
-                    logger.debug(f"      {i}. {fact[:100]}{'...' if len(fact) > 100 else ''}", extra={'engine_type': engine_type})
+                    logger.debug(f"      {i}. {fact[:100]}{'...' if len(fact) > 100 else ''}")
                 
         except Exception as e:
             logger.warning(f"Failed to persist knowledge to memory: {str(e)}")

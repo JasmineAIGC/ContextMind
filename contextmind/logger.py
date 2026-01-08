@@ -174,25 +174,25 @@ def enable_debug_mode(enabled: bool = True) -> None:
     ContextMindLogger.debug_mode(enabled)
 
 
-def log_info(msg: str, engine_type: str = 'default') -> None:
+def log_info(msg: str) -> None:
     """记录INFO级别日志的便捷函数"""
     logger = get_logger(__name__)
-    logger.info(msg, extra={'engine_type': engine_type})
+    logger.info(msg)
 
 
-def log_debug(msg: str, engine_type: str = 'default') -> None:
+def log_debug(msg: str) -> None:
     """记录DEBUG级别日志的便捷函数"""
     logger = get_logger(__name__)
-    logger.debug(msg, extra={'engine_type': engine_type})
+    logger.debug(msg)
 
 
-def log_warning(msg: str, engine_type: str = 'default') -> None:
+def log_warning(msg: str) -> None:
     """记录WARNING级别日志的便捷函数"""
     logger = get_logger(__name__)
-    logger.warning(msg, extra={'engine_type': engine_type})
+    logger.warning(msg)
 
 
-def log_error(msg: str, engine_type: str = 'default') -> None:
+def log_error(msg: str) -> None:
     """记录ERROR级别日志的便捷函数"""
     logger = get_logger(__name__)
-    logger.error(msg, extra={'engine_type': engine_type})
+    logger.error(msg)
