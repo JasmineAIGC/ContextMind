@@ -128,7 +128,34 @@ def _render_memory_entries(memories) -> Tuple[str, List[str]]:
 # =============================================================================
 
 class ContextEngine:
-    """上下文引擎核心类，负责串联 ADK Session/Memory 与大模型客户端。"""
+    """
+    上下文引擎核心类，负责串联 ADK Session/Memory 与大模型客户端。
+    
+    该引擎实现了智能的多轮对话管理，支持：
+    - 短期记忆（Session）：管理近期对话历史
+    - 长期记忆（Memory）：持久化重要知识和用户信息
+    - 智能 Prompt 生成：使用 agent 或模板方式生成上下文感知的 prompt
+    - 知识提取：从对话中自动提取关键信息
+    
+    使用示例：
+        ```python
+        from contextmind import Client, ContextEngine
+        from google.adk.memory import InMemoryMemoryService
+        
+        client = Client()
+        engine = ContextEngine(
+            app_name="my-app",
+            user_id="user-123",
+            llm_client=client,
+            memory_service=InMemoryMemoryService(),
+            base_system_prompt="你是一个专业的客服助手"
+        )
+        
+        # 处理用户输入
+        result = await engine.process_turn("你好，有什么可以帮助的？")
+        print(result.response)
+        ```
+    """
 
     def __init__(
         self,
@@ -146,7 +173,23 @@ class ContextEngine:
         temporal_context: Optional[dict] = None,
         use_preset_info: bool = True,
     ):
-        """初始化上下文引擎。"""
+        """
+        初始化上下文引擎。
+        
+        Args:
+            app_name: 应用名称，用于区分不同应用的数据
+            user_id: 用户ID，用于区分不同用户的数据
+            llm_client: LLM客户端实例
+            session_service: Session服务实例，默认使用InMemorySessionService
+            memory_service: Memory服务实例，默认使用InMemoryMemoryService
+            session_id: 可选的session ID，不提供则自动创建
+            max_recent_events: 保留的最近事件数量，0表示不保留历史
+            base_system_prompt: 基础系统提示词，定义核心角色
+            user_profile: 用户画像信息字典
+            business_rules: 业务规则信息字典
+            temporal_context: 时间上下文信息字典
+            use_preset_info: 是否使用预置信息
+        """
         self.app_name = app_name
         self.user_id = user_id
         self._session_id = session_id
@@ -334,14 +377,21 @@ class ContextEngine:
         优先使用 agent（LLM）智能生成 prompt，失败时回退到模板拼接方式。
         """
         try:
-            # 首先尝试使用 agent 生成 prompt
-            agent_prompt = await self._generate_prompt_with_agent(knowledge)
+            # 首先尝试使用 agent 生成 prompt，设置超时防止阻塞
+            agent_prompt = await asyncio.wait_for(
+                self._generate_prompt_with_agent(knowledge),
+                timeout=10.0  # 10秒超时
+            )
             if agent_prompt and len(agent_prompt.strip()) > 50:
                 logger.debug("✅ 使用 agent 生成 prompt")
                 return agent_prompt
             else:
                 logger.warning("⚠️  agent 生成的 prompt 无效，使用模板拼接兜底")
                 return self._build_prompt(knowledge)
+        except asyncio.TimeoutError:
+            # agent 超时，使用模板拼接兜底
+            logger.warning("⚠️  agent 生成 prompt 超时，使用模板拼接兜底")
+            return self._build_prompt(knowledge)
         except Exception as e:
             # agent 失败时使用模板拼接兜底
             logger.warning(f"⚠️  agent 生成 prompt 失败: {e}，使用模板拼接兜底")
@@ -388,6 +438,11 @@ class ContextEngine:
             # 提取实际的 prompt 内容
             generated_prompt = self._extract_actual_response(generated_prompt)
             
+            # 验证生成的 prompt 质量
+            if not generated_prompt or len(generated_prompt.strip()) < 50:
+                logger.warning("agent 生成的 prompt 过短，可能无效")
+                return ""
+            
             return generated_prompt.strip()
         except Exception as e:
             logger.debug(f"agent 生成 prompt 异常: {e}")
@@ -403,12 +458,25 @@ class ContextEngine:
 
         Args:
             facts: 需要作为记忆存储的事实列表。
+            
+        Raises:
+            ValueError: 如果 facts 为空或包含无效数据
         """
         if not self.memory_service:
             logger.warning("Memory service is not configured, cannot seed memory.")
             return
+        
+        if not facts:
+            logger.warning("No facts provided to seed memory.")
+            return
+        
+        # 过滤掉空字符串
+        valid_facts = [f.strip() for f in facts if f and f.strip()]
+        if not valid_facts:
+            logger.warning("All provided facts are empty, skipping seed.")
+            return
 
-        logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...")
+        logger.info(f"🧠 Seeding {len(valid_facts)} facts into long-term memory...")
 
         try:
             # 创建一个专门的 session 来存储种子知识
@@ -418,7 +486,7 @@ class ContextEngine:
             )
 
             # 将种子数据作为系统事件添加到 session
-            for fact in facts:
+            for fact in valid_facts:
                 event = Event(
                     invocation_id=self._new_invocation_id(),
                     author="system",
@@ -429,7 +497,7 @@ class ContextEngine:
             # 关键修复：将 session 持久化到 Memory Service
             await self.memory_service.add_session_to_memory(seed_session)
             
-            logger.info(f"✅ {len(facts)} facts seeded and persisted to memory successfully.")
+            logger.info(f"✅ {len(valid_facts)} facts seeded and persisted to memory successfully.")
 
         except Exception as e:
             logger.error(f"❌ Failed to seed memory: {e}")

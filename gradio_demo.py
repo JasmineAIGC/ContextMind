@@ -16,7 +16,7 @@ from contextmind import Client, ClientConfig, ContextEngine
 
 # 设置日志 - 直接修改这里控制详细程度：INFO=正常，DEBUG=详细
 from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
-setup_logging(level=DEBUG, log_to_console=True, auto_create_file=True)  # 改为DEBUG查看详细日志
+setup_logging(level=INFO, log_to_console=True, auto_create_file=True)  # INFO为默认级别
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -30,23 +30,6 @@ try:
         logger.warning(f"⚠️  环境变量文件不存在: {env_file}")
 except ImportError:
     logger.warning("⚠️  python-dotenv 未安装，尝试手动设置环境变量")
-
-# 强制设置正确的环境变量（覆盖任何可能的错误设置）
-# 注意：以下环境变量设置已被移除，因为它们与 .env 文件中的设置重复
-# os.environ['QWEN3_API_KEY'] = '123456789'
-# os.environ['QWEN3_BASE_URL'] = 'http://10.112.172.30:18018/v1'
-# os.environ['QWEN3_MODEL'] = 'Qwen3-32B'
-# os.environ['QWEN3_TOP_K'] = '20'
-# os.environ['QWEN3_MAX_TOKENS'] = '8192'
-
-# 也设置通用变量作为备份
-# os.environ['LLM_API_KEY'] = '123456789'
-# os.environ['LLM_BASE_URL'] = 'http://10.112.172.30:18018/v1'
-# os.environ['LLM_MODEL'] = 'Qwen3-32B'
-# os.environ['LLM_TOP_K'] = '20'
-# os.environ['LLM_MAX_TOKENS'] = '8192'
-
-logger.debug("环境变量已从 .env 文件加载")
 
 
 class GradioDemo:

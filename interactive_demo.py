@@ -9,6 +9,7 @@ import sys
 import random
 import time
 from pathlib import Path
+from typing import Dict, Optional
 
 # 将项目根目录添加到 Python 搜索路径
 project_root = Path(__file__).parent
