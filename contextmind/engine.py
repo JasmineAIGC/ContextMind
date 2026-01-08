@@ -328,9 +328,70 @@ class ContextEngine:
         )
 
     async def generate_prompt_from_knowledge(self, knowledge: IntegratedKnowledge) -> str:
-        """基于整合的知识生成最终prompt。"""
-        # 简化：始终使用模板拼接方式，逻辑更可控
-        return self._build_prompt(knowledge)
+        """
+        基于整合的知识生成最终prompt。
+        
+        优先使用 agent（LLM）智能生成 prompt，失败时回退到模板拼接方式。
+        """
+        try:
+            # 首先尝试使用 agent 生成 prompt
+            agent_prompt = await self._generate_prompt_with_agent(knowledge)
+            if agent_prompt and len(agent_prompt.strip()) > 50:
+                logger.debug("✅ 使用 agent 生成 prompt")
+                return agent_prompt
+            else:
+                logger.warning("⚠️  agent 生成的 prompt 无效，使用模板拼接兜底")
+                return self._build_prompt(knowledge)
+        except Exception as e:
+            # agent 失败时使用模板拼接兜底
+            logger.warning(f"⚠️  agent 生成 prompt 失败: {e}，使用模板拼接兜底")
+            return self._build_prompt(knowledge)
+    
+    async def _generate_prompt_with_agent(self, knowledge: IntegratedKnowledge) -> str:
+        """使用 agent（LLM）智能生成 prompt。"""
+        # 构建 meta-prompt：让 LLM 帮助我们组织上下文信息
+        meta_prompt = f"""你是一个专业的 prompt 工程师。请根据以下信息，为客服对话系统生成一个结构化的 system prompt。
+
+## 基础角色
+{knowledge.base_system_prompt}
+
+## 当前用户输入
+{knowledge.user_input}
+
+## 可用上下文信息
+
+### 近期对话历史
+{knowledge.history_text if knowledge.history_text else "（无）"}
+
+### 长期记忆
+{knowledge.memory_text if knowledge.memory_text else "（无）"}
+
+### 预置业务信息
+{knowledge.preset_info if knowledge.preset_info else "（无）"}
+
+### 扩展上下文
+{knowledge.extended_context if knowledge.extended_context else "（无）"}
+
+## 要求
+1. 根据用户输入的重要性，智能选择和组织相关上下文
+2. 如果长期记忆中有关键信息（如用户投诉、特殊要求），务必突出展示
+3. 如果用户输入涉及业务问题，突出相关的业务信息
+4. 生成的 prompt 要清晰、结构化，便于客服 AI 理解
+5. 直接输出最终的 system prompt，不要有其他解释或标记
+
+请生成最终的 system prompt："""
+
+        try:
+            # 调用 LLM 生成 prompt
+            _, generated_prompt = self._llm_client.generate(meta_prompt)
+            
+            # 提取实际的 prompt 内容
+            generated_prompt = self._extract_actual_response(generated_prompt)
+            
+            return generated_prompt.strip()
+        except Exception as e:
+            logger.debug(f"agent 生成 prompt 异常: {e}")
+            raise
 
     # =============================================================================
     # 内部辅助方法
