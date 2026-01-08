@@ -50,6 +50,14 @@ logger.debug("环境变量已从 .env 文件加载")
 
 
 class GradioDemo:
+    # Box 格式化常量
+    # 注意：这些常量假设使用等宽ASCII字符。Unicode字符（表情符号、中日韩文字）
+    # 可能因显示宽度不同而导致轻微的视觉对齐偏差。
+    BOX_BORDER_WIDTH = 78  # 盒子边框的总宽度（包括边框字符）
+    BOX_CONTENT_WIDTH = 62  # 用户输入内容区域的宽度（不包括前缀/后缀）
+    BOX_TITLE_WIDTH = 74    # 引擎盒子标题区域的宽度（不包括 ┌─ 和 ─┐）
+    USER_INPUT_MAX_DISPLAY_LENGTH = 60  # 截断前显示的最大字符数
+    
     def __init__(self):
         """初始化 Gradio 演示"""
         self.engines = {}
@@ -67,6 +75,7 @@ class GradioDemo:
         ]
         self.conversation_history = []
         self.current_bot_message = ""
+        self.turn_counter = 0  # 添加轮次计数器
         
     async def initialize_engines(self):
         """初始化三种引擎"""
@@ -203,6 +212,9 @@ class GradioDemo:
     
     async def start_new_conversation(self, is_initial_start: bool = False):
         """开始新对话，并重置引擎状态"""
+        # 重置轮次计数器
+        self.turn_counter = 0
+        
         if not is_initial_start:
             logger.info("🔄 [Gradio] 开始新一轮对话，重置所有引擎状态...")
             # 重新创建引擎实例以确保完全重置
@@ -233,7 +245,7 @@ class GradioDemo:
                 session = await engine.get_current_session()
                 await engine.session_service.append_event(session=session, event=event)
             except Exception as e:
-                logger.warning(f"[Gradio] 添加开场白到引擎 {engine_name} 失败: {e}", extra={'engine_type': engine_name.upper()})
+                logger.warning(f"[Gradio] 添加开场白到引擎 {engine_name} 失败: {e}")
         
         return self.conversation_history
     
@@ -244,10 +256,79 @@ class GradioDemo:
             {"role": "assistant", "content": opening_script}
         ]
     
+    def _log_engine_box(self, engine_name: str, result, is_debug: bool = False):
+        """打印单个引擎的 box 边框日志"""
+        from contextmind.logger import get_logger
+        logger = get_logger(__name__)
+        
+        symbols = {'basic': '🔵', 'short_term': '🟡', 'long_term': '🟢'}
+        symbol = symbols.get(engine_name, '📝')
+        
+        # 顶部边框
+        title = f"{symbol} {engine_name.upper().replace('_', ' ')} 引擎"
+        if is_debug:
+            title += " [详细]"
+        # 确保边框宽度计算不会产生负数
+        title_padding = max(0, self.BOX_TITLE_WIDTH - len(title))
+        logger.info("┌─ " + title + " " + "─" * title_padding + "┐")
+        
+        # 简洁模式内容
+        logger.info("│ ⚙️  处理中...")
+        
+        context_parts = [f"💭 历史: {result.history_count}条对话"]
+        if result.profile_summary:
+            context_parts.append(f"👤 画像: {result.profile_summary}")
+        if result.rules_count > 0:
+            context_parts.append(f"📋 规则: {result.rules_count}条")
+        if result.memory_count > 0:
+            context_parts.append(f"🧠 记忆: {result.memory_count}条")
+        
+        logger.info("│ " + " | ".join(context_parts))
+        
+        # DEBUG 模式额外信息
+        if is_debug:
+            logger.debug("│ ")
+            logger.debug(f"│ 📝 Prompt摘要 ({len(result.prompt)}字符):")
+            # 提取 prompt 的前几行作为摘要
+            prompt_lines = result.prompt.split('\n')[:3]
+            for line in prompt_lines:
+                if line.strip():
+                    logger.debug(f"│   ├─ {line}")
+            logger.debug("│ ")
+            logger.debug(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
+        
+        # 回复内容 - 显示完整回复
+        logger.info(f"│ 🤖 回复: {result.response}")
+        
+        # 底部边框 - 使用常量保持一致性
+        logger.info("└" + "─" * (self.BOX_BORDER_WIDTH - 1) + "┘")
+        logger.info("")  # 空行
+    
     async def get_responses(self, user_input):
         """获取三种方式的回复"""
         if not user_input.strip():
             return self.conversation_history, "", "", ""
+        
+        import time
+        from datetime import datetime
+        start_time = time.time()
+        
+        # 增加轮次计数器
+        self.turn_counter += 1
+        
+        # 打印用户输入顶部边框
+        logger.info("╔" + "═" * self.BOX_BORDER_WIDTH + "╗")
+        # 显示完整用户输入
+        user_input_display = user_input
+        # 动态计算填充空格，确保对齐，防止负数
+        padding = max(0, self.BOX_CONTENT_WIDTH - len(user_input_display))
+        logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
+        # 动态计算时间行的填充空格，防止负数
+        time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{self.turn_counter}轮对话"
+        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 for closing ║
+        logger.info(time_str + ' ' * time_padding + "║")
+        logger.info("╚" + "═" * self.BOX_BORDER_WIDTH + "╝")
+        logger.info("")  # 空行
         
         try:
             # 获取三种回复
@@ -276,25 +357,28 @@ class GradioDemo:
                 # 添加所有机器人回复到历史
                 self.conversation_history.append({"role": "user", "content": user_input})
                 
-                logger.debug(f"获取到的回复:", extra={'engine_type': 'default'})
-                logger.debug(f"   basic: {responses.get('basic', 'None')[:50]}...", extra={'engine_type': 'basic'})
-                logger.debug(f"   short_term: {responses.get('short_term', 'None')[:50]}...", extra={'engine_type': 'short_term'})
-                logger.debug(f"   long_term: {responses.get('long_term', 'None')[:50]}...", extra={'engine_type': 'long_term'})
+                logger.debug(f"获取到的回复:")
+                logger.debug(f"   basic: {responses.get('basic', 'None')}")
+                logger.debug(f"   short_term: {responses.get('short_term', 'None')}")
+                logger.debug(f"   long_term: {responses.get('long_term', 'None')}")
                 
                 # 添加三条回复到对话历史
                 if responses.get('basic') and not responses['basic'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🔵 基础对话: {responses['basic']}"})
-                    logger.debug("已添加基础对话回复到历史", extra={'engine_type': 'basic'})
+                    logger.debug("已添加基础对话回复到历史")
                 
                 if responses.get('short_term') and not responses['short_term'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🟡 短期记忆: {responses['short_term']}"})
-                    logger.debug("已添加短期记忆回复到历史", extra={'engine_type': 'short_term'})
+                    logger.debug("已添加短期记忆回复到历史")
                 
                 if responses.get('long_term') and not responses['long_term'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🟢 长期记忆: {responses['long_term']}"})
-                    logger.debug("已添加长期记忆回复到历史", extra={'engine_type': 'long_term'})
+                    logger.debug("已添加长期记忆回复到历史")
                 
-                logger.debug(f"当前对话历史长度: {len(self.conversation_history)}")
+                # 打印总结
+                total_time = time.time() - start_time
+                logger.info(f"✅ 所有引擎处理完成 (耗时: {total_time:.1f}s)")
+                logger.info("")  # 空行
                 
                 return (
                     self.conversation_history,
@@ -306,89 +390,26 @@ class GradioDemo:
             return self.conversation_history, "生成失败", "生成失败", "生成失败"
             
         except Exception as e:
+            logger.error(f"❌ 获取回复失败: {str(e)}")
             return self.conversation_history, f"错误: {str(e)}", f"错误: {str(e)}", f"错误: {str(e)}"
     
     async def _get_single_response(self, name, engine, user_input):
         """获取单个引擎的回复"""
+        from contextmind.logger import get_logger, ContextMindLogger
+        import logging
+        logger = get_logger(__name__)
+        
         try:
-            logger.debug(f"{name} 引擎处理开始...", extra={'engine_type': name})
-            logger.debug(f"   用户输入: {user_input}", extra={'engine_type': name})
-            
-            # 获取当前对话历史（用于调试）
-            if hasattr(engine, '_session_id') and engine._session_id:
-                try:
-                    # 根据引擎类型获取相应数量的历史
-                    if name == 'basic':
-                        session = await engine._fetch_session(num_recent_events=0)
-                    elif name == 'short_term':
-                        session = await engine._fetch_session(num_recent_events=6)
-                    else:  # long_term
-                        session = await engine._fetch_session()  # 获取完整历史
-                    
-                    history_text = ""
-                    if session.events:
-                        from contextmind.engine import _render_events
-                        history_text = _render_events(session.events)
-                    logger.debug(f"{name} 当前对话历史 ({len(session.events)} 个事件):", extra={'engine_type': name})
-                    if history_text:
-                        logger.debug(f"   {history_text[:300]}..." if len(history_text) > 300 else f"   {history_text}", extra={'engine_type': name})
-                    else:
-                        logger.debug("   无历史记录", extra={'engine_type': name})
-                except Exception as e:
-                    logger.warning(f"{name} 获取历史失败: {e}", extra={'engine_type': name})
-            
-            # 获取记忆信息（用于调试）
-            if name == 'long_term' and hasattr(engine, 'memory_service') and engine.memory_service:
-                try:
-                    response = await engine.memory_service.search_memory(
-                        app_name=engine.app_name, 
-                        user_id=engine.user_id, 
-                        query=user_input
-                    )
-                    if response.memories:
-                        from contextmind.engine import _render_memory_entries
-                        memory_text = _render_memory_entries(response.memories)[0]
-                        logger.debug(f"{name} 检索到的记忆 ({len(response.memories)} 条):", extra={'engine_type': name})
-                        logger.debug(f"   {memory_text[:300]}..." if len(memory_text) > 300 else f"   {memory_text}", extra={'engine_type': name})
-                    else:
-                        logger.debug(f"{name} 无相关记忆", extra={'engine_type': name})
-                except Exception as e:
-                    logger.warning(f"{name} 获取记忆失败: {e}", extra={'engine_type': name})
-            
+            # 调用引擎处理
             result = await engine.process_turn(user_input)
             
-            # 添加明显的分隔线和详细信息
-            separator = "=" * 80
-            logger.info(separator, extra={'engine_type': name})
-            logger.info(f"🤖 {name.upper()} 引擎输出", extra={'engine_type': name})
-            logger.info(separator, extra={'engine_type': name})
-            
-            # 输入信息
-            logger.debug(f"📥 用户输入: {user_input}", extra={'engine_type': name})
-            
-            # 处理详情 - 只在debug模式显示
-            logger.debug(f"⚙️  Prompt长度: {len(result.prompt)} 字符", extra={'engine_type': name})
-            logger.debug(f"📋 完整Prompt:\n{result.prompt}", extra={'engine_type': name})
-            
-            # 记忆检索情况 - 只在debug模式显示
-            if hasattr(result, 'memory_hits') and result.memory_hits:
-                logger.debug(f"🧠 记忆检索: 找到 {len(result.memory_hits)} 条相关记忆", extra={'engine_type': name})
-                for i, hit in enumerate(result.memory_hits, 1):
-                    logger.debug(f"   记忆{i}: {hit[:100]}...", extra={'engine_type': name})
-            else:
-                logger.debug(f"🧠 记忆检索: 无相关记忆", extra={'engine_type': name})
-            
-            # 推理过程 - 只在debug模式显示
-            if hasattr(result, 'reasoning') and result.reasoning:
-                logger.debug(f"🤔 推理过程: {result.reasoning[:200]}...", extra={'engine_type': name})
-            
-            # 最终回复
-            logger.info(f"📤 回复: {result.response}", extra={'engine_type': name})
-            logger.info(separator, extra={'engine_type': name})
+            # 使用新的 box 格式化日志
+            is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
+            self._log_engine_box(name, result, is_debug)
             
             return result.response
         except Exception as e:
-            logger.error(f"❌ {name} 引擎处理失败: {e}", extra={'engine_type': name})
+            logger.error(f"❌ {name} 引擎处理失败: {e}")
             return f"生成失败: {str(e)}"
     
         

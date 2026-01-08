@@ -142,7 +142,7 @@ class Client:
     def __init__(self, config: Optional[ClientConfig] = None):
         """初始化客户端。"""
         self.config = config or ClientConfig.from_env()
-        logger.info(f"Initializing client with model: {self.config.model}", extra={'engine_type': 'default'})
+        logger.info(f"Initializing client with model: {self.config.model}")
 
         # 构造 headers，如果需要 Access Key
         headers = {}
@@ -160,7 +160,7 @@ class Client:
             base_url=full_base_url,
             default_headers=headers or None,
         )
-        logger.debug(f"Client initialized with base_url: {full_base_url}", extra={'engine_type': 'default'})
+        logger.debug(f"Client initialized with base_url: {full_base_url}")
 
     def generate(self, prompt: str) -> Tuple[str, str]:
         """基于单轮用户输入调用模型，返回推理与内容。"""

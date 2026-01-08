@@ -33,10 +33,19 @@ logger = get_logger(__name__)
 class InteractiveDemo:
     """交互式对话演示类"""
     
+    # Box 格式化常量
+    # 注意：这些常量假设使用等宽ASCII字符。Unicode字符（表情符号、中日韩文字）
+    # 可能因显示宽度不同而导致轻微的视觉对齐偏差。
+    BOX_BORDER_WIDTH = 78  # 盒子边框的总宽度（包括边框字符）
+    BOX_CONTENT_WIDTH = 62  # 用户输入内容区域的宽度（不包括前缀/后缀）
+    BOX_TITLE_WIDTH = 74    # 引擎盒子标题区域的宽度（不包括 ┌─ 和 ─┐）
+    USER_INPUT_MAX_DISPLAY_LENGTH = 60  # 截断前显示的最大字符数
+    
     def __init__(self):
         self.engines = {}
         self.client = None
         self.opening_scripts = []
+        self.turn_counter = 0  # 添加轮次计数器
         
     def load_opening_scripts(self):
         """加载开场话术"""
@@ -207,6 +216,9 @@ class InteractiveDemo:
     
     async def _start_new_conversation(self):
         """开始新对话，机器人主动发起"""
+        # 重置轮次计数器
+        self.turn_counter = 0
+        
         logger.info("🔄 [CLI] 开始新一轮对话，重置所有引擎状态...")
         if not await self.initialize():
             logger.error("[CLI] 无法开始新对话，引擎初始化失败。")
@@ -236,10 +248,26 @@ class InteractiveDemo:
     
     async def _process_user_input(self, user_input):
         """处理用户输入，获取三种回复"""
-        current_time = time.strftime('%H:%M:%S', time.localtime())
-        logger.info("-"*80)
-        logger.info(f"{current_time} 正在生成三种方式的回复...")
-        logger.info("-"*80)
+        import time
+        from datetime import datetime
+        start_time = time.time()
+        
+        # 增加轮次计数器
+        self.turn_counter += 1
+        
+        # 打印用户输入顶部边框
+        logger.info("╔" + "═" * self.BOX_BORDER_WIDTH + "╗")
+        # 显示完整用户输入
+        user_input_display = user_input
+        # 动态计算填充空格，确保对齐，防止负数
+        padding = max(0, self.BOX_CONTENT_WIDTH - len(user_input_display))
+        logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
+        # 动态计算时间行的填充空格，防止负数
+        time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{self.turn_counter}轮对话"
+        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 for closing ║
+        logger.info(time_str + ' ' * time_padding + "║")
+        logger.info("╚" + "═" * self.BOX_BORDER_WIDTH + "╝")
+        logger.info("")  # 空行
         
         # 立即刷新输出，确保显示及时
         import sys
@@ -247,7 +275,7 @@ class InteractiveDemo:
         
         results = {}
         
-        # 使用 asyncio.gather 并发执行
+        # 使用 asyncio.gather 并发执行，获取 ContextTurnResult
         tasks = {
             name: self._get_engine_response(name, engine, user_input)
             for name, engine in self.engines.items()
@@ -258,24 +286,95 @@ class InteractiveDemo:
         for name, response in zip(tasks.keys(), responses):
             if isinstance(response, Exception):
                 results[name] = f"错误: {response}"
-                logger.error(f"[CLI] 引擎 {name} 处理失败: {response}", extra={'engine_type': name.upper()})
+                logger.error(f"[CLI] 引擎 {name} 处理失败: {response}")
             else:
                 results[name] = response
 
-        # 显示结果对比
-        self._display_comparison(user_input, results)
+        # 显示结果对比（使用新的 box 格式）
+        self._display_comparison_with_boxes(results)
+        
+        # 打印总结
+        total_time = time.time() - start_time
+        logger.info(f"✅ 所有引擎处理完成 (耗时: {total_time:.1f}s)")
+        logger.info("")  # 空行
     
     async def _get_engine_response(self, name, engine, user_input):
-        """获取单个引擎的回复"""
+        """获取单个引擎的回复，返回完整的 ContextTurnResult"""
         try:
             result = await engine.process_turn(user_input)
-            return result.response
+            return result  # 返回完整的结果对象，包含元数据
         except Exception as e:
-            logger.error(f"[CLI] 引擎 {name} 处理失败: {e}", extra={'engine_type': name.upper()})
+            logger.error(f"[CLI] 引擎 {name} 处理失败: {e}")
             raise
     
+    def _log_engine_box(self, engine_name: str, result, is_debug: bool = False):
+        """打印单个引擎的 box 边框日志"""
+        symbols = {'basic': '🔵', 'short_term': '🟡', 'long_term': '🟢'}
+        symbol = symbols.get(engine_name, '📝')
+        
+        # 顶部边框
+        title = f"{symbol} {engine_name.upper().replace('_', ' ')} 引擎"
+        if is_debug:
+            title += " [详细]"
+        # 确保边框宽度计算不会产生负数
+        title_padding = max(0, self.BOX_TITLE_WIDTH - len(title))
+        logger.info("┌─ " + title + " " + "─" * title_padding + "┐")
+        
+        # 简洁模式内容
+        logger.info("│ ⚙️  处理中...")
+        
+        context_parts = [f"💭 历史: {result.history_count}条对话"]
+        if result.profile_summary:
+            context_parts.append(f"👤 画像: {result.profile_summary}")
+        if result.rules_count > 0:
+            context_parts.append(f"📋 规则: {result.rules_count}条")
+        if result.memory_count > 0:
+            context_parts.append(f"🧠 记忆: {result.memory_count}条")
+        
+        logger.info("│ " + " | ".join(context_parts))
+        
+        # DEBUG 模式额外信息
+        if is_debug:
+            logger.debug("│ ")
+            logger.debug(f"│ 📝 Prompt摘要 ({len(result.prompt)}字符):")
+            # 提取 prompt 的前几行作为摘要
+            prompt_lines = result.prompt.split('\n')[:3]
+            for line in prompt_lines:
+                if line.strip():
+                    logger.debug(f"│   ├─ {line}")
+            logger.debug("│ ")
+            logger.debug(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
+        
+        # 回复内容 - 显示完整回复
+        logger.info(f"│ 🤖 回复: {result.response}")
+        
+        # 底部边框 - 使用常量保持一致性
+        logger.info("└" + "─" * (self.BOX_BORDER_WIDTH - 1) + "┘")
+        logger.info("")  # 空行
+    
+    def _display_comparison_with_boxes(self, results):
+        """使用 box 格式显示三种回复的对比"""
+        from contextmind.logger import ContextMindLogger
+        import logging
+        
+        # 检查是否为 DEBUG 模式
+        is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
+        
+        # 按顺序显示三种回复
+        engine_order = ['basic', 'short_term', 'long_term']
+        
+        for engine_name in engine_order:
+            if engine_name in results:
+                result = results[engine_name]
+                # 如果是错误字符串，跳过 box 格式
+                if isinstance(result, str) and result.startswith("错误:"):
+                    logger.error(f"❌ {engine_name.upper()} 引擎: {result}")
+                else:
+                    # 使用 box 格式化显示
+                    self._log_engine_box(engine_name, result, is_debug)
+    
     def _display_comparison(self, user_input, results):
-        """显示三种回复的对比"""
+        """显示三种回复的对比（旧版本，保留兼容性）"""
         logger.info(f"📝 用户输入: {user_input}")
         
         # 按顺序显示三种回复
@@ -290,7 +389,7 @@ class InteractiveDemo:
             if engine_name in results:
                 display_name = displays[engine_name]
                 response = results[engine_name]
-                logger.info(f"{display_name}: {response}", extra={'engine_type': engine_name.upper()})
+                logger.info(f"{display_name}: {response}")
         
         logger.info("\n" + "="*80)
     

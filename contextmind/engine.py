@@ -44,6 +44,13 @@ class ContextTurnResult:
     reasoning: str
     response: str
     memory_hits: List[str] = field(default_factory=list)
+    # 新增字段用于日志展示
+    history_count: int = 0
+    profile_summary: str = ""
+    rules_count: int = 0
+    memory_count: int = 0
+    turn_number: int = 0
+    processing_time: float = 0.0
 
 
 @dataclass
@@ -174,11 +181,8 @@ class ContextEngine:
 
     async def process_turn(self, user_input: str) -> ContextTurnResult:
         """处理单轮对话的核心流程。"""
-        # 记录处理开始
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        logger.info(f"\n{'='*50}", extra={'engine_type': engine_type})
-        logger.info(f"🚀 开始处理用户输入 (第{self.user_state.interaction_count + 1}轮)", extra={'engine_type': engine_type})
-        logger.info(f"📝 用户输入: {user_input}", extra={'engine_type': engine_type})
+        import time
+        start_time = time.time()
         
         # 1. 验证输入
         user_input = user_input.strip()
@@ -188,13 +192,11 @@ class ContextEngine:
         # 2. 确保 Session 存在
         try:
             await self._ensure_session()
-            logger.debug(f"✅ Session已准备就绪", extra={'engine_type': engine_type})
         except Exception as e:
             raise RuntimeError(f"Failed to ensure session: {str(e)}") from e
 
         # 3. 更新交互次数
         self.user_state.interaction_count += 1
-        logger.debug(f"📊 交互次数更新: {self.user_state.interaction_count}", extra={'engine_type': engine_type})
 
         # 4. 将用户输入写入 Session（仅当需要保留历史时）
         if self._max_recent_events > 0:
@@ -206,12 +208,10 @@ class ContextEngine:
                     content=Content(role="user", parts=[Part(text=user_input)]),
                 )
                 await self.session_service.append_event(session=session, event=user_event)
-                logger.debug(f"💾 用户输入已保存到Session", extra={'engine_type': engine_type})
             except Exception as e:
                 raise RuntimeError(f"Failed to append user event to session: {str(e)}") from e
 
         # 5. 收集上下文信息
-        logger.debug(f"🔍 开始收集上下文信息...", extra={'engine_type': engine_type})
         try:
             history_text = await self._collect_recent_history()
             memory_text, memory_hits = await self._retrieve_memory(query=user_input)
@@ -263,12 +263,27 @@ class ContextEngine:
         except Exception as e:
             logger.debug(f"Failed to perform periodic summary: {str(e)}")
 
-        # 12. 记录结果
-        logger.info(f"\n💬 机器人输出: {response}", extra={'engine_type': engine_type})
-        logger.debug(f"\n{'='*30}", extra={'engine_type': engine_type})
-        logger.debug(f"📋 生成的prompt: {prompt}", extra={'engine_type': engine_type})
-        logger.debug(f"\n🔍 记忆检索结果: {', '.join(memory_hits)}", extra={'engine_type': engine_type})
-        logger.debug(f"\n💾 对话后信息: 交互次数={self.user_state.interaction_count}", extra={'engine_type': engine_type})
+        # 12. 收集元数据用于日志展示
+        processing_time = time.time() - start_time
+        
+        # 计算历史数量
+        history_count = 0
+        try:
+            session = await self._fetch_session()
+            history_count = len(session.events) if session.events else 0
+        except Exception:
+            pass
+        
+        # 提取用户画像摘要
+        profile_summary = ""
+        if self.user_profile and self.user_profile.get("姓名"):
+            profile_summary = self.user_profile.get("姓名", "")
+        
+        # 计算规则数量
+        rules_count = len(self.business_rules) if self.business_rules else 0
+        
+        # 计算记忆数量
+        memory_count = len(memory_hits)
 
         # 13. 返回结果
         return ContextTurnResult(
@@ -276,6 +291,12 @@ class ContextEngine:
             reasoning="",  # 可以从LLM获取推理过程
             response=response,
             memory_hits=memory_hits,
+            history_count=history_count,
+            profile_summary=profile_summary,
+            rules_count=rules_count,
+            memory_count=memory_count,
+            turn_number=self.user_state.interaction_count,
+            processing_time=processing_time,
         )
 
     # =============================================================================
@@ -323,30 +344,26 @@ class ContextEngine:
             logger.warning("Memory service is not configured, cannot seed memory.")
             return
 
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...", extra={'engine_type': engine_type})
+        logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...")
 
         try:
-            # 使用一个临时的 session 来添加记忆
-            temp_session = await self.session_service.create_session(
-                app_name=self.app_name,
-                user_id=self.user_id,
-            )
+            # 确保当前 session 存在
+            await self._ensure_session()
+            session = await self._fetch_session()
 
+            # 将种子数据作为系统事件添加到当前 session
             for fact in facts:
                 event = Event(
                     invocation_id=self._new_invocation_id(),
                     author="system",
                     content=Content(role="system", parts=[Part(text=f"[预设知识] {fact}")]),
                 )
-                await self.session_service.append_event(session=temp_session, event=event)
+                await self.session_service.append_event(session=session, event=event)
             
-            # 持久化到 memory
-            await self.memory_service.persist_session(session=temp_session)
-            logger.info(f"✅ {len(facts)} facts seeded successfully.", extra={'engine_type': engine_type})
+            logger.info(f"✅ {len(facts)} facts seeded successfully.")
 
         except Exception as e:
-            logger.error(f"❌ Failed to seed memory: {e}", extra={'engine_type': engine_type})
+            logger.error(f"❌ Failed to seed memory: {e}")
 
     async def _generate_response_with_retry(self, prompt: str) -> str:
         """生成回复，带重试机制。"""
@@ -478,7 +495,8 @@ class ContextEngine:
         
         memory_text = "\n".join(raw_entries)
         
-        logger.debug(f"从长期记忆中检索到 {len(top_memories)} 条相关记忆")
+        # 记忆检索成功，不需要打印详细日志
+        # 详细信息通过 memory_hits 返回给调用方处理
         return memory_text, raw_entries
 
     def _build_search_queries(self, query: str) -> List[str]:
@@ -600,9 +618,6 @@ class ContextEngine:
 
     async def _extract_knowledge_from_session(self, session: Session) -> dict:
         """从 session 中提取结构化知识，用于长期记忆存储。"""
-        # 获取引擎类型
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        
         knowledge = {
             "user_profile_updates": {},  # 用户画像更新
             "key_events": [],    # 关键事件
@@ -670,35 +685,8 @@ class ContextEngine:
                     parsed = json.loads(cleaned_result)
                     knowledge.update(parsed)
                     
-                    # 详细记录提取的知识
-                    facts_count = len(knowledge.get('important_facts', []))
-                    events_count = len(knowledge.get('key_events', []))
-                    user_profile = knowledge.get('user_profile_updates', {})
-                    
-                    logger.debug(f"✅ 成功提取知识: {facts_count} 个重要事实", extra={'engine_type': engine_type})
-                    
-                    # 详细信息只在debug模式下显示
-                    logger.debug(f"   📊 重要事实详情:", extra={'engine_type': engine_type})
-                    for i, fact in enumerate(knowledge.get('important_facts', []), 1):
-                        logger.debug(f"      {i}. {fact}", extra={'engine_type': engine_type})
-                    
-                    if events_count > 0:
-                        logger.debug(f"   🎯 关键事件: {events_count} 条", extra={'engine_type': engine_type})
-                        for i, event in enumerate(knowledge.get('key_events', []), 1):
-                            logger.debug(f"      {i}. {event}", extra={'engine_type': engine_type})
-                    
-                    # 记录用户画像更新
-                    profile_updates = []
-                    for key, value in user_profile.items():
-                        if value is not None and str(value).strip():
-                            profile_updates.append(f"{key}: {value}")
-                    
-                    if profile_updates:
-                        logger.debug(f"   👤 用户画像更新: {', '.join(profile_updates)}", extra={'engine_type': engine_type})
-                    
-                    emotional_state = knowledge.get('emotional_state')
-                    if emotional_state:
-                        logger.debug(f"   😊 情绪状态: {emotional_state}", extra={'engine_type': engine_type})
+                    # 知识提取成功，不需要打印详细日志
+                    # 详细信息通过 ContextTurnResult 返回给调用方处理
                 except json.JSONDecodeError as e:
                     logger.warning(f"知识提取结果JSON解析失败: {e}")
                     logger.warning(f"原始结果: {result[:200]}")
@@ -723,9 +711,6 @@ class ContextEngine:
 
     async def _persist_session_to_memory(self) -> None:
         """在每轮结束后，将提取的知识存储到长期记忆，而不是原始对话。"""
-        # 获取引擎类型
-        engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        
         if not self.memory_service:
             return
 
@@ -782,13 +767,8 @@ class ContextEngine:
                     )
                     await self.session_service.append_event(session=temp_session, event=event)
                 
-                # 详细记录存储的知识
-                logger.debug(f"💾 已将 {len(facts_to_store)} 条知识存储到临时session", extra={'engine_type': engine_type})
-                
-                # 详细信息只在debug模式下显示
-                logger.debug(f"   📋 存储的知识详情:", extra={'engine_type': engine_type})
-                for i, fact in enumerate(facts_to_store, 1):
-                    logger.debug(f"      {i}. {fact[:100]}{'...' if len(fact) > 100 else ''}", extra={'engine_type': engine_type})
+                # 知识存储成功，不需要打印详细日志
+                # 详细信息通过 ContextTurnResult 返回给调用方处理
                 
         except Exception as e:
             logger.warning(f"Failed to persist knowledge to memory: {str(e)}")
@@ -843,7 +823,7 @@ class ContextEngine:
                 # 直接存储到当前session
                 await self.session_service.append_event(session=session, event=summary_event)
                 
-                logger.debug(f"已生成并存储对话总结: {summary[:50]}...")
+                # 总结已生成并存储，不需要打印详细日志
         except Exception as e:
             logger.warning(f"Failed to perform periodic summary: {str(e)}")
 
@@ -874,7 +854,7 @@ class ContextEngine:
                 
                 # 更新session_id
                 self._session_id = new_session.id
-                logger.debug(f"Cleaned up old events: {len(old_events)} -> {len(recent_events)}")
+                # 清理完成，不需要打印详细日志
         except Exception as e:
             logger.warning(f"Failed to cleanup old events: {str(e)}")
 
