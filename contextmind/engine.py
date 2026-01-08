@@ -347,22 +347,19 @@ class ContextEngine:
         logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...")
 
         try:
-            # 使用一个临时的 session 来添加记忆
-            temp_session = await self.session_service.create_session(
-                app_name=self.app_name,
-                user_id=self.user_id,
-            )
+            # 确保当前 session 存在
+            await self._ensure_session()
+            session = await self._fetch_session()
 
+            # 将种子数据作为系统事件添加到当前 session
             for fact in facts:
                 event = Event(
                     invocation_id=self._new_invocation_id(),
                     author="system",
                     content=Content(role="system", parts=[Part(text=f"[预设知识] {fact}")]),
                 )
-                await self.session_service.append_event(session=temp_session, event=event)
+                await self.session_service.append_event(session=session, event=event)
             
-            # 持久化到 memory
-            await self.memory_service.persist_session(session=temp_session)
             logger.info(f"✅ {len(facts)} facts seeded successfully.")
 
         except Exception as e:
