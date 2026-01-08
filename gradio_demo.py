@@ -51,10 +51,12 @@ logger.debug("环境变量已从 .env 文件加载")
 
 class GradioDemo:
     # Box formatting constants
-    BOX_BORDER_WIDTH = 78
-    BOX_CONTENT_WIDTH = 62
-    BOX_TITLE_WIDTH = 74
-    USER_INPUT_MAX_DISPLAY_LENGTH = 60
+    # Note: These assume monospaced ASCII characters. Unicode characters (emojis, CJK)
+    # may cause minor visual misalignment due to different display widths.
+    BOX_BORDER_WIDTH = 78  # Total width of box including border characters
+    BOX_CONTENT_WIDTH = 62  # Width for user input content area (excludes prefix/suffix)
+    BOX_TITLE_WIDTH = 74    # Width for engine box title area (excludes ┌─ and ─┐)
+    USER_INPUT_MAX_DISPLAY_LENGTH = 60  # Max chars to display before truncating
     
     def __init__(self):
         """初始化 Gradio 演示"""
