@@ -156,6 +156,11 @@ class ContextEngine:
         print(result.response)
         ```
     """
+    
+    # 常量定义
+    DEFAULT_AGENT_TIMEOUT = 10.0  # Agent prompt 生成超时时间（秒）
+    MIN_PROMPT_LENGTH = 50  # 有效 prompt 的最小长度
+    MIN_FACT_LENGTH = 5  # 有效记忆事实的最小长度
 
     def __init__(
         self,
@@ -172,6 +177,7 @@ class ContextEngine:
         business_rules: Optional[dict] = None,
         temporal_context: Optional[dict] = None,
         use_preset_info: bool = True,
+        agent_timeout: float = DEFAULT_AGENT_TIMEOUT,
     ):
         """
         初始化上下文引擎。
@@ -189,6 +195,7 @@ class ContextEngine:
             business_rules: 业务规则信息字典
             temporal_context: 时间上下文信息字典
             use_preset_info: 是否使用预置信息
+            agent_timeout: Agent prompt 生成超时时间（秒），默认10秒
         """
         self.app_name = app_name
         self.user_id = user_id
@@ -197,6 +204,7 @@ class ContextEngine:
         self._max_recent_events = max_recent_events
         self.base_system_prompt = base_system_prompt
         self.use_preset_info = use_preset_info
+        self._agent_timeout = agent_timeout
 
         # 扩展上下文信息
         self.user_profile = user_profile or {}
@@ -377,12 +385,12 @@ class ContextEngine:
         优先使用 agent（LLM）智能生成 prompt，失败时回退到模板拼接方式。
         """
         try:
-            # 首先尝试使用 agent 生成 prompt，设置超时防止阻塞
+            # 首先尝试使用 agent 生成 prompt，使用配置的超时时间
             agent_prompt = await asyncio.wait_for(
                 self._generate_prompt_with_agent(knowledge),
-                timeout=10.0  # 10秒超时
+                timeout=self._agent_timeout
             )
-            if agent_prompt and len(agent_prompt.strip()) > 50:
+            if agent_prompt and len(agent_prompt.strip()) > self.MIN_PROMPT_LENGTH:
                 logger.debug("✅ 使用 agent 生成 prompt")
                 return agent_prompt
             else:
@@ -390,7 +398,7 @@ class ContextEngine:
                 return self._build_prompt(knowledge)
         except asyncio.TimeoutError:
             # agent 超时，使用模板拼接兜底
-            logger.warning("⚠️  agent 生成 prompt 超时，使用模板拼接兜底")
+            logger.warning(f"⚠️  agent 生成 prompt 超时（{self._agent_timeout}秒），使用模板拼接兜底")
             return self._build_prompt(knowledge)
         except Exception as e:
             # agent 失败时使用模板拼接兜底
@@ -438,9 +446,9 @@ class ContextEngine:
             # 提取实际的 prompt 内容
             generated_prompt = self._extract_actual_response(generated_prompt)
             
-            # 验证生成的 prompt 质量
-            if not generated_prompt or len(generated_prompt.strip()) < 50:
-                logger.warning("agent 生成的 prompt 过短，可能无效")
+            # 验证生成的 prompt 质量（长度需要大于 MIN_PROMPT_LENGTH）
+            if not generated_prompt or len(generated_prompt.strip()) < self.MIN_PROMPT_LENGTH:
+                logger.warning(f"agent 生成的 prompt 过短（<{self.MIN_PROMPT_LENGTH}字符），可能无效")
                 return ""
             
             return generated_prompt.strip()
@@ -470,10 +478,10 @@ class ContextEngine:
             logger.warning("No facts provided to seed memory.")
             return
         
-        # 过滤掉空字符串
-        valid_facts = [f.strip() for f in facts if f and f.strip()]
+        # 过滤掉空字符串（使用 walrus operator 避免重复调用 strip）
+        valid_facts = [stripped for f in facts if (stripped := f.strip()) and len(stripped) > self.MIN_FACT_LENGTH]
         if not valid_facts:
-            logger.warning("All provided facts are empty, skipping seed.")
+            logger.warning("All provided facts are empty or too short, skipping seed.")
             return
 
         logger.info(f"🧠 Seeding {len(valid_facts)} facts into long-term memory...")
