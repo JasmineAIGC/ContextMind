@@ -33,13 +33,13 @@ logger = get_logger(__name__)
 class InteractiveDemo:
     """交互式对话演示类"""
     
-    # Box formatting constants
-    # Note: These assume monospaced ASCII characters. Unicode characters (emojis, CJK)
-    # may cause minor visual misalignment due to different display widths.
-    BOX_BORDER_WIDTH = 78  # Total width of box including border characters
-    BOX_CONTENT_WIDTH = 62  # Width for user input content area (excludes prefix/suffix)
-    BOX_TITLE_WIDTH = 74    # Width for engine box title area (excludes ┌─ and ─┐)
-    USER_INPUT_MAX_DISPLAY_LENGTH = 60  # Max chars to display before truncating
+    # Box 格式化常量
+    # 注意：这些常量假设使用等宽ASCII字符。Unicode字符（表情符号、中日韩文字）
+    # 可能因显示宽度不同而导致轻微的视觉对齐偏差。
+    BOX_BORDER_WIDTH = 78  # 盒子边框的总宽度（包括边框字符）
+    BOX_CONTENT_WIDTH = 62  # 用户输入内容区域的宽度（不包括前缀/后缀）
+    BOX_TITLE_WIDTH = 74    # 引擎盒子标题区域的宽度（不包括 ┌─ 和 ─┐）
+    USER_INPUT_MAX_DISPLAY_LENGTH = 60  # 截断前显示的最大字符数
     
     def __init__(self):
         self.engines = {}
@@ -257,10 +257,8 @@ class InteractiveDemo:
         
         # 打印用户输入顶部边框
         logger.info("╔" + "═" * self.BOX_BORDER_WIDTH + "╗")
-        # 截断过长的用户输入以适应边框宽度
-        user_input_display = (user_input[:self.USER_INPUT_MAX_DISPLAY_LENGTH] + "..." 
-                             if len(user_input) > self.USER_INPUT_MAX_DISPLAY_LENGTH 
-                             else user_input)
+        # 显示完整用户输入
+        user_input_display = user_input
         # 动态计算填充空格，确保对齐，防止负数
         padding = max(0, self.BOX_CONTENT_WIDTH - len(user_input_display))
         logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
@@ -343,15 +341,12 @@ class InteractiveDemo:
             prompt_lines = result.prompt.split('\n')[:3]
             for line in prompt_lines:
                 if line.strip():
-                    logger.debug(f"│   ├─ {line[:60]}...")
+                    logger.debug(f"│   ├─ {line}")
             logger.debug("│ ")
             logger.debug(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
         
-        # 回复内容
-        reply_preview = (result.response[:self.USER_INPUT_MAX_DISPLAY_LENGTH] + "..." 
-                        if len(result.response) > self.USER_INPUT_MAX_DISPLAY_LENGTH 
-                        else result.response)
-        logger.info(f"│ 🤖 回复: {reply_preview}")
+        # 回复内容 - 显示完整回复
+        logger.info(f"│ 🤖 回复: {result.response}")
         
         # 底部边框 - 使用常量保持一致性
         logger.info("└" + "─" * (self.BOX_BORDER_WIDTH - 1) + "┘")
