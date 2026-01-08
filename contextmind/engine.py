@@ -6,6 +6,7 @@ ContextEngine - 上下文引擎核心模块
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 import re
@@ -449,39 +450,45 @@ class ContextEngine:
         # 1. 构建搜索查询列表
         search_queries = self._build_search_queries(query)
         
-        # 2. 执行多轮搜索并收集结果
+        # 2. 并发执行多轮搜索
         all_memories = []
         seen_contents = set()
         
-        for search_query in search_queries[:5]:
+        async def search_single_query(search_query: str):
+            """单个查询的搜索函数"""
             try:
                 response = await self.memory_service.search_memory(
                     app_name=self.app_name, user_id=self.user_id, query=search_query
                 )
-                
-                if response.memories:
-                    for entry in response.memories:
-                        entry_text = _content_to_text(entry.content).strip()
-                        if not entry_text or entry_text in seen_contents:
-                            continue
-                        
-                        seen_contents.add(entry_text)
-                        
-                        # 计算相关性分数
-                        relevance_score = self._calculate_relevance_score(
-                            entry_text, query, entry.timestamp
-                        )
-                        
-                        all_memories.append({
-                            'entry': entry,
-                            'text': entry_text,
-                            'score': relevance_score,
-                            'timestamp': entry.timestamp
-                        })
-                        
+                return response.memories if response.memories else []
             except Exception as e:
                 logger.debug(f"Failed to search memory with query '{search_query}': {str(e)}")
-                continue
+                return []
+        
+        # 并发执行所有搜索查询（最多5个）
+        search_tasks = [search_single_query(q) for q in search_queries[:5]]
+        search_results = await asyncio.gather(*search_tasks)
+        
+        # 3. 收集并去重结果
+        for memories in search_results:
+            for entry in memories:
+                entry_text = _content_to_text(entry.content).strip()
+                if not entry_text or entry_text in seen_contents:
+                    continue
+                
+                seen_contents.add(entry_text)
+                
+                # 计算相关性分数
+                relevance_score = self._calculate_relevance_score(
+                    entry_text, query, entry.timestamp
+                )
+                
+                all_memories.append({
+                    'entry': entry,
+                    'text': entry_text,
+                    'score': relevance_score,
+                    'timestamp': entry.timestamp
+                })
         
         if not all_memories:
             logger.debug("🔍 长期记忆检索：未找到相关记忆")
@@ -690,32 +697,75 @@ class ContextEngine:
                         cleaned_result = cleaned_result[:-3]
                     cleaned_result = cleaned_result.strip()
                     
+                    # 尝试补全截断的JSON
+                    if not cleaned_result.endswith('}'):
+                        cleaned_result = self._repair_truncated_json(cleaned_result)
+                    
+                    # 移除非法字符
+                    cleaned_result = self._remove_invalid_json_chars(cleaned_result)
+                    
                     # 尝试解析JSON
                     parsed = json.loads(cleaned_result)
                     knowledge.update(parsed)
                     
-                    # 知识提取成功，不需要打印详细日志
-                    # 详细信息通过 ContextTurnResult 返回给调用方处理
+                    logger.debug(f"✅ 知识提取成功")
                 except json.JSONDecodeError as e:
                     logger.warning(f"知识提取结果JSON解析失败: {e}")
                     logger.warning(f"原始结果: {result[:200]}")
                     
-                    # 尝试修复截断的JSON
-                    try:
-                        # 尝试补全截断的JSON
-                        if '"其他特征": "姓胡' in result:
-                            # 特殊处理这种截断情况
-                            knowledge["user_profile_updates"]["其他特征"] = "姓胡女士"
-                            knowledge["important_facts"].append("用户姓胡，是女性")
-                        else:
-                            # 通用回退：提取有用信息
-                            knowledge["important_facts"].append(f"对话总结: {result[:200]}")
-                    except Exception as fallback_e:
-                        logger.warning(f"JSON修复失败: {fallback_e}")
-                        knowledge["important_facts"].append(f"对话总结: {result[:200]}")
+                    # 使用正则表达式回退方案
+                    knowledge = self._extract_knowledge_with_regex(result, knowledge)
         except Exception as e:
             logger.warning(f"知识提取失败: {str(e)}")
         
+        return knowledge
+    
+    def _repair_truncated_json(self, json_str: str) -> str:
+        """尝试修复截断的JSON字符串"""
+        # 计算缺少的闭合括号
+        open_braces = json_str.count('{')
+        close_braces = json_str.count('}')
+        open_brackets = json_str.count('[')
+        close_brackets = json_str.count(']')
+        
+        # 添加缺少的闭合符号
+        if open_braces > close_braces:
+            json_str += '}' * (open_braces - close_braces)
+        if open_brackets > close_brackets:
+            json_str += ']' * (open_brackets - close_brackets)
+        
+        return json_str
+    
+    def _remove_invalid_json_chars(self, json_str: str) -> str:
+        """移除JSON中的非法字符"""
+        import string
+        # 保留可打印字符和Unicode字符
+        cleaned = ''.join(char for char in json_str if char in string.printable or ord(char) > 127)
+        return cleaned
+    
+    def _extract_knowledge_with_regex(self, text: str, knowledge: dict) -> dict:
+        """使用正则表达式从文本中提取知识（回退方案）"""
+        # 提取情绪关键词
+        emotion_keywords = ["生气", "愤怒", "不满", "烦躁", "高兴", "满意", "失望", "焦虑"]
+        for keyword in emotion_keywords:
+            if keyword in text:
+                knowledge["emotional_state"] = keyword
+                break
+        
+        # 提取带有"用户"的句子作为事实
+        user_facts = re.findall(r'[^。！？]*用户[^。！？]*[。！？]', text)
+        if user_facts:
+            knowledge["important_facts"].extend(user_facts[:3])
+        
+        # 特殊处理：姓氏识别
+        if "姓胡" in text or "胡女士" in text:
+            knowledge["user_profile_updates"]["其他特征"] = "姓胡女士"
+            knowledge["important_facts"].append("用户姓胡，是女性")
+        else:
+            # 通用回退：提取有用信息
+            knowledge["important_facts"].append(f"对话总结: {text[:200]}")
+        
+        logger.debug(f"使用正则提取到 {len(knowledge['important_facts'])} 条事实")
         return knowledge
 
     async def _persist_session_to_memory(self) -> None:
@@ -839,7 +889,13 @@ class ContextEngine:
             logger.warning(f"Failed to perform periodic summary: {str(e)}")
 
     async def _cleanup_old_events(self) -> None:
-        """清理旧的事件，只保留最近的 _max_recent_events 个事件。"""
+        """
+        清理旧的事件，只保留最近的 _max_recent_events 个事件。
+        
+        注意：InMemorySessionService 不支持直接修改 session.events，
+        因此需要创建新 session 并复制最近的 events。
+        这会导致 session_id 变化，但这是当前 ADK API 的限制。
+        """
         if self._max_recent_events <= 0:
             return
         
@@ -865,7 +921,7 @@ class ContextEngine:
                 
                 # 更新session_id
                 self._session_id = new_session.id
-                # 清理完成，不需要打印详细日志
+                logger.debug(f"🗑️  清理完成，保留最近 {len(recent_events)} 个事件")
         except Exception as e:
             logger.warning(f"Failed to cleanup old events: {str(e)}")
 

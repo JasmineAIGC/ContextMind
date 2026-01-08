@@ -161,12 +161,37 @@ class GradioDemo:
     async def _seed_long_term_memory(self):
         """为长期记忆引擎植入种子数据。"""
         if 'long_term' in self.engines:
-            memory_seeds = [
-                "用户多次要求停止推销并威胁报警。",
-                "用户对重复来电极度反感，情绪长期处于愤怒状态。",
-                "所有客服在再次联系该用户时必须立即道歉并承诺不再打扰。",
-                "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
-            ]
+            # 尝试从文件加载记忆种子
+            from pathlib import Path
+            seed_file = Path(__file__).parent / "data" / "memory_seeds.txt"
+            memory_seeds = []
+            
+            try:
+                with open(seed_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        # 跳过空行和注释
+                        if line and not line.startswith('#'):
+                            memory_seeds.append(line)
+                logger.info(f"从 {seed_file} 加载了 {len(memory_seeds)} 条记忆种子")
+            except FileNotFoundError:
+                logger.warning(f"记忆种子文件不存在: {seed_file}，使用默认种子")
+                # 回退到硬编码种子
+                memory_seeds = [
+                    "用户多次要求停止推销并威胁报警。",
+                    "用户对重复来电极度反感，情绪长期处于愤怒状态。",
+                    "所有客服在再次联系该用户时必须立即道歉并承诺不再打扰。",
+                    "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
+                ]
+            except Exception as e:
+                logger.error(f"加载记忆种子失败: {e}，使用默认种子")
+                memory_seeds = [
+                    "用户多次要求停止推销并威胁报警。",
+                    "用户对重复来电极度反感，情绪长期处于愤怒状态。",
+                    "所有客服在再次联系该用户时必须立即道歉并承诺不再打扰。",
+                    "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
+                ]
+            
             await self.engines['long_term'].seed_memory(memory_seeds)
     
     def _get_base_prompt(self) -> str:
