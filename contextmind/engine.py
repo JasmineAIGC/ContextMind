@@ -174,11 +174,10 @@ class ContextEngine:
 
     async def process_turn(self, user_input: str) -> ContextTurnResult:
         """处理单轮对话的核心流程。"""
-        # 记录处理开始
+        # 记录处理开始（只在DEBUG模式下显示详细信息）
         engine_type = getattr(self, '_engine_type', 'DEFAULT')
-        logger.info(f"\n{'='*50}", extra={'engine_type': engine_type})
-        logger.info(f"🚀 开始处理用户输入 (第{self.user_state.interaction_count + 1}轮)", extra={'engine_type': engine_type})
-        logger.info(f"📝 用户输入: {user_input}", extra={'engine_type': engine_type})
+        logger.debug(f"开始处理用户输入 (第{self.user_state.interaction_count + 1}轮)", extra={'engine_type': engine_type})
+        logger.debug(f"用户输入: {user_input}", extra={'engine_type': engine_type})
         
         # 1. 验证输入
         user_input = user_input.strip()
@@ -263,12 +262,10 @@ class ContextEngine:
         except Exception as e:
             logger.debug(f"Failed to perform periodic summary: {str(e)}")
 
-        # 12. 记录结果
-        logger.info(f"\n💬 机器人输出: {response}", extra={'engine_type': engine_type})
-        logger.debug(f"\n{'='*30}", extra={'engine_type': engine_type})
-        logger.debug(f"📋 生成的prompt: {prompt}", extra={'engine_type': engine_type})
-        logger.debug(f"\n🔍 记忆检索结果: {', '.join(memory_hits)}", extra={'engine_type': engine_type})
-        logger.debug(f"\n💾 对话后信息: 交互次数={self.user_state.interaction_count}", extra={'engine_type': engine_type})
+        # 12. 记录结果（只在DEBUG模式下显示详细信息）
+        logger.debug(f"生成的prompt: {prompt[:200]}...", extra={'engine_type': engine_type})
+        logger.debug(f"记忆检索结果: {len(memory_hits)}条", extra={'engine_type': engine_type})
+        logger.debug(f"对话后信息: 交互次数={self.user_state.interaction_count}", extra={'engine_type': engine_type})
 
         # 13. 返回结果
         return ContextTurnResult(

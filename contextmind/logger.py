@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from enum import Enum
 
 # 导出 logging 常量，方便其他模块使用
 DEBUG = logging.DEBUG
@@ -17,6 +18,12 @@ INFO = logging.INFO
 WARNING = logging.WARNING
 ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
+
+
+class LogMode(Enum):
+    """日志模式枚举"""
+    SIMPLE = "simple"      # 简洁模式 - 只显示核心信息
+    DETAILED = "detailed"  # 详细模式 - 显示所有细节
 
 
 class EngineFormatter(logging.Formatter):
@@ -91,12 +98,25 @@ class EngineFormatter(logging.Formatter):
         return result
 
 
+class BoxDrawingFormatter(logging.Formatter):
+    """使用 box-drawing 字符美化输出的格式化器"""
+    
+    def format(self, record):
+        # 对于带有特殊标记的消息，保持原样（不添加额外格式）
+        if hasattr(record, 'box_formatted') and record.box_formatted:
+            return record.msg
+        
+        # 普通日志使用标准格式
+        return super().format(record)
+
+
 class ContextMindLogger:
     """ContextMind 统一日志管理器"""
     
     _initialized = False
     _log_file: Optional[Path] = None
     _current_level = logging.INFO
+    _log_mode = LogMode.SIMPLE  # 默认简洁模式
     
     @classmethod
     def setup_logging(
@@ -104,7 +124,8 @@ class ContextMindLogger:
         level: int = INFO,
         log_file: Optional[str] = None,
         log_to_console: bool = True,
-        auto_create_file: bool = True
+        auto_create_file: bool = True,
+        log_mode: LogMode = LogMode.SIMPLE
     ) -> None:
         """
         设置统一的日志配置
@@ -114,8 +135,10 @@ class ContextMindLogger:
             log_file: 日志文件路径（可选，如果为None则自动生成）
             log_to_console: 是否输出到控制台
             auto_create_file: 是否自动创建日志文件
+            log_mode: 日志模式 (SIMPLE/DETAILED)
         """
         cls._current_level = level
+        cls._log_mode = log_mode
         
         # 自动生成日志文件名
         if log_file is None and auto_create_file:
@@ -130,13 +153,16 @@ class ContextMindLogger:
         
         # 设置日志格式
         log_format = '%(asctime)s - %(levelname)-8s - %(name)-15s - %(message)s'
-        formatter = EngineFormatter(fmt=log_format, datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = BoxDrawingFormatter(fmt=log_format, datefmt='%Y-%m-%d %H:%M:%S')
 
         # 过滤掉第三方库的冗余日志
         logging.getLogger('httpx').setLevel(logging.WARNING)
         logging.getLogger('httpcore').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('openai').setLevel(logging.WARNING)
+        
+        # 完全禁用 asyncio 的日志
+        logging.getLogger('asyncio').setLevel(logging.CRITICAL)
         
         # 添加控制台handler
         if log_to_console:
@@ -214,9 +240,14 @@ class ContextMindLogger:
         return cls._current_level
     
     @classmethod
-    def get_log_file(cls) -> Optional[Path]:
-        """获取当前日志文件路径"""
-        return cls._log_file
+    def get_log_mode(cls) -> LogMode:
+        """获取当前日志模式"""
+        return cls._log_mode
+    
+    @classmethod
+    def set_log_mode(cls, mode: LogMode) -> None:
+        """设置日志模式"""
+        cls._log_mode = mode
 
 
 # 便捷函数
@@ -229,15 +260,51 @@ def setup_logging(
     level: int = INFO,
     log_file: Optional[str] = None,
     log_to_console: bool = True,
-    auto_create_file: bool = True
+    auto_create_file: bool = True,
+    log_mode: LogMode = LogMode.SIMPLE
 ) -> None:
     """设置日志配置的便捷函数"""
-    ContextMindLogger.setup_logging(level, log_file, log_to_console, auto_create_file)
+    ContextMindLogger.setup_logging(level, log_file, log_to_console, auto_create_file, log_mode)
 
 
 def enable_debug_mode(enabled: bool = True) -> None:
     """启用/禁用debug模式的便捷函数"""
     ContextMindLogger.debug_mode(enabled)
+
+
+def get_log_mode() -> LogMode:
+    """获取当前日志模式的便捷函数"""
+    return ContextMindLogger.get_log_mode()
+
+
+def set_log_mode(mode: LogMode) -> None:
+    """设置日志模式的便捷函数"""
+    ContextMindLogger.set_log_mode(mode)
+
+
+def log_box_message(msg: str, logger_instance: Optional[logging.Logger] = None) -> None:
+    """
+    记录带有box格式的消息（直接输出，不添加额外格式）
+    
+    Args:
+        msg: 要输出的消息
+        logger_instance: logger实例，如果为None则使用默认logger
+    """
+    if logger_instance is None:
+        logger_instance = get_logger(__name__)
+    
+    # 创建一个特殊的LogRecord，标记为box_formatted
+    record = logger_instance.makeRecord(
+        logger_instance.name,
+        logging.INFO,
+        "(box)",
+        0,
+        msg,
+        (),
+        None
+    )
+    record.box_formatted = True
+    logger_instance.handle(record)
 
 
 def log_info(msg: str, engine_type: str = 'default') -> None:

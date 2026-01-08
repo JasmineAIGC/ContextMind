@@ -15,8 +15,18 @@ from pathlib import Path
 from contextmind import Client, ClientConfig, ContextEngine
 
 # 设置日志 - 直接修改这里控制详细程度：INFO=正常，DEBUG=详细
-from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
-setup_logging(level=DEBUG, log_to_console=True, auto_create_file=True)  # 改为DEBUG查看详细日志
+from contextmind.logger import setup_logging, get_logger, log_box_message, INFO, DEBUG, LogMode
+import os
+
+# 从环境变量读取日志模式，默认为简洁模式
+log_mode_str = os.getenv('LOG_MODE', 'simple').lower()
+log_mode = LogMode.DETAILED if log_mode_str == 'detailed' else LogMode.SIMPLE
+
+# 从环境变量读取日志级别，默认为INFO
+log_level_str = os.getenv('LOG_LEVEL', 'INFO').upper()
+log_level = DEBUG if log_level_str == 'DEBUG' else INFO
+
+setup_logging(level=log_level, log_to_console=True, auto_create_file=True, log_mode=log_mode)
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -47,6 +57,118 @@ except ImportError:
 # os.environ['LLM_MAX_TOKENS'] = '8192'
 
 logger.debug("环境变量已从 .env 文件加载")
+
+
+def log_user_input_header(user_input: str, turn_count: int):
+    """打印用户输入的顶部边框"""
+    from datetime import datetime
+    
+    now = datetime.now()
+    time_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    
+    header = f"""
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  👤 用户输入: {user_input:<60} ║
+║  📅 时间: {time_str} | 🔄 第{turn_count}轮对话                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+"""
+    log_box_message(header.strip())
+
+
+def log_engine_summary(name: str, user_input: str, stats: dict, response: str, elapsed: float):
+    """打印引擎处理摘要"""
+    from contextmind.logger import get_log_mode, LogMode
+    
+    # 引擎符号映射
+    engine_symbols = {
+        'basic': '🔵 BASIC',
+        'short_term': '🟡 SHORT_TERM',
+        'long_term': '🟢 LONG_TERM'
+    }
+    
+    symbol = engine_symbols.get(name, f'📝 {name.upper()}')
+    mode = get_log_mode()
+    
+    # 简洁模式
+    if mode == LogMode.SIMPLE:
+        lines = [
+            f"┌─ {symbol} 引擎 {'─' * (70 - len(symbol))}┐",
+            f"│ ⚙️  处理中..."
+        ]
+        
+        # 添加统计信息
+        stat_parts = []
+        if 'history_count' in stats:
+            stat_parts.append(f"💭 历史: {stats['history_count']}条对话")
+        if 'profile' in stats:
+            stat_parts.append(f"👤 画像: {stats['profile']}")
+        if 'rules_count' in stats:
+            stat_parts.append(f"📋 规则: {stats['rules_count']}条")
+        if 'memory_count' in stats:
+            stat_parts.append(f"🧠 记忆: {stats['memory_count']}条种子")
+        
+        if stat_parts:
+            lines.append(f"│ {' | '.join(stat_parts)}")
+        
+        # 添加回复
+        response_preview = response[:60] + "..." if len(response) > 60 else response
+        lines.append(f"│ 🤖 回复: {response_preview}")
+        lines.append(f"└{'─' * 77}┘")
+        
+        log_box_message("\n".join(lines))
+    
+    # 详细模式
+    else:
+        lines = [
+            f"┌─ {symbol} 引擎 [详细] {'─' * (64 - len(symbol))}┐",
+            f"│ ⚙️  处理中..."
+        ]
+        
+        # 历史对话
+        if 'history_count' in stats:
+            lines.append(f"│ 💭 历史: {stats['history_count']}条对话")
+            if 'history_text' in stats and stats['history_text']:
+                history_lines = stats['history_text'].split('\n')[:3]  # 只显示前3行
+                for h_line in history_lines:
+                    preview = h_line[:70] + "..." if len(h_line) > 70 else h_line
+                    lines.append(f"│   ├─ {preview}")
+        
+        # Prompt摘要
+        if 'prompt_length' in stats:
+            lines.append(f"│")
+            lines.append(f"│ 📝 Prompt摘要 ({stats['prompt_length']}字符):")
+            lines.append(f"│   ├─ System: {stats.get('system_preview', 'N/A')[:60]}...")
+            lines.append(f"│   ├─ 历史: {stats.get('history_count', 0)}条")
+            if 'context_info' in stats:
+                lines.append(f"│   ├─ 上下文: {stats['context_info']}")
+        
+        # 知识提取
+        if 'facts_count' in stats or 'events_count' in stats:
+            lines.append(f"│")
+            lines.append(f"│ 🔍 知识提取:")
+            if 'facts_count' in stats:
+                lines.append(f"│   ├─ 重要事实: {stats['facts_count']}条")
+                if 'facts_preview' in stats:
+                    for fact in stats['facts_preview'][:3]:
+                        lines.append(f"│       • {fact[:65]}...")
+            if 'events_count' in stats:
+                lines.append(f"│   ├─ 关键事件: {stats['events_count']}条")
+            if 'user_profile_update' in stats:
+                lines.append(f"│   └─ 用户画像: {stats['user_profile_update']}")
+        
+        # 回复
+        lines.append(f"│")
+        lines.append(f"│ 🤖 回复: {response[:68]}...")
+        lines.append(f"│ ⏱️  耗时: {elapsed:.1f}s")
+        lines.append(f"└{'─' * 77}┘")
+        
+        log_box_message("\n".join(lines))
+
+
+def log_all_engines_complete(total_elapsed: float):
+    """打印所有引擎完成的总结"""
+    summary = f"\n✅ 所有引擎处理完成 (耗时: {total_elapsed:.1f}s)\n"
+    log_box_message(summary)
 
 
 class GradioDemo:
@@ -250,6 +372,15 @@ class GradioDemo:
             return self.conversation_history, "", "", ""
         
         try:
+            import time
+            from contextmind.logger import get_log_mode, LogMode
+            
+            # 打印用户输入的顶部边框
+            turn_count = len([msg for msg in self.conversation_history if msg['role'] == 'user']) + 1
+            log_user_input_header(user_input, turn_count)
+            
+            overall_start = time.time()
+            
             # 获取三种回复
             tasks = []
             engine_names = ['basic', 'short_term', 'long_term']
@@ -276,25 +407,19 @@ class GradioDemo:
                 # 添加所有机器人回复到历史
                 self.conversation_history.append({"role": "user", "content": user_input})
                 
-                logger.debug(f"获取到的回复:", extra={'engine_type': 'default'})
-                logger.debug(f"   basic: {responses.get('basic', 'None')[:50]}...", extra={'engine_type': 'basic'})
-                logger.debug(f"   short_term: {responses.get('short_term', 'None')[:50]}...", extra={'engine_type': 'short_term'})
-                logger.debug(f"   long_term: {responses.get('long_term', 'None')[:50]}...", extra={'engine_type': 'long_term'})
-                
                 # 添加三条回复到对话历史
                 if responses.get('basic') and not responses['basic'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🔵 基础对话: {responses['basic']}"})
-                    logger.debug("已添加基础对话回复到历史", extra={'engine_type': 'basic'})
                 
                 if responses.get('short_term') and not responses['short_term'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🟡 短期记忆: {responses['short_term']}"})
-                    logger.debug("已添加短期记忆回复到历史", extra={'engine_type': 'short_term'})
                 
                 if responses.get('long_term') and not responses['long_term'].startswith('错误:'):
                     self.conversation_history.append({"role": "assistant", "content": f"🟢 长期记忆: {responses['long_term']}"})
-                    logger.debug("已添加长期记忆回复到历史", extra={'engine_type': 'long_term'})
                 
-                logger.debug(f"当前对话历史长度: {len(self.conversation_history)}")
+                # 打印所有引擎完成的总结
+                total_elapsed = time.time() - overall_start
+                log_all_engines_complete(total_elapsed)
                 
                 return (
                     self.conversation_history,
@@ -306,15 +431,21 @@ class GradioDemo:
             return self.conversation_history, "生成失败", "生成失败", "生成失败"
             
         except Exception as e:
+            logger.error(f"获取回复失败: {e}")
             return self.conversation_history, f"错误: {str(e)}", f"错误: {str(e)}", f"错误: {str(e)}"
     
     async def _get_single_response(self, name, engine, user_input):
         """获取单个引擎的回复"""
+        import time
+        from contextmind.logger import get_log_mode, LogMode
+        
         try:
-            logger.debug(f"{name} 引擎处理开始...", extra={'engine_type': name})
-            logger.debug(f"   用户输入: {user_input}", extra={'engine_type': name})
+            start_time = time.time()
             
-            # 获取当前对话历史（用于调试）
+            # 收集统计信息
+            stats = {}
+            
+            # 获取当前对话历史（用于统计）
             if hasattr(engine, '_session_id') and engine._session_id:
                 try:
                     # 根据引擎类型获取相应数量的历史
@@ -325,19 +456,24 @@ class GradioDemo:
                     else:  # long_term
                         session = await engine._fetch_session()  # 获取完整历史
                     
-                    history_text = ""
-                    if session.events:
+                    stats['history_count'] = len(session.events) if session.events else 0
+                    
+                    # 如果是详细模式，收集更多信息
+                    if get_log_mode() == LogMode.DETAILED and session.events:
                         from contextmind.engine import _render_events
-                        history_text = _render_events(session.events)
-                    logger.debug(f"{name} 当前对话历史 ({len(session.events)} 个事件):", extra={'engine_type': name})
-                    if history_text:
-                        logger.debug(f"   {history_text[:300]}..." if len(history_text) > 300 else f"   {history_text}", extra={'engine_type': name})
-                    else:
-                        logger.debug("   无历史记录", extra={'engine_type': name})
+                        stats['history_text'] = _render_events(session.events)
                 except Exception as e:
-                    logger.warning(f"{name} 获取历史失败: {e}", extra={'engine_type': name})
+                    logger.debug(f"{name} 获取历史失败: {e}")
             
-            # 获取记忆信息（用于调试）
+            # 获取用户画像信息
+            if hasattr(engine, 'user_profile') and engine.user_profile:
+                stats['profile'] = engine.user_profile.get('姓名', 'N/A')
+            
+            # 获取业务规则数量
+            if hasattr(engine, 'business_rules') and engine.business_rules:
+                stats['rules_count'] = len(engine.business_rules)
+            
+            # 获取记忆信息（只针对long_term）
             if name == 'long_term' and hasattr(engine, 'memory_service') and engine.memory_service:
                 try:
                     response = await engine.memory_service.search_memory(
@@ -346,49 +482,30 @@ class GradioDemo:
                         query=user_input
                     )
                     if response.memories:
-                        from contextmind.engine import _render_memory_entries
-                        memory_text = _render_memory_entries(response.memories)[0]
-                        logger.debug(f"{name} 检索到的记忆 ({len(response.memories)} 条):", extra={'engine_type': name})
-                        logger.debug(f"   {memory_text[:300]}..." if len(memory_text) > 300 else f"   {memory_text}", extra={'engine_type': name})
-                    else:
-                        logger.debug(f"{name} 无相关记忆", extra={'engine_type': name})
+                        stats['memory_count'] = len(response.memories)
                 except Exception as e:
-                    logger.warning(f"{name} 获取记忆失败: {e}", extra={'engine_type': name})
+                    logger.debug(f"{name} 获取记忆失败: {e}")
             
+            # 调用引擎处理
             result = await engine.process_turn(user_input)
             
-            # 添加明显的分隔线和详细信息
-            separator = "=" * 80
-            logger.info(separator, extra={'engine_type': name})
-            logger.info(f"🤖 {name.upper()} 引擎输出", extra={'engine_type': name})
-            logger.info(separator, extra={'engine_type': name})
+            # 收集Prompt信息（详细模式）
+            if get_log_mode() == LogMode.DETAILED:
+                stats['prompt_length'] = len(result.prompt)
+                prompt_lines = result.prompt.split('\n')
+                stats['system_preview'] = prompt_lines[0] if prompt_lines else ''
+                stats['context_info'] = '时间环境'
             
-            # 输入信息
-            logger.debug(f"📥 用户输入: {user_input}", extra={'engine_type': name})
+            # 计算耗时
+            elapsed = time.time() - start_time
             
-            # 处理详情 - 只在debug模式显示
-            logger.debug(f"⚙️  Prompt长度: {len(result.prompt)} 字符", extra={'engine_type': name})
-            logger.debug(f"📋 完整Prompt:\n{result.prompt}", extra={'engine_type': name})
-            
-            # 记忆检索情况 - 只在debug模式显示
-            if hasattr(result, 'memory_hits') and result.memory_hits:
-                logger.debug(f"🧠 记忆检索: 找到 {len(result.memory_hits)} 条相关记忆", extra={'engine_type': name})
-                for i, hit in enumerate(result.memory_hits, 1):
-                    logger.debug(f"   记忆{i}: {hit[:100]}...", extra={'engine_type': name})
-            else:
-                logger.debug(f"🧠 记忆检索: 无相关记忆", extra={'engine_type': name})
-            
-            # 推理过程 - 只在debug模式显示
-            if hasattr(result, 'reasoning') and result.reasoning:
-                logger.debug(f"🤔 推理过程: {result.reasoning[:200]}...", extra={'engine_type': name})
-            
-            # 最终回复
-            logger.info(f"📤 回复: {result.response}", extra={'engine_type': name})
-            logger.info(separator, extra={'engine_type': name})
+            # 打印引擎摘要
+            log_engine_summary(name, user_input, stats, result.response, elapsed)
             
             return result.response
+            
         except Exception as e:
-            logger.error(f"❌ {name} 引擎处理失败: {e}", extra={'engine_type': name})
+            logger.error(f"❌ {name} 引擎处理失败: {e}")
             return f"生成失败: {str(e)}"
     
         
