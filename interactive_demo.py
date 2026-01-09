@@ -195,7 +195,7 @@ class InteractiveDemo:
     
     async def chat_loop(self):
         """主对话循环"""
-        logger.info("="*80)
+        logger. info("="*80)
         logger.info("交互式对话演示 - 机器人主动发起对话")
         logger.info("="*80)
         logger.info("三种方式说明：")
@@ -207,12 +207,12 @@ class InteractiveDemo:
         # 开始第一轮对话
         await self._start_new_conversation()
         
-        while True:
+        while True: 
             try:
                 # 使用更稳定的输入方式，避免终端光标问题
                 import sys
-                logger.info("用户: " + user_input)
-                user_input = sys.stdin.readline().strip()
+                user_input = sys.stdin.readline().strip()  # ✅ 修复：先读取
+                logger.info("用户:  " + user_input)  # ✅ 修复：再打印
                 
                 if not user_input:  # 处理空输入
                     continue
@@ -231,12 +231,12 @@ class InteractiveDemo:
                 
                 # 处理用户输入
                 await self._process_user_input(user_input)
-                
+            
             except KeyboardInterrupt:
-                logger.info("\n程序被用户中断，退出...")
+                logger. info("\n程序被用户中断，退出...")
                 break
             except Exception as e:
-                logger.error(f"[CLI] 处理出错: {e}")
+                logger. error(f"[CLI] 处理出错: {e}")
                 continue
     
     async def _start_new_conversation(self):

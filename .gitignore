@@ -41,10 +41,6 @@ Thumbs.db
 *.log
 logs/
 
-# Environment
-.env.local
-.env.*.local
-
 # Temporary files
 /tmp/
 *.tmp
