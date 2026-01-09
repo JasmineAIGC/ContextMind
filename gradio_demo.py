@@ -16,7 +16,7 @@ from contextmind import Client, ClientConfig, ContextEngine
 
 # 设置日志 - 直接修改这里控制详细程度：INFO=正常，DEBUG=详细
 from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
-setup_logging(level=DEBUG, log_to_console=True, auto_create_file=True)  # 改为DEBUG查看详细日志
+setup_logging(level=INFO, log_to_console=True, auto_create_file=True)  # INFO为默认级别
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -30,23 +30,6 @@ try:
         logger.warning(f"⚠️  环境变量文件不存在: {env_file}")
 except ImportError:
     logger.warning("⚠️  python-dotenv 未安装，尝试手动设置环境变量")
-
-# 强制设置正确的环境变量（覆盖任何可能的错误设置）
-# 注意：以下环境变量设置已被移除，因为它们与 .env 文件中的设置重复
-# os.environ['QWEN3_API_KEY'] = '123456789'
-# os.environ['QWEN3_BASE_URL'] = 'http://10.112.172.30:18018/v1'
-# os.environ['QWEN3_MODEL'] = 'Qwen3-32B'
-# os.environ['QWEN3_TOP_K'] = '20'
-# os.environ['QWEN3_MAX_TOKENS'] = '8192'
-
-# 也设置通用变量作为备份
-# os.environ['LLM_API_KEY'] = '123456789'
-# os.environ['LLM_BASE_URL'] = 'http://10.112.172.30:18018/v1'
-# os.environ['LLM_MODEL'] = 'Qwen3-32B'
-# os.environ['LLM_TOP_K'] = '20'
-# os.environ['LLM_MAX_TOKENS'] = '8192'
-
-logger.debug("环境变量已从 .env 文件加载")
 
 
 class GradioDemo:
@@ -161,17 +144,41 @@ class GradioDemo:
     async def _seed_long_term_memory(self):
         """为长期记忆引擎植入种子数据。"""
         if 'long_term' in self.engines:
-            memory_seeds = [
-                "用户多次要求停止推销并威胁报警。",
-                "用户对重复来电极度反感，情绪长期处于愤怒状态。",
-                "所有客服在再次联系该用户时必须立即道歉并承诺不再打扰。",
-                "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
-            ]
+            # 尝试从文件加载记忆种子
+            seed_file = Path(__file__).parent / "data" / "memory_seeds.txt"
+            memory_seeds = []
+            
+            try:
+                with open(seed_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        # 跳过空行和注释
+                        if line and not line.startswith('#'):
+                            memory_seeds.append(line)
+                logger.info(f"从 {seed_file} 加载了 {len(memory_seeds)} 条记忆种子")
+            except FileNotFoundError:
+                logger.warning(f"记忆种子文件不存在: {seed_file}，使用默认种子")
+                # 回退到硬编码种子
+                memory_seeds = [
+                    "用户多次要求停止推销并威胁报警。",
+                    "用户对重复来电极度反感，情绪长期处于愤怒状态。",
+                    "所有客服在再次联系该用户时必须立即道歉并承诺不再打扰。",
+                    "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
+                ]
+            except Exception as e:
+                logger.error(f"加载记忆种子失败: {e}，使用默认种子")
+                memory_seeds = [
+                    "用户多次要求停止推销并威胁报警。",
+                    "用户对重复来电极度反感，情绪长期处于愤怒状态。",
+                    "所有客服在再次联系该用户时必须立即道歉并承诺不再打扰。",
+                    "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
+                ]
+            
             await self.engines['long_term'].seed_memory(memory_seeds)
     
     def _get_base_prompt(self) -> str:
-        """基础系统提示词"""
-        return """你是优逸花客服，正在给用户打电话提醒申请预留额度。你的回复必须专业、简洁、直接，严格遵守客服话术规范。"""
+        """基础系统提示词 - 仅包含核心角色定义"""
+        return """你是优逸花客服，负责电话外呼。你的回复必须专业、简洁、直接，严格遵守客服话术规范。"""
     
     def _get_user_profile(self) -> dict:
         """用户画像"""

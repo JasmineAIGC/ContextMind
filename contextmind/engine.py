@@ -6,9 +6,12 @@ ContextEngine - 上下文引擎核心模块
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
+import json
 import re
+import string
 import textwrap
 from typing import List, Optional, Sequence, Tuple
 import uuid
@@ -125,7 +128,39 @@ def _render_memory_entries(memories) -> Tuple[str, List[str]]:
 # =============================================================================
 
 class ContextEngine:
-    """上下文引擎核心类，负责串联 ADK Session/Memory 与大模型客户端。"""
+    """
+    上下文引擎核心类，负责串联 ADK Session/Memory 与大模型客户端。
+    
+    该引擎实现了智能的多轮对话管理，支持：
+    - 短期记忆（Session）：管理近期对话历史
+    - 长期记忆（Memory）：持久化重要知识和用户信息
+    - 智能 Prompt 生成：使用 agent 或模板方式生成上下文感知的 prompt
+    - 知识提取：从对话中自动提取关键信息
+    
+    使用示例：
+        ```python
+        from contextmind import Client, ContextEngine
+        from google.adk.memory import InMemoryMemoryService
+        
+        client = Client()
+        engine = ContextEngine(
+            app_name="my-app",
+            user_id="user-123",
+            llm_client=client,
+            memory_service=InMemoryMemoryService(),
+            base_system_prompt="你是一个专业的客服助手"
+        )
+        
+        # 处理用户输入
+        result = await engine.process_turn("你好，有什么可以帮助的？")
+        print(result.response)
+        ```
+    """
+    
+    # 常量定义
+    DEFAULT_AGENT_TIMEOUT = 10.0  # Agent prompt 生成超时时间（秒）
+    MIN_PROMPT_LENGTH = 50  # 有效 prompt 的最小长度
+    MIN_FACT_LENGTH = 5  # 有效记忆事实的最小长度
 
     def __init__(
         self,
@@ -142,8 +177,26 @@ class ContextEngine:
         business_rules: Optional[dict] = None,
         temporal_context: Optional[dict] = None,
         use_preset_info: bool = True,
+        agent_timeout: float = DEFAULT_AGENT_TIMEOUT,
     ):
-        """初始化上下文引擎。"""
+        """
+        初始化上下文引擎。
+        
+        Args:
+            app_name: 应用名称，用于区分不同应用的数据
+            user_id: 用户ID，用于区分不同用户的数据
+            llm_client: LLM客户端实例
+            session_service: Session服务实例，默认使用InMemorySessionService
+            memory_service: Memory服务实例，默认使用InMemoryMemoryService
+            session_id: 可选的session ID，不提供则自动创建
+            max_recent_events: 保留的最近事件数量，0表示不保留历史
+            base_system_prompt: 基础系统提示词，定义核心角色
+            user_profile: 用户画像信息字典
+            business_rules: 业务规则信息字典
+            temporal_context: 时间上下文信息字典
+            use_preset_info: 是否使用预置信息
+            agent_timeout: Agent prompt 生成超时时间（秒），默认10秒
+        """
         self.app_name = app_name
         self.user_id = user_id
         self._session_id = session_id
@@ -151,6 +204,7 @@ class ContextEngine:
         self._max_recent_events = max_recent_events
         self.base_system_prompt = base_system_prompt
         self.use_preset_info = use_preset_info
+        self._agent_timeout = agent_timeout
 
         # 扩展上下文信息
         self.user_profile = user_profile or {}
@@ -325,9 +379,82 @@ class ContextEngine:
         )
 
     async def generate_prompt_from_knowledge(self, knowledge: IntegratedKnowledge) -> str:
-        """基于整合的知识生成最终prompt。"""
-        # 简化：始终使用模板拼接方式，逻辑更可控
-        return self._build_prompt(knowledge)
+        """
+        基于整合的知识生成最终prompt。
+        
+        优先使用 agent（LLM）智能生成 prompt，失败时回退到模板拼接方式。
+        """
+        try:
+            # 首先尝试使用 agent 生成 prompt，使用配置的超时时间
+            agent_prompt = await asyncio.wait_for(
+                self._generate_prompt_with_agent(knowledge),
+                timeout=self._agent_timeout
+            )
+            if agent_prompt and len(agent_prompt.strip()) > self.MIN_PROMPT_LENGTH:
+                logger.debug("✅ 使用 agent 生成 prompt")
+                return agent_prompt
+            else:
+                logger.warning("⚠️  agent 生成的 prompt 无效，使用模板拼接兜底")
+                return self._build_prompt(knowledge)
+        except asyncio.TimeoutError:
+            # agent 超时，使用模板拼接兜底
+            logger.warning(f"⚠️  agent 生成 prompt 超时（{self._agent_timeout}秒），使用模板拼接兜底")
+            return self._build_prompt(knowledge)
+        except Exception as e:
+            # agent 失败时使用模板拼接兜底
+            logger.warning(f"⚠️  agent 生成 prompt 失败: {e}，使用模板拼接兜底")
+            return self._build_prompt(knowledge)
+    
+    async def _generate_prompt_with_agent(self, knowledge: IntegratedKnowledge) -> str:
+        """使用 agent（LLM）智能生成 prompt。"""
+        # 构建 meta-prompt：让 LLM 帮助我们组织上下文信息
+        meta_prompt = f"""你是一个专业的 prompt 工程师。请根据以下信息，为客服对话系统生成一个结构化的 system prompt。
+
+## 基础角色
+{knowledge.base_system_prompt}
+
+## 当前用户输入
+{knowledge.user_input}
+
+## 可用上下文信息
+
+### 近期对话历史
+{knowledge.history_text if knowledge.history_text else "（无）"}
+
+### 长期记忆
+{knowledge.memory_text if knowledge.memory_text else "（无）"}
+
+### 预置业务信息
+{knowledge.preset_info if knowledge.preset_info else "（无）"}
+
+### 扩展上下文
+{knowledge.extended_context if knowledge.extended_context else "（无）"}
+
+## 要求
+1. 根据用户输入的重要性，智能选择和组织相关上下文
+2. 如果长期记忆中有关键信息（如用户投诉、特殊要求），务必突出展示
+3. 如果用户输入涉及业务问题，突出相关的业务信息
+4. 生成的 prompt 要清晰、结构化，便于客服 AI 理解
+5. 直接输出最终的 system prompt，不要有其他解释或标记
+
+请生成最终的 system prompt："""
+
+        try:
+            # 调用 LLM 生成 prompt
+            _, generated_prompt = self._llm_client.generate(meta_prompt)
+            
+            # 提取实际的 prompt 内容
+            generated_prompt = self._extract_actual_response(generated_prompt)
+            
+            # 验证生成的 prompt 质量（长度需要大于 MIN_PROMPT_LENGTH）
+            if not generated_prompt or len(generated_prompt.strip()) < self.MIN_PROMPT_LENGTH:
+                logger.warning(f"agent 生成的 prompt 过短（<{self.MIN_PROMPT_LENGTH}字符），可能无效")
+                return ""
+            
+            return generated_prompt.strip()
+        except Exception as e:
+            logger.debug(f"agent 生成 prompt 异常: {e}")
+            raise
 
     # =============================================================================
     # 内部辅助方法
@@ -339,28 +466,46 @@ class ContextEngine:
 
         Args:
             facts: 需要作为记忆存储的事实列表。
+            
+        Raises:
+            ValueError: 如果 facts 为空或包含无效数据
         """
         if not self.memory_service:
             logger.warning("Memory service is not configured, cannot seed memory.")
             return
+        
+        if not facts:
+            logger.warning("No facts provided to seed memory.")
+            return
+        
+        # 过滤掉空字符串（使用 walrus operator 避免重复调用 strip）
+        valid_facts = [stripped for f in facts if (stripped := f.strip()) and len(stripped) > self.MIN_FACT_LENGTH]
+        if not valid_facts:
+            logger.warning("All provided facts are empty or too short, skipping seed.")
+            return
 
-        logger.info(f"🧠 Seeding {len(facts)} facts into long-term memory...")
+        logger.info(f"🧠 Seeding {len(valid_facts)} facts into long-term memory...")
 
         try:
-            # 确保当前 session 存在
-            await self._ensure_session()
-            session = await self._fetch_session()
+            # 创建一个专门的 session 来存储种子知识
+            seed_session = await self.session_service.create_session(
+                app_name=self.app_name,
+                user_id=self.user_id,
+            )
 
-            # 将种子数据作为系统事件添加到当前 session
-            for fact in facts:
+            # 将种子数据作为系统事件添加到 session
+            for fact in valid_facts:
                 event = Event(
                     invocation_id=self._new_invocation_id(),
                     author="system",
                     content=Content(role="system", parts=[Part(text=f"[预设知识] {fact}")]),
                 )
-                await self.session_service.append_event(session=session, event=event)
+                await self.session_service.append_event(session=seed_session, event=event)
             
-            logger.info(f"✅ {len(facts)} facts seeded successfully.")
+            # 关键修复：将 session 持久化到 Memory Service
+            await self.memory_service.add_session_to_memory(seed_session)
+            
+            logger.info(f"✅ {len(valid_facts)} facts seeded and persisted to memory successfully.")
 
         except Exception as e:
             logger.error(f"❌ Failed to seed memory: {e}")
@@ -444,41 +589,48 @@ class ContextEngine:
         # 1. 构建搜索查询列表
         search_queries = self._build_search_queries(query)
         
-        # 2. 执行多轮搜索并收集结果
+        # 2. 并发执行多轮搜索
         all_memories = []
         seen_contents = set()
         
-        for search_query in search_queries[:5]:
+        async def search_single_query(search_query: str):
+            """单个查询的搜索函数"""
             try:
                 response = await self.memory_service.search_memory(
                     app_name=self.app_name, user_id=self.user_id, query=search_query
                 )
-                
-                if response.memories:
-                    for entry in response.memories:
-                        entry_text = _content_to_text(entry.content).strip()
-                        if not entry_text or entry_text in seen_contents:
-                            continue
-                        
-                        seen_contents.add(entry_text)
-                        
-                        # 计算相关性分数
-                        relevance_score = self._calculate_relevance_score(
-                            entry_text, query, entry.timestamp
-                        )
-                        
-                        all_memories.append({
-                            'entry': entry,
-                            'text': entry_text,
-                            'score': relevance_score,
-                            'timestamp': entry.timestamp
-                        })
-                        
+                return response.memories if response.memories else []
             except Exception as e:
                 logger.debug(f"Failed to search memory with query '{search_query}': {str(e)}")
-                continue
+                return []
+        
+        # 并发执行所有搜索查询（最多5个）
+        search_tasks = [search_single_query(q) for q in search_queries[:5]]
+        search_results = await asyncio.gather(*search_tasks)
+        
+        # 3. 收集并去重结果
+        for memories in search_results:
+            for entry in memories:
+                entry_text = _content_to_text(entry.content).strip()
+                if not entry_text or entry_text in seen_contents:
+                    continue
+                
+                seen_contents.add(entry_text)
+                
+                # 计算相关性分数
+                relevance_score = self._calculate_relevance_score(
+                    entry_text, query, entry.timestamp
+                )
+                
+                all_memories.append({
+                    'entry': entry,
+                    'text': entry_text,
+                    'score': relevance_score,
+                    'timestamp': entry.timestamp
+                })
         
         if not all_memories:
+            logger.debug("🔍 长期记忆检索：未找到相关记忆")
             return "", []
 
         # 3. 按相关性分数排序
@@ -495,8 +647,11 @@ class ContextEngine:
         
         memory_text = "\n".join(raw_entries)
         
-        # 记忆检索成功，不需要打印详细日志
-        # 详细信息通过 memory_hits 返回给调用方处理
+        # 增强日志：显示检索到的记忆内容
+        logger.info(f"🧠 检索到 {len(top_memories)} 条长期记忆:")
+        for i, mem in enumerate(top_memories, 1):
+            logger.info(f"  [{i}] {mem['text'][:100]}..." if len(mem['text']) > 100 else f"  [{i}] {mem['text']}")
+        
         return memory_text, raw_entries
 
     def _build_search_queries(self, query: str) -> List[str]:
@@ -667,7 +822,6 @@ class ContextEngine:
             result = self._extract_actual_response(result)
             
             if result and len(result) > 20:
-                import json
                 try:
                     # 尝试修复常见的JSON格式问题
                     cleaned_result = result.strip()
@@ -681,32 +835,74 @@ class ContextEngine:
                         cleaned_result = cleaned_result[:-3]
                     cleaned_result = cleaned_result.strip()
                     
+                    # 尝试补全截断的JSON
+                    if not cleaned_result.endswith('}'):
+                        cleaned_result = self._repair_truncated_json(cleaned_result)
+                    
+                    # 移除非法字符
+                    cleaned_result = self._remove_invalid_json_chars(cleaned_result)
+                    
                     # 尝试解析JSON
                     parsed = json.loads(cleaned_result)
                     knowledge.update(parsed)
                     
-                    # 知识提取成功，不需要打印详细日志
-                    # 详细信息通过 ContextTurnResult 返回给调用方处理
+                    logger.debug(f"✅ 知识提取成功")
                 except json.JSONDecodeError as e:
                     logger.warning(f"知识提取结果JSON解析失败: {e}")
                     logger.warning(f"原始结果: {result[:200]}")
                     
-                    # 尝试修复截断的JSON
-                    try:
-                        # 尝试补全截断的JSON
-                        if '"其他特征": "姓胡' in result:
-                            # 特殊处理这种截断情况
-                            knowledge["user_profile_updates"]["其他特征"] = "姓胡女士"
-                            knowledge["important_facts"].append("用户姓胡，是女性")
-                        else:
-                            # 通用回退：提取有用信息
-                            knowledge["important_facts"].append(f"对话总结: {result[:200]}")
-                    except Exception as fallback_e:
-                        logger.warning(f"JSON修复失败: {fallback_e}")
-                        knowledge["important_facts"].append(f"对话总结: {result[:200]}")
+                    # 使用正则表达式回退方案
+                    knowledge = self._extract_knowledge_with_regex(result, knowledge)
         except Exception as e:
             logger.warning(f"知识提取失败: {str(e)}")
         
+        return knowledge
+    
+    def _repair_truncated_json(self, json_str: str) -> str:
+        """尝试修复截断的JSON字符串"""
+        # 计算缺少的闭合括号
+        open_braces = json_str.count('{')
+        close_braces = json_str.count('}')
+        open_brackets = json_str.count('[')
+        close_brackets = json_str.count(']')
+        
+        # 添加缺少的闭合符号
+        if open_braces > close_braces:
+            json_str += '}' * (open_braces - close_braces)
+        if open_brackets > close_brackets:
+            json_str += ']' * (open_brackets - close_brackets)
+        
+        return json_str
+    
+    def _remove_invalid_json_chars(self, json_str: str) -> str:
+        """移除JSON中的非法字符"""
+        # 保留可打印字符和Unicode字符
+        cleaned = ''.join(char for char in json_str if char in string.printable or ord(char) > 127)
+        return cleaned
+    
+    def _extract_knowledge_with_regex(self, text: str, knowledge: dict) -> dict:
+        """使用正则表达式从文本中提取知识（回退方案）"""
+        # 提取情绪关键词
+        emotion_keywords = ["生气", "愤怒", "不满", "烦躁", "高兴", "满意", "失望", "焦虑"]
+        for keyword in emotion_keywords:
+            if keyword in text:
+                knowledge["emotional_state"] = keyword
+                break
+        
+        # 提取带有"用户"的句子作为事实
+        user_facts = re.findall(r'[^。！？]*用户[^。！？]*[。！？]', text)
+        if user_facts:
+            knowledge["important_facts"].extend(user_facts[:3])
+        
+        # 特殊处理：姓氏识别
+        if "姓胡" in text or "胡女士" in text:
+            knowledge["user_profile_updates"]["其他特征"] = "姓胡女士"
+            knowledge["important_facts"].append("用户姓胡，是女性")
+        else:
+            # 通用回退：提取有用信息
+            knowledge["important_facts"].append(f"对话总结: {text[:200]}")
+        
+        logger.debug(f"使用正则提取到 {len(knowledge['important_facts'])} 条事实")
         return knowledge
 
     async def _persist_session_to_memory(self) -> None:
@@ -752,9 +948,9 @@ class ContextEngine:
                     facts_to_store.append(f"[用户偏好] {', '.join(pref_text)}")
             
             # 将提取的知识作为独立事件存储到记忆中
-            # 创建一个临时session来存储这些记忆
+            # 创建一个专门的 session 来存储提取的知识
             if facts_to_store:
-                temp_session = await self.session_service.create_session(
+                knowledge_session = await self.session_service.create_session(
                     app_name=self.app_name,
                     user_id=self.user_id,
                 )
@@ -765,10 +961,12 @@ class ContextEngine:
                         author="system",
                         content=Content(role="system", parts=[Part(text=fact)]),
                     )
-                    await self.session_service.append_event(session=temp_session, event=event)
+                    await self.session_service.append_event(session=knowledge_session, event=event)
                 
-                # 知识存储成功，不需要打印详细日志
-                # 详细信息通过 ContextTurnResult 返回给调用方处理
+                # 关键修复：将知识 session 持久化到 Memory Service
+                await self.memory_service.add_session_to_memory(knowledge_session)
+                
+                logger.debug(f"💾 Persisted {len(facts_to_store)} knowledge facts to memory.")
                 
         except Exception as e:
             logger.warning(f"Failed to persist knowledge to memory: {str(e)}")
@@ -828,7 +1026,13 @@ class ContextEngine:
             logger.warning(f"Failed to perform periodic summary: {str(e)}")
 
     async def _cleanup_old_events(self) -> None:
-        """清理旧的事件，只保留最近的 _max_recent_events 个事件。"""
+        """
+        清理旧的事件，只保留最近的 _max_recent_events 个事件。
+        
+        注意：InMemorySessionService 不支持直接修改 session.events，
+        因此需要创建新 session 并复制最近的 events。
+        这会导致 session_id 变化，但这是当前 ADK API 的限制。
+        """
         if self._max_recent_events <= 0:
             return
         
@@ -854,7 +1058,7 @@ class ContextEngine:
                 
                 # 更新session_id
                 self._session_id = new_session.id
-                # 清理完成，不需要打印详细日志
+                logger.debug(f"🗑️  清理完成，保留最近 {len(recent_events)} 个事件")
         except Exception as e:
             logger.warning(f"Failed to cleanup old events: {str(e)}")
 
