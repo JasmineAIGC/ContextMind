@@ -77,7 +77,21 @@ class ThetaEvolveEvaluator:
             reward_hooks: 奖励钩子函数列表
             normalization_params: 归一化参数字典
         """
-        self.reward_process_type = RewardProcessType[reward_process_type.replace("-", "_")]
+        # Convert reward_process_type string to enum with validation
+        reward_type_map = {
+            'RAW': RewardProcessType.RAW,
+            'NORMALIZED': RewardProcessType.NORMALIZED,
+            'RL-NORMALIZED': RewardProcessType.RL_NORMALIZED,
+            'ADAPTIVE': RewardProcessType.ADAPTIVE,
+        }
+        
+        if reward_process_type not in reward_type_map:
+            raise ValueError(
+                f"Invalid reward_process_type: {reward_process_type}. "
+                f"Must be one of: {list(reward_type_map.keys())}"
+            )
+        
+        self.reward_process_type = reward_type_map[reward_process_type]
         self.enable_monitoring = enable_monitoring
         self.reward_hooks = reward_hooks or []
         self.normalization_params = normalization_params or {
@@ -289,10 +303,9 @@ class ThetaEvolveEvaluator:
         if n > 1:
             delta = metrics.normalized_reward - prev_avg
             self._monitoring_stats['reward_variance'] = (
-                (self._monitoring_stats['reward_variance'] * (n - 2) + delta * 
-                 (metrics.normalized_reward - self._monitoring_stats['average_reward'])) / (n - 1)
-                if n > 1 else 0.0
-            )
+                self._monitoring_stats['reward_variance'] * (n - 2) + delta * 
+                (metrics.normalized_reward - self._monitoring_stats['average_reward'])
+            ) / (n - 1)
         
         # 更新上下文质量平均
         prev_cq_avg = self._monitoring_stats['context_quality_avg']

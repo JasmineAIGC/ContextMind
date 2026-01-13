@@ -334,10 +334,10 @@ class ContextEngine:
         except Exception as e:
             logger.debug(f"Failed to perform periodic summary: {str(e)}")
 
-        # 12. 收集元数据用于日志展示
+        # 13. Calculate processing time and prepare result
         processing_time = time.time() - start_time
         
-        # 计算历史数量
+        # Calculate historical metadata
         history_count = 0
         try:
             session = await self._fetch_session()
@@ -345,18 +345,16 @@ class ContextEngine:
         except Exception:
             pass
         
-        # 提取用户画像摘要
+        # Extract user profile summary
         profile_summary = ""
         if self.user_profile and self.user_profile.get("姓名"):
             profile_summary = self.user_profile.get("姓名", "")
         
-        # 计算规则数量
+        # Calculate rules and memory counts
         rules_count = len(self.business_rules) if self.business_rules else 0
-        
-        # 计算记忆数量
         memory_count = len(memory_hits)
 
-        # 13. 返回结果
+        # 14. Create result object
         result = ContextTurnResult(
             prompt=prompt,
             reasoning="",  # 可以从LLM获取推理过程
@@ -370,7 +368,7 @@ class ContextEngine:
             processing_time=processing_time,
         )
         
-        # 14. EvoACE框架支持：计算奖励信号和轨迹
+        # 15. EvoACE框架支持：计算奖励信号和轨迹
         if self.enable_evoace:
             result.reward_signal = self._calculate_reward_signal(result)
             result.learning_trajectory = self._memory_trajectory.copy()
@@ -1494,25 +1492,31 @@ class ContextEngine:
         }
         return features
 
+    # Reward calculation weights
+    REWARD_WEIGHT_RESPONSE_QUALITY = 0.3
+    REWARD_WEIGHT_MEMORY_USAGE = 0.2
+    REWARD_WEIGHT_CONTEXT_RICHNESS = 0.2
+    REWARD_WEIGHT_PROCESSING_EFFICIENCY = 0.3
+    
     def _calculate_reward_signal(self, result: ContextTurnResult) -> float:
         """计算奖励信号，用于强化学习。"""
         reward = 0.0
         
         # 基于响应质量
         if len(result.response) > 10:
-            reward += 0.3
+            reward += self.REWARD_WEIGHT_RESPONSE_QUALITY
         
         # 基于记忆使用
         if result.memory_count > 0:
-            reward += 0.2
+            reward += self.REWARD_WEIGHT_MEMORY_USAGE
         
         # 基于上下文丰富度
         if result.history_count > 2:
-            reward += 0.2
+            reward += self.REWARD_WEIGHT_CONTEXT_RICHNESS
         
         # 基于处理效率
         if result.processing_time < 2.0:
-            reward += 0.3
+            reward += self.REWARD_WEIGHT_PROCESSING_EFFICIENCY
         
         return min(reward, 1.0)
 

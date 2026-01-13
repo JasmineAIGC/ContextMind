@@ -174,13 +174,13 @@ class AlphaEvolveScheduler:
             )
         
         # 确定阈值
-        threshold = config['threshold']
+        threshold = config.get('threshold', 0.1)
         if config.get('adaptive_threshold', False):
             # 自适应阈值：基于历史方差
             if self._variance_stats['mean_variance'] > 0:
                 threshold = max(
-                    config['min_variance'],
-                    min(config['max_variance'], self._variance_stats['mean_variance'])
+                    config.get('min_variance', 0.01),
+                    min(config.get('max_variance', 0.5), self._variance_stats['mean_variance'])
                 )
         
         # 应用过滤
