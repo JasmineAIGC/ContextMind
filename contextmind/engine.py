@@ -54,6 +54,10 @@ class ContextTurnResult:
     memory_count: int = 0
     turn_number: int = 0
     processing_time: float = 0.0
+    # EvoACE框架支持字段
+    reward_signal: float = 0.0
+    learning_trajectory: List[dict] = field(default_factory=list)
+    feedback_metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -68,6 +72,9 @@ class IntegratedKnowledge:
     user_profile: dict
     business_rules: dict
     temporal_context: dict
+    # EvoACE框架支持字段
+    memory_trajectory: List[dict] = field(default_factory=list)
+    learning_features: dict = field(default_factory=dict)
 
 
 # =============================================================================
@@ -178,6 +185,8 @@ class ContextEngine:
         temporal_context: Optional[dict] = None,
         use_preset_info: bool = True,
         agent_timeout: float = DEFAULT_AGENT_TIMEOUT,
+        enable_evoace: bool = False,
+        reward_callback: Optional[callable] = None,
     ):
         """
         初始化上下文引擎。
@@ -196,6 +205,8 @@ class ContextEngine:
             temporal_context: 时间上下文信息字典
             use_preset_info: 是否使用预置信息
             agent_timeout: Agent prompt 生成超时时间（秒），默认10秒
+            enable_evoace: 是否启用EvoACE框架支持
+            reward_callback: EvoACE奖励回调函数
         """
         self.app_name = app_name
         self.user_id = user_id
@@ -210,6 +221,12 @@ class ContextEngine:
         self.user_profile = user_profile or {}
         self.business_rules = business_rules or {}
         self.temporal_context = temporal_context
+
+        # EvoACE框架支持
+        self.enable_evoace = enable_evoace
+        self.reward_callback = reward_callback
+        self._memory_trajectory = []
+        self._learning_features = {}
 
         self.user_state = UserState()
 
@@ -340,7 +357,7 @@ class ContextEngine:
         memory_count = len(memory_hits)
 
         # 13. 返回结果
-        return ContextTurnResult(
+        result = ContextTurnResult(
             prompt=prompt,
             reasoning="",  # 可以从LLM获取推理过程
             response=response,
@@ -352,6 +369,21 @@ class ContextEngine:
             turn_number=self.user_state.interaction_count,
             processing_time=processing_time,
         )
+        
+        # 14. EvoACE框架支持：计算奖励信号和轨迹
+        if self.enable_evoace:
+            result.reward_signal = self._calculate_reward_signal(result)
+            result.learning_trajectory = self._memory_trajectory.copy()
+            result.feedback_metadata = self._collect_feedback_metadata()
+            
+            # 调用奖励回调（如果已配置）
+            if self.reward_callback:
+                try:
+                    self.reward_callback(result)
+                except Exception as e:
+                    logger.warning(f"EvoACE reward callback failed: {e}")
+        
+        return result
 
     # =============================================================================
     # 上下文整合和Prompt生成方法
@@ -365,6 +397,16 @@ class ContextEngine:
         preset_info = self._extract_preset_info() if self.use_preset_info else ""
         extended_context = self._collect_extended_context()
         
+        # EvoACE框架支持：收集学习特征和记忆轨迹
+        memory_trajectory = []
+        learning_features = {}
+        
+        if self.enable_evoace:
+            memory_trajectory = self._build_memory_trajectory(history_text, memory_text)
+            learning_features = self._extract_learning_features(user_input, history_text)
+            self._memory_trajectory = memory_trajectory
+            self._learning_features = learning_features
+        
         # 构建结构化知识
         return IntegratedKnowledge(
             user_input=user_input,
@@ -376,6 +418,8 @@ class ContextEngine:
             user_profile=self.user_profile,
             business_rules=self.business_rules,
             temporal_context=self.get_temporal_context(),
+            memory_trajectory=memory_trajectory,
+            learning_features=learning_features,
         )
 
     async def generate_prompt_from_knowledge(self, knowledge: IntegratedKnowledge) -> str:
@@ -1156,7 +1200,7 @@ class ContextEngine:
         return "\n\n".join(extended_parts) if extended_parts else ""
 
     def _build_prompt(self, knowledge: IntegratedKnowledge) -> str:
-        """使用模板拼接生成prompt，并应用权重优化。"""
+        """使用模板拼接生成prompt，并应用权重优化。支持EvoACE学习特征和记忆轨迹。"""
         system_prompt = knowledge.base_system_prompt
         prompt_parts = [system_prompt]
 
@@ -1173,6 +1217,12 @@ class ContextEngine:
         
         # 按权重降序排序
         sorted_items = sorted(context_items, key=lambda x: context_weights[x[0]], reverse=True)
+        
+        # EvoACE框架支持：添加学习特征
+        if self.enable_evoace and knowledge.learning_features:
+            learning_info = self._format_learning_features(knowledge.learning_features)
+            if learning_info:
+                prompt_parts.append(f"\n【学习特征】\n{learning_info}")
         
         # 添加当前用户输入（最高优先级）
         prompt_parts.append(f"\n【当前用户输入】\n{knowledge.user_input}")
@@ -1403,3 +1453,151 @@ class ContextEngine:
     def get_interaction_count(self) -> int:
         """获取当前交互次数。"""
         return self.user_state.interaction_count
+
+    # =============================================================================
+    # EvoACE框架支持方法
+    # =============================================================================
+
+    def _build_memory_trajectory(self, history_text: str, memory_text: str) -> List[dict]:
+        """构建记忆轨迹，用于EvoACE反馈循环。"""
+        trajectory = []
+        
+        # 添加短期记忆轨迹
+        if history_text:
+            trajectory.append({
+                'type': 'short_term',
+                'content': history_text,
+                'timestamp': datetime.now().isoformat(),
+                'weight': 0.7
+            })
+        
+        # 添加长期记忆轨迹
+        if memory_text:
+            trajectory.append({
+                'type': 'long_term',
+                'content': memory_text,
+                'timestamp': datetime.now().isoformat(),
+                'weight': 0.9
+            })
+        
+        return trajectory
+
+    def _extract_learning_features(self, user_input: str, history_text: str) -> dict:
+        """提取学习特征，用于强化学习优化。"""
+        features = {
+            'input_length': len(user_input),
+            'history_length': len(history_text),
+            'turn_count': self.user_state.interaction_count,
+            'has_emotion': any(kw in user_input for kw in ['生气', '愤怒', '高兴', '满意', '不满']),
+            'has_question': '?' in user_input or '？' in user_input,
+            'has_negation': any(kw in user_input for kw in ['不', '没', '别', '无']),
+        }
+        return features
+
+    def _calculate_reward_signal(self, result: ContextTurnResult) -> float:
+        """计算奖励信号，用于强化学习。"""
+        reward = 0.0
+        
+        # 基于响应质量
+        if len(result.response) > 10:
+            reward += 0.3
+        
+        # 基于记忆使用
+        if result.memory_count > 0:
+            reward += 0.2
+        
+        # 基于上下文丰富度
+        if result.history_count > 2:
+            reward += 0.2
+        
+        # 基于处理效率
+        if result.processing_time < 2.0:
+            reward += 0.3
+        
+        return min(reward, 1.0)
+
+    def _collect_feedback_metadata(self) -> dict:
+        """收集反馈元数据，用于EvoACE分析。"""
+        return {
+            'interaction_count': self.user_state.interaction_count,
+            'last_response_quality': self.user_state.last_response_quality,
+            'enable_evoace': self.enable_evoace,
+            'has_memory_service': self.memory_service is not None,
+            'max_recent_events': self._max_recent_events,
+        }
+
+    def _format_learning_features(self, features: dict) -> str:
+        """格式化学习特征为文本。"""
+        lines = []
+        for key, value in features.items():
+            lines.append(f"- {key}: {value}")
+        return "\n".join(lines)
+
+    def generate_memory_update_from_template(self, template_name: str, **kwargs) -> str:
+        """
+        通过模板生成记忆更新。
+        
+        Args:
+            template_name: 模板名称（如 'user_preference', 'key_event', 'emotional_state'）
+            **kwargs: 模板参数
+            
+        Returns:
+            格式化的记忆更新字符串
+        """
+        templates = {
+            'user_preference': "[用户偏好] {preference}",
+            'key_event': "[关键事件] {event_description}",
+            'emotional_state': "[情绪状态] {emotion}",
+            'important_fact': "[重要事实] {fact}",
+            'feedback': "[用户反馈] {feedback}",
+        }
+        
+        template = templates.get(template_name, "[记忆] {content}")
+        try:
+            return template.format(**kwargs)
+        except KeyError as e:
+            logger.warning(f"Template formatting failed: missing key {e}")
+            return f"[记忆] {kwargs.get('content', str(kwargs))}"
+
+    async def contextualize_memory(self, memory_content: str, context_type: str = "default") -> dict:
+        """
+        为记忆添加上下文化信息，支持跨模块反馈。
+        
+        Args:
+            memory_content: 记忆内容
+            context_type: 上下文类型（如 'short_term', 'long_term', 'cross_module'）
+            
+        Returns:
+            包含上下文化信息的字典
+        """
+        contextualized = {
+            'content': memory_content,
+            'context_type': context_type,
+            'timestamp': datetime.now().isoformat(),
+            'user_id': self.user_id,
+            'app_name': self.app_name,
+            'turn_number': self.user_state.interaction_count,
+        }
+        
+        # 添加跨模块反馈支持
+        if context_type == 'cross_module':
+            contextualized['learning_features'] = self._learning_features
+            contextualized['memory_trajectory'] = self._memory_trajectory
+        
+        return contextualized
+
+    def get_modular_prompt_interface(self) -> dict:
+        """
+        返回模块化短期提示生成接口。
+        
+        Returns:
+            包含各模块提示组件的字典
+        """
+        return {
+            'base_prompt': self.base_system_prompt,
+            'user_profile': self.user_profile,
+            'business_rules': self.business_rules,
+            'temporal_context': self.get_temporal_context(),
+            'learning_features': self._learning_features,
+            'memory_trajectory': self._memory_trajectory,
+        }
