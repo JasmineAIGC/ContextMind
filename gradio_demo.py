@@ -12,7 +12,14 @@ import threading
 import os
 from pathlib import Path
 
-from contextmind import Client, ClientConfig, ContextEngine
+from contextmind import Client, ClientConfig
+from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
+
+# Import application layer
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from examples.applications import CallCenterApp
 
 # 设置日志 - 直接修改这里控制详细程度：INFO=正常，DEBUG=详细
 from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
@@ -96,10 +103,10 @@ class GradioDemo:
             logger.error(traceback.format_exc())
             return error_msg
 
-    def _create_engine(self, engine_type: str, client: Client) -> ContextEngine:
-        """根据类型创建并配置ContextEngine"""
+    def _create_engine(self, engine_type: str, client: Client):
+        """根据类型创建并配置ContextEngine和应用层"""
+        from contextmind import ContextEngine
         
-        base_prompt = self._get_base_prompt()
         user_profile = self._get_user_profile()
         business_rules = {**self._get_core_duties(), **self._get_communication_strategy(), **self._get_reply_requirements()}
 
@@ -107,42 +114,40 @@ class GradioDemo:
             engine = ContextEngine(
                 app_name="callcenter-basic",
                 user_id="gradio-basic",
-                llm_client=client,
-                max_recent_events=6,
-                base_system_prompt=base_prompt,
+                max_recent_events=3,  # 基础模式：最少历史
             )
         elif engine_type == 'short_term':
             engine = ContextEngine(
                 app_name="callcenter-short-term",
                 user_id="gradio-short-term",
-                llm_client=client,
-                max_recent_events=6,
-                base_system_prompt=base_prompt,
-                user_profile=user_profile,
-                business_rules=business_rules,
+                max_recent_events=6,  # 短期模式：适中历史
             )
         elif engine_type == 'long_term':
             from google.adk.memory import InMemoryMemoryService
             engine = ContextEngine(
                 app_name="callcenter-long-term",
                 user_id="gradio-long-term",
-                llm_client=client,
-                max_recent_events=50, # 保留更多历史
-                base_system_prompt=base_prompt,
-                user_profile=user_profile,
-                business_rules=business_rules,
-                memory_service=InMemoryMemoryService(), # 使用独立的内存服务
+                max_recent_events=50,  # 长期模式：保留更多历史
+                memory_service=InMemoryMemoryService(),  # 使用独立的内存服务
             )
         else:
             raise ValueError(f"Unknown engine type: {engine_type}")
-            
-        # 为引擎添加类型标识，用于日志
-        engine._engine_type = engine_type.upper()
+        
+        # 创建应用层实例
+        app = CallCenterApp(
+            context_engine=engine,
+            llm_client=client,
+            user_profile=user_profile,
+            business_rules=business_rules,
+        )
+        
+        # 为应用添加类型标识，用于日志
+        app._engine_type = engine_type.UPPER()
         logger.info(f"🔧 [Gradio] 已创建引擎: {engine_type.upper()}")
-        return engine
+        return app
 
     async def _seed_long_term_memory(self):
-        """为长期记忆引擎植入种子数据。"""
+        """为长期记忆引擎植入种子数据"""
         if 'long_term' in self.engines:
             # 尝试从文件加载记忆种子
             seed_file = Path(__file__).parent / "data" / "memory_seeds.txt"
@@ -174,10 +179,11 @@ class GradioDemo:
                     "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
                 ]
             
-            await self.engines['long_term'].seed_memory(memory_seeds)
+            # 访问应用层的 context_engine 来 seed memory
+            await self.engines['long_term'].context_engine.seed_memory(memory_seeds)
     
     def _get_base_prompt(self) -> str:
-        """基础系统提示词 - 仅包含核心角色定义"""
+        """基础系统提示词 - 仅包含核心角色定义（已废弃，保留用于兼容性）"""
         return """你是优逸花客服，负责电话外呼。你的回复必须专业、简洁、直接，严格遵守客服话术规范。"""
     
     def _get_user_profile(self) -> dict:
@@ -240,12 +246,13 @@ class GradioDemo:
         from google.adk.events.event import Event
         from google.genai.types import Content, Part
         
-        for engine_name, engine in self.engines.items():
+        for engine_name, app in self.engines.items():
             try:
+                engine = app.context_engine
                 # 确保 session 存在
                 await engine._ensure_session()
                 event = Event(
-                    invocation_id=engine.new_invocation_id(),
+                    invocation_id=engine._new_invocation_id(),
                     author="assistant",
                     content=Content(role="assistant", parts=[Part(text=opening_script)]),
                 )
@@ -407,14 +414,13 @@ class GradioDemo:
         logger = get_logger(__name__)
         
         try:
-            # 调用引擎处理
-            result = await engine.process_turn(user_input)
+            # 调用应用层的 process_turn 方法
+            response = await app.process_turn(user_input)
             
-            # 使用新的 box 格式化日志
-            is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
-            self._log_engine_box(name, result, is_debug)
+            # 简化的日志输出
+            logger.info(f"✅ {name} 引擎: {response}")
             
-            return result.response
+            return response
         except Exception as e:
             logger.error(f"❌ {name} 引擎处理失败: {e}")
             return f"生成失败: {str(e)}"
