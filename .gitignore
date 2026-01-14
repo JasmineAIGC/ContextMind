@@ -24,7 +24,6 @@ wheels/
 venv/
 ENV/
 env/
-.venv
 
 # IDE
 .vscode/
@@ -33,17 +32,25 @@ env/
 *.swo
 *~
 
+# Logs
+*.log
+log.txt
+logs/
+
+# Environment
+.env
+.env.local
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Temporary files
-/tmp/
-*.tmp
-
-# Test files (keeping them out of repo for now)
-test_*.py

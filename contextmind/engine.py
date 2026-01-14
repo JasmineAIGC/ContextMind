@@ -1,7 +1,7 @@
 """
-ContextEngine - 上下文引擎核心模块 v3.0
+ContextEngine - 上下文引擎核心模块 v3.1
 
-完全重构的上下文引擎，基于四层架构设计：
+完全重构的上下文引擎，基于多层架构设计：
 - 应用层：使用引擎的应用（示例：客服、聊天机器人等）
 - 引擎层：ContextEngine 统一接口
 - 流水线层：InputProcessor, ContextCollector, ContextIntegrator, ContextOptimizer, KnowledgeExtractor
@@ -48,7 +48,7 @@ logger = get_logger(__name__)
 
 class ContextEngine:
     """
-    上下文引擎 v3.0
+    上下文引擎 v3.1
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult
