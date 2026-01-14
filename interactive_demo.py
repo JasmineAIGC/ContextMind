@@ -2,10 +2,12 @@
 ContextMind v3.0 Interactive Demo
 
 展示新架构的使用方式，提供命令行交互式演示。
+支持通过参数配置上下文控制。
 """
 
 import asyncio
 import os
+import argparse
 from dotenv import load_dotenv
 
 from contextmind import (
@@ -27,6 +29,13 @@ load_dotenv()
 async def main():
     """主函数"""
     
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='ContextMind v3.0 Interactive Demo')
+    parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
+    parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
+    parser.add_argument('--max-events', type=int, default=10, help='最大历史轮数 (默认: 10)')
+    args = parser.parse_args()
+    
     # 设置日志
     setup_logging(level=INFO, log_to_console=True, auto_create_file=False)
     
@@ -34,6 +43,13 @@ async def main():
     print("ContextMind v3.0 Interactive Demo")
     print("完全重构的上下文优化框架")
     print("=" * 60)
+    print()
+    
+    # 显示配置
+    print("⚙️  当前配置:")
+    print(f"   - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
+    print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
+    print(f"   - 最大轮数: {args.max_events}")
     print()
     
     # 初始化LLM客户端
@@ -49,23 +65,24 @@ async def main():
         user_id="demo-user",
         llm_client=llm_client,
         session_service=InMemorySessionService(),
-        memory_service=InMemoryMemoryService(),
-        max_recent_events=10,
+        memory_service=InMemoryMemoryService() if args.use_memory else None,
+        max_recent_events=args.max_events,
     )
     print("✅ 上下文引擎初始化完成")
     print()
     
-    # 植入业务知识种子
-    print("🧠 植入业务知识种子...")
-    business_facts = [
-        "产品名称：智能助手 Pro",
-        "主要功能：智能对话、知识问答、任务管理",
-        "服务时间：7x24小时在线",
-        "联系方式：support@example.com",
-    ]
-    await context_engine.seed_memory(business_facts)
-    print(f"✅ 已植入 {len(business_facts)} 条业务知识")
-    print()
+    # 如果启用长期记忆，植入业务知识种子
+    if args.use_memory:
+        print("🧠 植入业务知识种子...")
+        business_facts = [
+            "产品名称：智能助手 Pro",
+            "主要功能：智能对话、知识问答、任务管理",
+            "服务时间：7x24小时在线",
+            "联系方式：support@example.com",
+        ]
+        await context_engine.seed_memory(business_facts)
+        print(f"✅ 已植入 {len(business_facts)} 条业务知识")
+        print()
     
     # 初始化客服应用
     print("🔧 初始化客服应用...")
@@ -85,7 +102,7 @@ async def main():
         context_engine=context_engine,
         llm_client=llm_client,
         business_info=business_info.strip(),
-        auto_extract_knowledge=True,
+        auto_extract_knowledge=args.use_memory,  # 只在启用记忆时提取知识
     )
     print("✅ 客服应用初始化完成")
     print()
@@ -93,7 +110,10 @@ async def main():
     # 交互式对话
     print("=" * 60)
     print("开始对话（输入 'quit' 或 'exit' 退出）")
-    print("特殊命令：/clear (清空会话), /status (查看状态)")
+    print("特殊命令：")
+    print("  /clear  - 清空会话")
+    print("  /status - 查看状态")
+    print("  /config - 显示当前配置")
     print("=" * 60)
     print()
     
@@ -126,6 +146,14 @@ async def main():
             print(f"📊 当前会话状态:")
             print(f"  - 轮次: {turn_count}")
             print(f"  - 历史消息数: {len(history)}")
+            print()
+            continue
+        
+        if user_input == "/config":
+            print(f"⚙️  当前配置:")
+            print(f"  - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
+            print(f"  - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
+            print(f"  - 最大轮数: {args.max_events}")
             print()
             continue
         
