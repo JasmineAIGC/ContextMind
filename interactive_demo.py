@@ -21,10 +21,15 @@ env_file = project_root / ".env"
 if env_file.exists():
     load_dotenv(env_file)
 
-from contextmind import Client, ContextEngine
+from contextmind import Client
 from contextmind.logger import setup_logging, get_logger, INFO
 from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import InMemorySessionService
+
+# Import application layer
+import sys
+sys.path.insert(0, str(project_root))
+from examples.applications import CallCenterApp
 
 # 设置日志
 setup_logging(level=INFO, log_to_console=True)
@@ -91,10 +96,10 @@ class InteractiveDemo:
             logger.error(f"[CLI] 引擎初始化失败: {e}")
             return False
 
-    def _create_engine(self, engine_type: str, client: Client) -> ContextEngine:
-        """根据类型创建并配置ContextEngine"""
+    def _create_engine(self, engine_type: str, client: Client):
+        """根据类型创建并配置ContextEngine和应用层"""
+        from contextmind import ContextEngine
         
-        base_prompt = self._get_base_prompt()
         user_profile = self._get_user_profile()
         business_rules = self._get_business_rules()
 
@@ -102,40 +107,38 @@ class InteractiveDemo:
             engine = ContextEngine(
                 app_name="callcenter-basic",
                 user_id="interactive-basic",
-                llm_client=client,
-                max_recent_events=6,
-                base_system_prompt=base_prompt,
+                max_recent_events=3,  # 基础模式：最少历史
             )
         elif engine_type == 'short_term':
             engine = ContextEngine(
                 app_name="callcenter-short-term",
                 user_id="interactive-short-term",
-                llm_client=client,
-                max_recent_events=6,
-                base_system_prompt=base_prompt,
-                user_profile=user_profile,
-                business_rules=business_rules,
+                max_recent_events=6,  # 短期模式：适中历史
             )
         elif engine_type == 'long_term':
             engine = ContextEngine(
                 app_name="callcenter-long-term",
                 user_id="interactive-long-term",
-                llm_client=client,
-                max_recent_events=50,
-                base_system_prompt=base_prompt,
-                user_profile=user_profile,
-                business_rules=business_rules,
-                memory_service=InMemoryMemoryService(),
+                max_recent_events=50,  # 长期模式：完整历史
+                memory_service=InMemoryMemoryService(),  # 启用长期记忆
             )
         else:
             raise ValueError(f"Unknown engine type: {engine_type}")
+        
+        # 创建应用层实例
+        app = CallCenterApp(
+            context_engine=engine,
+            llm_client=client,
+            user_profile=user_profile,
+            business_rules=business_rules,
+        )
             
-        engine._engine_type = engine_type.upper()
+        app._engine_type = engine_type.upper()
         logger.info(f"🔧 [CLI] 已创建引擎: {engine_type.upper()}")
-        return engine
+        return app
 
     async def _seed_long_term_memory(self):
-        """为长期记忆引擎植入种子数据。"""
+        """为长期记忆引擎植入种子数据"""
         if 'long_term' in self.engines:
             # 尝试从文件加载记忆种子
             seed_file = project_root / "data" / "memory_seeds.txt"
@@ -167,10 +170,11 @@ class InteractiveDemo:
                     "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
                 ]
             
-            await self.engines['long_term'].seed_memory(memory_seeds)
+            # 访问应用层的 context_engine 来 seed memory
+            await self.engines['long_term'].context_engine.seed_memory(memory_seeds)
 
     def _get_base_prompt(self) -> str:
-        """获取基础系统提示词 - 仅包含核心角色定义"""
+        """获取基础系统提示词 - 仅包含核心角色定义（已废弃，保留用于兼容性）"""
         return """你是优逸花客服，负责电话外呼。你的回复必须专业、简洁、直接，严格遵守客服话术规范。"""
 
     def _get_user_profile(self) -> dict:
@@ -258,13 +262,14 @@ class InteractiveDemo:
         logger.info(f"机器人: {opening_script}")
         
         # 将开场话术添加到所有引擎的session中
-        for engine_name, engine in self.engines.items():
+        for engine_name, app in self.engines.items():
             from google.adk.events.event import Event
             from google.genai.types import Content, Part
             
+            engine = app.context_engine
             await engine._ensure_session()
             event = Event(
-                invocation_id=engine.new_invocation_id(),
+                invocation_id=engine._new_invocation_id(),
                 author="assistant",
                 content=Content(role="assistant", parts=[Part(text=opening_script)]),
             )
@@ -300,10 +305,10 @@ class InteractiveDemo:
         
         results = {}
         
-        # 使用 asyncio.gather 并发执行，获取 ContextTurnResult
+        # 使用 asyncio.gather 并发执行
         tasks = {
-            name: self._get_engine_response(name, engine, user_input)
-            for name, engine in self.engines.items()
+            name: self._get_engine_response(name, app, user_input)
+            for name, app in self.engines.items()
         }
         
         responses = await asyncio.gather(*tasks.values(), return_exceptions=True)
@@ -323,16 +328,17 @@ class InteractiveDemo:
         logger.info(f"✅ 所有引擎处理完成 (耗时: {total_time:.1f}s)")
         logger.info("")  # 空行
     
-    async def _get_engine_response(self, name, engine, user_input):
-        """获取单个引擎的回复，返回完整的 ContextTurnResult"""
+    async def _get_engine_response(self, name, app, user_input):
+        """获取单个引擎的回复"""
         try:
-            result = await engine.process_turn(user_input)
-            return result  # 返回完整的结果对象，包含元数据
+            # 使用应用层的 process_turn 方法
+            response = await app.process_turn(user_input)
+            return response  # 返回响应字符串
         except Exception as e:
             logger.error(f"[CLI] 引擎 {name} 处理失败: {e}")
             raise
     
-    def _log_engine_box(self, engine_name: str, result, is_debug: bool = False):
+    def _log_engine_box(self, engine_name: str, response_str: str, is_debug: bool = False):
         """打印单个引擎的 box 边框日志"""
         symbols = {'basic': '🔵', 'short_term': '🟡', 'long_term': '🟢'}
         symbol = symbols.get(engine_name, '📝')
@@ -345,33 +351,11 @@ class InteractiveDemo:
         title_padding = max(0, self.BOX_TITLE_WIDTH - len(title))
         logger.info("┌─ " + title + " " + "─" * title_padding + "┐")
         
-        # 简洁模式内容
-        logger.info("│ ⚙️  处理中...")
-        
-        context_parts = [f"💭 历史: {result.history_count}条对话"]
-        if result.profile_summary:
-            context_parts.append(f"👤 画像: {result.profile_summary}")
-        if result.rules_count > 0:
-            context_parts.append(f"📋 规则: {result.rules_count}条")
-        if result.memory_count > 0:
-            context_parts.append(f"🧠 记忆: {result.memory_count}条")
-        
-        logger.info("│ " + " | ".join(context_parts))
-        
-        # DEBUG 模式额外信息
-        if is_debug:
-            logger.debug("│ ")
-            logger.debug(f"│ 📝 Prompt摘要 ({len(result.prompt)}字符):")
-            # 提取 prompt 的前几行作为摘要
-            prompt_lines = result.prompt.split('\n')[:3]
-            for line in prompt_lines:
-                if line.strip():
-                    logger.debug(f"│   ├─ {line}")
-            logger.debug("│ ")
-            logger.debug(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
+        # 简洁模式内容 - 新架构下，只显示回复
+        logger.info("│ ⚙️  处理完成")
         
         # 回复内容 - 显示完整回复
-        logger.info(f"│ 🤖 回复: {result.response}")
+        logger.info(f"│ 🤖 回复: {response_str}")
         
         # 底部边框 - 使用常量保持一致性
         logger.info("└" + "─" * (self.BOX_BORDER_WIDTH - 1) + "┘")
@@ -390,13 +374,13 @@ class InteractiveDemo:
         
         for engine_name in engine_order:
             if engine_name in results:
-                result = results[engine_name]
+                response = results[engine_name]
                 # 如果是错误字符串，跳过 box 格式
-                if isinstance(result, str) and result.startswith("错误:"):
-                    logger.error(f"❌ {engine_name.upper()} 引擎: {result}")
+                if isinstance(response, str) and response.startswith("错误:"):
+                    logger.error(f"❌ {engine_name.upper()} 引擎: {response}")
                 else:
                     # 使用 box 格式化显示
-                    self._log_engine_box(engine_name, result, is_debug)
+                    self._log_engine_box(engine_name, response, is_debug)
     
     def _display_comparison(self, user_input, results):
         """显示三种回复的对比（旧版本，保留兼容性）"""
