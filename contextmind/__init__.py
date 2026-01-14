@@ -1,46 +1,46 @@
 """
 ContextMind - Universal Context Optimization Framework
 
-A flexible, extensible framework for context optimization that supports
-pluggable steps and strategies for various use cases.
+专注于上下文优化的独立模块，可嵌入任何对话系统。
+
+Core Components:
+- ContextEngine: 上下文优化引擎
+- Data Models: Message, Memory, ContextResult
+- Client: LLM 客户端（可选）
+- Logger: 日志工具
 """
 
-# New framework exports
-from .core import (
-    Context,
-    ContextData,
-    Pipeline,
-    PipelineBuilder,
-    BaseStep,
-    BaseStrategy,
-    register_step,
-    register_strategy,
-    get_step_registry,
-    get_strategy_registry,
-)
+# 核心引擎
+from .engine import ContextEngine
 
-# Import steps and strategies to register them
-from . import steps
-from . import strategies
+# 数据模型
+from .data_models import Message, Memory, ContextResult
 
-# Legacy exports (optional - can be removed in future)
-# Commented out to avoid dependency issues
-# from .client import Client, ClientConfig
-# from .engine import ContextEngine, ContextTurnResult
-# from .logger import get_logger, setup_logging, ContextMindLogger
+# LLM 客户端（可选）
+from .client import Client, ClientConfig
+
+# 日志工具
+from .logger import get_logger, setup_logging, ContextMindLogger, INFO, DEBUG
 
 __all__ = [
-    # Core framework
-    "Context",
-    "ContextData",
-    "Pipeline",
-    "PipelineBuilder",
-    "BaseStep",
-    "BaseStrategy",
-    "register_step",
-    "register_strategy",
-    "get_step_registry",
-    "get_strategy_registry",
+    # 核心引擎
+    "ContextEngine",
+    
+    # 数据模型
+    "Message",
+    "Memory", 
+    "ContextResult",
+    
+    # LLM 客户端
+    "Client",
+    "ClientConfig",
+    
+    # 日志
+    "get_logger",
+    "setup_logging",
+    "ContextMindLogger",
+    "INFO",
+    "DEBUG",
 ]
 
 __version__ = "2.0.0"
