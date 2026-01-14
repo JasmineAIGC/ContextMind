@@ -1,8 +1,8 @@
-# ContextMind v3.1
+# ContextMind v3.2
 
-**专业的上下文优化框架** - 通用、可扩展、高鲁棒性的上下文工程模块，可接入任意对话系统。
+**专业的上下文优化框架** - 生产级、通用、可扩展、高鲁棒性的上下文工程模块，可接入任意对话系统。
 
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -10,7 +10,16 @@
 
 ## ✨ 核心特性
 
-### v3.1 新特性 🚀
+### v3.2 新特性 🎉 (Foundation Layer)
+
+- 🎯 **TokenizerService**: 准确的Token计数（基于tiktoken），杜绝上下文溢出
+- 🚀 **VectorClient**: 统一向量数据库接口（Chroma/Pinecone/Faiss）
+- ⚡ **CacheManager**: 智能LRU缓存，5-400倍性能提升
+- 🛡️ **CircuitBreaker**: 熔断器，自动容错和降级
+- 📈 **FlowController**: 流程控制器，动态执行路径
+- 📦 **Enhanced Data Models**: ContextState, Chunk (富状态对象)
+
+### v3.1 特性 🚀
 
 - 🔌 **通用适配器层**: 支持接入任意对话系统（OpenAI、LangChain、自定义等）
 - 📊 **性能监控**: 全面的性能追踪和分析
@@ -32,7 +41,7 @@
 
 ## 🏛️ 架构设计
 
-### 多层架构
+### 多层架构 (v3.2)
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -46,8 +55,8 @@
 └─────────────────┬───────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────┐
-│           引擎层 (Engine Layer)              │
-│            ContextEngine                    │
+│           引擎层 (Engine Layer)  [v3.2]     │
+│    ContextEngine + FlowController          │
 │  ┌───────────────────────────────────────┐  │
 │  │   SessionManager  │  MemoryManager   │  │
 │  └───────────────────────────────────────┘  │

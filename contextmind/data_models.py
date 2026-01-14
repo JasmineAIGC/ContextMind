@@ -255,3 +255,145 @@ class Knowledge:
             'timestamp': self.timestamp.isoformat(),
             'metadata': self.metadata
         }
+
+
+# ============================================================================
+# v3.2 Enhanced Data Models - 增强的数据模型
+# ============================================================================
+
+
+@dataclass
+class Chunk:
+    """
+    上下文块（v3.2新增）
+    
+    比ContextItem更丰富的上下文单元，包含token计数和多种评分。
+    用于更精细的上下文处理和优化。
+    
+    Attributes:
+        content: 内容文本
+        token_count: Token数量（由TokenizerService计算）
+        relevance_score: 相关性分数（0-1）
+        diversity_score: 多样性分数（0-1）
+        entropy_score: 熵分数（信息量指标）
+        source: 来源类型
+        timestamp: 时间戳
+        metadata: 附加元数据
+    """
+    content: str
+    token_count: int = 0
+    relevance_score: float = 1.0
+    diversity_score: float = 0.0
+    entropy_score: float = 0.0
+    source: ContextSource = ContextSource.EXTERNAL
+    timestamp: datetime = field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> dict:
+        """转换为字典格式"""
+        return {
+            'content': self.content,
+            'token_count': self.token_count,
+            'relevance_score': self.relevance_score,
+            'diversity_score': self.diversity_score,
+            'entropy_score': self.entropy_score,
+            'source': self.source.value,
+            'timestamp': self.timestamp.isoformat(),
+            'metadata': self.metadata
+        }
+    
+    def to_context_item(self) -> ContextItem:
+        """转换为ContextItem（兼容性）"""
+        return ContextItem(
+            content=self.content,
+            source=self.source,
+            score=self.relevance_score,
+            timestamp=self.timestamp,
+            metadata={
+                **self.metadata,
+                'token_count': self.token_count,
+                'diversity_score': self.diversity_score,
+                'entropy_score': self.entropy_score,
+            }
+        )
+
+
+@dataclass
+class ContextState:
+    """
+    上下文状态对象（v3.2新增）
+    
+    在流水线中流转的核心数据结构，包含完整的处理状态。
+    这是一个"富对象"，记录了从原始查询到最终优化的全过程。
+    
+    使用场景：
+    - 在Pipeline各阶段之间传递
+    - 记录处理日志用于调试
+    - 追踪Token预算使用情况
+    
+    Attributes:
+        query: 用户查询
+        raw_chunks: 原始召回的chunks
+        ranked_chunks: 排序后的chunks
+        optimized_chunks: 优化后的chunks
+        budget_limit: Token预算限制
+        current_usage: 当前Token使用量
+        token_counts: 各阶段的Token统计
+        logs: 可解释性日志
+        metadata: 附加元数据
+    """
+    query: str = ""
+    raw_chunks: List[Chunk] = field(default_factory=list)
+    ranked_chunks: List[Chunk] = field(default_factory=list)
+    optimized_chunks: List[Chunk] = field(default_factory=list)
+    budget_limit: int = 4096
+    current_usage: int = 0
+    token_counts: Dict[str, int] = field(default_factory=dict)
+    logs: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def add_log(self, message: str) -> None:
+        """添加日志"""
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        self.logs.append(f"[{timestamp}] {message}")
+    
+    def update_token_count(self, stage: str, count: int) -> None:
+        """更新Token计数"""
+        self.token_counts[stage] = count
+        self.current_usage = sum(self.token_counts.values())
+    
+    def has_budget(self, required: int) -> bool:
+        """检查是否有足够的Token预算"""
+        return (self.current_usage + required) <= self.budget_limit
+    
+    def remaining_budget(self) -> int:
+        """获取剩余预算"""
+        return max(0, self.budget_limit - self.current_usage)
+    
+    def to_processed_context(self) -> ProcessedContext:
+        """转换为ProcessedContext（兼容性）"""
+        items = [chunk.to_context_item() for chunk in self.optimized_chunks]
+        return ProcessedContext(
+            items=items,
+            metadata={
+                **self.metadata,
+                'budget_limit': self.budget_limit,
+                'current_usage': self.current_usage,
+                'token_counts': self.token_counts,
+                'logs': self.logs,
+            }
+        )
+    
+    def to_dict(self) -> dict:
+        """转换为字典格式"""
+        return {
+            'query': self.query,
+            'raw_chunks': [c.to_dict() for c in self.raw_chunks],
+            'ranked_chunks': [c.to_dict() for c in self.ranked_chunks],
+            'optimized_chunks': [c.to_dict() for c in self.optimized_chunks],
+            'budget_limit': self.budget_limit,
+            'current_usage': self.current_usage,
+            'token_counts': self.token_counts,
+            'logs': self.logs,
+            'metadata': self.metadata
+        }
