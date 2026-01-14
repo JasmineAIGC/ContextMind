@@ -1,15 +1,20 @@
 """
-Standard pipeline steps for context optimization.
+Standard pipeline steps for context engineering.
+
+These steps represent the fundamental operations in context engineering,
+applicable across different domains and use cases.
 """
 
-from .validation import ValidationStep
-from .collection import CollectionStep
-from .integration import IntegrationStep
-from .generation import GenerationStep
+from .preprocessing import PreprocessingStep
+from .retrieval import RetrievalStep
+from .augmentation import AugmentationStep
+from .optimization import OptimizationStep
+from .postprocessing import PostprocessingStep
 
 __all__ = [
-    "ValidationStep",
-    "CollectionStep",
-    "IntegrationStep",
-    "GenerationStep",
+    "PreprocessingStep",
+    "RetrievalStep", 
+    "AugmentationStep",
+    "OptimizationStep",
+    "PostprocessingStep",
 ]

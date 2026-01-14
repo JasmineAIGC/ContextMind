@@ -1,5 +1,5 @@
 """
-Example demonstrating the new ContextMind framework.
+Example demonstrating the ContextMind framework.
 """
 
 import asyncio
@@ -7,27 +7,27 @@ import sys
 sys.path.insert(0, '/home/runner/work/ContextMind/ContextMind')
 
 from contextmind.core import Context, PipelineBuilder
-from contextmind.steps import ValidationStep, CollectionStep, IntegrationStep, GenerationStep
+from contextmind.steps import PreprocessingStep, RetrievalStep, AugmentationStep, PostprocessingStep
 from contextmind.strategies import KeywordRetrievalStrategy
 
 
 async def main():
     """Run example pipeline."""
     print("=" * 60)
-    print("ContextMind Framework Example")
+    print("ContextMind - Context Engineering Framework")
     print("=" * 60)
     
     # Create a pipeline using the builder
-    pipeline = PipelineBuilder("example_pipeline") \
-        .add_step("validation", min_length=1, max_length=1000) \
+    pipeline = PipelineBuilder("context_engineering_pipeline") \
+        .add_step("preprocessing", normalize=True, max_length=1000) \
         .add_custom_step(
-            "collection",
-            CollectionStep(collection_strategy=KeywordRetrievalStrategy())
+            "retrieval",
+            RetrievalStep(retrieval_strategy=KeywordRetrievalStrategy())
         ) \
-        .add_step("integration", integration_method="structured") \
+        .add_step("augmentation", method="structured") \
         .add_custom_step(
-            "generation",
-            GenerationStep()
+            "postprocessing",
+            PostprocessingStep()
         ) \
         .set_config(strict_mode=False) \
         .build()
@@ -56,26 +56,26 @@ async def main():
         # Display results
         print(f"\n✓ Input: {result.user_input}")
         
-        # Show collected context
-        collected = result.get_context_data()
-        if collected:
-            print(f"\n📚 Collected Context ({len(collected)} items):")
-            for item in collected:
+        # Show retrieved context
+        retrieved = result.get_context_data()
+        if retrieved:
+            print(f"\n📚 Retrieved Context ({len(retrieved)} items):")
+            for item in retrieved:
                 print(f"   [{item.source}] {item.content} (score: {item.score:.2f})")
         
-        # Show integrated context
-        integrated = result.get("integrated_context")
-        if integrated:
-            print(f"\n🔗 Integrated Context:")
-            if len(integrated) > 200:
-                print(f"   {integrated[:200]}...")
+        # Show augmented context
+        augmented = result.get("augmented_context")
+        if augmented:
+            print(f"\n🔗 Augmented Context:")
+            if len(augmented) > 200:
+                print(f"   {augmented[:200]}...")
             else:
-                print(f"   {integrated}")
+                print(f"   {augmented}")
         
-        # Show response
-        response = result.response
-        print(f"\n💬 Response:")
-        print(f"   {response}")
+        # Show output
+        output = result.get("output")
+        print(f"\n💬 Output:")
+        print(f"   {output}")
         
         # Show metadata
         print(f"\n📊 Metadata:")
