@@ -1,19 +1,46 @@
 """
-ContextMind - 基于 ADK 的上下文工程框架
+ContextMind - Universal Context Optimization Framework
 
-提供多轮对话的短期记忆（Session）和长期记忆（Memory）管理。
+A flexible, extensible framework for context optimization that supports
+pluggable steps and strategies for various use cases.
 """
 
-from .client import Client, ClientConfig
-from .engine import ContextEngine, ContextTurnResult
-from .logger import get_logger, setup_logging, ContextMindLogger
+# New framework exports
+from .core import (
+    Context,
+    ContextData,
+    Pipeline,
+    PipelineBuilder,
+    BaseStep,
+    BaseStrategy,
+    register_step,
+    register_strategy,
+    get_step_registry,
+    get_strategy_registry,
+)
+
+# Import steps and strategies to register them
+from . import steps
+from . import strategies
+
+# Legacy exports (optional - can be removed in future)
+# Commented out to avoid dependency issues
+# from .client import Client, ClientConfig
+# from .engine import ContextEngine, ContextTurnResult
+# from .logger import get_logger, setup_logging, ContextMindLogger
 
 __all__ = [
-    "Client",
-    "ClientConfig",
-    "ContextEngine",
-    "ContextTurnResult",
-    "get_logger",
-    "setup_logging",
-    "ContextMindLogger",
+    # Core framework
+    "Context",
+    "ContextData",
+    "Pipeline",
+    "PipelineBuilder",
+    "BaseStep",
+    "BaseStrategy",
+    "register_step",
+    "register_strategy",
+    "get_step_registry",
+    "get_strategy_registry",
 ]
+
+__version__ = "2.0.0"
