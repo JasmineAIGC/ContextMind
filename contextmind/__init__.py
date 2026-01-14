@@ -13,6 +13,8 @@ ContextMind - 专业的上下文优化框架 v3.0
 - 引擎层：ContextEngine 统一接口
 - 流水线层：InputProcessor, ContextCollector, ContextIntegrator, ContextOptimizer, KnowledgeExtractor
 - 策略层：可插拔的策略实现
+- 适配器层：对话系统集成接口
+- 工具层：配置、监控、可视化、事件系统
 """
 
 # 核心引擎
@@ -56,6 +58,27 @@ from .strategies import (
     # 提取策略
     RuleBasedExtractionStrategy,
     LLMExtractionStrategy,
+)
+
+# 适配器 (新增)
+from .adapters import (
+    BaseAdapter,
+    DialogContext,
+    DialogMessage,
+    OpenAIAdapter,
+    LangChainAdapter,
+    CustomAdapter,
+)
+
+# 工具 (新增)
+from .utils import (
+    ConfigManager,
+    validate_config,
+    PerformanceMonitor,
+    ContextMetrics,
+    ContextVisualizer,
+    EventBus,
+    Event,
 )
 
 __all__ = [
@@ -104,6 +127,23 @@ __all__ = [
     # 提取策略
     "RuleBasedExtractionStrategy",
     "LLMExtractionStrategy",
+    
+    # 适配器
+    "BaseAdapter",
+    "DialogContext",
+    "DialogMessage",
+    "OpenAIAdapter",
+    "LangChainAdapter",
+    "CustomAdapter",
+    
+    # 工具
+    "ConfigManager",
+    "validate_config",
+    "PerformanceMonitor",
+    "ContextMetrics",
+    "ContextVisualizer",
+    "EventBus",
+    "Event",
 ]
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
