@@ -2,6 +2,10 @@
 OpenAIAdapter - OpenAI 对话系统适配器
 
 支持与 OpenAI API 格式兼容的对话系统集成。
+
+v3.3 更新：
+- 真正调用 LLM API 生成响应
+- 使用增强后的 system prompt（包含长期记忆和外部知识）
 """
 
 from typing import Optional, List, Dict, Any
@@ -13,6 +17,10 @@ class OpenAIAdapter(BaseAdapter):
     OpenAI 对话系统适配器
     
     支持标准的 OpenAI Chat Completions API 格式。
+    
+    v3.3 更新：
+    - 真正调用 LLM 客户端生成响应
+    - 使用 get_enhanced_system_prompt() 整合长期记忆
     """
     
     async def process(
@@ -23,6 +31,12 @@ class OpenAIAdapter(BaseAdapter):
     ) -> DialogMessage:
         """
         处理用户输入并生成响应
+        
+        流程：
+        1. 调用 inject_context() 获取优化后的上下文
+        2. 使用 get_enhanced_system_prompt() 获取包含长期记忆的 system prompt
+        3. 调用 LLM 客户端生成响应
+        4. 更新引擎状态
         
         Args:
             user_input: 用户输入
@@ -38,14 +52,16 @@ class OpenAIAdapter(BaseAdapter):
         # 构建 OpenAI 格式的消息列表
         messages = []
         
-        # 添加系统提示
-        if enhanced_context.system_prompt:
+        # ===== v3.3 关键改进：使用增强后的 system prompt =====
+        # 这会将长期记忆和外部知识整合到 system prompt 中
+        enhanced_system_prompt = enhanced_context.get_enhanced_system_prompt()
+        if enhanced_system_prompt:
             messages.append({
                 'role': 'system',
-                'content': enhanced_context.system_prompt
+                'content': enhanced_system_prompt
             })
         
-        # 添加上下文消息
+        # 添加历史对话消息
         for msg in enhanced_context.messages:
             messages.append({
                 'role': msg.role,
@@ -58,9 +74,8 @@ class OpenAIAdapter(BaseAdapter):
             'content': user_input
         })
         
-        # 这里应该调用实际的 LLM API
-        # 作为示例，我们返回一个模拟响应
-        response_content = f"处理完成: {user_input}"
+        # ===== v3.3 关键改进：真正调用 LLM API =====
+        response_content = await self._call_llm(messages, **kwargs)
         
         # 更新引擎状态
         if self.engine:
@@ -69,8 +84,58 @@ class OpenAIAdapter(BaseAdapter):
         return DialogMessage(
             role='assistant',
             content=response_content,
-            metadata={'model': 'openai-compatible'}
+            metadata={
+                'model': 'openai-compatible',
+                'context_enhanced': True,
+                'memory_injected': bool(enhanced_context.long_term_memory_text),
+            }
         )
+    
+    async def _call_llm(
+        self,
+        messages: List[Dict[str, str]],
+        **kwargs
+    ) -> str:
+        """
+        调用 LLM API 生成响应
+        
+        Args:
+            messages: OpenAI 格式的消息列表
+            **kwargs: LLM 参数（temperature, max_tokens等）
+            
+        Returns:
+            生成的响应文本
+        """
+        # 如果有 LLM 客户端，使用它
+        if self.llm_client:
+            try:
+                # 使用 Client.chat() 方法
+                response, _ = self.llm_client.chat(
+                    messages=messages,
+                    temperature=kwargs.get('temperature'),
+                    max_tokens=kwargs.get('max_tokens'),
+                )
+                return response
+            except Exception as e:
+                # 记录错误但继续（降级处理）
+                import logging
+                logging.warning(f"LLM call failed: {e}, using fallback")
+        
+        # 如果引擎有 LLM 客户端，使用它
+        if self.engine and self.engine.llm_client:
+            try:
+                response, _ = self.engine.llm_client.chat(
+                    messages=messages,
+                    temperature=kwargs.get('temperature'),
+                    max_tokens=kwargs.get('max_tokens'),
+                )
+                return response
+            except Exception as e:
+                import logging
+                logging.warning(f"Engine LLM call failed: {e}, using fallback")
+        
+        # 降级：返回提示信息（仅用于测试/开发）
+        return f"[LLM未配置] 请设置 llm_client 参数。收到消息: {messages[-1]['content']}"
     
     def convert_to_standard(self, external_message: Dict[str, Any]) -> DialogMessage:
         """
