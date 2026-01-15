@@ -59,9 +59,10 @@ class ContextMindLogger:
         # 清除现有的handlers
         root_logger.handlers.clear()
         
-        # 设置日志格式 - 简化格式，不再使用EngineFormatter
-        log_format = '%(message)s'
-        formatter = logging.Formatter(fmt=log_format)
+        # 设置日志格式 - 包含时间戳和级别，便于调试
+        log_format = '[%(asctime)s] %(levelname)s - %(message)s'
+        date_format = '%Y-%m-%d %H:%M:%S'
+        formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
 
         # 过滤掉第三方库的冗余日志
         logging.getLogger('httpx').setLevel(logging.WARNING)

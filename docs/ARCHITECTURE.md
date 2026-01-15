@@ -1,0 +1,198 @@
+# ContextMind v3.0 架构文档
+
+## 概述
+
+ContextMind v3.0 是一个完全重构的上下文优化框架，专注于支持上下文工程的所有核心能力。
+
+## 设计哲学
+
+1. **职责清晰**：每个组件都有明确的职责边界
+2. **模块解耦**：组件之间通过清晰的接口通信
+3. **易于扩展**：支持策略模式，方便替换和扩展
+4. **数据驱动**：使用强类型的数据模型
+5. **异步优先**：全面使用 async/await
+
+## 四层架构
+
+```
+┌─────────────────────────────────────────┐
+│        应用层 (Application Layer)       │
+│     定义业务逻辑和Prompt构建策略         │
+└─────────────────────────────────────────┘
+                    ↓ 使用
+┌─────────────────────────────────────────┐
+│       引擎层 (Engine Layer)              │
+│    ContextEngine - 统一的上下文优化接口   │
+└─────────────────────────────────────────┘
+                    ↓ 使用
+┌─────────────────────────────────────────┐
+│      流水线层 (Pipeline Layer)           │
+│  • InputProcessor - 输入预处理           │
+│  • ContextCollector - 上下文收集         │
+│  • ContextIntegrator - 上下文整合        │
+│  • ContextOptimizer - 上下文优化         │
+│  • KnowledgeExtractor - 知识提取        │
+└─────────────────────────────────────────┘
+                    ↓ 使用
+┌─────────────────────────────────────────┐
+│       策略层 (Strategy Layer)            │
+│  • RetrievalStrategy - 检索策略          │
+│  • IntegrationStrategy - 整合策略        │
+│  • OptimizationStrategy - 优化策略       │
+│  • ExtractionStrategy - 提取策略         │
+└─────────────────────────────────────────┘
+```
+
+## 核心组件
+
+### 1. 数据模型 (`data_models.py`)
+
+定义了框架中所有的数据结构：
+
+- **Message**: 对话消息
+- **ContextItem**: 上下文条目
+- **ProcessedContext**: 处理后的上下文
+- **ContextResult**: 上下文优化结果
+- **Knowledge**: 提取的知识
+
+### 2. 管理器 (`managers/`)
+
+封装了对 Google ADK 服务的访问：
+
+- **SessionManager**: 管理短期会话历史
+- **MemoryManager**: 管理长期记忆
+
+### 3. 流水线 (`pipeline/`)
+
+实现上下文处理的各个阶段：
+
+- **InputProcessor**: 输入验证和清洗
+- **ContextCollector**: 从多个来源收集上下文
+- **ContextIntegrator**: 整合和去重
+- **ContextOptimizer**: 压缩和截断
+- **KnowledgeExtractor**: 提取结构化知识
+
+### 4. 策略 (`strategies/`)
+
+提供可插拔的策略实现：
+
+- **RetrievalStrategy**: 检索策略（关键词、向量、混合）
+- **IntegrationStrategy**: 整合策略（简单、优先级）
+- **OptimizationStrategy**: 优化策略（压缩、重排）
+- **ExtractionStrategy**: 提取策略（规则、LLM）
+
+### 5. 上下文引擎 (`engine.py`)
+
+核心API：
+
+```python
+class ContextEngine:
+    async def optimize(user_input, ...) -> ContextResult
+    async def update(user_input, assistant_response) -> None
+    async def extract_knowledge(auto_store=True) -> List[Knowledge]
+    async def seed_memory(facts) -> None
+    async def clear_session() -> None
+```
+
+## 数据流
+
+```
+用户输入
+    ↓
+InputProcessor (验证、清洗)
+    ↓
+ContextCollector (收集会话历史、长期记忆)
+    ↓
+ContextIntegrator (去重、排序)
+    ↓
+ContextOptimizer (压缩、截断)
+    ↓
+ContextResult
+    ↓
+应用层 (构建Prompt)
+    ↓
+LLM
+    ↓
+回复
+    ↓
+SessionManager (更新会话)
+    ↓
+KnowledgeExtractor (提取知识)
+    ↓
+MemoryManager (存储到长期记忆)
+```
+
+## 扩展点
+
+### 1. 自定义策略
+
+实现策略基类：
+
+```python
+from contextmind.strategies import RetrievalStrategy
+
+class MyRetrievalStrategy(RetrievalStrategy):
+    async def retrieve(self, query, limit=5, **kwargs):
+        # 自定义检索逻辑
+        pass
+```
+
+### 2. 自定义应用
+
+继承应用基类：
+
+```python
+from examples.applications import BaseApplication
+
+class MyApplication(BaseApplication):
+    def build_prompt(self, user_input, context):
+        # 自定义Prompt构建
+        pass
+```
+
+### 3. 自定义处理器
+
+实现处理器基类：
+
+```python
+from contextmind.pipeline import BaseProcessor
+
+class MyProcessor(BaseProcessor):
+    async def process(self, input_data):
+        # 自定义处理逻辑
+        pass
+```
+
+## 与旧版本的区别
+
+| 特性 | v2.0 | v3.0 |
+|------|------|------|
+| 架构 | 单一Pipeline | 四层架构 |
+| 核心类 | Pipeline + Steps | ContextEngine + Pipeline |
+| 扩展性 | Step注册表 | 策略模式 |
+| 数据模型 | Context + ContextData | 专用数据类 |
+| API设计 | 复杂 | 简洁（optimize/update/extract） |
+| 职责划分 | 模糊 | 清晰 |
+
+## 最佳实践
+
+1. **使用ContextEngine作为核心**：不要直接使用Pipeline组件
+2. **继承BaseApplication**：构建应用层时继承BaseApplication
+3. **数据模型优先**：使用框架提供的数据模型
+4. **策略可选**：只在需要时自定义策略
+5. **异步编程**：所有核心方法都是异步的，正确使用await
+
+## 性能考虑
+
+1. **上下文长度控制**：使用 `max_context_length` 参数
+2. **记忆检索限制**：合理设置检索数量
+3. **并发处理**：Pipeline内部使用异步并发
+4. **缓存策略**：可在Manager层实现缓存
+
+## 未来计划
+
+- [ ] 向量检索策略实现
+- [ ] 外部知识库集成
+- [ ] 多模态支持
+- [ ] 分布式部署支持
+- [ ] 性能监控和追踪

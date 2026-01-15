@@ -3,7 +3,19 @@ Gradio UI 版本的交互式对话演示
 适合对外演示使用
 """
 
-import gradio as gr
+try:
+    import gradio as gr
+except ImportError:
+    print("=" * 60)
+    print("❌ 错误: 未安装 gradio")
+    print("=" * 60)
+    print("💡 解决方案:")
+    print("   pip install gradio>=4.0.0")
+    print("   或者: pip install -r requirements.txt")
+    print("=" * 60)
+    import sys
+    sys.exit(1)
+
 import asyncio
 import time
 import random
@@ -43,7 +55,7 @@ class GradioDemo:
     
     def __init__(self):
         """初始化 Gradio 演示"""
-        self.engines = {}
+        self.engine = None
         self.opening_scripts = [
             "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
             "您好，我是马上消费的客服，有个好消息要通知您。",
@@ -59,30 +71,37 @@ class GradioDemo:
         self.conversation_history = []
         self.current_bot_message = ""
         self.turn_counter = 0  # 添加轮次计数器
+        # 上下文控制参数
+        self.use_session = True
+        self.use_memory = False
+        self.max_recent_events = 10
         
-    async def initialize_engines(self):
-        """初始化三种引擎"""
+    async def initialize_engine(self, use_session=True, use_memory=False, max_recent_events=10):
+        """初始化引擎，根据参数配置上下文控制"""
         try:
             logger.info("=" * 80)
-            logger.info("🚀 [Gradio] 开始初始化所有引擎...")
+            logger.info("🚀 [Gradio] 开始初始化引擎...")
+            logger.info(f"   - 会话历史: {'✅' if use_session else '❌'}")
+            logger.info(f"   - 长期记忆: {'✅' if use_memory else '❌'}")
+            logger.info(f"   - 最大历史: {max_recent_events}轮")
             logger.info("=" * 80)
             
-            # 创建一个共享的、无状态的客户端实例
+            # 保存配置
+            self.use_session = use_session
+            self.use_memory = use_memory
+            self.max_recent_events = max_recent_events
+            
+            # 创建客户端
             client = Client()
+            
+            # 创建引擎
+            self.engine = self._create_engine(client)
+            
+            # 如果使用长期记忆，植入种子数据
+            if use_memory:
+                await self._seed_long_term_memory()
 
-            # 1. 基础对话引擎
-            self.engines['basic'] = self._create_engine('basic', client)
-            
-            # 2. 短期记忆引擎
-            self.engines['short_term'] = self._create_engine('short_term', client)
-            
-            # 3. 长期记忆引擎
-            self.engines['long_term'] = self._create_engine('long_term', client)
-            
-            # 为长期记忆引擎植入种子数据
-            await self._seed_long_term_memory()
-
-            logger.info("✅ [Gradio] 引擎初始化并植入记忆种子成功")
+            logger.info("✅ [Gradio] 引擎初始化成功")
             
             # 首次启动时添加开场白
             await self.start_new_conversation(is_initial_start=True)
@@ -96,54 +115,37 @@ class GradioDemo:
             logger.error(traceback.format_exc())
             return error_msg
 
-    def _create_engine(self, engine_type: str, client: Client) -> ContextEngine:
-        """根据类型创建并配置ContextEngine"""
+    def _create_engine(self, client: Client) -> ContextEngine:
+        """根据配置创建ContextEngine"""
         
         base_prompt = self._get_base_prompt()
         user_profile = self._get_user_profile()
         business_rules = {**self._get_core_duties(), **self._get_communication_strategy(), **self._get_reply_requirements()}
 
-        if engine_type == 'basic':
-            engine = ContextEngine(
-                app_name="callcenter-basic",
-                user_id="gradio-basic",
-                llm_client=client,
-                max_recent_events=6,
-                base_system_prompt=base_prompt,
-            )
-        elif engine_type == 'short_term':
-            engine = ContextEngine(
-                app_name="callcenter-short-term",
-                user_id="gradio-short-term",
-                llm_client=client,
-                max_recent_events=6,
-                base_system_prompt=base_prompt,
-                user_profile=user_profile,
-                business_rules=business_rules,
-            )
-        elif engine_type == 'long_term':
+        # 根据配置决定是否使用记忆服务
+        if self.use_memory:
             from google.adk.memory import InMemoryMemoryService
-            engine = ContextEngine(
-                app_name="callcenter-long-term",
-                user_id="gradio-long-term",
-                llm_client=client,
-                max_recent_events=50, # 保留更多历史
-                base_system_prompt=base_prompt,
-                user_profile=user_profile,
-                business_rules=business_rules,
-                memory_service=InMemoryMemoryService(), # 使用独立的内存服务
-            )
+            memory_service = InMemoryMemoryService()
         else:
-            raise ValueError(f"Unknown engine type: {engine_type}")
+            memory_service = None
+        
+        # 如果禁用会话历史，设置max_recent_events为0
+        effective_max_events = self.max_recent_events if self.use_session else 0
             
-        # 为引擎添加类型标识，用于日志
-        engine._engine_type = engine_type.upper()
-        logger.info(f"🔧 [Gradio] 已创建引擎: {engine_type.upper()}")
+        engine = ContextEngine(
+            app_name="callcenter-gradio",
+            user_id="gradio-user",
+            llm_client=client,
+            max_recent_events=effective_max_events,  # 使用实际有效值
+            memory_service=memory_service,
+        )
+            
+        logger.info(f"🔧 [Gradio] 已创建引擎 (会话:{self.use_session}, 记忆:{self.use_memory}, 最大轮数:{effective_max_events})")
         return engine
 
     async def _seed_long_term_memory(self):
-        """为长期记忆引擎植入种子数据。"""
-        if 'long_term' in self.engines:
+        """为引擎植入种子数据（仅在使用长期记忆时）"""
+        if self.use_memory and self.engine:
             # 尝试从文件加载记忆种子
             seed_file = Path(__file__).parent / "data" / "memory_seeds.txt"
             memory_seeds = []
@@ -174,7 +176,7 @@ class GradioDemo:
                     "若用户强调'别烦我'或提及报警，需第一时间结束对话并致歉。",
                 ]
             
-            await self.engines['long_term'].seed_memory(memory_seeds)
+            await self.engine.seed_memory(memory_seeds)
     
     def _get_base_prompt(self) -> str:
         """基础系统提示词 - 仅包含核心角色定义"""
@@ -223,36 +225,35 @@ class GradioDemo:
         self.turn_counter = 0
         
         if not is_initial_start:
-            logger.info("🔄 [Gradio] 开始新一轮对话，重置所有引擎状态...")
+            logger.info("🔄 [Gradio] 开始新一轮对话，重置引擎状态...")
             # 重新创建引擎实例以确保完全重置
             client = Client()
-            self.engines['basic'] = self._create_engine('basic', client)
-            self.engines['short_term'] = self._create_engine('short_term', client)
-            self.engines['long_term'] = self._create_engine('long_term', client)
-            await self._seed_long_term_memory()
+            self.engine = self._create_engine(client)
+            if self.use_memory:
+                await self._seed_long_term_memory()
 
         opening_script = random.choice(self.opening_scripts)
         self.conversation_history = [
             {"role": "assistant", "content": opening_script}
         ]
         
-        # 将开场白添加到所有引擎的session
+        # 将开场白添加到引擎的session
         from google.adk.events.event import Event
         from google.genai.types import Content, Part
         
-        for engine_name, engine in self.engines.items():
+        if self.engine:
             try:
                 # 确保 session 存在
-                await engine._ensure_session()
+                await self.engine._ensure_session()
                 event = Event(
-                    invocation_id=engine.new_invocation_id(),
+                    invocation_id=self.engine.new_invocation_id(),
                     author="assistant",
                     content=Content(role="assistant", parts=[Part(text=opening_script)]),
                 )
-                session = await engine.get_current_session()
-                await engine.session_service.append_event(session=session, event=event)
+                session = await self.engine.get_current_session()
+                await self.engine.session_service.append_event(session=session, event=event)
             except Exception as e:
-                logger.warning(f"[Gradio] 添加开场白到引擎 {engine_name} 失败: {e}")
+                logger.warning(f"[Gradio] 添加开场白到引擎失败: {e}")
         
         return self.conversation_history
     
@@ -263,16 +264,15 @@ class GradioDemo:
             {"role": "assistant", "content": opening_script}
         ]
     
-    def _log_engine_box(self, engine_name: str, result, is_debug: bool = False):
-        """打印单个引擎的 box 边框日志"""
+    def _log_engine_box(self, result, is_debug: bool = False):
+        """打印引擎的 box 边框日志"""
         from contextmind.logger import get_logger
         logger = get_logger(__name__)
         
-        symbols = {'basic': '🔵', 'short_term': '🟡', 'long_term': '🟢'}
-        symbol = symbols.get(engine_name, '📝')
+        symbol = '🤖'
         
         # 顶部边框
-        title = f"{symbol} {engine_name.upper().replace('_', ' ')} 引擎"
+        title = f"{symbol} 引擎处理"
         if is_debug:
             title += " [详细]"
         # 确保边框宽度计算不会产生负数
@@ -311,10 +311,10 @@ class GradioDemo:
         logger.info("└" + "─" * (self.BOX_BORDER_WIDTH - 1) + "┘")
         logger.info("")  # 空行
     
-    async def get_responses(self, user_input):
-        """获取三种方式的回复"""
+    async def get_response(self, user_input):
+        """获取引擎回复"""
         if not user_input.strip():
-            return self.conversation_history, "", "", ""
+            return self.conversation_history, ""
         
         import time
         from datetime import datetime
@@ -338,70 +338,29 @@ class GradioDemo:
         logger.info("")  # 空行
         
         try:
-            # 获取三种回复
-            tasks = []
-            engine_names = ['basic', 'short_term', 'long_term']
-            
-            for engine_name in engine_names:
-                if engine_name in self.engines:
-                    task = asyncio.create_task(
-                        self._get_single_response(engine_name, self.engines[engine_name], user_input)
-                    )
-                    tasks.append(task)
-            
-            # 等待所有回复
-            if tasks:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
+            # 获取回复
+            if self.engine:
+                response = await self._get_single_response(self.engine, user_input)
                 
-                # 提取结果
-                responses = {}
-                for i, (engine_name, result) in enumerate(zip(engine_names, results)):
-                    if isinstance(result, Exception):
-                        responses[engine_name] = f"错误: {str(result)}"
-                    else:
-                        responses[engine_name] = result
-                
-                # 添加所有机器人回复到历史
+                # 添加到对话历史
                 self.conversation_history.append({"role": "user", "content": user_input})
-                
-                logger.debug(f"获取到的回复:")
-                logger.debug(f"   basic: {responses.get('basic', 'None')}")
-                logger.debug(f"   short_term: {responses.get('short_term', 'None')}")
-                logger.debug(f"   long_term: {responses.get('long_term', 'None')}")
-                
-                # 添加三条回复到对话历史
-                if responses.get('basic') and not responses['basic'].startswith('错误:'):
-                    self.conversation_history.append({"role": "assistant", "content": f"🔵 基础对话: {responses['basic']}"})
-                    logger.debug("已添加基础对话回复到历史")
-                
-                if responses.get('short_term') and not responses['short_term'].startswith('错误:'):
-                    self.conversation_history.append({"role": "assistant", "content": f"🟡 短期记忆: {responses['short_term']}"})
-                    logger.debug("已添加短期记忆回复到历史")
-                
-                if responses.get('long_term') and not responses['long_term'].startswith('错误:'):
-                    self.conversation_history.append({"role": "assistant", "content": f"🟢 长期记忆: {responses['long_term']}"})
-                    logger.debug("已添加长期记忆回复到历史")
+                self.conversation_history.append({"role": "assistant", "content": response})
                 
                 # 打印总结
                 total_time = time.time() - start_time
-                logger.info(f"✅ 所有引擎处理完成 (耗时: {total_time:.1f}s)")
+                logger.info(f"✅ 引擎处理完成 (耗时: {total_time:.1f}s)")
                 logger.info("")  # 空行
                 
-                return (
-                    self.conversation_history,
-                    responses.get('basic', '生成失败'),
-                    responses.get('short_term', '生成失败'),
-                    responses.get('long_term', '生成失败')
-                )
-            
-            return self.conversation_history, "生成失败", "生成失败", "生成失败"
+                return self.conversation_history, response
+            else:
+                return self.conversation_history, "引擎未初始化"
             
         except Exception as e:
             logger.error(f"❌ 获取回复失败: {str(e)}")
-            return self.conversation_history, f"错误: {str(e)}", f"错误: {str(e)}", f"错误: {str(e)}"
+            return self.conversation_history, f"错误: {str(e)}"
     
-    async def _get_single_response(self, name, engine, user_input):
-        """获取单个引擎的回复"""
+    async def _get_single_response(self, engine, user_input):
+        """获取引擎的回复"""
         from contextmind.logger import get_logger, ContextMindLogger
         import logging
         logger = get_logger(__name__)
@@ -412,11 +371,11 @@ class GradioDemo:
             
             # 使用新的 box 格式化日志
             is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
-            self._log_engine_box(name, result, is_debug)
+            self._log_engine_box(result, is_debug)
             
             return result.response
         except Exception as e:
-            logger.error(f"❌ {name} 引擎处理失败: {e}")
+            logger.error(f"❌ 引擎处理失败: {e}")
             return f"生成失败: {str(e)}"
     
         
@@ -424,7 +383,7 @@ class GradioDemo:
         """创建 Gradio 界面"""
         with gr.Blocks(title="优逸花客服对话演示") as demo:
             gr.Markdown("# 🤖 优逸花客服对话演示")
-            gr.Markdown("三种AI回复方式对比：基础对话、短期记忆、长期记忆")
+            gr.Markdown("展示上下文优化框架的智能对话能力")
             
             # 初始化对话历史（使用同步版本，只更新UI）
             initial_history = self._get_initial_history()
@@ -432,7 +391,7 @@ class GradioDemo:
             with gr.Row():
                 with gr.Column(scale=2):
                     # 对话区域
-                    chatbot = gr.Chatbot(label="对话记录", height=400, value=initial_history)
+                    chatbot = gr.Chatbot(label="对话记录", height=500, value=initial_history)
                     user_input = gr.Textbox(label="用户输入", placeholder="请输入您想说的话...")
                     
                     with gr.Row():
@@ -440,70 +399,149 @@ class GradioDemo:
                         new_chat_btn = gr.Button("新对话", variant="secondary")
                 
                 with gr.Column(scale=1):
-                    # 三种回复对比
-                    gr.Markdown("### 📊 三种回复方式对比")
+                    # 上下文控制参数
+                    gr.Markdown("### ⚙️ 上下文配置")
                     
-                    basic_response = gr.Textbox(
-                        label="🔵 基础对话", 
-                        lines=3, 
-                        interactive=False,
-                        placeholder="每次独立回复，无记忆"
+                    use_session_checkbox = gr.Checkbox(
+                        label="启用会话历史",
+                        value=True,
+                        info="保留最近的对话历史"
                     )
                     
-                    short_term_response = gr.Textbox(
-                        label="🟡 短期记忆", 
-                        lines=3, 
-                        interactive=False,
-                        placeholder="保留最近3轮对话"
+                    max_events_slider = gr.Slider(
+                        minimum=3,
+                        maximum=50,
+                        value=10,
+                        step=1,
+                        label="最大历史轮数",
+                        info="保留的最大对话轮数"
                     )
                     
-                    long_term_response = gr.Textbox(
-                        label="🟢 长期记忆", 
-                        lines=5, 
-                        interactive=False,
-                        placeholder="利用历史行为，智能调整"
+                    use_memory_checkbox = gr.Checkbox(
+                        label="启用长期记忆",
+                        value=False,
+                        info="使用长期记忆和知识库"
                     )
+                    
+                    debug_mode_checkbox = gr.Checkbox(
+                        label="启用调试模式",
+                        value=False,
+                        info="显示详细的上下文优化过程"
+                    )
+                    
+                    apply_config_btn = gr.Button("应用配置", variant="secondary")
+                    
+                    config_status = gr.Textbox(
+                        label="配置状态",
+                        interactive=False,
+                        value="当前配置: 会话历史✅ | 最大轮数: 10 | 长期记忆❌ | 调试模式❌"
+                    )
+                    
+                    gr.Markdown("### 💡 说明")
+                    gr.Markdown("""
+                    - **会话历史**: 记住最近的对话内容
+                    - **最大轮数**: 保留多少轮对话（会话历史禁用时无效）
+                    - **长期记忆**: 持久化重要信息和知识
+                    - **调试模式**: 显示详细的上下文优化和Prompt构建过程
+                    
+                    建议配置：
+                    - 快速问答: 历史3轮
+                    - 普通对话: 历史10轮
+                    - 深度对话: 历史20轮 + 长期记忆
+                    - 开发调试: 开启调试模式查看详细过程
+                    """)
             
             def handle_user_input(message, history):
                 """处理用户输入"""
                 if not message.strip():
-                    return history, "", "", "", ""
+                    return history, ""
                 
-                # 异步获取回复
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                new_history, basic_resp, short_term_resp, long_term_resp = loop.run_until_complete(self.get_responses(message))
-                loop.close()
+                # 使用线程池执行异步操作以避免事件循环冲突
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, self.get_response(message))
+                        new_history, response = future.result()
+                except Exception as e:
+                    logger.error(f"处理用户输入失败: {e}")
+                    history.append({"role": "user", "content": message})
+                    history.append({"role": "assistant", "content": f"错误: {str(e)}"})
+                    return history, ""
                 
-                return new_history, "", basic_resp, short_term_resp, long_term_resp
+                return new_history, ""
             
             def start_new_chat(history):
                 """开始新对话"""
-                # 异步调用 start_new_conversation
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                new_history = loop.run_until_complete(self.start_new_conversation())
-                loop.close()
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, self.start_new_conversation())
+                        new_history = future.result()
+                except Exception as e:
+                    logger.error(f"开始新对话失败: {e}")
+                    return [{"role": "assistant", "content": f"错误: {str(e)}"}], ""
                 
-                return new_history, "", "", "", ""
+                return new_history, ""
+            
+            def apply_config(use_session, max_events, use_memory, debug_mode):
+                """应用配置"""
+                # 设置日志级别
+                from contextmind.logger import DEBUG, INFO
+                new_level = DEBUG if debug_mode else INFO
+                from contextmind.logger import ContextMindLogger
+                ContextMindLogger.set_level(new_level)
+                
+                # 异步重新初始化引擎
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            self.initialize_engine(
+                                use_session=use_session,
+                                use_memory=use_memory,
+                                max_recent_events=int(max_events)
+                            )
+                        )
+                        result = future.result()
+                except Exception as e:
+                    logger.error(f"应用配置失败: {e}")
+                    return self._get_initial_history(), f"配置失败: {str(e)}"
+                
+                # 更新状态显示
+                session_status = "✅" if use_session else "❌"
+                memory_status = "✅" if use_memory else "❌"
+                debug_status = "✅" if debug_mode else "❌"
+                status = f"当前配置: 会话历史{session_status} | 最大轮数: {int(max_events)} | 长期记忆{memory_status} | 调试模式{debug_status}"
+                
+                # 显示成功消息
+                gr.Info(f"✅ 配置已应用！")
+                
+                return self._get_initial_history(), status
             
             # 绑定事件
             send_btn.click(
                 fn=handle_user_input,
                 inputs=[user_input, chatbot],
-                outputs=[chatbot, user_input, basic_response, short_term_response, long_term_response]
+                outputs=[chatbot, user_input]
             )
             
             user_input.submit(
                 fn=handle_user_input,
                 inputs=[user_input, chatbot],
-                outputs=[chatbot, user_input, basic_response, short_term_response, long_term_response]
+                outputs=[chatbot, user_input]
             )
             
             new_chat_btn.click(
                 fn=start_new_chat,
                 inputs=[chatbot],
-                outputs=[chatbot, user_input, basic_response, short_term_response, long_term_response]
+                outputs=[chatbot, user_input]
+            )
+            
+            apply_config_btn.click(
+                fn=apply_config,
+                inputs=[use_session_checkbox, max_events_slider, use_memory_checkbox, debug_mode_checkbox],
+                outputs=[chatbot, config_status]
             )
         
         return demo
@@ -513,17 +551,21 @@ def main():
     """主函数"""
     logger.info("🚀 正在启动优逸花客服对话演示...")
     logger.info("📋 功能说明:")
-    logger.info("   - 🔵 基础对话: 只记录最近3轮对话，不使用其他知识")
-    logger.info("   - 🟡 短期记忆: 最近3轮对话 + 用户画像 + 业务规则")
-    logger.info("   - 🟢 长期记忆: 所有对话历史 + 用户画像 + 业务规则 + 记忆服务")
+    logger.info("   - 支持灵活配置会话历史和长期记忆")
+    logger.info("   - 可调整保留的最大对话轮数")
+    logger.info("   - 演示上下文优化框架的核心能力")
     
     try:
         # 创建演示实例
         demo_instance = GradioDemo()
         
-        # 直接初始化引擎（不依赖 demo.load）
+        # 直接初始化引擎（使用默认配置）
         logger.info("🔧 正在初始化引擎...")
-        asyncio.run(demo_instance.initialize_engines())
+        asyncio.run(demo_instance.initialize_engine(
+            use_session=True,
+            use_memory=False,
+            max_recent_events=10
+        ))
         logger.info("✅ 引擎初始化完成")
         
         demo = demo_instance.create_interface()
