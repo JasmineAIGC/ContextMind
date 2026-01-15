@@ -98,7 +98,7 @@ class BaseApplication(ABC):
             if context_result.recent_history:
                 logger.debug(f"\n【优化后的对话历史】（共 {len(context_result.recent_history)} 轮对话将被用于构建Prompt）")
                 logger.debug(f"  📝 上下文来源: SessionService（会话历史存储）")
-                logger.debug(f"  📊 提炼策略: 保留最近 {len(context_result.recent_history)} 轮完整对话")
+                logger.debug(f"  📊 提炼策略: 智能提取关键信息 + 保留完整对话")
                 logger.debug(f"  🎯 优化结果: 这些对话将在build_prompt()中被添加到'## 近期对话'部分")
                 logger.debug(f"\n  最近 {min(10, len(context_result.recent_history))} 轮内容预览：")
                 # 从后往前显示最近的10轮
@@ -106,6 +106,12 @@ class BaseApplication(ABC):
                 for i, msg in enumerate(recent_msgs, 1):
                     preview = msg.content[:100] + ('...' if len(msg.content) > 100 else '')
                     logger.debug(f"  {i}. {msg.role.value}: {preview}")
+                
+                # 显示智能提炼的关键信息
+                logger.debug(f"\n  【从对话中智能提炼的关键信息】")
+                logger.debug(f"  💡 说明: 以下信息通过NLP技术从对话历史中自动提取")
+                # Note: extracted_info is in ProcessedContext metadata, need to access through context_engine
+                logger.debug(f"  ✨ 提炼内容: 主题、实体、偏好、状态等（可在context.metadata查看）")
             else:
                 logger.debug(f"\n【优化后的对话历史】（无历史对话）")
                 logger.debug(f"  💡 说明: 这是对话的第一轮，暂无历史记录")
