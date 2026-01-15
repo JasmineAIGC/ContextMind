@@ -157,6 +157,9 @@ async def main():
         
         if user_input == "/status":
             history = await context_engine.session_manager.get_recent_history()
+            logger.info(f"📊 当前会话状态:")
+            logger.info(f"  - 轮次: {turn_count}")
+            logger.info(f"  - 历史消息数: {len(history)}")
             print(f"📊 当前会话状态:")
             print(f"  - 轮次: {turn_count}")
             print(f"  - 历史消息数: {len(history)}")
@@ -164,6 +167,11 @@ async def main():
             continue
         
         if user_input == "/config":
+            logger.info(f"⚙️  当前配置:")
+            logger.info(f"  - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
+            logger.info(f"  - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
+            logger.info(f"  - 最大轮数: {args.max_events}")
+            logger.info(f"  - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
             print(f"⚙️  当前配置:")
             print(f"  - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
             print(f"  - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
