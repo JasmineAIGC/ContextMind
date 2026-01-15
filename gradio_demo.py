@@ -426,24 +426,32 @@ class GradioDemo:
                         info="使用长期记忆和知识库"
                     )
                     
+                    debug_mode_checkbox = gr.Checkbox(
+                        label="启用调试模式",
+                        value=False,
+                        info="显示详细的上下文优化过程"
+                    )
+                    
                     apply_config_btn = gr.Button("应用配置", variant="secondary")
                     
                     config_status = gr.Textbox(
                         label="配置状态",
                         interactive=False,
-                        value="当前配置: 会话历史✅ | 最大轮数: 10 | 长期记忆❌"
+                        value="当前配置: 会话历史✅ | 最大轮数: 10 | 长期记忆❌ | 调试模式❌"
                     )
                     
                     gr.Markdown("### 💡 说明")
                     gr.Markdown("""
                     - **会话历史**: 记住最近的对话内容
-                    - **最大轮数**: 保留多少轮对话
+                    - **最大轮数**: 保留多少轮对话（会话历史禁用时无效）
                     - **长期记忆**: 持久化重要信息和知识
+                    - **调试模式**: 显示详细的上下文优化和Prompt构建过程
                     
                     建议配置：
                     - 快速问答: 历史3轮
                     - 普通对话: 历史10轮
                     - 深度对话: 历史20轮 + 长期记忆
+                    - 开发调试: 开启调试模式查看详细过程
                     """)
             
             def handle_user_input(message, history):
@@ -451,42 +459,66 @@ class GradioDemo:
                 if not message.strip():
                     return history, ""
                 
-                # 异步获取回复
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                new_history, response = loop.run_until_complete(self.get_response(message))
-                loop.close()
+                # 使用线程池执行异步操作以避免事件循环冲突
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, self.get_response(message))
+                        new_history, response = future.result()
+                except Exception as e:
+                    logger.error(f"处理用户输入失败: {e}")
+                    history.append({"role": "user", "content": message})
+                    history.append({"role": "assistant", "content": f"错误: {str(e)}"})
+                    return history, ""
                 
                 return new_history, ""
             
             def start_new_chat(history):
                 """开始新对话"""
-                # 异步调用 start_new_conversation
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                new_history = loop.run_until_complete(self.start_new_conversation())
-                loop.close()
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, self.start_new_conversation())
+                        new_history = future.result()
+                except Exception as e:
+                    logger.error(f"开始新对话失败: {e}")
+                    return [{"role": "assistant", "content": f"错误: {str(e)}"}], ""
                 
                 return new_history, ""
             
-            def apply_config(use_session, max_events, use_memory):
+            def apply_config(use_session, max_events, use_memory, debug_mode):
                 """应用配置"""
+                # 设置日志级别
+                from contextmind.logger import DEBUG, INFO
+                new_level = DEBUG if debug_mode else INFO
+                from contextmind.logger import ContextMindLogger
+                ContextMindLogger.set_level(new_level)
+                
                 # 异步重新初始化引擎
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(
-                    self.initialize_engine(
-                        use_session=use_session,
-                        use_memory=use_memory,
-                        max_recent_events=int(max_events)
-                    )
-                )
-                loop.close()
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            self.initialize_engine(
+                                use_session=use_session,
+                                use_memory=use_memory,
+                                max_recent_events=int(max_events)
+                            )
+                        )
+                        result = future.result()
+                except Exception as e:
+                    logger.error(f"应用配置失败: {e}")
+                    return self._get_initial_history(), f"配置失败: {str(e)}"
                 
                 # 更新状态显示
                 session_status = "✅" if use_session else "❌"
                 memory_status = "✅" if use_memory else "❌"
-                status = f"当前配置: 会话历史{session_status} | 最大轮数: {int(max_events)} | 长期记忆{memory_status}"
+                debug_status = "✅" if debug_mode else "❌"
+                status = f"当前配置: 会话历史{session_status} | 最大轮数: {int(max_events)} | 长期记忆{memory_status} | 调试模式{debug_status}"
+                
+                # 显示成功消息
+                gr.Info(f"✅ 配置已应用！")
                 
                 return self._get_initial_history(), status
             
@@ -511,7 +543,7 @@ class GradioDemo:
             
             apply_config_btn.click(
                 fn=apply_config,
-                inputs=[use_session_checkbox, max_events_slider, use_memory_checkbox],
+                inputs=[use_session_checkbox, max_events_slider, use_memory_checkbox, debug_mode_checkbox],
                 outputs=[chatbot, config_status]
             )
         
