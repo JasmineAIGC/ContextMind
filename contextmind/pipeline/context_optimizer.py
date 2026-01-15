@@ -2,15 +2,25 @@
 ContextOptimizer - 上下文优化器
 
 优化上下文以适应模型的输入限制，包括压缩、截断和重排。
+
+上下文工程核心能力：
+- 智能限制历史对话数量（默认保留最近6条，约3轮对话）
+- Token限制和截断
+- 重要信息前置
+- 从对话历史中提炼关键信息
 """
 
 from typing import Optional, List, Dict, Any
 import re
 
-from ..data_models import ProcessedContext, ContextItem
+from ..data_models import ProcessedContext, ContextItem, ContextSource
 from ..logger import get_logger
 
 logger = get_logger(__name__)
+
+# 默认配置常量
+DEFAULT_MAX_SESSION_ITEMS = 6  # 默认最多保留6条会话消息（约3轮对话）
+DEFAULT_MAX_MEMORY_ITEMS = 5   # 默认最多保留5条长期记忆
 
 
 class ContextOptimizer:
@@ -18,15 +28,23 @@ class ContextOptimizer:
     上下文优化器
     
     对整合后的上下文进行优化：
+    - 限制会话历史数量（默认保留最近3轮对话）
     - Token限制和截断
     - 重要信息前置
-    - Lost-in-the-Middle 优化（可选）
+    - 智能提炼关键信息
+    
+    上下文工程原则：
+    - 不是所有历史都需要，只保留相关的部分
+    - 长期记忆补充短期历史
+    - 避免信息过载影响LLM表现
     """
     
     def __init__(
         self,
         max_length: Optional[int] = None,
         max_items: Optional[int] = None,
+        max_session_items: int = DEFAULT_MAX_SESSION_ITEMS,
+        max_memory_items: int = DEFAULT_MAX_MEMORY_ITEMS,
         enable_summarization: bool = True,
     ):
         """
@@ -34,11 +52,15 @@ class ContextOptimizer:
         
         Args:
             max_length: 最大文本长度限制（字符数）
-            max_items: 最大上下文项数量限制
+            max_items: 最大上下文项数量限制（总数）
+            max_session_items: 会话历史最大条数（默认6条，约3轮对话）
+            max_memory_items: 长期记忆最大条数（默认5条）
             enable_summarization: 是否启用智能总结和提炼
         """
         self.max_length = max_length
         self.max_items = max_items
+        self.max_session_items = max_session_items
+        self.max_memory_items = max_memory_items
         self.enable_summarization = enable_summarization
     
     def _extract_key_info(self, items: List[ContextItem]) -> Dict[str, Any]:
@@ -116,6 +138,14 @@ class ContextOptimizer:
         """
         优化上下文
         
+        上下文工程核心：不是把所有信息都放入prompt，而是选择最相关的部分。
+        
+        优化策略：
+        1. 按来源分类限制数量（会话历史、长期记忆分别限制）
+        2. 优先保留最近的会话历史
+        3. 优先保留高分数的长期记忆
+        4. 提炼关键信息作为补充
+        
         Args:
             context: 待优化的上下文对象
             max_length: 最大文本长度（覆盖初始化参数）
@@ -139,7 +169,28 @@ class ContextOptimizer:
                         f"{len(key_info['user_preferences'])} preferences, "
                         f"{len(key_info['action_items'])} actions")
         
-        # 限制项数量
+        # ===== 按来源分类限制数量 =====
+        # 分离不同来源的上下文项
+        session_items = [item for item in items if item.source == ContextSource.SESSION]
+        memory_items = [item for item in items if item.source == ContextSource.MEMORY]
+        other_items = [item for item in items if item.source not in (ContextSource.SESSION, ContextSource.MEMORY)]
+        
+        # 限制会话历史数量（只保留最近的）
+        if len(session_items) > self.max_session_items:
+            session_items = session_items[-self.max_session_items:]  # 保留最近的
+            context.metadata['session_truncated'] = True
+            logger.debug(f"Session items limited to last {self.max_session_items}")
+        
+        # 限制长期记忆数量（保留分数最高的）
+        if len(memory_items) > self.max_memory_items:
+            memory_items = sorted(memory_items, key=lambda x: x.score, reverse=True)[:self.max_memory_items]
+            context.metadata['memory_truncated'] = True
+            logger.debug(f"Memory items limited to top {self.max_memory_items}")
+        
+        # 重新组合：长期记忆在前，会话历史在后，其他项最后
+        items = memory_items + session_items + other_items
+        
+        # 全局项数量限制（如果设置了max_it）
         if max_it and len(items) > max_it:
             items = items[:max_it]
             context.metadata['truncated_by_count'] = True
