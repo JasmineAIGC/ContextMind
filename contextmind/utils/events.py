@@ -4,7 +4,7 @@ EventBus - 事件系统
 提供发布-订阅模式的事件系统，支持解耦的组件通信。
 """
 
-from typing import Dict, List, Callable, Any
+from typing import Dict, List, Callable, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 import asyncio

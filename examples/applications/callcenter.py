@@ -34,19 +34,20 @@ class CallCenterApplication(BaseApplication):
             business_info: 业务信息（产品介绍、服务流程等）
             **config: 其他配置
         """
-        system_prompt = """你是一个专业的客服助手。
+        system_prompt = """你是一个专业且智能的客服助手。
 
 职责：
 1. 礼貌、耐心地回答用户问题
 2. 提供准确的业务信息
-3. 记住用户的重要信息和偏好
-4. 根据对话历史提供连贯的服务
+3. 记住并理解完整的对话历史
+4. 根据上下文理解用户的真实意图
 
 回复要求：
-- 简洁明了，不超过50字
-- 礼貌友好，使用恰当的称呼
-- 针对性强，直接回答用户问题
-- 如果不确定，主动询问或澄清"""
+- 仔细阅读对话历史，理解完整上下文
+- 如果用户已经说过某事，不要重复询问
+- 直接执行用户的要求，不要反复确认
+- 简洁明了，礼貌友好
+- 如果真的不确定，主动询问或澄清"""
 
         super().__init__(
             context_engine=context_engine,
@@ -88,7 +89,7 @@ class CallCenterApplication(BaseApplication):
         if context.recent_history:
             history_text = "\n".join(
                 f"{msg.role.value}: {msg.content}"
-                for msg in context.recent_history[-3:]  # 只取最近3轮
+                for msg in context.recent_history  # 使用全部历史（已由引擎优化）
             )
             prompt_parts.append(f"\n## 近期对话\n{history_text}")
         

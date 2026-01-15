@@ -33,11 +33,11 @@ async def main():
     parser = argparse.ArgumentParser(description='ContextMind v3.1 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
-    parser.add_argument('--max-events', type=int, default=10, help='最大历史轮数 (默认: 10)')
+    parser.add_argument('--max-events', type=int, default=20, help='最大历史轮数 (默认: 20)')
     args = parser.parse_args()
     
     # 设置日志
-    setup_logging(level=INFO, log_to_console=True, auto_create_file=False)
+    setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
     
     print("=" * 60)
     print("ContextMind v3.1 Interactive Demo")
