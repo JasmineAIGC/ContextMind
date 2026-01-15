@@ -3,7 +3,19 @@ Gradio UI 版本的交互式对话演示
 适合对外演示使用
 """
 
-import gradio as gr
+try:
+    import gradio as gr
+except ImportError:
+    print("=" * 60)
+    print("❌ 错误: 未安装 gradio")
+    print("=" * 60)
+    print("💡 解决方案:")
+    print("   pip install gradio>=4.0.0")
+    print("   或者: pip install -r requirements.txt")
+    print("=" * 60)
+    import sys
+    sys.exit(1)
+
 import asyncio
 import time
 import random
@@ -116,19 +128,22 @@ class GradioDemo:
             memory_service = InMemoryMemoryService()
         else:
             memory_service = None
+        
+        # 如果禁用会话历史，设置max_recent_events为0
+        effective_max_events = self.max_recent_events if self.use_session else 0
             
         engine = ContextEngine(
             app_name="callcenter-gradio",
             user_id="gradio-user",
             llm_client=client,
-            max_recent_events=self.max_recent_events,
+            max_recent_events=effective_max_events,  # 使用实际有效值
             base_system_prompt=base_prompt,
             user_profile=user_profile,
             business_rules=business_rules,
             memory_service=memory_service,
         )
             
-        logger.info(f"🔧 [Gradio] 已创建引擎 (会话:{self.use_session}, 记忆:{self.use_memory})")
+        logger.info(f"🔧 [Gradio] 已创建引擎 (会话:{self.use_session}, 记忆:{self.use_memory}, 最大轮数:{effective_max_events})")
         return engine
 
     async def _seed_long_term_memory(self):
