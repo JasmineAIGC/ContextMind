@@ -196,7 +196,7 @@ class ContextEngine:
         # 5. 转换为 ContextResult
         context_result = self._convert_to_context_result(optimized_context)
         
-        logger.info(
+        logger.debug(
             f"Context optimized: {len(context_result.recent_history)} history, "
             f"{len(context_result.long_term_memory)} memory items"
         )

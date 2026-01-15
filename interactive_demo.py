@@ -122,13 +122,16 @@ async def main():
     while True:
         # 获取用户输入
         try:
-            user_input = input("你: ").strip()
+            user_input = input("\n你: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\n\n👋 再见！")
             break
         
         if not user_input:
             continue
+        
+        # 记录用户输入到日志
+        logger.info(f"你: {user_input}")
         
         if user_input.lower() in ["quit", "exit", "退出", "再见"]:
             print("\n👋 再见！")
@@ -166,6 +169,9 @@ async def main():
             response = await app.process_turn(user_input)
             
             print(f"助手: {response}\n")
+            
+            # 记录助手回复到日志
+            logger.info(f"助手: {response}")
             
         except Exception as e:
             print(f"\n❌ 错误: {str(e)}\n")

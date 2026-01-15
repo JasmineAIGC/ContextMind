@@ -93,6 +93,6 @@ class ContextCollector:
         context.metadata['include_knowledge'] = include_knowledge
         context.metadata['total_items'] = len(context.items)
         
-        logger.info(f"Collected {len(context.items)} context items")
+        logger.debug(f"Collected {len(context.items)} context items")
         
         return context

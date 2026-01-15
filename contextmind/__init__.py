@@ -188,4 +188,4 @@ __all__ = [
     "CircuitState",
 ]
 
-__version__ = "3.2.2"
+__version__ = "3.2.3"
