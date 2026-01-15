@@ -73,7 +73,14 @@ class VectorRetrievalStrategy(RetrievalStrategy):
         基于向量相似度检索
         
         注意：这是预留接口，当前返回空列表。
-        实际使用时需要实现嵌入和向量检索逻辑。
+        实际使用时需要配合 foundation.VectorClient 和嵌入模型实现。
+        
+        实现指南：
+        1. 使用 embedding_model 将 query 转换为向量
+        2. 在 vector_db 中搜索相似向量
+        3. 返回相似度高于阈值的结果
+        
+        示例代码参考 foundation/vector_client.py
         """
         if not self.embedding_model or not self.vector_db:
             logger.warning("VectorRetrievalStrategy: embedding_model or vector_db not configured")
@@ -81,10 +88,8 @@ class VectorRetrievalStrategy(RetrievalStrategy):
         
         logger.debug(f"VectorRetrievalStrategy: query='{query}', limit={limit}")
         
-        # TODO: 实现向量检索逻辑
-        # 1. 使用 embedding_model 将 query 转换为向量
-        # 2. 在 vector_db 中搜索相似向量
-        # 3. 返回相似度高于阈值的结果
+        # 当embedding_model和vector_db配置后，在此实现向量检索逻辑
+        # 参考实现已在 foundation.VectorClient 中提供
         
         return []
 
