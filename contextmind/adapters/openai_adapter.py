@@ -106,15 +106,22 @@ class OpenAIAdapter(BaseAdapter):
         Returns:
             生成的响应文本
         """
+        # 将消息列表转换为单个prompt字符串（用于 generate 方法）
+        def messages_to_prompt(msgs: List[Dict[str, str]]) -> str:
+            parts = []
+            for msg in msgs:
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                parts.append(f"{role}: {content}")
+            return "\n".join(parts)
+        
+        prompt = messages_to_prompt(messages)
+        
         # 如果有 LLM 客户端，使用它
         if self.llm_client:
             try:
-                # 使用 Client.chat() 方法
-                response, _ = self.llm_client.chat(
-                    messages=messages,
-                    temperature=kwargs.get('temperature'),
-                    max_tokens=kwargs.get('max_tokens'),
-                )
+                # 使用 Client.generate() 方法
+                _, response = self.llm_client.generate(prompt)
                 return response
             except Exception as e:
                 # 记录错误但继续（降级处理）
@@ -124,11 +131,7 @@ class OpenAIAdapter(BaseAdapter):
         # 如果引擎有 LLM 客户端，使用它
         if self.engine and self.engine.llm_client:
             try:
-                response, _ = self.engine.llm_client.chat(
-                    messages=messages,
-                    temperature=kwargs.get('temperature'),
-                    max_tokens=kwargs.get('max_tokens'),
-                )
+                _, response = self.engine.llm_client.generate(prompt)
                 return response
             except Exception as e:
                 import logging

@@ -1,11 +1,13 @@
 """
-ContextEngine - 上下文引擎核心模块 v3.1
+ContextEngine - 上下文引擎核心模块 v3.2
 
 完全重构的上下文引擎，基于多层架构设计：
 - 应用层：使用引擎的应用（示例：客服、聊天机器人等）
-- 引擎层：ContextEngine 统一接口
+- 适配器层：对话系统集成接口
+- 引擎层：ContextEngine 统一接口 + FlowController + CircuitBreaker
 - 流水线层：InputProcessor, ContextCollector, ContextIntegrator, ContextOptimizer, KnowledgeExtractor
 - 策略层：可插拔的策略实现
+- 基础层：TokenizerService, VectorClient, CacheManager
 
 核心职责：
 1. 上下文优化 (optimize)
@@ -48,7 +50,7 @@ logger = get_logger(__name__)
 
 class ContextEngine:
     """
-    上下文引擎 v3.1
+    上下文引擎 v3.2
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult
@@ -60,6 +62,7 @@ class ContextEngine:
     - 模块解耦：Pipeline、Manager、Strategy各司其职
     - 易于扩展：所有策略都可插拔替换
     - 异步优先：全面使用async/await
+    - 容错机制：FlowController 和 CircuitBreaker 保障稳定性
     
     使用示例：
         ```python
