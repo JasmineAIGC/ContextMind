@@ -3,7 +3,7 @@ OpenAIAdapter - OpenAI 对话系统适配器
 
 支持与 OpenAI API 格式兼容的对话系统集成。
 
-v3.3 更新：
+v3.2 更新：
 - 真正调用 LLM API 生成响应
 - 使用增强后的 system prompt（包含长期记忆和外部知识）
 """
@@ -21,7 +21,7 @@ class OpenAIAdapter(BaseAdapter):
     
     支持标准的 OpenAI Chat Completions API 格式。
     
-    v3.3 更新：
+    v3.2 更新：
     - 真正调用 LLM 客户端生成响应
     - 使用 get_enhanced_system_prompt() 整合长期记忆
     """
@@ -55,7 +55,7 @@ class OpenAIAdapter(BaseAdapter):
         # 构建 OpenAI 格式的消息列表
         messages = []
         
-        # ===== v3.3 关键改进：使用增强后的 system prompt =====
+        # ===== v3.2 关键改进：使用增强后的 system prompt =====
         # 这会将长期记忆和外部知识整合到 system prompt 中
         enhanced_system_prompt = enhanced_context.get_enhanced_system_prompt()
         if enhanced_system_prompt:
@@ -77,7 +77,7 @@ class OpenAIAdapter(BaseAdapter):
             'content': user_input
         })
         
-        # ===== v3.3 关键改进：真正调用 LLM API =====
+        # ===== v3.2 关键改进：真正调用 LLM API =====
         response_content = await self._call_llm(messages, **kwargs)
         
         # 更新引擎状态

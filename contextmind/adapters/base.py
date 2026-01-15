@@ -3,7 +3,7 @@ BaseAdapter - 对话系统适配器基类
 
 定义了将 ContextMind 集成到对话系统的标准接口。
 
-v3.3 更新：
+v3.2 更新：
 - 增强上下文注入机制，将长期记忆和外部知识整合到system prompt
 - 支持构建完整的增强prompt
 """
@@ -59,7 +59,7 @@ class DialogContext:
     system_prompt: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
     
-    # v3.3新增：增强的上下文字段
+    # v3.2新增：增强的上下文字段
     long_term_memory_text: str = ""  # 长期记忆的文本表示
     external_knowledge_text: str = ""  # 外部知识的文本表示
     
@@ -109,11 +109,11 @@ class BaseAdapter(ABC):
     
     主要功能：
     1. 消息格式转换
-    2. 上下文注入（v3.3增强：真正整合到prompt）
+    2. 上下文注入（v3.2增强：真正整合到prompt）
     3. 响应处理
     4. 会话管理
     
-    v3.3更新：
+    v3.2更新：
     - inject_context() 现在会将长期记忆和外部知识整合到system_prompt
     - 新增 build_context_text() 方法用于格式化上下文
     """
@@ -255,7 +255,7 @@ class BaseAdapter(ABC):
         base_context: Optional[DialogContext] = None
     ) -> DialogContext:
         """
-        注入优化后的上下文（v3.3增强版）
+        注入优化后的上下文（v3.2增强版）
         
         核心变化：
         - 长期记忆和外部知识不再只是放入metadata
@@ -298,7 +298,7 @@ class BaseAdapter(ABC):
                 metadata=msg.metadata
             ))
         
-        # ===== v3.3 关键改进：构建上下文文本 =====
+        # ===== v3.2 关键改进：构建上下文文本 =====
         # 长期记忆 -> 格式化为文本
         dialog_context.long_term_memory_text = self._build_memory_text(context_result)
         
