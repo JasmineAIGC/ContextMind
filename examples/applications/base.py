@@ -98,6 +98,8 @@ class BaseApplication(ABC):
             if context_result.recent_history:
                 logger.debug(f"\n【优化后的对话历史】（共 {len(context_result.recent_history)} 轮对话将被用于构建Prompt）")
                 logger.debug(f"  📝 上下文来源: SessionService（会话历史存储）")
+                logger.debug(f"  💾 存储位置: 内存（InMemorySessionService），程序重启后清空")
+                logger.debug(f"  📦 存储容量: 当前 {len(context_result.recent_history)} 条 / 最大 9999 条")
                 logger.debug(f"  📊 提炼策略: 智能提取关键信息 + 保留完整对话")
                 logger.debug(f"  🎯 优化结果: 这些对话将在build_prompt()中被添加到'## 近期对话'部分")
                 logger.debug(f"\n  最近 {min(10, len(context_result.recent_history))} 轮内容预览：")
@@ -120,6 +122,8 @@ class BaseApplication(ABC):
             if context_result.long_term_memory:
                 logger.debug(f"\n【优化后的长期记忆】（共 {len(context_result.long_term_memory)} 项记忆将被用于构建Prompt）")
                 logger.debug(f"  📝 上下文来源: MemoryService（长期记忆存储）")
+                logger.debug(f"  💾 存储位置: 持久化存储（InMemoryMemoryService），跨会话保留")
+                logger.debug(f"  📦 检索结果: 从长期记忆中检索到 {len(context_result.long_term_memory)} 项相关记忆")
                 logger.debug(f"  📊 提炼策略: 基于语义相似度检索，按相关性排序")
                 logger.debug(f"  🎯 优化结果: 这些记忆将在build_prompt()中被添加到'## 用户历史信息'部分")
                 logger.debug(f"\n  前 {min(5, len(context_result.long_term_memory))} 项内容（按相关性排序）：")
@@ -129,6 +133,11 @@ class BaseApplication(ABC):
             else:
                 logger.debug(f"\n【优化后的长期记忆】（无相关记忆）")
                 logger.debug(f"  💡 说明: 当前查询未匹配到相关的长期记忆")
+                logger.debug(f"  🔍 可能原因:")
+                logger.debug(f"     1. MemoryService未配置（启动时需添加 --use-memory 参数）")
+                logger.debug(f"     2. 未植入种子数据（需调用 seed_memory()）")
+                logger.debug(f"     3. 查询语义与种子数据相似度不高")
+                logger.debug(f"  📖 详见文档: docs/CONTEXT_FLOW_DETAILED.md")
             
             # 显示外部知识详情（如果有）
             if context_result.external_knowledge:
