@@ -137,9 +137,6 @@ class GradioDemo:
             user_id="gradio-user",
             llm_client=client,
             max_recent_events=effective_max_events,  # 使用实际有效值
-            base_system_prompt=base_prompt,
-            user_profile=user_profile,
-            business_rules=business_rules,
             memory_service=memory_service,
         )
             

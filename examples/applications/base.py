@@ -97,7 +97,10 @@ class BaseApplication(ABC):
             # 显示优化后的对话历史详情（如果有）
             if context_result.recent_history:
                 logger.debug(f"\n【优化后的对话历史】（共 {len(context_result.recent_history)} 轮对话将被用于构建Prompt）")
-                logger.debug(f"  最近 {min(10, len(context_result.recent_history))} 轮内容预览：")
+                logger.debug(f"  📝 上下文来源: SessionService（会话历史存储）")
+                logger.debug(f"  📊 提炼策略: 保留最近 {len(context_result.recent_history)} 轮完整对话")
+                logger.debug(f"  🎯 优化结果: 这些对话将在build_prompt()中被添加到'## 近期对话'部分")
+                logger.debug(f"\n  最近 {min(10, len(context_result.recent_history))} 轮内容预览：")
                 # 从后往前显示最近的10轮
                 recent_msgs = list(reversed(context_result.recent_history[-10:]))
                 for i, msg in enumerate(recent_msgs, 1):
@@ -105,26 +108,35 @@ class BaseApplication(ABC):
                     logger.debug(f"  {i}. {msg.role.value}: {preview}")
             else:
                 logger.debug(f"\n【优化后的对话历史】（无历史对话）")
+                logger.debug(f"  💡 说明: 这是对话的第一轮，暂无历史记录")
             
             # 显示长期记忆详情（如果有）
             if context_result.long_term_memory:
                 logger.debug(f"\n【优化后的长期记忆】（共 {len(context_result.long_term_memory)} 项记忆将被用于构建Prompt）")
-                logger.debug(f"  前 {min(5, len(context_result.long_term_memory))} 项内容（按相关性排序）：")
+                logger.debug(f"  📝 上下文来源: MemoryService（长期记忆存储）")
+                logger.debug(f"  📊 提炼策略: 基于语义相似度检索，按相关性排序")
+                logger.debug(f"  🎯 优化结果: 这些记忆将在build_prompt()中被添加到'## 用户历史信息'部分")
+                logger.debug(f"\n  前 {min(5, len(context_result.long_term_memory))} 项内容（按相关性排序）：")
                 for i, item in enumerate(context_result.long_term_memory[:5], 1):
                     preview = item.content[:100] + ('...' if len(item.content) > 100 else '')
                     logger.debug(f"  {i}. {preview} (相关性: {item.score:.2f})")
             else:
                 logger.debug(f"\n【优化后的长期记忆】（无相关记忆）")
+                logger.debug(f"  💡 说明: 当前查询未匹配到相关的长期记忆")
             
             # 显示外部知识详情（如果有）
             if context_result.external_knowledge:
                 logger.debug(f"\n【优化后的外部知识】（共 {len(context_result.external_knowledge)} 项知识将被用于构建Prompt）")
-                logger.debug(f"  前 {min(5, len(context_result.external_knowledge))} 项内容：")
+                logger.debug(f"  📝 上下文来源: 外部知识库（如向量数据库、知识图谱等）")
+                logger.debug(f"  📊 提炼策略: 基于查询相关性检索")
+                logger.debug(f"  🎯 优化结果: 这些知识将在build_prompt()中被添加到相应部分")
+                logger.debug(f"\n  前 {min(5, len(context_result.external_knowledge))} 项内容：")
                 for i, item in enumerate(context_result.external_knowledge[:5], 1):
                     preview = item.content[:100] + ('...' if len(item.content) > 100 else '')
                     logger.debug(f"  {i}. {preview}")
             else:
                 logger.debug(f"\n【优化后的外部知识】（无外部知识）")
+                logger.debug(f"  💡 说明: 当前未配置外部知识库或未检索到相关知识")
             
             logger.debug("")
         
