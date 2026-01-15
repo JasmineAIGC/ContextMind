@@ -81,22 +81,56 @@ class BaseApplication(ABC):
             include_memory=True,
         )
         
-        # Debug模式：打印上下文结果
+        # Debug模式：打印详细的上下文优化结果
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("=" * 40 + " CONTEXT RESULT " + "=" * 40)
-            logger.debug(f"Recent History: {len(context_result.recent_history)} messages")
-            logger.debug(f"Long-term Memory: {len(context_result.long_term_memory)} items")
-            logger.debug(f"External Knowledge: {len(context_result.external_knowledge)} items")
-            logger.debug("=" * 95)
+            logger.debug("\n" + "=" * 100)
+            logger.debug("CONTEXT OPTIMIZATION RESULT".center(100))
+            logger.debug("=" * 100)
+            
+            # 显示优化后的上下文统计
+            logger.debug(f"\n【统计信息】")
+            logger.debug(f"  - 近期对话: {len(context_result.recent_history)} 条消息")
+            logger.debug(f"  - 长期记忆: {len(context_result.long_term_memory)} 项")
+            logger.debug(f"  - 外部知识: {len(context_result.external_knowledge)} 项")
+            
+            # 显示优化后的对话历史详情（如果有）
+            if context_result.recent_history:
+                logger.debug(f"\n【近期对话内容】（共 {len(context_result.recent_history)} 轮）")
+                for i, msg in enumerate(context_result.recent_history[-10:], 1):  # 显示最近10轮
+                    logger.debug(f"  {i}. {msg.role.value}: {msg.content[:80]}{'...' if len(msg.content) > 80 else ''}")
+            
+            # 显示长期记忆详情（如果有）
+            if context_result.long_term_memory:
+                logger.debug(f"\n【长期记忆内容】")
+                for i, item in enumerate(context_result.long_term_memory[:5], 1):  # 显示前5项
+                    logger.debug(f"  {i}. {item.content[:80]}{'...' if len(item.content) > 80 else ''} (相关性: {item.score:.2f})")
+            
+            # 显示外部知识详情（如果有）
+            if context_result.external_knowledge:
+                logger.debug(f"\n【外部知识内容】")
+                for i, item in enumerate(context_result.external_knowledge[:5], 1):  # 显示前5项
+                    logger.debug(f"  {i}. {item.content[:80]}{'...' if len(item.content) > 80 else ''}")
+            
+            logger.debug("=" * 100)
         
         # 2. 构建Prompt
         prompt = self.build_prompt(user_input, context_result)
         
-        # Debug模式：打印完整Prompt
+        # Debug模式：打印完整Prompt及其构成分析
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("=" * 40 + " COMPLETE PROMPT " + "=" * 40)
+            logger.debug("\n" + "=" * 100)
+            logger.debug("COMPLETE PROMPT SENT TO LLM".center(100))
+            logger.debug("=" * 100)
             logger.debug(prompt)
-            logger.debug("=" * 95)
+            logger.debug("=" * 100)
+            
+            # 分析Prompt的构成
+            logger.debug(f"\n【Prompt构成分析】")
+            logger.debug(f"  - 总字符数: {len(prompt)}")
+            logger.debug(f"  - 包含对话历史: {'是' if '## 近期对话' in prompt or 'recent_history' in prompt.lower() else '否'}")
+            logger.debug(f"  - 包含长期记忆: {'是' if '## 用户历史信息' in prompt or 'long_term_memory' in prompt.lower() else '否'}")
+            logger.debug(f"  - 包含业务信息: {'是' if '## 业务信息' in prompt or 'business_info' in prompt.lower() else '否'}")
+            logger.debug("=" * 100 + "\n")
         
         # 3. 调用LLM
         _, response = self.llm_client.generate(prompt)
