@@ -93,7 +93,7 @@ class ContextEngine:
         llm_client: Optional[Client] = None,
         session_service: Optional[BaseSessionService] = None,
         memory_service: Optional[BaseMemoryService] = None,
-        max_recent_events: int = 10,
+        max_recent_events: int = 9999,
     ):
         """
         初始化上下文引擎
@@ -104,7 +104,7 @@ class ContextEngine:
             llm_client: LLM客户端实例（可选）
             session_service: Session服务实例，默认使用InMemorySessionService
             memory_service: Memory服务实例，默认使用InMemoryMemoryService
-            max_recent_events: 保留的最大近期事件数量
+            max_recent_events: 保留的最大近期事件数量（默认9999，实际不限制）
         """
         self.app_name = app_name
         self.user_id = user_id

@@ -43,7 +43,7 @@ class SessionManager:
         session_service: BaseSessionService,
         app_name: str,
         user_id: str,
-        max_recent_events: int = 10,
+        max_recent_events: int = 9999,
     ):
         """
         初始化会话管理器
@@ -52,7 +52,7 @@ class SessionManager:
             session_service: ADK Session Service 实例
             app_name: 应用名称，用于区分不同应用
             user_id: 用户ID，用于区分不同用户
-            max_recent_events: 保留的最大近期事件数量，默认10
+            max_recent_events: 保留的最大近期事件数量，默认9999（实际不限制）
         """
         self.session_service = session_service
         self.app_name = app_name

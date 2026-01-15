@@ -16,14 +16,21 @@ from contextmind import (
     ClientConfig,
     setup_logging,
     INFO,
+    DEBUG,
 )
 from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import InMemorySessionService
 
 from examples.applications.callcenter import CallCenterApplication
 
+# 导入logger（用于记录对话）
+from contextmind.logger import get_logger
+
 # 加载环境变量
 load_dotenv()
+
+# 创建logger
+logger = get_logger(__name__)
 
 
 async def main():
@@ -33,11 +40,14 @@ async def main():
     parser = argparse.ArgumentParser(description='ContextMind v3.1 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
-    parser.add_argument('--max-events', type=int, default=20, help='最大历史轮数 (默认: 20)')
+    parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数 (默认: 9999，实际不限制)')
+    parser.add_argument('--debug', action='store_true', help='启用调试模式（打印上下文和完整prompt）')
     args = parser.parse_args()
     
-    # 设置日志
-    setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
+    # 设置日志（debug模式时使用DEBUG级别）
+    from contextmind import DEBUG
+    log_level = DEBUG if args.debug else INFO
+    setup_logging(level=log_level, log_to_console=True, auto_create_file=True)
     
     print("=" * 60)
     print("ContextMind v3.1 Interactive Demo")
@@ -50,6 +60,7 @@ async def main():
     print(f"   - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
     print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
     print(f"   - 最大轮数: {args.max_events}")
+    print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
     # 初始化LLM客户端
@@ -157,6 +168,7 @@ async def main():
             print(f"  - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
             print(f"  - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
             print(f"  - 最大轮数: {args.max_events}")
+            print(f"  - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
             print()
             continue
         

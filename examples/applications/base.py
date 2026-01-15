@@ -10,6 +10,7 @@ BaseApplication - 应用层基类
 
 from abc import ABC, abstractmethod
 from typing import Optional
+import logging
 
 from contextmind import ContextEngine, Client, ContextResult
 from contextmind.logger import get_logger
@@ -80,8 +81,22 @@ class BaseApplication(ABC):
             include_memory=True,
         )
         
+        # Debug模式：打印上下文结果
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("=" * 40 + " CONTEXT RESULT " + "=" * 40)
+            logger.debug(f"Recent History: {len(context_result.recent_history)} messages")
+            logger.debug(f"Long-term Memory: {len(context_result.long_term_memory)} items")
+            logger.debug(f"External Knowledge: {len(context_result.external_knowledge)} items")
+            logger.debug("=" * 95)
+        
         # 2. 构建Prompt
         prompt = self.build_prompt(user_input, context_result)
+        
+        # Debug模式：打印完整Prompt
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("=" * 40 + " COMPLETE PROMPT " + "=" * 40)
+            logger.debug(prompt)
+            logger.debug("=" * 95)
         
         # 3. 调用LLM
         _, response = self.llm_client.generate(prompt)
