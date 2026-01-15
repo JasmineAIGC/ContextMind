@@ -132,6 +132,7 @@ python gradio_demo.py
 - [最佳实践](docs/BEST_PRACTICES.md)
 - [上下文流程详解](docs/CONTEXT_FLOW_DETAILED.md)
 - [基础层文档](docs/FOUNDATION_LAYER.md)
+- [日志分析指南](docs/LOG_ANALYSIS_GUIDE.md)
 
 ## 环境变量
 
