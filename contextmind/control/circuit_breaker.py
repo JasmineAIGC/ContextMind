@@ -10,7 +10,7 @@ CircuitBreaker - 熔断器
 
 from __future__ import annotations
 
-from typing import Optional, Callable, Any, TypeVar, Awaitable
+from typing import Optional, Callable, Any, TypeVar, Awaitable, Dict
 from enum import Enum
 from datetime import datetime, timedelta
 import asyncio

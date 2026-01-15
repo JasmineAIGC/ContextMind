@@ -9,6 +9,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import asyncio
 
+from ..logger import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class Event:
@@ -104,7 +108,7 @@ class EventBus:
                     callback(event)
                 except Exception as e:
                     # 不因单个订阅者的错误而中断
-                    print(f"Error in event callback: {e}")
+                    logger.warning(f"Error in event callback: {e}")
     
     async def publish_async(self, event_name: str, data: Any = None, source: str = ""):
         """
@@ -131,7 +135,7 @@ class EventBus:
                     if asyncio.iscoroutine(result):
                         tasks.append(result)
                 except Exception as e:
-                    print(f"Error in event callback: {e}")
+                    logger.warning(f"Error in event callback: {e}")
             
             # 等待所有异步回调完成
             if tasks:

@@ -5,6 +5,7 @@ ContextIntegrator - 上下文整合器
 """
 
 from typing import Optional
+from datetime import datetime
 
 from ..data_models import ProcessedContext, ContextItem
 from ..logger import get_logger
@@ -62,8 +63,7 @@ class ContextIntegrator:
         
         # 排序：先按分数（降序），再按时间（降序）
         # 使用 datetime.min 作为默认值来处理 None 时间戳
-        from datetime import datetime as dt
-        items.sort(key=lambda x: (x.score, x.timestamp if x.timestamp else dt.min), reverse=True)
+        items.sort(key=lambda x: (x.score, x.timestamp if x.timestamp else datetime.min), reverse=True)
         
         # 更新上下文
         context.items = items

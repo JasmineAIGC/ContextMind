@@ -4,7 +4,7 @@ ContextOptimizer - 上下文优化器
 优化上下文以适应模型的输入限制，包括压缩、截断和重排。
 """
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import re
 
 from ..data_models import ProcessedContext, ContextItem
@@ -41,7 +41,7 @@ class ContextOptimizer:
         self.max_items = max_items
         self.enable_summarization = enable_summarization
     
-    def _extract_key_info(self, items: List[ContextItem]) -> Dict[str, any]:
+    def _extract_key_info(self, items: List[ContextItem]) -> Dict[str, Any]:
         """
         从对话历史中提炼关键信息
         

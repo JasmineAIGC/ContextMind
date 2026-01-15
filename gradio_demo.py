@@ -251,10 +251,6 @@ class GradioDemo:
         ]
         
         # 将开场白添加到引擎的session
-        from google.adk.events.event import Event
-        from google.genai.types import Content, Part
-        import uuid
-        
         if self.engine:
             try:
                 # 通过 session_manager 添加开场白
@@ -382,7 +378,6 @@ class GradioDemo:
         3. 调用 update() 更新会话历史
         """
         from contextmind.logger import get_logger, ContextMindLogger
-        import logging
         import time
         local_logger = get_logger(__name__)
         
@@ -425,7 +420,7 @@ class GradioDemo:
             )
             
             # 使用 box 格式化日志
-            is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
+            is_debug = ContextMindLogger.get_current_level() <= DEBUG
             self._log_engine_box(result, is_debug)
             
             return response

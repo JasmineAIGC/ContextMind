@@ -10,6 +10,9 @@ v3.3 更新：
 
 from typing import Optional, List, Dict, Any
 from .base import BaseAdapter, DialogContext, DialogMessage
+from ..logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class OpenAIAdapter(BaseAdapter):
@@ -125,8 +128,7 @@ class OpenAIAdapter(BaseAdapter):
                 return response
             except Exception as e:
                 # 记录错误但继续（降级处理）
-                import logging
-                logging.warning(f"LLM call failed: {e}, using fallback")
+                logger.warning(f"LLM call failed: {e}, using fallback")
         
         # 如果引擎有 LLM 客户端，使用它
         if self.engine and self.engine.llm_client:
@@ -134,8 +136,7 @@ class OpenAIAdapter(BaseAdapter):
                 _, response = self.engine.llm_client.generate(prompt)
                 return response
             except Exception as e:
-                import logging
-                logging.warning(f"Engine LLM call failed: {e}, using fallback")
+                logger.warning(f"Engine LLM call failed: {e}, using fallback")
         
         # 降级：返回提示信息（仅用于测试/开发）
         return f"[LLM未配置] 请设置 llm_client 参数。收到消息: {messages[-1]['content']}"
