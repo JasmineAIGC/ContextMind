@@ -113,7 +113,7 @@ async def main():
         context_engine=context_engine,
         llm_client=llm_client,
         business_info=business_info.strip(),
-        auto_extract_knowledge=args.use_memory,  # 只在启用记忆时提取知识
+        auto_extract_knowledge=True,  # 始终启用知识提取，从对话中学习
     )
     print("✅ 客服应用初始化完成")
     print()

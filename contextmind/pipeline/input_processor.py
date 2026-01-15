@@ -57,6 +57,6 @@ class InputProcessor:
         # 移除多余的空白字符
         processed = re.sub(r'\s+', ' ', processed)
         
-        logger.debug(f"Processed input: {processed[:100]}...")
+        logger.debug(f"Processed input: {processed}")
         
         return processed

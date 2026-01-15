@@ -72,7 +72,7 @@ class BaseApplication(ABC):
         Returns:
             助手回复
         """
-        logger.debug(f"Processing turn for input: {user_input[:50]}...")
+        logger.debug(f"Processing turn for input: {user_input}")
         
         # 1. 优化上下文
         context_result = await self.context_engine.optimize(
@@ -102,12 +102,10 @@ class BaseApplication(ABC):
                 logger.debug(f"  📦 存储容量: 当前 {len(context_result.recent_history)} 条 / 最大 9999 条")
                 logger.debug(f"  📊 提炼策略: 智能提取关键信息 + 保留完整对话")
                 logger.debug(f"  🎯 优化结果: 这些对话将在build_prompt()中被添加到'## 近期对话'部分")
-                logger.debug(f"\n  最近 {min(10, len(context_result.recent_history))} 轮内容预览：")
-                # 从后往前显示最近的10轮
-                recent_msgs = list(reversed(context_result.recent_history[-10:]))
-                for i, msg in enumerate(recent_msgs, 1):
-                    preview = msg.content[:100] + ('...' if len(msg.content) > 100 else '')
-                    logger.debug(f"  {i}. {msg.role.value}: {preview}")
+                logger.debug(f"\n  对话历史内容（debug模式下完整显示）：")
+                # 显示所有历史对话，不截断
+                for i, msg in enumerate(context_result.recent_history, 1):
+                    logger.debug(f"  {i}. {msg.role.value}: {msg.content}")
                 
                 # 显示智能提炼的关键信息
                 logger.debug(f"\n  【从对话中智能提炼的关键信息】")
@@ -126,18 +124,26 @@ class BaseApplication(ABC):
                 logger.debug(f"  📦 检索结果: 从长期记忆中检索到 {len(context_result.long_term_memory)} 项相关记忆")
                 logger.debug(f"  📊 提炼策略: 基于语义相似度检索，按相关性排序")
                 logger.debug(f"  🎯 优化结果: 这些记忆将在build_prompt()中被添加到'## 用户历史信息'部分")
-                logger.debug(f"\n  前 {min(5, len(context_result.long_term_memory))} 项内容（按相关性排序）：")
-                for i, item in enumerate(context_result.long_term_memory[:5], 1):
-                    preview = item.content[:100] + ('...' if len(item.content) > 100 else '')
-                    logger.debug(f"  {i}. {preview} (相关性: {item.score:.2f})")
+                logger.debug(f"\n  长期记忆内容（debug模式下完整显示）：")
+                for i, item in enumerate(context_result.long_term_memory, 1):
+                    logger.debug(f"  {i}. {item.content} (相关性: {item.score:.2f})")
             else:
                 logger.debug(f"\n【优化后的长期记忆】（无相关记忆）")
                 logger.debug(f"  💡 说明: 当前查询未匹配到相关的长期记忆")
-                logger.debug(f"  🔍 可能原因:")
-                logger.debug(f"     1. MemoryService未配置（启动时需添加 --use-memory 参数）")
-                logger.debug(f"     2. 未植入种子数据（需调用 seed_memory()）")
-                logger.debug(f"     3. 查询语义与种子数据相似度不高")
-                logger.debug(f"  📖 详见文档: docs/CONTEXT_FLOW_DETAILED.md")
+            
+            # 显示长期记忆数据库（本地缓存）完整内容
+            memory_cache = self.context_engine.memory_manager.get_memory_cache() if hasattr(self.context_engine, 'memory_manager') else []
+            logger.debug(f"\n【长期记忆数据库】（共 {len(memory_cache)} 条记忆，debug模式下全部显示）")
+            logger.debug(f"  💾 说明: 长期记忆是从对话历史中提取的知识、经验、策略等信息")
+            logger.debug(f"  📝 来源: 通过 KnowledgeExtractor 从多源上下文中自动提取")
+            if memory_cache:
+                logger.debug(f"\n  完整记忆库内容：")
+                for i, item in enumerate(memory_cache, 1):
+                    source_name = item.source.value if item.source else 'unknown'
+                    logger.debug(f"  {i}. [{source_name}] {item.content}")
+            else:
+                logger.debug(f"\n  记忆库为空")
+                logger.debug(f"  💡 提示: 启用 auto_extract_knowledge=True 自动从对话中提取知识")
             
             # 显示外部知识详情（如果有）
             if context_result.external_knowledge:
@@ -145,10 +151,9 @@ class BaseApplication(ABC):
                 logger.debug(f"  📝 上下文来源: 外部知识库（如向量数据库、知识图谱等）")
                 logger.debug(f"  📊 提炼策略: 基于查询相关性检索")
                 logger.debug(f"  🎯 优化结果: 这些知识将在build_prompt()中被添加到相应部分")
-                logger.debug(f"\n  前 {min(5, len(context_result.external_knowledge))} 项内容：")
-                for i, item in enumerate(context_result.external_knowledge[:5], 1):
-                    preview = item.content[:100] + ('...' if len(item.content) > 100 else '')
-                    logger.debug(f"  {i}. {preview}")
+                logger.debug(f"\n  外部知识内容（debug模式下完整显示）：")
+                for i, item in enumerate(context_result.external_knowledge, 1):
+                    logger.debug(f"  {i}. {item.content}")
             else:
                 logger.debug(f"\n【优化后的外部知识】（无外部知识）")
                 logger.debug(f"  💡 说明: 当前未配置外部知识库或未检索到相关知识")
@@ -197,7 +202,7 @@ class BaseApplication(ABC):
         if self.config.get('auto_extract_knowledge', False):
             await self.context_engine.extract_knowledge(auto_store=True)
         
-        logger.debug(f"Turn processed, response: {response[:50]}...")
+        logger.debug(f"Turn processed, response: {response}")
         
         return response
     

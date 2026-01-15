@@ -323,6 +323,17 @@ class MemoryManager:
         
         return "\n".join(fragment for fragment in fragments if fragment)
     
+    def get_memory_cache(self) -> List[ContextItem]:
+        """
+        获取本地记忆缓存的完整内容
+        
+        用于debug模式下查看所有已存储的长期记忆。
+        
+        Returns:
+            本地缓存中所有的上下文条目列表
+        """
+        return list(self._local_cache)
+    
     @staticmethod
     def _new_invocation_id() -> str:
         """生成新的调用ID"""

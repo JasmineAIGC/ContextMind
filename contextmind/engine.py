@@ -174,7 +174,7 @@ class ContextEngine:
         Raises:
             ValueError: 如果输入无效
         """
-        logger.debug(f"Optimizing context for input: {user_input[:50]}...")
+        logger.debug(f"Optimizing context for input: {user_input}")
         
         # 1. 预处理输入
         processed_input = await self.input_processor.process(user_input)
