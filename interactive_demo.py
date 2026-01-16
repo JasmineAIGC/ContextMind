@@ -57,7 +57,7 @@ async def main():
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数 (默认: 9999，实际不限制)')
     parser.add_argument('--history-turns', type=int, default=10, help='Prompt中包含的历史对话轮数 (默认: 10)')
-    parser.add_argument('--enable-thinking', action='store_true', help='允许模型思考过程')
+    parser.add_argument('--enable-memory-thinking', action='store_true', help='允许记忆处理过程中的思考（生成、检索、更新记忆时）')
     parser.add_argument('--debug', action='store_true', help='启用调试模式（打印上下文和完整prompt）')
     args = parser.parse_args()
     
@@ -78,16 +78,16 @@ async def main():
     print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
     print(f"   - 最大轮数: {args.max_events}")
     print(f"   - Prompt历史轮数: {args.history_turns}")
-    print(f"   - 模型思考: {'✅ 启用' if args.enable_thinking else '❌ 禁用'}")
+    print(f"   - 记忆思考: {'✅ 启用' if args.enable_memory_thinking else '❌ 禁用'}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
     # 初始化LLM客户端
     print("🔧 初始化LLM客户端...")
     client_config = ClientConfig.from_env()
-    # 配置思考模式
-    if args.enable_thinking:
-        client_config.chat_template_kwargs = {"enable_thinking": True}
+    # 注意：机器人回复时不显示思考过程，只根据完整prompt直接回答
+    # enable_memory_thinking 参数用于控制记忆处理（生成/检索/更新）时是否允许思考
+    # 但当前版本暂未实现记忆处理的思考功能，该参数为未来预留
     llm_client = Client(config=client_config)
     print(f"✅ LLM客户端初始化完成: {llm_client.config.model}")
     print()
@@ -108,9 +108,9 @@ async def main():
     # 如果启用长期记忆，植入业务知识种子
     if args.use_memory:
         print("🧠 植入业务知识种子...")
-        # 将预设知识合并为一条，作为不变的任务/身份
+        # 将预设知识合并为一条，使用结构化格式，作为不变的任务/身份
         business_facts = [
-            "产品：安逸花/马上消费 | 功能：额度提升、资金周转、优惠福利 | 服务：7x24小时 | 联系：support@example.com",
+            "[预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com",
         ]
         await context_engine.seed_memory(business_facts)
         print(f"✅ 已植入 {len(business_facts)} 条业务知识")

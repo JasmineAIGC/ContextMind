@@ -60,7 +60,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return knowledge
     
     def _extract_preferences(self, messages: List[Message]) -> List[Knowledge]:
-        """提取用户偏好和关键策略"""
+        """提取用户偏好和关键策略，使用结构化格式存储"""
         preferences = []
         
         for msg in messages:
@@ -69,27 +69,29 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             
             content = msg.content
             
-            # 喜欢的内容 - 提取更具体的偏好
+            # 喜欢的内容 - 提取更具体的偏好，使用结构化格式
             for word in ["喜欢", "想要", "希望", "需要", "偏好"]:
                 if word in content:
                     # 提取关键信息而非整句
                     key_info = self._extract_key_phrase(content, word)
                     if key_info and len(key_info) > 3:  # 至少4个字符
+                        # 使用更清晰的格式：[类型] 关键词: 具体内容
                         preferences.append(Knowledge(
-                            content=f"用户偏好: {key_info}",
+                            content=f"[偏好] {word}: {key_info}",
                             type=KnowledgeType.PREFERENCE,
                             confidence=0.8,
                             metadata={'sentiment': 'positive', 'keyword': word}
                         ))
                     break
             
-            # 不喜欢的内容 - 提取拒绝策略
+            # 不喜欢的内容 - 提取拒绝策略，使用结构化格式
             for word in ["不喜欢", "不想", "不要", "拒绝", "不感兴趣"]:
                 if word in content:
                     key_info = self._extract_key_phrase(content, word)
                     if key_info and len(key_info) > 3:
+                        # 使用更清晰的格式：[类型] 关键词: 具体内容
                         preferences.append(Knowledge(
-                            content=f"用户拒绝策略: {key_info}",
+                            content=f"[拒绝] {word}: {key_info}",
                             type=KnowledgeType.PREFERENCE,
                             confidence=0.8,
                             metadata={'sentiment': 'negative', 'keyword': word}
@@ -118,7 +120,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return content[:30]  # 回退：返回前30个字符
     
     def _extract_facts(self, messages: List[Message]) -> List[Knowledge]:
-        """提取关键事实和用户信息"""
+        """提取关键事实和用户信息，使用结构化格式存储"""
         facts = []
         
         fact_patterns = [
@@ -149,8 +151,9 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     
                     # 至少2个字符且不超过30个字符
                     if 2 <= len(cleaned) <= 30:
+                        # 使用更清晰的格式：[事实] 类别: 具体内容
                         facts.append(Knowledge(
-                            content=f"{category}: {cleaned}",
+                            content=f"[事实] {category}: {cleaned}",
                             type=KnowledgeType.FACT,
                             confidence=0.75,
                             metadata={'category': category}
@@ -159,7 +162,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return facts
     
     def _extract_events(self, messages: List[Message]) -> List[Knowledge]:
-        """提取关键事件和重要决策"""
+        """提取关键事件和重要决策，使用结构化格式存储"""
         events = []
         
         # 重要事件关键词
@@ -184,8 +187,9 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 提取包含关键词的短语而非整句
                     key_phrase = self._extract_key_phrase(content, keyword)
                     if key_phrase and len(key_phrase) > 3:
+                        # 使用更清晰的格式：[决策] 动作: 具体内容
                         events.append(Knowledge(
-                            content=f"关键决策: {key_phrase}",
+                            content=f"[决策] {keyword}: {key_phrase}",
                             type=KnowledgeType.EVENT,
                             confidence=confidence,
                             metadata={'keyword': keyword, 'source_role': msg.role.value}
