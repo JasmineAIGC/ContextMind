@@ -1,11 +1,54 @@
+📝 日志文件: /share/airesearch/data/yejiang.zhou/workspace/ContextMind/logs/contextmind_20260116_145123.log
+✅ 日志系统初始化完成 (级别: INFO)
+📝 日志文件: /share/airesearch/data/yejiang.zhou/workspace/ContextMind/logs/contextmind_20260116_145123.log
+✅ 日志系统初始化完成 (级别: INFO)
+============================================================
+ContextMind v3.2 Interactive Demo
+通用、可扩展的上下文优化框架
+============================================================
+
+⚙️  当前配置:
+   - 会话历史: ✅ 启用
+   - 长期记忆: ✅ 启用
+   - 最大轮数: 9999
+   - Prompt历史轮数: 10
+   - 记忆思考: ❌ 禁用
+   - 调试模式: ❌ 禁用
+
+🔧 初始化LLM客户端...
 [2026-01-16 14:51:23] INFO - Initializing client with model: Qwen2.5-72B-Instruct-AWQ
+✅ LLM客户端初始化完成: Qwen2.5-72B-Instruct-AWQ
+
+🔧 初始化上下文引擎...
 [2026-01-16 14:51:23] INFO - ContextEngine initialized for app=demo-app, user=demo-user
+✅ 上下文引擎初始化完成
+
+🧠 植入业务知识种子...
 [2026-01-16 14:51:23] INFO - Seeding 1 facts into long-term memory...
 [2026-01-16 14:51:23] INFO - ✓ Added 1 seed facts to local cache (total cache size: 1)
 [2026-01-16 14:51:23] INFO - Successfully seeded 1 facts to memory
+✅ 已植入 1 条业务知识
+
+🔧 初始化客服应用...
 [2026-01-16 14:51:23] INFO - Application initialized: CallCenterApplication
+✅ 客服应用初始化完成
+
+============================================================
+开始对话（输入 'quit' 或 'exit' 退出）
+特殊命令：
+  /clear  - 清空会话
+  /status - 查看状态
+  /config - 显示当前配置
+============================================================
+
+助手: 您好，我是优逸花客服，有个预留额度业务要介绍。
+
 [2026-01-16 14:51:23] INFO - 助手: 您好，我是优逸花客服，有个预留额度业务要介绍。
+
+你: 什么业务
 [2026-01-16 14:51:35] INFO - 你: 什么业务
+
+[第 1 轮]
 [2026-01-16 14:51:35] INFO - No memories from Memory Service, falling back to local cache (size=1)
 [2026-01-16 14:51:35] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.21)
 [2026-01-16 14:51:35] INFO - ================================================================================
@@ -16,8 +59,14 @@
 [2026-01-16 14:51:35] INFO - ⚠ No relevant memories (all scores < 0.30)
 [2026-01-16 14:51:35] INFO - ✓ Prompt includes 1 turns of history (max=10)
 [2026-01-16 14:51:36] INFO - Extracted 0 knowledge items
+助手: 预留额度业务可以帮助您提前获得一定的信用额度，方便急需用款时快速使用。需要了解更多信息或申请吗？
+
 [2026-01-16 14:51:36] INFO - 助手: 预留额度业务可以帮助您提前获得一定的信用额度，方便急需用款时快速使用。需要了解更多信息或申请吗？
+
+你:  预留额度是什么
 [2026-01-16 14:52:00] INFO - 你: 预留额度是什么
+
+[第 2 轮]
 [2026-01-16 14:52:00] INFO - No memories from Memory Service, falling back to local cache (size=1)
 [2026-01-16 14:52:00] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.23)
 [2026-01-16 14:52:00] INFO - ================================================================================
@@ -28,8 +77,14 @@
 [2026-01-16 14:52:00] INFO - ⚠ No relevant memories (all scores < 0.30)
 [2026-01-16 14:52:00] INFO - ✓ Prompt includes 3 turns of history (max=10)
 [2026-01-16 14:52:01] INFO - Extracted 0 knowledge items
+助手: 预留额度是预先为您保留的一笔信用额度，当您需要资金时可以快速使用，无需再次申请审批。这有助于提高资金使用的灵活性和便捷性。需要了解更多详情或申请吗？
+
 [2026-01-16 14:52:01] INFO - 助手: 预留额度是预先为您保留的一笔信用额度，当您需要资金时可以快速使用，无需再次申请审批。这有助于提高资金使用的灵活性和便捷性。需要了解更多详情或申请吗？
+
+你: 我用不上
 [2026-01-16 14:52:16] INFO - 你: 我用不上
+
+[第 3 轮]
 [2026-01-16 14:52:16] INFO - No memories from Memory Service, falling back to local cache (size=1)
 [2026-01-16 14:52:16] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.21)
 [2026-01-16 14:52:16] INFO - ================================================================================
@@ -40,8 +95,14 @@
 [2026-01-16 14:52:16] INFO - ⚠ No relevant memories (all scores < 0.30)
 [2026-01-16 14:52:16] INFO - ✓ Prompt includes 5 turns of history (max=10)
 [2026-01-16 14:52:17] INFO - Extracted 0 knowledge items
+助手: 了解了，如果您未来有资金需求或想了解其他服务，随时欢迎咨询。祝您生活愉快！
+
 [2026-01-16 14:52:17] INFO - 助手: 了解了，如果您未来有资金需求或想了解其他服务，随时欢迎咨询。祝您生活愉快！
+
+你:   我不需要小额贷款，可以有大额的吗
 [2026-01-16 14:52:33] INFO - 你: 我不需要小额贷款，可以有大额的吗
+
+[第 4 轮]
 [2026-01-16 14:52:33] INFO - No memories from Memory Service, falling back to local cache (size=1)
 [2026-01-16 14:52:33] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.22)
 [2026-01-16 14:52:33] INFO - ================================================================================
@@ -52,8 +113,14 @@
 [2026-01-16 14:52:33] INFO - ⚠ No relevant memories (all scores < 0.30)
 [2026-01-16 14:52:33] INFO - ✓ Prompt includes 6 turns of history (max=10)
 [2026-01-16 14:52:34] INFO - Extracted and stored 3 knowledge items
+助手: 安逸花支持大额贷款服务，您可以根据需求申请更高的信用额度。需要了解具体申请流程或条件吗？
+
 [2026-01-16 14:52:34] INFO - 助手: 安逸花支持大额贷款服务，您可以根据需求申请更高的信用额度。需要了解具体申请流程或条件吗？
+
+你: 有什么要求
 [2026-01-16 14:52:48] INFO - 你: 有什么要求
+
+[第 5 轮]
 [2026-01-16 14:52:48] INFO - No memories from Memory Service, falling back to local cache (size=3)
 [2026-01-16 14:52:48] INFO - ✓ Retrieved 3 memories from local cache (top score: 0.25)
 [2026-01-16 14:52:48] INFO - ================================================================================
@@ -66,8 +133,14 @@
 [2026-01-16 14:52:48] INFO - ⚠ No relevant memories (all scores < 0.30)
 [2026-01-16 14:52:48] INFO - ✓ Prompt includes 6 turns of history (max=10)
 [2026-01-16 14:52:49] INFO - Extracted and stored 3 knowledge items
+助手: 预留额度业务没有特殊要求，只要您是安逸花/马上消费的用户，即可申请。需要进一步了解或申请吗？
+
 [2026-01-16 14:52:49] INFO - 助手: 预留额度业务没有特殊要求，只要您是安逸花/马上消费的用户，即可申请。需要进一步了解或申请吗？
+
+你: 我说大额贷款有什么要求
 [2026-01-16 14:53:10] INFO - 你: 我说大额贷款有什么要求
+
+[第 6 轮]
 [2026-01-16 14:53:10] INFO - No memories from Memory Service, falling back to local cache (size=3)
 [2026-01-16 14:53:10] INFO - ✓ Retrieved 3 memories from local cache (top score: 0.34)
 [2026-01-16 14:53:10] INFO - ================================================================================
@@ -81,8 +154,14 @@
 [2026-01-16 14:53:10] INFO -   ✓ [1] [PREFERENCE] [拒绝] 不需要: 小额贷款，可以有大额的吗 (score=0.34)
 [2026-01-16 14:53:10] INFO - ✓ Prompt includes 6 turns of history (max=10)
 [2026-01-16 14:53:11] INFO - Extracted and stored 3 knowledge items
+助手: 大额贷款通常需要提供详细的个人信息、收入证明、信用记录等。具体要求可查看安逸花/马上消费的官方页面或联系客服详细咨询。需要我帮您查询更详细的信息吗？
+
 [2026-01-16 14:53:11] INFO - 助手: 大额贷款通常需要提供详细的个人信息、收入证明、信用记录等。具体要求可查看安逸花/马上消费的官方页面或联系客服详细咨询。需要我帮您查询更详细的信息吗？
+
+你: 需要
 [2026-01-16 14:53:29] INFO - 你: 需要
+
+[第 7 轮]
 [2026-01-16 14:53:29] INFO - No memories from Memory Service, falling back to local cache (size=3)
 [2026-01-16 14:53:29] INFO - ✓ Retrieved 3 memories from local cache (top score: 0.90)
 [2026-01-16 14:53:29] INFO - ================================================================================
@@ -96,4 +175,6 @@
 [2026-01-16 14:53:29] INFO -   ✓ [1] [PREFERENCE] [拒绝] 不需要: 小额贷款，可以有大额的吗 (score=0.90)
 [2026-01-16 14:53:29] INFO - ✓ Prompt includes 6 turns of history (max=10)
 [2026-01-16 14:53:30] INFO - Extracted and stored 3 knowledge items
+助手: 如果您不需要预留额度，您可以选择不使用这项服务。我们还有其他如额度提升、资金周转等业务，需要了解这些吗？
+
 [2026-01-16 14:53:30] INFO - 助手: 如果您不需要预留额度，您可以选择不使用这项服务。我们还有其他如额度提升、资金周转等业务，需要了解这些吗？
