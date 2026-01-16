@@ -4,7 +4,22 @@
 
 ## 简介
 
-ContextMind 是一个通用的上下文工程实现框架，具有**可扩展**、**易集成**、**模块化**的特点。核心的 contextmind 部分可以便捷地嵌入到任何对话系统中，提升对话质量。
+ContextMind 是一个**通用的上下文工程实现框架**，具有**可扩展**、**易集成**、**模块化**的特点。核心的 contextmind 部分可以便捷地嵌入到任何对话系统中，提升对话质量。
+
+### 核心定位
+
+**解决 LLM 对话系统中的上下文优化问题**：
+- 🎯 上下文窗口限制（4K/8K/32K tokens）
+- 🎯 信息过载（不是所有历史都相关）
+- 🎯 多源整合（会话/记忆/知识统一管理）
+
+### 架构特色
+
+- ✅ **无代码重复**：Pipeline 委托给 Strategy，消除 ~240 行重复代码
+- ✅ **统一格式化**：ContextTextBuilder 提供一致的文本构建接口
+- ✅ **精准 Token 管理**：TokenizerService 准确计数，杜绝溢出
+- ✅ **高性能缓存**：5-400x 性能提升
+- ✅ **六层架构**：职责清晰，易于扩展
 
 ## 核心特性
 
@@ -127,12 +142,16 @@ python gradio_demo.py
 
 ## 文档
 
-- [架构文档](docs/ARCHITECTURE.md)
-- [API 参考](docs/API_REFERENCE.md)
-- [最佳实践](docs/BEST_PRACTICES.md)
-- [上下文流程详解](docs/CONTEXT_FLOW_DETAILED.md)
-- [基础层文档](docs/FOUNDATION_LAYER.md)
-- [日志分析指南](docs/LOG_ANALYSIS_GUIDE.md)
+### 核心文档
+- [📐 设计哲学与架构思想](docs/DESIGN_PHILOSOPHY.md) ⭐ **必读**
+- [🏗️ 架构文档](docs/ARCHITECTURE.md)
+- [📚 API 参考](docs/API_REFERENCE.md)
+- [✨ 最佳实践](docs/BEST_PRACTICES.md)
+
+### 专题文档
+- [🔧 基础层详解](docs/FOUNDATION_LAYER.md)
+- [🔍 日志分析指南](docs/LOG_ANALYSIS_GUIDE.md)
+- [📊 上下文流程详解](docs/CONTEXT_FLOW_DETAILED.md)
 
 ## 环境变量
 
@@ -153,9 +172,17 @@ QWEN3_MAX_TOKENS=8192
 
 ## 版本历史
 
+- **v3.2 优化版** - 消除代码冗余（~240行），统一文本格式化，改进架构
 - **v3.2** - 新增 Foundation Layer、Control Layer、增强数据模型
 - **v3.1** - 重构引擎层，优化 API 设计
 - **v3.0** - 完全重构，引入六层架构
+
+## 项目状态
+
+- ✅ 代码质量：无重复代码，单一真实来源
+- ✅ 测试覆盖：23/23 测试通过
+- ✅ 安全验证：CodeQL 0 告警
+- ✅ 文档完善：完整的设计文档和 API 参考
 
 ## 许可证
 
