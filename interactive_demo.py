@@ -33,13 +33,18 @@ load_dotenv()
 # 创建logger
 logger = get_logger(__name__)
 
-# 系统开场白选项（随机选择一个）
+# 系统开场白选项（随机选择一个）- 安逸花客服场景
 OPENING_SCRIPTS = [
-    "您好！我是智能助手 Pro，很高兴为您服务。请问有什么可以帮助您的吗？",
-    "您好，我是智能助手 Pro。有什么我可以帮您的吗？",
-    "您好！欢迎使用智能助手 Pro。我能为您做些什么？",
-    "您好，我是您的专属智能助手。请问需要什么帮助？",
-    "您好！智能助手 Pro 为您服务。有什么问题可以随时问我。",
+    "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
+    "您好，我是马上消费的客服，有个好消息要通知您。",
+    "您好，打扰您一下，有个重要业务需要跟您确认一下。",
+    "您好，我是优逸花客服，有个专属福利要通知您。",
+    "您好，耽误您两分钟时间，有个限时优惠要介绍给您。",
+    "您好，我是马上消费工作人员，有个额度提升的好消息。",
+    "您好，打扰您了，有个重要提醒需要通知您。",
+    "您好，我是优逸花客服，有个预留额度业务要介绍。",
+    "您好，有个限时福利要通知您，耽误您一分钟好吗？",
+    "您好，我是马上消费客服，有个资金周转的好方案要介绍。",
 ]
 
 
@@ -51,6 +56,8 @@ async def main():
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数 (默认: 9999，实际不限制)')
+    parser.add_argument('--history-turns', type=int, default=10, help='Prompt中包含的历史对话轮数 (默认: 10)')
+    parser.add_argument('--enable-thinking', action='store_true', help='允许模型思考过程')
     parser.add_argument('--debug', action='store_true', help='启用调试模式（打印上下文和完整prompt）')
     args = parser.parse_args()
     
@@ -70,12 +77,18 @@ async def main():
     print(f"   - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
     print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
     print(f"   - 最大轮数: {args.max_events}")
+    print(f"   - Prompt历史轮数: {args.history_turns}")
+    print(f"   - 模型思考: {'✅ 启用' if args.enable_thinking else '❌ 禁用'}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
     # 初始化LLM客户端
     print("🔧 初始化LLM客户端...")
-    llm_client = Client(config=ClientConfig.from_env())
+    client_config = ClientConfig.from_env()
+    # 配置思考模式
+    if args.enable_thinking:
+        client_config.chat_template_kwargs = {"enable_thinking": True}
+    llm_client = Client(config=client_config)
     print(f"✅ LLM客户端初始化完成: {llm_client.config.model}")
     print()
     
@@ -95,11 +108,9 @@ async def main():
     # 如果启用长期记忆，植入业务知识种子
     if args.use_memory:
         print("🧠 植入业务知识种子...")
+        # 将预设知识合并为一条，作为不变的任务/身份
         business_facts = [
-            "产品名称：智能助手 Pro",
-            "主要功能：智能对话、知识问答、任务管理",
-            "服务时间：7x24小时在线",
-            "联系方式：support@example.com",
+            "产品：安逸花/马上消费 | 功能：额度提升、资金周转、优惠福利 | 服务：7x24小时 | 联系：support@example.com",
         ]
         await context_engine.seed_memory(business_facts)
         print(f"✅ 已植入 {len(business_facts)} 条业务知识")
@@ -109,9 +120,9 @@ async def main():
     print("🔧 初始化客服应用...")
     business_info = """
 产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
+- 安逸花/马上消费 是一款智能金融服务产品
+- 支持额度提升、资金周转、优惠福利等业务
+- 提供个性化服务，记住用户需求
 
 服务承诺：
 - 7x24小时在线服务
@@ -124,6 +135,7 @@ async def main():
         llm_client=llm_client,
         business_info=business_info.strip(),
         auto_extract_knowledge=True,  # 始终启用知识提取，从对话中学习
+        history_turns=args.history_turns,  # 传递历史轮数参数
     )
     print("✅ 客服应用初始化完成")
     print()

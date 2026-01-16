@@ -173,9 +173,8 @@ class Client:
             # 添加 chat_template_kwargs（如果存在）
             if self.config.chat_template_kwargs:
                 extra_body["chat_template_kwargs"] = self.config.chat_template_kwargs
-            else:
-                # 默认关闭思考过程
-                extra_body["chat_template_kwargs"] = {"enable_thinking": False}
+            # 如果未配置，默认关闭思考（保持向后兼容）
+            # 如果要启用思考，需要在config中显式设置 chat_template_kwargs={"enable_thinking": True}
 
             # 调用 OpenAI Chat Completions API
             response = self._client.chat.completions.create(
