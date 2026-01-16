@@ -89,6 +89,7 @@ from .utils import (
     ContextVisualizer,
     EventBus,
     Event,
+    ContextTextBuilder,  # 统一文本构建工具
 )
 
 # 基础层 (v3.2 新增)
@@ -173,6 +174,7 @@ __all__ = [
     "ContextVisualizer",
     "EventBus",
     "Event",
+    "ContextTextBuilder",  # 统一文本构建工具
     
     # 基础层 (v3.2)
     "TokenizerService",

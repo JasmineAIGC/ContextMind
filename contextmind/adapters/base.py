@@ -6,6 +6,7 @@ BaseAdapter - 对话系统适配器基类
 v3.2 更新：
 - 增强上下文注入机制，将长期记忆和外部知识整合到system prompt
 - 支持构建完整的增强prompt
+- 使用 ContextTextBuilder 统一文本格式化
 """
 
 from abc import ABC, abstractmethod
@@ -14,6 +15,7 @@ from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
 
 from ..data_models import Message, ContextResult
+from ..utils import ContextTextBuilder
 
 
 @dataclass
@@ -71,23 +73,14 @@ class DialogContext:
         """
         获取增强后的系统提示
         
-        将长期记忆和外部知识整合到系统提示中
+        将长期记忆和外部知识整合到系统提示中。
+        使用 ContextTextBuilder 统一格式化。
         """
-        parts = []
-        
-        # 基础系统提示
-        if self.system_prompt:
-            parts.append(self.system_prompt)
-        
-        # 长期记忆
-        if self.long_term_memory_text:
-            parts.append(f"\n## 用户相关信息（长期记忆）\n{self.long_term_memory_text}")
-        
-        # 外部知识
-        if self.external_knowledge_text:
-            parts.append(f"\n## 相关知识\n{self.external_knowledge_text}")
-        
-        return "\n".join(parts)
+        return ContextTextBuilder.build_enhanced_system_prompt(
+            base_prompt=self.system_prompt,
+            memory_text=self.long_term_memory_text,
+            knowledge_text=self.external_knowledge_text
+        )
     
     def to_dict(self) -> dict:
         """转换为字典格式"""
@@ -207,7 +200,7 @@ class BaseAdapter(ABC):
         """
         构建长期记忆的文本表示
         
-        将长期记忆条目格式化为可读文本，用于注入到prompt中
+        使用 ContextTextBuilder 统一格式化。
         
         Args:
             context_result: 上下文优化结果
@@ -215,24 +208,17 @@ class BaseAdapter(ABC):
         Returns:
             格式化的长期记忆文本
         """
-        if not context_result.long_term_memory:
-            return ""
-        
-        memory_items = []
-        for item in context_result.long_term_memory:
-            # 包含相关性分数
-            if item.score < 1.0:
-                memory_items.append(f"- {item.content} (相关性: {item.score:.1%})")
-            else:
-                memory_items.append(f"- {item.content}")
-        
-        return "\n".join(memory_items)
+        return ContextTextBuilder.build_memory_text(
+            context_result.long_term_memory,
+            include_score=True,
+            score_threshold=1.0
+        )
     
     def _build_knowledge_text(self, context_result: ContextResult) -> str:
         """
         构建外部知识的文本表示
         
-        将外部知识条目格式化为可读文本，用于注入到prompt中
+        使用 ContextTextBuilder 统一格式化。
         
         Args:
             context_result: 上下文优化结果
@@ -240,14 +226,9 @@ class BaseAdapter(ABC):
         Returns:
             格式化的外部知识文本
         """
-        if not context_result.external_knowledge:
-            return ""
-        
-        knowledge_items = []
-        for item in context_result.external_knowledge:
-            knowledge_items.append(f"- {item.content}")
-        
-        return "\n".join(knowledge_items)
+        return ContextTextBuilder.build_knowledge_text(
+            context_result.external_knowledge
+        )
     
     async def inject_context(
         self,
