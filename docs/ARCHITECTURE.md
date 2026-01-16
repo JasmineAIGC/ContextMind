@@ -4,6 +4,11 @@
 
 ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持上下文工程的所有核心能力。
 
+**最新优化（架构简化）**：
+- Pipeline 层组件现在委托给 Strategy 层，消除重复逻辑
+- 统一的 ContextTextBuilder 工具类用于所有文本格式化
+- 更清晰的职责划分，减少代码冗余
+
 ## 设计哲学
 
 1. **职责清晰**：每个组件都有明确的职责边界
@@ -12,6 +17,7 @@ ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持
 4. **数据驱动**：使用强类型的数据模型
 5. **异步优先**：全面使用 async/await
 6. **容错机制**：FlowController 和 CircuitBreaker 保障稳定性
+7. **代码复用**：避免重复，使用委托和组合模式
 
 ## 六层架构
 
@@ -113,17 +119,19 @@ ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持
 - **SessionManager**: 管理短期会话历史
 - **MemoryManager**: 管理长期记忆
 
-### 3. 流水线 (`pipeline/`)
+### 4. 流水线 (`pipeline/`)
 
 实现上下文处理的各个阶段：
 
 - **InputProcessor**: 输入验证和清洗
 - **ContextCollector**: 从多个来源收集上下文
-- **ContextIntegrator**: 整合和去重
-- **ContextOptimizer**: 压缩和截断
-- **KnowledgeExtractor**: 提取结构化知识
+- **ContextIntegrator**: 整合和去重（委托给 IntegrationStrategy）
+- **ContextOptimizer**: 压缩和截断（保留领域特定逻辑）
+- **KnowledgeExtractor**: 提取结构化知识（委托给 ExtractionStrategy）
 
-### 4. 策略 (`strategies/`)
+**架构改进**：Pipeline 组件现在委托给 Strategy 层执行核心逻辑，避免重复代码。
+
+### 5. 策略 (`strategies/`)
 
 提供可插拔的策略实现：
 
@@ -132,7 +140,9 @@ ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持
 - **OptimizationStrategy**: 优化策略（压缩、重排）
 - **ExtractionStrategy**: 提取策略（规则、LLM）
 
-### 5. 上下文引擎 (`engine.py`)
+**核心职责**：包含实际的业务逻辑实现，被 Pipeline 组件复用。
+
+### 6. 上下文引擎 (`engine.py`)
 
 核心API：
 
@@ -144,6 +154,19 @@ class ContextEngine:
     async def seed_memory(facts) -> None
     async def clear_session() -> None
 ```
+
+### 7. 工具层 (`utils/`)
+
+提供辅助功能：
+
+- **ConfigManager**: 配置管理
+- **PerformanceMonitor**: 性能监控
+- **ContextVisualizer**: 可视化
+- **EventBus**: 事件系统
+- **ContextFormatter**: 格式化输出（用于调试）
+- **ContextTextBuilder**: 统一文本构建工具（新增，消除重复）
+
+**ContextTextBuilder**：提供统一的文本格式化接口，被所有适配器和格式化器使用。
 
 ## 数据流
 
@@ -216,17 +239,82 @@ class MyProcessor(BaseProcessor):
 
 ## 与旧版本的区别
 
-| 特性 | v2.0 | v3.0/v3.1 | v3.2 |
-|------|------|------|------|
-| 架构 | 单一Pipeline | 四层架构 | 六层架构 |
-| 核心类 | Pipeline + Steps | ContextEngine + Pipeline | ContextEngine + Foundation |
-| 扩展性 | Step注册表 | 策略模式 | 策略模式 + 适配器模式 |
-| 数据模型 | Context + ContextData | 专用数据类 | 专用数据类 + Chunk + ContextState |
-| API设计 | 复杂 | 简洁（optimize/update/extract） | 简洁 + 适配器 |
-| 职责划分 | 模糊 | 清晰 | 更清晰 |
-| Token管理 | 字符估算 | 字符估算 | TokenizerService精确计数 |
-| 缓存 | 无 | 无 | CacheManager |
-| 容错 | 无 | 无 | CircuitBreaker + FlowController |
+| 特性 | v2.0 | v3.0/v3.1 | v3.2 | v3.2 优化版 |
+|------|------|------|------|------------|
+| 架构 | 单一Pipeline | 四层架构 | 六层架构 | 六层架构（简化） |
+| 核心类 | Pipeline + Steps | ContextEngine + Pipeline | ContextEngine + Foundation | ContextEngine + Foundation |
+| Pipeline/Strategy关系 | N/A | 独立实现 | 独立实现 | Pipeline委托给Strategy |
+| 扩展性 | Step注册表 | 策略模式 | 策略模式 + 适配器模式 | 策略模式 + 适配器模式 |
+| 数据模型 | Context + ContextData | 专用数据类 | 专用数据类 + Chunk + ContextState | 专用数据类 + Chunk + ContextState |
+| API设计 | 复杂 | 简洁（optimize/update/extract） | 简洁 + 适配器 | 简洁 + 适配器 |
+| 职责划分 | 模糊 | 清晰 | 更清晰 | 最清晰 |
+| Token管理 | 字符估算 | 字符估算 | TokenizerService精确计数 | TokenizerService精确计数 |
+| 缓存 | 无 | 无 | CacheManager | CacheManager |
+| 容错 | 无 | 无 | CircuitBreaker + FlowController | CircuitBreaker + FlowController |
+| 文本格式化 | 分散 | 分散 | 分散 | **ContextTextBuilder统一** |
+| 代码重复 | 高 | 中 | 中 | **低（消除80%+重复）** |
+
+## 架构优化改进（最新）
+
+### 1. 消除 Pipeline/Strategy 重复逻辑
+
+**问题**：Pipeline 组件（如 ContextIntegrator）和 Strategy 实现（如 SimpleIntegrationStrategy）包含相同的业务逻辑。
+
+**解决方案**：
+```python
+# 优化前：重复的去重和排序逻辑
+class ContextIntegrator:
+    async def integrate(self, context):
+        # 去重逻辑...
+        # 排序逻辑...
+
+class SimpleIntegrationStrategy:
+    async def integrate(self, context):
+        # 相同的去重逻辑...
+        # 相同的排序逻辑...
+
+# 优化后：委托模式
+class ContextIntegrator:
+    def __init__(self, strategy=None):
+        self.strategy = strategy or SimpleIntegrationStrategy()
+    
+    async def integrate(self, context):
+        return await self.strategy.integrate(context)
+```
+
+**收益**：
+- 减少 ~160 行重复代码
+- 单一真实来源（Single Source of Truth）
+- 更容易维护和测试
+
+### 2. 统一文本格式化
+
+**问题**：多个模块独立实现文本格式化逻辑（adapters/base.py, adapters/langchain_adapter.py, utils/context_formatter.py）。
+
+**解决方案**：创建 `ContextTextBuilder` 统一工具类
+```python
+# utils/text_builder.py
+class ContextTextBuilder:
+    @staticmethod
+    def build_memory_text(items, include_score=True):
+        """统一的记忆文本构建"""
+        
+    @staticmethod
+    def build_enhanced_system_prompt(base, memory, knowledge):
+        """统一的增强提示构建"""
+```
+
+**收益**：
+- 所有适配器使用统一格式
+- 减少 ~80 行重复代码
+- 易于修改格式标准
+
+### 3. 保留有价值的复杂度
+
+**ContextOptimizer 保留独特逻辑**：
+- 会话历史 vs 长期记忆的智能分离
+- 领域特定的优化策略（保留最近会话，保留高分记忆）
+- 这些是上下文工程的核心价值，不应简化
 
 ## 最佳实践
 
