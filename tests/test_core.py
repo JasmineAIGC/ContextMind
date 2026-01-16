@@ -258,5 +258,101 @@ class TestFoundation:
         assert stats["misses"] == 1
 
 
+class TestAgentMemorySystem:
+    """测试 Agent Memory System（v3.2新增）"""
+    
+    def test_memory_note_creation(self):
+        """测试 MemoryNote 创建"""
+        from contextmind.data_models import MemoryNote, MemoryType
+        
+        note = MemoryNote(
+            id="test001",
+            content="用户喜欢简洁的回答",
+            memory_type=MemoryType.SEMANTIC,
+            keywords=["用户", "喜欢", "简洁"],
+            tags=["偏好"],
+        )
+        
+        assert note.id == "test001"
+        assert note.content == "用户喜欢简洁的回答"
+        assert note.memory_type == MemoryType.SEMANTIC
+        assert len(note.keywords) == 3
+        assert note.importance_score == 0.5
+        assert note.access_count == 0
+    
+    def test_memory_note_access(self):
+        """测试 MemoryNote 访问记录"""
+        from contextmind.data_models import MemoryNote, MemoryType
+        
+        note = MemoryNote(id="test002", content="测试内容")
+        
+        assert note.access_count == 0
+        assert note.last_accessed is None
+        
+        note.access()
+        assert note.access_count == 1
+        assert note.last_accessed is not None
+        
+        note.access()
+        assert note.access_count == 2
+    
+    def test_memory_note_linking(self):
+        """测试 MemoryNote 关联"""
+        from contextmind.data_models import MemoryNote, MemoryType
+        
+        note1 = MemoryNote(id="note1", content="内容1")
+        note2 = MemoryNote(id="note2", content="内容2")
+        
+        note1.add_link("note2")
+        assert "note2" in note1.linked_memories
+        
+        # 防止重复添加
+        note1.add_link("note2")
+        assert note1.linked_memories.count("note2") == 1
+    
+    def test_memory_note_importance_update(self):
+        """测试 MemoryNote 重要性更新"""
+        from contextmind.data_models import MemoryNote, MemoryType
+        
+        note = MemoryNote(id="test003", content="测试", importance_score=0.8)
+        
+        # 模拟多次访问
+        for _ in range(5):
+            note.access()
+        
+        note.update_importance(decay_factor=0.95)
+        
+        # 重要性应该基于访问热度有所变化
+        assert note.importance_score != 0.8
+    
+    def test_memory_note_to_context_item(self):
+        """测试 MemoryNote 转换为 ContextItem"""
+        from contextmind.data_models import MemoryNote, MemoryType, ContextSource
+        
+        note = MemoryNote(
+            id="test004",
+            content="测试内容",
+            memory_type=MemoryType.EPISODIC,
+            keywords=["测试"],
+            importance_score=0.75,
+        )
+        
+        item = note.to_context_item()
+        
+        assert item.content == "测试内容"
+        assert item.source == ContextSource.MEMORY
+        assert item.score == 0.75
+        assert item.metadata["memory_id"] == "test004"
+        assert item.metadata["memory_type"] == "episodic"
+    
+    def test_memory_type_enum(self):
+        """测试 MemoryType 枚举"""
+        from contextmind.data_models import MemoryType
+        
+        assert MemoryType.WORKING.value == "working"
+        assert MemoryType.SEMANTIC.value == "semantic"
+        assert MemoryType.EPISODIC.value == "episodic"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

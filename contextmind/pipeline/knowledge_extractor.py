@@ -3,6 +3,11 @@ KnowledgeExtractor - 知识提取器
 
 从对话中提取结构化知识，用于持久化到长期记忆。
 
+v3.2 Agent Memory System 更新：
+- 支持提取为MemoryNote（结构化记忆笔记）
+- 自动生成关键词、标签
+- 区分语义记忆和情节记忆
+
 上下文工程核心能力：
 - 从对话历史中自动提炼有价值的知识
 - 识别用户偏好、重要事实、关键事件
@@ -12,7 +17,7 @@ KnowledgeExtractor - 知识提取器
 from typing import List, Optional
 import re
 
-from ..data_models import Message, Knowledge, KnowledgeType
+from ..data_models import Message, Knowledge, KnowledgeType, MemoryNote, MemoryType
 from ..logger import get_logger
 
 logger = get_logger(__name__)

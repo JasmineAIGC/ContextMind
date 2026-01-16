@@ -4,25 +4,46 @@ MemoryManager - 记忆管理器
 封装 Google ADK Memory Service，提供简化的长期记忆管理接口。
 负责管理长期记忆的存储和检索，支持知识植入和智能检索。
 
+v3.2 Agent Memory System 更新：
+- 支持三层记忆模型：工作记忆、语义记忆、情节记忆
+- 结构化记忆笔记（MemoryNote）：关键词、标签、链接
+- 记忆演化机制：动态更新、合并、淘汰
+- 基于Zettelkasten思想的知识网络构建
+
 上下文工程核心能力：
 - 长期记忆存储和检索
 - 跨会话的知识持久化
 - 基于语义相似度的记忆检索
 - 本地缓存提供备用检索
+- 记忆热度评估和动态淘汰
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 import uuid
+import re
 
 from google.adk.memory.base_memory_service import BaseMemoryService
 from google.adk.events.event import Event
 from google.adk.sessions.base_session_service import BaseSessionService
 from google.genai.types import Content, Part
 
-from ..data_models import ContextItem, ContextSource, Knowledge
+from ..data_models import ContextItem, ContextSource, Knowledge, MemoryNote, MemoryType
 from ..logger import get_logger
 
 logger = get_logger(__name__)
+
+# 停用词列表（可配置，支持国际化扩展）
+STOPWORDS = {
+    # 中文常用停用词
+    '的', '了', '是', '在', '有', '和', '与', '或', '我', '你', '他', '她', '它', '们',
+    '这', '那', '什么', '怎么', '为什么', '如何', '哪里', '谁', '哪', '吗', '呢', '啊',
+    '就', '都', '也', '还', '能', '会', '要', '可以', '不', '没', '很', '但', '而',
+    # 英文常用停用词
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who',
+    'this', 'that', 'these', 'those', 'and', 'or', 'but', 'if', 'then',
+}
 
 
 class MemoryManager:
@@ -31,18 +52,27 @@ class MemoryManager:
     
     提供长期记忆的存储、检索和管理功能，是上下文优化框架的核心组件之一。
     
-    主要功能：
+    v3.2 Agent Memory System 架构：
+    基于A-MEM（Agentic Memory）设计，实现智能记忆管理。
+    
+    三层记忆模型：
+    1. 工作记忆（Working Memory）：当前任务的即时上下文，由Session管理
+    2. 语义记忆（Semantic Memory）：结构化知识网络，包含关键词、标签、链接
+    3. 情节记忆（Episodic Memory）：时间序列的事件历史，支持因果链追溯
+    
+    核心功能：
     - 检索相关记忆（支持语义搜索和关键词备用）
-    - 存储知识到长期记忆
-    - 植入记忆种子
-    - 本地缓存用于备用检索
+    - 存储结构化记忆笔记（MemoryNote）
+    - 记忆演化：热度评估、动态淘汰、链接更新
+    - 知识网络构建：自动建立记忆间的语义关联
     
     Attributes:
         memory_service: ADK Memory Service 实例（可选）
         app_name: 应用名称
         user_id: 用户ID
         session_service: Session Service 实例（用于创建临时会话）
-        _local_cache: 本地记忆缓存，用于备用检索
+        _memory_notes: 结构化记忆笔记存储（MemoryNote）
+        _local_cache: 本地记忆缓存，用于备用检索（兼容）
     """
     
     def __init__(
@@ -66,7 +96,10 @@ class MemoryManager:
         self.app_name = app_name
         self.user_id = user_id
         
-        # 本地缓存：存储所有已存储的知识，用于备用检索
+        # v3.2 Agent Memory System: 结构化记忆笔记存储
+        self._memory_notes: Dict[str, MemoryNote] = {}
+        
+        # 本地缓存：存储所有已存储的知识，用于备用检索（兼容旧接口）
         self._local_cache: List[ContextItem] = []
     
     async def retrieve(self, query: str, limit: int = 5) -> List[ContextItem]:
@@ -333,6 +366,289 @@ class MemoryManager:
             本地缓存中所有的上下文条目列表
         """
         return list(self._local_cache)
+    
+    # =========================================================================
+    # v3.2 Agent Memory System - 结构化记忆管理
+    # =========================================================================
+    
+    def create_memory_note(
+        self,
+        content: str,
+        memory_type: MemoryType = MemoryType.SEMANTIC,
+        keywords: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        importance: float = 0.5,
+    ) -> MemoryNote:
+        """
+        创建结构化记忆笔记（A-MEM风格）
+        
+        自动提取关键词、生成描述、建立关联。
+        
+        Args:
+            content: 记忆内容
+            memory_type: 记忆类型（工作/语义/情节）
+            keywords: 关键词列表（可选，不提供则自动提取）
+            tags: 标签列表（可选）
+            importance: 初始重要性分数
+            
+        Returns:
+            创建的MemoryNote对象
+        """
+        note_id = str(uuid.uuid4())[:8]
+        
+        # 自动提取关键词（如果未提供）
+        if keywords is None:
+            keywords = self._extract_keywords(content)
+        
+        # 生成语义描述
+        description = self._generate_description(content, memory_type)
+        
+        note = MemoryNote(
+            id=note_id,
+            content=content,
+            memory_type=memory_type,
+            keywords=keywords,
+            tags=tags or [],
+            description=description,
+            importance_score=importance,
+        )
+        
+        # 查找并建立关联
+        self._link_related_memories(note)
+        
+        # 存储到记忆库
+        self._memory_notes[note_id] = note
+        
+        # 同时添加到本地缓存（兼容）
+        self._local_cache.append(note.to_context_item())
+        
+        logger.debug(f"Created memory note {note_id}: {content[:50]}... "
+                    f"(keywords: {keywords}, links: {len(note.linked_memories)})")
+        
+        return note
+    
+    def _extract_keywords(self, content: str) -> List[str]:
+        """
+        从内容中提取关键词
+        
+        使用简单的规则提取（可扩展为NLP方法）
+        """
+        # 移除标点
+        cleaned = re.sub(r'[^\w\s]', ' ', content)
+        words = cleaned.split()
+        
+        # 过滤停用词和短词（可配置）
+        keywords = [w for w in words if len(w) >= 2 and w not in STOPWORDS]
+        
+        # 去重并取前5个
+        seen = set()
+        unique = []
+        for w in keywords:
+            if w not in seen:
+                seen.add(w)
+                unique.append(w)
+        
+        return unique[:5]
+    
+    def _generate_description(self, content: str, memory_type: MemoryType) -> str:
+        """生成语义描述"""
+        type_labels = {
+            MemoryType.WORKING: "当前任务上下文",
+            MemoryType.SEMANTIC: "知识记录",
+            MemoryType.EPISODIC: "事件记录",
+        }
+        label = type_labels.get(memory_type, "记忆")
+        
+        # 简单截断作为描述
+        short_content = content[:50] + "..." if len(content) > 50 else content
+        return f"{label}: {short_content}"
+    
+    def _link_related_memories(self, note: MemoryNote) -> None:
+        """
+        查找并建立与现有记忆的关联
+        
+        基于关键词重叠度判断语义相关性。
+        需要至少2个关键词重叠才建立关联（避免过度链接）。
+        """
+        if not self._memory_notes:
+            return
+        
+        note_keywords = set(note.keywords)
+        
+        for existing_id, existing in self._memory_notes.items():
+            existing_keywords = set(existing.keywords)
+            overlap = len(note_keywords & existing_keywords)
+            
+            # 需要至少2个关键词重叠才建立关联（避免过度链接）
+            if overlap >= 2:
+                note.add_link(existing_id)
+                existing.add_link(note.id)
+                
+                # 新记忆触发旧记忆的重要性更新
+                existing.update_importance()
+    
+    def retrieve_memory_notes(
+        self,
+        query: str,
+        memory_types: Optional[List[MemoryType]] = None,
+        limit: int = 5,
+    ) -> List[MemoryNote]:
+        """
+        检索相关的记忆笔记
+        
+        支持按类型过滤，返回按重要性排序的结果。
+        
+        Args:
+            query: 查询字符串
+            memory_types: 限定的记忆类型（可选）
+            limit: 返回的最大数量
+            
+        Returns:
+            相关的MemoryNote列表
+        """
+        if not self._memory_notes:
+            return []
+        
+        query_words = set(query.lower().split())
+        scored_notes = []
+        
+        for note in self._memory_notes.values():
+            # 类型过滤
+            if memory_types and note.memory_type not in memory_types:
+                continue
+            
+            # 计算相关性分数
+            content_lower = note.content.lower()
+            
+            # 完整匹配
+            if query.lower() in content_lower:
+                score = 0.9
+            else:
+                # 关键词匹配
+                note_keywords = set(k.lower() for k in note.keywords)
+                overlap = len(query_words & note_keywords)
+                if overlap > 0:
+                    score = 0.5 + (overlap / max(len(query_words), len(note_keywords))) * 0.4
+                else:
+                    # 内容词匹配
+                    content_words = set(content_lower.split())
+                    overlap = len(query_words & content_words)
+                    if overlap > 0:
+                        score = 0.3 + (overlap / max(len(query_words), len(content_words))) * 0.3
+                    else:
+                        score = 0
+            
+            # 结合重要性分数
+            final_score = score * 0.7 + note.importance_score * 0.3
+            
+            if final_score > 0:
+                scored_notes.append((note, final_score))
+        
+        # 按分数排序
+        scored_notes.sort(key=lambda x: x[1], reverse=True)
+        
+        # 标记访问
+        result = []
+        for note, _ in scored_notes[:limit]:
+            note.access()
+            result.append(note)
+        
+        return result
+    
+    def evolve_memories(self) -> int:
+        """
+        记忆演化：更新重要性、淘汰低价值记忆
+        
+        模拟人类记忆的遗忘和巩固机制。
+        
+        Returns:
+            被淘汰的记忆数量
+        """
+        if not self._memory_notes:
+            return 0
+        
+        # 更新所有记忆的重要性（时间衰减）
+        for note in self._memory_notes.values():
+            note.update_importance(decay_factor=0.98)
+        
+        # 淘汰低价值记忆（保留最少10条）
+        removed = 0
+        if len(self._memory_notes) > 10:
+            # 找出重要性最低的记忆
+            sorted_notes = sorted(
+                self._memory_notes.items(),
+                key=lambda x: x[1].importance_score
+            )
+            
+            # 淘汰阈值
+            threshold = 0.1
+            to_remove = []
+            
+            for note_id, note in sorted_notes:
+                if note.importance_score < threshold and len(self._memory_notes) - len(to_remove) > 10:
+                    to_remove.append(note_id)
+            
+            # 执行淘汰（同时从_local_cache中移除）
+            for note_id in to_remove:
+                removed_note = self._memory_notes.pop(note_id)
+                # 同步移除_local_cache中的对应条目
+                self._local_cache = [
+                    item for item in self._local_cache
+                    if item.metadata.get('memory_id') != note_id
+                ]
+                removed += 1
+        
+        if removed > 0:
+            logger.debug(f"Memory evolution: removed {removed} low-value memories")
+        
+        return removed
+    
+    def get_memory_notes(self) -> List[MemoryNote]:
+        """
+        获取所有结构化记忆笔记
+        
+        用于debug模式下查看完整记忆库。
+        
+        Returns:
+            所有MemoryNote列表
+        """
+        return list(self._memory_notes.values())
+    
+    def get_memory_statistics(self) -> Dict[str, any]:
+        """
+        获取记忆系统统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        notes = list(self._memory_notes.values())
+        
+        if not notes:
+            return {
+                'total_notes': 0,
+                'by_type': {},
+                'avg_importance': 0,
+                'total_links': 0,
+            }
+        
+        # 按类型统计
+        by_type = {}
+        for note in notes:
+            type_name = note.memory_type.value
+            by_type[type_name] = by_type.get(type_name, 0) + 1
+        
+        # 平均重要性
+        avg_importance = sum(n.importance_score for n in notes) / len(notes)
+        
+        # 总链接数
+        total_links = sum(len(n.linked_memories) for n in notes)
+        
+        return {
+            'total_notes': len(notes),
+            'by_type': by_type,
+            'avg_importance': round(avg_importance, 3),
+            'total_links': total_links,
+        }
     
     @staticmethod
     def _new_invocation_id() -> str:

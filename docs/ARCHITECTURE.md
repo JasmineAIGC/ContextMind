@@ -69,8 +69,44 @@ ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持
 - **ProcessedContext**: 处理后的上下文
 - **ContextResult**: 上下文优化结果
 - **Knowledge**: 提取的知识
+- **MemoryNote**: 结构化记忆笔记（v3.2 Agent Memory System）
+- **MemoryType**: 记忆类型枚举（Working/Semantic/Episodic）
 
-### 2. 管理器 (`managers/`)
+### 2. Agent Memory System（v3.2新增）
+
+基于A-MEM架构设计的三层记忆模型：
+
+```
+┌─────────────────────────────────────────────────────┐
+│               Agent Memory System                    │
+├─────────────────────────────────────────────────────┤
+│  工作记忆 (Working Memory)                           │
+│  • 当前任务的即时上下文                              │
+│  • 由SessionManager管理                             │
+│  • 短期存储，任务结束后清空                          │
+├─────────────────────────────────────────────────────┤
+│  语义记忆 (Semantic Memory)                          │
+│  • 结构化知识网络                                   │
+│  • MemoryNote结构：关键词、标签、链接、重要性       │
+│  • 支持动态演化和关联                               │
+├─────────────────────────────────────────────────────┤
+│  情节记忆 (Episodic Memory)                          │
+│  • 时间序列的事件历史                               │
+│  • 支持因果链追溯                                   │
+│  • 长期持久化存储                                   │
+└─────────────────────────────────────────────────────┘
+```
+
+**MemoryNote结构（参考Zettelkasten笔记法）**：
+- `id`: 唯一标识符
+- `content`: 记忆内容
+- `keywords`: 自动提取的关键词
+- `tags`: 分类标签
+- `linked_memories`: 关联记忆列表
+- `importance_score`: 重要性分数（热度驱动）
+- `access_count`: 访问次数
+
+### 3. 管理器 (`managers/`)
 
 封装了对 Google ADK 服务的访问：
 
