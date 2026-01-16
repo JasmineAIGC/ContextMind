@@ -224,8 +224,7 @@ async def main():
             
             print(f"助手: {response}\n")
             
-            # 记录助手回复到日志
-            logger.info(f"助手: {response}")
+            # 注意：不再重复记录助手回复，因为已经在BaseApplication.process_turn()中记录过了
             
         except Exception as e:
             print(f"\n❌ 错误: {str(e)}\n")

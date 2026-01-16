@@ -154,7 +154,7 @@ class MemoryManager:
                     return items
             
             # Memory Service 未返回结果，使用本地缓存备用
-            logger.info(f"No memories from Memory Service, falling back to local cache (size={len(self._local_cache)})")
+            logger.debug(f"No memories from Memory Service, falling back to local cache (size={len(self._local_cache)})")
             return self._retrieve_from_cache(query, limit)
             
         except Exception as e:

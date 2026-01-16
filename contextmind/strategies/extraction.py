@@ -95,9 +95,10 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                             metadata={'sentiment': sentiment, 'keyword': keyword}
                         ))
             
-            # 负面偏好/拒绝
+            # 负面偏好/拒绝 - 提取完整的否定对象
             negative_patterns = [
-                (r'我?(不喜欢|不想|不要|拒绝|不需要)(.{2,20})', 'negative'),
+                # 匹配：我不需要/不想/拒绝 + 名词短语（不含问号）
+                (r'我?(不喜欢|不想|不要|拒绝|不需要)([^，。！？,!?；:：的了吗呢啊]{2,15})', 'negative'),
             ]
             
             for pattern, sentiment in negative_patterns:
@@ -106,11 +107,16 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     keyword = match[0]
                     phrase = match[1].strip()
                     
-                    # 清理尾随标点
+                    # 清理尾随标点和连接词
                     phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
+                    phrase = re.sub(r'^[的了吗呢啊]+', '', phrase)
+                    phrase = phrase.strip()
                     
-                    # 质量检查
-                    if 2 <= len(phrase) <= 20:
+                    # 质量检查：
+                    # 1. 长度合理
+                    # 2. 不包含问号（避免"不需要小额贷款，可以有大额的吗"这样的提取）
+                    # 3. 不是纯数字或符号
+                    if 2 <= len(phrase) <= 15 and '吗' not in phrase and '?' not in phrase and not phrase.isdigit():
                         preferences.append(Knowledge(
                             content=f"[拒绝] {keyword}: {phrase}",
                             type=KnowledgeType.PREFERENCE,
@@ -201,26 +207,33 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             
             # 用户意向和决策
             decision_patterns = [
-                (r'(我要|我想|我需要|我打算|我决定)(.{2,20})', '意向'),
-                (r'(同意|接受|确认|好的|可以)(.{0,15})', '确认'),
-                (r'(拒绝|不要|不想|不需要)(.{2,15})', '拒绝'),
+                (r'(我要|我想|我需要|我打算|我决定)([^，。！？,!?；:：吗呢啊]{3,20})', '意向'),
+                # 注意：不提取单独的"同意"、"可以"、"好的"等短语，因为它们依赖上下文
+                # 只在有明确对象时才提取
+                (r'(同意|接受|确认)(申请|开通|办理|提升|使用)(.{0,10})', '确认'),
             ]
             
             for pattern, category in decision_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
                     keyword = match[0]
-                    detail = match[1].strip() if len(match) > 1 else ""
+                    # 合并所有捕获组作为detail
+                    if len(match) > 2:
+                        detail = (match[1] + match[2]).strip()
+                    else:
+                        detail = match[1].strip() if len(match) > 1 else ""
                     
-                    # 如果detail为空或太短，跳过
-                    if not detail or len(detail) < 2:
+                    # 如果detail为空、太短，或是疑问句，跳过
+                    if not detail or len(detail) < 3:
                         continue
                     
-                    # 清理尾随标点
+                    # 清理尾随标点和连接词
                     detail = re.sub(r'[，。！？,.!?；:：]+$', '', detail)
+                    detail = re.sub(r'^[的了吗呢啊]+', '', detail)
+                    detail = detail.strip()
                     
-                    # 质量检查
-                    if 2 <= len(detail) <= 20:
+                    # 质量检查：不包含问号（避免提取疑问句片段）
+                    if 3 <= len(detail) <= 20 and '吗' not in detail and '?' not in detail:
                         events.append(Knowledge(
                             content=f"[决策] {keyword}: {detail}",
                             type=KnowledgeType.EVENT,
