@@ -17,7 +17,7 @@ v3.2 Agent Memory System 更新：
 
 from typing import List, Optional
 import re
-import hashlib
+import uuid
 
 from ..data_models import Message, Knowledge, KnowledgeType, MemoryNote, MemoryType
 from ..strategies import ExtractionStrategy, RuleBasedExtractionStrategy
@@ -85,8 +85,8 @@ class KnowledgeExtractor:
         notes = []
         
         for k in knowledge:
-            # 生成唯一ID（使用内容哈希）
-            note_id = hashlib.md5(k.content.encode()).hexdigest()[:12]
+            # 生成唯一ID（使用 UUID4 确保唯一性和安全性）
+            note_id = str(uuid.uuid4())[:12]
             
             # 确定记忆类型
             if k.type == KnowledgeType.EVENT:

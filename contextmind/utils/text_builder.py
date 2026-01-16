@@ -11,6 +11,7 @@ ContextTextBuilder - 统一的上下文文本构建工具
 """
 
 from typing import List, Optional
+from collections import defaultdict
 from ..data_models import ContextResult, ContextItem, Message
 
 
@@ -193,7 +194,6 @@ class ContextTextBuilder:
             return "\n".join(lines)
         else:
             # 按来源分组
-            from collections import defaultdict
             grouped = defaultdict(list)
             for item in items:
                 grouped[item.source].append(item)
