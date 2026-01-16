@@ -60,7 +60,10 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return knowledge
     
     def _extract_preferences(self, messages: List[Message]) -> List[Knowledge]:
-        """提取用户偏好和关键策略，使用结构化格式存储"""
+        """提取用户偏好和关键策略，使用结构化格式存储
+        
+        只提取明确的用户偏好，严格过滤质量。
+        """
         preferences = []
         
         for msg in messages:
@@ -69,34 +72,51 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             
             content = msg.content
             
-            # 喜欢的内容 - 提取更具体的偏好，使用结构化格式
-            for word in ["喜欢", "想要", "希望", "需要", "偏好"]:
-                if word in content:
-                    # 提取关键信息而非整句
-                    key_info = self._extract_key_phrase(content, word)
-                    if key_info and len(key_info) > 3:  # 至少4个字符
-                        # 使用更清晰的格式：[类型] 关键词: 具体内容
-                        preferences.append(Knowledge(
-                            content=f"[偏好] {word}: {key_info}",
-                            type=KnowledgeType.PREFERENCE,
-                            confidence=0.8,
-                            metadata={'sentiment': 'positive', 'keyword': word}
-                        ))
-                    break
+            # 正面偏好 - 只提取明确的"我喜欢/我想要"等
+            positive_patterns = [
+                (r'我(喜欢|想要|希望|需要|偏好)(.{2,20})', 'positive'),
+            ]
             
-            # 不喜欢的内容 - 提取拒绝策略，使用结构化格式
-            for word in ["不喜欢", "不想", "不要", "拒绝", "不感兴趣"]:
-                if word in content:
-                    key_info = self._extract_key_phrase(content, word)
-                    if key_info and len(key_info) > 3:
-                        # 使用更清晰的格式：[类型] 关键词: 具体内容
+            for pattern, sentiment in positive_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    keyword = match[0]
+                    phrase = match[1].strip()
+                    
+                    # 清理尾随标点
+                    phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
+                    
+                    # 质量检查：长度合理，不以否定词开头
+                    if 2 <= len(phrase) <= 20 and not phrase.startswith(('不', '没', '无')):
                         preferences.append(Knowledge(
-                            content=f"[拒绝] {word}: {key_info}",
+                            content=f"[偏好] {keyword}: {phrase}",
                             type=KnowledgeType.PREFERENCE,
-                            confidence=0.8,
-                            metadata={'sentiment': 'negative', 'keyword': word}
+                            confidence=0.85,
+                            metadata={'sentiment': sentiment, 'keyword': keyword}
                         ))
-                    break
+            
+            # 负面偏好/拒绝
+            negative_patterns = [
+                (r'我?(不喜欢|不想|不要|拒绝|不需要)(.{2,20})', 'negative'),
+            ]
+            
+            for pattern, sentiment in negative_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    keyword = match[0]
+                    phrase = match[1].strip()
+                    
+                    # 清理尾随标点
+                    phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
+                    
+                    # 质量检查
+                    if 2 <= len(phrase) <= 20:
+                        preferences.append(Knowledge(
+                            content=f"[拒绝] {keyword}: {phrase}",
+                            type=KnowledgeType.PREFERENCE,
+                            confidence=0.85,
+                            metadata={'sentiment': sentiment, 'keyword': keyword}
+                        ))
         
         return preferences
     
@@ -120,40 +140,44 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return content[:30]  # 回退：返回前30个字符
     
     def _extract_facts(self, messages: List[Message]) -> List[Knowledge]:
-        """提取关键事实和用户信息，使用结构化格式存储"""
-        facts = []
+        """提取用户相关事实信息（用户属性），使用结构化格式存储
         
-        fact_patterns = [
-            (r'我是(.{2,15}[^，。！？,.!?]{0,5})', '身份'),
-            (r'我叫(.{2,10})', '姓名'),
-            (r'我的(.{2,20}[是：:].*?[，。！？,.!?])', '属性'),
-            (r'我在(.{2,20}[市县区镇])', '位置'),
-            (r'我(今年)?(\d+岁)', '年龄'),
-        ]
+        只提取用户自身的属性信息，不提取业务流程或客服建议。
+        """
+        facts = []
         
         for msg in messages:
             if msg.role.value != "user":
                 continue
-                
+            
             content = msg.content
+            
+            # 用户属性提取 - 聚焦个人信息
+            fact_patterns = [
+                (r'我(是|在|做)(.{2,20})(工作|职业|行业)', '职业'),
+                (r'我(今年|已经)(.{1,3})(岁|周岁)', '年龄'),
+                (r'我(住在|在|来自)(.{2,10})', '位置'),
+                (r'我是(.{2,15})', '身份'),
+                (r'我叫(.{2,8})', '姓名'),
+                (r'我(有|没有)(.{2,15})(工作|收入|存款)', '经济状况'),
+            ]
             
             for pattern, category in fact_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
-                    # 处理可能的tuple（从带多个捕获组的pattern）
-                    if isinstance(match, tuple):
-                        match = ''.join(match)
+                    # 提取关键部分
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        fact = match[1].strip() if len(match) > 1 else str(match[0]).strip()
+                    else:
+                        fact = match.strip() if isinstance(match, str) else str(match)
                     
-                    # 清理匹配结果
-                    cleaned = match.strip()
-                    # 移除尾随的标点
-                    cleaned = re.sub(r'[，。！？,.!?；:：]+$', '', cleaned)
+                    # 清理尾随标点
+                    fact = re.sub(r'[，。！？,.!?；:：]+$', '', fact)
                     
-                    # 至少2个字符且不超过30个字符
-                    if 2 <= len(cleaned) <= 30:
-                        # 使用更清晰的格式：[事实] 类别: 具体内容
+                    # 质量检查：长度合理，不是空白
+                    if 2 <= len(fact) <= 20 and fact.strip():
                         facts.append(Knowledge(
-                            content=f"[事实] {category}: {cleaned}",
+                            content=f"[事实] {category}: {fact}",
                             type=KnowledgeType.FACT,
                             confidence=0.75,
                             metadata={'category': category}
@@ -162,39 +186,47 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return facts
     
     def _extract_events(self, messages: List[Message]) -> List[Knowledge]:
-        """提取关键事件和重要决策，使用结构化格式存储"""
+        """提取关键事件和决策，使用结构化格式存储
+        
+        只提取用户的明确决策和意向，不提取客服的建议。
+        """
         events = []
         
-        # 重要事件关键词
-        event_keywords = {
-            "投诉": 0.9,
-            "申请": 0.8,
-            "办理": 0.75,
-            "开通": 0.75,
-            "取消": 0.8,
-            "同意": 0.85,
-            "确认": 0.75,
-            "拒绝": 0.85,
-            "接受": 0.8,
-        }
-        
         for msg in messages:
+            # 只提取用户消息中的决策
+            if msg.role.value != "user":
+                continue
+                
             content = msg.content
             
-            # 检查是否包含关键事件词
-            for keyword, confidence in event_keywords.items():
-                if keyword in content:
-                    # 提取包含关键词的短语而非整句
-                    key_phrase = self._extract_key_phrase(content, keyword)
-                    if key_phrase and len(key_phrase) > 3:
-                        # 使用更清晰的格式：[决策] 动作: 具体内容
+            # 用户意向和决策
+            decision_patterns = [
+                (r'(我要|我想|我需要|我打算|我决定)(.{2,20})', '意向'),
+                (r'(同意|接受|确认|好的|可以)(.{0,15})', '确认'),
+                (r'(拒绝|不要|不想|不需要)(.{2,15})', '拒绝'),
+            ]
+            
+            for pattern, category in decision_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    keyword = match[0]
+                    detail = match[1].strip() if len(match) > 1 else ""
+                    
+                    # 如果detail为空或太短，跳过
+                    if not detail or len(detail) < 2:
+                        continue
+                    
+                    # 清理尾随标点
+                    detail = re.sub(r'[，。！？,.!?；:：]+$', '', detail)
+                    
+                    # 质量检查
+                    if 2 <= len(detail) <= 20:
                         events.append(Knowledge(
-                            content=f"[决策] {keyword}: {key_phrase}",
+                            content=f"[决策] {keyword}: {detail}",
                             type=KnowledgeType.EVENT,
-                            confidence=confidence,
-                            metadata={'keyword': keyword, 'source_role': msg.role.value}
+                            confidence=0.70,
+                            metadata={'keyword': keyword, 'category': category}
                         ))
-                    break  # 每条消息只提取一个事件
         
         return events
 

@@ -48,8 +48,14 @@ class CallCenterApplication(BaseApplication):
             history_turns: Prompt中包含的历史对话轮数（默认10）
             **config: 其他配置
         """
-        # 极简系统提示词 - ContextMind专注上下文，不定义agent行为
-        system_prompt = "你是一个智能对话助手。请基于提供的上下文信息进行回复。"
+        # 改进的系统提示词 - 添加明确的回复约束
+        system_prompt = """你是安逸花/马上消费的智能客服助手。
+
+回复要求：
+1. 简洁直接，不超过3句话
+2. 基于提供的上下文信息回复
+3. 不要主动询问细节或反问
+4. 如需用户提供信息，一次性说明所需内容"""
 
         super().__init__(
             context_engine=context_engine,
@@ -87,19 +93,31 @@ class CallCenterApplication(BaseApplication):
             logger.warning("  记忆库为空")
         logger.info("=" * 80)
         
-        # === 2. 添加长期记忆到Prompt（只取前5条）===
+        # === 2. 添加长期记忆到Prompt（只取相关的记忆）===
+        RELEVANCE_THRESHOLD = 0.3  # 相关性阈值
+        
         if context.long_term_memory:
-            used_memories = context.long_term_memory[:5]
-            memory_text = "\n".join(
-                f"- {item.content}"
-                for item in used_memories
-            )
-            prompt_parts.append(f"\n## 长期记忆\n{memory_text}")
-            logger.info(f"✓ 本次使用的记忆 ({len(used_memories)} 条):")
-            for i, item in enumerate(used_memories, 1):
-                logger.info(f"  ✓ [{i}] {item.content} (score={item.score:.2f})")
+            # 过滤：只使用相关的记忆（score >= 0.3）
+            relevant_memories = [
+                item for item in context.long_term_memory
+                if item.score >= RELEVANCE_THRESHOLD
+            ]
+            
+            if relevant_memories:
+                # 使用前5条相关记忆
+                used_memories = relevant_memories[:5]
+                memory_text = "\n".join(
+                    f"- {item.content}"
+                    for item in used_memories
+                )
+                prompt_parts.append(f"\n## 长期记忆\n{memory_text}")
+                logger.info(f"✓ 本次使用的记忆 ({len(used_memories)} 条):")
+                for i, item in enumerate(used_memories, 1):
+                    logger.info(f"  ✓ [{i}] {item.content} (score={item.score:.2f})")
+            else:
+                logger.info(f"⚠ No relevant memories (all scores < {RELEVANCE_THRESHOLD:.2f})")
         else:
-            logger.warning("⚠ No long-term memory included in prompt")
+            logger.warning("⚠ No long-term memory available")
         
         # === 3. 添加对话历史（使用配置的轮数）===
         if context.recent_history:

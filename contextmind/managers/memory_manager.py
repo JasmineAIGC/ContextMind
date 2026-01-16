@@ -350,8 +350,8 @@ class MemoryManager:
         
         similarity = intersection / union if union > 0 else 0
         
-        # 如果相似度超过60%，认为是重复（降低阈值）
-        return similarity > 0.6
+        # 如果相似度超过70%，认为是重复（提高阈值，减少误判）
+        return similarity > 0.7
     
     async def seed(self, facts: List[str]) -> None:
         """
