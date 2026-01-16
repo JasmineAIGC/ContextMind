@@ -77,6 +77,9 @@ class CallCenterApplication(BaseApplication):
                 for item in context.long_term_memory[:5]  # 取最相关的5条
             )
             prompt_parts.append(f"\n## 长期记忆\n{memory_text}")
+            logger.info(f"✓ Prompt includes {len(context.long_term_memory[:5])} long-term memories")
+        else:
+            logger.warning("⚠ No long-term memory included in prompt")
         
         # 添加对话历史 - 只取最相关的部分（由引擎优化）
         if context.recent_history:

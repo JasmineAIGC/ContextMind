@@ -118,6 +118,9 @@ class MemoryManager:
         Returns:
             上下文条目列表，按相关性排序
         """
+        logger.debug(f"retrieve() called with query='{query}', limit={limit}")
+        logger.debug(f"Memory service configured: {self.memory_service is not None}, Cache size: {len(self._local_cache)}")
+        
         if not self.memory_service:
             logger.debug("Memory service is not configured, using local cache")
             return self._retrieve_from_cache(query, limit)
@@ -147,11 +150,11 @@ class MemoryManager:
                     ))
                 
                 if items:
-                    logger.debug(f"Retrieved {len(items)} memories from Memory Service for query: {query}")
+                    logger.info(f"✓ Retrieved {len(items)} memories from Memory Service")
                     return items
             
             # Memory Service 未返回结果，使用本地缓存备用
-            logger.debug(f"No memories from Memory Service for query: {query}, using local cache")
+            logger.info(f"No memories from Memory Service, falling back to local cache (size={len(self._local_cache)})")
             return self._retrieve_from_cache(query, limit)
             
         except Exception as e:
@@ -172,7 +175,10 @@ class MemoryManager:
         Returns:
             匹配的上下文条目列表
         """
+        logger.debug(f"_retrieve_from_cache called with query='{query}', cache size={len(self._local_cache)}")
+        
         if not self._local_cache:
+            logger.warning("Local cache is empty! No memories to retrieve.")
             return []
         
         query_lower = query.lower()
@@ -219,7 +225,11 @@ class MemoryManager:
         ]
         
         if result:
-            logger.debug(f"Retrieved {len(result)} memories from local cache for query: {query} (top score: {scored_items[0][1]:.2f})")
+            logger.info(f"✓ Retrieved {len(result)} memories from local cache (top score: {scored_items[0][1]:.2f})")
+            for i, (item, score) in enumerate(scored_items[:limit]):
+                logger.debug(f"  Memory {i+1} (score={score:.2f}): {item.content[:60]}...")
+        else:
+            logger.error(f"ERROR: scored_items is empty even though cache has {len(self._local_cache)} items!")
         
         return result
     
@@ -366,14 +376,16 @@ class MemoryManager:
         
         # 首先添加到本地缓存
         for fact in valid_facts:
-            self._local_cache.append(ContextItem(
+            item = ContextItem(
                 content=f"[预设知识] {fact}",
                 source=ContextSource.MEMORY,
                 score=1.0,
                 metadata={'seeded': True}
-            ))
+            )
+            self._local_cache.append(item)
+            logger.debug(f"  Added to cache: {item.content}")
         
-        logger.debug(f"Added {len(valid_facts)} seed facts to local cache")
+        logger.info(f"✓ Added {len(valid_facts)} seed facts to local cache (total cache size: {len(self._local_cache)})")
         
         # 然后尝试添加到 Memory Service
         if not self.memory_service:
