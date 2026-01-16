@@ -20,6 +20,7 @@ import asyncio
 import time
 import random
 from typing import Dict, List
+from dataclasses import dataclass
 import threading
 import os
 from pathlib import Path
@@ -42,6 +43,18 @@ try:
         logger.warning(f"⚠️  环境变量文件不存在: {env_file}")
 except ImportError:
     logger.warning("⚠️  python-dotenv 未安装，尝试手动设置环境变量")
+
+
+@dataclass
+class ProcessResult:
+    """处理结果数据类，用于日志显示"""
+    response: str
+    history_count: int = 0
+    memory_count: int = 0
+    rules_count: int = 0
+    profile_summary: str = ""
+    prompt: str = ""
+    processing_time: float = 0.0
 
 
 class GradioDemo:
@@ -238,20 +251,17 @@ class GradioDemo:
         ]
         
         # 将开场白添加到引擎的session
-        from google.adk.events.event import Event
-        from google.genai.types import Content, Part
-        
         if self.engine:
             try:
-                # 确保 session 存在
-                await self.engine._ensure_session()
-                event = Event(
-                    invocation_id=self.engine.new_invocation_id(),
-                    author="assistant",
-                    content=Content(role="assistant", parts=[Part(text=opening_script)]),
+                # 通过 session_manager 添加开场白
+                # 使用 update 方法更新上下文，这是 ContextEngine 的公开 API
+                # 但由于开场白只是助手消息，我们不需要 user_input
+                # 所以我们直接通过 session_manager 添加消息
+                from contextmind import MessageRole
+                await self.engine.session_manager.add_message(
+                    role=MessageRole.ASSISTANT,
+                    content=opening_script
                 )
-                session = await self.engine.get_current_session()
-                await self.engine.session_service.append_event(session=session, event=event)
             except Exception as e:
                 logger.warning(f"[Gradio] 添加开场白到引擎失败: {e}")
         
@@ -360,23 +370,91 @@ class GradioDemo:
             return self.conversation_history, f"错误: {str(e)}"
     
     async def _get_single_response(self, engine, user_input):
-        """获取引擎的回复"""
+        """获取引擎的回复
+        
+        使用 ContextEngine 的 optimize() 和 update() 方法来处理对话：
+        1. 调用 optimize() 获取优化后的上下文
+        2. 构建 prompt 并调用 LLM
+        3. 调用 update() 更新会话历史
+        """
         from contextmind.logger import get_logger, ContextMindLogger
-        import logging
-        logger = get_logger(__name__)
+        import time
+        local_logger = get_logger(__name__)
+        
+        start_time = time.time()
         
         try:
-            # 调用引擎处理
-            result = await engine.process_turn(user_input)
+            # 1. 优化上下文
+            context_result = await engine.optimize(
+                user_input=user_input,
+                include_session=self.use_session,
+                include_memory=self.use_memory,
+            )
             
-            # 使用新的 box 格式化日志
-            is_debug = ContextMindLogger.get_current_level() <= logging.DEBUG
+            # 2. 构建 prompt
+            prompt = self._build_prompt(user_input, context_result)
+            
+            # 3. 调用 LLM 获取回复
+            if engine.llm_client:
+                _, response = engine.llm_client.generate(prompt)
+            else:
+                response = "[LLM未配置] 请设置 llm_client 参数。"
+            
+            # 4. 更新会话历史
+            await engine.update(
+                user_input=user_input,
+                assistant_response=response
+            )
+            
+            processing_time = time.time() - start_time
+            
+            # 5. 构建结果对象用于日志
+            result = ProcessResult(
+                response=response,
+                history_count=len(context_result.recent_history),
+                memory_count=len(context_result.long_term_memory),
+                rules_count=0,
+                profile_summary="",
+                prompt=prompt,
+                processing_time=processing_time,
+            )
+            
+            # 使用 box 格式化日志
+            is_debug = ContextMindLogger.get_current_level() <= DEBUG
             self._log_engine_box(result, is_debug)
             
-            return result.response
+            return response
         except Exception as e:
-            logger.error(f"❌ 引擎处理失败: {e}")
+            local_logger.error(f"❌ 引擎处理失败: {e}")
             return f"生成失败: {str(e)}"
+    
+    def _build_prompt(self, user_input: str, context_result) -> str:
+        """构建发送给 LLM 的 prompt"""
+        prompt_parts = [self._get_base_prompt()]
+        
+        # 添加长期记忆（如果有）
+        if context_result.long_term_memory:
+            memory_text = "\n".join(
+                f"- {item.content}"
+                for item in context_result.long_term_memory[:3]
+            )
+            prompt_parts.append(f"\n## 用户历史信息\n{memory_text}")
+        
+        # 添加对话历史
+        if context_result.recent_history:
+            history_text = "\n".join(
+                f"{msg.role.value}: {msg.content}"
+                for msg in context_result.recent_history
+            )
+            prompt_parts.append(f"\n## 近期对话\n{history_text}")
+        
+        # 添加当前用户输入
+        prompt_parts.append(f"\n## 当前用户输入\nuser: {user_input}")
+        
+        # 添加回复指令
+        prompt_parts.append("\n请根据以上信息，给出合适的回复：")
+        
+        return "\n".join(prompt_parts)
     
         
     def create_interface(self):

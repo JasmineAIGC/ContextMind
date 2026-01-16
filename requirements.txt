@@ -8,3 +8,7 @@ python-dotenv
 # UI 演示依赖
 gradio>=4.0.0
 aiofiles>=23.0.0
+
+# 测试依赖
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

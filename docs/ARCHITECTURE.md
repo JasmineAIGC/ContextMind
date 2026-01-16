@@ -1,8 +1,8 @@
-# ContextMind v3.0 架构文档
+# ContextMind v3.2 架构文档
 
 ## 概述
 
-ContextMind v3.0 是一个完全重构的上下文优化框架，专注于支持上下文工程的所有核心能力。
+ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持上下文工程的所有核心能力。
 
 ## 设计哲学
 
@@ -11,13 +11,19 @@ ContextMind v3.0 是一个完全重构的上下文优化框架，专注于支持
 3. **易于扩展**：支持策略模式，方便替换和扩展
 4. **数据驱动**：使用强类型的数据模型
 5. **异步优先**：全面使用 async/await
+6. **容错机制**：FlowController 和 CircuitBreaker 保障稳定性
 
-## 四层架构
+## 六层架构
 
 ```
 ┌─────────────────────────────────────────┐
 │        应用层 (Application Layer)       │
 │     定义业务逻辑和Prompt构建策略         │
+└─────────────────────────────────────────┘
+                    ↓ 使用
+┌─────────────────────────────────────────┐
+│       适配器层 (Adapter Layer)          │
+│  OpenAIAdapter, LangChainAdapter, etc.  │
 └─────────────────────────────────────────┘
                     ↓ 使用
 ┌─────────────────────────────────────────┐
@@ -41,6 +47,15 @@ ContextMind v3.0 是一个完全重构的上下文优化框架，专注于支持
 │  • OptimizationStrategy - 优化策略       │
 │  • ExtractionStrategy - 提取策略         │
 └─────────────────────────────────────────┘
+                    ↓ 使用
+┌─────────────────────────────────────────┐
+│   基础层 (Foundation) + 控制层 (Control) │
+│  • TokenizerService - Token精确计数      │
+│  • VectorClient - 向量检索               │
+│  • CacheManager - 智能缓存               │
+│  • FlowController - 流程控制             │
+│  • CircuitBreaker - 熔断器               │
+└─────────────────────────────────────────┘
 ```
 
 ## 核心组件
@@ -54,8 +69,44 @@ ContextMind v3.0 是一个完全重构的上下文优化框架，专注于支持
 - **ProcessedContext**: 处理后的上下文
 - **ContextResult**: 上下文优化结果
 - **Knowledge**: 提取的知识
+- **MemoryNote**: 结构化记忆笔记（v3.2 Agent Memory System）
+- **MemoryType**: 记忆类型枚举（Working/Semantic/Episodic）
 
-### 2. 管理器 (`managers/`)
+### 2. Agent Memory System（v3.2新增）
+
+基于A-MEM架构设计的三层记忆模型：
+
+```
+┌─────────────────────────────────────────────────────┐
+│               Agent Memory System                    │
+├─────────────────────────────────────────────────────┤
+│  工作记忆 (Working Memory)                           │
+│  • 当前任务的即时上下文                              │
+│  • 由SessionManager管理                             │
+│  • 短期存储，任务结束后清空                          │
+├─────────────────────────────────────────────────────┤
+│  语义记忆 (Semantic Memory)                          │
+│  • 结构化知识网络                                   │
+│  • MemoryNote结构：关键词、标签、链接、重要性       │
+│  • 支持动态演化和关联                               │
+├─────────────────────────────────────────────────────┤
+│  情节记忆 (Episodic Memory)                          │
+│  • 时间序列的事件历史                               │
+│  • 支持因果链追溯                                   │
+│  • 长期持久化存储                                   │
+└─────────────────────────────────────────────────────┘
+```
+
+**MemoryNote结构（参考Zettelkasten笔记法）**：
+- `id`: 唯一标识符
+- `content`: 记忆内容
+- `keywords`: 自动提取的关键词
+- `tags`: 分类标签
+- `linked_memories`: 关联记忆列表
+- `importance_score`: 重要性分数（热度驱动）
+- `access_count`: 访问次数
+
+### 3. 管理器 (`managers/`)
 
 封装了对 Google ADK 服务的访问：
 
@@ -165,14 +216,17 @@ class MyProcessor(BaseProcessor):
 
 ## 与旧版本的区别
 
-| 特性 | v2.0 | v3.0 |
-|------|------|------|
-| 架构 | 单一Pipeline | 四层架构 |
-| 核心类 | Pipeline + Steps | ContextEngine + Pipeline |
-| 扩展性 | Step注册表 | 策略模式 |
-| 数据模型 | Context + ContextData | 专用数据类 |
-| API设计 | 复杂 | 简洁（optimize/update/extract） |
-| 职责划分 | 模糊 | 清晰 |
+| 特性 | v2.0 | v3.0/v3.1 | v3.2 |
+|------|------|------|------|
+| 架构 | 单一Pipeline | 四层架构 | 六层架构 |
+| 核心类 | Pipeline + Steps | ContextEngine + Pipeline | ContextEngine + Foundation |
+| 扩展性 | Step注册表 | 策略模式 | 策略模式 + 适配器模式 |
+| 数据模型 | Context + ContextData | 专用数据类 | 专用数据类 + Chunk + ContextState |
+| API设计 | 复杂 | 简洁（optimize/update/extract） | 简洁 + 适配器 |
+| 职责划分 | 模糊 | 清晰 | 更清晰 |
+| Token管理 | 字符估算 | 字符估算 | TokenizerService精确计数 |
+| 缓存 | 无 | 无 | CacheManager |
+| 容错 | 无 | 无 | CircuitBreaker + FlowController |
 
 ## 最佳实践
 

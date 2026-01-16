@@ -7,6 +7,7 @@ ContextMind Data Models - 完整的数据模型定义
 - 处理后的上下文（ProcessedContext）
 - 上下文结果（ContextResult）
 - 知识（Knowledge）
+- 记忆笔记（MemoryNote）- v3.2 Agent Memory System
 
 所有数据模型都使用 dataclass 实现，支持序列化和类型提示。
 """
@@ -316,6 +317,125 @@ class Chunk:
                 'entropy_score': self.entropy_score,
             }
         )
+
+
+class MemoryType(Enum):
+    """
+    记忆类型枚举（v3.2 Agent Memory System）
+    
+    基于认知科学的三层记忆模型，参考A-MEM架构：
+    - WORKING: 工作记忆 - 当前任务的即时上下文
+    - SEMANTIC: 语义记忆 - 结构化知识网络
+    - EPISODIC: 情节记忆 - 时间序列的事件记录
+    """
+    WORKING = "working"    # 工作记忆：当前上下文
+    SEMANTIC = "semantic"  # 语义记忆：知识网络
+    EPISODIC = "episodic"  # 情节记忆：事件历史
+
+
+@dataclass
+class MemoryNote:
+    """
+    记忆笔记（v3.2 Agent Memory System）
+    
+    参考A-MEM（Agentic Memory）架构设计的结构化记忆单元。
+    采用Zettelkasten（卡片盒笔记法）思想，每条记忆都是原子化、
+    可链接、带有丰富元数据的知识片段。
+    
+    核心特性：
+    - 原子化：每条记忆聚焦单一知识点
+    - 结构化：包含关键词、标签、描述
+    - 可链接：支持记忆间的语义关联
+    - 可演化：支持动态更新和合并
+    
+    Attributes:
+        id: 唯一标识符
+        content: 记忆内容（原始文本）
+        memory_type: 记忆类型（工作/语义/情节）
+        keywords: 自动提取的关键词列表
+        tags: 分类标签列表
+        description: 上位语义描述
+        embedding: 向量嵌入（用于语义检索）
+        linked_memories: 关联记忆ID列表
+        access_count: 访问次数（用于热度评估）
+        importance_score: 重要性分数（0-1）
+        timestamp: 创建时间
+        last_accessed: 最后访问时间
+        metadata: 附加元数据
+    """
+    id: str
+    content: str
+    memory_type: MemoryType = MemoryType.SEMANTIC
+    keywords: List[str] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)
+    description: str = ""
+    embedding: Optional[List[float]] = None
+    linked_memories: List[str] = field(default_factory=list)
+    access_count: int = 0
+    importance_score: float = 0.5
+    timestamp: datetime = field(default_factory=datetime.now)
+    last_accessed: Optional[datetime] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> dict:
+        """转换为字典格式"""
+        return {
+            'id': self.id,
+            'content': self.content,
+            'memory_type': self.memory_type.value,
+            'keywords': self.keywords,
+            'tags': self.tags,
+            'description': self.description,
+            'embedding': self.embedding,
+            'linked_memories': self.linked_memories,
+            'access_count': self.access_count,
+            'importance_score': self.importance_score,
+            'timestamp': self.timestamp.isoformat(),
+            'last_accessed': self.last_accessed.isoformat() if self.last_accessed else None,
+            'metadata': self.metadata
+        }
+    
+    def to_context_item(self) -> ContextItem:
+        """转换为ContextItem（兼容性）"""
+        return ContextItem(
+            content=self.content,
+            source=ContextSource.MEMORY,
+            score=self.importance_score,
+            timestamp=self.timestamp,
+            metadata={
+                **self.metadata,
+                'memory_id': self.id,
+                'memory_type': self.memory_type.value,
+                'keywords': self.keywords,
+                'tags': self.tags,
+                'access_count': self.access_count,
+            }
+        )
+    
+    def access(self) -> None:
+        """记录访问（增加热度）"""
+        self.access_count += 1
+        self.last_accessed = datetime.now()
+    
+    def add_link(self, memory_id: str) -> None:
+        """添加关联记忆链接"""
+        if memory_id not in self.linked_memories:
+            self.linked_memories.append(memory_id)
+    
+    def update_importance(self, decay_factor: float = 0.95) -> None:
+        """
+        更新重要性分数
+        
+        基于访问热度和时间衰减计算重要性。
+        """
+        # 热度贡献
+        heat_score = min(1.0, self.access_count / 10.0) * 0.3
+        
+        # 基础分数（随时间衰减）
+        base_score = self.importance_score * decay_factor
+        
+        # 组合分数
+        self.importance_score = min(1.0, base_score + heat_score)
 
 
 @dataclass
