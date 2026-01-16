@@ -2,12 +2,13 @@
 ContextIntegrator - 上下文整合器
 
 整合收集到的上下文信息，包括去重、排序和组织。
+此组件委托给 IntegrationStrategy 来执行实际整合逻辑。
 """
 
 from typing import Optional
-from datetime import datetime
 
-from ..data_models import ProcessedContext, ContextItem
+from ..data_models import ProcessedContext
+from ..strategies import IntegrationStrategy, SimpleIntegrationStrategy
 from ..logger import get_logger
 
 logger = get_logger(__name__)
@@ -17,20 +18,23 @@ class ContextIntegrator:
     """
     上下文整合器
     
-    对收集到的上下文进行整合处理：
-    - 去除重复内容
-    - 按相关性和时间排序
-    - 组织上下文结构
+    对收集到的上下文进行整合处理，委托给可插拔的整合策略。
+    默认使用 SimpleIntegrationStrategy。
     """
     
-    def __init__(self, deduplicate: bool = True):
+    def __init__(
+        self, 
+        deduplicate: bool = True,
+        strategy: Optional[IntegrationStrategy] = None
+    ):
         """
         初始化上下文整合器
         
         Args:
             deduplicate: 是否去重，默认为True
+            strategy: 自定义整合策略，默认使用 SimpleIntegrationStrategy
         """
-        self.deduplicate = deduplicate
+        self.strategy = strategy or SimpleIntegrationStrategy(deduplicate=deduplicate)
     
     async def integrate(self, context: ProcessedContext) -> ProcessedContext:
         """
@@ -42,34 +46,13 @@ class ContextIntegrator:
         Returns:
             整合后的上下文对象
         """
-        items = context.items
+        # 委托给策略执行整合
+        result = await self.strategy.integrate(context)
         
-        # 去重
-        if self.deduplicate:
-            seen = set()
-            unique_items = []
-            for item in items:
-                # 使用内容作为去重键
-                content_key = item.content.strip()
-                if content_key not in seen:
-                    seen.add(content_key)
-                    unique_items.append(item)
-            
-            removed_count = len(items) - len(unique_items)
-            if removed_count > 0:
-                logger.debug(f"Removed {removed_count} duplicate items")
-            
-            items = unique_items
+        # 添加整合元数据
+        result.metadata['integrated'] = True
+        result.metadata['unique_items'] = len(result.items)
         
-        # 排序：先按分数（降序），再按时间（降序）
-        # 使用 datetime.min 作为默认值来处理 None 时间戳
-        items.sort(key=lambda x: (x.score, x.timestamp if x.timestamp else datetime.min), reverse=True)
+        logger.debug(f"Integrated {len(result.items)} context items")
         
-        # 更新上下文
-        context.items = items
-        context.metadata['integrated'] = True
-        context.metadata['unique_items'] = len(items)
-        
-        logger.debug(f"Integrated {len(items)} context items")
-        
-        return context
+        return result
