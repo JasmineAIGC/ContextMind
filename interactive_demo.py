@@ -128,6 +128,18 @@ async def main():
     print("=" * 60)
     print()
     
+    # 系统发起第一句话
+    opening_message = "您好！我是智能助手 Pro，很高兴为您服务。请问有什么可以帮助您的吗？"
+    print(f"助手: {opening_message}\n")
+    logger.info(f"助手: {opening_message}")
+    
+    # 将开场白添加到会话历史
+    from contextmind import MessageRole
+    await context_engine.session_manager.add_message(
+        role=MessageRole.ASSISTANT,
+        content=opening_message
+    )
+    
     turn_count = 0
     
     while True:

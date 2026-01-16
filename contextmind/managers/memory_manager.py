@@ -222,6 +222,7 @@ class MemoryManager:
         存储知识到长期记忆
         
         将提取的知识存储到长期记忆中，供后续检索使用。
+        自动去重，避免存储重复的知识。
         同时存储到本地缓存，确保备用检索可用。
         
         Args:
@@ -231,17 +232,34 @@ class MemoryManager:
             logger.debug("No knowledge to store")
             return
         
-        # 首先添加到本地缓存
+        # 去重：检查是否已存在相似的知识
+        new_knowledge = []
         for k in knowledge:
             formatted_content = f"[{k.type.value.upper()}] {k.content}"
-            self._local_cache.append(ContextItem(
-                content=formatted_content,
-                source=ContextSource.MEMORY,
-                score=k.confidence,
-                metadata=k.metadata
-            ))
+            
+            # 检查是否已存在相似内容
+            is_duplicate = False
+            for existing in self._local_cache:
+                # 简单的相似度检查：如果内容高度相似，认为是重复
+                if self._is_similar(formatted_content, existing.content):
+                    logger.debug(f"Skipping duplicate knowledge: {formatted_content[:50]}...")
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                new_knowledge.append(k)
+                self._local_cache.append(ContextItem(
+                    content=formatted_content,
+                    source=ContextSource.MEMORY,
+                    score=k.confidence,
+                    metadata=k.metadata
+                ))
         
-        logger.debug(f"Added {len(knowledge)} items to local cache, total: {len(self._local_cache)}")
+        if not new_knowledge:
+            logger.debug("All knowledge items are duplicates, nothing new to store")
+            return
+        
+        logger.debug(f"Added {len(new_knowledge)} new items to local cache (filtered {len(knowledge) - len(new_knowledge)} duplicates), total: {len(self._local_cache)}")
         
         # 然后尝试存储到 Memory Service
         if not self.memory_service:
@@ -255,8 +273,8 @@ class MemoryManager:
                 user_id=self.user_id,
             )
             
-            # 将知识作为事件添加到会话
-            for k in knowledge:
+            # 将新知识作为事件添加到会话
+            for k in new_knowledge:
                 # 格式化知识内容，包含类型标签
                 formatted_content = f"[{k.type.value.upper()}] {k.content}"
                 
@@ -270,10 +288,46 @@ class MemoryManager:
             # 持久化到 Memory Service
             await self.memory_service.add_session_to_memory(session)
             
-            logger.debug(f"Stored {len(knowledge)} knowledge items to Memory Service")
+            logger.debug(f"Stored {len(new_knowledge)} new knowledge items to Memory Service")
             
         except Exception as e:
             logger.warning(f"Failed to store knowledge to Memory Service: {str(e)}, kept in local cache")
+    
+    def _is_similar(self, text1: str, text2: str) -> bool:
+        """
+        检查两个文本是否相似
+        
+        使用简单的字符串包含和编辑距离检查。
+        
+        Args:
+            text1: 文本1
+            text2: 文本2
+            
+        Returns:
+            是否相似
+        """
+        # 去除类型标签进行比较
+        clean1 = re.sub(r'\[.*?\]\s*', '', text1).strip()
+        clean2 = re.sub(r'\[.*?\]\s*', '', text2).strip()
+        
+        # 如果其中一个包含另一个，认为相似
+        if clean1 in clean2 or clean2 in clean1:
+            return True
+        
+        # 计算简单的相似度（共同词汇比例）
+        words1 = set(clean1)
+        words2 = set(clean2)
+        
+        if not words1 or not words2:
+            return False
+        
+        intersection = len(words1 & words2)
+        union = len(words1 | words2)
+        
+        similarity = intersection / union if union > 0 else 0
+        
+        # 如果相似度超过70%，认为是重复
+        return similarity > 0.7
     
     async def seed(self, facts: List[str]) -> None:
         """

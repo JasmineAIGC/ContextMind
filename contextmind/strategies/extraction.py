@@ -60,7 +60,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return knowledge
     
     def _extract_preferences(self, messages: List[Message]) -> List[Knowledge]:
-        """提取用户偏好"""
+        """提取用户偏好和关键策略"""
         preferences = []
         
         for msg in messages:
@@ -69,72 +69,120 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             
             content = msg.content
             
-            # 喜欢的内容
-            if any(word in content for word in ["喜欢", "想要", "希望", "需要"]):
-                preferences.append(Knowledge(
-                    content=f"用户偏好: {content}",
-                    type=KnowledgeType.PREFERENCE,
-                    confidence=0.7,
-                    metadata={'sentiment': 'positive'}
-                ))
+            # 喜欢的内容 - 提取更具体的偏好
+            for word in ["喜欢", "想要", "希望", "需要", "偏好"]:
+                if word in content:
+                    # 提取关键信息而非整句
+                    key_info = self._extract_key_phrase(content, word)
+                    if key_info and len(key_info) > 3:  # 至少4个字符
+                        preferences.append(Knowledge(
+                            content=f"用户偏好: {key_info}",
+                            type=KnowledgeType.PREFERENCE,
+                            confidence=0.8,
+                            metadata={'sentiment': 'positive', 'keyword': word}
+                        ))
+                    break
             
-            # 不喜欢的内容
-            if any(word in content for word in ["不喜欢", "不想", "不要", "拒绝"]):
-                preferences.append(Knowledge(
-                    content=f"用户不喜欢: {content}",
-                    type=KnowledgeType.PREFERENCE,
-                    confidence=0.7,
-                    metadata={'sentiment': 'negative'}
-                ))
+            # 不喜欢的内容 - 提取拒绝策略
+            for word in ["不喜欢", "不想", "不要", "拒绝", "不感兴趣"]:
+                if word in content:
+                    key_info = self._extract_key_phrase(content, word)
+                    if key_info and len(key_info) > 3:
+                        preferences.append(Knowledge(
+                            content=f"用户拒绝策略: {key_info}",
+                            type=KnowledgeType.PREFERENCE,
+                            confidence=0.8,
+                            metadata={'sentiment': 'negative', 'keyword': word}
+                        ))
+                    break
         
         return preferences
     
+    def _extract_key_phrase(self, content: str, keyword: str) -> str:
+        """从句子中提取包含关键词的关键短语"""
+        # 分句
+        sentences = re.split(r'[，。！？,.!?；;]', content)
+        
+        # 找到包含关键词的句子
+        for sentence in sentences:
+            if keyword in sentence:
+                # 清理和简化
+                cleaned = sentence.strip()
+                # 移除冗余词汇
+                for filler in ["我", "觉得", "感觉", "认为", "就是"]:
+                    cleaned = cleaned.replace(filler, "")
+                cleaned = cleaned.strip()
+                if cleaned:
+                    return cleaned
+        
+        return content[:30]  # 回退：返回前30个字符
+    
     def _extract_facts(self, messages: List[Message]) -> List[Knowledge]:
-        """提取事实"""
+        """提取关键事实和用户信息"""
         facts = []
         
         fact_patterns = [
-            r'我是(.{1,20})',
-            r'我叫(.{1,20})',
-            r'我的(.{1,30})',
-            r'我在(.{1,30})',
+            (r'我是(.{2,15})', '身份'),
+            (r'我叫(.{2,10})', '姓名'),
+            (r'我的(.{2,20})', '属性'),
+            (r'我在(.{2,20}[市县区])', '位置'),
+            (r'(\d+岁)', '年龄'),
         ]
         
         for msg in messages:
+            if msg.role.value != "user":
+                continue
+                
             content = msg.content
             
-            for pattern in fact_patterns:
+            for pattern, category in fact_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
-                    facts.append(Knowledge(
-                        content=f"事实: {match}",
-                        type=KnowledgeType.FACT,
-                        confidence=0.6
-                    ))
+                    # 清理匹配结果
+                    cleaned = match.strip()
+                    if len(cleaned) >= 2:  # 至少2个字符
+                        facts.append(Knowledge(
+                            content=f"{category}: {cleaned}",
+                            type=KnowledgeType.FACT,
+                            confidence=0.75,
+                            metadata={'category': category}
+                        ))
         
         return facts
     
     def _extract_events(self, messages: List[Message]) -> List[Knowledge]:
-        """提取关键事件"""
+        """提取关键事件和重要决策"""
         events = []
         
-        event_keywords = [
-            "投诉", "申请", "办理", "开通", "取消",
-            "报警", "拒绝", "同意", "确认",
-        ]
+        # 重要事件关键词
+        event_keywords = {
+            "投诉": 0.9,
+            "申请": 0.8,
+            "办理": 0.75,
+            "开通": 0.75,
+            "取消": 0.8,
+            "同意": 0.85,
+            "确认": 0.75,
+            "拒绝": 0.85,
+            "接受": 0.8,
+        }
         
         for msg in messages:
             content = msg.content
             
-            for keyword in event_keywords:
+            # 检查是否包含关键事件词
+            for keyword, confidence in event_keywords.items():
                 if keyword in content:
-                    events.append(Knowledge(
-                        content=f"关键事件: {content}",
-                        type=KnowledgeType.EVENT,
-                        confidence=0.8,
-                        metadata={'keyword': keyword}
-                    ))
-                    break
+                    # 提取包含关键词的短语而非整句
+                    key_phrase = self._extract_key_phrase(content, keyword)
+                    if key_phrase and len(key_phrase) > 3:
+                        events.append(Knowledge(
+                            content=f"关键决策: {key_phrase}",
+                            type=KnowledgeType.EVENT,
+                            confidence=confidence,
+                            metadata={'keyword': keyword, 'source_role': msg.role.value}
+                        ))
+                    break  # 每条消息只提取一个事件
         
         return events
 
