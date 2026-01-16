@@ -8,6 +8,7 @@ ContextMind v3.2 Interactive Demo
 import asyncio
 import os
 import argparse
+import random
 from dotenv import load_dotenv
 
 from contextmind import (
@@ -31,6 +32,15 @@ load_dotenv()
 
 # 创建logger
 logger = get_logger(__name__)
+
+# 系统开场白选项（随机选择一个）
+OPENING_SCRIPTS = [
+    "您好！我是智能助手 Pro，很高兴为您服务。请问有什么可以帮助您的吗？",
+    "您好，我是智能助手 Pro。有什么我可以帮您的吗？",
+    "您好！欢迎使用智能助手 Pro。我能为您做些什么？",
+    "您好，我是您的专属智能助手。请问需要什么帮助？",
+    "您好！智能助手 Pro 为您服务。有什么问题可以随时问我。",
+]
 
 
 async def main():
@@ -128,8 +138,8 @@ async def main():
     print("=" * 60)
     print()
     
-    # 系统发起第一句话
-    opening_message = "您好！我是智能助手 Pro，很高兴为您服务。请问有什么可以帮助您的吗？"
+    # 系统发起第一句话（随机选择）
+    opening_message = random.choice(OPENING_SCRIPTS)
     print(f"助手: {opening_message}\n")
     logger.info(f"助手: {opening_message}")
     
