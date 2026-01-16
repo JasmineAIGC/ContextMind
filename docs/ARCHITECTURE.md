@@ -1,13 +1,15 @@
-# ContextMind v3.2 架构文档
+# ContextMind v4.0 架构文档
 
 ## 概述
 
-ContextMind v3.2 是一个完全重构的上下文优化框架，专注于支持上下文工程的所有核心能力。
+ContextMind v4.0 是架构优化版本，在 v3.2 的基础上进行了全面的代码重构和优化。
 
-**最新优化（架构简化）**：
+**最新优化（v4.0）**：
 - Pipeline 层组件现在委托给 Strategy 层，消除重复逻辑
 - 统一的 ContextTextBuilder 工具类用于所有文本格式化
 - 更清晰的职责划分，减少代码冗余
+- 完善的设计哲学和架构文档
+- SOLID 原则的全面实践
 
 ## 设计哲学
 
@@ -239,22 +241,24 @@ class MyProcessor(BaseProcessor):
 
 ## 与旧版本的区别
 
-| 特性 | v2.0 | v3.0/v3.1 | v3.2 | v3.2 优化版 |
-|------|------|------|------|------------|
-| 架构 | 单一Pipeline | 四层架构 | 六层架构 | 六层架构（简化） |
+| 特性 | v2.0 | v3.0/v3.1 | v3.2 | v4.0 |
+|------|------|------|------|------|
+| 架构 | 单一Pipeline | 四层架构 | 六层架构 | 六层架构（优化） |
 | 核心类 | Pipeline + Steps | ContextEngine + Pipeline | ContextEngine + Foundation | ContextEngine + Foundation |
-| Pipeline/Strategy关系 | N/A | 独立实现 | 独立实现 | Pipeline委托给Strategy |
+| Pipeline/Strategy关系 | N/A | 独立实现 | 独立实现 | **Pipeline委托给Strategy** |
 | 扩展性 | Step注册表 | 策略模式 | 策略模式 + 适配器模式 | 策略模式 + 适配器模式 |
 | 数据模型 | Context + ContextData | 专用数据类 | 专用数据类 + Chunk + ContextState | 专用数据类 + Chunk + ContextState |
 | API设计 | 复杂 | 简洁（optimize/update/extract） | 简洁 + 适配器 | 简洁 + 适配器 |
-| 职责划分 | 模糊 | 清晰 | 更清晰 | 最清晰 |
+| 职责划分 | 模糊 | 清晰 | 更清晰 | **最清晰** |
 | Token管理 | 字符估算 | 字符估算 | TokenizerService精确计数 | TokenizerService精确计数 |
 | 缓存 | 无 | 无 | CacheManager | CacheManager |
 | 容错 | 无 | 无 | CircuitBreaker + FlowController | CircuitBreaker + FlowController |
 | 文本格式化 | 分散 | 分散 | 分散 | **ContextTextBuilder统一** |
 | 代码重复 | 高 | 中 | 中 | **低（消除80%+重复）** |
+| 设计原则 | - | 部分 | 部分 | **SOLID 全面实践** |
+| 文档完善度 | 基础 | 中等 | 中等 | **完整（设计哲学+架构）** |
 
-## 架构优化改进（最新）
+## 架构优化改进（v4.0）
 
 ### 1. 消除 Pipeline/Strategy 重复逻辑
 

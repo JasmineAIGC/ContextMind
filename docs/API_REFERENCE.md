@@ -1,4 +1,4 @@
-# ContextMind v3.2 API Reference
+# ContextMind v4.0 API Reference
 
 ## 核心类
 

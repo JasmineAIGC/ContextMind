@@ -1,8 +1,12 @@
-# ContextMind v3.2 Foundation Layer 详细文档
+# ContextMind v4.0 Foundation Layer 详细文档
 
 ## 概述
 
-Foundation Layer（基础支撑层）是 v3.2 最重要的架构升级，提供了上下文工程所需的核心计算基础设施。
+Foundation Layer（基础支撑层）提供了上下文工程所需的核心计算基础设施。
+
+## 核心组件
+
+v4.0 继承了 v3.2 引入的 Foundation Layer，包括：
 
 ## 为什么需要 Foundation Layer？
 

@@ -1,4 +1,4 @@
-# ContextMind v3.2 最佳实践
+# ContextMind v4.0 最佳实践
 
 ## 架构使用
 

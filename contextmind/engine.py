@@ -1,5 +1,5 @@
 """
-ContextEngine - 上下文引擎核心模块 v3.2
+ContextEngine - 上下文引擎核心模块 v4.0
 
 完全重构的上下文引擎，基于多层架构设计：
 - 应用层：使用引擎的应用（示例：客服、聊天机器人等）
@@ -50,7 +50,7 @@ logger = get_logger(__name__)
 
 class ContextEngine:
     """
-    上下文引擎 v3.2
+    上下文引擎 v4.0
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult

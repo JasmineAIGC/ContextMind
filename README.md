@@ -1,6 +1,6 @@
 # ContextMind
 
-**ContextMind v3.2** - 通用上下文工程框架 ✨
+**ContextMind v4.0** - 通用上下文工程框架 ✨
 
 ---
 
@@ -419,7 +419,7 @@ python -m pytest tests/test_core.py::TestDataModels -v
 
 ## 📈 版本历史
 
-- **v3.2 优化版** (当前) - 消除代码冗余（~240行），统一文本格式化，完善文档
+- **v4.0** (当前) - 架构优化版：消除代码冗余（~240行），统一文本格式化，完善文档，SOLID 原则实践
 - **v3.2** - 新增 Foundation Layer、Control Layer、增强数据模型
 - **v3.1** - 重构引擎层，优化 API 设计
 - **v3.0** - 完全重构，引入六层架构
