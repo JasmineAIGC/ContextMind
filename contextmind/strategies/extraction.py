@@ -122,11 +122,11 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         facts = []
         
         fact_patterns = [
-            (r'我是(.{2,15})', '身份'),
+            (r'我是(.{2,15}[^，。！？,.!?]{0,5})', '身份'),
             (r'我叫(.{2,10})', '姓名'),
-            (r'我的(.{2,20})', '属性'),
-            (r'我在(.{2,20}[市县区])', '位置'),
-            (r'(\d+岁)', '年龄'),
+            (r'我的(.{2,20}[是：:].*?[，。！？,.!?])', '属性'),
+            (r'我在(.{2,20}[市县区镇])', '位置'),
+            (r'我(今年)?(\d+岁)', '年龄'),
         ]
         
         for msg in messages:
@@ -138,9 +138,17 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             for pattern, category in fact_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
+                    # 处理可能的tuple（从带多个捕获组的pattern）
+                    if isinstance(match, tuple):
+                        match = ''.join(match)
+                    
                     # 清理匹配结果
                     cleaned = match.strip()
-                    if len(cleaned) >= 2:  # 至少2个字符
+                    # 移除尾随的标点
+                    cleaned = re.sub(r'[，。！？,.!?；:：]+$', '', cleaned)
+                    
+                    # 至少2个字符且不超过30个字符
+                    if 2 <= len(cleaned) <= 30:
                         facts.append(Knowledge(
                             content=f"{category}: {cleaned}",
                             type=KnowledgeType.FACT,

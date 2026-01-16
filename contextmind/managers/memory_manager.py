@@ -162,7 +162,8 @@ class MemoryManager:
         """
         从本地缓存检索相关记忆
         
-        使用简单的关键词匹配进行检索。
+        使用简单的关键词匹配进行检索，支持中文。
+        优先返回相关记忆，如果没有相关的则返回所有记忆。
         
         Args:
             query: 查询字符串
@@ -175,7 +176,6 @@ class MemoryManager:
             return []
         
         query_lower = query.lower()
-        query_words = set(query_lower.split())
         
         # 计算每个缓存项的相关性分数
         scored_items = []
@@ -183,24 +183,30 @@ class MemoryManager:
             content_lower = item.content.lower()
             
             # 方法1: 完整匹配
-            if query_lower in content_lower:
+            if query_lower in content_lower or content_lower in query_lower:
                 score = 0.9
-            # 方法2: 词语重叠
+            # 方法2: 字符重叠（对中文更有效）
             else:
-                content_words = set(content_lower.split())
-                overlap = len(query_words & content_words)
+                # 对于中文，按字符而非词语计算重叠
+                query_chars = set(query_lower)
+                content_chars = set(content_lower)
+                overlap = len(query_chars & content_chars)
+                
+                # 至少有一个字符重叠才考虑
                 if overlap > 0:
-                    score = 0.5 + (overlap / max(len(query_words), len(content_words))) * 0.4
+                    # 计算Jaccard相似度
+                    union = len(query_chars | content_chars)
+                    similarity = overlap / union if union > 0 else 0
+                    score = 0.2 + similarity * 0.7  # 基础分0.2，最高0.9
                 else:
-                    score = 0
+                    score = 0.1  # 即使没有重叠，也给一个基础分
             
-            if score > 0:
-                scored_items.append((item, score))
+            scored_items.append((item, score))
         
         # 按分数排序
         scored_items.sort(key=lambda x: x[1], reverse=True)
         
-        # 返回前limit个
+        # 返回前limit个（总是返回一些记忆，即使分数低）
         result = [
             ContextItem(
                 content=item.content,
@@ -213,7 +219,7 @@ class MemoryManager:
         ]
         
         if result:
-            logger.debug(f"Retrieved {len(result)} memories from local cache for query: {query}")
+            logger.debug(f"Retrieved {len(result)} memories from local cache for query: {query} (top score: {scored_items[0][1]:.2f})")
         
         return result
     
@@ -295,9 +301,9 @@ class MemoryManager:
     
     def _is_similar(self, text1: str, text2: str) -> bool:
         """
-        检查两个文本是否相似
+        检查两个文本是否相似（支持中文）
         
-        使用简单的字符串包含和编辑距离检查。
+        使用字符级别的包含和Jaccard相似度检查。
         
         Args:
             text1: 文本1
@@ -310,24 +316,32 @@ class MemoryManager:
         clean1 = re.sub(r'\[.*?\]\s*', '', text1).strip()
         clean2 = re.sub(r'\[.*?\]\s*', '', text2).strip()
         
+        if not clean1 or not clean2:
+            return False
+        
         # 如果其中一个包含另一个，认为相似
         if clean1 in clean2 or clean2 in clean1:
             return True
         
-        # 计算简单的相似度（共同词汇比例）
-        words1 = set(clean1)
-        words2 = set(clean2)
+        # 对于中文，使用字符集合而非词汇
+        chars1 = set(clean1.lower())
+        chars2 = set(clean2.lower())
         
-        if not words1 or not words2:
+        # 移除空格和标点
+        chars1 = {c for c in chars1 if c.strip() and c not in '，。！？,.!?；:：'}
+        chars2 = {c for c in chars2 if c.strip() and c not in '，。！？,.!?；:：'}
+        
+        if not chars1 or not chars2:
             return False
         
-        intersection = len(words1 & words2)
-        union = len(words1 | words2)
+        # 计算Jaccard相似度
+        intersection = len(chars1 & chars2)
+        union = len(chars1 | chars2)
         
         similarity = intersection / union if union > 0 else 0
         
-        # 如果相似度超过70%，认为是重复
-        return similarity > 0.7
+        # 如果相似度超过60%，认为是重复（降低阈值）
+        return similarity > 0.6
     
     async def seed(self, facts: List[str]) -> None:
         """
