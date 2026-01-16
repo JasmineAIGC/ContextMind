@@ -1,1481 +1,237 @@
-[2026-01-16 13:45:42] INFO - Initializing client with model: Qwen3-32B
-[2026-01-16 13:45:42] DEBUG - Client initialized with base_url: http://10.112.172.30:18019/v1
-[2026-01-16 13:45:42] INFO - ContextEngine initialized for app=demo-app, user=demo-user
-[2026-01-16 13:45:42] INFO - Seeding 4 facts into long-term memory...
-[2026-01-16 13:45:42] DEBUG -   Added to cache: [预设知识] 产品名称：智能助手 Pro
-[2026-01-16 13:45:42] DEBUG -   Added to cache: [预设知识] 主要功能：智能对话、知识问答、任务管理
-[2026-01-16 13:45:42] DEBUG -   Added to cache: [预设知识] 服务时间：7x24小时在线
-[2026-01-16 13:45:42] DEBUG -   Added to cache: [预设知识] 联系方式：support@example.com
-[2026-01-16 13:45:42] INFO - ✓ Added 4 seed facts to local cache (total cache size: 4)
-[2026-01-16 13:45:42] INFO - Successfully seeded 4 facts to memory
-[2026-01-16 13:45:42] INFO - Application initialized: CallCenterApplication
-[2026-01-16 13:45:42] INFO - 助手: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-[2026-01-16 13:45:42] DEBUG - Created new session: 2ff9d328-f406-4145-867b-7fcc2ed77052
-[2026-01-16 13:45:42] DEBUG - Added assistant message to session
-[2026-01-16 13:45:50] INFO - 你: 你能干啥
-[2026-01-16 13:45:50] DEBUG - [处理对话] 用户输入: 你能干啥
-[2026-01-16 13:45:50] DEBUG - Optimizing context for input: 你能干啥
-[2026-01-16 13:45:50] DEBUG - Processed input: 你能干啥
-[2026-01-16 13:45:50] DEBUG - Collected 1 messages from session history
-[2026-01-16 13:45:50] DEBUG - retrieve() called with query='你能干啥', limit=5
-[2026-01-16 13:45:50] DEBUG - Memory service configured: True, Cache size: 4
-[2026-01-16 13:45:50] INFO - No memories from Memory Service, falling back to local cache (size=4)
-[2026-01-16 13:45:50] DEBUG - _retrieve_from_cache called with query='你能干啥', cache size=4
-[2026-01-16 13:45:50] INFO - ✓ Retrieved 4 memories from local cache (top score: 0.23)
-[2026-01-16 13:45:50] DEBUG -   Memory 1 (score=0.23): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:45:50] DEBUG -   Memory 2 (score=0.23): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:45:50] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:45:50] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:45:50] DEBUG - Collected 4 items from long-term memory
-[2026-01-16 13:45:50] DEBUG - Collected 5 context items
-[2026-01-16 13:45:50] DEBUG - SimpleIntegration: 5 items after integration
-[2026-01-16 13:45:50] DEBUG - Integrated 5 context items
-[2026-01-16 13:45:50] DEBUG - Extracted key info: 0 entities, 0 preferences, 0 actions
-[2026-01-16 13:45:50] DEBUG - Optimized to 5 context items
-[2026-01-16 13:45:50] DEBUG - Context optimized: 1 history, 4 memory items
-[2026-01-16 13:45:50] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 1 条消息
-  - 长期记忆: 4 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 1 条消息
-  1. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 4 项记忆
-  1. [预设知识] 产品名称：智能助手 Pro (相关性: 0.23)
-  2. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.23)
-  3. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  4. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:45:50] DEBUG - 
-【长期记忆数据库】
-  共 4 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-
-[2026-01-16 13:45:50] INFO - ✓ Prompt includes 4 long-term memories
-[2026-01-16 13:45:50] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 334
-  - 包含对话历史: 是 (1 轮)
-  - 包含长期记忆: 是 (4 项)
-
-[2026-01-16 13:45:50] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [预设知识] 产品名称：智能助手 Pro
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-
-## 相关对话历史
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-你能干啥
-
-[2026-01-16 13:45:53] DEBUG - Updating context with new messages
-[2026-01-16 13:45:53] DEBUG - Added user message to session
-[2026-01-16 13:45:53] DEBUG - Added assistant message to session
-[2026-01-16 13:45:53] DEBUG - Context updated successfully
-[2026-01-16 13:45:53] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:45:53] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
-[2026-01-16 13:45:53] DEBUG - Extracted 0 knowledge items from 3 messages
-[2026-01-16 13:45:53] INFO - Extracted 0 knowledge items
-[2026-01-16 13:45:53] DEBUG - [处理完成] 助手回复: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-[2026-01-16 13:45:53] INFO - 助手: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-[2026-01-16 13:46:28] INFO - 你: 你会唱歌吗
-[2026-01-16 13:46:28] DEBUG - [处理对话] 用户输入: 你会唱歌吗
-[2026-01-16 13:46:28] DEBUG - Optimizing context for input: 你会唱歌吗
-[2026-01-16 13:46:28] DEBUG - Processed input: 你会唱歌吗
-[2026-01-16 13:46:28] DEBUG - Collected 3 messages from session history
-[2026-01-16 13:46:28] DEBUG - retrieve() called with query='你会唱歌吗', limit=5
-[2026-01-16 13:46:28] DEBUG - Memory service configured: True, Cache size: 4
-[2026-01-16 13:46:28] INFO - No memories from Memory Service, falling back to local cache (size=4)
-[2026-01-16 13:46:28] DEBUG - _retrieve_from_cache called with query='你会唱歌吗', cache size=4
-[2026-01-16 13:46:28] INFO - ✓ Retrieved 4 memories from local cache (top score: 0.10)
-[2026-01-16 13:46:28] DEBUG -   Memory 1 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:46:28] DEBUG -   Memory 2 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:46:28] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:46:28] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:46:28] DEBUG - Collected 4 items from long-term memory
-[2026-01-16 13:46:28] DEBUG - Collected 7 context items
-[2026-01-16 13:46:28] DEBUG - SimpleIntegration: 7 items after integration
-[2026-01-16 13:46:28] DEBUG - Integrated 7 context items
-[2026-01-16 13:46:28] DEBUG - Extracted key info: 1 entities, 1 preferences, 1 actions
-[2026-01-16 13:46:28] DEBUG - Optimized to 7 context items
-[2026-01-16 13:46:28] DEBUG - Context optimized: 3 history, 4 memory items
-[2026-01-16 13:46:28] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 3 条消息
-  - 长期记忆: 4 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 3 条消息
-  1. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  2. user: 你能干啥
-  3. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 4 项记忆
-  1. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  2. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  3. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  4. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:46:28] DEBUG - 
-【长期记忆数据库】
-  共 4 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-
-[2026-01-16 13:46:28] INFO - ✓ Prompt includes 4 long-term memories
-[2026-01-16 13:46:28] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 529
-  - 包含对话历史: 是 (3 轮)
-  - 包含长期记忆: 是 (4 项)
-
-[2026-01-16 13:46:28] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-你会唱歌吗
-
-[2026-01-16 13:46:30] DEBUG - Updating context with new messages
-[2026-01-16 13:46:30] DEBUG - Added user message to session
-[2026-01-16 13:46:30] DEBUG - Added assistant message to session
-[2026-01-16 13:46:30] DEBUG - Context updated successfully
-[2026-01-16 13:46:30] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:46:30] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
-[2026-01-16 13:46:30] DEBUG - Extracted 0 knowledge items from 5 messages
-[2026-01-16 13:46:30] INFO - Extracted 0 knowledge items
-[2026-01-16 13:46:30] DEBUG - [处理完成] 助手回复: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-[2026-01-16 13:46:30] INFO - 助手: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-[2026-01-16 13:47:16] INFO - 你: 我节奏性强的歌
-[2026-01-16 13:47:16] DEBUG - [处理对话] 用户输入: 我节奏性强的歌
-[2026-01-16 13:47:16] DEBUG - Optimizing context for input: 我节奏性强的歌
-[2026-01-16 13:47:16] DEBUG - Processed input: 我节奏性强的歌
-[2026-01-16 13:47:16] DEBUG - Collected 5 messages from session history
-[2026-01-16 13:47:16] DEBUG - retrieve() called with query='我节奏性强的歌', limit=5
-[2026-01-16 13:47:16] DEBUG - Memory service configured: True, Cache size: 4
-[2026-01-16 13:47:16] INFO - No memories from Memory Service, falling back to local cache (size=4)
-[2026-01-16 13:47:16] DEBUG - _retrieve_from_cache called with query='我节奏性强的歌', cache size=4
-[2026-01-16 13:47:16] INFO - ✓ Retrieved 4 memories from local cache (top score: 0.10)
-[2026-01-16 13:47:16] DEBUG -   Memory 1 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:47:16] DEBUG -   Memory 2 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:47:16] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:47:16] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:47:16] DEBUG - Collected 4 items from long-term memory
-[2026-01-16 13:47:16] DEBUG - Collected 9 context items
-[2026-01-16 13:47:16] DEBUG - SimpleIntegration: 9 items after integration
-[2026-01-16 13:47:16] DEBUG - Integrated 9 context items
-[2026-01-16 13:47:16] DEBUG - Extracted key info: 2 entities, 1 preferences, 2 actions
-[2026-01-16 13:47:16] DEBUG - Optimized to 9 context items
-[2026-01-16 13:47:16] DEBUG - Context optimized: 5 history, 4 memory items
-[2026-01-16 13:47:16] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 5 条消息
-  - 长期记忆: 4 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 5 条消息
-  1. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  2. user: 你会唱歌吗
-  3. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  4. user: 你能干啥
-  5. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 4 项记忆
-  1. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  2. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  3. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  4. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:47:16] DEBUG - 
-【长期记忆数据库】
-  共 4 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-
-[2026-01-16 13:47:16] INFO - ✓ Prompt includes 4 long-term memories
-[2026-01-16 13:47:16] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 633
-  - 包含对话历史: 是 (5 轮)
-  - 包含长期记忆: 是 (4 项)
-
-[2026-01-16 13:47:16] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-我节奏性强的歌
-
-[2026-01-16 13:47:22] DEBUG - Updating context with new messages
-[2026-01-16 13:47:22] DEBUG - Added user message to session
-[2026-01-16 13:47:22] DEBUG - Added assistant message to session
-[2026-01-16 13:47:22] DEBUG - Context updated successfully
-[2026-01-16 13:47:22] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:47:22] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
-[2026-01-16 13:47:22] DEBUG - Extracted 0 knowledge items from 7 messages
-[2026-01-16 13:47:22] INFO - Extracted 0 knowledge items
-[2026-01-16 13:47:22] DEBUG - [处理完成] 助手回复: 当然可以！虽然我不能直接唱歌，但我可以为您推荐一些节奏感强的歌曲，比如：
-
-1. **《Uptown Funk》- Mark Ronson ft. Bruno Mars**：充满复古风格的放克节奏，非常动感。
-2. **《Can't Stop the Feeling!》- Justin Timberlake**：轻快的旋律和强烈的节奏感，让人忍不住跟着摇摆。
-3. **《Despacito》- Luis Fonsi & Daddy Yankee**：拉丁风格的舞曲，节奏感十足，全球热单。
-4. **《Blinding Lights》- The Weeknd**：电子合成器风格的旋律搭配强烈的节奏，非常适合跑步或运动时听。
-5. **《Levitating》- Dua Lipa**：带有复古迪斯科风格的舞曲，节奏感强，旋律抓耳。
-
-如果您有特定的音乐风格或歌手偏好，也可以告诉我，我可以为您推荐更符合您口味的歌曲！需要我帮您搜索这些歌曲的链接或歌词吗？
-[2026-01-16 13:47:22] INFO - 助手: 当然可以！虽然我不能直接唱歌，但我可以为您推荐一些节奏感强的歌曲，比如：
-
-1. **《Uptown Funk》- Mark Ronson ft. Bruno Mars**：充满复古风格的放克节奏，非常动感。
-2. **《Can't Stop the Feeling!》- Justin Timberlake**：轻快的旋律和强烈的节奏感，让人忍不住跟着摇摆。
-3. **《Despacito》- Luis Fonsi & Daddy Yankee**：拉丁风格的舞曲，节奏感十足，全球热单。
-4. **《Blinding Lights》- The Weeknd**：电子合成器风格的旋律搭配强烈的节奏，非常适合跑步或运动时听。
-5. **《Levitating》- Dua Lipa**：带有复古迪斯科风格的舞曲，节奏感强，旋律抓耳。
-
-如果您有特定的音乐风格或歌手偏好，也可以告诉我，我可以为您推荐更符合您口味的歌曲！需要我帮您搜索这些歌曲的链接或歌词吗？
-[2026-01-16 13:47:48] INFO - 你: 帮我写一首诗
-[2026-01-16 13:47:48] DEBUG - [处理对话] 用户输入: 帮我写一首诗
-[2026-01-16 13:47:48] DEBUG - Optimizing context for input: 帮我写一首诗
-[2026-01-16 13:47:48] DEBUG - Processed input: 帮我写一首诗
-[2026-01-16 13:47:48] DEBUG - Collected 7 messages from session history
-[2026-01-16 13:47:48] DEBUG - retrieve() called with query='帮我写一首诗', limit=5
-[2026-01-16 13:47:48] DEBUG - Memory service configured: True, Cache size: 4
-[2026-01-16 13:47:48] INFO - No memories from Memory Service, falling back to local cache (size=4)
-[2026-01-16 13:47:48] DEBUG - _retrieve_from_cache called with query='帮我写一首诗', cache size=4
-[2026-01-16 13:47:48] INFO - ✓ Retrieved 4 memories from local cache (top score: 0.10)
-[2026-01-16 13:47:48] DEBUG -   Memory 1 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:47:48] DEBUG -   Memory 2 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:47:48] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:47:48] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:47:48] DEBUG - Collected 4 items from long-term memory
-[2026-01-16 13:47:48] DEBUG - Collected 11 context items
-[2026-01-16 13:47:48] DEBUG - SimpleIntegration: 11 items after integration
-[2026-01-16 13:47:48] DEBUG - Integrated 11 context items
-[2026-01-16 13:47:48] DEBUG - Extracted key info: 2 entities, 2 preferences, 3 actions
-[2026-01-16 13:47:48] DEBUG - Session items limited to last 6
-[2026-01-16 13:47:48] DEBUG - Optimized to 10 context items
-[2026-01-16 13:47:48] DEBUG - Context optimized: 6 history, 4 memory items
-[2026-01-16 13:47:48] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 4 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 4 项记忆
-  1. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  2. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  3. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  4. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:47:48] DEBUG - 
-【长期记忆数据库】
-  共 4 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-
-[2026-01-16 13:47:48] INFO - ✓ Prompt includes 4 long-term memories
-[2026-01-16 13:47:48] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 646
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (4 项)
-
-[2026-01-16 13:47:48] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-帮我写一首诗
-
-[2026-01-16 13:47:49] DEBUG - Updating context with new messages
-[2026-01-16 13:47:49] DEBUG - Added user message to session
-[2026-01-16 13:47:49] DEBUG - Added assistant message to session
-[2026-01-16 13:47:49] DEBUG - Context updated successfully
-[2026-01-16 13:47:49] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:47:49] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
-[2026-01-16 13:47:49] DEBUG - Extracted 0 knowledge items from 9 messages
-[2026-01-16 13:47:49] INFO - Extracted 0 knowledge items
-[2026-01-16 13:47:49] DEBUG - [处理完成] 助手回复: 好的，我可以为您创作一首简短的诗。请告诉我诗的主题或灵感来源，例如自然、季节、情感等，以便我更好地为您定制内容。
-[2026-01-16 13:47:49] INFO - 助手: 好的，我可以为您创作一首简短的诗。请告诉我诗的主题或灵感来源，例如自然、季节、情感等，以便我更好地为您定制内容。
-[2026-01-16 13:48:10] INFO - 你: 我喜欢 有深度情感壮阔的诗词
-[2026-01-16 13:48:10] DEBUG - [处理对话] 用户输入: 我喜欢 有深度情感壮阔的诗词
-[2026-01-16 13:48:10] DEBUG - Optimizing context for input: 我喜欢 有深度情感壮阔的诗词
-[2026-01-16 13:48:10] DEBUG - Processed input: 我喜欢 有深度情感壮阔的诗词
-[2026-01-16 13:48:10] DEBUG - Collected 9 messages from session history
-[2026-01-16 13:48:10] DEBUG - retrieve() called with query='我喜欢 有深度情感壮阔的诗词', limit=5
-[2026-01-16 13:48:10] DEBUG - Memory service configured: True, Cache size: 4
-[2026-01-16 13:48:10] INFO - No memories from Memory Service, falling back to local cache (size=4)
-[2026-01-16 13:48:10] DEBUG - _retrieve_from_cache called with query='我喜欢 有深度情感壮阔的诗词', cache size=4
-[2026-01-16 13:48:10] INFO - ✓ Retrieved 4 memories from local cache (top score: 0.22)
-[2026-01-16 13:48:10] DEBUG -   Memory 1 (score=0.22): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:48:10] DEBUG -   Memory 2 (score=0.22): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:48:10] DEBUG -   Memory 3 (score=0.22): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:48:10] DEBUG -   Memory 4 (score=0.22): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:48:10] DEBUG - Collected 4 items from long-term memory
-[2026-01-16 13:48:10] DEBUG - Collected 13 context items
-[2026-01-16 13:48:10] DEBUG - SimpleIntegration: 13 items after integration
-[2026-01-16 13:48:10] DEBUG - Integrated 13 context items
-[2026-01-16 13:48:10] DEBUG - Extracted key info: 2 entities, 2 preferences, 5 actions
-[2026-01-16 13:48:10] DEBUG - Session items limited to last 6
-[2026-01-16 13:48:10] DEBUG - Optimized to 10 context items
-[2026-01-16 13:48:10] DEBUG - Context optimized: 6 history, 4 memory items
-[2026-01-16 13:48:10] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 4 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 4 项记忆
-  1. [预设知识] 服务时间：7x24小时在线 (相关性: 0.22)
-  2. [预设知识] 产品名称：智能助手 Pro (相关性: 0.22)
-  3. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.22)
-  4. [预设知识] 联系方式：support@example.com (相关性: 0.22)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:48:10] DEBUG - 
-【长期记忆数据库】
-  共 4 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-
-[2026-01-16 13:48:10] INFO - ✓ Prompt includes 4 long-term memories
-[2026-01-16 13:48:10] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 654
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (4 项)
-
-[2026-01-16 13:48:10] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 产品名称：智能助手 Pro
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 联系方式：support@example.com
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-我喜欢 有深度情感壮阔的诗词
-
-[2026-01-16 13:48:14] DEBUG - Updating context with new messages
-[2026-01-16 13:48:14] DEBUG - Added user message to session
-[2026-01-16 13:48:14] DEBUG - Added assistant message to session
-[2026-01-16 13:48:14] DEBUG - Context updated successfully
-[2026-01-16 13:48:14] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:48:14] DEBUG - RuleBasedExtraction: extracted 1 knowledge items
-[2026-01-16 13:48:14] DEBUG - Extracted 1 knowledge items from 11 messages
-[2026-01-16 13:48:14] DEBUG - Added 1 new items to local cache (filtered 0 duplicates), total: 5
-[2026-01-16 13:48:14] DEBUG - Stored 1 new knowledge items to Memory Service
-[2026-01-16 13:48:14] INFO - Extracted and stored 1 knowledge items
-[2026-01-16 13:48:14] DEBUG - [处理完成] 助手回复: 您可以尝试以下这首诗词：
-
-《将进酒》  
-君不见，黄河之水天上来，奔流到海不复回。  
-君不见，高堂明镜悲白发，朝如青丝暮成雪。  
-人生得意须尽欢，莫使金樽空对月。  
-天生我材必有用，千金散尽还复来。  
-烹羊宰牛且为乐，会须一饮三百杯。  
-
-这首诗以豪放的笔调表达了对人生的感慨和对自由的追求，情感壮阔，意境深远。希望您喜欢！如果还有其他需求或问题，随时告诉我！
-[2026-01-16 13:48:14] INFO - 助手: 您可以尝试以下这首诗词：
-
-《将进酒》  
-君不见，黄河之水天上来，奔流到海不复回。  
-君不见，高堂明镜悲白发，朝如青丝暮成雪。  
-人生得意须尽欢，莫使金樽空对月。  
-天生我材必有用，千金散尽还复来。  
-烹羊宰牛且为乐，会须一饮三百杯。  
-
-这首诗以豪放的笔调表达了对人生的感慨和对自由的追求，情感壮阔，意境深远。希望您喜欢！如果还有其他需求或问题，随时告诉我！
-[2026-01-16 13:48:30] INFO - 你: 让你写一首新的，不是已经有的
-[2026-01-16 13:48:30] DEBUG - [处理对话] 用户输入: 让你写一首新的，不是已经有的
-[2026-01-16 13:48:30] DEBUG - Optimizing context for input: 让你写一首新的，不是已经有的
-[2026-01-16 13:48:30] DEBUG - Processed input: 让你写一首新的，不是已经有的
-[2026-01-16 13:48:30] DEBUG - Collected 11 messages from session history
-[2026-01-16 13:48:30] DEBUG - retrieve() called with query='让你写一首新的，不是已经有的', limit=5
-[2026-01-16 13:48:30] DEBUG - Memory service configured: True, Cache size: 5
-[2026-01-16 13:48:30] INFO - No memories from Memory Service, falling back to local cache (size=5)
-[2026-01-16 13:48:30] DEBUG - _retrieve_from_cache called with query='让你写一首新的，不是已经有的', cache size=5
-[2026-01-16 13:48:30] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.24)
-[2026-01-16 13:48:30] DEBUG -   Memory 1 (score=0.24): [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:48:30] DEBUG -   Memory 2 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:48:30] DEBUG -   Memory 3 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:48:30] DEBUG -   Memory 4 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:48:30] DEBUG -   Memory 5 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:48:30] DEBUG - Collected 5 items from long-term memory
-[2026-01-16 13:48:30] DEBUG - Collected 16 context items
-[2026-01-16 13:48:30] DEBUG - SimpleIntegration: 16 items after integration
-[2026-01-16 13:48:30] DEBUG - Integrated 16 context items
-[2026-01-16 13:48:30] DEBUG - Extracted key info: 3 entities, 5 preferences, 5 actions
-[2026-01-16 13:48:30] DEBUG - Session items limited to last 6
-[2026-01-16 13:48:30] DEBUG - Optimized to 11 context items
-[2026-01-16 13:48:30] DEBUG - Context optimized: 6 history, 5 memory items
-[2026-01-16 13:48:30] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 5 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 5 项记忆
-  1. [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词 (相关性: 0.24)
-  2. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  3. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  4. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  5. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:48:30] DEBUG - 
-【长期记忆数据库】
-  共 5 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-  5. [memory] [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-
-[2026-01-16 13:48:30] INFO - ✓ Prompt includes 5 long-term memories
-[2026-01-16 13:48:30] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 689
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (5 项)
-
-[2026-01-16 13:48:30] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-让你写一首新的，不是已经有的
-
-[2026-01-16 13:48:34] DEBUG - Updating context with new messages
-[2026-01-16 13:48:34] DEBUG - Added user message to session
-[2026-01-16 13:48:34] DEBUG - Added assistant message to session
-[2026-01-16 13:48:34] DEBUG - Context updated successfully
-[2026-01-16 13:48:34] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:48:34] DEBUG - RuleBasedExtraction: extracted 1 knowledge items
-[2026-01-16 13:48:34] DEBUG - Extracted 1 knowledge items from 13 messages
-[2026-01-16 13:48:34] DEBUG - Skipping duplicate knowledge: [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:48:34] DEBUG - All knowledge items are duplicates, nothing new to store
-[2026-01-16 13:48:34] INFO - Extracted and stored 1 knowledge items
-[2026-01-16 13:48:34] DEBUG - [处理完成] 助手回复: 好的，我将基于您的需求创作一首新的诗词。以下是原创作品：
-
----
-
-**《长夜行》**
-
-长夜未央风满襟，  
-孤灯照影独行吟。  
-山河万里皆如梦，  
-心火不熄照古今。  
-
-踏霜踏雪踏星辰，  
-不问归期不问金。  
-一曲悲欢天地老，  
-唯留豪气在人心。  
-
----
-
-这首诗描绘了在漫长黑夜中独自前行的壮阔情感，既有对山河岁月的感慨，也有对内心信念的坚守。希望您喜欢！如果还需要调整风格或主题，请随时告诉我。
-[2026-01-16 13:48:34] INFO - 助手: 好的，我将基于您的需求创作一首新的诗词。以下是原创作品：
-
----
-
-**《长夜行》**
-
-长夜未央风满襟，  
-孤灯照影独行吟。  
-山河万里皆如梦，  
-心火不熄照古今。  
-
-踏霜踏雪踏星辰，  
-不问归期不问金。  
-一曲悲欢天地老，  
-唯留豪气在人心。  
-
----
-
-这首诗描绘了在漫长黑夜中独自前行的壮阔情感，既有对山河岁月的感慨，也有对内心信念的坚守。希望您喜欢！如果还需要调整风格或主题，请随时告诉我。
-[2026-01-16 13:50:34] INFO - 你: 我是重庆人，比较耿直
-[2026-01-16 13:50:34] DEBUG - [处理对话] 用户输入: 我是重庆人，比较耿直
-[2026-01-16 13:50:34] DEBUG - Optimizing context for input: 我是重庆人，比较耿直
-[2026-01-16 13:50:34] DEBUG - Processed input: 我是重庆人，比较耿直
-[2026-01-16 13:50:34] DEBUG - Collected 13 messages from session history
-[2026-01-16 13:50:34] DEBUG - retrieve() called with query='我是重庆人，比较耿直', limit=5
-[2026-01-16 13:50:34] DEBUG - Memory service configured: True, Cache size: 5
-[2026-01-16 13:50:34] INFO - No memories from Memory Service, falling back to local cache (size=5)
-[2026-01-16 13:50:34] DEBUG - _retrieve_from_cache called with query='我是重庆人，比较耿直', cache size=5
-[2026-01-16 13:50:34] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.10)
-[2026-01-16 13:50:34] DEBUG -   Memory 1 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:50:34] DEBUG -   Memory 2 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:50:34] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:50:34] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:50:34] DEBUG -   Memory 5 (score=0.10): [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:50:34] DEBUG - Collected 5 items from long-term memory
-[2026-01-16 13:50:34] DEBUG - Collected 18 context items
-[2026-01-16 13:50:34] DEBUG - SimpleIntegration: 18 items after integration
-[2026-01-16 13:50:34] DEBUG - Integrated 18 context items
-[2026-01-16 13:50:34] DEBUG - Extracted key info: 7 entities, 5 preferences, 5 actions
-[2026-01-16 13:50:34] DEBUG - Session items limited to last 6
-[2026-01-16 13:50:34] DEBUG - Optimized to 11 context items
-[2026-01-16 13:50:34] DEBUG - Context optimized: 6 history, 5 memory items
-[2026-01-16 13:50:34] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 5 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 5 项记忆
-  1. [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词 (相关性: 0.10)
-  2. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  3. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  4. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  5. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:50:34] DEBUG - 
-【长期记忆数据库】
-  共 5 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-  5. [memory] [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-
-[2026-01-16 13:50:34] INFO - ✓ Prompt includes 5 long-term memories
-[2026-01-16 13:50:34] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 685
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (5 项)
-
-[2026-01-16 13:50:34] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-我是重庆人，比较耿直
-
-[2026-01-16 13:50:37] DEBUG - Updating context with new messages
-[2026-01-16 13:50:37] DEBUG - Added user message to session
-[2026-01-16 13:50:37] DEBUG - Added assistant message to session
-[2026-01-16 13:50:37] DEBUG - Context updated successfully
-[2026-01-16 13:50:37] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:50:37] DEBUG - RuleBasedExtraction: extracted 2 knowledge items
-[2026-01-16 13:50:37] DEBUG - Extracted 2 knowledge items from 15 messages
-[2026-01-16 13:50:37] DEBUG - Skipping duplicate knowledge: [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:50:37] DEBUG - Added 1 new items to local cache (filtered 1 duplicates), total: 6
-[2026-01-16 13:50:37] DEBUG - Stored 1 new knowledge items to Memory Service
-[2026-01-16 13:50:37] INFO - Extracted and stored 2 knowledge items
-[2026-01-16 13:50:37] DEBUG - [处理完成] 助手回复: 哈哈，重庆人的耿直可是出了名的，直爽、实在、有个性，这正是让人觉得亲切的地方！作为智能助手 Pro，我很喜欢和性格鲜明的用户交流，感觉每一次对话都充满真诚和温度。  
-
-无论是聊生活、谈想法，还是需要帮忙处理一些事情，我都会像朋友一样真诚地陪在您身边。您有什么想聊的、想问的，或者想让我帮忙的，尽管说！
-[2026-01-16 13:50:37] INFO - 助手: 哈哈，重庆人的耿直可是出了名的，直爽、实在、有个性，这正是让人觉得亲切的地方！作为智能助手 Pro，我很喜欢和性格鲜明的用户交流，感觉每一次对话都充满真诚和温度。  
-
-无论是聊生活、谈想法，还是需要帮忙处理一些事情，我都会像朋友一样真诚地陪在您身边。您有什么想聊的、想问的，或者想让我帮忙的，尽管说！
-[2026-01-16 13:50:53] INFO - 你: 如果遇到工作不顺，我应该做什么
-[2026-01-16 13:50:53] DEBUG - [处理对话] 用户输入: 如果遇到工作不顺，我应该做什么
-[2026-01-16 13:50:53] DEBUG - Optimizing context for input: 如果遇到工作不顺，我应该做什么
-[2026-01-16 13:50:53] DEBUG - Processed input: 如果遇到工作不顺，我应该做什么
-[2026-01-16 13:50:53] DEBUG - Collected 15 messages from session history
-[2026-01-16 13:50:53] DEBUG - retrieve() called with query='如果遇到工作不顺，我应该做什么', limit=5
-[2026-01-16 13:50:53] DEBUG - Memory service configured: True, Cache size: 6
-[2026-01-16 13:50:53] INFO - No memories from Memory Service, falling back to local cache (size=6)
-[2026-01-16 13:50:53] DEBUG - _retrieve_from_cache called with query='如果遇到工作不顺，我应该做什么', cache size=6
-[2026-01-16 13:50:53] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.22)
-[2026-01-16 13:50:53] DEBUG -   Memory 1 (score=0.22): [FACT] 身份: 重庆人，比较耿直...
-[2026-01-16 13:50:53] DEBUG -   Memory 2 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:50:53] DEBUG -   Memory 3 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:50:53] DEBUG -   Memory 4 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:50:53] DEBUG -   Memory 5 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:50:53] DEBUG - Collected 5 items from long-term memory
-[2026-01-16 13:50:53] DEBUG - Collected 20 context items
-[2026-01-16 13:50:53] DEBUG - SimpleIntegration: 20 items after integration
-[2026-01-16 13:50:53] DEBUG - Integrated 20 context items
-[2026-01-16 13:50:53] DEBUG - Extracted key info: 10 entities, 5 preferences, 5 actions
-[2026-01-16 13:50:53] DEBUG - Session items limited to last 6
-[2026-01-16 13:50:53] DEBUG - Optimized to 11 context items
-[2026-01-16 13:50:53] DEBUG - Context optimized: 6 history, 5 memory items
-[2026-01-16 13:50:53] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 5 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 5 项记忆
-  1. [FACT] 身份: 重庆人，比较耿直 (相关性: 0.22)
-  2. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  3. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  4. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  5. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:50:53] DEBUG - 
-【长期记忆数据库】
-  共 6 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-  5. [memory] [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-  6. [memory] [FACT] 身份: 重庆人，比较耿直
-
-[2026-01-16 13:50:53] INFO - ✓ Prompt includes 5 long-term memories
-[2026-01-16 13:50:53] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 677
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (5 项)
-
-[2026-01-16 13:50:53] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [FACT] 身份: 重庆人，比较耿直
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-如果遇到工作不顺，我应该做什么
-
-[2026-01-16 13:50:59] DEBUG - Updating context with new messages
-[2026-01-16 13:50:59] DEBUG - Added user message to session
-[2026-01-16 13:50:59] DEBUG - Added assistant message to session
-[2026-01-16 13:50:59] DEBUG - Context updated successfully
-[2026-01-16 13:50:59] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:50:59] DEBUG - RuleBasedExtraction: extracted 3 knowledge items
-[2026-01-16 13:50:59] DEBUG - Extracted 3 knowledge items from 17 messages
-[2026-01-16 13:50:59] DEBUG - Skipping duplicate knowledge: [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:50:59] DEBUG - Skipping duplicate knowledge: [FACT] 身份: 重庆人，比较耿直...
-[2026-01-16 13:50:59] DEBUG - Added 1 new items to local cache (filtered 2 duplicates), total: 7
-[2026-01-16 13:50:59] DEBUG - Stored 1 new knowledge items to Memory Service
-[2026-01-16 13:50:59] INFO - Extracted and stored 3 knowledge items
-[2026-01-16 13:50:59] DEBUG - [处理完成] 助手回复: 遇到工作不顺的时候，可以尝试以下几个方法来调整状态：
-
-1. **冷静分析原因**：先理清问题的根源，是任务难度大、沟通不畅，还是自身状态不佳？明确问题才能对症下药。
-
-2. **寻求帮助**：和同事、上级或朋友沟通，有时候外部的建议能帮你找到新思路。
-
-3. **适当休息**：压力大时，短暂休息或换个环境能帮助恢复精力。比如散步、听音乐，或者做些简单的运动。
-
-4. **分解任务**：把大目标拆成小步骤，逐步完成，避免因任务庞大而感到挫败。
-
-5. **调整心态**：接受暂时的不顺是正常的，保持积极心态，把困难当作成长的机会。
-
-6. **记录感受**：写下来自己的情绪和想法，有助于梳理思路，也能避免负面情绪积压。
-
-如果需要更具体的建议，比如如何与同事沟通、制定计划等，可以告诉我具体情况，我来帮你分析。
-[2026-01-16 13:50:59] INFO - 助手: 遇到工作不顺的时候，可以尝试以下几个方法来调整状态：
-
-1. **冷静分析原因**：先理清问题的根源，是任务难度大、沟通不畅，还是自身状态不佳？明确问题才能对症下药。
-
-2. **寻求帮助**：和同事、上级或朋友沟通，有时候外部的建议能帮你找到新思路。
-
-3. **适当休息**：压力大时，短暂休息或换个环境能帮助恢复精力。比如散步、听音乐，或者做些简单的运动。
-
-4. **分解任务**：把大目标拆成小步骤，逐步完成，避免因任务庞大而感到挫败。
-
-5. **调整心态**：接受暂时的不顺是正常的，保持积极心态，把困难当作成长的机会。
-
-6. **记录感受**：写下来自己的情绪和想法，有助于梳理思路，也能避免负面情绪积压。
-
-如果需要更具体的建议，比如如何与同事沟通、制定计划等，可以告诉我具体情况，我来帮你分析。
-[2026-01-16 13:51:16] INFO - 你: 帮我推荐一首歌曲
-[2026-01-16 13:51:16] DEBUG - [处理对话] 用户输入: 帮我推荐一首歌曲
-[2026-01-16 13:51:16] DEBUG - Optimizing context for input: 帮我推荐一首歌曲
-[2026-01-16 13:51:16] DEBUG - Processed input: 帮我推荐一首歌曲
-[2026-01-16 13:51:16] DEBUG - Collected 17 messages from session history
-[2026-01-16 13:51:16] DEBUG - retrieve() called with query='帮我推荐一首歌曲', limit=5
-[2026-01-16 13:51:16] DEBUG - Memory service configured: True, Cache size: 7
-[2026-01-16 13:51:16] INFO - No memories from Memory Service, falling back to local cache (size=7)
-[2026-01-16 13:51:16] DEBUG - _retrieve_from_cache called with query='帮我推荐一首歌曲', cache size=7
-[2026-01-16 13:51:16] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.10)
-[2026-01-16 13:51:16] DEBUG -   Memory 1 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:51:16] DEBUG -   Memory 2 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:51:16] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:51:16] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:51:16] DEBUG -   Memory 5 (score=0.10): [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:51:16] DEBUG - Collected 5 items from long-term memory
-[2026-01-16 13:51:16] DEBUG - Collected 22 context items
-[2026-01-16 13:51:16] DEBUG - SimpleIntegration: 22 items after integration
-[2026-01-16 13:51:16] DEBUG - Integrated 22 context items
-[2026-01-16 13:51:16] DEBUG - Extracted key info: 10 entities, 5 preferences, 5 actions
-[2026-01-16 13:51:16] DEBUG - Session items limited to last 6
-[2026-01-16 13:51:16] DEBUG - Optimized to 11 context items
-[2026-01-16 13:51:16] DEBUG - Context optimized: 6 history, 5 memory items
-[2026-01-16 13:51:16] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 5 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 5 项记忆
-  1. [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词 (相关性: 0.10)
-  2. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  3. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  4. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  5. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:51:16] DEBUG - 
-【长期记忆数据库】
-  共 7 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-  5. [memory] [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-  6. [memory] [FACT] 身份: 重庆人，比较耿直
-  7. [memory] [EVENT] 关键决策: **调整心态**：接受暂时的不顺是正常的
-
-[2026-01-16 13:51:16] INFO - ✓ Prompt includes 5 long-term memories
-[2026-01-16 13:51:16] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 683
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (5 项)
-
-[2026-01-16 13:51:16] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-帮我推荐一首歌曲
-
-[2026-01-16 13:51:17] DEBUG - Updating context with new messages
-[2026-01-16 13:51:17] DEBUG - Added user message to session
-[2026-01-16 13:51:17] DEBUG - Added assistant message to session
-[2026-01-16 13:51:17] DEBUG - Context updated successfully
-[2026-01-16 13:51:17] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:51:17] DEBUG - RuleBasedExtraction: extracted 3 knowledge items
-[2026-01-16 13:51:17] DEBUG - Extracted 3 knowledge items from 19 messages
-[2026-01-16 13:51:17] DEBUG - Skipping duplicate knowledge: [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:51:17] DEBUG - Skipping duplicate knowledge: [FACT] 身份: 重庆人，比较耿直...
-[2026-01-16 13:51:17] DEBUG - Skipping duplicate knowledge: [EVENT] 关键决策: **调整心态**：接受暂时的不顺是正常的...
-[2026-01-16 13:51:17] DEBUG - All knowledge items are duplicates, nothing new to store
-[2026-01-16 13:51:17] INFO - Extracted and stored 3 knowledge items
-[2026-01-16 13:51:17] DEBUG - [处理完成] 助手回复: 根据您之前提到的偏好，我为您推荐歌曲《海阔天空》。这首由信乐团演唱的经典之作，歌词充满力量与希望，旋律激昂壮阔，能唤起内心深处的情感共鸣。若想探索更多类似风格的音乐，我也可以继续为您推荐！
-[2026-01-16 13:51:17] INFO - 助手: 根据您之前提到的偏好，我为您推荐歌曲《海阔天空》。这首由信乐团演唱的经典之作，歌词充满力量与希望，旋律激昂壮阔，能唤起内心深处的情感共鸣。若想探索更多类似风格的音乐，我也可以继续为您推荐！
-[2026-01-16 13:52:09] INFO - 你: 我应该去吃什么
-[2026-01-16 13:52:09] DEBUG - [处理对话] 用户输入: 我应该去吃什么
-[2026-01-16 13:52:09] DEBUG - Optimizing context for input: 我应该去吃什么
-[2026-01-16 13:52:09] DEBUG - Processed input: 我应该去吃什么
-[2026-01-16 13:52:09] DEBUG - Collected 19 messages from session history
-[2026-01-16 13:52:09] DEBUG - retrieve() called with query='我应该去吃什么', limit=5
-[2026-01-16 13:52:09] DEBUG - Memory service configured: True, Cache size: 7
-[2026-01-16 13:52:09] INFO - No memories from Memory Service, falling back to local cache (size=7)
-[2026-01-16 13:52:09] DEBUG - _retrieve_from_cache called with query='我应该去吃什么', cache size=7
-[2026-01-16 13:52:09] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.10)
-[2026-01-16 13:52:09] DEBUG -   Memory 1 (score=0.10): [预设知识] 产品名称：智能助手 Pro...
-[2026-01-16 13:52:09] DEBUG -   Memory 2 (score=0.10): [预设知识] 主要功能：智能对话、知识问答、任务管理...
-[2026-01-16 13:52:09] DEBUG -   Memory 3 (score=0.10): [预设知识] 服务时间：7x24小时在线...
-[2026-01-16 13:52:09] DEBUG -   Memory 4 (score=0.10): [预设知识] 联系方式：support@example.com...
-[2026-01-16 13:52:09] DEBUG -   Memory 5 (score=0.10): [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:52:09] DEBUG - Collected 5 items from long-term memory
-[2026-01-16 13:52:09] DEBUG - Collected 24 context items
-[2026-01-16 13:52:09] DEBUG - SimpleIntegration: 24 items after integration
-[2026-01-16 13:52:09] DEBUG - Integrated 24 context items
-[2026-01-16 13:52:09] DEBUG - Extracted key info: 10 entities, 5 preferences, 5 actions
-[2026-01-16 13:52:09] DEBUG - Session items limited to last 6
-[2026-01-16 13:52:09] DEBUG - Optimized to 11 context items
-[2026-01-16 13:52:09] DEBUG - Context optimized: 6 history, 5 memory items
-[2026-01-16 13:52:09] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
-
-【统计信息】
-  - 近期对话: 6 条消息
-  - 长期记忆: 5 项
-  - 外部知识: 0 项
-
-【对话历史】
-  共 6 条消息
-  1. user: 我节奏性强的歌
-  2. assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-  3. user: 你会唱歌吗
-  4. assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-  5. user: 你能干啥
-  6. assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-【长期记忆】
-  共 5 项记忆
-  1. [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词 (相关性: 0.10)
-  2. [预设知识] 联系方式：support@example.com (相关性: 0.10)
-  3. [预设知识] 服务时间：7x24小时在线 (相关性: 0.10)
-  4. [预设知识] 主要功能：智能对话、知识问答、任务管理 (相关性: 0.10)
-  5. [预设知识] 产品名称：智能助手 Pro (相关性: 0.10)
-
-【外部知识】
-  (无外部知识)
-
-[2026-01-16 13:52:09] DEBUG - 
-【长期记忆数据库】
-  共 7 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-
-  记忆库内容：
-  1. [memory] [预设知识] 产品名称：智能助手 Pro
-  2. [memory] [预设知识] 主要功能：智能对话、知识问答、任务管理
-  3. [memory] [预设知识] 服务时间：7x24小时在线
-  4. [memory] [预设知识] 联系方式：support@example.com
-  5. [memory] [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-  6. [memory] [FACT] 身份: 重庆人，比较耿直
-  7. [memory] [EVENT] 关键决策: **调整心态**：接受暂时的不顺是正常的
-
-[2026-01-16 13:52:09] INFO - ✓ Prompt includes 5 long-term memories
-[2026-01-16 13:52:09] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 682
-  - 包含对话历史: 是 (6 轮)
-  - 包含长期记忆: 是 (5 项)
-
-[2026-01-16 13:52:09] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是一个智能对话助手。请基于提供的上下文信息进行回复。
-
-## 长期记忆
-- [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词
-- [预设知识] 联系方式：support@example.com
-- [预设知识] 服务时间：7x24小时在线
-- [预设知识] 主要功能：智能对话、知识问答、任务管理
-- [预设知识] 产品名称：智能助手 Pro
-
-## 相关对话历史
-user: 我节奏性强的歌
-assistant: 我目前的功能主要集中在智能对话、知识问答和任务管理方面，暂时不具备唱歌的能力哦。不过，我可以为您推荐一些好听的歌曲，或者提供与音乐相关的知识！需要我帮忙吗？
-user: 你会唱歌吗
-assistant: 您好！我是智能助手 Pro，主要功能包括：
-
-1. **智能对话**：可以和您进行自然流畅的多轮对话，理解上下文内容。
-2. **知识问答**：回答各类问题，包括常识、科技、文化、生活等领域。
-3. **任务管理**：帮助您记录待办事项、设置提醒等。
-
-我支持个性化服务，可以记住您的偏好，提供更贴心的帮助。有任何问题或需要协助，随时告诉我！
-user: 你能干啥
-assistant: 您好！智能助手 Pro 为您服务。有什么问题可以随时问我。
-
-## 参考信息
-产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
-
-## 当前问题
-我应该去吃什么
-
-[2026-01-16 13:52:19] DEBUG - Updating context with new messages
-[2026-01-16 13:52:19] DEBUG - Added user message to session
-[2026-01-16 13:52:19] DEBUG - Added assistant message to session
-[2026-01-16 13:52:19] DEBUG - Context updated successfully
-[2026-01-16 13:52:19] DEBUG - Extracting knowledge from recent conversation
-[2026-01-16 13:52:19] DEBUG - RuleBasedExtraction: extracted 3 knowledge items
-[2026-01-16 13:52:19] DEBUG - Extracted 3 knowledge items from 21 messages
-[2026-01-16 13:52:19] DEBUG - Skipping duplicate knowledge: [PREFERENCE] 用户偏好: 喜欢 有深度情感壮阔的诗词...
-[2026-01-16 13:52:19] DEBUG - Skipping duplicate knowledge: [FACT] 身份: 重庆人，比较耿直...
-[2026-01-16 13:52:19] DEBUG - Skipping duplicate knowledge: [EVENT] 关键决策: **调整心态**：接受暂时的不顺是正常的...
-[2026-01-16 13:52:19] DEBUG - All knowledge items are duplicates, nothing new to store
-[2026-01-16 13:52:19] INFO - Extracted and stored 3 knowledge items
-[2026-01-16 13:52:19] DEBUG - [处理完成] 助手回复: 既然您在犹豫应该去吃什么，不如让我为您推荐一些既美味又富有诗意的饮食灵感吧！
-
-1. **江南春味**  
-   若您偏爱清淡雅致，可尝试一碗**翡翠虾仁粥**，碧绿的豌豆与鲜嫩虾仁在米粥中轻舞，如“一帘春欲晚，满架酴醾”的意境。  
-   或者来一盘**蟹粉豆腐**，鲜香与柔滑交融，仿佛“小楼一夜听春雨，深巷明朝卖杏花”的温润。
-
-2. **北方豪情**  
-   若您渴望壮阔与热烈，推荐**羊肉炖锅**，浓郁的肉香与香料交织，似“大漠孤烟直，长河落日圆”的辽阔。  
-   或者一锅**牛肉面**，汤头醇厚，面条筋道，如“黄沙百战穿金甲，不破楼兰终不还”的豪迈。
-
-3. **异域风情**  
-   若想尝试别样风味，**泰式冬阴功汤**酸辣开胃，仿佛热带雨林的热烈；**日式寿司拼盘**精致细腻，如“落霞与孤鹜齐飞”的优雅。
-
-4. **甜品诗意**  
-   若是饭后小憩，**桂花酒酿圆子**甜而不腻，如“人闲桂花落”的静谧；**抹茶慕斯**清新淡雅，似“疏影横斜水清浅”的禅意。
-
-您也可以告诉我您的口味偏好或饮食禁忌，我会为您定制更贴心的建议！希望这些建议能为您的选择增添一份诗意与灵感。
-[2026-01-16 13:52:19] INFO - 助手: 既然您在犹豫应该去吃什么，不如让我为您推荐一些既美味又富有诗意的饮食灵感吧！
-
-1. **江南春味**  
-   若您偏爱清淡雅致，可尝试一碗**翡翠虾仁粥**，碧绿的豌豆与鲜嫩虾仁在米粥中轻舞，如“一帘春欲晚，满架酴醾”的意境。  
-   或者来一盘**蟹粉豆腐**，鲜香与柔滑交融，仿佛“小楼一夜听春雨，深巷明朝卖杏花”的温润。
-
-2. **北方豪情**  
-   若您渴望壮阔与热烈，推荐**羊肉炖锅**，浓郁的肉香与香料交织，似“大漠孤烟直，长河落日圆”的辽阔。  
-   或者一锅**牛肉面**，汤头醇厚，面条筋道，如“黄沙百战穿金甲，不破楼兰终不还”的豪迈。
-
-3. **异域风情**  
-   若想尝试别样风味，**泰式冬阴功汤**酸辣开胃，仿佛热带雨林的热烈；**日式寿司拼盘**精致细腻，如“落霞与孤鹜齐飞”的优雅。
-
-4. **甜品诗意**  
-   若是饭后小憩，**桂花酒酿圆子**甜而不腻，如“人闲桂花落”的静谧；**抹茶慕斯**清新淡雅，似“疏影横斜水清浅”的禅意。
-
-您也可以告诉我您的口味偏好或饮食禁忌，我会为您定制更贴心的建议！希望这些建议能为您的选择增添一份诗意与灵感。
+[2026-01-16 14:27:47] INFO - Initializing client with model: Qwen3-32B
+[2026-01-16 14:27:47] INFO - ContextEngine initialized for app=demo-app, user=demo-user
+[2026-01-16 14:27:47] INFO - Seeding 1 facts into long-term memory...
+[2026-01-16 14:27:47] INFO - ✓ Added 1 seed facts to local cache (total cache size: 1)
+[2026-01-16 14:27:47] INFO - Successfully seeded 1 facts to memory
+[2026-01-16 14:27:47] INFO - Application initialized: CallCenterApplication
+[2026-01-16 14:27:47] INFO - 助手: 您好，我是优逸花客服，有个预留额度业务要介绍。
+[2026-01-16 14:28:04] INFO - 你: 额度
+[2026-01-16 14:28:04] INFO - No memories from Memory Service, falling back to local cache (size=1)
+[2026-01-16 14:28:04] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.90)
+[2026-01-16 14:28:04] INFO - ================================================================================
+[2026-01-16 14:28:04] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:28:04] INFO -   [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.90)
+[2026-01-16 14:28:04] INFO -   总计: 1 条记忆
+[2026-01-16 14:28:04] INFO - ================================================================================
+[2026-01-16 14:28:04] INFO - ✓ 本次使用的记忆 (1 条):
+[2026-01-16 14:28:04] INFO -   ✓ [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.90)
+[2026-01-16 14:28:04] INFO - ✓ Prompt includes 1 turns of history (max=10)
+[2026-01-16 14:28:06] INFO - Extracted and stored 1 knowledge items
+[2026-01-16 14:28:06] INFO - 助手: 您好，关于安逸花/马上消费的额度问题，我们可以为您查询当前可用额度、申请额度提升或提供相关优化建议。您具体想了解哪方面呢？例如：
+
+1. **当前额度查询**
+2. **额度提升申请**
+3. **额度使用建议**
+
+您可以简单说明需求，我会为您提供帮助！
+[2026-01-16 14:28:42] INFO - 你: 你给我额度
+[2026-01-16 14:28:42] INFO - No memories from Memory Service, falling back to local cache (size=2)
+[2026-01-16 14:28:42] INFO - ✓ Retrieved 2 memories from local cache (top score: 0.24)
+[2026-01-16 14:28:42] INFO - ================================================================================
+[2026-01-16 14:28:42] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:28:42] INFO -   [1] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.24)
+[2026-01-16 14:28:42] INFO -   [2] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.22)
+[2026-01-16 14:28:42] INFO -   总计: 2 条记忆
+[2026-01-16 14:28:42] INFO - ================================================================================
+[2026-01-16 14:28:42] INFO - ✓ 本次使用的记忆 (2 条):
+[2026-01-16 14:28:42] INFO -   ✓ [1] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.24)
+[2026-01-16 14:28:42] INFO -   ✓ [2] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.22)
+[2026-01-16 14:28:42] INFO - ✓ Prompt includes 3 turns of history (max=10)
+[2026-01-16 14:28:44] INFO - Extracted and stored 2 knowledge items
+[2026-01-16 14:28:44] INFO - 助手: 您好，请问您是想了解当前可用额度，还是申请额度提升呢？  
+- 如果是查询当前可用额度，我需要您提供相关账户信息或授权查询。  
+- 如果是申请额度提升，我们可以协助您提交申请，并提供优化建议以提高通过率。
+
+您可以告诉我具体需求，我会为您提供详细帮助！
+[2026-01-16 14:28:54] INFO - 你: 额度提升
+[2026-01-16 14:28:54] INFO - No memories from Memory Service, falling back to local cache (size=3)
+[2026-01-16 14:28:54] INFO - ✓ Retrieved 3 memories from local cache (top score: 0.90)
+[2026-01-16 14:28:54] INFO - ================================================================================
+[2026-01-16 14:28:54] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:28:54] INFO -   [1] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.90)
+[2026-01-16 14:28:54] INFO -   [2] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.90)
+[2026-01-16 14:28:54] INFO -   [3] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.90)
+[2026-01-16 14:28:54] INFO -   总计: 3 条记忆
+[2026-01-16 14:28:54] INFO - ================================================================================
+[2026-01-16 14:28:54] INFO - ✓ 本次使用的记忆 (3 条):
+[2026-01-16 14:28:54] INFO -   ✓ [1] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.90)
+[2026-01-16 14:28:54] INFO -   ✓ [2] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.90)
+[2026-01-16 14:28:54] INFO -   ✓ [3] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.90)
+[2026-01-16 14:28:54] INFO - ✓ Prompt includes 5 turns of history (max=10)
+[2026-01-16 14:28:58] INFO - Extracted and stored 3 knowledge items
+[2026-01-16 14:28:58] INFO - 助手: 您好，关于额度提升的申请，我可以协助您进行以下操作：
+
+1. **提交额度提升申请**：我们可以协助您提交申请，您只需提供必要的信息，我们会尽快为您处理。
+2. **优化建议**：为了提高申请通过率，我们可以根据您的使用情况提供一些优化建议，例如保持良好的还款记录、提高账户活跃度等。
+3. **进度查询**：如果您之前已经提交过申请，也可以随时查询申请进度。
+
+请问您现在是想直接申请额度提升，还是需要先了解一些优化建议呢？
+[2026-01-16 14:29:13] INFO - 你: 我又多少额度
+[2026-01-16 14:29:13] INFO - No memories from Memory Service, falling back to local cache (size=4)
+[2026-01-16 14:29:13] INFO - ✓ Retrieved 4 memories from local cache (top score: 0.26)
+[2026-01-16 14:29:13] INFO - ================================================================================
+[2026-01-16 14:29:13] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:29:13] INFO -   [1] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.26)
+[2026-01-16 14:29:13] INFO -   [2] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.26)
+[2026-01-16 14:29:13] INFO -   [3] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.24)
+[2026-01-16 14:29:13] INFO -   [4] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.22)
+[2026-01-16 14:29:13] INFO -   总计: 4 条记忆
+[2026-01-16 14:29:13] INFO - ================================================================================
+[2026-01-16 14:29:13] INFO - ✓ 本次使用的记忆 (4 条):
+[2026-01-16 14:29:13] INFO -   ✓ [1] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.26)
+[2026-01-16 14:29:13] INFO -   ✓ [2] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.26)
+[2026-01-16 14:29:13] INFO -   ✓ [3] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.24)
+[2026-01-16 14:29:13] INFO -   ✓ [4] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.22)
+[2026-01-16 14:29:13] INFO - ✓ Prompt includes 6 turns of history (max=10)
+[2026-01-16 14:29:16] INFO - Extracted and stored 4 knowledge items
+[2026-01-16 14:29:16] INFO - 助手: 您好，关于您的当前可用额度，我需要您提供相关账户信息或授权查询。为了保障您的账户安全，我需要您提供以下信息之一，以便进行身份验证：
+
+- 注册手机号
+- 身份证号码
+- 账户绑定的其他验证信息
+
+您也可以选择通过安逸花/马上消费的官方App或网站登录账户，直接查看当前可用额度。
+
+如果您希望我们协助查询或申请额度提升，请告诉我，我会进一步协助您！
+[2026-01-16 14:29:33] INFO - 你: 借了可以不还吗
+[2026-01-16 14:29:33] INFO - No memories from Memory Service, falling back to local cache (size=5)
+[2026-01-16 14:29:33] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.24)
+[2026-01-16 14:29:33] INFO - ================================================================================
+[2026-01-16 14:29:33] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:29:33] INFO -   [1] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.24)
+[2026-01-16 14:29:33] INFO -   [2] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.23)
+[2026-01-16 14:29:33] INFO -   [3] [EVENT] [决策] 申请: 如果您希望们协助查询或申请额度提升 (score=0.10)
+[2026-01-16 14:29:33] INFO -   [4] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:29:33] INFO -   [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:29:33] INFO -   总计: 5 条记忆
+[2026-01-16 14:29:33] INFO - ================================================================================
+[2026-01-16 14:29:33] INFO - ✓ 本次使用的记忆 (5 条):
+[2026-01-16 14:29:33] INFO -   ✓ [1] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.24)
+[2026-01-16 14:29:33] INFO -   ✓ [2] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.23)
+[2026-01-16 14:29:33] INFO -   ✓ [3] [EVENT] [决策] 申请: 如果您希望们协助查询或申请额度提升 (score=0.10)
+[2026-01-16 14:29:33] INFO -   ✓ [4] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:29:33] INFO -   ✓ [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:29:33] INFO - ✓ Prompt includes 6 turns of history (max=10)
+[2026-01-16 14:29:37] INFO - Extracted and stored 5 knowledge items
+[2026-01-16 14:29:37] INFO - 助手: 根据相关法律法规和金融产品的使用规则，借款是需要按时归还的。安逸花/马上消费作为正规的金融服务产品，其借款行为受到法律约束，若未按约定时间还款，可能会产生以下后果：
+
+1. **逾期罚息**：未按时还款将产生额外的利息费用。
+2. **信用影响**：逾期记录可能会被上报至征信系统，影响个人信用记录。
+3. **催收措施**：平台可能会通过电话、短信等方式进行催收，严重逾期还可能涉及法律诉讼。
+
+如果您遇到还款困难，建议及时与我们联系（support@example.com），我们可以协助您申请延期还款或提供其他解决方案。
+
+如您有其他问题或需要帮助，也欢迎随时咨询！
+[2026-01-16 14:29:51] INFO - 你: 但我不想还
+[2026-01-16 14:29:51] INFO - No memories from Memory Service, falling back to local cache (size=6)
+[2026-01-16 14:29:51] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.23)
+[2026-01-16 14:29:51] INFO - ================================================================================
+[2026-01-16 14:29:51] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:29:51] INFO -   [1] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.23)
+[2026-01-16 14:29:51] INFO -   [2] [EVENT] [决策] 申请: 们可以协助您申请延期还款或提供其他解决方案 (score=0.22)
+[2026-01-16 14:29:51] INFO -   [3] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:29:51] INFO -   [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:29:51] INFO -   [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:29:51] INFO -   总计: 5 条记忆
+[2026-01-16 14:29:51] INFO - ================================================================================
+[2026-01-16 14:29:51] INFO - ✓ 本次使用的记忆 (5 条):
+[2026-01-16 14:29:51] INFO -   ✓ [1] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.23)
+[2026-01-16 14:29:51] INFO -   ✓ [2] [EVENT] [决策] 申请: 们可以协助您申请延期还款或提供其他解决方案 (score=0.22)
+[2026-01-16 14:29:51] INFO -   ✓ [3] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:29:51] INFO -   ✓ [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:29:51] INFO -   ✓ [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:29:51] INFO - ✓ Prompt includes 6 turns of history (max=10)
+[2026-01-16 14:29:55] INFO - Extracted and stored 7 knowledge items
+[2026-01-16 14:29:55] INFO - 助手: 您好，理解您目前可能有资金压力，但我们建议您根据自身还款能力合理安排资金，避免逾期影响信用记录。如果您暂时遇到困难，我们可以协助您申请**延期还款**或提供其他可行的解决方案，例如：
+
+1. **延期还款申请**：根据您的实际情况，协助您提交延期申请。  
+2. **分期还款方案**：将欠款分摊至多期，减轻单期还款压力。  
+3. **优化资金周转建议**：结合您的使用情况，提供合理规划建议。
+
+您只需要告诉我您的具体需求，我会第一时间为您处理！同时，我们的服务邮箱为 **support@example.com**，您也可以随时联系我们。
+[2026-01-16 14:30:16] INFO - 你: 我很穷，还不起
+[2026-01-16 14:30:16] INFO - No memories from Memory Service, falling back to local cache (size=7)
+[2026-01-16 14:30:16] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.27)
+[2026-01-16 14:30:16] INFO - ================================================================================
+[2026-01-16 14:30:16] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:30:16] INFO -   [1] [PREFERENCE] [拒绝] 不想: 但不想还 (score=0.27)
+[2026-01-16 14:30:16] INFO -   [2] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.23)
+[2026-01-16 14:30:16] INFO -   [3] [EVENT] [决策] 申请: 们可以协助您申请延期还款或提供其他解决方案 (score=0.22)
+[2026-01-16 14:30:16] INFO -   [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:30:16] INFO -   [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:30:16] INFO -   总计: 5 条记忆
+[2026-01-16 14:30:16] INFO - ================================================================================
+[2026-01-16 14:30:16] INFO - ✓ 本次使用的记忆 (5 条):
+[2026-01-16 14:30:16] INFO -   ✓ [1] [PREFERENCE] [拒绝] 不想: 但不想还 (score=0.27)
+[2026-01-16 14:30:16] INFO -   ✓ [2] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.23)
+[2026-01-16 14:30:16] INFO -   ✓ [3] [EVENT] [决策] 申请: 们可以协助您申请延期还款或提供其他解决方案 (score=0.22)
+[2026-01-16 14:30:16] INFO -   ✓ [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:30:16] INFO -   ✓ [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:30:16] INFO - ✓ Prompt includes 6 turns of history (max=10)
+[2026-01-16 14:30:18] INFO - Extracted and stored 8 knowledge items
+[2026-01-16 14:30:18] INFO - 助手: 您好，感谢您的坦诚。如果您目前遇到还款困难，我们可以协助您申请延期还款或提供其他解决方案，以减轻您的压力。请您放心，我们致力于提供专业、友好、高效的服务，帮助您渡过难关。
+
+您可以告诉我更多具体的情况，例如：
+- 当前的还款金额和时间安排
+- 是否有意愿申请延期还款或其他方案
+
+我会根据您的情况，为您提供合适的建议和帮助！
+[2026-01-16 14:30:28] INFO - 你: 我没有工作
+[2026-01-16 14:30:28] INFO - No memories from Memory Service, falling back to local cache (size=7)
+[2026-01-16 14:30:28] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.10)
+[2026-01-16 14:30:28] INFO - ================================================================================
+[2026-01-16 14:30:28] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:30:28] INFO -   [1] [EVENT] [决策] 申请: 如果您希望们协助查询或申请额度提升 (score=0.10)
+[2026-01-16 14:30:28] INFO -   [2] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:30:28] INFO -   [3] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.10)
+[2026-01-16 14:30:28] INFO -   [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:30:28] INFO -   [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:30:28] INFO -   总计: 5 条记忆
+[2026-01-16 14:30:28] INFO - ================================================================================
+[2026-01-16 14:30:28] INFO - ✓ 本次使用的记忆 (5 条):
+[2026-01-16 14:30:28] INFO -   ✓ [1] [EVENT] [决策] 申请: 如果您希望们协助查询或申请额度提升 (score=0.10)
+[2026-01-16 14:30:28] INFO -   ✓ [2] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:30:28] INFO -   ✓ [3] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.10)
+[2026-01-16 14:30:28] INFO -   ✓ [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:30:28] INFO -   ✓ [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:30:28] INFO - ✓ Prompt includes 6 turns of history (max=10)
+[2026-01-16 14:30:32] INFO - Extracted and stored 8 knowledge items
+[2026-01-16 14:30:32] INFO - 助手: 您好，感谢您的反馈。如果您目前没有工作，也无需担心，我们可以根据您的个人情况，提供一些适合的建议或方案。例如：
+
+1. **额度查询**：我们可以协助您查询当前可用额度。
+2. **优化建议**：根据您的使用情况，提供一些提升信用或额度的建议。
+3. **其他服务**：如资金周转、优惠福利等，也欢迎您了解。
+
+您可以告诉我您更具体的需求，我会尽力为您提供帮助。同时，如有任何疑问，也欢迎随时联系我们的客服邮箱：support@example.com。
+[2026-01-16 14:31:02] INFO - 你: 我想借1000
+[2026-01-16 14:31:02] INFO - No memories from Memory Service, falling back to local cache (size=7)
+[2026-01-16 14:31:02] INFO - ✓ Retrieved 5 memories from local cache (top score: 0.24)
+[2026-01-16 14:31:02] INFO - ================================================================================
+[2026-01-16 14:31:02] INFO - 📚 记忆库全部内容:
+[2026-01-16 14:31:02] INFO -   [1] [PREFERENCE] [拒绝] 不想: 但不想还 (score=0.24)
+[2026-01-16 14:31:02] INFO -   [2] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:31:02] INFO -   [3] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.10)
+[2026-01-16 14:31:02] INFO -   [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:31:02] INFO -   [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:31:02] INFO -   总计: 5 条记忆
+[2026-01-16 14:31:02] INFO - ================================================================================
+[2026-01-16 14:31:02] INFO - ✓ 本次使用的记忆 (5 条):
+[2026-01-16 14:31:02] INFO -   ✓ [1] [PREFERENCE] [拒绝] 不想: 但不想还 (score=0.24)
+[2026-01-16 14:31:02] INFO -   ✓ [2] [EVENT] [决策] 申请: 关于额度提升的申请 (score=0.10)
+[2026-01-16 14:31:02] INFO -   ✓ [3] [EVENT] [决策] 申请: 还是申请额度提升呢 (score=0.10)
+[2026-01-16 14:31:02] INFO -   ✓ [4] [EVENT] [决策] 申请: 们可以为您查询当前可用额度、申请额度提升或提供相关优化建议 (score=0.10)
+[2026-01-16 14:31:02] INFO -   ✓ [5] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=0.10)
+[2026-01-16 14:31:02] INFO - ✓ Prompt includes 6 turns of history (max=10)
+[2026-01-16 14:31:07] INFO - Extracted and stored 9 knowledge items
+[2026-01-16 14:31:07] INFO - 助手: 您好，关于您想借1000元的需求，我们可以协助您进行以下操作：
+
+1. **查询当前可用额度**：如果您尚未了解自己当前的可用额度，我们可以协助查询，以便您确认是否可以直接使用现有额度借款。
+2. **申请额度提升**：如果您当前的可用额度不足，可以申请额度提升。我们会协助您提交申请，并根据您的信用状况等提供优化建议，以提高通过率。
+3. **申请借款**：如果您的可用额度充足，可以直接申请借款1000元，我们将为您指导操作流程。
+
+请您提供以下信息，以便我们更好地为您提供帮助：
+- 您当前是否已了解自己的可用额度？
+- 是否需要我们协助您提交借款申请？
+- 或您是否希望先申请额度提升，以便获得更高的借款额度？
+
+请告诉我您的具体需求，我会立即为您提供下一步操作指导！
