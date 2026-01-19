@@ -1,7 +1,7 @@
 """
-ContextMind v5.0 Gradio Demo
+ContextMind v5.1 Gradio Demo
 
-清晰模块化架构 + 生产级记忆系统
+五层架构 (core/pipeline/strategies/adapters/utils) + 生产级记忆系统
 提供可视化界面，展示智能上下文优化能力。
 """
 
@@ -28,10 +28,9 @@ import os
 from pathlib import Path
 
 from contextmind import Client, ClientConfig, ContextEngine
-
-# 设置日志 - 直接修改这里控制详细程度：INFO=正常，DEBUG=详细
 from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
-setup_logging(level=INFO, log_to_console=True, auto_create_file=True)  # INFO为默认级别
+
+setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -49,7 +48,7 @@ except ImportError:
 
 @dataclass
 class ProcessResult:
-    """处理结果数据类，用于日志显示"""
+    """处理结果数据类"""
     response: str
     history_count: int = 0
     memory_count: int = 0
@@ -60,13 +59,11 @@ class ProcessResult:
 
 
 class GradioDemo:
-    # Box 格式化常量
-    # 注意：这些常量假设使用等宽ASCII字符。Unicode字符（表情符号、中日韩文字）
-    # 可能因显示宽度不同而导致轻微的视觉对齐偏差。
-    BOX_BORDER_WIDTH = 78  # 盒子边框的总宽度（包括边框字符）
-    BOX_CONTENT_WIDTH = 62  # 用户输入内容区域的宽度（不包括前缀/后缀）
-    BOX_TITLE_WIDTH = 74    # 引擎盒子标题区域的宽度（不包括 ┌─ 和 ─┐）
-    USER_INPUT_MAX_DISPLAY_LENGTH = 60  # 截断前显示的最大字符数
+    # 日志格式化常量
+    BOX_BORDER_WIDTH = 78
+    BOX_CONTENT_WIDTH = 62
+    BOX_TITLE_WIDTH = 74
+    USER_INPUT_MAX_DISPLAY_LENGTH = 60
     
     def __init__(self):
         """初始化 Gradio 演示"""
@@ -92,7 +89,7 @@ class GradioDemo:
         self.max_recent_events = 10
         
     async def initialize_engine(self, use_session=True, use_memory=False, max_recent_events=10):
-        """初始化引擎，根据参数配置上下文控制"""
+        """初始化引擎"""
         try:
             logger.info("=" * 80)
             logger.info("🚀 [Gradio] 开始初始化引擎...")
@@ -131,7 +128,7 @@ class GradioDemo:
             return error_msg
 
     def _create_engine(self, client: Client) -> ContextEngine:
-        """根据配置创建ContextEngine"""
+        """创建引擎实例"""
         
         base_prompt = self._get_base_prompt()
         user_profile = self._get_user_profile()
@@ -159,7 +156,7 @@ class GradioDemo:
         return engine
 
     async def _seed_long_term_memory(self):
-        """为引擎植入种子数据（仅在使用长期记忆时）"""
+        """植入记忆种子数据"""
         if self.use_memory and self.engine:
             # 尝试从文件加载记忆种子
             seed_file = Path(__file__).parent / "data" / "memory_seeds.txt"
@@ -194,7 +191,7 @@ class GradioDemo:
             await self.engine.seed_memory(memory_seeds)
     
     def _get_base_prompt(self) -> str:
-        """基础系统提示词 - 使用统一的prompt"""
+        """获取系统提示词"""
         from examples.prompts import get_system_prompt
         return get_system_prompt(include_business_info=True)
     
@@ -236,7 +233,7 @@ class GradioDemo:
         }
     
     async def start_new_conversation(self, is_initial_start: bool = False):
-        """开始新对话，并重置引擎状态"""
+        """开始新对话"""
         # 重置轮次计数器
         self.turn_counter = 0
         
@@ -271,14 +268,14 @@ class GradioDemo:
         return self.conversation_history
     
     def _get_initial_history(self):
-        """获取初始对话历史（同步版本，用于UI初始化）"""
+        """获取初始对话历史"""
         opening_script = random.choice(self.opening_scripts)
         return [
             {"role": "assistant", "content": opening_script}
         ]
     
     def _log_engine_box(self, result, is_debug: bool = False):
-        """打印引擎的 box 边框日志"""
+        """输出引擎处理日志"""
         from contextmind.logger import get_logger
         logger = get_logger(__name__)
         
@@ -373,13 +370,7 @@ class GradioDemo:
             return self.conversation_history, f"错误: {str(e)}"
     
     async def _get_single_response(self, engine, user_input):
-        """获取引擎的回复
-        
-        使用 ContextEngine 的 optimize() 和 update() 方法来处理对话：
-        1. 调用 optimize() 获取优化后的上下文
-        2. 构建 prompt 并调用 LLM
-        3. 调用 update() 更新会话历史
-        """
+        """获取引擎回复"""
         from contextmind.logger import get_logger, ContextMindLogger
         import time
         local_logger = get_logger(__name__)
@@ -387,23 +378,23 @@ class GradioDemo:
         start_time = time.time()
         
         try:
-            # 1. 优化上下文
+            # 优化上下文
             context_result = await engine.optimize(
                 user_input=user_input,
                 include_session=self.use_session,
                 include_memory=self.use_memory,
             )
             
-            # 2. 构建 prompt
+            # 构建 prompt
             prompt = self._build_prompt(user_input, context_result)
             
-            # 3. 调用 LLM 获取回复
+            # 调用 LLM
             if engine.llm_client:
                 _, response = engine.llm_client.generate(prompt)
             else:
-                response = "[LLM未配置] 请设置 llm_client 参数。"
+                response = "[LLM未配置]"
             
-            # 4. 更新会话历史
+            # 更新会话
             await engine.update(
                 user_input=user_input,
                 assistant_response=response
@@ -411,7 +402,7 @@ class GradioDemo:
             
             processing_time = time.time() - start_time
             
-            # 5. 构建结果对象用于日志
+            # 构建结果
             result = ProcessResult(
                 response=response,
                 history_count=len(context_result.recent_history),
@@ -422,7 +413,6 @@ class GradioDemo:
                 processing_time=processing_time,
             )
             
-            # 使用 box 格式化日志
             is_debug = ContextMindLogger.get_current_level() <= DEBUG
             self._log_engine_box(result, is_debug)
             
@@ -432,7 +422,7 @@ class GradioDemo:
             return f"生成失败: {str(e)}"
     
     def _build_prompt(self, user_input: str, context_result) -> str:
-        """构建发送给 LLM 的 prompt"""
+        """构建 LLM prompt"""
         prompt_parts = [self._get_base_prompt()]
         
         # 添加长期记忆（如果有）
@@ -461,12 +451,11 @@ class GradioDemo:
     
         
     def create_interface(self):
-        """创建 Gradio 界面"""
-        with gr.Blocks(title="ContextMind v5.0 - 优逸花客服演示") as demo:
-            gr.Markdown("# 🤖 Context Mind v5.0 - 优逸花客服演示")
-            gr.Markdown("清晰模块化架构 + 智能记忆系统")
+        """创建界面"""
+        with gr.Blocks(title="ContextMind v5.1 - 优逸花客服演示") as demo:
+            gr.Markdown("# 🤖 Context Mind v5.1 - 优逸花客服演示")
+            gr.Markdown("五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统")
             
-            # 初始化对话历史（使用同步版本，只更新UI）
             initial_history = self._get_initial_history()
             
             with gr.Row():
@@ -533,11 +522,10 @@ class GradioDemo:
                     """)
             
             def handle_user_input(message, history):
-                """处理用户输入"""
+                """处理输入"""
                 if not message.strip():
                     return history, ""
                 
-                # 使用线程池执行异步操作以避免事件循环冲突
                 try:
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -566,13 +554,10 @@ class GradioDemo:
             
             def apply_config(use_session, max_events, use_memory, debug_mode):
                 """应用配置"""
-                # 设置日志级别
-                from contextmind.logger import DEBUG, INFO
+                from contextmind.logger import DEBUG, INFO, ContextMindLogger
                 new_level = DEBUG if debug_mode else INFO
-                from contextmind.logger import ContextMindLogger
                 ContextMindLogger.set_level(new_level)
                 
-                # 异步重新初始化引擎
                 try:
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -589,18 +574,15 @@ class GradioDemo:
                     logger.error(f"应用配置失败: {e}")
                     return self._get_initial_history(), f"配置失败: {str(e)}"
                 
-                # 更新状态显示
                 session_status = "✅" if use_session else "❌"
                 memory_status = "✅" if use_memory else "❌"
                 debug_status = "✅" if debug_mode else "❌"
                 status = f"当前配置: 会话历史{session_status} | 最大轮数: {int(max_events)} | 长期记忆{memory_status} | 调试模式{debug_status}"
                 
-                # 显示成功消息
                 gr.Info(f"✅ 配置已应用！")
                 
                 return self._get_initial_history(), status
             
-            # 绑定事件
             send_btn.click(
                 fn=handle_user_input,
                 inputs=[user_input, chatbot],

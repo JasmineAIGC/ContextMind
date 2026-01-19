@@ -1,123 +1,106 @@
-# ContextMind Quick Start Guide
+# ContextMind v5.1 Quick Start Guide
 
-## Installation
+## 安装
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Basic Usage
+## 基本使用
 
-### 1. Initialize the Context Engine
+### 1. 初始化引擎
 
 ```python
-from contextmind import ContextEngine
+from contextmind.core import ContextEngine
 from contextmind.adapters import OpenAIAdapter
-from contextmind.modules import MemoryBank
 
-# Initialize LLM adapter
+# 初始化适配器
 llm_adapter = OpenAIAdapter(api_key="your-api-key")
 
-# Create context engine
+# 创建引擎
 engine = ContextEngine(
-    llm_adapter=llm_adapter,
-    memory_bank=MemoryBank()
+    llm_adapter=llm_adapter
 )
 ```
 
-### 2. Process Conversations
+### 2. 处理对话
 
 ```python
-# Optimize context for a conversation
+# 优化上下文
 result = await engine.optimize(
-    query="User's current question",
+    query="用户当前问题",
     session_id="unique-session-id"
 )
 
-# Access optimized context
-recent_history = result.recent_history        # Recent conversation turns
-long_term_memory = result.long_term_memory    # Retrieved memories
-external_knowledge = result.external_knowledge # Retrieved knowledge
+# 访问优化后的上下文
+recent_history = result.recent_history
+long_term_memory = result.long_term_memory
+external_knowledge = result.external_knowledge
 ```
 
-### 3. Run Demo Applications
+### 3. 运行演示
 
-**Interactive CLI Demo:**
+**命令行演示:**
 ```bash
 python interactive_demo.py
 ```
 
-**Gradio Web UI Demo:**
+**Web UI 演示:**
 ```bash
 python gradio_demo.py
 ```
 
-## Configuration
-
-Customize behavior via configuration:
+## 配置
 
 ```python
-from contextmind.config import MemorySystemConfig, RetrievalConfig
+from contextmind.core import ContextEngine
 
-config = MemorySystemConfig(
-    retrieval=RetrievalConfig(
-        relevance_threshold=0.5,      # Minimum relevance score
-        enable_recency_boost=True,    # Boost recent memories
-        recency_weight=0.3            # Recency boost strength
-    )
+engine = ContextEngine(
+    app_name="my-app",
+    user_id="user-123",
+    max_recent_events=10,
 )
-
-# Use in memory bank
-memory_bank = MemoryBank(retrieval_config=config.retrieval)
 ```
 
-## Architecture Overview
+## 架构概览
 
 ```
 ┌─────────────────────────────────────────┐
-│         Context Engine                   │
-│  ┌─────────────────────────────────┐    │
-│  │   1. Retrieval                  │    │
-│  │   2. Integration                │    │
-│  │   3. Reordering                 │    │
-│  │   4. Compression                │    │
-│  └─────────────────────────────────┘    │
-│                 ↓                        │
-│         ContextResult                    │
-│  - recent_history                        │
-│  - long_term_memory                      │
-│  - external_knowledge                    │
+│         核心层 (Core)                    │
+│    Token | 缓存 | 向量 | 会话           │
+└─────────────────────────────────────────┘
+                 ↑
+┌─────────────────────────────────────────┐
+│       流水线层 (Pipeline)                │
+│    预处理 → 检索 → 整合 →                │
+│    压缩 → 重排序 → 提取                  │
+└─────────────────────────────────────────┘
+                 ↑
+┌─────────────────────────────────────────┐
+│       策略层 (Strategies)                │
+│    可插拔算法                            │
 └─────────────────────────────────────────┘
 ```
 
-## Key Concepts
+## 核心概念
 
 ### ProcessedContext vs ContextResult
 
-- **ProcessedContext**: Pipeline intermediate state
-  - Has `items` list
-  - Used in retrieval, integration, reordering steps
+- **ProcessedContext**: Pipeline中间状态
+  - 有 `items` 列表
   
-- **ContextResult**: Final optimized output
-  - Has `recent_history`, `long_term_memory`, `external_knowledge`
-  - Used in application layer
+- **ContextResult**: 最终优化输出
+  - 有 `recent_history`, `long_term_memory`, `external_knowledge`
 
-### Memory System
+### 策略系统
 
-- **Extraction**: Automatically extracts knowledge from conversations
-- **Storage**: Persistent memory bank with vector search
-- **Retrieval**: Relevance filtering, deduplication, recency weighting
-- **Summarization**: Condenses old conversation turns
+- **提取**: 基于规则、基于LLM
+- **重排序**: 基于分数、基于时间
+- **压缩**: 按来源截断
+- **整合**: 合并多来源上下文
 
-### Strategies (Pluggable)
+## 下一步
 
-- **Extraction**: Rule-based, LLM-based
-- **Reordering**: Score-based, recency-based
-- **Compression**: Source-aware truncation
-- **Integration**: Merge contexts from different sources
-
-## Next Steps
-
-- Read [ARCHITECTURE.md](ARCHITECTURE.md) for system design
-- Read [API_REFERENCE.md](API_REFERENCE.md) for detailed API docs
-- Check [examples/](../examples/) for more usage patterns
+- 阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解系统设计
+- 阅读 [API_REFERENCE.md](API_REFERENCE.md) 查看详细API
+- 查看 [examples/](../examples/) 了解更多使用模式

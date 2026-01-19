@@ -1,8 +1,8 @@
 # ContextMind
 
-**ContextMind v4.0** - 通用上下文工程框架 ✨
+**ContextMind v5.1** - 通用上下文工程框架 ✨
 
-**v4.0 新特性**: 清晰的模块化架构 + 零冗余设计 + 生产就绪的记忆系统
+**v5.1 新特性**: 五层清晰架构 (core/pipeline/strategies/adapters/utils) + 生产就绪的记忆系统
 
 ---
 
@@ -31,53 +31,44 @@
 
 ```
 ContextMind/
-├── contextmind/              # 🔥 核心模块 - 独立的上下文工程框架
-│   ├── __init__.py           # 框架入口，导出所有公共 API
-│   ├── engine.py             # ContextEngine - 统一的上下文优化接口
-│   ├── client.py             # LLM 客户端（OpenAI 兼容）
-│   ├── data_models.py        # 数据模型（Message, ContextItem, ContextResult 等）
+├── contextmind/              # 🔥 核心模块 - 五层清晰架构
+│   ├── __init__.py           # 框架入口
+│   ├── engine.py             # ContextEngine - 统一接口
+│   ├── client.py             # LLM 客户端
+│   ├── data_models.py        # 数据模型
 │   ├── logger.py             # 日志系统
 │   │
-│   ├── adapters/             # 适配器层 - 系统集成接口
-│   │   ├── base.py           # BaseAdapter 基类
+│   ├── core/                 # 核心层 - 基础数据结构与服务
+│   │   ├── tokenizer.py      # Token 计数服务
+│   │   ├── cache.py          # 缓存管理
+│   │   ├── vector_client.py  # 向量数据库接口
+│   │   └── session_manager.py # 会话管理
+│   │
+│   ├── pipeline/             # 流水线层 - 上下文处理流程
+│   │   ├── preprocessor.py   # 输入预处理
+│   │   ├── retriever.py      # 上下文检索
+│   │   ├── integrator.py     # 上下文整合
+│   │   ├── compressor.py     # 上下文压缩
+│   │   ├── reorderer.py      # 上下文重排序
+│   │   └── extractor.py      # 知识提取
+│   │
+│   ├── strategies/           # 策略层 - 可插拔算法
+│   │   ├── base.py           # 策略基类
+│   │   ├── retrieval.py      # 检索策略
+│   │   ├── integration.py    # 整合策略
+│   │   ├── optimization.py   # 优化策略
+│   │   └── extraction.py     # 提取策略
+│   │
+│   ├── adapters/             # 适配器层 - 系统集成
+│   │   ├── base.py           # 基础适配器
 │   │   ├── openai_adapter.py # OpenAI 适配器
-│   │   ├── langchain_adapter.py # LangChain 适配器
-│   │   └── custom_adapter.py # 自定义适配器
-│   │
-│   ├── modules/              # 模块层 - 6个核心模块（v4.0）
-│   │   ├── preprocessor.py   # InputPreprocessor - 输入预处理
-│   │   ├── retriever.py      # ContextRetriever - RAG检索
-│   │   ├── memory_bank.py    # MemoryBank - 长期记忆管理
-│   │   ├── compressor.py     # ContextCompressor - 上下文压缩
-│   │   ├── reorderer.py      # ContextReorderer - 上下文重排序
-│   │   └── extractor.py      # KnowledgeExtractor - 知识提取
-│   │
-│   ├── strategies/           # 策略层 - 可插拔算法实现
-│   │   ├── base.py           # 四大策略基类
-│   │   ├── retrieval.py      # 检索策略（关键词、向量、混合）
-│   │   ├── integration.py    # 整合策略（简单、优先级）
-│   │   ├── optimization.py   # 优化策略（压缩、重排）
-│   │   └── extraction.py     # 提取策略（规则、LLM）
-│   │
-│   ├── foundation/           # 基础层 - 核心基础服务
-│   │   ├── tokenizer.py      # TokenizerService - 精确 Token 计数
-│   │   ├── cache.py          # CacheManager - 智能缓存（LRU + TTL）
-│   │   └── vector_client.py  # VectorClient - 向量数据库统一接口
-│   │
-│   ├── control/              # 控制层 - 流程控制与容错
-│   │   ├── flow_controller.py   # FlowController - 动态路径决策
-│   │   └── circuit_breaker.py   # CircuitBreaker - 熔断器
-│   │
-│   ├── managers/             # 管理器 - Session管理
-│   │   └── session_manager.py   # SessionManager - 会话历史管理
+│   │   └── langchain_adapter.py # LangChain 适配器
 │   │
 │   └── utils/                # 工具层 - 辅助功能
 │       ├── config.py         # 配置管理
 │       ├── monitor.py        # 性能监控
-│       ├── visualizer.py     # 可视化
-│       ├── events.py         # 事件系统
-│       ├── context_formatter.py  # 上下文格式化（调试用）
-│       └── text_builder.py   # ContextTextBuilder - 统一文本构建
+│       ├── context_formatter.py # 格式化工具
+│       └── text_builder.py   # 文本构建工具
 │
 ├── examples/                 # 📚 示例应用
 │   ├── applications/         # 应用层示例
@@ -116,13 +107,12 @@ ContextMind/
 
 这是项目的核心，**可以作为独立 Python 包使用**，嵌入到任何对话系统中。
 
-**六层架构**：
-1. **适配器层** (`adapters/`) - 与各种对话系统集成
-2. **引擎层** (`engine.py`) - 统一的上下文优化接口
-3. **流水线层** (`pipeline/`) - 上下文处理流程
-4. **策略层** (`strategies/`) - 可插拔的算法实现
-5. **基础层** (`foundation/`) - Token 计数、缓存、向量等基础服务
-6. **控制层** (`control/`) - 流程控制与容错机制
+**五层架构 (v5.1)**：
+1. **核心层** (`core/`) - 基础数据结构与服务（Token计数、缓存、向量、会话）
+2. **流水线层** (`pipeline/`) - 上下文处理流程（预处理、检索、整合、压缩、重排序、提取）
+3. **策略层** (`strategies/`) - 可插拔的算法实现（检索、整合、优化、提取策略）
+4. **适配器层** (`adapters/`) - 系统集成接口（OpenAI、LangChain等）
+5. **工具层** (`utils/`) - 辅助功能（配置、监控、格式化）
 
 **核心文件**：
 - `engine.py`: `ContextEngine` 类 - 主要入口点
@@ -176,7 +166,7 @@ QWEN3_MAX_TOKENS=8192
 
 ```python
 import asyncio
-from contextmind import ContextEngine, Client, ClientConfig
+from contextmind.core import ContextEngine, Client, ClientConfig
 
 async def main():
     # 初始化客户端
@@ -281,38 +271,33 @@ python gradio_demo.py
 
 ## 🏗️ 架构设计
 
-### 六层架构
+### 五层架构 (v5.1)
 
 ```
 ┌─────────────────────────────────────────┐
-│    应用层 (Application Layer)           │  ← examples/applications/
-│    业务逻辑、Prompt 构建                │
+│         核心层 (Core)                    │  ← contextmind/core/
+│    Token计数 | 缓存 | 向量 | 会话       │
 └─────────────────────────────────────────┘
-                 ↓
+                 ↑
 ┌─────────────────────────────────────────┐
-│    适配器层 (Adapter Layer)             │  ← contextmind/adapters/
-│    OpenAI, LangChain, Custom           │
+│       流水线层 (Pipeline)                │  ← contextmind/pipeline/
+│    预处理 → 检索 → 整合 →                │
+│    压缩 → 重排序 → 提取                  │
 └─────────────────────────────────────────┘
-                 ↓
+                 ↑
 ┌─────────────────────────────────────────┐
-│    引擎层 (Engine Layer)                │  ← contextmind/engine.py
-│    ContextEngine - 统一接口             │
-└─────────────────────────────────────────┘
-                 ↓
-┌─────────────────────────────────────────┐
-│    流水线层 (Pipeline Layer)            │  ← contextmind/pipeline/
-│    Input → Collect → Integrate →        │
-│    Optimize → Extract                   │
-└─────────────────────────────────────────┘
-                 ↓
-┌─────────────────────────────────────────┐
-│    策略层 (Strategy Layer)              │  ← contextmind/strategies/
+│       策略层 (Strategies)                │  ← contextmind/strategies/
 │    可插拔算法实现                        │
 └─────────────────────────────────────────┘
-                 ↓
+                 ↑
 ┌─────────────────────────────────────────┐
-│    基础层 (Foundation) + 控制层         │  ← contextmind/foundation/
-│    Token计数 | 缓存 | 向量 | 熔断器     │     contextmind/control/
+│      适配器层 (Adapters)                 │  ← contextmind/adapters/
+│    OpenAI | LangChain | Custom         │
+└─────────────────────────────────────────┘
+                 ↑
+┌─────────────────────────────────────────┐
+│        工具层 (Utils)                    │  ← contextmind/utils/
+│    配置 | 监控 | 格式化                  │
 └─────────────────────────────────────────┘
 ```
 
@@ -332,7 +317,7 @@ python gradio_demo.py
 ### 使用 OpenAI 适配器
 
 ```python
-from contextmind import ContextEngine, Client
+from contextmind.core import ContextEngine, Client
 from contextmind.adapters import OpenAIAdapter
 
 # 初始化
@@ -420,7 +405,8 @@ python -m pytest tests/test_core.py::TestDataModels -v
 
 ## 📈 版本历史
 
-- **v4.0** (当前) - 架构优化版：消除代码冗余（~240行），统一文本格式化，完善文档，SOLID 原则实践
+- **v5.1** (当前) - 五层架构重构：core/pipeline/strategies/adapters/utils 清晰分层
+- **v4.0** - 架构优化版：消除代码冗余（~240行），统一文本格式化，完善文档
 - **v3.2** - 新增 Foundation Layer、Control Layer、增强数据模型
 - **v3.1** - 重构引擎层，优化 API 设计
 - **v3.0** - 完全重构，引入六层架构

@@ -1,8 +1,7 @@
 """
-ContextMind Type Safety Tests
+ContextMind 类型安全测试
 
 测试 ProcessedContext 和 ContextResult 之间的类型安全和边界。
-这些测试确保不会出现属性访问错误。
 """
 
 import pytest
@@ -16,10 +15,10 @@ from contextmind.strategies.optimization import CompressionStrategy, RerankingSt
 
 
 class TestProcessedContextBoundary:
-    """测试 ProcessedContext 的边界和限制"""
+    """测试 ProcessedContext 的边界"""
     
     def test_processed_context_has_items(self):
-        """ProcessedContext 应该有 items 属性"""
+        """ProcessedContext 有 items 属性"""
         ctx = ProcessedContext()
         assert hasattr(ctx, 'items')
         assert hasattr(ctx, 'metadata')
@@ -27,22 +26,22 @@ class TestProcessedContextBoundary:
         assert isinstance(ctx.metadata, dict)
     
     def test_processed_context_no_recent_history(self):
-        """ProcessedContext 不应该有 recent_history 属性"""
+        """ProcessedContext 没有 recent_history"""
         ctx = ProcessedContext()
         assert not hasattr(ctx, 'recent_history')
     
     def test_processed_context_no_long_term_memory(self):
-        """ProcessedContext 不应该有 long_term_memory 属性"""
+        """ProcessedContext 没有 long_term_memory"""
         ctx = ProcessedContext()
         assert not hasattr(ctx, 'long_term_memory')
     
     def test_processed_context_no_external_knowledge(self):
-        """ProcessedContext 不应该有 external_knowledge 属性"""
+        """ProcessedContext 没有 external_knowledge"""
         ctx = ProcessedContext()
         assert not hasattr(ctx, 'external_knowledge')
     
     def test_processed_context_get_by_source(self):
-        """ProcessedContext 应该提供 get_by_source 方法"""
+        """ProcessedContext 提供 get_by_source 方法"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(content="Session", source=ContextSource.SESSION))
         ctx.add_item(ContextItem(content="Memory", source=ContextSource.MEMORY))
@@ -56,10 +55,10 @@ class TestProcessedContextBoundary:
 
 
 class TestContextResultBoundary:
-    """测试 ContextResult 的边界和限制"""
+    """测试 ContextResult 的边界"""
     
     def test_context_result_has_categorized_attributes(self):
-        """ContextResult 应该有分类的属性"""
+        """ContextResult 有分类属性"""
         result = ContextResult()
         assert hasattr(result, 'recent_history')
         assert hasattr(result, 'long_term_memory')
@@ -67,12 +66,12 @@ class TestContextResultBoundary:
         assert hasattr(result, 'metadata')
     
     def test_context_result_no_items(self):
-        """ContextResult 不应该有 items 属性"""
+        """ContextResult 没有 items 属性"""
         result = ContextResult()
         assert not hasattr(result, 'items')
     
     def test_context_result_attributes_are_lists(self):
-        """ContextResult 的属性应该是列表"""
+        """ContextResult 属性是列表"""
         result = ContextResult()
         assert isinstance(result.recent_history, list)
         assert isinstance(result.long_term_memory, list)
@@ -80,7 +79,7 @@ class TestContextResultBoundary:
         assert isinstance(result.metadata, dict)
     
     def test_context_result_get_all_items(self):
-        """ContextResult 应该提供 get_all_items 方法"""
+        """ContextResult 提供 get_all_items 方法"""
         result = ContextResult()
         result.recent_history.append(
             Message(role=MessageRole.USER, content="Hello")
@@ -95,10 +94,10 @@ class TestContextResultBoundary:
 
 
 class TestProcessedContextToContextResult:
-    """测试 ProcessedContext → ContextResult 的转换"""
+    """测试 ProcessedContext → ContextResult 转换"""
     
     def test_to_context_result_basic(self):
-        """基本的转换测试"""
+        """基本转换"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content="user: Hello",
@@ -121,7 +120,7 @@ class TestProcessedContextToContextResult:
         assert len(result.external_knowledge) == 1
     
     def test_to_context_result_session_parsing(self):
-        """测试会话消息的解析"""
+        """会话消息解析"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content="user: Hello there",
@@ -141,7 +140,7 @@ class TestProcessedContextToContextResult:
         assert result.recent_history[1].content == "Hi! How can I help?"
     
     def test_to_context_result_malformed_session(self):
-        """测试格式错误的会话消息"""
+        """格式错误的会话消息"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content="Malformed message without role",
@@ -150,13 +149,13 @@ class TestProcessedContextToContextResult:
         
         result = ctx.to_context_result()
         
-        # 应该创建为 SYSTEM 消息
+        # 创建为 SYSTEM 消息
         assert len(result.recent_history) == 1
         assert result.recent_history[0].role == MessageRole.SYSTEM
         assert result.recent_history[0].content == "Malformed message without role"
     
     def test_to_context_result_invalid_role(self):
-        """测试无效的角色"""
+        """无效角色"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content="invalidrole: Some content",
@@ -165,12 +164,12 @@ class TestProcessedContextToContextResult:
         
         result = ctx.to_context_result()
         
-        # 应该创建为 SYSTEM 消息
+        # 创建为 SYSTEM 消息
         assert len(result.recent_history) == 1
         assert result.recent_history[0].role == MessageRole.SYSTEM
     
     def test_to_context_result_empty_role(self):
-        """测试空角色字符串"""
+        """空角色字符串"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content=": Some content",
@@ -179,12 +178,12 @@ class TestProcessedContextToContextResult:
         
         result = ctx.to_context_result()
         
-        # 应该创建为 SYSTEM 消息
+        # 创建为 SYSTEM 消息
         assert len(result.recent_history) == 1
         assert result.recent_history[0].role == MessageRole.SYSTEM
     
     def test_to_context_result_external_source(self):
-        """测试 EXTERNAL 来源"""
+        """EXTERNAL 来源"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content="External item",
@@ -197,7 +196,7 @@ class TestProcessedContextToContextResult:
         assert result.external_knowledge[0].content == "External item"
     
     def test_to_context_result_metadata_preserved(self):
-        """测试元数据是否被保留"""
+        """元数据保留"""
         ctx = ProcessedContext()
         ctx.metadata['test_key'] = 'test_value'
         ctx.metadata['count'] = 42
@@ -208,7 +207,7 @@ class TestProcessedContextToContextResult:
         assert result.metadata['count'] == 42
     
     def test_to_context_result_item_metadata_preserved(self):
-        """测试条目元数据是否被保留"""
+        """条目元数据保留"""
         ctx = ProcessedContext()
         ctx.add_item(ContextItem(
             content="user: Test",
@@ -222,11 +221,11 @@ class TestProcessedContextToContextResult:
 
 
 class TestOptimizationStrategyReturnTypes:
-    """测试优化策略的返回类型"""
+    """测试优化策略返回类型"""
     
     @pytest.mark.asyncio
     async def test_compression_strategy_returns_context_result(self):
-        """CompressionStrategy 应该返回 ContextResult"""
+        """CompressionStrategy 返回 ContextResult"""
         strategy = CompressionStrategy(max_items=5)
         ctx = ProcessedContext()
         
@@ -239,17 +238,17 @@ class TestOptimizationStrategyReturnTypes:
         
         result = await strategy.optimize(ctx)
         
-        # 应该返回 ContextResult，不是 ProcessedContext
+        # 返回 ContextResult
         assert isinstance(result, ContextResult)
         assert not isinstance(result, ProcessedContext)
         
-        # 应该有 recent_history 而不是 items
+        # 有 recent_history 而不是 items
         assert hasattr(result, 'recent_history')
         assert not hasattr(result, 'items')
     
     @pytest.mark.asyncio
     async def test_reranking_strategy_returns_processed_context(self):
-        """RerankingStrategy 应该返回 ProcessedContext（中间步骤）"""
+        """RerankingStrategy 返回 ProcessedContext"""
         strategy = RerankingStrategy()
         ctx = ProcessedContext()
         
@@ -262,38 +261,38 @@ class TestOptimizationStrategyReturnTypes:
         
         result = await strategy.optimize(ctx)
         
-        # 应该返回 ProcessedContext（不是 ContextResult）
+        # 返回 ProcessedContext
         assert isinstance(result, ProcessedContext)
         assert hasattr(result, 'items')
         assert not hasattr(result, 'recent_history')
 
 
 class TestAttributeAccessSafety:
-    """测试属性访问的安全性"""
+    """测试属性访问安全性"""
     
     def test_accessing_recent_history_on_processed_context_raises_error(self):
-        """尝试访问 ProcessedContext.recent_history 应该引发 AttributeError"""
+        """访问 ProcessedContext.recent_history 引发错误"""
         ctx = ProcessedContext()
         
         with pytest.raises(AttributeError):
             _ = ctx.recent_history
     
     def test_accessing_long_term_memory_on_processed_context_raises_error(self):
-        """尝试访问 ProcessedContext.long_term_memory 应该引发 AttributeError"""
+        """访问 ProcessedContext.long_term_memory 引发错误"""
         ctx = ProcessedContext()
         
         with pytest.raises(AttributeError):
             _ = ctx.long_term_memory
     
     def test_accessing_external_knowledge_on_processed_context_raises_error(self):
-        """尝试访问 ProcessedContext.external_knowledge 应该引发 AttributeError"""
+        """访问 ProcessedContext.external_knowledge 引发错误"""
         ctx = ProcessedContext()
         
         with pytest.raises(AttributeError):
             _ = ctx.external_knowledge
     
     def test_accessing_items_on_context_result_raises_error(self):
-        """尝试访问 ContextResult.items 应该引发 AttributeError"""
+        """访问 ContextResult.items 引发错误"""
         result = ContextResult()
         
         with pytest.raises(AttributeError):
@@ -347,22 +346,22 @@ class TestEdgeCases:
 
 
 class TestDocumentationAndUsageGuidance:
-    """测试文档字符串和使用指南"""
+    """测试文档字符串"""
     
     def test_processed_context_has_usage_docs(self):
-        """ProcessedContext 应该有使用指南"""
+        """ProcessedContext 有使用指南"""
         doc = ProcessedContext.__doc__
         assert doc is not None
         assert 'ProcessedContext vs ContextResult' in doc or 'items' in doc
     
     def test_context_result_has_usage_docs(self):
-        """ContextResult 应该有使用指南"""
+        """ContextResult 有使用指南"""
         doc = ContextResult.__doc__
         assert doc is not None
         assert 'recent_history' in doc or 'long_term_memory' in doc
     
     def test_to_context_result_has_usage_docs(self):
-        """to_context_result 方法应该有使用指南"""
+        """to_context_result 方法有使用指南"""
         doc = ProcessedContext.to_context_result.__doc__
         assert doc is not None
         assert 'ContextResult' in doc

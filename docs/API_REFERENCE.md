@@ -1,25 +1,25 @@
-# ContextMind v4.0 API Reference
+# ContextMind v5.1 API Reference
 
 ## 核心类
 
 ### ContextEngine
 
-上下文引擎是框架的核心入口。
+上下文引擎核心入口。
 
 #### 初始化
 
 ```python
-from contextmind import ContextEngine
+from contextmind.core import ContextEngine
 from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import InMemorySessionService
 
 engine = ContextEngine(
     app_name="my-app",
     user_id="user-123",
-    llm_client=client,  # 可选
-    session_service=InMemorySessionService(),  # 可选，默认InMemory
-    memory_service=InMemoryMemoryService(),    # 可选，默认InMemory
-    max_recent_events=10,  # 保留的最大近期事件数
+    llm_client=client,
+    session_service=InMemorySessionService(),
+    memory_service=InMemoryMemoryService(),
+    max_recent_events=10,
 )
 ```
 
@@ -27,21 +27,21 @@ engine = ContextEngine(
 
 ##### `optimize()`
 
-优化上下文，返回ContextResult。
+优化上下文。
 
 ```python
 context_result = await engine.optimize(
     user_input="你好",
-    include_session=True,     # 是否包含会话历史
-    include_memory=True,      # 是否包含长期记忆
-    include_knowledge=False,  # 是否包含外部知识（预留）
-    max_context_length=None,  # 最大上下文长度限制
+    include_session=True,
+    include_memory=True,
+    include_knowledge=False,
+    max_context_length=None,
 )
 ```
 
 ##### `update()`
 
-更新上下文（添加对话到会话）。
+更新上下文。
 
 ```python
 await engine.update(
@@ -52,11 +52,11 @@ await engine.update(
 
 ##### `extract_knowledge()`
 
-从对话中提取知识。
+提取知识。
 
 ```python
 knowledge_list = await engine.extract_knowledge(
-    auto_store=True  # 是否自动存储到长期记忆
+    auto_store=True
 )
 ```
 
@@ -73,7 +73,7 @@ await engine.seed_memory([
 
 ##### `clear_session()`
 
-清空当前会话。
+清空会话。
 
 ```python
 await engine.clear_session()
@@ -88,14 +88,14 @@ await engine.clear_session()
 对话消息。
 
 ```python
-from contextmind import Message, MessageRole
+from contextmind.core import Message, MessageRole
 from datetime import datetime
 
 msg = Message(
     role=MessageRole.USER,
     content="你好",
-    timestamp=datetime.now(),  # 可选
-    metadata={}               # 可选
+    timestamp=datetime.now(),
+    metadata={}
 )
 ```
 

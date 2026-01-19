@@ -2,14 +2,7 @@
 CallCenterApplication - 客服应用示例
 
 展示如何使用ContextEngine构建客服对话应用。
-
-注意：这是一个简化的示例，重点展示上下文工程能力：
-- 如何利用对话历史维持上下文连贯性
-- 如何利用长期记忆记住重要信息
-- 如何精简历史对话只保留相关部分
-
-ContextMind专注于上下文工程，不负责定义agent的基础prompt。
-基础prompt应由使用ContextMind的应用层自行定义。
+重点展示上下文工程能力：利用历史、记忆和知识提供连贯回复。
 """
 
 from contextmind import ContextEngine, Client, ContextResult
@@ -22,14 +15,7 @@ logger = get_logger(__name__)
 
 
 class CallCenterApplication(BaseApplication):
-    """
-    客服应用示例
-    
-    展示如何利用上下文引擎构建一个智能客服应用：
-    - 利用对话历史提供连贯的回复
-    - 利用长期记忆记住用户的重要信息
-    - 使用业务知识提供准确的服务
-    """
+    """客服应用示例"""
     
     def __init__(
         self,
@@ -39,17 +25,7 @@ class CallCenterApplication(BaseApplication):
         history_turns: int = 10,
         **config
     ):
-        """
-        初始化客服应用
-        
-        Args:
-            context_engine: 上下文引擎实例
-            llm_client: LLM客户端实例
-            business_info: 业务信息（产品介绍、服务流程等，已弃用，使用统一prompt）
-            history_turns: Prompt中包含的历史对话轮数（默认10）
-            **config: 其他配置
-        """
-        # 使用统一的系统提示词（包含业务信息）
+        """初始化客服应用"""
         system_prompt = get_system_prompt(include_business_info=True)
 
         super().__init__(
@@ -59,76 +35,59 @@ class CallCenterApplication(BaseApplication):
             **config
         )
         
-        self.business_info = business_info  # 保留兼容性
+        self.business_info = business_info
         self.history_turns = history_turns
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
-        """
-        构建客服场景的Prompt
-        
-        上下文工程的核心：将多源上下文整合为高质量的prompt。
-        
-        Args:
-            user_input: 用户输入
-            context: 优化后的上下文
-            
-        Returns:
-            完整的Prompt
-        """
+        """构建客服场景 Prompt"""
         prompt_parts = [self.system_prompt]
         
-        # === 1. 首先打印记忆库所有内容（调试信息）===
+        # 记忆库日志
         logger.info("=" * 80)
-        logger.info("📚 记忆库全部内容:")
+        logger.info("📚 记忆库:")
         if context.long_term_memory:
             for i, item in enumerate(context.long_term_memory, 1):
                 logger.info(f"  [{i}] {item.content} (score={item.score:.2f})")
-            logger.info(f"  总计: {len(context.long_term_memory)} 条记忆")
+            logger.info(f"  总计: {len(context.long_term_memory)} 条")
         else:
             logger.warning("  记忆库为空")
         logger.info("=" * 80)
         
-        # === 2. 添加长期记忆到Prompt（只取相关的记忆）===
-        RELEVANCE_THRESHOLD = 0.3  # 相关性阈值
+        # 添加相关记忆
+        RELEVANCE_THRESHOLD = 0.3
         
         if context.long_term_memory:
-            # 过滤：只使用相关的记忆（score >= 0.3）
             relevant_memories = [
                 item for item in context.long_term_memory
                 if item.score >= RELEVANCE_THRESHOLD
             ]
             
             if relevant_memories:
-                # 使用前5条相关记忆
                 used_memories = relevant_memories[:5]
                 memory_text = "\n".join(
                     f"- {item.content}"
                     for item in used_memories
                 )
                 prompt_parts.append(f"\n## 长期记忆\n{memory_text}")
-                logger.info(f"✓ 本次使用的记忆 ({len(used_memories)} 条):")
+                logger.info(f"✓ 使用记忆 ({len(used_memories)} 条):")
                 for i, item in enumerate(used_memories, 1):
                     logger.info(f"  ✓ [{i}] {item.content} (score={item.score:.2f})")
             else:
-                logger.info(f"⚠ No relevant memories (all scores < {RELEVANCE_THRESHOLD:.2f})")
+                logger.info(f"⚠ 无相关记忆 (score < {RELEVANCE_THRESHOLD:.2f})")
         else:
-            logger.warning("⚠ No long-term memory available")
+            logger.warning("⚠ 无长期记忆")
         
-        # === 3. 添加对话历史（使用配置的轮数）===
+        # 添加对话历史
         if context.recent_history:
-            # 使用配置的history_turns参数
             relevant_history = context.recent_history[-self.history_turns:]
             history_text = "\n".join(
                 f"{msg.role.value}: {msg.content}"
                 for msg in relevant_history
             )
-            prompt_parts.append(f"\n## 相关对话历史\n{history_text}")
-            logger.info(f"✓ Prompt includes {len(relevant_history)} turns of history (max={self.history_turns})")
+            prompt_parts.append(f"\n## 对话历史\n{history_text}")
+            logger.info(f"✓ 包含 {len(relevant_history)} 轮历史")
         
-        # === 4. 添加业务信息（已集成到system_prompt，无需单独添加）===
-        # 业务信息已包含在统一的系统提示词中
-        
-        # === 5. 添加当前用户输入===
+        # 添加当前输入
         prompt_parts.append(f"\n## 当前问题\n{user_input}")
         
         return "\n".join(prompt_parts)
