@@ -248,8 +248,8 @@ class TestOptimizationStrategyReturnTypes:
         assert not hasattr(result, 'items')
     
     @pytest.mark.asyncio
-    async def test_reranking_strategy_returns_context_result(self):
-        """RerankingStrategy 应该返回 ContextResult"""
+    async def test_reranking_strategy_returns_processed_context(self):
+        """RerankingStrategy 应该返回 ProcessedContext（中间步骤）"""
         strategy = RerankingStrategy()
         ctx = ProcessedContext()
         
@@ -262,10 +262,10 @@ class TestOptimizationStrategyReturnTypes:
         
         result = await strategy.optimize(ctx)
         
-        # 应该返回 ContextResult
-        assert isinstance(result, ContextResult)
-        assert hasattr(result, 'long_term_memory')
-        assert not hasattr(result, 'items')
+        # 应该返回 ProcessedContext（不是 ContextResult）
+        assert isinstance(result, ProcessedContext)
+        assert hasattr(result, 'items')
+        assert not hasattr(result, 'recent_history')
 
 
 class TestAttributeAccessSafety:

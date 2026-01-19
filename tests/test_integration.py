@@ -117,22 +117,28 @@ class TestPipelineIntegration:
         # 添加不同分数的条目
         for i in range(10):
             ctx.add_item(ContextItem(
-                content=f"Memory item {i}",
-                source=ContextSource.MEMORY,
+                content=f"user: Memory item {i}",
+                source=ContextSource.SESSION,
                 score=0.5 + i * 0.05  # 分数从 0.5 到 0.95
             ))
         
-        # 先重排序
+        # 先重排序（中间步骤，返回 ProcessedContext）
         rerank_strategy = RerankingStrategy(keep_recent_at_end=False)
-        reranked_result = await rerank_strategy.optimize(ctx)
+        reranked_ctx = await rerank_strategy.optimize(ctx)
         
-        # 验证重排序返回 ContextResult
-        assert isinstance(reranked_result, ContextResult)
-        assert hasattr(reranked_result, 'long_term_memory')
+        # 验证重排序返回 ProcessedContext
+        assert isinstance(reranked_ctx, ProcessedContext)
+        assert hasattr(reranked_ctx, 'items')
+        assert not hasattr(reranked_ctx, 'recent_history')
         
-        # 验证重排序后高分项在前
-        # 由于已经是 ContextResult，我们检查 long_term_memory
-        assert len(reranked_result.long_term_memory) > 0
+        # 然后压缩（最终步骤，返回 ContextResult）
+        compress_strategy = CompressionStrategy()
+        final_result = await compress_strategy.optimize(reranked_ctx)
+        
+        # 验证压缩返回 ContextResult
+        assert isinstance(final_result, ContextResult)
+        assert hasattr(final_result, 'recent_history')
+        assert len(final_result.recent_history) > 0
         
     @pytest.mark.asyncio
     async def test_mixed_sources_pipeline(self):

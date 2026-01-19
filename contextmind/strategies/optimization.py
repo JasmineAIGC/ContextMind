@@ -117,7 +117,7 @@ class RerankingStrategy(OptimizationStrategy):
         """
         self.keep_recent_at_end = keep_recent_at_end
     
-    async def optimize(self, context: ProcessedContext) -> ContextResult:
+    async def optimize(self, context: ProcessedContext) -> ProcessedContext:
         """
         优化上下文
         
@@ -130,13 +130,17 @@ class RerankingStrategy(OptimizationStrategy):
             context: 待优化的上下文（ProcessedContext）
             
         Returns:
-            优化后的上下文结果（ContextResult）
+            重排序后的上下文（ProcessedContext）
+            
+        Note:
+            这是一个中间优化步骤，返回 ProcessedContext 而非 ContextResult。
+            只有最终的压缩步骤才会转换为 ContextResult。
         """
         items = context.items
         
         if len(items) <= 3:
-            # 太少不需要重排，直接转换
-            return context.to_context_result()
+            # 太少不需要重排
+            return context
         
         # 按分数排序
         sorted_by_score = sorted(items, key=lambda x: x.score, reverse=True)
@@ -173,5 +177,4 @@ class RerankingStrategy(OptimizationStrategy):
         
         logger.debug(f"RerankingStrategy: reranked {len(items)} items")
         
-        # 转换为 ContextResult
-        return context.to_context_result()
+        return context

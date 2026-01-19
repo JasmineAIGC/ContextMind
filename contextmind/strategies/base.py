@@ -60,20 +60,19 @@ class OptimizationStrategy(ABC):
     
     定义了优化上下文以适应模型输入限制的接口。
     
-    **重要：返回类型变更**
+    **重要：返回类型说明**
     - 输入：ProcessedContext（包含 items 列表）
-    - 输出：ContextResult（包含 recent_history, long_term_memory, external_knowledge）
+    - 输出：可以是 ProcessedContext（中间步骤）或 ContextResult（最终步骤）
     
-    优化策略应该：
-    1. 处理 ProcessedContext.items（压缩、重排、过滤等）
-    2. 调用 context.to_context_result() 转换为 ContextResult
-    3. 返回 ContextResult
+    优化策略分为两类：
+    1. **中间优化**（如 RerankingStrategy）：返回 ProcessedContext，用于 pipeline 中间步骤
+    2. **最终优化**（如 CompressionStrategy）：返回 ContextResult，调用 context.to_context_result() 转换
     
-    这样可以确保类型安全，避免在 pipeline 中混用 ProcessedContext 和 ContextResult。
+    这样可以确保类型安全，同时保持 pipeline 的灵活性。
     """
     
     @abstractmethod
-    async def optimize(self, context: ProcessedContext) -> 'ContextResult':
+    async def optimize(self, context: ProcessedContext):
         """
         优化上下文
         
@@ -81,11 +80,11 @@ class OptimizationStrategy(ABC):
             context: 待优化的上下文（ProcessedContext）
             
         Returns:
-            优化后的上下文结果（ContextResult）
+            ProcessedContext 或 ContextResult，取决于策略的用途
             
         Note:
-            实现时应该先处理 context.items，然后调用 context.to_context_result() 
-            将 ProcessedContext 转换为 ContextResult 后返回。
+            - 中间优化步骤：返回 ProcessedContext
+            - 最终优化步骤：调用 context.to_context_result() 并返回 ContextResult
         """
         pass
 
