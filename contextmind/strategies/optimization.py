@@ -6,7 +6,7 @@ Optimization Strategies - 优化策略实现
 
 from typing import Optional, List
 
-from ..data_models import ProcessedContext, ContextItem
+from ..data_models import ProcessedContext, ContextItem, ContextResult
 from .base import OptimizationStrategy
 from ..logger import get_logger
 
@@ -35,11 +35,17 @@ class CompressionStrategy(OptimizationStrategy):
         self.max_tokens = max_tokens
         self.max_items = max_items
     
-    async def optimize(self, context: ProcessedContext) -> ProcessedContext:
+    async def optimize(self, context: ProcessedContext) -> ContextResult:
         """
         优化上下文
         
-        通过截断来压缩上下文。
+        通过截断来压缩上下文，然后转换为 ContextResult。
+        
+        Args:
+            context: 待优化的上下文（ProcessedContext）
+            
+        Returns:
+            优化后的上下文结果（ContextResult）
         """
         items = context.items
         
@@ -76,12 +82,23 @@ class CompressionStrategy(OptimizationStrategy):
             items = compressed_items
             context.metadata['truncated_by_length'] = True
         
+        # 更新处理后的条目
         context.items = items
         context.metadata['optimization_strategy'] = 'compression'
         
         logger.debug(f"CompressionStrategy: {len(items)} items after optimization")
         
-        return context
+        # 转换为 ContextResult
+        result = context.to_context_result()
+        
+        logger.debug(
+            f"CompressionStrategy converted to ContextResult: "
+            f"{len(result.recent_history)} history, "
+            f"{len(result.long_term_memory)} memory, "
+            f"{len(result.external_knowledge)} knowledge"
+        )
+        
+        return result
 
 
 class RerankingStrategy(OptimizationStrategy):
@@ -100,7 +117,7 @@ class RerankingStrategy(OptimizationStrategy):
         """
         self.keep_recent_at_end = keep_recent_at_end
     
-    async def optimize(self, context: ProcessedContext) -> ProcessedContext:
+    async def optimize(self, context: ProcessedContext) -> ContextResult:
         """
         优化上下文
         
@@ -108,12 +125,18 @@ class RerankingStrategy(OptimizationStrategy):
         - 高分项放在开头
         - 最近的项放在结尾
         - 中等重要的项放在中间
+        
+        Args:
+            context: 待优化的上下文（ProcessedContext）
+            
+        Returns:
+            优化后的上下文结果（ContextResult）
         """
         items = context.items
         
         if len(items) <= 3:
-            # 太少不需要重排
-            return context
+            # 太少不需要重排，直接转换
+            return context.to_context_result()
         
         # 按分数排序
         sorted_by_score = sorted(items, key=lambda x: x.score, reverse=True)
@@ -150,4 +173,5 @@ class RerankingStrategy(OptimizationStrategy):
         
         logger.debug(f"RerankingStrategy: reranked {len(items)} items")
         
-        return context
+        # 转换为 ContextResult
+        return context.to_context_result()
