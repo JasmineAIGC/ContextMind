@@ -1,6 +1,8 @@
 """
-Gradio UI 版本的交互式对话演示
-适合对外演示使用
+ContextMind v5.0 Gradio Demo
+
+清晰模块化架构 + 生产级记忆系统
+提供可视化界面，展示智能上下文优化能力。
 """
 
 try:
@@ -459,9 +461,9 @@ class GradioDemo:
         
     def create_interface(self):
         """创建 Gradio 界面"""
-        with gr.Blocks(title="优逸花客服对话演示") as demo:
-            gr.Markdown("# 🤖 优逸花客服对话演示")
-            gr.Markdown("展示上下文优化框架的智能对话能力")
+        with gr.Blocks(title="ContextMind v5.0 - 优逸花客服演示") as demo:
+            gr.Markdown("# 🤖 Context Mind v5.0 - 优逸花客服演示")
+            gr.Markdown("清晰模块化架构 + 智能记忆系统")
             
             # 初始化对话历史（使用同步版本，只更新UI）
             initial_history = self._get_initial_history()

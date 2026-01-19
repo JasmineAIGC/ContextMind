@@ -1,8 +1,8 @@
 """
-ContextMind v3.2 Interactive Demo
+ContextMind v5.0 Interactive Demo
 
-展示新架构的使用方式，提供命令行交互式演示。
-支持通过参数配置上下文控制。
+模块化架构 + 智能记忆系统
+提供命令行交互式演示，展示清晰的模块划分和生产级记忆能力。
 """
 
 import asyncio
@@ -52,7 +52,7 @@ async def main():
     """主函数"""
     
     # 解析命令行参数
-    parser = argparse.ArgumentParser(description='ContextMind v3.2 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v5.0 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数 (默认: 9999，实际不限制)')
@@ -67,8 +67,8 @@ async def main():
     setup_logging(level=log_level, log_to_console=True, auto_create_file=True)
     
     print("=" * 60)
-    print("ContextMind v3.2 Interactive Demo")
-    print("通用、可扩展的上下文优化框架")
+    print("ContextMind v5.0 Interactive Demo")
+    print("模块化架构 + 智能记忆系统")
     print("=" * 60)
     print()
     
@@ -231,7 +231,7 @@ async def main():
             import traceback
             traceback.print_exc()
     
-    print("\n感谢使用 ContextMind v3.2!")
+    print("\n感谢使用 ContextMind v5.0!")
 
 
 if __name__ == "__main__":

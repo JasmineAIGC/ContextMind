@@ -1,5 +1,5 @@
 """
-ContextMind - 专业的上下文优化框架 v4.0
+ContextMind - 专业的上下文优化框架 v5.0
 
 清晰的模块化架构，每个模块职责单一，易于扩展：
 
@@ -11,7 +11,7 @@ ContextMind - 专业的上下文优化框架 v4.0
 - ContextReorderer: 上下文重排序
 - KnowledgeExtractor: 知识提取
 
-架构设计 (v4.0):
+架构设计 (v5.0):
 - 应用层：使用引擎的应用
 - 适配器层：对话系统集成接口
 - 引擎层：ContextEngine 统一接口
@@ -19,11 +19,12 @@ ContextMind - 专业的上下文优化框架 v4.0
 - 策略层：可插拔的策略实现
 - 基础层：TokenizerService, VectorClient, CacheManager
 
-v4.0 核心改进：
+v5.0 核心改进：
 - 模块化重构：清晰的职责划分，易于扩展
 - 策略可插拔：支持持续集成新算法
 - 零冗余设计：功能不重复，代码简洁
 - SOLID 原则：单一职责，依赖倒置
+- 全面升级：demos和文档完全同步
 - CodeQL 0 告警：高质量代码
 """
 
@@ -211,4 +212,4 @@ __all__ = [
     "CircuitState",
 ]
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"
