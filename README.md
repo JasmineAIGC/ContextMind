@@ -2,6 +2,8 @@
 
 **ContextMind v4.0** - 通用上下文工程框架 ✨
 
+**v4.0 新特性**: 清晰的模块化架构 + 零冗余设计 + 生产就绪的记忆系统
+
 ---
 
 ## 📖 项目简介
@@ -42,13 +44,13 @@ ContextMind/
 │   │   ├── langchain_adapter.py # LangChain 适配器
 │   │   └── custom_adapter.py # 自定义适配器
 │   │
-│   ├── pipeline/             # 流水线层 - 上下文处理流程
-│   │   ├── base.py           # BaseProcessor 基类
-│   │   ├── input_processor.py       # 输入预处理
-│   │   ├── context_collector.py     # 上下文收集
-│   │   ├── context_integrator.py    # 上下文整合（委托给 Strategy）
-│   │   ├── context_optimizer.py     # 上下文优化
-│   │   └── knowledge_extractor.py   # 知识提取（委托给 Strategy）
+│   ├── modules/              # 模块层 - 6个核心模块（v4.0）
+│   │   ├── preprocessor.py   # InputPreprocessor - 输入预处理
+│   │   ├── retriever.py      # ContextRetriever - RAG检索
+│   │   ├── memory_bank.py    # MemoryBank - 长期记忆管理
+│   │   ├── compressor.py     # ContextCompressor - 上下文压缩
+│   │   ├── reorderer.py      # ContextReorderer - 上下文重排序
+│   │   └── extractor.py      # KnowledgeExtractor - 知识提取
 │   │
 │   ├── strategies/           # 策略层 - 可插拔算法实现
 │   │   ├── base.py           # 四大策略基类
@@ -66,9 +68,8 @@ ContextMind/
 │   │   ├── flow_controller.py   # FlowController - 动态路径决策
 │   │   └── circuit_breaker.py   # CircuitBreaker - 熔断器
 │   │
-│   ├── managers/             # 管理器 - Session 和 Memory 管理
-│   │   ├── session_manager.py   # SessionManager - 会话历史管理
-│   │   └── memory_manager.py    # MemoryManager - 长期记忆管理
+│   ├── managers/             # 管理器 - Session管理
+│   │   └── session_manager.py   # SessionManager - 会话历史管理
 │   │
 │   └── utils/                # 工具层 - 辅助功能
 │       ├── config.py         # 配置管理

@@ -22,6 +22,9 @@ from ..logger import get_logger
 
 logger = get_logger(__name__)
 
+# Default maximum number of session items (for backward compatibility)
+DEFAULT_MAX_SESSION_ITEMS = 10
+
 
 class ContextCompressor:
     """

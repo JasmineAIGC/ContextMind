@@ -13,7 +13,7 @@ ContextMind专注于上下文工程，不负责定义agent的基础prompt。
 """
 
 from contextmind import ContextEngine, Client, ContextResult
-from contextmind.pipeline.context_optimizer import DEFAULT_MAX_SESSION_ITEMS
+from contextmind.modules.compressor import DEFAULT_MAX_SESSION_ITEMS
 from contextmind.logger import get_logger
 from .base import BaseApplication
 

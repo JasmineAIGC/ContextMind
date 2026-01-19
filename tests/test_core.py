@@ -18,9 +18,9 @@ from contextmind.data_models import (
     Chunk, ContextState
 )
 
-# Pipeline 测试
-from contextmind.pipeline import (
-    InputProcessor, ContextIntegrator, ContextOptimizer
+# Module tests (v4.0)
+from contextmind.modules import (
+    InputPreprocessor, ContextReorderer, ContextCompressor
 )
 
 # 基础服务测试
