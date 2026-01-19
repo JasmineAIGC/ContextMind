@@ -40,6 +40,7 @@ class CompressionStrategy(OptimizationStrategy):
         优化上下文
         
         通过截断来压缩上下文，然后转换为 ContextResult。
+        压缩时会保留不同来源的条目，避免只保留单一来源。
         
         Args:
             context: 待优化的上下文（ProcessedContext）
@@ -49,10 +50,37 @@ class CompressionStrategy(OptimizationStrategy):
         """
         items = context.items
         
-        # 限制项数量
+        # 限制项数量 - 智能保留不同来源的条目
         if self.max_items and len(items) > self.max_items:
-            items = items[:self.max_items]
+            # 按来源分组
+            from ..data_models import ContextSource
+            session_items = [item for item in items if item.source == ContextSource.SESSION]
+            memory_items = [item for item in items if item.source == ContextSource.MEMORY]
+            knowledge_items = [item for item in items if item.source in (ContextSource.KNOWLEDGE, ContextSource.EXTERNAL)]
+            
+            # 智能分配配额：优先保留记忆和知识，剩余给会话
+            # 为记忆和知识各保留至少2个位置（如果有的话）
+            reserved_for_memory = min(len(memory_items), max(2, self.max_items // 5))
+            reserved_for_knowledge = min(len(knowledge_items), max(1, self.max_items // 10))
+            remaining_for_session = self.max_items - reserved_for_memory - reserved_for_knowledge
+            
+            # 确保不超出实际数量
+            kept_memory = memory_items[:reserved_for_memory]
+            kept_knowledge = knowledge_items[:reserved_for_knowledge]
+            kept_session = session_items[:remaining_for_session]
+            
+            # 重新组合，保持原始顺序的相对位置
+            items = []
+            for item in context.items:
+                if item in kept_session or item in kept_memory or item in kept_knowledge:
+                    items.append(item)
+                if len(items) >= self.max_items:
+                    break
+            
             context.metadata['truncated_by_count'] = True
+            context.metadata['kept_session'] = len(kept_session)
+            context.metadata['kept_memory'] = len(kept_memory)
+            context.metadata['kept_knowledge'] = len(kept_knowledge)
         
         # 限制总token数（用字符数近似）
         total_chars = sum(len(item.content) for item in items)
