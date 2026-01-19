@@ -1,11 +1,11 @@
 """
 ContextEngine - 上下文引擎核心模块 v4.0
 
-完全重构的上下文引擎，基于多层架构设计：
+清晰的模块化架构设计：
 - 应用层：使用引擎的应用（示例：客服、聊天机器人等）
 - 适配器层：对话系统集成接口
-- 引擎层：ContextEngine 统一接口 + FlowController + CircuitBreaker
-- 流水线层：InputProcessor, ContextCollector, ContextIntegrator, ContextOptimizer, KnowledgeExtractor
+- 引擎层：ContextEngine 统一接口
+- 模块层：InputPreprocessor, ContextRetriever, MemoryBank, ContextCompressor, ContextReorderer, KnowledgeExtractor
 - 策略层：可插拔的策略实现
 - 基础层：TokenizerService, VectorClient, CacheManager
 
@@ -36,12 +36,13 @@ from .data_models import (
     ProcessedContext,
     Knowledge,
 )
-from .managers import SessionManager, MemoryManager
-from .pipeline import (
-    InputProcessor,
-    ContextCollector,
-    ContextIntegrator,
-    ContextOptimizer,
+from .managers import SessionManager
+from .modules import (
+    InputPreprocessor,
+    ContextRetriever,
+    MemoryBank,
+    ContextCompressor,
+    ContextReorderer,
     KnowledgeExtractor,
 )
 
@@ -125,22 +126,23 @@ class ContextEngine:
             max_recent_events=max_recent_events,
         )
         
-        self.memory_manager = MemoryManager(
+        # 初始化记忆库
+        self.memory_bank = MemoryBank(
             memory_service=self.memory_service,
             session_service=self.session_service,
             app_name=app_name,
             user_id=user_id,
         )
         
-        # 初始化流水线组件
-        self.input_processor = InputProcessor()
-        self.context_collector = ContextCollector(
+        # 初始化模块化组件
+        self.preprocessor = InputPreprocessor()
+        self.retriever = ContextRetriever(
             session_manager=self.session_manager,
-            memory_manager=self.memory_manager,
+            memory_bank=self.memory_bank,
         )
-        self.context_integrator = ContextIntegrator()
-        self.context_optimizer = ContextOptimizer()
-        self.knowledge_extractor = KnowledgeExtractor()
+        self.compressor = ContextCompressor()
+        self.reorderer = ContextReorderer()
+        self.extractor = KnowledgeExtractor()
         
         logger.info(f"ContextEngine initialized for app={app_name}, user={user_id}")
     
@@ -155,18 +157,18 @@ class ContextEngine:
         """
         优化上下文 - 核心方法
         
-        执行完整的上下文优化流程：
-        1. InputProcessor: 预处理输入
-        2. ContextCollector: 收集上下文
-        3. ContextIntegrator: 整合上下文
-        4. ContextOptimizer: 优化上下文
+        执行完整的模块化上下文优化流程：
+        1. InputPreprocessor: 预处理输入
+        2. ContextRetriever: 检索上下文（RAG）
+        3. ContextReorderer: 重排序上下文
+        4. ContextCompressor: 压缩上下文
         
         Args:
             user_input: 用户输入
             include_session: 是否包含会话历史
             include_memory: 是否包含长期记忆
-            include_knowledge: 是否包含外部知识（当前未实现）
-            max_context_length: 最大上下文长度限制
+            include_knowledge: 是否包含外部知识（预留）
+            max_context_length: 最大上下文长度限制（预留）
             
         Returns:
             ContextResult 对象，包含优化后的上下文
@@ -177,34 +179,28 @@ class ContextEngine:
         logger.debug(f"Optimizing context for input: {user_input}")
         
         # 1. 预处理输入
-        processed_input = await self.input_processor.process(user_input)
+        processed_input = await self.preprocessor.process(user_input)
         
-        # 2. 收集上下文
-        collected_context = await self.context_collector.collect(
-            user_input=processed_input,
+        # 2. 检索上下文（RAG）
+        retrieved_context = await self.retriever.retrieve(
+            query=processed_input,
             include_session=include_session,
             include_memory=include_memory,
             include_knowledge=include_knowledge,
         )
         
-        # 3. 整合上下文
-        integrated_context = await self.context_integrator.integrate(collected_context)
+        # 3. 重排序上下文
+        reordered_context = await self.reorderer.reorder(retrieved_context)
         
-        # 4. 优化上下文
-        optimized_context = await self.context_optimizer.optimize(
-            integrated_context,
-            max_length=max_context_length,
-        )
-        
-        # 5. 转换为 ContextResult
-        context_result = self._convert_to_context_result(optimized_context)
+        # 4. 压缩上下文
+        compressed_result = await self.compressor.compress(reordered_context)
         
         logger.debug(
-            f"Context optimized: {len(context_result.recent_history)} history, "
-            f"{len(context_result.long_term_memory)} memory items"
+            f"Context optimized: {len(compressed_result.recent_history)} history, "
+            f"{len(compressed_result.long_term_memory)} memory items"
         )
         
-        return context_result
+        return compressed_result
     
     async def update(
         self,
@@ -261,11 +257,11 @@ class ContextEngine:
             return []
         
         # 提取知识
-        knowledge = await self.knowledge_extractor.extract(messages)
+        knowledge = await self.extractor.extract(messages)
         
         # 自动存储到长期记忆
         if auto_store and knowledge:
-            await self.memory_manager.store(knowledge)
+            await self.memory_bank.store(knowledge)
             logger.info(f"Extracted and stored {len(knowledge)} knowledge items")
         else:
             logger.info(f"Extracted {len(knowledge)} knowledge items")
@@ -281,7 +277,7 @@ class ContextEngine:
         Args:
             facts: 事实字符串列表
         """
-        await self.memory_manager.seed(facts)
+        await self.memory_bank.seed(facts)
     
     async def clear_session(self) -> None:
         """
