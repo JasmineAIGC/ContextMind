@@ -57,7 +57,7 @@ class ContextReorderer:
             重排序后的上下文
         """
         # 委托给重排序策略
-        reordered = await self.strategy.integrate(context)
+        reordered = await self.strategy.optimize(context)
         
         logger.debug(f"Reordered {len(reordered.items)} context items")
         
