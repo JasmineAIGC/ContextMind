@@ -89,10 +89,10 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 质量检查：长度合理，不以否定词开头
                     if 2 <= len(phrase) <= 20 and not phrase.startswith(('不', '没', '无')):
                         preferences.append(Knowledge(
-                            content=f"[偏好] {keyword}: {phrase}",
+                            content=f"{keyword}{phrase}",  # 简化格式，移除冗余标签
                             type=KnowledgeType.PREFERENCE,
                             confidence=0.85,
-                            metadata={'sentiment': sentiment, 'keyword': keyword}
+                            metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '偏好'}
                         ))
             
             # 负面偏好/拒绝 - 提取完整的否定对象
@@ -118,10 +118,10 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 3. 不是纯数字或符号
                     if 2 <= len(phrase) <= 15 and '吗' not in phrase and '?' not in phrase and not phrase.isdigit():
                         preferences.append(Knowledge(
-                            content=f"[拒绝] {keyword}: {phrase}",
+                            content=f"{keyword}{phrase}",  # 简化格式，移除冗余标签
                             type=KnowledgeType.PREFERENCE,
                             confidence=0.85,
-                            metadata={'sentiment': sentiment, 'keyword': keyword}
+                            metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '拒绝'}
                         ))
         
         return preferences
@@ -162,18 +162,30 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             fact_patterns = [
                 (r'我(是|在|做)(.{2,20})(工作|职业|行业)', '职业'),
                 (r'我(今年|已经)(.{1,3})(岁|周岁)', '年龄'),
-                (r'我(住在|在|来自)(.{2,10})', '位置'),
-                (r'我是(.{2,15})', '身份'),
+                (r'我(住在|在|来自|是)(.{2,10})(人|地方|城市)', '位置'),
+                (r'我是(.{2,10})人', '位置'),  # "我是重庆人"
+                (r'我(喜欢|爱好|爱)(吃|玩|看|听|做)(.{2,15})', '爱好'),
+                (r'我喜欢(.{2,15})', '爱好'),  # 通用爱好提取
                 (r'我叫(.{2,8})', '姓名'),
-                (r'我(有|没有)(.{2,15})(工作|收入|存款)', '经济状况'),
+                (r'我(有|没有)(.{2,15})(工作|收入|存款|房|车)', '经济状况'),
+                (r'我(开|买了|有)(.{2,10})(车|房)', '资产'),
             ]
             
             for pattern, category in fact_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
                     # 提取关键部分
-                    if isinstance(match, tuple) and len(match) >= 2:
-                        fact = match[1].strip() if len(match) > 1 else str(match[0]).strip()
+                    if isinstance(match, tuple):
+                        # 根据不同模式提取相应部分
+                        if category == '位置' and len(match) >= 2:
+                            fact = match[1].strip()
+                        elif category == '爱好' and len(match) >= 3:
+                            # 合并动词和宾语
+                            fact = (match[1] + match[2]).strip() if len(match) > 2 else match[1].strip()
+                        elif len(match) >= 2:
+                            fact = match[1].strip()
+                        else:
+                            fact = match[0].strip() if match else ""
                     else:
                         fact = match.strip() if isinstance(match, str) else str(match)
                     
@@ -183,7 +195,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 质量检查：长度合理，不是空白
                     if 2 <= len(fact) <= 20 and fact.strip():
                         facts.append(Knowledge(
-                            content=f"[事实] {category}: {fact}",
+                            content=f"{category}: {fact}",  # 简化格式
                             type=KnowledgeType.FACT,
                             confidence=0.75,
                             metadata={'category': category}
@@ -235,7 +247,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 质量检查：不包含问号（避免提取疑问句片段）
                     if 3 <= len(detail) <= 20 and '吗' not in detail and '?' not in detail:
                         events.append(Knowledge(
-                            content=f"[决策] {keyword}: {detail}",
+                            content=f"{keyword}{detail}",  # 简化格式
                             type=KnowledgeType.EVENT,
                             confidence=0.70,
                             metadata={'keyword': keyword, 'category': category}

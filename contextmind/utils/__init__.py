@@ -8,6 +8,7 @@ Utils - 实用工具模块
 - 事件系统
 - 上下文格式化 (v3.2新增)
 - 文本构建工具 (统一文本格式化)
+- 对话摘要工具 (v3.3新增)
 """
 
 from .config import ConfigManager, validate_config
@@ -28,6 +29,7 @@ from .context_formatter import (
     LOG_PREFIX_PROMPT,
 )
 from .text_builder import ContextTextBuilder
+from .summarizer import ConversationSummarizer, SummarizedHistory
 
 __all__ = [
     "ConfigManager",
@@ -51,4 +53,7 @@ __all__ = [
     "LOG_PREFIX_PROMPT",
     # 统一文本构建工具
     "ContextTextBuilder",
+    # v3.3 新增
+    "ConversationSummarizer",
+    "SummarizedHistory",
 ]
