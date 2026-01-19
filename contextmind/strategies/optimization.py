@@ -2,13 +2,19 @@
 Optimization Strategies - 优化策略实现
 
 提供多种优化策略，用于压缩和重排上下文以适应模型输入限制。
+
+v3.3更新：
+- 支持可配置化设计
+- 使用CompressionConfig减少硬编码
 """
 
 from typing import Optional, List
+from datetime import datetime
 
-from ..data_models import ProcessedContext, ContextItem, ContextResult
+from ..data_models import ProcessedContext, ContextItem, ContextResult, ContextSource
 from .base import OptimizationStrategy
 from ..logger import get_logger
+from ..config import DEFAULT_MEMORY_CONFIG, CompressionConfig
 
 logger = get_logger(__name__)
 
