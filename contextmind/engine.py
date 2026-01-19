@@ -33,8 +33,8 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.base_session_service import BaseSessionService
 
 from .client import Client
-from .logger import get_logger
-from .data_models import (
+from .core import (
+    get_logger,
     Message,
     MessageRole,
     ContextResult,
@@ -43,8 +43,8 @@ from .data_models import (
     ProcessedContext,
     Knowledge,
 )
-from .managers import SessionManager
-from .modules import (
+from .pipeline import (
+    SessionManager,
     InputPreprocessor,
     ContextRetriever,
     MemoryBank,

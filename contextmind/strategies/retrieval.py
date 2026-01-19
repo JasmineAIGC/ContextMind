@@ -7,9 +7,9 @@ Retrieval Strategies - 检索策略实现
 from typing import List, Optional
 import re
 
-from ..data_models import ContextItem, ContextSource
+from ..core import ContextItem, ContextSource
 from .base import RetrievalStrategy
-from ..logger import get_logger
+from ..core import get_logger
 
 logger = get_logger(__name__)
 

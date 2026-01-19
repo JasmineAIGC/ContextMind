@@ -11,10 +11,10 @@ v3.3更新：
 from typing import Optional, List
 from datetime import datetime
 
-from ..data_models import ProcessedContext, ContextItem, ContextResult, ContextSource
+from ..core import ProcessedContext, ContextItem, ContextResult, ContextSource
 from .base import OptimizationStrategy
-from ..logger import get_logger
-from ..config import DEFAULT_MEMORY_CONFIG, CompressionConfig
+from ..core import get_logger
+from ..core import DEFAULT_MEMORY_CONFIG, CompressionConfig
 
 logger = get_logger(__name__)
 
@@ -62,7 +62,7 @@ class CompressionStrategy(OptimizationStrategy):
         # 限制项数量 - 智能保留不同来源的条目
         if self.max_items and len(items) > self.max_items:
             # 按来源分组
-            from ..data_models import ContextSource
+            from ..core import ContextSource
             session_items = [item for item in items if item.source == ContextSource.SESSION]
             memory_items = [item for item in items if item.source == ContextSource.MEMORY]
             knowledge_items = [item for item in items if item.source in (ContextSource.KNOWLEDGE, ContextSource.EXTERNAL)]

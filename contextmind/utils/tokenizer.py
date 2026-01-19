@@ -15,7 +15,7 @@ from typing import Optional, List
 from enum import Enum
 import re
 
-from ..logger import get_logger
+from ..core import get_logger
 
 logger = get_logger(__name__)
 

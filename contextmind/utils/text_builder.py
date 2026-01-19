@@ -17,9 +17,9 @@ v3.3更新:
 
 from typing import List, Optional
 from collections import defaultdict
-from ..data_models import ContextResult, ContextItem, Message
-from .summarizer import ConversationSummarizer
-from ..config import DEFAULT_MEMORY_CONFIG
+from ..core import ContextResult, ContextItem, Message
+from .formatter import ConversationSummarizer
+from ..core import DEFAULT_MEMORY_CONFIG
 
 
 class ContextTextBuilder:

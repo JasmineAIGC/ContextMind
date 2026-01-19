@@ -12,10 +12,10 @@ from typing import List, Optional
 import re
 import json
 
-from ..data_models import Message, Knowledge, KnowledgeType
+from ..core import Message, Knowledge, KnowledgeType
 from .base import ExtractionStrategy
-from ..logger import get_logger
-from ..config import DEFAULT_MEMORY_CONFIG, ExtractionConfig
+from ..core import get_logger
+from ..core import DEFAULT_MEMORY_CONFIG, ExtractionConfig
 
 logger = get_logger(__name__)
 

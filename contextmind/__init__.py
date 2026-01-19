@@ -13,38 +13,27 @@ Clear modular architecture with single responsibility and easy extensibility
 - ContextReorderer: 上下文重排序
 - KnowledgeExtractor: 知识提取
 
-架构设计 (v5.0):
+架构设计 (v5.1 - 5层架构):
 - 应用层：使用引擎的应用
 - 适配器层：对话系统集成接口
 - 引擎层：ContextEngine 统一接口
-- 模块层：InputPreprocessor, ContextRetriever, MemoryBank, ContextCompressor, ContextReorderer, KnowledgeExtractor
+- 流水线层：核心处理模块
 - 策略层：可插拔的策略实现
-- 基础层：TokenizerService, VectorClient, CacheManager
+- 核心层：数据模型、配置、日志
+- 工具层：工具和实用程序
 
-v5.0 核心改进：
-- 模块化重构：清晰的职责划分，易于扩展
-- 策略可插拔：支持持续集成新算法
-- 零冗余设计：功能不重复，代码简洁
-- SOLID 原则：单一职责，依赖倒置
-- 全面升级：demos和文档完全同步
-- CodeQL 0 告警：高质量代码
+v5.1 核心改进：
+- 5层架构重构：清晰的职责划分
+- 合并冗余模块：减少文件数量
+- 优化导入路径：更直观的模块组织
 """
 
 # 核心引擎
 from .engine import ContextEngine
 
-# 核心模块 (v4.0 模块化)
-from .modules import (
-    InputPreprocessor,
-    ContextRetriever,
-    MemoryBank,
-    ContextCompressor,
-    ContextReorderer,
-    KnowledgeExtractor,
-)
-
-# 数据模型
-from .data_models import (
+# 核心层
+from .core import (
+    # 数据模型
     Message,
     MessageRole,
     ContextItem,
@@ -53,16 +42,35 @@ from .data_models import (
     ProcessedContext,
     Knowledge,
     KnowledgeType,
-    # v3.2 新增
     Chunk,
     ContextState,
+    # 配置
+    ExtractionConfig,
+    RetrievalConfig,
+    SummarizationConfig,
+    CompressionConfig,
+    MemorySystemConfig,
+    DEFAULT_MEMORY_CONFIG,
+    # 日志
+    get_logger,
+    setup_logging,
+    INFO,
+    DEBUG,
+)
+
+# 流水线层
+from .pipeline import (
+    InputPreprocessor,
+    ContextRetriever,
+    MemoryBank,
+    ContextCompressor,
+    ContextReorderer,
+    KnowledgeExtractor,
+    SessionManager,
 )
 
 # 客户端
 from .client import Client, ClientConfig
-
-# 日志
-from .logger import get_logger, setup_logging, INFO, DEBUG
 
 # 策略
 from .strategies import (
@@ -86,7 +94,7 @@ from .strategies import (
     LLMExtractionStrategy,
 )
 
-# 适配器 (新增)
+# 适配器
 from .adapters import (
     BaseAdapter,
     DialogContext,
@@ -94,50 +102,33 @@ from .adapters import (
     OpenAIAdapter,
     LangChainAdapter,
     CustomAdapter,
-)
-
-# 工具 (新增)
-from .utils import (
-    ConfigManager,
-    validate_config,
-    PerformanceMonitor,
-    ContextMetrics,
-    ContextVisualizer,
-    EventBus,
-    Event,
-    ContextTextBuilder,  # 统一文本构建工具
-)
-
-# 基础层 (v3.2 新增)
-from .foundation import (
-    TokenizerService,
-    TokenizerType,
     VectorClient,
     VectorSearchResult,
     CacheManager,
     CacheEntry,
 )
 
-# 控制层 (v3.2 新增)
-from .control import (
-    FlowController,
-    CircuitBreaker,
-    CircuitState,
+# 工具
+from .utils import (
+    TokenizerService,
+    TokenizerType,
+    ContextTextBuilder,
+    ContextFormatter,
+    format_context_result,
+    format_memory_cache,
+    format_prompt_analysis,
+    format_complete_prompt,
+    ConversationSummarizer,
+    SummarizedHistory,
+    PerformanceMonitor,
+    ContextMetrics,
 )
 
 __all__ = [
     # 核心引擎
     "ContextEngine",
     
-    # 核心模块 (v4.0)
-    "InputPreprocessor",
-    "ContextRetriever",
-    "MemoryBank",
-    "ContextCompressor",
-    "ContextReorderer",
-    "KnowledgeExtractor",
-    
-    # 数据模型
+    # 核心层 - 数据模型
     "Message",
     "MessageRole",
     "ContextItem",
@@ -146,18 +137,35 @@ __all__ = [
     "ProcessedContext",
     "Knowledge",
     "KnowledgeType",
-    "Chunk",  # v3.2
-    "ContextState",  # v3.2
+    "Chunk",
+    "ContextState",
     
-    # 客户端
-    "Client",
-    "ClientConfig",
+    # 核心层 - 配置
+    "ExtractionConfig",
+    "RetrievalConfig",
+    "SummarizationConfig",
+    "CompressionConfig",
+    "MemorySystemConfig",
+    "DEFAULT_MEMORY_CONFIG",
     
-    # 日志
+    # 核心层 - 日志
     "get_logger",
     "setup_logging",
     "INFO",
     "DEBUG",
+    
+    # 流水线层
+    "InputPreprocessor",
+    "ContextRetriever",
+    "MemoryBank",
+    "ContextCompressor",
+    "ContextReorderer",
+    "KnowledgeExtractor",
+    "SessionManager",
+    
+    # 客户端
+    "Client",
+    "ClientConfig",
     
     # 策略基类
     "RetrievalStrategy",
@@ -189,29 +197,24 @@ __all__ = [
     "OpenAIAdapter",
     "LangChainAdapter",
     "CustomAdapter",
-    
-    # 工具
-    "ConfigManager",
-    "validate_config",
-    "PerformanceMonitor",
-    "ContextMetrics",
-    "ContextVisualizer",
-    "EventBus",
-    "Event",
-    "ContextTextBuilder",  # 统一文本构建工具
-    
-    # 基础层 (v3.2)
-    "TokenizerService",
-    "TokenizerType",
     "VectorClient",
     "VectorSearchResult",
     "CacheManager",
     "CacheEntry",
     
-    # 控制层 (v3.2)
-    "FlowController",
-    "CircuitBreaker",
-    "CircuitState",
+    # 工具
+    "TokenizerService",
+    "TokenizerType",
+    "ContextTextBuilder",
+    "ContextFormatter",
+    "format_context_result",
+    "format_memory_cache",
+    "format_prompt_analysis",
+    "format_complete_prompt",
+    "ConversationSummarizer",
+    "SummarizedHistory",
+    "PerformanceMonitor",
+    "ContextMetrics",
 ]
 
 __version__ = "5.1.0"  # 当前版本 Current version

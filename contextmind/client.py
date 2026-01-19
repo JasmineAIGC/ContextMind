@@ -13,7 +13,7 @@ from typing import Optional, Sequence, Tuple
 
 from openai import OpenAI
 
-from .logger import get_logger
+from .core import get_logger
 
 logger = get_logger(__name__)
 

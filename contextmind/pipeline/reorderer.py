@@ -14,9 +14,8 @@ ContextReorderer - 上下文重排序模块
 """
 
 from typing import List, Optional
-from ..data_models import ProcessedContext
+from ..core import ProcessedContext, get_logger
 from ..strategies.optimization import RerankingStrategy
-from ..logger import get_logger
 
 logger = get_logger(__name__)
 
