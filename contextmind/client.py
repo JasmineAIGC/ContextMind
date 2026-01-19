@@ -11,13 +11,7 @@ from dataclasses import dataclass
 import os
 from typing import Optional, Sequence, Tuple
 
-# Optional openai import
-try:
-    from openai import OpenAI
-    _HAS_OPENAI = True
-except ImportError:
-    _HAS_OPENAI = False
-    OpenAI = None
+from openai import OpenAI
 
 from .logger import get_logger
 

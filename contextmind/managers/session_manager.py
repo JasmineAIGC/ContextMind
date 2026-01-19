@@ -8,21 +8,10 @@ SessionManager - 会话管理器
 from typing import List, Optional, Any
 import uuid
 
-# Optional google.adk imports
-try:
-    from google.adk.events.event import Event
-    from google.adk.sessions.base_session_service import BaseSessionService, GetSessionConfig
-    from google.adk.sessions import Session
-    from google.genai.types import Content, Part
-    _HAS_GOOGLE_ADK = True
-except ImportError:
-    _HAS_GOOGLE_ADK = False
-    Event = Any
-    BaseSessionService = Any
-    GetSessionConfig = Any
-    Session = Any
-    Content = Any
-    Part = Any
+from google.adk.events.event import Event
+from google.adk.sessions.base_session_service import BaseSessionService, GetSessionConfig
+from google.adk.sessions import Session
+from google.genai.types import Content, Part
 
 from ..data_models import Message, MessageRole
 from ..logger import get_logger

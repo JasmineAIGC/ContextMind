@@ -23,20 +23,10 @@ from typing import List, Optional, Dict, Any
 import uuid
 import re
 
-# Optional google.adk imports
-try:
-    from google.adk.memory.base_memory_service import BaseMemoryService
-    from google.adk.events.event import Event
-    from google.adk.sessions.base_session_service import BaseSessionService
-    from google.genai.types import Content, Part
-    _HAS_GOOGLE_ADK = True
-except ImportError:
-    _HAS_GOOGLE_ADK = False
-    BaseMemoryService = Any
-    Event = Any
-    BaseSessionService = Any
-    Content = Any
-    Part = Any
+from google.adk.memory.base_memory_service import BaseMemoryService
+from google.adk.events.event import Event
+from google.adk.sessions.base_session_service import BaseSessionService
+from google.genai.types import Content, Part
 
 from ..data_models import ContextItem, ContextSource, Knowledge, MemoryNote, MemoryType
 from ..logger import get_logger

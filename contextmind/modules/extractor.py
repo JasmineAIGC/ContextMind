@@ -15,7 +15,7 @@ KnowledgeExtractor - 知识提取模块
 
 from typing import List, Optional
 from ..data_models import Message, Knowledge
-from ..strategies.extraction import SimpleExtractionStrategy
+from ..strategies.extraction import RuleBasedExtractionStrategy
 from ..logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,7 +33,7 @@ class KnowledgeExtractor:
     
     def __init__(
         self,
-        strategy: Optional[SimpleExtractionStrategy] = None,
+        strategy: Optional[RuleBasedExtractionStrategy] = None,
     ):
         """
         初始化提取器
@@ -41,7 +41,7 @@ class KnowledgeExtractor:
         Args:
             strategy: 提取策略（可插拔）
         """
-        self.strategy = strategy or SimpleExtractionStrategy()
+        self.strategy = strategy or RuleBasedExtractionStrategy()
     
     async def extract(
         self,

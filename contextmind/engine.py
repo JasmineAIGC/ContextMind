@@ -20,18 +20,10 @@ from __future__ import annotations
 from typing import Optional, List, Any
 from datetime import datetime
 
-# Optional google.adk imports (not required for core functionality)
-try:
-    from google.adk.memory import InMemoryMemoryService
-    from google.adk.memory.base_memory_service import BaseMemoryService
-    from google.adk.sessions import InMemorySessionService
-    from google.adk.sessions.base_session_service import BaseSessionService
-    _HAS_GOOGLE_ADK = True
-except ImportError:
-    _HAS_GOOGLE_ADK = False
-    # Define placeholder types
-    BaseMemoryService = Any
-    BaseSessionService = Any
+from google.adk.memory import InMemoryMemoryService
+from google.adk.memory.base_memory_service import BaseMemoryService
+from google.adk.sessions import InMemorySessionService
+from google.adk.sessions.base_session_service import BaseSessionService
 
 from .client import Client
 from .logger import get_logger
