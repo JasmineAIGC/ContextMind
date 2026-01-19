@@ -16,6 +16,7 @@ from contextmind import (
     Client,
     ClientConfig,
     setup_logging,
+    get_logger,
     INFO,
     DEBUG,
 )
@@ -23,7 +24,6 @@ from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import InMemorySessionService
 
 from examples.applications.callcenter import CallCenterApplication
-from contextmind.logger import get_logger
 
 load_dotenv()
 logger = get_logger(__name__)

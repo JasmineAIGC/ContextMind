@@ -27,8 +27,7 @@ import threading
 import os
 from pathlib import Path
 
-from contextmind import Client, ClientConfig, ContextEngine
-from contextmind.logger import setup_logging, get_logger, INFO, DEBUG
+from contextmind import Client, ClientConfig, ContextEngine, setup_logging, get_logger, INFO, DEBUG
 
 setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
 logger = get_logger(__name__)
