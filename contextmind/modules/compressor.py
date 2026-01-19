@@ -48,8 +48,8 @@ class ContextCompressor:
             strategy: 压缩策略（可插拔）
             max_session_items: 最大会话条目数
         """
-        self.strategy = strategy or SimpleOptimizationStrategy(
-            max_session_items=max_session_items
+        self.strategy = strategy or CompressionStrategy(
+            max_items=max_session_items
         )
     
     async def compress(

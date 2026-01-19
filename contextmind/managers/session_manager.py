@@ -54,11 +54,6 @@ class SessionManager:
             user_id: 用户ID，用于区分不同用户
             max_recent_events: 保留的最大近期事件数量，默认9999（实际不限制）
         """
-        if session_service and not _HAS_GOOGLE_ADK:
-            raise ImportError(
-                "google.adk is required when session_service is provided. "
-                "Install it or use None for session_service."
-            )
         self.session_service = session_service
         self.app_name = app_name
         self.user_id = user_id

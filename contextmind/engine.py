@@ -115,12 +115,12 @@ class ContextEngine:
         self.llm_client = llm_client
         
         # 初始化服务
-        if session_service is None and _HAS_GOOGLE_ADK:
+        if session_service is None:
             self.session_service = InMemorySessionService()
         else:
             self.session_service = session_service
             
-        if memory_service is None and _HAS_GOOGLE_ADK:
+        if memory_service is None:
             self.memory_service = InMemoryMemoryService()
         else:
             self.memory_service = memory_service
