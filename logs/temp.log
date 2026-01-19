@@ -1,32 +1,71 @@
-[2026-01-19 15:53:23] INFO - Initializing client with model: Qwen3-32B
-[2026-01-19 15:53:23] DEBUG - Client initialized with base_url: http://10.112.172.30:18019/v1
-[2026-01-19 15:53:23] INFO - ContextEngine initialized for app=demo-app, user=demo-user
-[2026-01-19 15:53:23] INFO - Seeding 1 facts into long-term memory...
-[2026-01-19 15:53:23] DEBUG -   Added to cache: [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com
-[2026-01-19 15:53:23] INFO - ✓ Added 1 seed facts to local cache (total cache size: 1)
-[2026-01-19 15:53:23] INFO - Successfully seeded 1 facts to memory
-[2026-01-19 15:53:23] INFO - Application initialized: CallCenterApplication
-[2026-01-19 15:53:23] INFO - 助手: 您好，我是马上消费的客服，有个好消息要通知您。
-[2026-01-19 15:53:23] DEBUG - Created new session: 6d5417cd-6da2-4043-8a80-a7f08fbdb909
-[2026-01-19 15:53:23] DEBUG - Added assistant message to session
-[2026-01-19 15:53:29] INFO - 你: 什么消息
-[2026-01-19 15:53:29] DEBUG - [处理对话] 用户输入: 什么消息
-[2026-01-19 15:53:29] DEBUG - Optimizing context for input: 什么消息
-[2026-01-19 15:53:29] DEBUG - Preprocessed input: '什么消息...'
-[2026-01-19 15:53:29] DEBUG - Retrieved 1 session messages
-[2026-01-19 15:53:29] DEBUG - retrieve() called with query='什么消息', limit=5
-[2026-01-19 15:53:29] DEBUG - Memory service configured: True, Cache size: 1
-[2026-01-19 15:53:29] DEBUG - No memories from Memory Service, falling back to local cache (size=1)
-[2026-01-19 15:53:29] DEBUG - _retrieve_from_cache called with query='什么消息', cache size=1
-[2026-01-19 15:53:29] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.21)
-[2026-01-19 15:53:29] DEBUG -   Memory 1 (score=0.21): [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时...
-[2026-01-19 15:53:29] DEBUG - Retrieved 1 memories
-[2026-01-19 15:53:29] DEBUG - Reordered 2 context items
-[2026-01-19 15:53:29] DEBUG - CompressionStrategy: 2 items after optimization
-[2026-01-19 15:53:29] DEBUG - CompressionStrategy converted to ContextResult: 1 history, 1 memory, 0 knowledge
-[2026-01-19 15:53:29] DEBUG - Compressed context: 2 items → 1 history + 1 memory + 0 knowledge
-[2026-01-19 15:53:29] DEBUG - Context optimized: 1 history, 1 memory items
-[2026-01-19 15:53:29] DEBUG - 
+📝 日志文件: /share/airesearch/data/yejiang.zhou/workspace/ContextMind/logs/contextmind_20260119_173641.log
+✅ 日志系统初始化完成 (级别: INFO)
+📝 日志文件: /share/airesearch/data/yejiang.zhou/workspace/ContextMind/logs/contextmind_20260119_173641.log
+✅ 日志系统初始化完成 (级别: DEBUG)
+============================================================
+ContextMind v5.0 Interactive Demo
+模块化架构 + 智能记忆系统
+============================================================
+
+⚙️  当前配置:
+   - 会话历史: ✅ 启用
+   - 长期记忆: ✅ 启用
+   - 最大轮数: 9999
+   - Prompt历史轮数: 10
+   - 记忆思考: ❌ 禁用
+   - 调试模式: ✅ 启用
+
+🔧 初始化LLM客户端...
+[2026-01-19 17:36:41] INFO - Initializing client with model: Qwen3-32B
+[2026-01-19 17:36:41] DEBUG - Client initialized with base_url: http://10.112.172.30:18019/v1
+✅ LLM客户端初始化完成: Qwen3-32B
+
+🔧 初始化上下文引擎...
+[2026-01-19 17:36:41] INFO - ContextEngine initialized for app=demo-app, user=demo-user
+✅ 上下文引擎初始化完成
+
+🧠 植入业务知识种子...
+[2026-01-19 17:36:41] DEBUG - No facts to seed
+✅ 已植入 0 条业务知识
+
+🔧 初始化客服应用...
+[2026-01-19 17:36:41] INFO - Application initialized: CallCenterApplication
+✅ 客服应用初始化完成
+
+============================================================
+开始对话（输入 'quit' 或 'exit' 退出）
+特殊命令：
+  /clear  - 清空会话
+  /status - 查看状态
+  /config - 显示当前配置
+============================================================
+
+助手: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
+
+[2026-01-19 17:36:41] INFO - 助手: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
+[2026-01-19 17:36:41] DEBUG - Created new session: 2341b2ee-a7ea-40a5-8f64-1628137a5e3d
+[2026-01-19 17:36:41] DEBUG - Added assistant message to session
+
+你: 有利息吗
+[2026-01-19 17:36:51] INFO - 你: 有利息吗
+
+[第 1 轮]
+[2026-01-19 17:36:51] DEBUG - [处理对话] 用户输入: 有利息吗
+[2026-01-19 17:36:51] DEBUG - Optimizing context for input: 有利息吗
+[2026-01-19 17:36:51] DEBUG - Preprocessed input: '有利息吗...'
+[2026-01-19 17:36:51] DEBUG - Retrieved 1 session messages
+[2026-01-19 17:36:51] DEBUG - retrieve() called with query='有利息吗', limit=5
+[2026-01-19 17:36:51] DEBUG - Memory service configured: True, Cache size: 0
+[2026-01-19 17:36:51] DEBUG - No memories from Memory Service, falling back to local cache (size=0)
+[2026-01-19 17:36:51] DEBUG - _retrieve_from_cache called with query='有利息吗', cache size=0
+[2026-01-19 17:36:51] WARNING - Local cache is empty! No memories to retrieve.
+[2026-01-19 17:36:51] DEBUG - Retrieved 0 memories
+[2026-01-19 17:36:51] DEBUG - Reordered 1 context items
+[2026-01-19 17:36:51] DEBUG - CompressionStrategy: 1 items after optimization
+[2026-01-19 17:36:51] DEBUG - CompressionStrategy converted to ContextResult: 1 history, 0 memory, 0 knowledge
+[2026-01-19 17:36:51] DEBUG - Compressed context: 1 items → 1 history + 0 memory + 0 knowledge
+[2026-01-19 17:36:51] DEBUG - Context optimized: 1 history, 0 memory items
+[2026-01-19 17:36:51] DEBUG - 
 ╔==================================================================================================╗
 ║                               【上下文优化结果】Context Optimization Result                               ║
 ║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
@@ -34,106 +73,171 @@
 
 【统计信息】
   - 近期对话: 1 条消息
-  - 长期记忆: 1 项
+  - 长期记忆: 0 项
   - 外部知识: 0 项
 
 【对话历史】
   共 1 条消息
-  1. assistant: 您好，我是马上消费的客服，有个好消息要通知您。
+  1. assistant: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
 
 【长期记忆】
-  共 1 项记忆
-  1. [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (相关性: 1.00)
+  (无相关记忆)
 
 【外部知识】
   (无外部知识)
 
-[2026-01-19 15:53:29] DEBUG - 
+[2026-01-19 17:36:51] DEBUG - 
 【长期记忆数据库】
   共 0 条记忆
   说明: 从对话历史中提取的知识、经验、策略等信息
   记忆库为空
   提示: 启用 auto_extract_knowledge=True 自动提取知识
 
-[2026-01-19 15:53:29] INFO - ================================================================================
-[2026-01-19 15:53:29] INFO - 📚 记忆库全部内容:
-[2026-01-19 15:53:29] INFO -   [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:53:29] INFO -   总计: 1 条记忆
-[2026-01-19 15:53:29] INFO - ================================================================================
-[2026-01-19 15:53:29] INFO - ✓ 本次使用的记忆 (1 条):
-[2026-01-19 15:53:29] INFO -   ✓ [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:53:29] INFO - ✓ Prompt includes 1 turns of history (max=10)
-[2026-01-19 15:53:29] DEBUG - 
+[2026-01-19 17:36:51] INFO - ================================================================================
+[2026-01-19 17:36:51] INFO - 📚 记忆库全部内容:
+[2026-01-19 17:36:51] WARNING -   记忆库为空
+[2026-01-19 17:36:51] INFO - ================================================================================
+[2026-01-19 17:36:51] WARNING - ⚠ No long-term memory available
+[2026-01-19 17:36:51] INFO - ✓ Prompt includes 1 turns of history (max=10)
+[2026-01-19 17:36:51] DEBUG - 
 ╔==================================================================================================╗
 ║                             【Prompt构成分析】Prompt Composition Analysis                              ║
 ║                                       说明：发送给LLM的Prompt统计分析                                       ║
 ╚==================================================================================================╝
-  - 总字符数: 370
+  - 总字符数: 1226
   - 包含对话历史: 是 (1 轮)
-  - 包含长期记忆: 是 (1 项)
+  - 包含长期记忆: 否
 
-[2026-01-19 15:53:29] DEBUG - 
+[2026-01-19 17:36:51] DEBUG - 
 ╔==================================================================================================╗
 ║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
 ║                                        说明：发送给大语言模型的完整提示词                                         ║
 ╚==================================================================================================╝
 
-你是安逸花/马上消费的智能客服助手。
+你是一位专业的客服对话助手，你需要分析用户回复内容，识别潜在风险，并提供专业、得体的回复。
 
-回复要求：
-1. 简洁直接，不超过3句话
-2. 基于提供的上下文信息回复
-3. 不要主动询问细节或反问
-4. 如需用户提供信息，一次性说明所需内容
+## 你的任务：
+1. 理解用户意图和情绪
+2. 识别对话中的风险信号
+3. 提供恰当、专业的回复
+4. 遵守客服话术规范
 
-## 长期记忆
-- [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com
+## 风险识别标签（优先级从高到低）：
+按优先级识别以下风险类型：
+
+### 1. 监管风险（高风险）- 最高优先级
+涉及营销投诉、报警、金融监管、司法风险、政治敏感、敏感人群等。
+- 命中规则：用户表达与监管、投诉、法律相关的内容
+- 不命中：ASR/NLP误识别，整体语义无风险
+
+### 2. 投诉举报（高风险）
+用户明确表示要投诉或举报。
+- 命中规则：提及"投诉"、"举报"等明确意图
+- 不命中：ASR误识别，无实质投诉意图
+
+### 3. 电话骚扰（高风险）
+用户明确拒绝接听电话或表达强烈反感。
+- 命中规则：明确说"不要再打"、"别再骚扰"等拒绝话术
+- 不命中：仅表示频繁但未明确拒绝；在忙碌时段表示不便（可调整时间）
+
+### 4. 脏话（高风险）
+用户在对话中使用粗俗语言且拒绝意向明显。
+- 命中规则：明显拒绝营销且骂人，或上来就骂人后挂机
+- 不命中：前期拒绝但后期表示可以考虑
+
+### 5. 未成年（高风险）
+用户明确描述自己是未成年人。
+- 命中规则：完整、明确的未成年表述（如"我才15岁"）
+- 不命中：文本不完整，仅提及"十几"、"几岁"等模糊表述
+
+### 6. 诈骗（高风险）
+用户认为被诈骗且情绪激烈。
+- 命中规则：反感激烈，带脏话，说是诈骗，甚至有诅咒
+- 不命中：因服务未满足需求而生气，但非真实诈骗指控
+
+### 7. 医疗防控（高风险）
+接电话非本人且转述本人已去世/重病/手术。
+- 命中规则：事实性死亡（他人转述）或重大疾病/手术（人道关怀）
+- 不命中：玩笑话；短期可痊愈的小病（感冒发烧）；已出院
+
+### 8. 非本人营销风险
+接电话不是本人，但无高风险信号。
+
+### 9. 白名单意图
+标签集合中无法描述的正常对话。
+
+## 回复原则：
+1. **简洁专业**：回复简洁、直接，不超过3句话
+2. **风险应对**：识别到高风险立即停止营销，礼貌结束对话
+3. **情绪感知**：根据用户情绪调整话术，避免激化矛盾
+4. **合规话术**：严格遵守电销规范，不强推销
+5. **记录意图**：记住用户表达的需求和拒绝理由
+
+## 对话策略：
+- 高风险信号→礼貌道歉，立即结束
+- 用户拒绝→尊重意愿，不再推销
+- 用户疑问→简明解答，不过度说明
+- 用户考虑→提供关键信息，留联系方式
+
+请基于上述规则和原则，与用户进行专业、得体的对话。
+
+## 业务背景
+产品名称：安逸花/马上消费/优逸花
+主要服务：额度提升、资金周转、专属福利
+
 
 ## 相关对话历史
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-
-## 参考信息
-产品介绍：
-- 安逸花/马上消费 是一款智能金融服务产品
-- 支持额度提升、资金周转、优惠福利等业务
-- 提供个性化服务，记住用户需求
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
+assistant: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
 
 ## 当前问题
-什么消息
+有利息吗
 
-[2026-01-19 15:53:30] DEBUG - Updating context with new messages
-[2026-01-19 15:53:30] DEBUG - Added user message to session
-[2026-01-19 15:53:30] DEBUG - Added assistant message to session
-[2026-01-19 15:53:30] DEBUG - Context updated successfully
-[2026-01-19 15:53:30] DEBUG - Extracting knowledge from recent conversation
-[2026-01-19 15:53:30] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
-[2026-01-19 15:53:30] DEBUG - Extracted 0 knowledge items
-[2026-01-19 15:53:30] INFO - Extracted 0 knowledge items
-[2026-01-19 15:53:30] DEBUG - [处理完成] 助手回复: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
-[2026-01-19 15:53:47] INFO - 你: 我不需要贷款
-[2026-01-19 15:53:47] DEBUG - [处理对话] 用户输入: 我不需要贷款
-[2026-01-19 15:53:47] DEBUG - Optimizing context for input: 我不需要贷款
-[2026-01-19 15:53:47] DEBUG - Preprocessed input: '我不需要贷款...'
-[2026-01-19 15:53:47] DEBUG - Retrieved 3 session messages
-[2026-01-19 15:53:47] DEBUG - retrieve() called with query='我不需要贷款', limit=5
-[2026-01-19 15:53:47] DEBUG - Memory service configured: True, Cache size: 1
-[2026-01-19 15:53:47] DEBUG - No memories from Memory Service, falling back to local cache (size=1)
-[2026-01-19 15:53:47] DEBUG - _retrieve_from_cache called with query='我不需要贷款', cache size=1
-[2026-01-19 15:53:47] INFO - ✓ Retrieved 1 memories from local cache (top score: 0.10)
-[2026-01-19 15:53:47] DEBUG -   Memory 1 (score=0.10): [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时...
-[2026-01-19 15:53:47] DEBUG - Retrieved 1 memories
-[2026-01-19 15:53:47] DEBUG - RerankingStrategy: reranked 4 items
-[2026-01-19 15:53:47] DEBUG - Reordered 4 context items
-[2026-01-19 15:53:47] DEBUG - CompressionStrategy: 4 items after optimization
-[2026-01-19 15:53:47] DEBUG - CompressionStrategy converted to ContextResult: 3 history, 1 memory, 0 knowledge
-[2026-01-19 15:53:47] DEBUG - Compressed context: 4 items → 3 history + 1 memory + 0 knowledge
-[2026-01-19 15:53:47] DEBUG - Context optimized: 3 history, 1 memory items
-[2026-01-19 15:53:47] DEBUG - 
+[2026-01-19 17:36:54] DEBUG - Updating context with new messages
+[2026-01-19 17:36:54] DEBUG - Added user message to session
+[2026-01-19 17:36:54] DEBUG - Added assistant message to session
+[2026-01-19 17:36:54] DEBUG - Context updated successfully
+[2026-01-19 17:36:54] DEBUG - Extracting knowledge from recent conversation
+[2026-01-19 17:36:54] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
+[2026-01-19 17:36:54] DEBUG - Extracted 0 knowledge items
+[2026-01-19 17:36:54] INFO - Extracted 0 knowledge items
+[2026-01-19 17:36:54] DEBUG - [处理完成] 助手回复: 用户当前询问“有利息吗”，属于正常业务咨询，无明显情绪或高风险信号。
+
+### 风险识别结果：
+- **风险标签**：无
+- **风险等级**：正常对话（白名单意图）
+
+### 回复建议（简洁、专业、合规）：
+您好，我们的产品是正规金融服务，会有相应的利息说明。如果您有资金周转需求，我可以为您详细介绍相关条款，您看是否方便继续了解？
+助手: 用户当前询问“有利息吗”，属于正常业务咨询，无明显情绪或高风险信号。
+
+### 风险识别结果：
+- **风险标签**：无
+- **风险等级**：正常对话（白名单意图）
+
+### 回复建议（简洁、专业、合规）：
+您好，我们的产品是正规金融服务，会有相应的利息说明。如果您有资金周转需求，我可以为您详细介绍相关条款，您看是否方便继续了解？
+
+
+你: 简单说说
+[2026-01-19 17:37:09] INFO - 你: 简单说说
+
+[第 2 轮]
+[2026-01-19 17:37:09] DEBUG - [处理对话] 用户输入: 简单说说
+[2026-01-19 17:37:09] DEBUG - Optimizing context for input: 简单说说
+[2026-01-19 17:37:09] DEBUG - Preprocessed input: '简单说说...'
+[2026-01-19 17:37:09] DEBUG - Retrieved 3 session messages
+[2026-01-19 17:37:09] DEBUG - retrieve() called with query='简单说说', limit=5
+[2026-01-19 17:37:09] DEBUG - Memory service configured: True, Cache size: 0
+[2026-01-19 17:37:09] DEBUG - No memories from Memory Service, falling back to local cache (size=0)
+[2026-01-19 17:37:09] DEBUG - _retrieve_from_cache called with query='简单说说', cache size=0
+[2026-01-19 17:37:09] WARNING - Local cache is empty! No memories to retrieve.
+[2026-01-19 17:37:09] DEBUG - Retrieved 0 memories
+[2026-01-19 17:37:09] DEBUG - Reordered 3 context items
+[2026-01-19 17:37:09] DEBUG - CompressionStrategy: 3 items after optimization
+[2026-01-19 17:37:09] DEBUG - CompressionStrategy converted to ContextResult: 3 history, 0 memory, 0 knowledge
+[2026-01-19 17:37:09] DEBUG - Compressed context: 3 items → 3 history + 0 memory + 0 knowledge
+[2026-01-19 17:37:09] DEBUG - Context optimized: 3 history, 0 memory items
+[2026-01-19 17:37:09] DEBUG - 
 ╔==================================================================================================╗
 ║                               【上下文优化结果】Context Optimization Result                               ║
 ║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
@@ -141,113 +245,176 @@ assistant: 您好，我是马上消费的客服，有个好消息要通知您。
 
 【统计信息】
   - 近期对话: 3 条消息
-  - 长期记忆: 1 项
+  - 长期记忆: 0 项
   - 外部知识: 0 项
 
 【对话历史】
   共 3 条消息
-  1. assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-  2. user: 什么消息
-  3. assistant: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
+  1. assistant: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
+  2. user: 有利息吗
+  3. assistant: 用户当前询问“有利息吗”，属于正常业务咨询，无明显情绪或高风险信号。
+
+### 风险识别结果：
+- **风险标签**：无
+- **风险等级**：正常对话（白名单意图）
+
+### 回复建议（简洁、专业、合规）：
+您好，我们的产品是正规金融服务，会有相应的利息说明。如果您有资金周转需求，我可以为您详细介绍相关条款，您看是否方便继续了解？
 
 【长期记忆】
-  共 1 项记忆
-  1. [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (相关性: 1.00)
+  (无相关记忆)
 
 【外部知识】
   (无外部知识)
 
-[2026-01-19 15:53:47] DEBUG - 
+[2026-01-19 17:37:09] DEBUG - 
 【长期记忆数据库】
   共 0 条记忆
   说明: 从对话历史中提取的知识、经验、策略等信息
   记忆库为空
   提示: 启用 auto_extract_knowledge=True 自动提取知识
 
-[2026-01-19 15:53:47] INFO - ================================================================================
-[2026-01-19 15:53:47] INFO - 📚 记忆库全部内容:
-[2026-01-19 15:53:47] INFO -   [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:53:47] INFO -   总计: 1 条记忆
-[2026-01-19 15:53:47] INFO - ================================================================================
-[2026-01-19 15:53:47] INFO - ✓ 本次使用的记忆 (1 条):
-[2026-01-19 15:53:47] INFO -   ✓ [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:53:47] INFO - ✓ Prompt includes 3 turns of history (max=10)
-[2026-01-19 15:53:47] DEBUG - 
+[2026-01-19 17:37:09] INFO - ================================================================================
+[2026-01-19 17:37:09] INFO - 📚 记忆库全部内容:
+[2026-01-19 17:37:09] WARNING -   记忆库为空
+[2026-01-19 17:37:09] INFO - ================================================================================
+[2026-01-19 17:37:09] WARNING - ⚠ No long-term memory available
+[2026-01-19 17:37:09] INFO - ✓ Prompt includes 3 turns of history (max=10)
+[2026-01-19 17:37:09] DEBUG - 
 ╔==================================================================================================╗
 ║                             【Prompt构成分析】Prompt Composition Analysis                              ║
 ║                                       说明：发送给LLM的Prompt统计分析                                       ║
 ╚==================================================================================================╝
-  - 总字符数: 484
+  - 总字符数: 1416
   - 包含对话历史: 是 (3 轮)
-  - 包含长期记忆: 是 (1 项)
+  - 包含长期记忆: 否
 
-[2026-01-19 15:53:47] DEBUG - 
+[2026-01-19 17:37:09] DEBUG - 
 ╔==================================================================================================╗
 ║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
 ║                                        说明：发送给大语言模型的完整提示词                                         ║
 ╚==================================================================================================╝
 
-你是安逸花/马上消费的智能客服助手。
+你是一位专业的客服对话助手，你需要分析用户回复内容，识别潜在风险，并提供专业、得体的回复。
 
-回复要求：
-1. 简洁直接，不超过3句话
-2. 基于提供的上下文信息回复
-3. 不要主动询问细节或反问
-4. 如需用户提供信息，一次性说明所需内容
+## 你的任务：
+1. 理解用户意图和情绪
+2. 识别对话中的风险信号
+3. 提供恰当、专业的回复
+4. 遵守客服话术规范
 
-## 长期记忆
-- [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com
+## 风险识别标签（优先级从高到低）：
+按优先级识别以下风险类型：
+
+### 1. 监管风险（高风险）- 最高优先级
+涉及营销投诉、报警、金融监管、司法风险、政治敏感、敏感人群等。
+- 命中规则：用户表达与监管、投诉、法律相关的内容
+- 不命中：ASR/NLP误识别，整体语义无风险
+
+### 2. 投诉举报（高风险）
+用户明确表示要投诉或举报。
+- 命中规则：提及"投诉"、"举报"等明确意图
+- 不命中：ASR误识别，无实质投诉意图
+
+### 3. 电话骚扰（高风险）
+用户明确拒绝接听电话或表达强烈反感。
+- 命中规则：明确说"不要再打"、"别再骚扰"等拒绝话术
+- 不命中：仅表示频繁但未明确拒绝；在忙碌时段表示不便（可调整时间）
+
+### 4. 脏话（高风险）
+用户在对话中使用粗俗语言且拒绝意向明显。
+- 命中规则：明显拒绝营销且骂人，或上来就骂人后挂机
+- 不命中：前期拒绝但后期表示可以考虑
+
+### 5. 未成年（高风险）
+用户明确描述自己是未成年人。
+- 命中规则：完整、明确的未成年表述（如"我才15岁"）
+- 不命中：文本不完整，仅提及"十几"、"几岁"等模糊表述
+
+### 6. 诈骗（高风险）
+用户认为被诈骗且情绪激烈。
+- 命中规则：反感激烈，带脏话，说是诈骗，甚至有诅咒
+- 不命中：因服务未满足需求而生气，但非真实诈骗指控
+
+### 7. 医疗防控（高风险）
+接电话非本人且转述本人已去世/重病/手术。
+- 命中规则：事实性死亡（他人转述）或重大疾病/手术（人道关怀）
+- 不命中：玩笑话；短期可痊愈的小病（感冒发烧）；已出院
+
+### 8. 非本人营销风险
+接电话不是本人，但无高风险信号。
+
+### 9. 白名单意图
+标签集合中无法描述的正常对话。
+
+## 回复原则：
+1. **简洁专业**：回复简洁、直接，不超过3句话
+2. **风险应对**：识别到高风险立即停止营销，礼貌结束对话
+3. **情绪感知**：根据用户情绪调整话术，避免激化矛盾
+4. **合规话术**：严格遵守电销规范，不强推销
+5. **记录意图**：记住用户表达的需求和拒绝理由
+
+## 对话策略：
+- 高风险信号→礼貌道歉，立即结束
+- 用户拒绝→尊重意愿，不再推销
+- 用户疑问→简明解答，不过度说明
+- 用户考虑→提供关键信息，留联系方式
+
+请基于上述规则和原则，与用户进行专业、得体的对话。
+
+## 业务背景
+产品名称：安逸花/马上消费/优逸花
+主要服务：额度提升、资金周转、专属福利
+
 
 ## 相关对话历史
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-user: 什么消息
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
+assistant: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
+user: 有利息吗
+assistant: 用户当前询问“有利息吗”，属于正常业务咨询，无明显情绪或高风险信号。
 
-## 参考信息
-产品介绍：
-- 安逸花/马上消费 是一款智能金融服务产品
-- 支持额度提升、资金周转、优惠福利等业务
-- 提供个性化服务，记住用户需求
+### 风险识别结果：
+- **风险标签**：无
+- **风险等级**：正常对话（白名单意图）
 
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
+### 回复建议（简洁、专业、合规）：
+您好，我们的产品是正规金融服务，会有相应的利息说明。如果您有资金周转需求，我可以为您详细介绍相关条款，您看是否方便继续了解？
 
 ## 当前问题
-我不需要贷款
+简单说说
 
-[2026-01-19 15:53:48] DEBUG - Updating context with new messages
-[2026-01-19 15:53:48] DEBUG - Added user message to session
-[2026-01-19 15:53:48] DEBUG - Added assistant message to session
-[2026-01-19 15:53:48] DEBUG - Context updated successfully
-[2026-01-19 15:53:48] DEBUG - Extracting knowledge from recent conversation
-[2026-01-19 15:53:48] DEBUG - RuleBasedExtraction: extracted 1 knowledge items
-[2026-01-19 15:53:48] DEBUG - Extracted 1 knowledge items
-[2026-01-19 15:53:48] DEBUG - Added 1 new items to local cache (filtered 0 duplicates), total: 2
-[2026-01-19 15:53:48] DEBUG - Stored 1 new knowledge items to Memory Service
-[2026-01-19 15:53:48] INFO - Extracted and stored 1 knowledge items
-[2026-01-19 15:53:48] DEBUG - [处理完成] 助手回复: 好的，如果您暂时不需要贷款，也可以关注我们的优惠福利活动，随时为您提供建议和帮助。如有其他问题，欢迎随时联系 support@example.com。感谢您的关注！
-[2026-01-19 15:54:31] INFO - 你: 我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下
-[2026-01-19 15:54:31] DEBUG - [处理对话] 用户输入: 我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下
-[2026-01-19 15:54:31] DEBUG - Optimizing context for input: 我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下
-[2026-01-19 15:54:31] DEBUG - Preprocessed input: '我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下...'
-[2026-01-19 15:54:31] DEBUG - Retrieved 5 session messages
-[2026-01-19 15:54:31] DEBUG - retrieve() called with query='我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下', limit=5
-[2026-01-19 15:54:31] DEBUG - Memory service configured: True, Cache size: 2
-[2026-01-19 15:54:31] DEBUG - No memories from Memory Service, falling back to local cache (size=2)
-[2026-01-19 15:54:31] DEBUG - _retrieve_from_cache called with query='我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下', cache size=2
-[2026-01-19 15:54:31] INFO - ✓ Retrieved 2 memories from local cache (top score: 0.31)
-[2026-01-19 15:54:31] DEBUG -   Memory 1 (score=0.31): [PREFERENCE] [拒绝] 不需要: 贷款...
-[2026-01-19 15:54:31] DEBUG -   Memory 2 (score=0.10): [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时...
-[2026-01-19 15:54:31] DEBUG - Retrieved 2 memories
-[2026-01-19 15:54:31] DEBUG - RerankingStrategy: reranked 7 items
-[2026-01-19 15:54:31] DEBUG - Reordered 7 context items
-[2026-01-19 15:54:31] DEBUG - CompressionStrategy: 7 items after optimization
-[2026-01-19 15:54:31] DEBUG - CompressionStrategy converted to ContextResult: 5 history, 2 memory, 0 knowledge
-[2026-01-19 15:54:31] DEBUG - Compressed context: 7 items → 5 history + 2 memory + 0 knowledge
-[2026-01-19 15:54:31] DEBUG - Context optimized: 5 history, 2 memory items
-[2026-01-19 15:54:31] DEBUG - 
+[2026-01-19 17:37:10] DEBUG - Updating context with new messages
+[2026-01-19 17:37:10] DEBUG - Added user message to session
+[2026-01-19 17:37:10] DEBUG - Added assistant message to session
+[2026-01-19 17:37:10] DEBUG - Context updated successfully
+[2026-01-19 17:37:10] DEBUG - Extracting knowledge from recent conversation
+[2026-01-19 17:37:10] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
+[2026-01-19 17:37:10] DEBUG - Extracted 0 knowledge items
+[2026-01-19 17:37:10] INFO - Extracted 0 knowledge items
+[2026-01-19 17:37:10] DEBUG - [处理完成] 助手回复: 您好，我们的产品是正规金融服务，根据您的资质提供相应的额度和利率。如果您有资金周转的需求，可以进一步了解详细信息。需要我为您简单介绍一下吗？
+助手: 您好，我们的产品是正规金融服务，根据您的资质提供相应的额度和利率。如果您有资金周转的需求，可以进一步了解详细信息。需要我为您简单介绍一下吗？
+
+
+你: 说吧
+[2026-01-19 17:37:16] INFO - 你: 说吧
+
+[第 3 轮]
+[2026-01-19 17:37:16] DEBUG - [处理对话] 用户输入: 说吧
+[2026-01-19 17:37:16] DEBUG - Optimizing context for input: 说吧
+[2026-01-19 17:37:16] DEBUG - Preprocessed input: '说吧...'
+[2026-01-19 17:37:16] DEBUG - Retrieved 5 session messages
+[2026-01-19 17:37:16] DEBUG - retrieve() called with query='说吧', limit=5
+[2026-01-19 17:37:16] DEBUG - Memory service configured: True, Cache size: 0
+[2026-01-19 17:37:16] DEBUG - No memories from Memory Service, falling back to local cache (size=0)
+[2026-01-19 17:37:16] DEBUG - _retrieve_from_cache called with query='说吧', cache size=0
+[2026-01-19 17:37:16] WARNING - Local cache is empty! No memories to retrieve.
+[2026-01-19 17:37:16] DEBUG - Retrieved 0 memories
+[2026-01-19 17:37:16] DEBUG - RerankingStrategy: reranked 5 items
+[2026-01-19 17:37:16] DEBUG - Reordered 5 context items
+[2026-01-19 17:37:16] DEBUG - CompressionStrategy: 5 items after optimization
+[2026-01-19 17:37:16] DEBUG - CompressionStrategy converted to ContextResult: 5 history, 0 memory, 0 knowledge
+[2026-01-19 17:37:16] DEBUG - Compressed context: 5 items → 5 history + 0 memory + 0 knowledge
+[2026-01-19 17:37:16] DEBUG - Context optimized: 5 history, 0 memory items
+[2026-01-19 17:37:16] DEBUG - 
 ╔==================================================================================================╗
 ║                               【上下文优化结果】Context Optimization Result                               ║
 ║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
@@ -255,236 +422,154 @@ assistant: 您好，我是马上消费的客服，有个好消息要通知您。
 
 【统计信息】
   - 近期对话: 5 条消息
-  - 长期记忆: 2 项
+  - 长期记忆: 0 项
   - 外部知识: 0 项
 
 【对话历史】
   共 5 条消息
-  1. assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-  2. user: 什么消息
-  3. assistant: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
-  4. user: 我不需要贷款
-  5. assistant: 好的，如果您暂时不需要贷款，也可以关注我们的优惠福利活动，随时为您提供建议和帮助。如有其他问题，欢迎随时联系 support@example.com。感谢您的关注！
+  1. assistant: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
+  2. user: 有利息吗
+  3. assistant: 用户当前询问“有利息吗”，属于正常业务咨询，无明显情绪或高风险信号。
+
+### 风险识别结果：
+- **风险标签**：无
+- **风险等级**：正常对话（白名单意图）
+
+### 回复建议（简洁、专业、合规）：
+您好，我们的产品是正规金融服务，会有相应的利息说明。如果您有资金周转需求，我可以为您详细介绍相关条款，您看是否方便继续了解？
+  4. user: 简单说说
+  5. assistant: 您好，我们的产品是正规金融服务，根据您的资质提供相应的额度和利率。如果您有资金周转的需求，可以进一步了解详细信息。需要我为您简单介绍一下吗？
 
 【长期记忆】
-  共 2 项记忆
-  1. [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (相关性: 1.00)
-  2. [PREFERENCE] [拒绝] 不需要: 贷款 (相关性: 1.00)
+  (无相关记忆)
 
 【外部知识】
   (无外部知识)
 
-[2026-01-19 15:54:31] DEBUG - 
+[2026-01-19 17:37:16] DEBUG - 
 【长期记忆数据库】
   共 0 条记忆
   说明: 从对话历史中提取的知识、经验、策略等信息
   记忆库为空
   提示: 启用 auto_extract_knowledge=True 自动提取知识
 
-[2026-01-19 15:54:31] INFO - ================================================================================
-[2026-01-19 15:54:31] INFO - 📚 记忆库全部内容:
-[2026-01-19 15:54:31] INFO -   [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:54:31] INFO -   [2] [PREFERENCE] [拒绝] 不需要: 贷款 (score=1.00)
-[2026-01-19 15:54:31] INFO -   总计: 2 条记忆
-[2026-01-19 15:54:31] INFO - ================================================================================
-[2026-01-19 15:54:31] INFO - ✓ 本次使用的记忆 (2 条):
-[2026-01-19 15:54:31] INFO -   ✓ [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:54:31] INFO -   ✓ [2] [PREFERENCE] [拒绝] 不需要: 贷款 (score=1.00)
-[2026-01-19 15:54:31] INFO - ✓ Prompt includes 5 turns of history (max=10)
-[2026-01-19 15:54:31] DEBUG - 
+[2026-01-19 17:37:16] INFO - ================================================================================
+[2026-01-19 17:37:16] INFO - 📚 记忆库全部内容:
+[2026-01-19 17:37:16] WARNING -   记忆库为空
+[2026-01-19 17:37:16] INFO - ================================================================================
+[2026-01-19 17:37:16] WARNING - ⚠ No long-term memory available
+[2026-01-19 17:37:16] INFO - ✓ Prompt includes 5 turns of history (max=10)
+[2026-01-19 17:37:16] DEBUG - 
 ╔==================================================================================================╗
 ║                             【Prompt构成分析】Prompt Composition Analysis                              ║
 ║                                       说明：发送给LLM的Prompt统计分析                                       ║
 ╚==================================================================================================╝
-  - 总字符数: 639
+  - 总字符数: 1507
   - 包含对话历史: 是 (5 轮)
-  - 包含长期记忆: 是 (2 项)
+  - 包含长期记忆: 否
 
-[2026-01-19 15:54:31] DEBUG - 
+[2026-01-19 17:37:16] DEBUG - 
 ╔==================================================================================================╗
 ║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
 ║                                        说明：发送给大语言模型的完整提示词                                         ║
 ╚==================================================================================================╝
 
-你是安逸花/马上消费的智能客服助手。
+你是一位专业的客服对话助手，你需要分析用户回复内容，识别潜在风险，并提供专业、得体的回复。
 
-回复要求：
-1. 简洁直接，不超过3句话
-2. 基于提供的上下文信息回复
-3. 不要主动询问细节或反问
-4. 如需用户提供信息，一次性说明所需内容
+## 你的任务：
+1. 理解用户意图和情绪
+2. 识别对话中的风险信号
+3. 提供恰当、专业的回复
+4. 遵守客服话术规范
 
-## 长期记忆
-- [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com
-- [PREFERENCE] [拒绝] 不需要: 贷款
+## 风险识别标签（优先级从高到低）：
+按优先级识别以下风险类型：
 
-## 相关对话历史
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-user: 什么消息
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
-user: 我不需要贷款
-assistant: 好的，如果您暂时不需要贷款，也可以关注我们的优惠福利活动，随时为您提供建议和帮助。如有其他问题，欢迎随时联系 support@example.com。感谢您的关注！
+### 1. 监管风险（高风险）- 最高优先级
+涉及营销投诉、报警、金融监管、司法风险、政治敏感、敏感人群等。
+- 命中规则：用户表达与监管、投诉、法律相关的内容
+- 不命中：ASR/NLP误识别，整体语义无风险
 
-## 参考信息
-产品介绍：
-- 安逸花/马上消费 是一款智能金融服务产品
-- 支持额度提升、资金周转、优惠福利等业务
-- 提供个性化服务，记住用户需求
+### 2. 投诉举报（高风险）
+用户明确表示要投诉或举报。
+- 命中规则：提及"投诉"、"举报"等明确意图
+- 不命中：ASR误识别，无实质投诉意图
 
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
+### 3. 电话骚扰（高风险）
+用户明确拒绝接听电话或表达强烈反感。
+- 命中规则：明确说"不要再打"、"别再骚扰"等拒绝话术
+- 不命中：仅表示频繁但未明确拒绝；在忙碌时段表示不便（可调整时间）
 
-## 当前问题
-我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下
+### 4. 脏话（高风险）
+用户在对话中使用粗俗语言且拒绝意向明显。
+- 命中规则：明显拒绝营销且骂人，或上来就骂人后挂机
+- 不命中：前期拒绝但后期表示可以考虑
 
-[2026-01-19 15:54:33] DEBUG - Updating context with new messages
-[2026-01-19 15:54:33] DEBUG - Added user message to session
-[2026-01-19 15:54:33] DEBUG - Added assistant message to session
-[2026-01-19 15:54:33] DEBUG - Context updated successfully
-[2026-01-19 15:54:33] DEBUG - Extracting knowledge from recent conversation
-[2026-01-19 15:54:33] DEBUG - RuleBasedExtraction: extracted 2 knowledge items
-[2026-01-19 15:54:33] DEBUG - Extracted 2 knowledge items
-[2026-01-19 15:54:33] DEBUG - Skipping duplicate knowledge: [PREFERENCE] [拒绝] 不需要: 贷款...
-[2026-01-19 15:54:33] DEBUG - Skipping duplicate knowledge: [PREFERENCE] [拒绝] 不需要: 贷款...
-[2026-01-19 15:54:33] DEBUG - All knowledge items are duplicates, nothing new to store
-[2026-01-19 15:54:33] INFO - Extracted and stored 2 knowledge items
-[2026-01-19 15:54:33] DEBUG - [处理完成] 助手回复: 好的，为您讲个笑话：  
-一只蚂蚁在银行排队，工作人员问它：“需要贷款吗？”蚂蚁说：“不了，我只借点糖。”  
+### 5. 未成年（高风险）
+用户明确描述自己是未成年人。
+- 命中规则：完整、明确的未成年表述（如"我才15岁"）
+- 不命中：文本不完整，仅提及"十几"、"几岁"等模糊表述
 
-希望这个笑话能让您一笑，有其他需要也欢迎随时联系。
-[2026-01-19 15:55:16] INFO - 你: 我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗
-[2026-01-19 15:55:16] DEBUG - [处理对话] 用户输入: 我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗
-[2026-01-19 15:55:16] DEBUG - Optimizing context for input: 我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗
-[2026-01-19 15:55:16] DEBUG - Preprocessed input: '我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗...'
-[2026-01-19 15:55:16] DEBUG - Retrieved 7 session messages
-[2026-01-19 15:55:16] DEBUG - retrieve() called with query='我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗', limit=5
-[2026-01-19 15:55:16] DEBUG - Memory service configured: True, Cache size: 2
-[2026-01-19 15:55:16] DEBUG - No memories from Memory Service, falling back to local cache (size=2)
-[2026-01-19 15:55:16] DEBUG - _retrieve_from_cache called with query='我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗', cache size=2
-[2026-01-19 15:55:16] INFO - ✓ Retrieved 2 memories from local cache (top score: 0.28)
-[2026-01-19 15:55:16] DEBUG -   Memory 1 (score=0.28): [PREFERENCE] [拒绝] 不需要: 贷款...
-[2026-01-19 15:55:16] DEBUG -   Memory 2 (score=0.10): [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时...
-[2026-01-19 15:55:16] DEBUG - Retrieved 2 memories
-[2026-01-19 15:55:16] DEBUG - RerankingStrategy: reranked 9 items
-[2026-01-19 15:55:16] DEBUG - Reordered 9 context items
-[2026-01-19 15:55:16] DEBUG - CompressionStrategy: 9 items after optimization
-[2026-01-19 15:55:16] DEBUG - CompressionStrategy converted to ContextResult: 7 history, 2 memory, 0 knowledge
-[2026-01-19 15:55:16] DEBUG - Compressed context: 9 items → 7 history + 2 memory + 0 knowledge
-[2026-01-19 15:55:16] DEBUG - Context optimized: 7 history, 2 memory items
-[2026-01-19 15:55:16] DEBUG - 
-╔==================================================================================================╗
-║                               【上下文优化结果】Context Optimization Result                               ║
-║                                  说明：ContextMind 从多源收集并优化后的上下文信息                                  ║
-╚==================================================================================================╝
+### 6. 诈骗（高风险）
+用户认为被诈骗且情绪激烈。
+- 命中规则：反感激烈，带脏话，说是诈骗，甚至有诅咒
+- 不命中：因服务未满足需求而生气，但非真实诈骗指控
 
-【统计信息】
-  - 近期对话: 7 条消息
-  - 长期记忆: 2 项
-  - 外部知识: 0 项
+### 7. 医疗防控（高风险）
+接电话非本人且转述本人已去世/重病/手术。
+- 命中规则：事实性死亡（他人转述）或重大疾病/手术（人道关怀）
+- 不命中：玩笑话；短期可痊愈的小病（感冒发烧）；已出院
 
-【对话历史】
-  共 7 条消息
-  1. assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-  2. user: 什么消息
-  3. assistant: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
-  4. user: 我不需要贷款
-  5. assistant: 好的，如果您暂时不需要贷款，也可以关注我们的优惠福利活动，随时为您提供建议和帮助。如有其他问题，欢迎随时联系 support@example.com。感谢您的关注！
-  6. user: 我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下
-  7. assistant: 好的，为您讲个笑话：  
-一只蚂蚁在银行排队，工作人员问它：“需要贷款吗？”蚂蚁说：“不了，我只借点糖。”  
+### 8. 非本人营销风险
+接电话不是本人，但无高风险信号。
 
-希望这个笑话能让您一笑，有其他需要也欢迎随时联系。
+### 9. 白名单意图
+标签集合中无法描述的正常对话。
 
-【长期记忆】
-  共 2 项记忆
-  1. [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (相关性: 1.00)
-  2. [PREFERENCE] [拒绝] 不需要: 贷款 (相关性: 1.00)
+## 回复原则：
+1. **简洁专业**：回复简洁、直接，不超过3句话
+2. **风险应对**：识别到高风险立即停止营销，礼貌结束对话
+3. **情绪感知**：根据用户情绪调整话术，避免激化矛盾
+4. **合规话术**：严格遵守电销规范，不强推销
+5. **记录意图**：记住用户表达的需求和拒绝理由
 
-【外部知识】
-  (无外部知识)
+## 对话策略：
+- 高风险信号→礼貌道歉，立即结束
+- 用户拒绝→尊重意愿，不再推销
+- 用户疑问→简明解答，不过度说明
+- 用户考虑→提供关键信息，留联系方式
 
-[2026-01-19 15:55:16] DEBUG - 
-【长期记忆数据库】
-  共 0 条记忆
-  说明: 从对话历史中提取的知识、经验、策略等信息
-  记忆库为空
-  提示: 启用 auto_extract_knowledge=True 自动提取知识
+请基于上述规则和原则，与用户进行专业、得体的对话。
 
-[2026-01-19 15:55:16] INFO - ================================================================================
-[2026-01-19 15:55:16] INFO - 📚 记忆库全部内容:
-[2026-01-19 15:55:16] INFO -   [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:55:16] INFO -   [2] [PREFERENCE] [拒绝] 不需要: 贷款 (score=1.00)
-[2026-01-19 15:55:16] INFO -   总计: 2 条记忆
-[2026-01-19 15:55:16] INFO - ================================================================================
-[2026-01-19 15:55:16] INFO - ✓ 本次使用的记忆 (2 条):
-[2026-01-19 15:55:16] INFO -   ✓ [1] [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com (score=1.00)
-[2026-01-19 15:55:16] INFO -   ✓ [2] [PREFERENCE] [拒绝] 不需要: 贷款 (score=1.00)
-[2026-01-19 15:55:16] INFO - ✓ Prompt includes 7 turns of history (max=10)
-[2026-01-19 15:55:16] DEBUG - 
-╔==================================================================================================╗
-║                             【Prompt构成分析】Prompt Composition Analysis                              ║
-║                                       说明：发送给LLM的Prompt统计分析                                       ║
-╚==================================================================================================╝
-  - 总字符数: 764
-  - 包含对话历史: 是 (7 轮)
-  - 包含长期记忆: 是 (2 项)
+## 业务背景
+产品名称：安逸花/马上消费/优逸花
+主要服务：额度提升、资金周转、专属福利
 
-[2026-01-19 15:55:16] DEBUG - 
-╔==================================================================================================╗
-║                              【完整Prompt】Complete Prompt Sent to LLM                               ║
-║                                        说明：发送给大语言模型的完整提示词                                         ║
-╚==================================================================================================╝
-
-你是安逸花/马上消费的智能客服助手。
-
-回复要求：
-1. 简洁直接，不超过3句话
-2. 基于提供的上下文信息回复
-3. 不要主动询问细节或反问
-4. 如需用户提供信息，一次性说明所需内容
-
-## 长期记忆
-- [预设知识] [预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com
-- [PREFERENCE] [拒绝] 不需要: 贷款
 
 ## 相关对话历史
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。
-user: 什么消息
-assistant: 您好，我是马上消费的客服，有个好消息要通知您。近期我们为您提升了信用额度，并新增了限时优惠福利。具体详情可查看APP通知或联系 support@example.com 获取帮助。
-user: 我不需要贷款
-assistant: 好的，如果您暂时不需要贷款，也可以关注我们的优惠福利活动，随时为您提供建议和帮助。如有其他问题，欢迎随时联系 support@example.com。感谢您的关注！
-user: 我有钱，不需要贷款。你可以给我一个笑话，我考虑考虑下
-assistant: 好的，为您讲个笑话：  
-一只蚂蚁在银行排队，工作人员问它：“需要贷款吗？”蚂蚁说：“不了，我只借点糖。”  
+assistant: 您好，我是马上消费客服，有个资金周转的好方案要介绍。
+user: 有利息吗
+assistant: 用户当前询问“有利息吗”，属于正常业务咨询，无明显情绪或高风险信号。
 
-希望这个笑话能让您一笑，有其他需要也欢迎随时联系。
+### 风险识别结果：
+- **风险标签**：无
+- **风险等级**：正常对话（白名单意图）
 
-## 参考信息
-产品介绍：
-- 安逸花/马上消费 是一款智能金融服务产品
-- 支持额度提升、资金周转、优惠福利等业务
-- 提供个性化服务，记住用户需求
-
-服务承诺：
-- 7x24小时在线服务
-- 响应时间小于3秒
-- 专业、友好、高效
+### 回复建议（简洁、专业、合规）：
+您好，我们的产品是正规金融服务，会有相应的利息说明。如果您有资金周转需求，我可以为您详细介绍相关条款，您看是否方便继续了解？
+user: 简单说说
+assistant: 您好，我们的产品是正规金融服务，根据您的资质提供相应的额度和利率。如果您有资金周转的需求，可以进一步了解详细信息。需要我为您简单介绍一下吗？
 
 ## 当前问题
-我是重庆人，喜欢吃辣喜欢旅行。你觉得我需要贷款吗
+说吧
 
-[2026-01-19 15:55:17] DEBUG - Updating context with new messages
-[2026-01-19 15:55:17] DEBUG - Added user message to session
-[2026-01-19 15:55:17] DEBUG - Added assistant message to session
-[2026-01-19 15:55:17] DEBUG - Context updated successfully
-[2026-01-19 15:55:17] DEBUG - Extracting knowledge from recent conversation
-[2026-01-19 15:55:17] DEBUG - RuleBasedExtraction: extracted 4 knowledge items
-[2026-01-19 15:55:17] DEBUG - Extracted 4 knowledge items
-[2026-01-19 15:55:17] DEBUG - Skipping duplicate knowledge: [PREFERENCE] [拒绝] 不需要: 贷款...
-[2026-01-19 15:55:17] DEBUG - Skipping duplicate knowledge: [PREFERENCE] [拒绝] 不需要: 贷款...
-[2026-01-19 15:55:17] DEBUG - Added 2 new items to local cache (filtered 2 duplicates), total: 4
-[2026-01-19 15:55:17] DEBUG - Stored 2 new knowledge items to Memory Service
-[2026-01-19 15:55:17] INFO - Extracted and stored 4 knowledge items
-[2026-01-19 15:55:17] DEBUG - [处理完成] 助手回复: 作为重庆人，喜欢吃辣、爱旅行，这些都是很棒的生活方式！如果您当前没有资金周转需求，完全不需要贷款。安逸花/马上消费也提供优惠福利和额度提升等服务，您可以根据实际需要选择是否使用。
+[2026-01-19 17:37:17] DEBUG - Updating context with new messages
+[2026-01-19 17:37:17] DEBUG - Added user message to session
+[2026-01-19 17:37:17] DEBUG - Added assistant message to session
+[2026-01-19 17:37:17] DEBUG - Context updated successfully
+[2026-01-19 17:37:17] DEBUG - Extracting knowledge from recent conversation
+[2026-01-19 17:37:17] DEBUG - RuleBasedExtraction: extracted 0 knowledge items
+[2026-01-19 17:37:17] DEBUG - Extracted 0 knowledge items
+[2026-01-19 17:37:17] INFO - Extracted 0 knowledge items
+[2026-01-19 17:37:17] DEBUG - [处理完成] 助手回复: 您好，我们的产品是正规金融服务，主要提供额度提升和资金周转支持，利率会根据您的信用情况综合评估。如果您感兴趣，我可以为您介绍具体方案，您看是否需要继续了解？
+助手: 您好，我们的产品是正规金融服务，主要提供额度提升和资金周转支持，利率会根据您的信用情况综合评估。如果您感兴趣，我可以为您介绍具体方案，您看是否需要继续了解？
