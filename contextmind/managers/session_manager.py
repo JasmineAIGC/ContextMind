@@ -5,13 +5,24 @@ SessionManager - 会话管理器
 负责管理短期对话历史，支持添加消息、获取历史和清空会话。
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any
 import uuid
 
-from google.adk.events.event import Event
-from google.adk.sessions.base_session_service import BaseSessionService, GetSessionConfig
-from google.adk.sessions import Session
-from google.genai.types import Content, Part
+# Optional google.adk imports
+try:
+    from google.adk.events.event import Event
+    from google.adk.sessions.base_session_service import BaseSessionService, GetSessionConfig
+    from google.adk.sessions import Session
+    from google.genai.types import Content, Part
+    _HAS_GOOGLE_ADK = True
+except ImportError:
+    _HAS_GOOGLE_ADK = False
+    Event = Any
+    BaseSessionService = Any
+    GetSessionConfig = Any
+    Session = Any
+    Content = Any
+    Part = Any
 
 from ..data_models import Message, MessageRole
 from ..logger import get_logger
@@ -40,7 +51,7 @@ class SessionManager:
     
     def __init__(
         self,
-        session_service: BaseSessionService,
+        session_service: Optional[BaseSessionService],
         app_name: str,
         user_id: str,
         max_recent_events: int = 9999,
@@ -49,11 +60,16 @@ class SessionManager:
         初始化会话管理器
         
         Args:
-            session_service: ADK Session Service 实例
+            session_service: ADK Session Service 实例 (可选)
             app_name: 应用名称，用于区分不同应用
             user_id: 用户ID，用于区分不同用户
             max_recent_events: 保留的最大近期事件数量，默认9999（实际不限制）
         """
+        if session_service and not _HAS_GOOGLE_ADK:
+            raise ImportError(
+                "google.adk is required when session_service is provided. "
+                "Install it or use None for session_service."
+            )
         self.session_service = session_service
         self.app_name = app_name
         self.user_id = user_id

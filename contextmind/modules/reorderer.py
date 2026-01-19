@@ -13,9 +13,9 @@ ContextReorderer - 上下文重排序模块
 - 相关性排序
 """
 
-from typing import List
+from typing import List, Optional
 from ..data_models import ProcessedContext
-from ..strategies.integration import SimpleIntegrationStrategy
+from ..strategies.integration import RerankingStrategy
 from ..logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,7 +33,7 @@ class ContextReorderer:
     
     def __init__(
         self,
-        strategy: Optional[SimpleIntegrationStrategy] = None,
+        strategy: Optional[RerankingStrategy] = None,
     ):
         """
         初始化重排序器
@@ -41,7 +41,7 @@ class ContextReorderer:
         Args:
             strategy: 重排序策略（可插拔）
         """
-        self.strategy = strategy or SimpleIntegrationStrategy()
+        self.strategy = strategy or RerankingStrategy()
     
     async def reorder(
         self,

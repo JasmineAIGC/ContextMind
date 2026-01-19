@@ -11,7 +11,13 @@ from dataclasses import dataclass
 import os
 from typing import Optional, Sequence, Tuple
 
-from openai import OpenAI
+# Optional openai import
+try:
+    from openai import OpenAI
+    _HAS_OPENAI = True
+except ImportError:
+    _HAS_OPENAI = False
+    OpenAI = None
 
 from .logger import get_logger
 
@@ -141,6 +147,12 @@ class Client:
 
     def __init__(self, config: Optional[ClientConfig] = None):
         """初始化客户端。"""
+        if not _HAS_OPENAI:
+            raise ImportError(
+                "openai package is required for Client. "
+                "Install it with: pip install openai"
+            )
+            
         self.config = config or ClientConfig.from_env()
         logger.info(f"Initializing client with model: {self.config.model}")
 

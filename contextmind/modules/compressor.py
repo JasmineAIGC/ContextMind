@@ -17,7 +17,7 @@ ContextCompressor - 上下文压缩模块
 
 from typing import List, Optional
 from ..data_models import ContextResult, ProcessedContext
-from ..strategies.optimization import SimpleOptimizationStrategy
+from ..strategies.optimization import CompressionStrategy
 from ..logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ class ContextCompressor:
     
     def __init__(
         self,
-        strategy: Optional[SimpleOptimizationStrategy] = None,
+        strategy: Optional[CompressionStrategy] = None,
         max_session_items: int = 10,
     ):
         """

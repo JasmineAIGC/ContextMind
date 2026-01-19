@@ -19,14 +19,24 @@ MemoryBank - 记忆库模块
 - 记忆热度评估和动态淘汰
 """
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import uuid
 import re
 
-from google.adk.memory.base_memory_service import BaseMemoryService
-from google.adk.events.event import Event
-from google.adk.sessions.base_session_service import BaseSessionService
-from google.genai.types import Content, Part
+# Optional google.adk imports
+try:
+    from google.adk.memory.base_memory_service import BaseMemoryService
+    from google.adk.events.event import Event
+    from google.adk.sessions.base_session_service import BaseSessionService
+    from google.genai.types import Content, Part
+    _HAS_GOOGLE_ADK = True
+except ImportError:
+    _HAS_GOOGLE_ADK = False
+    BaseMemoryService = Any
+    Event = Any
+    BaseSessionService = Any
+    Content = Any
+    Part = Any
 
 from ..data_models import ContextItem, ContextSource, Knowledge, MemoryNote, MemoryType
 from ..logger import get_logger
@@ -79,7 +89,7 @@ class MemoryBank:
     def __init__(
         self,
         memory_service: Optional[BaseMemoryService],
-        session_service: BaseSessionService,
+        session_service: Optional[BaseSessionService],
         app_name: str,
         user_id: str,
     ):

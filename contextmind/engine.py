@@ -17,13 +17,21 @@ ContextEngine - 上下文引擎核心模块 v4.0
 
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 
-from google.adk.memory import InMemoryMemoryService
-from google.adk.memory.base_memory_service import BaseMemoryService
-from google.adk.sessions import InMemorySessionService
-from google.adk.sessions.base_session_service import BaseSessionService
+# Optional google.adk imports (not required for core functionality)
+try:
+    from google.adk.memory import InMemoryMemoryService
+    from google.adk.memory.base_memory_service import BaseMemoryService
+    from google.adk.sessions import InMemorySessionService
+    from google.adk.sessions.base_session_service import BaseSessionService
+    _HAS_GOOGLE_ADK = True
+except ImportError:
+    _HAS_GOOGLE_ADK = False
+    # Define placeholder types
+    BaseMemoryService = Any
+    BaseSessionService = Any
 
 from .client import Client
 from .logger import get_logger
@@ -115,8 +123,15 @@ class ContextEngine:
         self.llm_client = llm_client
         
         # 初始化服务
-        self.session_service = session_service or InMemorySessionService()
-        self.memory_service = memory_service or InMemoryMemoryService()
+        if session_service is None and _HAS_GOOGLE_ADK:
+            self.session_service = InMemorySessionService()
+        else:
+            self.session_service = session_service
+            
+        if memory_service is None and _HAS_GOOGLE_ADK:
+            self.memory_service = InMemoryMemoryService()
+        else:
+            self.memory_service = memory_service
         
         # 初始化管理器
         self.session_manager = SessionManager(
