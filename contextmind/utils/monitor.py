@@ -200,3 +200,21 @@ Performance Summary:
     - Context Length: {latest.context_length} chars
 """
         return summary
+
+
+# === Event System (merged from events.py) ===
+
+
+from typing import Dict, List, Callable, Any, Optional
+from dataclasses import dataclass, field
+from datetime import datetime
+import asyncio
+
+from ..logger import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class Event:
+    

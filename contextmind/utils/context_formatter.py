@@ -270,3 +270,14 @@ def format_prompt_analysis(prompt: str, context_result: "ContextResult") -> str:
 def format_complete_prompt(prompt: str) -> str:
     """格式化完整Prompt的便捷函数"""
     return _formatter.format_complete_prompt(prompt)
+
+
+# === Visualization (merged from visualizer.py) ===
+
+
+from typing import List, Optional
+from ..data_models import ContextResult, Message, ContextItem
+
+
+class ContextVisualizer:
+    

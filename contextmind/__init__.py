@@ -1,13 +1,15 @@
 """
-ContextMind - 专业的上下文优化框架 v5.0
+ContextMind - 专业的上下文优化框架 v5.1
+ContextMind - Professional Context Optimization Framework v5.1
 
-清晰的模块化架构，每个模块职责单一，易于扩展：
+清晰的模块化架构，每个模块职责单一，易于扩展
+Clear modular architecture with single responsibility and easy extensibility
 
-核心模块：
-- InputPreprocessor: 输入预处理
-- ContextRetriever: 统一检索（RAG）
-- MemoryBank: 长期记忆管理
-- ContextCompressor: 上下文压缩
+核心模块 Core Modules：
+- InputPreprocessor: 输入预处理 / Input preprocessing
+- ContextRetriever: 统一检索（RAG） / Unified retrieval (RAG)
+- MemoryBank: 长期记忆管理 / Long-term memory management
+- ContextCompressor: 上下文压缩 / Context compression
 - ContextReorderer: 上下文重排序
 - KnowledgeExtractor: 知识提取
 
@@ -212,4 +214,4 @@ __all__ = [
     "CircuitState",
 ]
 
-__version__ = "5.0.0"
+__version__ = "5.1.0"  # 当前版本 Current version

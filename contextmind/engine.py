@@ -1,18 +1,25 @@
 """
-ContextEngine - 上下文引擎核心模块 v4.0
+ContextEngine - 上下文引擎核心模块 v5.1
+ContextEngine - Core Context Engine Module v5.1
 
-清晰的模块化架构设计：
-- 应用层：使用引擎的应用（示例：客服、聊天机器人等）
-- 适配器层：对话系统集成接口
-- 引擎层：ContextEngine 统一接口
-- 模块层：InputPreprocessor, ContextRetriever, MemoryBank, ContextCompressor, ContextReorderer, KnowledgeExtractor
-- 策略层：可插拔的策略实现
-- 基础层：TokenizerService, VectorClient, CacheManager
+清晰的模块化架构设计 Clear modular architecture design：
+- 应用层 Application Layer：使用引擎的应用（示例：客服、聊天机器人等）
+  Applications using the engine (e.g., customer service, chatbots)
+- 适配器层 Adapter Layer：对话系统集成接口
+  Dialogue system integration interfaces
+- 引擎层 Engine Layer：ContextEngine 统一接口
+  ContextEngine unified interface
+- 模块层 Module Layer：InputPreprocessor, ContextRetriever, MemoryBank, 
+  ContextCompressor, ContextReorderer, KnowledgeExtractor
+- 策略层 Strategy Layer：可插拔的策略实现
+  Pluggable strategy implementations
+- 基础层 Foundation Layer：TokenizerService, VectorClient, CacheManager
+  Foundation services
 
-核心职责：
-1. 上下文优化 (optimize)
-2. 上下文更新 (update)
-3. 知识提取 (extract_knowledge)
+核心职责 Core Responsibilities：
+1. 上下文优化 Context optimization (optimize)
+2. 上下文更新 Context update (update)
+3. 知识提取 Knowledge extraction (extract_knowledge)
 """
 
 from __future__ import annotations
