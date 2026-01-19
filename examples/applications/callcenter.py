@@ -16,6 +16,7 @@ from contextmind import ContextEngine, Client, ContextResult
 from contextmind.modules.compressor import DEFAULT_MAX_SESSION_ITEMS
 from contextmind.logger import get_logger
 from .base import BaseApplication
+from ..prompts import get_system_prompt
 
 logger = get_logger(__name__)
 
@@ -44,18 +45,12 @@ class CallCenterApplication(BaseApplication):
         Args:
             context_engine: 上下文引擎实例
             llm_client: LLM客户端实例
-            business_info: 业务信息（产品介绍、服务流程等）
+            business_info: 业务信息（产品介绍、服务流程等，已弃用，使用统一prompt）
             history_turns: Prompt中包含的历史对话轮数（默认10）
             **config: 其他配置
         """
-        # 改进的系统提示词 - 添加明确的回复约束
-        system_prompt = """你是安逸花/马上消费的智能客服助手。
-
-回复要求：
-1. 简洁直接，不超过3句话
-2. 基于提供的上下文信息回复
-3. 不要主动询问细节或反问
-4. 如需用户提供信息，一次性说明所需内容"""
+        # 使用统一的系统提示词（包含业务信息）
+        system_prompt = get_system_prompt(include_business_info=True)
 
         super().__init__(
             context_engine=context_engine,
@@ -64,7 +59,7 @@ class CallCenterApplication(BaseApplication):
             **config
         )
         
-        self.business_info = business_info
+        self.business_info = business_info  # 保留兼容性
         self.history_turns = history_turns
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
@@ -130,9 +125,8 @@ class CallCenterApplication(BaseApplication):
             prompt_parts.append(f"\n## 相关对话历史\n{history_text}")
             logger.info(f"✓ Prompt includes {len(relevant_history)} turns of history (max={self.history_turns})")
         
-        # === 4. 添加业务信息（可选）===
-        if self.business_info:
-            prompt_parts.append(f"\n## 参考信息\n{self.business_info}")
+        # === 4. 添加业务信息（已集成到system_prompt，无需单独添加）===
+        # 业务信息已包含在统一的系统提示词中
         
         # === 5. 添加当前用户输入===
         prompt_parts.append(f"\n## 当前问题\n{user_input}")
