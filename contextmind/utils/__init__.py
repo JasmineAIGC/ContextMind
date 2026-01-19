@@ -6,9 +6,12 @@ Utils - 实用工具模块
 - 性能监控
 - 上下文可视化
 - 事件系统
-- 上下文格式化 (v3.2新增)
-- 文本构建工具 (统一文本格式化)
-- 对话摘要工具 (v3.3新增)
+- 上下文格式化
+- 文本构建工具
+- 对话摘要工具
+- Token计数服务 (from foundation)
+- 向量客户端 (from foundation)
+- 缓存管理 (from foundation)
 """
 
 from .config import ConfigManager, validate_config
@@ -30,6 +33,9 @@ from .context_formatter import (
 )
 from .text_builder import ContextTextBuilder
 from .summarizer import ConversationSummarizer, SummarizedHistory
+from .tokenizer import TokenizerService, TokenizerType
+from .vector_client import VectorClient, VectorSearchResult
+from .cache import CacheManager, CacheEntry
 
 __all__ = [
     "ConfigManager",
@@ -39,7 +45,6 @@ __all__ = [
     "ContextVisualizer",
     "EventBus",
     "Event",
-    # v3.2 新增
     "ContextFormatter",
     "format_context_result",
     "format_memory_cache",
@@ -53,7 +58,13 @@ __all__ = [
     "LOG_PREFIX_PROMPT",
     # 统一文本构建工具
     "ContextTextBuilder",
-    # v3.3 新增
     "ConversationSummarizer",
     "SummarizedHistory",
+    # Foundation utilities
+    "TokenizerService",
+    "TokenizerType",
+    "VectorClient",
+    "VectorSearchResult",
+    "CacheManager",
+    "CacheEntry",
 ]

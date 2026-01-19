@@ -24,7 +24,7 @@ from contextmind.modules import (
 )
 
 # 基础服务测试
-from contextmind.foundation import (
+from contextmind.utils import (
     TokenizerService, TokenizerType,
     CacheManager, CacheEntry
 )
