@@ -27,11 +27,6 @@ from __future__ import annotations
 from typing import Optional, List, Any
 from datetime import datetime
 
-from google.adk.memory import InMemoryMemoryService
-from google.adk.memory.base_memory_service import BaseMemoryService
-from google.adk.sessions import InMemorySessionService
-from google.adk.sessions.base_session_service import BaseSessionService
-
 from .client import Client
 from .core import (
     get_logger,
@@ -75,14 +70,12 @@ class ContextEngine:
     使用示例：
         ```python
         from contextmind import ContextEngine, Client
-        from google.adk.memory import InMemoryMemoryService
         
         client = Client()
         engine = ContextEngine(
             app_name="my-app",
             user_id="user-123",
-            llm_client=client,
-            memory_service=InMemoryMemoryService()
+            llm_client=client
         )
         
         # 优化上下文
@@ -102,8 +95,8 @@ class ContextEngine:
         app_name: str,
         user_id: str,
         llm_client: Optional[Client] = None,
-        session_service: Optional[BaseSessionService] = None,
-        memory_service: Optional[BaseMemoryService] = None,
+        session_service: Optional[Any] = None,
+        memory_service: Optional[Any] = None,
         max_recent_events: int = 9999,
     ):
         """
@@ -113,28 +106,17 @@ class ContextEngine:
             app_name: 应用名称
             user_id: 用户ID
             llm_client: LLM客户端实例（可选）
-            session_service: Session服务实例，默认使用InMemorySessionService
-            memory_service: Memory服务实例，默认使用InMemoryMemoryService
+            session_service: Session服务实例（可选）
+            memory_service: Memory服务实例（可选）
             max_recent_events: 保留的最大近期事件数量（默认9999，实际不限制）
         """
         self.app_name = app_name
         self.user_id = user_id
         self.llm_client = llm_client
         
-        # 初始化服务
-        if session_service is None:
-            self.session_service = InMemorySessionService()
-        else:
-            self.session_service = session_service
-            
-        if memory_service is None:
-            self.memory_service = InMemoryMemoryService()
-        else:
-            self.memory_service = memory_service
-        
         # 初始化管理器
         self.session_manager = SessionManager(
-            session_service=self.session_service,
+            session_service=session_service,
             app_name=app_name,
             user_id=user_id,
             max_recent_events=max_recent_events,
@@ -142,8 +124,8 @@ class ContextEngine:
         
         # 初始化记忆库
         self.memory_bank = MemoryBank(
-            memory_service=self.memory_service,
-            session_service=self.session_service,
+            memory_service=memory_service,
+            session_service=session_service,
             app_name=app_name,
             user_id=user_id,
         )
