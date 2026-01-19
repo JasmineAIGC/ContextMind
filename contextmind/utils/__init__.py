@@ -3,7 +3,7 @@ Utils - 实用工具模块
 Utils - Utility modules
 
 提供各种辅助功能 Provides various utility functions：
-- 性能监控与事件系统 Performance monitoring and event system (monitor.py)
+- 性能监控 Performance monitoring (monitor.py)
 - 上下文格式化与可视化 Context formatting and visualization (context_formatter.py)
 - 文本构建工具 Text building tools (text_builder.py)
 - 对话摘要工具 Conversation summarization (summarizer.py)
@@ -12,9 +12,8 @@ Utils - Utility modules
 - 缓存管理 Cache management (cache.py)
 """
 
-# 性能监控和事件系统（已合并events.py）
-# Performance monitoring and event system (events.py merged into monitor.py)
-from .monitor import PerformanceMonitor, ContextMetrics, EventBus, Event
+# 性能监控 Performance monitoring
+from .monitor import PerformanceMonitor, ContextMetrics
 
 # 上下文格式化和可视化（已合并visualizer.py）
 # Context formatting and visualization (visualizer.py merged into context_formatter.py)
@@ -43,11 +42,9 @@ from .vector_client import VectorClient, VectorSearchResult
 from .cache import CacheManager, CacheEntry
 
 __all__ = [
-    # 监控和事件 Monitoring and events
+    # 监控 Monitoring
     "PerformanceMonitor",
     "ContextMetrics",
-    "EventBus",
-    "Event",
     # 格式化和可视化 Formatting and visualization
     "ContextFormatter",
     "ContextVisualizer",
