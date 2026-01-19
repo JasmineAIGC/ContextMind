@@ -183,16 +183,26 @@ class ProcessedContext:
                 parts = item.content.split(": ", 1)
                 if len(parts) == 2:
                     role_str, content = parts
-                    try:
-                        role = MessageRole(role_str.lower())
-                        result.recent_history.append(Message(
-                            role=role,
-                            content=content,
-                            timestamp=item.timestamp,
-                            metadata=item.metadata
-                        ))
-                    except ValueError:
-                        # 如果角色解析失败，作为系统消息
+                    # Validate role_str before processing
+                    if role_str and role_str.strip():
+                        try:
+                            role = MessageRole(role_str.lower())
+                            result.recent_history.append(Message(
+                                role=role,
+                                content=content,
+                                timestamp=item.timestamp,
+                                metadata=item.metadata
+                            ))
+                        except ValueError:
+                            # 如果角色解析失败，作为系统消息
+                            result.recent_history.append(Message(
+                                role=MessageRole.SYSTEM,
+                                content=item.content,
+                                timestamp=item.timestamp,
+                                metadata=item.metadata
+                            ))
+                    else:
+                        # Empty role string, treat as system message
                         result.recent_history.append(Message(
                             role=MessageRole.SYSTEM,
                             content=item.content,

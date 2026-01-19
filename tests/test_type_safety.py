@@ -169,6 +169,20 @@ class TestProcessedContextToContextResult:
         assert len(result.recent_history) == 1
         assert result.recent_history[0].role == MessageRole.SYSTEM
     
+    def test_to_context_result_empty_role(self):
+        """测试空角色字符串"""
+        ctx = ProcessedContext()
+        ctx.add_item(ContextItem(
+            content=": Some content",
+            source=ContextSource.SESSION
+        ))
+        
+        result = ctx.to_context_result()
+        
+        # 应该创建为 SYSTEM 消息
+        assert len(result.recent_history) == 1
+        assert result.recent_history[0].role == MessageRole.SYSTEM
+    
     def test_to_context_result_external_source(self):
         """测试 EXTERNAL 来源"""
         ctx = ProcessedContext()
