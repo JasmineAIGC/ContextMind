@@ -22,18 +22,21 @@ class CompressionStrategy(OptimizationStrategy):
     
     def __init__(
         self,
-        max_tokens: int = 2000,
+        max_tokens: int = None,
         max_items: Optional[int] = None,
+        config: Optional[CompressionConfig] = None,
     ):
         """
         初始化压缩策略
         
         Args:
-            max_tokens: 最大token数（这里用字符数近似）
-            max_items: 最大上下文项数量
+            max_tokens: 最大token数（这里用字符数近似，None则使用配置）
+            max_items: 最大上下文项数量（None则使用配置）
+            config: 压缩配置，如果为None则使用默认配置
         """
-        self.max_tokens = max_tokens
-        self.max_items = max_items
+        self.config = config or DEFAULT_MEMORY_CONFIG.compression
+        self.max_tokens = max_tokens or self.config.default_max_tokens
+        self.max_items = max_items or self.config.default_max_items
     
     async def optimize(self, context: ProcessedContext) -> ContextResult:
         """
@@ -59,9 +62,15 @@ class CompressionStrategy(OptimizationStrategy):
             knowledge_items = [item for item in items if item.source in (ContextSource.KNOWLEDGE, ContextSource.EXTERNAL)]
             
             # 智能分配配额：优先保留记忆和知识，剩余给会话
-            # 为记忆和知识各保留至少2个位置（如果有的话）
-            reserved_for_memory = min(len(memory_items), max(2, self.max_items // 5))
-            reserved_for_knowledge = min(len(knowledge_items), max(1, self.max_items // 10))
+            # 为记忆和知识各保留至少N个位置（如果有的话）
+            reserved_for_memory = min(
+                len(memory_items), 
+                max(self.config.min_memory_items, int(self.max_items * self.config.memory_quota_percentage))
+            )
+            reserved_for_knowledge = min(
+                len(knowledge_items),
+                max(self.config.min_knowledge_items, int(self.max_items * self.config.knowledge_quota_percentage))
+            )
             remaining_for_session = self.max_items - reserved_for_memory - reserved_for_knowledge
             
             # 确保不超出实际数量

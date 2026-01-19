@@ -3,11 +3,16 @@ ConversationSummarizer - 对话摘要工具
 
 用于将长对话历史压缩为摘要，减少prompt token使用。
 保留最近2-3轮完整对话，其余转为摘要。
+
+v3.3更新：
+- 支持可配置化设计
+- 使用SummarizationConfig减少硬编码
 """
 
 from typing import List, Optional, Tuple
 from dataclasses import dataclass
 from ..data_models import Message
+from ..config import DEFAULT_MEMORY_CONFIG, SummarizationConfig
 
 
 @dataclass
@@ -34,20 +39,17 @@ class ConversationSummarizer:
     
     def __init__(
         self,
-        recent_turns: int = 3,
-        summarize_threshold: int = 5,
+        config: Optional[SummarizationConfig] = None,
         llm_client: Optional[any] = None,
     ):
         """
         初始化摘要器
         
         Args:
-            recent_turns: 保留最近几轮完整对话（默认3轮）
-            summarize_threshold: 超过多少轮才开始摘要（默认5轮）
+            config: 摘要配置，如果为None则使用默认配置
             llm_client: LLM客户端，用于生成摘要（可选，不提供则使用规则）
         """
-        self.recent_turns = recent_turns
-        self.summarize_threshold = summarize_threshold
+        self.config = config or DEFAULT_MEMORY_CONFIG.summarization
         self.llm_client = llm_client
     
     def summarize(self, messages: List[Message]) -> SummarizedHistory:
@@ -60,7 +62,7 @@ class ConversationSummarizer:
         Returns:
             摘要后的对话历史
         """
-        if len(messages) <= self.summarize_threshold:
+        if len(messages) <= self.config.summarize_threshold:
             # 对话较短，不需要摘要
             return SummarizedHistory(
                 summary="",
@@ -74,7 +76,7 @@ class ConversationSummarizer:
         
         # 计算分界点：最近N轮完整保留，其余摘要
         # 每轮 = 1个user + 1个assistant
-        split_point = len(messages) - (self.recent_turns * 2)
+        split_point = len(messages) - (self.config.recent_turns * 2)
         split_point = max(0, split_point)
         
         # 分割消息
@@ -84,7 +86,7 @@ class ConversationSummarizer:
         # 生成摘要
         if not to_summarize:
             summary = ""
-        elif self.llm_client:
+        elif self.config.use_llm_summarization and self.llm_client:
             summary = self._llm_summarize(to_summarize)
         else:
             summary = self._rule_based_summarize(to_summarize)
@@ -127,7 +129,7 @@ class ConversationSummarizer:
         summary_parts.append(f"前{turns}轮对话")
         
         # 提取关键词（简单版本：找出现频率高的词）
-        keywords = self._extract_keywords(all_text, top_k=3)
+        keywords = self._extract_keywords(all_text, top_k=self.config.extract_top_keywords)
         if keywords:
             summary_parts.append(f"主要讨论: {', '.join(keywords)}")
         
@@ -221,8 +223,8 @@ class ConversationSummarizer:
             summary = summary.strip()
             
             # 限制长度
-            if len(summary) > 100:
-                summary = summary[:97] + "..."
+            if len(summary) > self.config.max_summary_length:
+                summary = summary[:self.config.max_summary_length-3] + "..."
             
             return summary
         except Exception as e:

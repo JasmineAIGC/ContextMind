@@ -12,12 +12,14 @@ ContextTextBuilder - 统一的上下文文本构建工具
 v3.3更新:
 - 集成对话摘要功能
 - 优化prompt构建，减少token使用
+- 支持可配置化设计
 """
 
 from typing import List, Optional
 from collections import defaultdict
 from ..data_models import ContextResult, ContextItem, Message
 from .summarizer import ConversationSummarizer
+from ..config import DEFAULT_MEMORY_CONFIG
 
 
 class ContextTextBuilder:
@@ -32,7 +34,7 @@ class ContextTextBuilder:
     def build_memory_text(
         memory_items: List[ContextItem],
         include_score: bool = False,  # 默认改为False，简化显示
-        score_threshold: float = 0.8  # 降低阈值
+        score_threshold: float = None  # 使用配置的阈值
     ) -> str:
         """
         构建长期记忆的文本表示
@@ -40,13 +42,16 @@ class ContextTextBuilder:
         Args:
             memory_items: 记忆条目列表
             include_score: 是否包含相关性分数（默认False）
-            score_threshold: 分数阈值，低于此值显示分数
+            score_threshold: 分数阈值，低于此值显示分数（None则使用配置）
             
         Returns:
             格式化的长期记忆文本
         """
         if not memory_items:
             return ""
+        
+        if score_threshold is None:
+            score_threshold = DEFAULT_MEMORY_CONFIG.retrieval.high_relevance_threshold
         
         lines = []
         for item in memory_items:
@@ -83,7 +88,7 @@ class ContextTextBuilder:
         messages: List[Message],
         format_style: str = "simple",
         use_summarization: bool = True,
-        recent_turns: int = 3,
+        recent_turns: int = None,  # None则使用配置
     ) -> str:
         """
         构建消息列表的文本表示
@@ -93,8 +98,8 @@ class ContextTextBuilder:
         Args:
             messages: 消息列表
             format_style: 格式风格 ("simple", "detailed", "langchain")
-            use_summarization: 是否使用摘要（当对话超过5轮时）
-            recent_turns: 保留最近几轮完整对话
+            use_summarization: 是否使用摘要（当对话超过阈值时）
+            recent_turns: 保留最近几轮完整对话（None则使用配置）
             
         Returns:
             格式化的消息文本
@@ -102,9 +107,13 @@ class ContextTextBuilder:
         if not messages:
             return ""
         
+        if recent_turns is None:
+            recent_turns = DEFAULT_MEMORY_CONFIG.summarization.recent_turns
+        
         # 如果启用摘要且对话较长
-        if use_summarization and len(messages) > 5:
-            summarizer = ConversationSummarizer(recent_turns=recent_turns)
+        threshold = DEFAULT_MEMORY_CONFIG.summarization.summarize_threshold
+        if use_summarization and len(messages) > threshold:
+            summarizer = ConversationSummarizer()
             summarized = summarizer.summarize(messages)
             return summarizer.format_for_prompt(summarized)
         

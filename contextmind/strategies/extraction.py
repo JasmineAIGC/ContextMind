@@ -2,6 +2,10 @@
 Extraction Strategies - 提取策略实现
 
 提供多种知识提取策略，用于从对话中提取结构化知识。
+
+v3.3更新：
+- 支持可配置化设计
+- 使用ExtractionConfig减少硬编码
 """
 
 from typing import List, Optional
@@ -11,6 +15,7 @@ import json
 from ..data_models import Message, Knowledge, KnowledgeType
 from .base import ExtractionStrategy
 from ..logger import get_logger
+from ..config import DEFAULT_MEMORY_CONFIG, ExtractionConfig
 
 logger = get_logger(__name__)
 
@@ -22,14 +27,14 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
     使用预定义的规则和模式从对话中提取知识。
     """
     
-    def __init__(self, min_confidence: float = 0.5):
+    def __init__(self, config: Optional[ExtractionConfig] = None):
         """
         初始化基于规则的提取策略
         
         Args:
-            min_confidence: 最小置信度阈值
+            config: 提取配置，如果为None则使用默认配置
         """
-        self.min_confidence = min_confidence
+        self.config = config or DEFAULT_MEMORY_CONFIG.extraction
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """
@@ -53,7 +58,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         knowledge.extend(self._extract_events(messages))
         
         # 过滤低置信度的知识
-        knowledge = [k for k in knowledge if k.confidence >= self.min_confidence]
+        knowledge = [k for k in knowledge if k.confidence >= self.config.min_confidence]
         
         logger.debug(f"RuleBasedExtraction: extracted {len(knowledge)} knowledge items")
         
@@ -87,11 +92,12 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
                     
                     # 质量检查：长度合理，不以否定词开头
-                    if 2 <= len(phrase) <= 20 and not phrase.startswith(('不', '没', '无')):
+                    if (self.config.min_phrase_length <= len(phrase) <= self.config.max_phrase_length 
+                        and not phrase.startswith(('不', '没', '无'))):
                         preferences.append(Knowledge(
                             content=f"{keyword}{phrase}",  # 简化格式，移除冗余标签
                             type=KnowledgeType.PREFERENCE,
-                            confidence=0.85,
+                            confidence=self.config.preference_confidence,
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '偏好'}
                         ))
             
@@ -116,11 +122,12 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 1. 长度合理
                     # 2. 不包含问号（避免"不需要小额贷款，可以有大额的吗"这样的提取）
                     # 3. 不是纯数字或符号
-                    if 2 <= len(phrase) <= 15 and '吗' not in phrase and '?' not in phrase and not phrase.isdigit():
+                    if (self.config.min_phrase_length <= len(phrase) <= self.config.max_phrase_length
+                        and '吗' not in phrase and '?' not in phrase and not phrase.isdigit()):
                         preferences.append(Knowledge(
                             content=f"{keyword}{phrase}",  # 简化格式，移除冗余标签
                             type=KnowledgeType.PREFERENCE,
-                            confidence=0.85,
+                            confidence=self.config.preference_confidence,
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '拒绝'}
                         ))
         
@@ -193,11 +200,12 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     fact = re.sub(r'[，。！？,.!?；:：]+$', '', fact)
                     
                     # 质量检查：长度合理，不是空白
-                    if 2 <= len(fact) <= 20 and fact.strip():
+                    if (self.config.min_phrase_length <= len(fact) <= self.config.max_phrase_length 
+                        and fact.strip()):
                         facts.append(Knowledge(
                             content=f"{category}: {fact}",  # 简化格式
                             type=KnowledgeType.FACT,
-                            confidence=0.75,
+                            confidence=self.config.fact_confidence,
                             metadata={'category': category}
                         ))
         
@@ -245,11 +253,12 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     detail = detail.strip()
                     
                     # 质量检查：不包含问号（避免提取疑问句片段）
-                    if 3 <= len(detail) <= 20 and '吗' not in detail and '?' not in detail:
+                    if (3 <= len(detail) <= self.config.max_phrase_length 
+                        and '吗' not in detail and '?' not in detail):
                         events.append(Knowledge(
                             content=f"{keyword}{detail}",  # 简化格式
                             type=KnowledgeType.EVENT,
-                            confidence=0.70,
+                            confidence=self.config.event_confidence,
                             metadata={'keyword': keyword, 'category': category}
                         ))
         
@@ -266,17 +275,17 @@ class LLMExtractionStrategy(ExtractionStrategy):
     def __init__(
         self,
         llm_client: Optional[any] = None,
-        min_confidence: float = 0.5,
+        config: Optional[ExtractionConfig] = None,
     ):
         """
         初始化基于LLM的提取策略
         
         Args:
             llm_client: LLM客户端实例
-            min_confidence: 最小置信度阈值
+            config: 提取配置，如果为None则使用默认配置
         """
         self.llm_client = llm_client
-        self.min_confidence = min_confidence
+        self.config = config or DEFAULT_MEMORY_CONFIG.extraction
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """
@@ -291,7 +300,7 @@ class LLMExtractionStrategy(ExtractionStrategy):
         if not self.llm_client:
             logger.warning("LLMExtractionStrategy: llm_client not configured, falling back to rule-based")
             # 回退到基于规则的提取
-            fallback = RuleBasedExtractionStrategy(self.min_confidence)
+            fallback = RuleBasedExtractionStrategy(self.config)
             return await fallback.extract(messages)
         
         if not messages:
@@ -349,7 +358,7 @@ class LLMExtractionStrategy(ExtractionStrategy):
                     k_type = KnowledgeType(item['type'])
                     confidence = float(item.get('confidence', 0.5))
                     
-                    if confidence >= self.min_confidence:
+                    if confidence >= self.config.min_confidence:
                         knowledge.append(Knowledge(
                             content=item['content'],
                             type=k_type,
@@ -365,5 +374,5 @@ class LLMExtractionStrategy(ExtractionStrategy):
         except Exception as e:
             logger.warning(f"LLMExtraction failed: {e}, falling back to rule-based")
             # 回退到基于规则的提取
-            fallback = RuleBasedExtractionStrategy(self.min_confidence)
+            fallback = RuleBasedExtractionStrategy(self.config)
             return await fallback.extract(messages)
