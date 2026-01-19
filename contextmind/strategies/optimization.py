@@ -158,7 +158,12 @@ class RerankingStrategy(OptimizationStrategy):
         # 如果需要，将最近的项移到最后
         if self.keep_recent_at_end and items:
             # 找出最近的几个项（基于时间戳）
-            items_with_time = [item for item in reranked if item.timestamp]
+            # 只包含有效的datetime类型的timestamp
+            from datetime import datetime
+            items_with_time = [
+                item for item in reranked 
+                if item.timestamp and isinstance(item.timestamp, datetime)
+            ]
             if items_with_time:
                 items_with_time.sort(key=lambda x: x.timestamp, reverse=True)
                 recent_items = items_with_time[:2]  # 最近的2个
