@@ -2,10 +2,13 @@
 LangChainAdapter - LangChain 对话系统适配器
 
 支持与 LangChain 框架的集成。
+使用 ContextTextBuilder 统一文本格式化。
 """
 
 from typing import Optional, List, Any
 from .base import BaseAdapter, DialogContext, DialogMessage
+from ..data_models import Message, MessageRole
+from ..utils import ContextTextBuilder
 
 
 class LangChainAdapter(BaseAdapter):
@@ -97,6 +100,8 @@ class LangChainAdapter(BaseAdapter):
         """
         构建 LangChain 兼容的上下文字符串
         
+        使用 ContextTextBuilder 统一格式化。
+        
         Args:
             context: 对话上下文
             
@@ -108,7 +113,17 @@ class LangChainAdapter(BaseAdapter):
         if context.system_prompt:
             parts.append(f"System: {context.system_prompt}")
         
-        for msg in context.messages:
-            parts.append(f"{msg.role.capitalize()}: {msg.content}")
+        # 使用 ContextTextBuilder 格式化消息
+        if context.messages:
+            # 将 DialogMessage 转换为 Message 格式以便使用 builder
+            messages = [
+                Message(
+                    role=MessageRole(msg.role),
+                    content=msg.content,
+                    timestamp=msg.timestamp
+                )
+                for msg in context.messages
+            ]
+            parts.append(ContextTextBuilder.build_messages_text(messages, format_style="langchain"))
         
         return "\n".join(parts)

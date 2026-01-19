@@ -163,19 +163,25 @@ class Client:
         logger.debug(f"Client initialized with base_url: {full_base_url}")
 
     def generate(self, prompt: str) -> Tuple[str, str]:
-        """基于单轮用户输入调用模型，返回推理与内容。"""
+        """基于单轮用户输入调用模型，返回推理与内容。
+        
+        注意：机器人回复时总是关闭思考过程显示，直接根据完整prompt回答。
+        这确保用户看到的是最终答案，而非推理过程。
+        """
         try:
             # 构造 extra_body 参数
             extra_body = {
                 "top_k": self.config.top_k,
             }
             
-            # 添加 chat_template_kwargs（如果存在）
+            # 强制关闭思考过程（机器人回复不显示推理）
+            # 这是ContextMind的设计原则：上下文工程处理可以思考，但最终回复必须直接
+            extra_body["chat_template_kwargs"] = {"enable_thinking": False}
+            
+            # 如果用户在config中显式设置了chat_template_kwargs，也覆盖为关闭思考
+            # 确保机器人回复始终不显示思考过程
             if self.config.chat_template_kwargs:
-                extra_body["chat_template_kwargs"] = self.config.chat_template_kwargs
-            else:
-                # 默认关闭思考过程
-                extra_body["chat_template_kwargs"] = {"enable_thinking": False}
+                logger.debug("User provided chat_template_kwargs, overriding enable_thinking to False")
 
             # 调用 OpenAI Chat Completions API
             response = self._client.chat.completions.create(

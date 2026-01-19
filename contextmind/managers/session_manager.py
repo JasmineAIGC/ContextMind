@@ -5,7 +5,7 @@ SessionManager - 会话管理器
 负责管理短期对话历史，支持添加消息、获取历史和清空会话。
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any
 import uuid
 
 from google.adk.events.event import Event
@@ -40,7 +40,7 @@ class SessionManager:
     
     def __init__(
         self,
-        session_service: BaseSessionService,
+        session_service: Optional[BaseSessionService],
         app_name: str,
         user_id: str,
         max_recent_events: int = 9999,
@@ -49,7 +49,7 @@ class SessionManager:
         初始化会话管理器
         
         Args:
-            session_service: ADK Session Service 实例
+            session_service: ADK Session Service 实例 (可选)
             app_name: 应用名称，用于区分不同应用
             user_id: 用户ID，用于区分不同用户
             max_recent_events: 保留的最大近期事件数量，默认9999（实际不限制）

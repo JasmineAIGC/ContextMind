@@ -1,13 +1,14 @@
 """
-ContextMind v3.2 Interactive Demo
+ContextMind v5.0 Interactive Demo
 
-展示新架构的使用方式，提供命令行交互式演示。
-支持通过参数配置上下文控制。
+模块化架构 + 智能记忆系统
+提供命令行交互式演示，展示清晰的模块划分和生产级记忆能力。
 """
 
 import asyncio
 import os
 import argparse
+import random
 from dotenv import load_dotenv
 
 from contextmind import (
@@ -32,15 +33,31 @@ load_dotenv()
 # 创建logger
 logger = get_logger(__name__)
 
+# 系统开场白选项（随机选择一个）- 安逸花客服场景
+OPENING_SCRIPTS = [
+    "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
+    "您好，我是马上消费的客服，有个好消息要通知您。",
+    "您好，打扰您一下，有个重要业务需要跟您确认一下。",
+    "您好，我是优逸花客服，有个专属福利要通知您。",
+    "您好，耽误您两分钟时间，有个限时优惠要介绍给您。",
+    "您好，我是马上消费工作人员，有个额度提升的好消息。",
+    "您好，打扰您了，有个重要提醒需要通知您。",
+    "您好，我是优逸花客服，有个预留额度业务要介绍。",
+    "您好，有个限时福利要通知您，耽误您一分钟好吗？",
+    "您好，我是马上消费客服，有个资金周转的好方案要介绍。",
+]
+
 
 async def main():
     """主函数"""
     
     # 解析命令行参数
-    parser = argparse.ArgumentParser(description='ContextMind v3.2 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v5.0 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数 (默认: 9999，实际不限制)')
+    parser.add_argument('--history-turns', type=int, default=10, help='Prompt中包含的历史对话轮数 (默认: 10)')
+    parser.add_argument('--enable-memory-thinking', action='store_true', help='允许记忆处理过程中的思考（生成、检索、更新记忆时）')
     parser.add_argument('--debug', action='store_true', help='启用调试模式（打印上下文和完整prompt）')
     args = parser.parse_args()
     
@@ -50,8 +67,8 @@ async def main():
     setup_logging(level=log_level, log_to_console=True, auto_create_file=True)
     
     print("=" * 60)
-    print("ContextMind v3.2 Interactive Demo")
-    print("通用、可扩展的上下文优化框架")
+    print("ContextMind v5.0 Interactive Demo")
+    print("模块化架构 + 智能记忆系统")
     print("=" * 60)
     print()
     
@@ -60,12 +77,18 @@ async def main():
     print(f"   - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
     print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
     print(f"   - 最大轮数: {args.max_events}")
+    print(f"   - Prompt历史轮数: {args.history_turns}")
+    print(f"   - 记忆思考: {'✅ 启用' if args.enable_memory_thinking else '❌ 禁用'}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
     # 初始化LLM客户端
     print("🔧 初始化LLM客户端...")
-    llm_client = Client(config=ClientConfig.from_env())
+    client_config = ClientConfig.from_env()
+    # 注意：机器人回复时不显示思考过程，只根据完整prompt直接回答
+    # enable_memory_thinking 参数用于控制记忆处理（生成/检索/更新）时是否允许思考
+    # 但当前版本暂未实现记忆处理的思考功能，该参数为未来预留
+    llm_client = Client(config=client_config)
     print(f"✅ LLM客户端初始化完成: {llm_client.config.model}")
     print()
     
@@ -85,11 +108,9 @@ async def main():
     # 如果启用长期记忆，植入业务知识种子
     if args.use_memory:
         print("🧠 植入业务知识种子...")
+        # 将预设知识合并为一条，使用结构化格式，作为不变的任务/身份
         business_facts = [
-            "产品名称：智能助手 Pro",
-            "主要功能：智能对话、知识问答、任务管理",
-            "服务时间：7x24小时在线",
-            "联系方式：support@example.com",
+            "[预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时 | 联系: support@example.com",
         ]
         await context_engine.seed_memory(business_facts)
         print(f"✅ 已植入 {len(business_facts)} 条业务知识")
@@ -99,9 +120,9 @@ async def main():
     print("🔧 初始化客服应用...")
     business_info = """
 产品介绍：
-- 智能助手 Pro 是一款基于大语言模型的智能对话系统
-- 支持多轮对话、上下文理解、知识检索
-- 提供个性化服务，记住用户偏好
+- 安逸花/马上消费 是一款智能金融服务产品
+- 支持额度提升、资金周转、优惠福利等业务
+- 提供个性化服务，记住用户需求
 
 服务承诺：
 - 7x24小时在线服务
@@ -114,6 +135,7 @@ async def main():
         llm_client=llm_client,
         business_info=business_info.strip(),
         auto_extract_knowledge=True,  # 始终启用知识提取，从对话中学习
+        history_turns=args.history_turns,  # 传递历史轮数参数
     )
     print("✅ 客服应用初始化完成")
     print()
@@ -127,6 +149,18 @@ async def main():
     print("  /config - 显示当前配置")
     print("=" * 60)
     print()
+    
+    # 系统发起第一句话（随机选择）
+    opening_message = random.choice(OPENING_SCRIPTS)
+    print(f"助手: {opening_message}\n")
+    logger.info(f"助手: {opening_message}")
+    
+    # 将开场白添加到会话历史
+    from contextmind import MessageRole
+    await context_engine.session_manager.add_message(
+        role=MessageRole.ASSISTANT,
+        content=opening_message
+    )
     
     turn_count = 0
     
@@ -190,15 +224,14 @@ async def main():
             
             print(f"助手: {response}\n")
             
-            # 记录助手回复到日志
-            logger.info(f"助手: {response}")
+            # 注意：不再重复记录助手回复，因为已经在BaseApplication.process_turn()中记录过了
             
         except Exception as e:
             print(f"\n❌ 错误: {str(e)}\n")
             import traceback
             traceback.print_exc()
     
-    print("\n感谢使用 ContextMind v3.2!")
+    print("\n感谢使用 ContextMind v5.0!")
 
 
 if __name__ == "__main__":

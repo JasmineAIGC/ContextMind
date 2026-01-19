@@ -7,6 +7,7 @@ Utils - 实用工具模块
 - 上下文可视化
 - 事件系统
 - 上下文格式化 (v3.2新增)
+- 文本构建工具 (统一文本格式化)
 """
 
 from .config import ConfigManager, validate_config
@@ -26,6 +27,7 @@ from .context_formatter import (
     LOG_PREFIX_MEMORY,
     LOG_PREFIX_PROMPT,
 )
+from .text_builder import ContextTextBuilder
 
 __all__ = [
     "ConfigManager",
@@ -47,4 +49,6 @@ __all__ = [
     "LOG_PREFIX_OPTIMIZE",
     "LOG_PREFIX_MEMORY",
     "LOG_PREFIX_PROMPT",
+    # 统一文本构建工具
+    "ContextTextBuilder",
 ]

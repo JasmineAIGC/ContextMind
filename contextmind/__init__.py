@@ -1,31 +1,45 @@
 """
-ContextMind - 专业的上下文优化框架 v3.2
+ContextMind - 专业的上下文优化框架 v5.0
 
-支持上下文工程的所有核心能力：
-- 输入预处理
-- 上下文收集（短期/长期/外部）
-- 上下文整合
-- 上下文优化（压缩/重排）
-- 知识提取
+清晰的模块化架构，每个模块职责单一，易于扩展：
 
-架构设计 (v3.2):
+核心模块：
+- InputPreprocessor: 输入预处理
+- ContextRetriever: 统一检索（RAG）
+- MemoryBank: 长期记忆管理
+- ContextCompressor: 上下文压缩
+- ContextReorderer: 上下文重排序
+- KnowledgeExtractor: 知识提取
+
+架构设计 (v5.0):
 - 应用层：使用引擎的应用
 - 适配器层：对话系统集成接口
-- 引擎层：ContextEngine 统一接口 + FlowController + CircuitBreaker
-- 流水线层：InputProcessor, ContextCollector, ContextIntegrator, ContextOptimizer, KnowledgeExtractor
+- 引擎层：ContextEngine 统一接口
+- 模块层：InputPreprocessor, ContextRetriever, MemoryBank, ContextCompressor, ContextReorderer, KnowledgeExtractor
 - 策略层：可插拔的策略实现
-- 基础层：TokenizerService, VectorClient, CacheManager (v3.2新增)
-- 工具层：配置、监控、可视化、事件系统
+- 基础层：TokenizerService, VectorClient, CacheManager
 
-v3.2 新特性：
-- Foundation Layer: Token精确计数、向量检索、智能缓存
-- Enhanced Data Models: ContextState, Chunk (富状态对象)
-- Flow Control: FlowController, CircuitBreaker (容错机制)
-- Advanced Algorithms: 熵压缩、MMR排序、Boomerang布局
+v5.0 核心改进：
+- 模块化重构：清晰的职责划分，易于扩展
+- 策略可插拔：支持持续集成新算法
+- 零冗余设计：功能不重复，代码简洁
+- SOLID 原则：单一职责，依赖倒置
+- 全面升级：demos和文档完全同步
+- CodeQL 0 告警：高质量代码
 """
 
 # 核心引擎
 from .engine import ContextEngine
+
+# 核心模块 (v4.0 模块化)
+from .modules import (
+    InputPreprocessor,
+    ContextRetriever,
+    MemoryBank,
+    ContextCompressor,
+    ContextReorderer,
+    KnowledgeExtractor,
+)
 
 # 数据模型
 from .data_models import (
@@ -89,6 +103,7 @@ from .utils import (
     ContextVisualizer,
     EventBus,
     Event,
+    ContextTextBuilder,  # 统一文本构建工具
 )
 
 # 基础层 (v3.2 新增)
@@ -111,6 +126,14 @@ from .control import (
 __all__ = [
     # 核心引擎
     "ContextEngine",
+    
+    # 核心模块 (v4.0)
+    "InputPreprocessor",
+    "ContextRetriever",
+    "MemoryBank",
+    "ContextCompressor",
+    "ContextReorderer",
+    "KnowledgeExtractor",
     
     # 数据模型
     "Message",
@@ -173,6 +196,7 @@ __all__ = [
     "ContextVisualizer",
     "EventBus",
     "Event",
+    "ContextTextBuilder",  # 统一文本构建工具
     
     # 基础层 (v3.2)
     "TokenizerService",
@@ -188,4 +212,4 @@ __all__ = [
     "CircuitState",
 ]
 
-__version__ = "3.2.12"
+__version__ = "5.0.0"

@@ -1,14 +1,15 @@
 """
-MemoryManager - 记忆管理器
+MemoryBank - 记忆库模块
 
-封装 Google ADK Memory Service，提供简化的长期记忆管理接口。
-负责管理长期记忆的存储和检索，支持知识植入和智能检索。
+职责：
+- 长期记忆存储
+- 记忆检索与召回
+- 持久化用户事实/偏好
 
-v3.2 Agent Memory System 更新：
-- 支持三层记忆模型：工作记忆、语义记忆、情节记忆
-- 结构化记忆笔记（MemoryNote）：关键词、标签、链接
-- 记忆演化机制：动态更新、合并、淘汰
-- 基于Zettelkasten思想的知识网络构建
+可插拔策略：
+- VectorDB存储
+- Locator机制
+- User Memory持久化
 
 上下文工程核心能力：
 - 长期记忆存储和检索
@@ -18,7 +19,7 @@ v3.2 Agent Memory System 更新：
 - 记忆热度评估和动态淘汰
 """
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import uuid
 import re
 
@@ -46,7 +47,7 @@ STOPWORDS = {
 }
 
 
-class MemoryManager:
+class MemoryBank:
     """
     记忆管理器 - 封装 ADK Memory Service
     
@@ -78,7 +79,7 @@ class MemoryManager:
     def __init__(
         self,
         memory_service: Optional[BaseMemoryService],
-        session_service: BaseSessionService,
+        session_service: Optional[BaseSessionService],
         app_name: str,
         user_id: str,
     ):
@@ -118,6 +119,9 @@ class MemoryManager:
         Returns:
             上下文条目列表，按相关性排序
         """
+        logger.debug(f"retrieve() called with query='{query}', limit={limit}")
+        logger.debug(f"Memory service configured: {self.memory_service is not None}, Cache size: {len(self._local_cache)}")
+        
         if not self.memory_service:
             logger.debug("Memory service is not configured, using local cache")
             return self._retrieve_from_cache(query, limit)
@@ -147,11 +151,11 @@ class MemoryManager:
                     ))
                 
                 if items:
-                    logger.debug(f"Retrieved {len(items)} memories from Memory Service for query: {query}")
+                    logger.info(f"✓ Retrieved {len(items)} memories from Memory Service")
                     return items
             
             # Memory Service 未返回结果，使用本地缓存备用
-            logger.debug(f"No memories from Memory Service for query: {query}, using local cache")
+            logger.debug(f"No memories from Memory Service, falling back to local cache (size={len(self._local_cache)})")
             return self._retrieve_from_cache(query, limit)
             
         except Exception as e:
@@ -162,7 +166,8 @@ class MemoryManager:
         """
         从本地缓存检索相关记忆
         
-        使用简单的关键词匹配进行检索。
+        使用简单的关键词匹配进行检索，支持中文。
+        优先返回相关记忆，如果没有相关的则返回所有记忆。
         
         Args:
             query: 查询字符串
@@ -171,11 +176,13 @@ class MemoryManager:
         Returns:
             匹配的上下文条目列表
         """
+        logger.debug(f"_retrieve_from_cache called with query='{query}', cache size={len(self._local_cache)}")
+        
         if not self._local_cache:
+            logger.warning("Local cache is empty! No memories to retrieve.")
             return []
         
         query_lower = query.lower()
-        query_words = set(query_lower.split())
         
         # 计算每个缓存项的相关性分数
         scored_items = []
@@ -183,24 +190,30 @@ class MemoryManager:
             content_lower = item.content.lower()
             
             # 方法1: 完整匹配
-            if query_lower in content_lower:
+            if query_lower in content_lower or content_lower in query_lower:
                 score = 0.9
-            # 方法2: 词语重叠
+            # 方法2: 字符重叠（对中文更有效）
             else:
-                content_words = set(content_lower.split())
-                overlap = len(query_words & content_words)
+                # 对于中文，按字符而非词语计算重叠
+                query_chars = set(query_lower)
+                content_chars = set(content_lower)
+                overlap = len(query_chars & content_chars)
+                
+                # 至少有一个字符重叠才考虑
                 if overlap > 0:
-                    score = 0.5 + (overlap / max(len(query_words), len(content_words))) * 0.4
+                    # 计算Jaccard相似度
+                    union = len(query_chars | content_chars)
+                    similarity = overlap / union if union > 0 else 0
+                    score = 0.2 + similarity * 0.7  # 基础分0.2，最高0.9
                 else:
-                    score = 0
+                    score = 0.1  # 即使没有重叠，也给一个基础分
             
-            if score > 0:
-                scored_items.append((item, score))
+            scored_items.append((item, score))
         
         # 按分数排序
         scored_items.sort(key=lambda x: x[1], reverse=True)
         
-        # 返回前limit个
+        # 返回前limit个（总是返回一些记忆，即使分数低）
         result = [
             ContextItem(
                 content=item.content,
@@ -213,7 +226,11 @@ class MemoryManager:
         ]
         
         if result:
-            logger.debug(f"Retrieved {len(result)} memories from local cache for query: {query}")
+            logger.info(f"✓ Retrieved {len(result)} memories from local cache (top score: {scored_items[0][1]:.2f})")
+            for i, (item, score) in enumerate(scored_items[:limit]):
+                logger.debug(f"  Memory {i+1} (score={score:.2f}): {item.content[:60]}...")
+        else:
+            logger.error(f"ERROR: scored_items is empty even though cache has {len(self._local_cache)} items!")
         
         return result
     
@@ -222,6 +239,7 @@ class MemoryManager:
         存储知识到长期记忆
         
         将提取的知识存储到长期记忆中，供后续检索使用。
+        自动去重，避免存储重复的知识。
         同时存储到本地缓存，确保备用检索可用。
         
         Args:
@@ -231,17 +249,34 @@ class MemoryManager:
             logger.debug("No knowledge to store")
             return
         
-        # 首先添加到本地缓存
+        # 去重：检查是否已存在相似的知识
+        new_knowledge = []
         for k in knowledge:
             formatted_content = f"[{k.type.value.upper()}] {k.content}"
-            self._local_cache.append(ContextItem(
-                content=formatted_content,
-                source=ContextSource.MEMORY,
-                score=k.confidence,
-                metadata=k.metadata
-            ))
+            
+            # 检查是否已存在相似内容
+            is_duplicate = False
+            for existing in self._local_cache:
+                # 简单的相似度检查：如果内容高度相似，认为是重复
+                if self._is_similar(formatted_content, existing.content):
+                    logger.debug(f"Skipping duplicate knowledge: {formatted_content[:50]}...")
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                new_knowledge.append(k)
+                self._local_cache.append(ContextItem(
+                    content=formatted_content,
+                    source=ContextSource.MEMORY,
+                    score=k.confidence,
+                    metadata=k.metadata
+                ))
         
-        logger.debug(f"Added {len(knowledge)} items to local cache, total: {len(self._local_cache)}")
+        if not new_knowledge:
+            logger.debug("All knowledge items are duplicates, nothing new to store")
+            return
+        
+        logger.debug(f"Added {len(new_knowledge)} new items to local cache (filtered {len(knowledge) - len(new_knowledge)} duplicates), total: {len(self._local_cache)}")
         
         # 然后尝试存储到 Memory Service
         if not self.memory_service:
@@ -255,8 +290,8 @@ class MemoryManager:
                 user_id=self.user_id,
             )
             
-            # 将知识作为事件添加到会话
-            for k in knowledge:
+            # 将新知识作为事件添加到会话
+            for k in new_knowledge:
                 # 格式化知识内容，包含类型标签
                 formatted_content = f"[{k.type.value.upper()}] {k.content}"
                 
@@ -270,10 +305,54 @@ class MemoryManager:
             # 持久化到 Memory Service
             await self.memory_service.add_session_to_memory(session)
             
-            logger.debug(f"Stored {len(knowledge)} knowledge items to Memory Service")
+            logger.debug(f"Stored {len(new_knowledge)} new knowledge items to Memory Service")
             
         except Exception as e:
             logger.warning(f"Failed to store knowledge to Memory Service: {str(e)}, kept in local cache")
+    
+    def _is_similar(self, text1: str, text2: str) -> bool:
+        """
+        检查两个文本是否相似（支持中文）
+        
+        使用字符级别的包含和Jaccard相似度检查。
+        
+        Args:
+            text1: 文本1
+            text2: 文本2
+            
+        Returns:
+            是否相似
+        """
+        # 去除类型标签进行比较
+        clean1 = re.sub(r'\[.*?\]\s*', '', text1).strip()
+        clean2 = re.sub(r'\[.*?\]\s*', '', text2).strip()
+        
+        if not clean1 or not clean2:
+            return False
+        
+        # 如果其中一个包含另一个，认为相似
+        if clean1 in clean2 or clean2 in clean1:
+            return True
+        
+        # 对于中文，使用字符集合而非词汇
+        chars1 = set(clean1.lower())
+        chars2 = set(clean2.lower())
+        
+        # 移除空格和标点
+        chars1 = {c for c in chars1 if c.strip() and c not in '，。！？,.!?；:：'}
+        chars2 = {c for c in chars2 if c.strip() and c not in '，。！？,.!?；:：'}
+        
+        if not chars1 or not chars2:
+            return False
+        
+        # 计算Jaccard相似度
+        intersection = len(chars1 & chars2)
+        union = len(chars1 | chars2)
+        
+        similarity = intersection / union if union > 0 else 0
+        
+        # 如果相似度超过70%，认为是重复（提高阈值，减少误判）
+        return similarity > 0.7
     
     async def seed(self, facts: List[str]) -> None:
         """
@@ -298,14 +377,16 @@ class MemoryManager:
         
         # 首先添加到本地缓存
         for fact in valid_facts:
-            self._local_cache.append(ContextItem(
+            item = ContextItem(
                 content=f"[预设知识] {fact}",
                 source=ContextSource.MEMORY,
                 score=1.0,
                 metadata={'seeded': True}
-            ))
+            )
+            self._local_cache.append(item)
+            logger.debug(f"  Added to cache: {item.content}")
         
-        logger.debug(f"Added {len(valid_facts)} seed facts to local cache")
+        logger.info(f"✓ Added {len(valid_facts)} seed facts to local cache (total cache size: {len(self._local_cache)})")
         
         # 然后尝试添加到 Memory Service
         if not self.memory_service:
