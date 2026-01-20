@@ -8,6 +8,10 @@ Core processing modules for context optimization:
 - ContextCompressor: Context compression
 - ContextReorderer: Context reordering
 - SessionManager: Session management
+- KnowledgeExtractor: Knowledge extraction
+- ConversationSummarizer: Conversation summarization
+- PostProcessor: Output post-processing
+- KVCacheManager: KV cache management
 """
 
 from .preprocessor import InputPreprocessor
@@ -17,6 +21,9 @@ from .compressor import ContextCompressor
 from .reorderer import ContextReorderer
 from .session import SessionManager
 from .extractor import KnowledgeExtractor
+from .summarizer import ConversationSummarizer
+from .postprocessor import PostProcessor
+from .kvcache import KVCacheManager
 
 __all__ = [
     "InputPreprocessor",
@@ -26,4 +33,7 @@ __all__ = [
     "ContextReorderer",
     "SessionManager",
     "KnowledgeExtractor",
+    "ConversationSummarizer",
+    "PostProcessor",
+    "KVCacheManager",
 ]
