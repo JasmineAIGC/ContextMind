@@ -65,13 +65,14 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         knowledge.extend(events)
         logger.debug(f"[Extractor] 提取事件: {len(events)} 条")
         
-        # 过滤低置信度的知识
+        # 过滤低置信度的知识 - 降低阈值以提取更多
+        min_confidence = 0.60  # 从默认0.70降低到0.60
         before_filter = len(knowledge)
-        knowledge = [k for k in knowledge if k.confidence >= self.config.min_confidence]
+        knowledge = [k for k in knowledge if k.confidence >= min_confidence]
         filtered_count = before_filter - len(knowledge)
         
         if filtered_count > 0:
-            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.config.min_confidence})")
+            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {min_confidence})")
         
         logger.info(f"[Extractor] ✓ 知识提取完成 - 总计 {len(knowledge)} 条有效知识")
         
@@ -98,12 +99,13 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             content = msg.content.strip()
             
             # 跳过过短的消息
-            if len(content) < 3:
+            if len(content) < 2:
                 continue
             
             # 正面偏好 - 提取明确的"我喜欢/我想要"等，保留完整句子
             positive_patterns = [
-                (r'我(喜欢|想要|希望|需要|偏好)(.+?)(?=[。！？,.!?；：]|$)', 'positive'),
+                (r'我(喜欢|想要|希望|需要|偏好|想|要|爱)(.+?)(?=[。！？,.!?；：]|$)', 'positive'),
+                (r'(想|要|愿意)(.+?)(?=[。！？,.!?；：]|$)', 'interest'),  # 更广泛的兴趣表达
             ]
             
             for pattern, sentiment in positive_patterns:
@@ -115,45 +117,49 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 清理尾随标点
                     phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
                     
-                    # 质量检查：长度合理（允许更长的内容），不以否定词开头
-                    if (self.config.min_phrase_length <= len(phrase) <= 100 
-                        and not phrase.startswith(('不', '没', '无'))):
+                    # 质量检查：长度合理（放宽要求），不以否定词开头
+                    if (1 <= len(phrase) <= 100 
+                        and not phrase.startswith(('不', '没', '无'))
+                        and phrase.strip()):
                         # 保留完整上下文
                         full_content = f"用户表示{keyword}{phrase}"
                         preferences.append(Knowledge(
                             content=full_content,
                             type=KnowledgeType.PREFERENCE,
-                            confidence=self.config.preference_confidence,
+                            confidence=0.80,  # 降低置信度要求以提取更多
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '偏好'}
                         ))
             
             # 负面偏好/拒绝 - 提取完整的否定对象
             negative_patterns = [
-                # 匹配：我不需要/不想/拒绝 + 名词短语（不含问号）
-                (r'我?(不喜欢|不想|不要|拒绝|不需要)([^，。！？,!?；:：的了吗呢啊]{2,15})', 'negative'),
+                # 匹配：我不需要/不想/拒绝 + 名词短语
+                (r'我?(不喜欢|不想|不要|拒绝|不需要|讨厌|反感)([^，。！？,!?；:：的了吗呢啊]{1,15})', 'negative'),
+                (r'太(麻烦|贵|复杂|难)了?', 'negative'),  # 抱怨
             ]
             
             for pattern, sentiment in negative_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
-                    keyword = match[0]
-                    phrase = match[1].strip()
+                    if isinstance(match, tuple):
+                        keyword = match[0] if len(match) > 0 else ""
+                        phrase = match[1].strip() if len(match) > 1 else match[0]
+                    else:
+                        keyword = ""
+                        phrase = match
                     
                     # 清理尾随标点和连接词
                     phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
                     phrase = re.sub(r'^[的了吗呢啊]+', '', phrase)
                     phrase = phrase.strip()
                     
-                    # 质量检查：
-                    # 1. 长度合理
-                    # 2. 不包含问号（避免"不需要小额贷款，可以有大额的吗"这样的提取）
-                    # 3. 不是纯数字或符号
-                    if (self.config.min_phrase_length <= len(phrase) <= self.config.max_phrase_length
-                        and '吗' not in phrase and '?' not in phrase and not phrase.isdigit()):
+                    # 质量检查 - 放宽要求
+                    if (1 <= len(phrase) <= self.config.max_phrase_length
+                        and phrase.strip()):
+                        content_str = f"{keyword}{phrase}" if keyword else phrase
                         preferences.append(Knowledge(
-                            content=f"{keyword}{phrase}",  # 简化格式，移除冗余标签
+                            content=content_str,
                             type=KnowledgeType.PREFERENCE,
-                            confidence=self.config.preference_confidence,
+                            confidence=0.80,
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '拒绝'}
                         ))
         
@@ -191,17 +197,21 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             
             content = msg.content
             
-            # 用户属性提取 - 聚焦个人信息
+            # 用户属性提取 - 更广泛的模式
             fact_patterns = [
                 (r'我(是|在|做)(.{2,20})(工作|职业|行业)', '职业'),
                 (r'我(今年|已经)(.{1,3})(岁|周岁)', '年龄'),
                 (r'我(住在|在|来自|是)(.{2,10})(人|地方|城市)', '位置'),
-                (r'我是(.{2,10})人', '位置'),  # "我是重庆人"
+                (r'我是(.{2,10})人', '位置'),
                 (r'我(喜欢|爱好|爱)(吃|玩|看|听|做)(.{2,15})', '爱好'),
-                (r'我喜欢(.{2,15})', '爱好'),  # 通用爱好提取
+                (r'我喜欢(.{2,15})', '爱好'),
                 (r'我叫(.{2,8})', '姓名'),
                 (r'我(有|没有)(.{2,15})(工作|收入|存款|房|车)', '经济状况'),
                 (r'我(开|买了|有)(.{2,10})(车|房)', '资产'),
+                # 新增：更多用户信息模式
+                (r'我(.{1,5})(岁|年|周岁)', '年龄'),
+                (r'(我的|我)(.{1,8})(号码|电话|手机|身份证)', '联系方式'),
+                (r'我(学|毕业于|在)(.{2,15})(学校|大学|专业)', '教育'),
             ]
             
             for pattern, category in fact_patterns:
@@ -213,8 +223,9 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                         if category == '位置' and len(match) >= 2:
                             fact = match[1].strip()
                         elif category == '爱好' and len(match) >= 3:
-                            # 合并动词和宾语
                             fact = (match[1] + match[2]).strip() if len(match) > 2 else match[1].strip()
+                        elif category == '年龄' and len(match) >= 1:
+                            fact = match[0].strip() if len(match) == 1 else match[1].strip()
                         elif len(match) >= 2:
                             fact = match[1].strip()
                         else:
@@ -225,13 +236,13 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 清理尾随标点
                     fact = re.sub(r'[，。！？,.!?；:：]+$', '', fact)
                     
-                    # 质量检查：长度合理，不是空白
-                    if (self.config.min_phrase_length <= len(fact) <= self.config.max_phrase_length 
+                    # 质量检查 - 放宽要求
+                    if (1 <= len(fact) <= self.config.max_phrase_length 
                         and fact.strip()):
                         facts.append(Knowledge(
-                            content=f"{category}: {fact}",  # 简化格式
+                            content=f"{category}: {fact}",
                             type=KnowledgeType.FACT,
-                            confidence=self.config.fact_confidence,
+                            confidence=0.70,  # 降低置信度要求
                             metadata={'category': category}
                         ))
         
@@ -251,40 +262,45 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                 
             content = msg.content
             
-            # 用户意向和决策
+            # 用户意向和决策 - 更宽泛的模式
             decision_patterns = [
-                (r'(我要|我想|我需要|我打算|我决定)([^，。！？,!?；:：吗呢啊]{3,20})', '意向'),
-                # 注意：不提取单独的"同意"、"可以"、"好的"等短语，因为它们依赖上下文
-                # 只在有明确对象时才提取
-                (r'(同意|接受|确认)(申请|开通|办理|提升|使用)(.{0,10})', '确认'),
+                (r'(我要|我想|我需要|我打算|我决定|想|要|需要)([^，。！？,!?；:：吗呢啊]{2,20})', '意向'),
+                (r'(同意|接受|确认|可以|好的|行|没问题)(申请|开通|办理|提升|使用|查询)?(.{0,10})', '确认'),
+                (r'(查|办|申请|提升|开通)(.{0,15})', '操作意向'),  # 简单的动作意向
             ]
             
             for pattern, category in decision_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
-                    keyword = match[0]
-                    # 合并所有捕获组作为detail
-                    if len(match) > 2:
-                        detail = (match[1] + match[2]).strip()
+                    if isinstance(match, tuple):
+                        keyword = match[0] if len(match) > 0 else ""
+                        # 合并所有捕获组作为detail
+                        if len(match) > 2:
+                            detail = (match[1] + match[2]).strip()
+                        else:
+                            detail = match[1].strip() if len(match) > 1 else match[0]
                     else:
-                        detail = match[1].strip() if len(match) > 1 else ""
+                        keyword = ""
+                        detail = match
                     
-                    # 如果detail为空、太短，或是疑问句，跳过
-                    if not detail or len(detail) < 3:
-                        continue
+                    # 如果detail为空或太短，使用原始匹配
+                    if not detail or len(detail) < 1:
+                        detail = keyword
+                        keyword = ""
                     
                     # 清理尾随标点和连接词
                     detail = re.sub(r'[，。！？,.!?；:：]+$', '', detail)
                     detail = re.sub(r'^[的了吗呢啊]+', '', detail)
                     detail = detail.strip()
                     
-                    # 质量检查：不包含问号（避免提取疑问句片段）
-                    if (3 <= len(detail) <= self.config.max_phrase_length 
-                        and '吗' not in detail and '?' not in detail):
+                    # 质量检查 - 放宽要求
+                    if (1 <= len(detail) <= self.config.max_phrase_length 
+                        and detail.strip()):
+                        content_str = f"{keyword}{detail}" if keyword else detail
                         events.append(Knowledge(
-                            content=f"{keyword}{detail}",  # 简化格式
+                            content=content_str,
                             type=KnowledgeType.EVENT,
-                            confidence=self.config.event_confidence,
+                            confidence=0.75,  # 降低置信度要求
                             metadata={'keyword': keyword, 'category': category}
                         ))
         
