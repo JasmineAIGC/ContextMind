@@ -1,6 +1,6 @@
 """
-ContextMind - 专业的上下文优化框架 v5.2
-ContextMind - Professional Context Optimization Framework v5.2
+ContextMind - 专业的上下文优化框架 v6.0
+ContextMind - Professional Context Optimization Framework v6.0
 
 完全通用化的上下文工程框架，支持任意对话场景
 Fully generalized context engineering framework supporting any dialogue scenario
@@ -12,8 +12,24 @@ Fully generalized context engineering framework supporting any dialogue scenario
 - ContextCompressor: 上下文压缩 / Context compression
 - ContextReorderer: 上下文重排序 / Context reordering
 - KnowledgeExtractor: 知识提取 / Knowledge extraction
+- PostProcessor: 输出后处理 / Output post-processing  
+- ConversationSummarizer: 对话摘要 / Conversation summarization
+- KVCacheManager: KV缓存管理 / KV cache management
 
-架构设计 (v5.2 - 清晰的5层架构):
+NEW in v6.0 - Plugin System:
+Context{
+    from contextmind import registry
+    
+    # List available plugins
+    print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
+    print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
+    
+    # Get plugins
+    extractor = registry.get_extractor('rule_based')
+    retriever = registry.get_retriever('hybrid')
+}
+
+架构设计 (v6.0 - Modular Plugin Architecture):
 ┌─────────────────────────────────────────┐
 │  应用层 (Application Layer)              │  ← examples/applications/
 │  - 基于框架构建的具体应用                 │
@@ -30,8 +46,8 @@ Fully generalized context engineering framework supporting any dialogue scenario
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│  策略层 (Strategy Layer)                 │  ← strategies/
-│  - 可插拔的算法实现                       │
+│  策略层 (Strategy/Plugin Layer)          │  ← strategies/memory/
+│  - 可插拔的算法实现 (Plugin System)       │  ← registry
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
@@ -41,12 +57,16 @@ Fully generalized context engineering framework supporting any dialogue scenario
 │  - 适配器 (adapters/)                     │
 └─────────────────────────────────────────┘
 
-v5.2 核心改进：
-- ✨ 代码清理：移除冗余代码，提升可维护性
-- ✨ 结构优化：明确职责划分，减少代码重复
-- ✨ 完全通用：零场景硬编码，支持任意对话类型
-- ✨ 更好抽象：清晰的接口和一致的命名规范
+v6.0 核心改进：
+- ✨ Plugin System: 统一的插件注册和发现机制
+- ✨ Modular Architecture: 所有算法都可通过插件替换
+- ✨ Easy Integration: 简化的API和插件registry
+- ✨ Enhanced Observability: 改进的日志系统
+- ✨ Code Cleanup: 移除冗余代码，提升可维护性
 """
+
+# Plugin Registry (NEW in v6.0)
+from .registry import registry, PluginRegistry
 
 # 核心引擎
 from .engine import ContextEngine
@@ -145,6 +165,10 @@ from .utils import (
 )
 
 __all__ = [
+    # Plugin System (NEW in v6.0)
+    "registry",
+    "PluginRegistry",
+    
     # 核心引擎
     "ContextEngine",
     
@@ -237,4 +261,4 @@ __all__ = [
     "ContextMetrics",
 ]
 
-__version__ = "5.2.0"  # 当前版本 Current version
+__version__ = "6.0.0"  # 当前版本 Current version - Plugin System Added
