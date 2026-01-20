@@ -1,6 +1,6 @@
 # ContextMind Demos
 
-This directory contains all demonstration and example code for ContextMind v6.0.
+This directory contains all demonstration and example code for ContextMind v7.0.
 
 ## Directory Structure
 
@@ -50,9 +50,9 @@ python demos/applications/callcenter_app.py
 python demos/applications/chat_app.py
 ```
 
-## v6.0 Architecture
+## v7.0 Architecture
 
-All demos use the clean v6.0 ContextMind architecture:
+All demos use the clean v7.0 ContextMind architecture:
 - Pure context engineering framework (Steps 1-4 + 6)
 - LLM invocation (Step 5) handled externally
 - Modular plugin system for all components
