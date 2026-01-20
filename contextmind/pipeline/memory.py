@@ -173,7 +173,7 @@ class MemoryBank:
         
         if not self.memory_service:
             logger.debug("[MemoryBank] Memory Service 未配置，使用本地缓存检索")
-            return self._retrieve_from_cache(query, limit)
+            return await self._retrieve_from_cache(query, limit)
         
         try:
             # 调用 Memory Service 搜索
@@ -205,13 +205,13 @@ class MemoryBank:
             
             # Memory Service 未返回结果，使用本地缓存备用
             logger.debug(f"No memories from Memory Service, falling back to local cache (size={len(self._local_cache)})")
-            return self._retrieve_from_cache(query, limit)
+            return await self._retrieve_from_cache(query, limit)
             
         except Exception as e:
             logger.warning(f"Failed to retrieve memories from Memory Service: {str(e)}, using local cache")
-            return self._retrieve_from_cache(query, limit)
+            return await self._retrieve_from_cache(query, limit)
     
-    def _retrieve_from_cache(self, query: str, limit: int = 5) -> List[ContextItem]:
+    async def _retrieve_from_cache(self, query: str, limit: int = 5) -> List[ContextItem]:
         """
         从本地缓存检索相关记忆
         
@@ -241,8 +241,7 @@ class MemoryBank:
         
         # Use plugin retriever if available
         if self._retriever:
-            import asyncio
-            return asyncio.run(self._retriever.retrieve(query, self._local_cache, limit))
+            return await self._retriever.retrieve(query, self._local_cache, limit)
         
         # Fallback to internal implementation
         return self._retrieve_from_cache_internal(query, limit)

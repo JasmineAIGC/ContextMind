@@ -240,6 +240,7 @@ class HybridRetriever(BaseRetriever):
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
         self.semantic_weight = semantic_weight
         self.keyword_weight = keyword_weight
+        self._fallback = None  # Lazy initialization
         logger.info(f"[HybridRetriever] Initialized (placeholder) - semantic={semantic_weight}, keyword={keyword_weight}")
     
     async def retrieve(
@@ -267,10 +268,13 @@ class HybridRetriever(BaseRetriever):
             Retrieved memories (currently uses fallback)
         """
         logger.debug("[HybridRetriever] Using fallback to SemanticSearchRetriever (not yet implemented)")
-        
-        # Fallback to semantic search for now
-        fallback = SemanticSearchRetriever(self.config)
-        return await fallback.retrieve(query, memory_cache, limit)
+        return await self._get_fallback_retriever().retrieve(query, memory_cache, limit)
+    
+    def _get_fallback_retriever(self) -> SemanticSearchRetriever:
+        """Get or create fallback retriever (lazy initialization)"""
+        if self._fallback is None:
+            self._fallback = SemanticSearchRetriever(self.config)
+        return self._fallback
 
 
 class LocatorRetriever(BaseRetriever):
@@ -304,6 +308,7 @@ class LocatorRetriever(BaseRetriever):
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
         self.use_metadata = use_metadata
+        self._fallback = None  # Lazy initialization
         logger.info(f"[LocatorRetriever] Initialized (placeholder) - metadata={use_metadata}")
     
     async def retrieve(
@@ -331,7 +336,10 @@ class LocatorRetriever(BaseRetriever):
             Retrieved memories (currently uses fallback)
         """
         logger.debug("[LocatorRetriever] Using fallback to SemanticSearchRetriever (not yet implemented)")
-        
-        # Fallback to semantic search for now
-        fallback = SemanticSearchRetriever(self.config)
-        return await fallback.retrieve(query, memory_cache, limit)
+        return await self._get_fallback_retriever().retrieve(query, memory_cache, limit)
+    
+    def _get_fallback_retriever(self) -> SemanticSearchRetriever:
+        """Get or create fallback retriever (lazy initialization)"""
+        if self._fallback is None:
+            self._fallback = SemanticSearchRetriever(self.config)
+        return self._fallback

@@ -290,8 +290,33 @@ class AdaptiveEvictionUpdater(BaseUpdater):
         fallback = SimpleUpdater()
         updated_cache = await fallback.update(memory_cache, new_knowledge)
         
-        # TODO: Add eviction logic here when cache exceeds max_cache_size
-        # if len(updated_cache) > self.max_cache_size:
-        #     updated_cache = self._evict_low_value_memories(updated_cache)
+        # Future: Add eviction logic when cache exceeds max_cache_size
+        # This would involve:
+        # 1. Calculating importance scores for all cached items
+        # 2. Sorting by importance (combining recency, access frequency, and score)
+        # 3. Evicting lowest-importance items to reach target size
+        # Example implementation (when importance scoring is ready):
+        #   if len(updated_cache) > self.max_cache_size:
+        #       updated_cache = self._evict_low_value_memories(updated_cache)
         
         return updated_cache
+    
+    def _evict_low_value_memories(self, cache: List[ContextItem]) -> List[ContextItem]:
+        """
+        Evict low-value memories to maintain cache size (placeholder)
+        
+        This method would intelligently remove memories with low importance
+        scores while preserving high-value and recent items.
+        
+        Args:
+            cache: Current memory cache
+            
+        Returns:
+            Cache after eviction
+        """
+        # TODO: Implement when importance scoring is available
+        # Current implementation just truncates to max_cache_size
+        if len(cache) > self.max_cache_size:
+            # Keep most recent items (simple strategy)
+            return cache[-self.max_cache_size:]
+        return cache

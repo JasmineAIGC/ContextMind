@@ -339,8 +339,31 @@ class ImportancePredictorExtractor(BaseExtractor):
         fallback = RuleBasedExtractor(self.config)
         knowledge = await fallback.extract(messages)
         
-        # TODO: Add importance prediction scoring here
-        # for item in knowledge:
-        #     item.confidence *= self._predict_importance(item)
+        # Future: Add importance prediction scoring here
+        # This would involve:
+        # 1. Loading/initializing the importance prediction model
+        # 2. Scoring each knowledge item based on predicted long-term value
+        # 3. Filtering items below importance threshold
+        # Example implementation (when model is available):
+        #   for item in knowledge:
+        #       importance_score = self._predict_importance(item)
+        #       item.confidence *= importance_score
         
         return knowledge
+    
+    def _predict_importance(self, knowledge: Knowledge) -> float:
+        """
+        Predict importance score for a knowledge item (placeholder)
+        
+        This method would use a trained model to predict how important
+        this knowledge will be for future conversations.
+        
+        Args:
+            knowledge: Knowledge item to score
+            
+        Returns:
+            Importance score (0-1)
+        """
+        # TODO: Implement when model is available
+        # Current implementation returns neutral score
+        return 1.0
