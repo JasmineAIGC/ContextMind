@@ -1,54 +1,41 @@
 """
-ContextMind Strategies - 策略模块
+Strategies module for ContextMind v6.0
 
-提供可插拔的策略实现，用于自定义上下文处理的各个环节。
+This module contains plugin-based strategies for context engineering:
+- Base strategy interfaces (base.py)
+- Knowledge extraction plugins (extractors.py)
+- Memory retrieval plugins (retrievers.py)
+- Memory update plugins (updaters.py)
+
+All strategies follow a plugin architecture pattern for easy swapping and extension.
 """
 
 from .base import (
-    RetrievalStrategy,
-    IntegrationStrategy,
-    OptimizationStrategy,
     ExtractionStrategy,
-)
-from .retrieval import (
-    KeywordRetrievalStrategy,
-    VectorRetrievalStrategy,
-    HybridRetrievalStrategy,
-)
-from .integration import (
-    SimpleIntegrationStrategy,
-    PriorityIntegrationStrategy,
-)
-from .optimization import (
+    RetrievalStrategy,
+    UpdateStrategy,
     CompressionStrategy,
-    RerankingStrategy,
-)
-from .extraction import (
-    RuleBasedExtractionStrategy,
-    LLMExtractionStrategy,
+    ReorderStrategy,
+    PostProcessorStrategy,
+    SummarizerStrategy,
+    KVCacheManagerStrategy
 )
 
+# Plugin implementations
+from . import extractors, retrievers, updaters
+
 __all__ = [
-    # 基类
-    "RetrievalStrategy",
-    "IntegrationStrategy",
-    "OptimizationStrategy",
-    "ExtractionStrategy",
-    
-    # 检索策略
-    "KeywordRetrievalStrategy",
-    "VectorRetrievalStrategy",
-    "HybridRetrievalStrategy",
-    
-    # 整合策略
-    "SimpleIntegrationStrategy",
-    "PriorityIntegrationStrategy",
-    
-    # 优化策略
-    "CompressionStrategy",
-    "RerankingStrategy",
-    
-    # 提取策略
-    "RuleBasedExtractionStrategy",
-    "LLMExtractionStrategy",
+    # Base strategy interfaces
+    'ExtractionStrategy',
+    'RetrievalStrategy',
+    'UpdateStrategy',
+    'CompressionStrategy',
+    'ReorderStrategy',
+    'PostProcessorStrategy',
+    'SummarizerStrategy',
+    'KVCacheManagerStrategy',
+    # Plugin modules
+    'extractors',
+    'retrievers',
+    'updaters',
 ]
