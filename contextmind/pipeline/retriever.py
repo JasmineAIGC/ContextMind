@@ -66,6 +66,9 @@ class ContextRetriever:
         Returns:
             检索到的上下文
         """
+        logger.info(f"[Retriever] 开始检索上下文 - 查询: '{query[:30]}{'...' if len(query) > 30 else ''}'")
+        logger.debug(f"[Retriever] 检索配置 - 会话历史: {include_session}, 长期记忆: {include_memory}, 外部知识: {include_knowledge}")
+        
         context = ProcessedContext()
         
         # 检索会话历史
@@ -79,13 +82,23 @@ class ContextRetriever:
                         timestamp=msg.timestamp,
                         metadata=msg.metadata
                     ))
-                logger.debug(f"Retrieved {len(history)} session messages")
+                logger.info(f"[Retriever] ✓ 会话历史检索完成 - 获取 {len(history)} 条对话")
+                if history:
+                    logger.debug(f"[Retriever] 会话历史详情:")
+                    for i, msg in enumerate(history[:3], 1):  # Show first 3 for brevity
+                        logger.debug(f"  {i}. [{msg.role.value}] {msg.content[:60]}...")
+                    if len(history) > 3:
+                        logger.debug(f"  ... 以及其他 {len(history) - 3} 条对话")
             except Exception as e:
-                logger.warning(f"Session retrieval failed: {e}")
+                logger.warning(f"[Retriever] ✗ 会话历史检索失败: {e}")
         
         # 检索长期记忆
         if include_memory and self.memory_bank:
             try:
+                # Log memory bank state before retrieval
+                cache_size = len(self.memory_bank.get_memory_cache())
+                logger.info(f"[Retriever] 准备从记忆库检索 - 当前记忆库大小: {cache_size}")
+                
                 memories = await self.memory_bank.retrieve(query)
                 for item in memories:
                     context.add_item(ContextItem(
@@ -93,12 +106,24 @@ class ContextRetriever:
                         source=ContextSource.MEMORY,
                         metadata={"score": item.score}
                     ))
-                logger.debug(f"Retrieved {len(memories)} memories")
+                
+                if memories:
+                    logger.info(f"[Retriever] ✓ 长期记忆检索完成 - 获取 {len(memories)} 条记忆")
+                    logger.debug(f"[Retriever] 检索到的记忆详情:")
+                    for i, mem in enumerate(memories, 1):
+                        logger.debug(f"  {i}. [score={mem.score:.2f}] {mem.content[:80]}...")
+                else:
+                    logger.warning(f"[Retriever] ✗ 未检索到相关记忆 (记忆库大小: {cache_size})")
             except Exception as e:
-                logger.warning(f"Memory retrieval failed: {e}")
+                logger.warning(f"[Retriever] ✗ 长期记忆检索失败: {e}")
+        elif include_memory and not self.memory_bank:
+            logger.warning(f"[Retriever] ✗ 长期记忆未启用 - 记忆库未初始化")
         
         # 检索外部知识（预留）
         if include_knowledge:
-            logger.debug("External knowledge retrieval not implemented")
+            logger.debug("[Retriever] 外部知识检索未实现")
+        
+        total_items = len(context.items)
+        logger.info(f"[Retriever] 检索完成 - 总共获取 {total_items} 条上下文项")
         
         return context

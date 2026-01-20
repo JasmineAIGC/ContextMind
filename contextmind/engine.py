@@ -172,29 +172,56 @@ class ContextEngine:
         Raises:
             ValueError: 如果输入无效
         """
-        logger.debug(f"Optimizing context for input: {user_input}")
+        logger.info(f"[ContextEngine] ========== 开始上下文优化 ==========")
+        logger.info(f"[ContextEngine] 用户输入: '{user_input[:60]}{'...' if len(user_input) > 60 else ''}'")
+        logger.debug(f"[ContextEngine] 配置 - 会话历史: {include_session}, 长期记忆: {include_memory}, 外部知识: {include_knowledge}")
         
         # 1. 预处理输入
+        logger.debug(f"[ContextEngine] 步骤 1/4: 预处理输入")
         processed_input = await self.preprocessor.process(user_input)
+        logger.debug(f"[ContextEngine] 预处理完成: '{processed_input[:60]}...'")
         
         # 2. 检索上下文（RAG）
+        logger.debug(f"[ContextEngine] 步骤 2/4: 检索上下文")
         retrieved_context = await self.retriever.retrieve(
             query=processed_input,
             include_session=include_session,
             include_memory=include_memory,
             include_knowledge=include_knowledge,
         )
+        logger.debug(f"[ContextEngine] 检索完成 - 获得 {len(retrieved_context.items)} 个上下文项")
         
         # 3. 重排序上下文
+        logger.debug(f"[ContextEngine] 步骤 3/4: 重排序上下文")
         reordered_context = await self.reorderer.reorder(retrieved_context)
+        logger.debug(f"[ContextEngine] 重排序完成")
         
         # 4. 压缩上下文
+        logger.debug(f"[ContextEngine] 步骤 4/4: 压缩上下文")
         compressed_result = await self.compressor.compress(reordered_context)
         
-        logger.debug(
-            f"Context optimized: {len(compressed_result.recent_history)} history, "
-            f"{len(compressed_result.long_term_memory)} memory items"
+        # Log final result with details
+        logger.info(
+            f"[ContextEngine] ✓ 上下文优化完成 - "
+            f"会话历史: {len(compressed_result.recent_history)} 条, "
+            f"长期记忆: {len(compressed_result.long_term_memory)} 条, "
+            f"外部知识: {len(compressed_result.external_knowledge)} 条"
         )
+        
+        # Log details of what was included
+        if compressed_result.recent_history:
+            logger.debug(f"[ContextEngine] 会话历史详情:")
+            for i, msg in enumerate(compressed_result.recent_history[:3], 1):
+                logger.debug(f"  {i}. {msg.content[:80]}...")
+            if len(compressed_result.recent_history) > 3:
+                logger.debug(f"  ... 以及其他 {len(compressed_result.recent_history) - 3} 条")
+        
+        if compressed_result.long_term_memory:
+            logger.debug(f"[ContextEngine] 长期记忆详情:")
+            for i, mem in enumerate(compressed_result.long_term_memory, 1):
+                logger.debug(f"  {i}. {mem.content[:80]}...")
+        
+        logger.info(f"[ContextEngine] ========== 上下文优化结束 ==========")
         
         return compressed_result
     
@@ -212,7 +239,9 @@ class ContextEngine:
             user_input: 用户输入
             assistant_response: 助手回复
         """
-        logger.debug(f"Updating context with new messages")
+        logger.info(f"[ContextEngine] 更新上下文 - 添加新对话")
+        logger.debug(f"[ContextEngine] 用户: {user_input[:60]}...")
+        logger.debug(f"[ContextEngine] 助手: {assistant_response[:60]}...")
         
         # 添加用户消息
         await self.session_manager.add_message(
@@ -226,7 +255,7 @@ class ContextEngine:
             content=assistant_response
         )
         
-        logger.debug("Context updated successfully")
+        logger.info("[ContextEngine] ✓ 上下文更新完成")
     
     async def extract_knowledge(
         self,
@@ -243,24 +272,35 @@ class ContextEngine:
         Returns:
             提取的知识列表
         """
-        logger.debug("Extracting knowledge from recent conversation")
+        logger.info("[ContextEngine] ========== 开始知识提取 ==========")
         
         # 获取最近的对话历史
         messages = await self.session_manager.get_recent_history()
         
         if not messages:
-            logger.debug("No messages to extract knowledge from")
+            logger.info("[ContextEngine] 没有对话历史可供提取知识")
             return []
+        
+        logger.info(f"[ContextEngine] 准备从 {len(messages)} 条对话中提取知识")
         
         # 提取知识
         knowledge = await self.extractor.extract(messages)
         
+        if not knowledge:
+            logger.info("[ContextEngine] 未提取到任何知识")
+            return []
+        
+        logger.info(f"[ContextEngine] ✓ 知识提取完成 - 提取到 {len(knowledge)} 条知识")
+        logger.debug(f"[ContextEngine] 提取的知识详情:")
+        for i, k in enumerate(knowledge, 1):
+            logger.debug(f"  {i}. [{k.type.value}] {k.content[:80]}... (置信度: {k.confidence:.2f})")
+        
         # 自动存储到长期记忆
-        if auto_store and knowledge:
+        if auto_store:
+            logger.info(f"[ContextEngine] 存储知识到长期记忆...")
             await self.memory_bank.store(knowledge)
-            logger.info(f"Extracted and stored {len(knowledge)} knowledge items")
-        else:
-            logger.info(f"Extracted {len(knowledge)} knowledge items")
+        
+        logger.info(f"[ContextEngine] ========== 知识提取结束 ==========")
         
         return knowledge
     

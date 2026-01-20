@@ -363,6 +363,13 @@ class GradioDemo:
                 assistant_response=response
             )
             
+            # 提取并存储知识到长期记忆（如果启用了记忆功能）
+            if self.use_memory:
+                try:
+                    await engine.extract_knowledge(auto_store=True)
+                except Exception as e:
+                    local_logger.warning(f"知识提取失败: {e}")
+            
             processing_time = time.time() - start_time
             
             # 构建结果
@@ -386,15 +393,24 @@ class GradioDemo:
     
     def _build_prompt(self, user_input: str, context_result) -> str:
         """构建 LLM prompt"""
+        from contextmind.utils.logger import get_logger, DEBUG, ContextMindLogger
+        local_logger = get_logger(__name__)
+        
+        local_logger.debug("[Prompt] 开始构建Prompt")
+        
         prompt_parts = [self._get_base_prompt()]
         
         # 添加长期记忆（如果有）
         if context_result.long_term_memory:
+            memory_items = context_result.long_term_memory[:3]
             memory_text = "\n".join(
                 f"- {item.content}"
-                for item in context_result.long_term_memory[:3]
+                for item in memory_items
             )
             prompt_parts.append(f"\n## 用户历史信息\n{memory_text}")
+            local_logger.debug(f"[Prompt] 添加长期记忆: {len(memory_items)} 条")
+        else:
+            local_logger.debug("[Prompt] 无长期记忆")
         
         # 添加对话历史
         if context_result.recent_history:
@@ -403,6 +419,9 @@ class GradioDemo:
                 for msg in context_result.recent_history
             )
             prompt_parts.append(f"\n## 近期对话\n{history_text}")
+            local_logger.debug(f"[Prompt] 添加对话历史: {len(context_result.recent_history)} 条")
+        else:
+            local_logger.debug("[Prompt] 无对话历史")
         
         # 添加当前用户输入
         prompt_parts.append(f"\n## 当前用户输入\nuser: {user_input}")
@@ -410,7 +429,19 @@ class GradioDemo:
         # 添加回复指令
         prompt_parts.append("\n请根据以上信息，给出合适的回复：")
         
-        return "\n".join(prompt_parts)
+        final_prompt = "\n".join(prompt_parts)
+        
+        # 在DEBUG模式下输出完整prompt
+        is_debug = ContextMindLogger.get_current_level() <= DEBUG
+        if is_debug:
+            local_logger.debug(f"[Prompt] 完整Prompt内容 ({len(final_prompt)} 字符):")
+            local_logger.debug("=" * 80)
+            local_logger.debug(final_prompt)
+            local_logger.debug("=" * 80)
+        else:
+            local_logger.debug(f"[Prompt] 构建完成 - 总长度: {len(final_prompt)} 字符")
+        
+        return final_prompt
     
         
     def create_interface(self):

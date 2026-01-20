@@ -123,11 +123,21 @@ class MemoryBank:
         Returns:
             上下文条目列表，按相关性排序
         """
-        logger.debug(f"retrieve() called with query='{query}', limit={limit}")
-        logger.debug(f"Memory service configured: {self.memory_service is not None}, Cache size: {len(self._local_cache)}")
+        logger.info(f"[MemoryBank] 开始检索记忆 - 查询: '{query[:50]}{'...' if len(query) > 50 else ''}'")
+        logger.debug(f"[MemoryBank] 记忆库状态 - Memory Service: {'已配置' if self.memory_service else '未配置'}, 本地缓存大小: {len(self._local_cache)}")
+        
+        # Log current memory bank contents
+        if self._local_cache:
+            logger.debug(f"[MemoryBank] 当前记忆库内容 ({len(self._local_cache)} 条):")
+            for i, item in enumerate(self._local_cache[:5], 1):  # Show first 5
+                logger.debug(f"  {i}. {item.content[:80]}...")
+            if len(self._local_cache) > 5:
+                logger.debug(f"  ... 以及其他 {len(self._local_cache) - 5} 条记忆")
+        else:
+            logger.warning(f"[MemoryBank] ⚠️ 记忆库为空 - 没有可检索的记忆")
         
         if not self.memory_service:
-            logger.debug("Memory service is not configured, using local cache")
+            logger.debug("[MemoryBank] Memory Service 未配置，使用本地缓存检索")
             return self._retrieve_from_cache(query, limit)
         
         try:
@@ -185,10 +195,10 @@ class MemoryBank:
         Returns:
             匹配的上下文条目列表
         """
-        logger.debug(f"_retrieve_from_cache called with query='{query}', cache size={len(self._local_cache)}")
+        logger.info(f"[MemoryBank] 从本地缓存检索 - 查询: '{query[:50]}', 缓存大小: {len(self._local_cache)}")
         
         if not self._local_cache:
-            logger.warning("Local cache is empty! No memories to retrieve.")
+            logger.warning("[MemoryBank] ✗ 本地缓存为空 - 无法检索记忆")
             return []
         
         query_lower = query.lower()
@@ -270,11 +280,12 @@ class MemoryBank:
         ]
         
         if result:
-            logger.info(f"✓ Retrieved {len(result)} memories from local cache (top score: {filtered_items[0][1]:.2f})")
+            logger.info(f"[MemoryBank] ✓ 本地缓存检索成功 - 找到 {len(result)} 条相关记忆 (最高分: {filtered_items[0][1]:.2f})")
+            logger.debug(f"[MemoryBank] 检索结果详情:")
             for i, (item, score) in enumerate(filtered_items[:limit]):
-                logger.debug(f"  Memory {i+1} (score={score:.2f}): {item.content[:60]}...")
+                logger.debug(f"  {i+1}. [score={score:.2f}] {item.content[:80]}...")
         else:
-            logger.warning(f"No relevant memories found for query: {query}")
+            logger.warning(f"[MemoryBank] ✗ 未找到相关记忆 - 查询: '{query}'")
         
         return result
     
@@ -346,8 +357,10 @@ class MemoryBank:
             knowledge: 知识列表
         """
         if not knowledge:
-            logger.debug("No knowledge to store")
+            logger.debug("[MemoryBank] 没有知识需要存储")
             return
+        
+        logger.info(f"[MemoryBank] 开始存储知识 - 收到 {len(knowledge)} 条知识项")
         
         # 去重：检查是否已存在相似的知识
         new_knowledge = []
@@ -359,29 +372,33 @@ class MemoryBank:
             for existing in self._local_cache:
                 # 简单的相似度检查：如果内容高度相似，认为是重复
                 if self._is_similar(formatted_content, existing.content):
-                    logger.debug(f"Skipping duplicate knowledge: {formatted_content[:50]}...")
+                    logger.debug(f"[MemoryBank] 跳过重复知识: {formatted_content[:50]}...")
                     is_duplicate = True
                     break
             
             if not is_duplicate:
                 new_knowledge.append(k)
-                self._local_cache.append(ContextItem(
+                item = ContextItem(
                     content=formatted_content,
                     source=ContextSource.MEMORY,
                     score=k.confidence,
                     metadata=k.metadata
-                ))
+                )
+                self._local_cache.append(item)
+                logger.debug(f"[MemoryBank] ✓ 已存储: {formatted_content[:80]}...")
         
         if not new_knowledge:
-            logger.debug("All knowledge items are duplicates, nothing new to store")
+            logger.info("[MemoryBank] 所有知识项均为重复，未存储新内容")
             return
         
-        logger.debug(f"Added {len(new_knowledge)} new items to local cache (filtered {len(knowledge) - len(new_knowledge)} duplicates), total: {len(self._local_cache)}")
+        logger.info(f"[MemoryBank] ✓ 存储完成 - 新增 {len(new_knowledge)} 条知识 (过滤 {len(knowledge) - len(new_knowledge)} 条重复)")
+        logger.info(f"[MemoryBank] 当前记忆库总计: {len(self._local_cache)} 条记忆")
         
         # 注意：Memory Service 存储功能已禁用（需要外部服务支持）
         # 当前所有知识仅存储在本地缓存中
         if self.memory_service:
-            logger.debug("Memory service available but external storage not implemented - using local cache only")
+            logger.debug("[MemoryBank] Memory Service 可用但外部存储未实现 - 仅使用本地缓存")
+
     
     def _is_similar(self, text1: str, text2: str) -> bool:
         """

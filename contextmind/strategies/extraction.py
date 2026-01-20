@@ -46,21 +46,41 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         Returns:
             提取的知识列表
         """
+        logger.info(f"[Extractor] 开始基于规则的知识提取 - 处理 {len(messages)} 条消息")
+        
         knowledge = []
         
         # 提取偏好
-        knowledge.extend(self._extract_preferences(messages))
+        preferences = self._extract_preferences(messages)
+        knowledge.extend(preferences)
+        logger.debug(f"[Extractor] 提取偏好: {len(preferences)} 条")
         
         # 提取事实
-        knowledge.extend(self._extract_facts(messages))
+        facts = self._extract_facts(messages)
+        knowledge.extend(facts)
+        logger.debug(f"[Extractor] 提取事实: {len(facts)} 条")
         
         # 提取事件
-        knowledge.extend(self._extract_events(messages))
+        events = self._extract_events(messages)
+        knowledge.extend(events)
+        logger.debug(f"[Extractor] 提取事件: {len(events)} 条")
         
         # 过滤低置信度的知识
+        before_filter = len(knowledge)
         knowledge = [k for k in knowledge if k.confidence >= self.config.min_confidence]
+        filtered_count = before_filter - len(knowledge)
         
-        logger.debug(f"RuleBasedExtraction: extracted {len(knowledge)} knowledge items")
+        if filtered_count > 0:
+            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.config.min_confidence})")
+        
+        logger.info(f"[Extractor] ✓ 知识提取完成 - 总计 {len(knowledge)} 条有效知识")
+        
+        if knowledge:
+            logger.debug(f"[Extractor] 提取的知识详情:")
+            for i, k in enumerate(knowledge[:5], 1):  # Show first 5
+                logger.debug(f"  {i}. [{k.type.value}] {k.content[:60]}... (置信度: {k.confidence:.2f})")
+            if len(knowledge) > 5:
+                logger.debug(f"  ... 以及其他 {len(knowledge) - 5} 条知识")
         
         return knowledge
     
