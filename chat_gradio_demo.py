@@ -1,8 +1,13 @@
 """
-ContextMind v5.1 闲聊 Gradio Demo
+ContextMind v6.0 闲聊 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 适用于日常闲聊场景，支持上下文理解和长期记忆。
+
+v6.0 新特性：
+- 增强的日志系统：模块前缀、状态指示器、详细的记忆追踪
+- 完整的记忆生命周期：提取 → 存储 → 检索
+- 改进的可观测性：记忆库内容可见、检索结果带分数
 """
 
 try:
@@ -216,8 +221,8 @@ def create_gradio_interface():
         return demo_instance.reset_conversation(), [], ""
     
     # 创建界面
-    with gr.Blocks(title="ContextMind 闲聊Demo v5.1") as app:
-        gr.Markdown("# 🎭 ContextMind v5.1 闲聊演示")
+    with gr.Blocks(title="ContextMind 闲聊Demo v6.0") as app:
+        gr.Markdown("# 🎭 ContextMind v6.0 闲聊演示")
         gr.Markdown("基于五层架构的智能对话系统，支持上下文理解和长期记忆")
         
         with gr.Row():
@@ -330,7 +335,7 @@ def create_gradio_interface():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🎭 ContextMind v5.1 闲聊 Gradio Demo")
+    print("🎭 ContextMind v6.0 闲聊 Gradio Demo")
     print("=" * 60)
     print()
     

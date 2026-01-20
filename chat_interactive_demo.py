@@ -165,11 +165,7 @@ async def main():
             
             # 使用应用的process_turn方法处理对话
             # 这会自动处理: optimize → generate → update → extract_knowledge
-            response = await app.process_turn(
-                user_input=user_input,
-                include_session=not args.no_session,
-                include_memory=not args.no_memory,
-            )
+            response = await app.process_turn(user_input=user_input)
             
             processing_time = time.time() - start_time
             
