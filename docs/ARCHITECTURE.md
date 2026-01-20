@@ -1,17 +1,17 @@
-# ContextMind v5.1 架构文档
+# ContextMind v6.0 架构文档
 
 ## 概述
 
-ContextMind v5.1 采用五层清晰架构 (core/pipeline/strategies/adapters/utils)，相比v4.0进一步简化和优化。
+ContextMind v6.0 采用五层清晰架构 (core/pipeline/strategies/adapters/utils)，相比v4.0进一步简化和优化。
 
-**v5.1 核心优化**：
+**v6.0 核心优化**：
 - 五层架构：core → pipeline → strategies → adapters → utils
 - 清晰的职责划分和依赖关系
 - 更易理解和维护的代码结构
 
 > 📖 **设计哲学**请参考 [DESIGN_PHILOSOPHY.md](./DESIGN_PHILOSOPHY.md)
 
-## 五层架构 (v5.1)
+## 五层架构 (v6.0)
 
 ```
 ┌─────────────────────────────────────────┐

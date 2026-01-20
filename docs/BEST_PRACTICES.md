@@ -1,4 +1,4 @@
-# ContextMind v5.1 最佳实践
+# ContextMind v6.0 最佳实践
 
 ## 架构使用
 

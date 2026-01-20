@@ -1,4 +1,4 @@
-# ContextMind v5.1 Quick Start Guide
+# ContextMind v6.0 Quick Start Guide
 
 ## 安装
 

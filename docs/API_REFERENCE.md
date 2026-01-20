@@ -1,4 +1,4 @@
-# ContextMind v5.1 API Reference
+# ContextMind v6.0 API Reference
 
 ## 核心类
 
