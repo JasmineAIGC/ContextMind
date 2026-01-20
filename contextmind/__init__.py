@@ -1,31 +1,51 @@
 """
-ContextMind - 专业的上下文优化框架 v5.1
-ContextMind - Professional Context Optimization Framework v5.1
+ContextMind - 专业的上下文优化框架 v5.2
+ContextMind - Professional Context Optimization Framework v5.2
 
-清晰的模块化架构，每个模块职责单一，易于扩展
-Clear modular architecture with single responsibility and easy extensibility
+完全通用化的上下文工程框架，支持任意对话场景
+Fully generalized context engineering framework supporting any dialogue scenario
 
 核心模块 Core Modules：
 - InputPreprocessor: 输入预处理 / Input preprocessing
 - ContextRetriever: 统一检索（RAG） / Unified retrieval (RAG)
 - MemoryBank: 长期记忆管理 / Long-term memory management
 - ContextCompressor: 上下文压缩 / Context compression
-- ContextReorderer: 上下文重排序
-- KnowledgeExtractor: 知识提取
+- ContextReorderer: 上下文重排序 / Context reordering
+- KnowledgeExtractor: 知识提取 / Knowledge extraction
 
-架构设计 (v5.1 - 5层架构):
-- 应用层：使用引擎的应用
-- 适配器层：对话系统集成接口
-- 引擎层：ContextEngine 统一接口
-- 流水线层：核心处理模块
-- 策略层：可插拔的策略实现
-- 核心层：数据模型、配置、日志
-- 工具层：工具和实用程序
+架构设计 (v5.2 - 清晰的5层架构):
+┌─────────────────────────────────────────┐
+│  应用层 (Application Layer)              │  ← examples/applications/
+│  - 基于框架构建的具体应用                 │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  引擎层 (Engine Layer)                   │  ← ContextEngine
+│  - 统一的高层API接口                      │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  流水线层 (Pipeline Layer)               │  ← pipeline/
+│  - 数据流程编排和处理                     │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  策略层 (Strategy Layer)                 │  ← strategies/
+│  - 可插拔的算法实现                       │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  基础层 (Foundation)                     │
+│  - 核心数据模型 (core/)                   │
+│  - 工具函数 (utils/)                      │
+│  - 适配器 (adapters/)                     │
+└─────────────────────────────────────────┘
 
-v5.1 核心改进：
-- 5层架构重构：清晰的职责划分
-- 合并冗余模块：减少文件数量
-- 优化导入路径：更直观的模块组织
+v5.2 核心改进：
+- ✨ 代码清理：移除冗余代码，提升可维护性
+- ✨ 结构优化：明确职责划分，减少代码重复
+- ✨ 完全通用：零场景硬编码，支持任意对话类型
+- ✨ 更好抽象：清晰的接口和一致的命名规范
 """
 
 # 核心引擎
@@ -217,4 +237,4 @@ __all__ = [
     "ContextMetrics",
 ]
 
-__version__ = "5.1.0"  # 当前版本 Current version
+__version__ = "5.2.0"  # 当前版本 Current version

@@ -1,8 +1,8 @@
 # ContextMind
 
-**ContextMind v5.1** - 通用上下文工程框架 ✨
+**ContextMind v5.2** - 通用上下文工程框架 ✨
 
-**v5.1 新特性**: 五层清晰架构 (core/pipeline/strategies/adapters/utils) + 生产就绪的记忆系统
+**v5.2 新特性**: 代码质量提升 + 结构优化 + 完全通用化（零场景硬编码）
 
 ---
 
