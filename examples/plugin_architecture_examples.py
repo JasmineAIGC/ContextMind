@@ -91,7 +91,7 @@ async def example_custom_retriever():
     print("Example 3: Custom Retriever Plugin")
     print("=" * 80)
     
-    from contextmind.strategies.memory import HybridRetriever
+    from contextmind.strategies.retrievers import HybridRetriever
     from contextmind.pipeline import MemoryBank
     
     # Create custom memory bank with HybridRetriever
@@ -143,7 +143,7 @@ async def example_custom_extractor():
     print("Example 4: Custom Extractor Plugin")
     print("=" * 80)
     
-    from contextmind.strategies.memory import BaseExtractor
+    from contextmind.strategies.extractors import BaseExtractor
     from contextmind.models import Knowledge, KnowledgeType, Message
     from typing import List
     
@@ -203,7 +203,7 @@ async def example_custom_updater():
     print("Example 5: Custom Updater Plugin")
     print("=" * 80)
     
-    from contextmind.strategies.memory import BaseUpdater
+    from contextmind.strategies.updaters import BaseUpdater
     from contextmind.models import ContextItem, ContextSource, Knowledge, KnowledgeType
     from typing import List
     

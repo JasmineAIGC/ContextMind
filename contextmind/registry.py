@@ -54,7 +54,7 @@ class PluginRegistry:
         
         try:
             # Import and register extractors
-            from .strategies.memory.extractors import (
+            from .strategies.extractors import (
                 RuleBasedExtractor,
                 LLMEntityExtractor,
                 ImportancePredictorExtractor,
@@ -64,7 +64,7 @@ class PluginRegistry:
             self.register('extractors', 'importance', ImportancePredictorExtractor)
             
             # Import and register retrievers
-            from .strategies.memory.retrievers import (
+            from .strategies.retrievers import (
                 SemanticSearchRetriever,
                 HybridRetriever,
                 LocatorRetriever,
@@ -74,7 +74,7 @@ class PluginRegistry:
             self.register('retrievers', 'locator', LocatorRetriever)
             
             # Import and register updaters
-            from .strategies.memory.updaters import (
+            from .strategies.updaters import (
                 SimpleUpdater,
                 ConflictResolverUpdater,
                 AdaptiveEvictionUpdater,

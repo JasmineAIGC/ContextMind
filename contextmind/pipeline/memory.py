@@ -33,9 +33,11 @@ from ..models.data_models import MemoryNote, MemoryType, KnowledgeType
 
 # Import plugin interfaces (optional - will use internal implementations if not available)
 try:
-    from ..strategies.memory import (
+    from ..strategies.retrievers import (
         BaseRetriever,
         SemanticSearchRetriever,
+    )
+    from ..strategies.updaters import (
         BaseUpdater,
         SimpleUpdater,
     )
