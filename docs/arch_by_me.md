@@ -116,3 +116,142 @@ MemoryBank 运行于对话前（召回）和对话后（入库/更新，异步�
   ○ ConflictResolver（核心高端）：LLM可选推理检测矛盾 + 自动合并/版本化（e.g., 生成“偏好更新：从吃辣到不吃辣”）。
   ○ LRU+ImportancePruner（自动清理）：结合访问频率 + 分数阈值批量删。
   ○ AdaptiveEviction（2026 SOTA）：预测性改/删（基于使用模式，类似SnapKV启发）。
+
+---
+
+## v3.4 Plugin Architecture Implementation
+
+### 概述
+ContextMind v3.4 引入了完整的插件架构，实现了 MemoryBank 的模块化设计，使得提取、检索和更新策略可以灵活替换和扩展。
+
+### 插件系统架构
+
+#### 三大插件类型
+
+1. **Extractors（提取器插件）**
+   - 位置：`contextmind/strategies/memory/extractors.py`
+   - 作用：从对话中提取有价值的信息
+   - 接口：`BaseExtractor`
+   - 实现：
+     * `RuleBasedExtractor`：基于规则的提取（现有实现）
+     * `LLMEntityExtractor`：LLM 增强的实体提取（预留接口）
+     * `ImportancePredictorExtractor`：重要性预测提取器（预留接口）
+
+2. **Retrievers（检索器插件）**
+   - 位置：`contextmind/strategies/memory/retrievers.py`
+   - 作用：从记忆库中检索相关记忆
+   - 接口：`BaseRetriever`
+   - 实现：
+     * `SemanticSearchRetriever`：语义搜索检索（现有实现）
+     * `HybridRetriever`：混合检索（语义+关键词，预留接口）
+     * `LocatorRetriever`：基于 Locator 机制的检索（预留接口）
+
+3. **Updaters（更新器插件）**
+   - 位置：`contextmind/strategies/memory/updaters.py`
+   - 作用：更新记忆库（增删改操作）
+   - 接口：`BaseUpdater`
+   - 实现：
+     * `SimpleUpdater`：简单更新策略（现有实现）
+     * `ConflictResolverUpdater`：冲突检测与解决（预留接口）
+     * `AdaptiveEvictionUpdater`：自适应淘汰策略（预留接口）
+
+### 使用示例
+
+#### 1. 使用默认插件（向后兼容）
+
+```python
+from contextmind import ContextEngine
+
+# 默认使用现有实现，无需更改
+engine = ContextEngine(
+    app_name="my-app",
+    user_id="user-123"
+)
+```
+
+#### 2. 使用自定义检索器
+
+```python
+from contextmind import ContextEngine
+from contextmind.strategies.memory import HybridRetriever
+from contextmind.pipeline import MemoryBank
+
+# 创建使用混合检索器的记忆库
+custom_memory_bank = MemoryBank(
+    app_name="my-app",
+    user_id="user-123",
+    retriever=HybridRetriever(
+        semantic_weight=0.7,
+        keyword_weight=0.3
+    )
+)
+
+# 在引擎中使用自定义记忆库
+# （需要手动初始化各组件）
+```
+
+#### 3. 使用可选组件（PostProcessor & Summarizer）
+
+```python
+from contextmind import ContextEngine
+
+# 启用输出后处理器和对话摘要器
+engine = ContextEngine(
+    app_name="my-app",
+    user_id="user-123",
+    use_postprocessor=True,  # 启用输出后处理
+    use_summarizer=True      # 启用对话摘要
+)
+```
+
+#### 4. 完全自定义插件（高级用法）
+
+```python
+from contextmind.strategies.memory import BaseRetriever, BaseUpdater
+from contextmind.pipeline import MemoryBank
+
+# 实现自定义检索器
+class MyCustomRetriever(BaseRetriever):
+    async def retrieve(self, query, memory_cache, limit=5):
+        # 自定义检索逻辑
+        return filtered_memories
+
+# 实现自定义更新器
+class MyCustomUpdater(BaseUpdater):
+    async def update(self, memory_cache, new_knowledge):
+        # 自定义更新逻辑
+        return updated_cache
+
+# 使用自定义插件
+memory_bank = MemoryBank(
+    app_name="my-app",
+    user_id="user-123",
+    retriever=MyCustomRetriever(),
+    updater=MyCustomUpdater()
+)
+```
+
+### 向后兼容性
+
+- ✅ 所有现有代码无需修改即可运行
+- ✅ 默认使用现有实现（RuleBasedExtractor, SemanticSearchRetriever, SimpleUpdater）
+- ✅ 插件不可用时自动降级到内部实现
+- ✅ 可选组件（PostProcessor, Summarizer）默认禁用
+
+### 扩展指南
+
+要添加新的插件实现：
+
+1. 继承相应的 Base 接口（BaseExtractor / BaseRetriever / BaseUpdater）
+2. 实现必需的抽象方法
+3. 在实例化 MemoryBank 时传入自定义插件
+4. 测试并验证功能
+
+### 插件架构优势
+
+- **灵活性**：可以轻松替换和组合不同策略
+- **可扩展性**：新算法可以作为插件快速集成
+- **可测试性**：每个插件可以独立测试
+- **向后兼容**：不影响现有代码
+- **清晰分离**：关注点分离，代码更易维护
+

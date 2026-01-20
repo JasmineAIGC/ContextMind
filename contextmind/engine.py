@@ -48,6 +48,16 @@ from .pipeline import (
     KnowledgeExtractor,
 )
 
+# Optional components (v3.4 Plugin Architecture)
+try:
+    from .pipeline.postprocessor import PostProcessor
+    from .pipeline.summarizer import ConversationSummarizer
+    OPTIONAL_COMPONENTS_AVAILABLE = True
+except ImportError:
+    PostProcessor = None
+    ConversationSummarizer = None
+    OPTIONAL_COMPONENTS_AVAILABLE = False
+
 logger = get_logger(__name__)
 
 
@@ -98,9 +108,14 @@ class ContextEngine:
         session_service: Optional[Any] = None,
         memory_service: Optional[Any] = None,
         max_recent_events: int = 9999,
+        use_postprocessor: bool = False,
+        use_summarizer: bool = False,
     ):
         """
         初始化上下文引擎
+        
+        v3.4 Plugin Architecture:
+        Now supports optional PostProcessor and Summarizer components.
         
         Args:
             app_name: 应用名称
@@ -109,6 +124,8 @@ class ContextEngine:
             session_service: Session服务实例（可选）
             memory_service: Memory服务实例（可选）
             max_recent_events: 保留的最大近期事件数量（默认9999，实际不限制）
+            use_postprocessor: 是否使用输出后处理器（默认False）
+            use_summarizer: 是否使用对话摘要器（默认False）
         """
         self.app_name = app_name
         self.user_id = user_id
@@ -139,6 +156,19 @@ class ContextEngine:
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
         self.extractor = KnowledgeExtractor()
+        
+        # v3.4 Optional components
+        if use_postprocessor and OPTIONAL_COMPONENTS_AVAILABLE:
+            self.postprocessor = PostProcessor()
+            logger.info("[ContextEngine] PostProcessor enabled")
+        else:
+            self.postprocessor = None
+        
+        if use_summarizer and OPTIONAL_COMPONENTS_AVAILABLE:
+            self.summarizer = ConversationSummarizer()
+            logger.info("[ContextEngine] ConversationSummarizer enabled")
+        else:
+            self.summarizer = None
         
         logger.info(f"ContextEngine initialized for app={app_name}, user={user_id}")
     

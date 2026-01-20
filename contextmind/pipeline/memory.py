@@ -30,7 +30,20 @@ from datetime import datetime, timedelta
 
 from ..core import ContextItem, ContextSource, Knowledge, DEFAULT_MEMORY_CONFIG, RetrievalConfig
 from ..utils import get_logger
-from ..core.data_models import MemoryNote, MemoryType
+from ..core.data_models import MemoryNote, MemoryType, KnowledgeType
+
+# Import plugin interfaces (optional - will use internal implementations if not available)
+try:
+    from ..strategies.memory import (
+        BaseRetriever,
+        SemanticSearchRetriever,
+        BaseUpdater,
+        SimpleUpdater,
+    )
+    PLUGINS_AVAILABLE = True
+except ImportError:
+    PLUGINS_AVAILABLE = False
+    logger.debug("[MemoryBank] Plugin architecture not available, using internal implementations")
 
 logger = get_logger(__name__)
 
@@ -77,6 +90,12 @@ class MemoryBank:
         _local_cache: 本地记忆缓存，用于备用检索（兼容）
     """
     
+    # Storage thresholds for backward compatibility with updater
+    STORAGE_THRESHOLD_PREFERENCE = 0.75
+    STORAGE_THRESHOLD_FACT = 0.70
+    STORAGE_THRESHOLD_EVENT = 0.70
+    STORAGE_MIN_LENGTH = 3
+    
     def __init__(
         self,
         memory_service: Optional[Any] = None,
@@ -84,9 +103,14 @@ class MemoryBank:
         app_name: str = "contextmind",
         user_id: str = "default",
         retrieval_config: Optional[RetrievalConfig] = None,
+        retriever: Optional[Any] = None,
+        updater: Optional[Any] = None,
     ):
         """
         初始化记忆管理器
+        
+        v3.4 Plugin Architecture:
+        Now supports pluggable retriever and updater strategies.
         
         Args:
             memory_service: Memory Service 实例（可选），如果为None则仅使用本地缓存
@@ -94,12 +118,23 @@ class MemoryBank:
             app_name: 应用名称
             user_id: 用户ID
             retrieval_config: 检索配置，如果为None则使用默认配置
+            retriever: Custom retriever plugin (optional), uses SemanticSearchRetriever by default
+            updater: Custom updater plugin (optional), uses SimpleUpdater by default
         """
         self.memory_service = memory_service
         self.session_service = session_service
         self.app_name = app_name
         self.user_id = user_id
         self.config = retrieval_config or DEFAULT_MEMORY_CONFIG.retrieval
+        
+        # v3.4 Plugin Architecture: Initialize plugins
+        if PLUGINS_AVAILABLE:
+            self._retriever = retriever or SemanticSearchRetriever(self.config)
+            self._updater = updater or SimpleUpdater()
+            logger.debug(f"[MemoryBank] Using plugins - Retriever: {type(self._retriever).__name__}, Updater: {type(self._updater).__name__}")
+        else:
+            self._retriever = None
+            self._updater = None
         
         # v3.2 Agent Memory System: 结构化记忆笔记存储
         self._memory_notes: Dict[str, MemoryNote] = {}
@@ -180,6 +215,9 @@ class MemoryBank:
         """
         从本地缓存检索相关记忆
         
+        v3.4 Plugin Architecture:
+        Uses pluggable retriever if available, otherwise falls back to internal implementation.
+        
         v3.3改进：
         - 相关性过滤：只返回达到阈值的记忆
         - 去重：合并高度相似的记忆
@@ -200,6 +238,17 @@ class MemoryBank:
         if not self._local_cache:
             logger.warning("[MemoryBank] ✗ 本地缓存为空 - 无法检索记忆")
             return []
+        
+        # Use plugin retriever if available
+        if self._retriever:
+            import asyncio
+            return asyncio.run(self._retriever.retrieve(query, self._local_cache, limit))
+        
+        # Fallback to internal implementation
+        return self._retrieve_from_cache_internal(query, limit)
+    
+    def _retrieve_from_cache_internal(self, query: str, limit: int = 5) -> List[ContextItem]:
+        """Internal implementation of cache retrieval (fallback when plugins not available)"""
         
         query_lower = query.lower()
         
@@ -349,6 +398,9 @@ class MemoryBank:
         """
         存储知识到长期记忆
         
+        v3.4 Plugin Architecture:
+        Uses pluggable updater if available, otherwise falls back to internal implementation.
+        
         实现知识存储策略：
         1. 过滤低质量知识
         2. 去重（避免存储重复知识）
@@ -370,6 +422,18 @@ class MemoryBank:
         
         logger.info(f"[MemoryBank] 开始存储知识 - 收到 {len(knowledge)} 条知识项")
         logger.info("")
+        
+        # Use plugin updater if available
+        if self._updater:
+            self._local_cache = await self._updater.update(self._local_cache, knowledge)
+            logger.info("")
+            return
+        
+        # Fallback to internal implementation
+        await self._store_internal(knowledge)
+    
+    async def _store_internal(self, knowledge: List[Knowledge]) -> None:
+        """Internal implementation of knowledge storage (fallback when plugins not available)"""
         
         # 应用存储策略 (Issue 6)
         filtered_knowledge = []
