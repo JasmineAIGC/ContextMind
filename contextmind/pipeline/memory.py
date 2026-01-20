@@ -17,19 +17,20 @@ MemoryBank - 记忆库模块
 - 基于语义相似度的记忆检索
 - 本地缓存提供备用检索
 - 记忆热度评估和动态淘汰
+
+v3.3更新：
+- 改进的检索算法（相关性过滤、去重、时效性加权）
+- 可配置化设计，减少硬编码
 """
 
 from typing import List, Optional, Dict, Any
 import uuid
 import re
+from datetime import datetime, timedelta
 
-from google.adk.memory.base_memory_service import BaseMemoryService
-from google.adk.events.event import Event
-from google.adk.sessions.base_session_service import BaseSessionService
-from google.genai.types import Content, Part
-
-from ..data_models import ContextItem, ContextSource, Knowledge, MemoryNote, MemoryType
-from ..logger import get_logger
+from ..core import ContextItem, ContextSource, Knowledge, DEFAULT_MEMORY_CONFIG, RetrievalConfig
+from ..utils import get_logger
+from ..core.data_models import MemoryNote, MemoryType
 
 logger = get_logger(__name__)
 
@@ -78,24 +79,27 @@ class MemoryBank:
     
     def __init__(
         self,
-        memory_service: Optional[BaseMemoryService],
-        session_service: Optional[BaseSessionService],
-        app_name: str,
-        user_id: str,
+        memory_service: Optional[Any] = None,
+        session_service: Optional[Any] = None,
+        app_name: str = "contextmind",
+        user_id: str = "default",
+        retrieval_config: Optional[RetrievalConfig] = None,
     ):
         """
         初始化记忆管理器
         
         Args:
-            memory_service: ADK Memory Service 实例，如果为None则不使用长期记忆
-            session_service: Session Service 实例，用于创建临时会话
+            memory_service: Memory Service 实例（可选），如果为None则仅使用本地缓存
+            session_service: Session Service 实例（可选）
             app_name: 应用名称
             user_id: 用户ID
+            retrieval_config: 检索配置，如果为None则使用默认配置
         """
         self.memory_service = memory_service
         self.session_service = session_service
         self.app_name = app_name
         self.user_id = user_id
+        self.config = retrieval_config or DEFAULT_MEMORY_CONFIG.retrieval
         
         # v3.2 Agent Memory System: 结构化记忆笔记存储
         self._memory_notes: Dict[str, MemoryNote] = {}
@@ -166,6 +170,11 @@ class MemoryBank:
         """
         从本地缓存检索相关记忆
         
+        v3.3改进：
+        - 相关性过滤：只返回达到阈值的记忆
+        - 去重：合并高度相似的记忆
+        - 时效性加权：最近的记忆获得分数提升
+        
         使用简单的关键词匹配进行检索，支持中文。
         优先返回相关记忆，如果没有相关的则返回所有记忆。
         
@@ -199,21 +208,56 @@ class MemoryBank:
                 content_chars = set(content_lower)
                 overlap = len(query_chars & content_chars)
                 
-                # 至少有一个字符重叠才考虑
-                if overlap > 0:
+                # 至少有minimum overlap才考虑
+                if overlap >= self.config.min_overlap_chars:
                     # 计算Jaccard相似度
                     union = len(query_chars | content_chars)
                     similarity = overlap / union if union > 0 else 0
-                    score = 0.2 + similarity * 0.7  # 基础分0.2，最高0.9
+                    score = self.config.base_score + similarity * (0.9 - self.config.base_score)
                 else:
-                    score = 0.1  # 即使没有重叠，也给一个基础分
+                    score = self.config.base_score
+            
+            # 时效性加权：如果启用且项目有时间戳
+            if self.config.enable_recency_boost and item.timestamp:
+                try:
+                    if isinstance(item.timestamp, datetime):
+                        days_ago = (datetime.now() - item.timestamp).days
+                        if days_ago <= self.config.recency_days_threshold:
+                            # 线性衰减：越近的记忆加权越多
+                            recency_boost = self.config.recency_weight * (
+                                1 - days_ago / self.config.recency_days_threshold
+                            )
+                            score = min(1.0, score + recency_boost)
+                except Exception as e:
+                    logger.debug(f"Error calculating recency boost: {e}")
             
             scored_items.append((item, score))
         
         # 按分数排序
         scored_items.sort(key=lambda x: x[1], reverse=True)
         
-        # 返回前limit个（总是返回一些记忆，即使分数低）
+        # 相关性过滤：只保留达到阈值的记忆
+        if self.config.relevance_threshold > 0:
+            filtered_items = [
+                (item, score) for item, score in scored_items
+                if score >= self.config.relevance_threshold
+            ]
+            
+            # 如果过滤后为空，降级使用所有记忆（保证至少返回一些）
+            if not filtered_items and scored_items:
+                logger.debug(f"No memories above threshold {self.config.relevance_threshold}, using top items")
+                filtered_items = scored_items[:limit]
+        else:
+            filtered_items = scored_items
+        
+        # 去重：合并高度相似的记忆
+        if self.config.enable_deduplication:
+            filtered_items = self._deduplicate_memories(filtered_items)
+        
+        # 限制数量
+        filtered_items = filtered_items[:min(limit, self.config.max_limit)]
+        
+        # 构建返回结果
         result = [
             ContextItem(
                 content=item.content,
@@ -222,17 +266,73 @@ class MemoryBank:
                 timestamp=item.timestamp,
                 metadata=item.metadata
             )
-            for item, score in scored_items[:limit]
+            for item, score in filtered_items
         ]
         
         if result:
-            logger.info(f"✓ Retrieved {len(result)} memories from local cache (top score: {scored_items[0][1]:.2f})")
-            for i, (item, score) in enumerate(scored_items[:limit]):
+            logger.info(f"✓ Retrieved {len(result)} memories from local cache (top score: {filtered_items[0][1]:.2f})")
+            for i, (item, score) in enumerate(filtered_items[:limit]):
                 logger.debug(f"  Memory {i+1} (score={score:.2f}): {item.content[:60]}...")
         else:
-            logger.error(f"ERROR: scored_items is empty even though cache has {len(self._local_cache)} items!")
+            logger.warning(f"No relevant memories found for query: {query}")
         
         return result
+    
+    def _deduplicate_memories(self, scored_items: List[tuple]) -> List[tuple]:
+        """
+        去除高度相似的记忆
+        
+        Args:
+            scored_items: (item, score) 元组列表
+            
+        Returns:
+            去重后的列表
+        """
+        if not scored_items:
+            return []
+        
+        deduplicated = []
+        seen_contents = []
+        
+        for item, score in scored_items:
+            content = item.content.lower()
+            
+            # 检查是否与已有记忆高度相似
+            is_duplicate = False
+            for seen in seen_contents:
+                similarity = self._calculate_similarity(content, seen)
+                if similarity >= self.config.similarity_threshold_for_dedup:
+                    is_duplicate = True
+                    logger.debug(f"Skipping duplicate memory (similarity={similarity:.2f}): {item.content[:40]}...")
+                    break
+            
+            if not is_duplicate:
+                deduplicated.append((item, score))
+                seen_contents.append(content)
+        
+        return deduplicated
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """
+        计算两个文本的相似度（Jaccard相似度）
+        
+        Args:
+            text1: 第一个文本
+            text2: 第二个文本
+            
+        Returns:
+            相似度分数（0-1）
+        """
+        chars1 = set(text1)
+        chars2 = set(text2)
+        
+        if not chars1 or not chars2:
+            return 0.0
+        
+        intersection = len(chars1 & chars2)
+        union = len(chars1 | chars2)
+        
+        return intersection / union if union > 0 else 0.0
     
     async def store(self, knowledge: List[Knowledge]) -> None:
         """
@@ -278,37 +378,10 @@ class MemoryBank:
         
         logger.debug(f"Added {len(new_knowledge)} new items to local cache (filtered {len(knowledge) - len(new_knowledge)} duplicates), total: {len(self._local_cache)}")
         
-        # 然后尝试存储到 Memory Service
-        if not self.memory_service:
-            logger.debug("Memory service is not configured, knowledge stored in local cache only")
-            return
-        
-        try:
-            # 创建临时会话来存储知识
-            session = await self.session_service.create_session(
-                app_name=self.app_name,
-                user_id=self.user_id,
-            )
-            
-            # 将新知识作为事件添加到会话
-            for k in new_knowledge:
-                # 格式化知识内容，包含类型标签
-                formatted_content = f"[{k.type.value.upper()}] {k.content}"
-                
-                event = Event(
-                    invocation_id=self._new_invocation_id(),
-                    author="system",
-                    content=Content(role="system", parts=[Part(text=formatted_content)]),
-                )
-                await self.session_service.append_event(session=session, event=event)
-            
-            # 持久化到 Memory Service
-            await self.memory_service.add_session_to_memory(session)
-            
-            logger.debug(f"Stored {len(new_knowledge)} new knowledge items to Memory Service")
-            
-        except Exception as e:
-            logger.warning(f"Failed to store knowledge to Memory Service: {str(e)}, kept in local cache")
+        # 注意：Memory Service 存储功能已禁用（需要外部服务支持）
+        # 当前所有知识仅存储在本地缓存中
+        if self.memory_service:
+            logger.debug("Memory service available but external storage not implemented - using local cache only")
     
     def _is_similar(self, text1: str, text2: str) -> bool:
         """
@@ -394,48 +467,8 @@ class MemoryBank:
             logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache")
             return
         
-        try:
-            # 创建临时会话来存储种子知识
-            session = await self.session_service.create_session(
-                app_name=self.app_name,
-                user_id=self.user_id,
-            )
-            
-            # 将种子数据作为系统事件添加到会话
-            for fact in valid_facts:
-                event = Event(
-                    invocation_id=self._new_invocation_id(),
-                    author="system",
-                    content=Content(role="system", parts=[Part(text=f"[预设知识] {fact}")]),
-                )
-                await self.session_service.append_event(session=session, event=event)
-            
-            # 持久化到 Memory Service
-            await self.memory_service.add_session_to_memory(session)
-            
-            logger.info(f"Successfully seeded {len(valid_facts)} facts to memory")
-            
-        except Exception as e:
-            logger.error(f"Failed to seed memory: {str(e)}, kept in local cache")
-    
-    @staticmethod
-    def _content_to_text(content: Optional[Content]) -> str:
-        """将 Content 对象转换为纯文本"""
-        if not content or not content.parts:
-            return ""
-        
-        fragments: List[str] = []
-        for part in content.parts:
-            if part.text:
-                fragments.append(part.text)
-            elif part.function_call:
-                fragments.append(f"[FunctionCall] {part.function_call.name}")
-            elif part.function_response:
-                fragments.append(f"[FunctionResponse] {part.function_response.name}")
-            elif part.code_execution_result:
-                fragments.append(part.code_execution_result.output_text or "")
-        
-        return "\n".join(fragment for fragment in fragments if fragment)
+        # 注意：Memory Service 存储功能已禁用（需要外部服务支持）
+        logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache (external storage not available)")
     
     def get_memory_cache(self) -> List[ContextItem]:
         """

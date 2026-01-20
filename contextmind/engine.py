@@ -1,18 +1,25 @@
 """
-ContextEngine - 上下文引擎核心模块 v4.0
+ContextEngine - 上下文引擎核心模块 v5.1
+ContextEngine - Core Context Engine Module v5.1
 
-清晰的模块化架构设计：
-- 应用层：使用引擎的应用（示例：客服、聊天机器人等）
-- 适配器层：对话系统集成接口
-- 引擎层：ContextEngine 统一接口
-- 模块层：InputPreprocessor, ContextRetriever, MemoryBank, ContextCompressor, ContextReorderer, KnowledgeExtractor
-- 策略层：可插拔的策略实现
-- 基础层：TokenizerService, VectorClient, CacheManager
+清晰的模块化架构设计 Clear modular architecture design：
+- 应用层 Application Layer：使用引擎的应用（示例：客服、聊天机器人等）
+  Applications using the engine (e.g., customer service, chatbots)
+- 适配器层 Adapter Layer：对话系统集成接口
+  Dialogue system integration interfaces
+- 引擎层 Engine Layer：ContextEngine 统一接口
+  ContextEngine unified interface
+- 模块层 Module Layer：InputPreprocessor, ContextRetriever, MemoryBank, 
+  ContextCompressor, ContextReorderer, KnowledgeExtractor
+- 策略层 Strategy Layer：可插拔的策略实现
+  Pluggable strategy implementations
+- 基础层 Foundation Layer：TokenizerService, VectorClient, CacheManager
+  Foundation services
 
-核心职责：
-1. 上下文优化 (optimize)
-2. 上下文更新 (update)
-3. 知识提取 (extract_knowledge)
+核心职责 Core Responsibilities：
+1. 上下文优化 Context optimization (optimize)
+2. 上下文更新 Context update (update)
+3. 知识提取 Knowledge extraction (extract_knowledge)
 """
 
 from __future__ import annotations
@@ -20,14 +27,8 @@ from __future__ import annotations
 from typing import Optional, List, Any
 from datetime import datetime
 
-from google.adk.memory import InMemoryMemoryService
-from google.adk.memory.base_memory_service import BaseMemoryService
-from google.adk.sessions import InMemorySessionService
-from google.adk.sessions.base_session_service import BaseSessionService
-
 from .client import Client
-from .logger import get_logger
-from .data_models import (
+from .core import (
     Message,
     MessageRole,
     ContextResult,
@@ -36,8 +37,9 @@ from .data_models import (
     ProcessedContext,
     Knowledge,
 )
-from .managers import SessionManager
-from .modules import (
+from .utils import get_logger
+from .pipeline import (
+    SessionManager,
     InputPreprocessor,
     ContextRetriever,
     MemoryBank,
@@ -68,14 +70,12 @@ class ContextEngine:
     使用示例：
         ```python
         from contextmind import ContextEngine, Client
-        from google.adk.memory import InMemoryMemoryService
         
         client = Client()
         engine = ContextEngine(
             app_name="my-app",
             user_id="user-123",
-            llm_client=client,
-            memory_service=InMemoryMemoryService()
+            llm_client=client
         )
         
         # 优化上下文
@@ -95,8 +95,8 @@ class ContextEngine:
         app_name: str,
         user_id: str,
         llm_client: Optional[Client] = None,
-        session_service: Optional[BaseSessionService] = None,
-        memory_service: Optional[BaseMemoryService] = None,
+        session_service: Optional[Any] = None,
+        memory_service: Optional[Any] = None,
         max_recent_events: int = 9999,
     ):
         """
@@ -106,28 +106,17 @@ class ContextEngine:
             app_name: 应用名称
             user_id: 用户ID
             llm_client: LLM客户端实例（可选）
-            session_service: Session服务实例，默认使用InMemorySessionService
-            memory_service: Memory服务实例，默认使用InMemoryMemoryService
+            session_service: Session服务实例（可选）
+            memory_service: Memory服务实例（可选）
             max_recent_events: 保留的最大近期事件数量（默认9999，实际不限制）
         """
         self.app_name = app_name
         self.user_id = user_id
         self.llm_client = llm_client
         
-        # 初始化服务
-        if session_service is None:
-            self.session_service = InMemorySessionService()
-        else:
-            self.session_service = session_service
-            
-        if memory_service is None:
-            self.memory_service = InMemoryMemoryService()
-        else:
-            self.memory_service = memory_service
-        
         # 初始化管理器
         self.session_manager = SessionManager(
-            session_service=self.session_service,
+            session_service=session_service,
             app_name=app_name,
             user_id=user_id,
             max_recent_events=max_recent_events,
@@ -135,8 +124,8 @@ class ContextEngine:
         
         # 初始化记忆库
         self.memory_bank = MemoryBank(
-            memory_service=self.memory_service,
-            session_service=self.session_service,
+            memory_service=memory_service,
+            session_service=session_service,
             app_name=app_name,
             user_id=user_id,
         )
@@ -294,62 +283,3 @@ class ContextEngine:
         """
         await self.session_manager.clear()
         logger.info("Session cleared")
-    
-    def _convert_to_context_result(self, context: ProcessedContext) -> ContextResult:
-        """
-        将 ProcessedContext 转换为 ContextResult
-        
-        Args:
-            context: 处理后的上下文
-            
-        Returns:
-            ContextResult 对象
-        """
-        result = ContextResult()
-        
-        # 分离不同来源的上下文
-        for item in context.items:
-            if item.source == ContextSource.SESSION:
-                # 会话历史：尝试解析为 Message
-                # 格式: "role: content"
-                parts = item.content.split(": ", 1)
-                if len(parts) == 2:
-                    role_str, content = parts
-                    try:
-                        role = MessageRole(role_str.lower())
-                        result.recent_history.append(Message(
-                            role=role,
-                            content=content,
-                            timestamp=item.timestamp,
-                            metadata=item.metadata
-                        ))
-                    except ValueError:
-                        # 如果角色解析失败，作为系统消息
-                        result.recent_history.append(Message(
-                            role=MessageRole.SYSTEM,
-                            content=item.content,
-                            timestamp=item.timestamp,
-                            metadata=item.metadata
-                        ))
-                else:
-                    # 格式不匹配，作为系统消息
-                    result.recent_history.append(Message(
-                        role=MessageRole.SYSTEM,
-                        content=item.content,
-                        timestamp=item.timestamp,
-                        metadata=item.metadata
-                    ))
-            
-            elif item.source == ContextSource.MEMORY:
-                result.long_term_memory.append(item)
-            
-            elif item.source == ContextSource.KNOWLEDGE:
-                result.external_knowledge.append(item)
-            
-            elif item.source == ContextSource.EXTERNAL:
-                result.external_knowledge.append(item)
-        
-        # 复制元数据
-        result.metadata = context.metadata.copy()
-        
-        return result

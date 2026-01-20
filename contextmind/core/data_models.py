@@ -108,6 +108,16 @@ class ProcessedContext:
     
     包含一组上下文条目和相关元数据，用于在处理流水线中传递。
     
+    **重要说明：ProcessedContext vs ContextResult**
+    - ProcessedContext: 流水线中间状态，只包含 items 列表和 metadata
+    - ContextResult: 最终输出，包含 recent_history, long_term_memory, external_knowledge
+    
+    **使用规范：**
+    - 在 pipeline/strategy 内部处理时使用 ProcessedContext
+    - 使用 get_by_source() 方法按来源筛选上下文条目
+    - 不要直接访问 recent_history/long_term_memory/external_knowledge（它们不存在！）
+    - 最终输出前调用 to_context_result() 转换为 ContextResult
+    
     Attributes:
         items: 上下文条目列表
         metadata: 处理过程中的元数据
@@ -144,6 +154,83 @@ class ProcessedContext:
             'items': [item.to_dict() for item in self.items],
             'metadata': self.metadata
         }
+    
+    def to_context_result(self) -> 'ContextResult':
+        """
+        转换为 ContextResult
+        
+        将 ProcessedContext 转换为 ContextResult，按照来源分离上下文条目：
+        - SESSION 来源 → recent_history（转换为 Message）
+        - MEMORY 来源 → long_term_memory
+        - KNOWLEDGE/EXTERNAL 来源 → external_knowledge
+        
+        这是 pipeline 的最后一步，用于将处理后的上下文规范化为最终的输出格式。
+        
+        Returns:
+            ContextResult 对象
+        
+        Usage:
+            这个方法应该在优化策略中调用，将 ProcessedContext 转换为 ContextResult。
+            优化策略（OptimizationStrategy）的 optimize() 方法应该返回 ContextResult 而非 ProcessedContext。
+        """
+        result = ContextResult()
+        
+        # 分离不同来源的上下文
+        for item in self.items:
+            if item.source == ContextSource.SESSION:
+                # 会话历史：尝试解析为 Message
+                # 格式: "role: content"
+                parts = item.content.split(": ", 1)
+                if len(parts) == 2:
+                    role_str, content = parts
+                    # Validate role_str before processing
+                    if role_str and role_str.strip():
+                        try:
+                            role = MessageRole(role_str.lower())
+                            result.recent_history.append(Message(
+                                role=role,
+                                content=content,
+                                timestamp=item.timestamp,
+                                metadata=item.metadata
+                            ))
+                        except ValueError:
+                            # 如果角色解析失败，作为系统消息
+                            result.recent_history.append(Message(
+                                role=MessageRole.SYSTEM,
+                                content=item.content,
+                                timestamp=item.timestamp,
+                                metadata=item.metadata
+                            ))
+                    else:
+                        # Empty role string, treat as system message
+                        result.recent_history.append(Message(
+                            role=MessageRole.SYSTEM,
+                            content=item.content,
+                            timestamp=item.timestamp,
+                            metadata=item.metadata
+                        ))
+                else:
+                    # 格式不匹配，作为系统消息
+                    result.recent_history.append(Message(
+                        role=MessageRole.SYSTEM,
+                        content=item.content,
+                        timestamp=item.timestamp,
+                        metadata=item.metadata
+                    ))
+            
+            elif item.source == ContextSource.MEMORY:
+                result.long_term_memory.append(item)
+            
+            elif item.source == ContextSource.KNOWLEDGE:
+                result.external_knowledge.append(item)
+            
+            elif item.source == ContextSource.EXTERNAL:
+                result.external_knowledge.append(item)
+        
+        # 复制元数据
+        result.metadata = self.metadata.copy()
+        
+        return result
 
 
 @dataclass
@@ -153,6 +240,16 @@ class ContextResult:
     
     包含优化后的所有上下文信息，分为近期历史、长期记忆和外部知识。
     这是 ContextEngine.optimize() 方法的返回类型。
+    
+    **重要说明：ProcessedContext vs ContextResult**
+    - ProcessedContext: 流水线中间状态，只包含 items 列表
+    - ContextResult: 最终输出，包含按来源分类的上下文
+    
+    **使用规范：**
+    - 这是 pipeline 的最终输出格式
+    - recent_history/long_term_memory/external_knowledge 只在这里可用
+    - 应用层、适配器层、可视化层都应该使用 ContextResult
+    - 不要在 pipeline/strategy 内部使用 ContextResult，应该使用 ProcessedContext
     
     Attributes:
         recent_history: 近期对话历史消息列表

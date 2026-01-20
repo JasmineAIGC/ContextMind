@@ -8,11 +8,18 @@ ContextTextBuilder - 统一的上下文文本构建工具
 - 单一职责：专注于文本构建，不包含业务逻辑
 - 格式统一：提供标准化的文本格式
 - 易于扩展：支持自定义格式化策略
+
+v3.3更新:
+- 集成对话摘要功能
+- 优化prompt构建，减少token使用
+- 支持可配置化设计
 """
 
 from typing import List, Optional
 from collections import defaultdict
-from ..data_models import ContextResult, ContextItem, Message
+from ..core import ContextResult, ContextItem, Message
+from .formatter import ConversationSummarizer
+from ..core import DEFAULT_MEMORY_CONFIG
 
 
 class ContextTextBuilder:
@@ -26,16 +33,16 @@ class ContextTextBuilder:
     @staticmethod
     def build_memory_text(
         memory_items: List[ContextItem],
-        include_score: bool = True,
-        score_threshold: float = 1.0
+        include_score: bool = False,  # 默认改为False，简化显示
+        score_threshold: float = None  # 使用配置的阈值
     ) -> str:
         """
         构建长期记忆的文本表示
         
         Args:
             memory_items: 记忆条目列表
-            include_score: 是否包含相关性分数
-            score_threshold: 分数阈值，低于此值显示分数
+            include_score: 是否包含相关性分数（默认False）
+            score_threshold: 分数阈值，低于此值显示分数（None则使用配置）
             
         Returns:
             格式化的长期记忆文本
@@ -43,11 +50,14 @@ class ContextTextBuilder:
         if not memory_items:
             return ""
         
+        if score_threshold is None:
+            score_threshold = DEFAULT_MEMORY_CONFIG.retrieval.high_relevance_threshold
+        
         lines = []
         for item in memory_items:
             # 根据分数决定是否显示
             if include_score and item.score < score_threshold:
-                lines.append(f"- {item.content} (相关性: {item.score:.1%})")
+                lines.append(f"- {item.content} (相关性: {item.score:.0%})")
             else:
                 lines.append(f"- {item.content}")
         
@@ -76,14 +86,20 @@ class ContextTextBuilder:
     @staticmethod
     def build_messages_text(
         messages: List[Message],
-        format_style: str = "simple"
+        format_style: str = "simple",
+        use_summarization: bool = True,
+        recent_turns: int = None,  # None则使用配置
     ) -> str:
         """
         构建消息列表的文本表示
         
+        v3.3: 支持对话摘要，减少长对话的token使用
+        
         Args:
             messages: 消息列表
             format_style: 格式风格 ("simple", "detailed", "langchain")
+            use_summarization: 是否使用摘要（当对话超过阈值时）
+            recent_turns: 保留最近几轮完整对话（None则使用配置）
             
         Returns:
             格式化的消息文本
@@ -91,6 +107,17 @@ class ContextTextBuilder:
         if not messages:
             return ""
         
+        if recent_turns is None:
+            recent_turns = DEFAULT_MEMORY_CONFIG.summarization.recent_turns
+        
+        # 如果启用摘要且对话较长
+        threshold = DEFAULT_MEMORY_CONFIG.summarization.summarize_threshold
+        if use_summarization and len(messages) > threshold:
+            summarizer = ConversationSummarizer()
+            summarized = summarizer.summarize(messages)
+            return summarizer.format_for_prompt(summarized)
+        
+        # 否则使用原有的完整格式
         lines = []
         
         if format_style == "simple":

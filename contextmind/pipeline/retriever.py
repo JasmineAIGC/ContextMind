@@ -14,10 +14,10 @@ ContextRetriever - 统一检索模块
 """
 
 from typing import List, Optional
-from ..data_models import ProcessedContext, ContextItem, ContextSource
-from ..managers import SessionManager
-from .memory_bank import MemoryBank
-from ..logger import get_logger
+from ..core import ProcessedContext, ContextItem, ContextSource
+from ..utils import get_logger
+from .session import SessionManager
+from .memory import MemoryBank
 
 logger = get_logger(__name__)
 

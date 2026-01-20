@@ -1,13 +1,12 @@
-# ContextMind v4.0 最佳实践
+# ContextMind v5.1 最佳实践
 
 ## 架构使用
 
-### 1. 选择合适的层次
+### 1. 使用ContextEngine
 
 ✅ **推荐**：使用ContextEngine作为核心
 
 ```python
-# 好的做法
 engine = ContextEngine(...)
 context_result = await engine.optimize(user_input)
 ```
@@ -27,19 +26,7 @@ context = await collector.collect(user_input)
 ```python
 class MyApp(BaseApplication):
     def build_prompt(self, user_input, context):
-        # 专注于Prompt构建逻辑
         return self._build_my_prompt(user_input, context)
-```
-
-❌ **避免**：在业务代码中直接调用引擎
-
-```python
-# 不推荐 - 业务逻辑和上下文优化耦合
-async def handle_user(user_input):
-    context = await engine.optimize(user_input)
-    prompt = f"{system_prompt}\n{context.get_all_context_text()}\n{user_input}"
-    response = llm_client.generate(prompt)
-    # ...
 ```
 
 ---
@@ -48,21 +35,17 @@ async def handle_user(user_input):
 
 ### 1. 控制上下文长度
 
-✅ **推荐**：使用参数控制
-
 ```python
 context_result = await engine.optimize(
     user_input,
-    max_context_length=2000,  # 限制字符数
+    max_context_length=2000,
 )
 ```
 
-### 2. 选择性包含上下文
-
-✅ **推荐**：根据需要选择
+### 2. 选择性包含
 
 ```python
-# 只需要会话历史
+# 只要会话历史
 context = await engine.optimize(
     user_input,
     include_session=True,
@@ -70,7 +53,7 @@ context = await engine.optimize(
     include_knowledge=False,
 )
 
-# 需要完整上下文
+# 完整上下文
 context = await engine.optimize(
     user_input,
     include_session=True,
@@ -81,21 +64,19 @@ context = await engine.optimize(
 
 ### 3. 记忆管理
 
-✅ **推荐**：定期提取知识
-
 ```python
-# 在应用层配置
+# 应用层配置
 app = MyApp(
     context_engine=engine,
     llm_client=client,
-    auto_extract_knowledge=True,  # 自动提取
+    auto_extract_knowledge=True,
 )
 
-# 或手动提取
+# 手动提取
 knowledge = await engine.extract_knowledge(auto_store=True)
 ```
 
-✅ **推荐**：植入初始知识
+### 4. 植入初始知识
 
 ```python
 # 初始化时植入

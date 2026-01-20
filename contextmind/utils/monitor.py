@@ -200,3 +200,4 @@ Performance Summary:
     - Context Length: {latest.context_length} chars
 """
         return summary
+    

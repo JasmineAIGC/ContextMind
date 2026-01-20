@@ -14,7 +14,7 @@ InputPreprocessor - 输入预处理模块
 
 import re
 from typing import Optional
-from ..logger import get_logger
+from ..utils import get_logger
 
 logger = get_logger(__name__)
 

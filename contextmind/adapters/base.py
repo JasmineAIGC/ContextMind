@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
 
-from ..data_models import Message, ContextResult
+from ..core import Message, ContextResult
 from ..utils import ContextTextBuilder
 
 

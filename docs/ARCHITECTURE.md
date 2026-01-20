@@ -1,59 +1,43 @@
-# ContextMind v4.0 架构文档
+# ContextMind v5.1 架构文档
 
 ## 概述
 
-ContextMind v4.0 是架构优化版本，在 v3.2 的基础上进行了全面的代码重构和优化。
+ContextMind v5.1 采用五层清晰架构 (core/pipeline/strategies/adapters/utils)，相比v4.0进一步简化和优化。
 
-**v4.0 核心优化**：
-- Pipeline 层委托给 Strategy 层，消除 ~160 行重复代码
-- 统一 ContextTextBuilder 工具类，消除 ~80 行重复代码
-- SOLID 原则全面实践
-- 完善文档：设计哲学 + 架构详解 + API参考
+**v5.1 核心优化**：
+- 五层架构：core → pipeline → strategies → adapters → utils
+- 清晰的职责划分和依赖关系
+- 更易理解和维护的代码结构
 
 > 📖 **设计哲学**请参考 [DESIGN_PHILOSOPHY.md](./DESIGN_PHILOSOPHY.md)
 
-## 六层架构
+## 五层架构 (v5.1)
 
 ```
 ┌─────────────────────────────────────────┐
-│        应用层 (Application Layer)       │
-│     定义业务逻辑和Prompt构建策略         │
+│         核心层 (Core)                    │  ← contextmind/core/
+│    Token计数 | 缓存 | 向量 | 会话       │
 └─────────────────────────────────────────┘
-                    ↓ 使用
+                 ↑
 ┌─────────────────────────────────────────┐
-│       适配器层 (Adapter Layer)          │
-│  OpenAIAdapter, LangChainAdapter, etc.  │
+│       流水线层 (Pipeline)                │  ← contextmind/pipeline/
+│    预处理 → 检索 → 整合 →                │
+│    压缩 → 重排序 → 提取                  │
 └─────────────────────────────────────────┘
-                    ↓ 使用
+                 ↑
 ┌─────────────────────────────────────────┐
-│       引擎层 (Engine Layer)              │
-│    ContextEngine - 统一的上下文优化接口   │
+│       策略层 (Strategies)                │  ← contextmind/strategies/
+│    可插拔算法实现                        │
 └─────────────────────────────────────────┘
-                    ↓ 使用
+                 ↑
 ┌─────────────────────────────────────────┐
-│      流水线层 (Pipeline Layer)           │
-│  • InputProcessor - 输入预处理           │
-│  • ContextCollector - 上下文收集         │
-│  • ContextIntegrator - 上下文整合        │
-│  • ContextOptimizer - 上下文优化         │
-│  • KnowledgeExtractor - 知识提取        │
+│      适配器层 (Adapters)                 │  ← contextmind/adapters/
+│    OpenAI | LangChain | Custom         │
 └─────────────────────────────────────────┘
-                    ↓ 使用
+                 ↑
 ┌─────────────────────────────────────────┐
-│       策略层 (Strategy Layer)            │
-│  • RetrievalStrategy - 检索策略          │
-│  • IntegrationStrategy - 整合策略        │
-│  • OptimizationStrategy - 优化策略       │
-│  • ExtractionStrategy - 提取策略         │
-└─────────────────────────────────────────┘
-                    ↓ 使用
-┌─────────────────────────────────────────┐
-│   基础层 (Foundation) + 控制层 (Control) │
-│  • TokenizerService - Token精确计数      │
-│  • VectorClient - 向量检索               │
-│  • CacheManager - 智能缓存               │
-│  • FlowController - 流程控制             │
-│  • CircuitBreaker - 熔断器               │
+│        工具层 (Utils)                    │  ← contextmind/utils/
+│    配置 | 监控 | 格式化                  │
 └─────────────────────────────────────────┘
 ```
 
@@ -61,43 +45,18 @@ ContextMind v4.0 是架构优化版本，在 v3.2 的基础上进行了全面的
 
 ### 1. 数据模型 (`data_models.py`)
 
-定义了框架中所有的数据结构：
+定义框架中所有数据结构：
 
 - **Message**: 对话消息
 - **ContextItem**: 上下文条目
-- **ProcessedContext**: 处理后的上下文
+- **ProcessedContext**: 处理后上下文
 - **ContextResult**: 上下文优化结果
 - **Knowledge**: 提取的知识
-- **MemoryNote**: 结构化记忆笔记（v3.2 Agent Memory System）
-- **MemoryType**: 记忆类型枚举（Working/Semantic/Episodic）
+- **MemoryNote**: 结构化记忆笔记
 
-### 2. Agent Memory System（v3.2新增）
+### 2. 核心层 (Core)
 
-基于A-MEM架构设计的三层记忆模型：
-
-```
-┌─────────────────────────────────────────────────────┐
-│               Agent Memory System                    │
-├─────────────────────────────────────────────────────┤
-│  工作记忆 (Working Memory)                           │
-│  • 当前任务的即时上下文                              │
-│  • 由SessionManager管理                             │
-│  • 短期存储，任务结束后清空                          │
-├─────────────────────────────────────────────────────┤
-│  语义记忆 (Semantic Memory)                          │
-│  • 结构化知识网络                                   │
-│  • MemoryNote结构：关键词、标签、链接、重要性       │
-│  • 支持动态演化和关联                               │
-├─────────────────────────────────────────────────────┤
-│  情节记忆 (Episodic Memory)                          │
-│  • 时间序列的事件历史                               │
-│  • 支持因果链追溯                                   │
-│  • 长期持久化存储                                   │
-└─────────────────────────────────────────────────────┘
-```
-
-**MemoryNote结构（参考Zettelkasten笔记法）**：
-- `id`: 唯一标识符
+基础数据结构和服务：
 - `content`: 记忆内容
 - `keywords`: 自动提取的关键词
 - `tags`: 分类标签
