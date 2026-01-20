@@ -65,9 +65,9 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         return knowledge
     
     def _extract_preferences(self, messages: List[Message]) -> List[Knowledge]:
-        """提取用户偏好和关键策略，使用结构化格式存储
+        """提取用户偏好和关键策略，保留完整上下文
         
-        只提取明确的用户偏好，严格过滤质量。
+        优化：存储完整用户消息，提供更丰富的上下文信息。
         """
         preferences = []
         
@@ -75,11 +75,15 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
             if msg.role.value != "user":
                 continue
             
-            content = msg.content
+            content = msg.content.strip()
             
-            # 正面偏好 - 只提取明确的"我喜欢/我想要"等
+            # 跳过过短的消息
+            if len(content) < 3:
+                continue
+            
+            # 正面偏好 - 提取明确的"我喜欢/我想要"等，保留完整句子
             positive_patterns = [
-                (r'我(喜欢|想要|希望|需要|偏好)(.{2,20})', 'positive'),
+                (r'我(喜欢|想要|希望|需要|偏好)(.+?)(?=[。！？,.!?；：]|$)', 'positive'),
             ]
             
             for pattern, sentiment in positive_patterns:
@@ -91,11 +95,13 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     # 清理尾随标点
                     phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
                     
-                    # 质量检查：长度合理，不以否定词开头
-                    if (self.config.min_phrase_length <= len(phrase) <= self.config.max_phrase_length 
+                    # 质量检查：长度合理（允许更长的内容），不以否定词开头
+                    if (self.config.min_phrase_length <= len(phrase) <= 100 
                         and not phrase.startswith(('不', '没', '无'))):
+                        # 保留完整上下文
+                        full_content = f"用户表示{keyword}{phrase}"
                         preferences.append(Knowledge(
-                            content=f"{keyword}{phrase}",  # 简化格式，移除冗余标签
+                            content=full_content,
                             type=KnowledgeType.PREFERENCE,
                             confidence=self.config.preference_confidence,
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '偏好'}
