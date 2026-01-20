@@ -47,74 +47,48 @@
 
 ---
 
-## 📂 项目结构
+## 📂 项目结构 (v7.0)
 
 ```
 ContextMind/
-├── contextmind/              # 🔥 核心模块 - 五层清晰架构
+├── contextmind/              # 🔥 核心模块 - 纯上下文工程框架
 │   ├── __init__.py           # 框架入口
-│   ├── engine.py             # ContextEngine - 统一接口
-│   ├── client.py             # LLM 客户端
-│   ├── data_models.py        # 数据模型
-│   ├── logger.py             # 日志系统
-│   │
-│   ├── core/                 # 核心层 - 基础数据结构与服务
-│   │   ├── tokenizer.py      # Token 计数服务
-│   │   ├── cache.py          # 缓存管理
-│   │   ├── vector_client.py  # 向量数据库接口
-│   │   └── session_manager.py # 会话管理
+│   ├── models.py             # 数据模型（Message, Knowledge, Config等）
+│   ├── engine.py             # ContextEngine - 核心引擎
+│   ├── registry.py           # 插件注册中心
+│   ├── config_api.py         # ContextMind 高层API
 │   │
 │   ├── pipeline/             # 流水线层 - 上下文处理流程
+│   │   ├── session.py        # 会话管理
 │   │   ├── preprocessor.py   # 输入预处理
-│   │   ├── retriever.py      # 上下文检索
-│   │   ├── integrator.py     # 上下文整合
+│   │   ├── memory.py         # 记忆库管理
 │   │   ├── compressor.py     # 上下文压缩
 │   │   ├── reorderer.py      # 上下文重排序
-│   │   └── extractor.py      # 知识提取
+│   │   ├── postprocessor.py  # 输出后处理
+│   │   ├── summarizer.py     # 对话摘要
+│   │   └── kvcache.py        # KV缓存策略接口
 │   │
-│   ├── strategies/           # 策略层 - 可插拔算法
-│   │   ├── base.py           # 策略基类
-│   │   ├── retrieval.py      # 检索策略
-│   │   ├── integration.py    # 整合策略
-│   │   ├── optimization.py   # 优化策略
-│   │   └── extraction.py     # 提取策略
-│   │
-│   ├── adapters/             # 适配器层 - 系统集成
-│   │   ├── base.py           # 基础适配器
-│   │   ├── openai_adapter.py # OpenAI 适配器
-│   │   └── langchain_adapter.py # LangChain 适配器
-│   │
-│   └── utils/                # 工具层 - 辅助功能
-│       ├── config.py         # 配置管理
-│       ├── monitor.py        # 性能监控
-│       ├── context_formatter.py # 格式化工具
-│       └── text_builder.py   # 文本构建工具
+│   └── strategies/           # 策略层 - 可插拔算法（扁平结构）
+│       ├── base.py           # 策略基类
+│       ├── extractors.py     # 提取策略（RuleBased, LLMEntity, Importance）
+│       ├── retrievers.py     # 检索策略（Semantic, Hybrid, Locator）
+│       └── updaters.py       # 更新策略（Simple, ConflictResolver, Adaptive）
 │
-├── examples/                 # 📚 示例应用
-│   ├── applications/         # 应用层示例
-│   │   ├── base.py           # BaseApplication - 应用基类
-│   │   └── callcenter.py     # 客服应用示例
-│   └── adapter_integration_demo.py  # 适配器集成示例
+├── demos/                    # 📚 演示和示例
+│   ├── README.md
+│   ├── plugin_examples.py    # 插件使用示例
+│   ├── callcenter_app.py     # 客服应用示例
+│   └── chat_app.py           # 聊天应用示例
 │
 ├── tests/                    # ✅ 测试
-│   └── test_core.py          # 核心功能测试（23个测试用例）
 │
 ├── docs/                     # 📖 文档
-│   ├── DESIGN_PHILOSOPHY.md  # 设计哲学与架构思想 ⭐
-│   ├── ARCHITECTURE.md       # 架构详解
-│   ├── API_REFERENCE.md      # API 参考
-│   ├── BEST_PRACTICES.md     # 最佳实践
-│   ├── FOUNDATION_LAYER.md   # 基础层详解
-│   ├── CONTEXT_FLOW_DETAILED.md  # 上下文流程详解
-│   └── LOG_ANALYSIS_GUIDE.md     # 日志分析指南
+│   └── arch_by_me.md         # 架构设计文档
 │
-├── data/                     # 📁 示例数据
-│   ├── callcenter_dialog.txt    # 客服对话示例
-│   └── memory_seeds.txt          # 记忆种子数据
-│
-├── gradio_demo.py            # 🎨 Web UI 演示（Gradio）
-├── interactive_demo.py       # 💬 命令行交互演示
-├── run.sh                    # 🚀 快速启动脚本
+├── interactive_demo.py       # 💬 命令行交互演示（根目录）
+├── gradio_demo.py            # 🎨 Web UI 演示（根目录）
+├── chat_interactive_demo.py  # 💬 聊天命令行演示（根目录）
+├── chat_gradio_demo.py       # 🎨 聊天 Web UI 演示（根目录）
 ├── requirements.txt          # 📦 依赖列表
 ├── pytest.ini                # ⚙️ 测试配置
 └── README.md                 # 📋 本文件
@@ -123,39 +97,47 @@ ContextMind/
 
 ### 核心模块说明
 
-#### `contextmind/` - 独立的上下文工程框架
+#### `contextmind/` - 纯上下文工程框架
 
-这是项目的核心，**可以作为独立 Python 包使用**，嵌入到任何对话系统中。
+这是项目的核心，**纯上下文工程框架**，专注于 Steps 1-4（上下文构建）和 Step 6（输出后处理）。
 
-**五层架构 (v7.0)**：
-1. **核心层** (`core/`) - 基础数据结构与服务（Token计数、缓存、向量、会话）
-2. **流水线层** (`pipeline/`) - 上下文处理流程（预处理、检索、整合、压缩、重排序、提取）
-3. **策略层** (`strategies/`) - 可插拔的算法实现（检索、整合、优化、提取策略）
-4. **适配器层** (`adapters/`) - 系统集成接口（OpenAI、LangChain等）
-5. **工具层** (`utils/`) - 辅助功能（配置、监控、格式化）
+**v7.0 架构特点**：
+1. **扁平化设计** - 去除多余嵌套，直接访问所有模块
+2. **插件化** - 所有策略都是可插拔的（extractors, retrievers, updaters）
+3. **零 LLM 依赖** - LLM 调用由用户控制（Step 5 外部化）
+4. **模块化** - 每个 pipeline 组件独立，可单独使用
 
 **核心文件**：
-- `engine.py`: `ContextEngine` 类 - 主要入口点
-- `data_models.py`: 所有数据模型定义
-- `client.py`: LLM 客户端（支持 OpenAI 兼容 API）
-- `logger.py`: 日志系统
+- `models.py`: 所有数据模型和配置类
+- `engine.py`: ContextEngine 核心引擎
+- `registry.py`: 插件注册和发现系统
+- `config_api.py`: ContextMind 高层 API（prepare_context, post_process）
 
-#### `examples/` - 示例应用
+**Pipeline 模块** (`pipeline/`):
+- `session.py`: 会话状态管理
+- `preprocessor.py`: 输入预处理
+- `memory.py`: 记忆库（MemoryBank）
+- `compressor.py`, `reorderer.py`: 上下文优化
+- `postprocessor.py`: 输出后处理
+- `summarizer.py`: 对话摘要生成
+- `kvcache.py`: KV缓存策略接口
 
-展示如何使用 ContextMind 构建应用：
-- `applications/base.py`: 应用基类，定义标准对话处理模式
-- `applications/callcenter.py`: 客服系统示例
+**Strategy 插件** (`strategies/`):
+- `extractors.py`: 知识提取策略
+- `retrievers.py`: 记忆检索策略  
+- `updaters.py`: 记忆更新策略
 
-#### `tests/` - 测试
+#### `demos/` - 演示代码
 
-- 23 个测试用例，覆盖核心功能
-- 包含数据模型、Pipeline、Foundation、Agent Memory System 测试
+所有示例代码集中在 demos/ 目录：
+- `plugin_examples.py`: 插件系统使用示例
+- `callcenter_app.py`, `chat_app.py`: 应用模板
 
-#### 根目录文件
+#### 根目录演示文件
 
-- `gradio_demo.py`: Web UI 演示（687 行）
-- `interactive_demo.py`: 命令行交互演示（205 行）
-- `run.sh`: 快速启动脚本
+4 个演示文件放在根目录便于快速访问：
+- `interactive_demo.py`, `gradio_demo.py`: 基础演示
+- `chat_interactive_demo.py`, `chat_gradio_demo.py`: 聊天模式演示
 
 ---
 
@@ -186,31 +168,34 @@ QWEN3_MAX_TOKENS=8192
 
 ```python
 import asyncio
-from contextmind.core import ContextEngine, Client, ClientConfig
+from contextmind import ContextMind
 
 async def main():
-    # 初始化客户端
-    client = Client(config=ClientConfig.from_env())
+    # 初始化 ContextMind（纯上下文工程框架）
+    cm = ContextMind()
     
-    # 初始化引擎
-    engine = ContextEngine(
-        app_name="my-app",
-        user_id="user-123",
-        llm_client=client,
+    # Step 1-4: 准备优化后的上下文
+    context = await cm.prepare_context(
+        user_input="你好，我想查询余额",
+        session_id="user-123"
     )
-    
-    # 优化上下文
-    context_result = await engine.optimize("你好")
     
     # 查看优化后的上下文
-    print(f"近期对话: {len(context_result.recent_history)} 条")
-    print(f"长期记忆: {len(context_result.long_term_memory)} 条")
+    print(f"系统提示: {context['system_prompt']}")
+    print(f"优化上下文: {len(context['optimized_context'])} 条")
     
-    # 更新会话
-    await engine.update(
-        user_input="你好",
-        assistant_response="你好，有什么可以帮助你的？"
-    )
+    # Step 5: 用户调用自己的 LLM（外部）
+    # llm_output = await your_llm.generate(
+    #     system_prompt=context['system_prompt'],
+    #     messages=context['optimized_context'],
+    #     user_input=context['user_input']
+    # )
+    
+    # Step 6: 后处理（可选）
+    # final_response = await cm.post_process(
+    #     llm_output,
+    #     session_id="user-123"
+    # )
 
 asyncio.run(main())
 ```
@@ -291,34 +276,39 @@ python gradio_demo.py
 
 ## 🏗️ 架构设计
 
-### 五层架构 (v7.0)
+### v7.0 架构设计
 
 ```
-┌─────────────────────────────────────────┐
-│         核心层 (Core)                    │  ← contextmind/core/
-│    Token计数 | 缓存 | 向量 | 会话       │
-└─────────────────────────────────────────┘
-                 ↑
-┌─────────────────────────────────────────┐
-│       流水线层 (Pipeline)                │  ← contextmind/pipeline/
-│    预处理 → 检索 → 整合 →                │
-│    压缩 → 重排序 → 提取                  │
-└─────────────────────────────────────────┘
-                 ↑
-┌─────────────────────────────────────────┐
-│       策略层 (Strategies)                │  ← contextmind/strategies/
-│    可插拔算法实现                        │
-└─────────────────────────────────────────┘
-                 ↑
-┌─────────────────────────────────────────┐
-│      适配器层 (Adapters)                 │  ← contextmind/adapters/
-│    OpenAI | LangChain | Custom         │
-└─────────────────────────────────────────┘
-                 ↑
-┌─────────────────────────────────────────┐
-│        工具层 (Utils)                    │  ← contextmind/utils/
-│    配置 | 监控 | 格式化                  │
-└─────────────────────────────────────────┘
+用户输入
+    ↓
+┌─────────────────────────────────────────────┐
+│  Step 1-4: 上下文工程（ContextMind 核心）   │
+│                                             │
+│  ┌──────────────────────────────────────┐  │
+│  │ Pipeline (流水线层)                   │  │
+│  │  Session → Preprocessor → Memory →   │  │
+│  │  Compressor → Reorderer              │  │
+│  └──────────────────────────────────────┘  │
+│           ↓                                 │
+│  ┌──────────────────────────────────────┐  │
+│  │ Strategies (插件层)                  │  │
+│  │  Extractors | Retrievers | Updaters │  │
+│  └──────────────────────────────────────┘  │
+│                                             │
+│  输出: 优化后的上下文（optimized_context）  │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Step 5: LLM 推理（用户外部调用）            │
+│  your_llm.generate(optimized_context)       │
+│  输出: LLM 原始响应                          │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Step 6: 输出后处理（ContextMind）          │
+│  PostProcessor.process(llm_output)          │
+│  输出: 最终响应                              │
+└─────────────────────────────────────────────┘
 ```
 
 ### 设计原则
@@ -334,44 +324,61 @@ python gradio_demo.py
 
 ## 🔌 集成示例
 
-### 使用 OpenAI 适配器
+### 基础使用
 
 ```python
-from contextmind.core import ContextEngine, Client
-from contextmind.adapters import OpenAIAdapter
+from contextmind import ContextMind, registry
 
-# 初始化
-engine = ContextEngine(app_name="my-app", user_id="user-123")
-client = Client(config=ClientConfig.from_env())
-adapter = OpenAIAdapter(engine=engine)
+# 初始化（使用默认插件）
+cm = ContextMind()
 
-# 处理对话
-response = await adapter.process("你好", context=None)
-print(response.content)
+# 准备上下文
+context = await cm.prepare_context(
+    user_input="你好",
+    session_id="user-123"
+)
+
+# 调用你自己的 LLM
+llm_output = await your_llm.generate(context)
+
+# 后处理
+final = await cm.post_process(llm_output, session_id="user-123")
 ```
 
-### 使用 LangChain 适配器
+### 使用自定义插件
 
 ```python
-from contextmind.adapters import LangChainAdapter
+from contextmind import registry
+from contextmind.strategies.extractors import RuleBasedExtractor
+from contextmind.strategies.retrievers import HybridRetriever
 
-adapter = LangChainAdapter(engine=engine)
-response = await adapter.process("你好", context=None)
+# 查看可用插件
+print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
+print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
+
+# 创建自定义配置
+cm = ContextMind(
+    extractor='llm_entity',      # 使用 LLM 辅助提取
+    retriever='hybrid',          # 使用混合检索
+    updater='conflict_resolver'  # 使用冲突解决器
+)
 ```
 
-### 自定义策略
+### 注册自定义策略
 
 ```python
-from contextmind.strategies import IntegrationStrategy
+from contextmind.strategies.base import BaseExtractor
 
-class MyStrategy(IntegrationStrategy):
-    async def integrate(self, context):
-        # 自定义整合逻辑
-        return context
+class MyCustomExtractor(BaseExtractor):
+    async def extract(self, messages):
+        # 自定义提取逻辑
+        return extracted_knowledge
 
-# 使用自定义策略
-from contextmind.pipeline import ContextIntegrator
-integrator = ContextIntegrator(strategy=MyStrategy())
+# 注册自定义插件
+registry.register_extractor('my_custom', MyCustomExtractor)
+
+# 使用自定义插件
+cm = ContextMind(extractor='my_custom')
 ```
 
 ---

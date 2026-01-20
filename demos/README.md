@@ -1,58 +1,45 @@
 # ContextMind Demos
 
-This directory contains all demonstration and example code for ContextMind v7.0.
+This directory contains example code for ContextMind v7.0.
 
-## Directory Structure
+## Files
 
-```
-demos/
-├── basic/           # Basic usage demos
-├── advanced/        # Advanced plugin usage examples
-└── applications/    # Sample application templates
-```
+All demonstration files are in the `demos/` directory with a **flat structure** (no subdirectories):
 
-## Basic Demos (`basic/`)
+- **plugin_examples.py** - Demonstrates custom plugin registration and usage
+- **callcenter_app.py** - Call center customer service application template
+- **chat_app.py** - General chat application template
 
-Simple demonstrations of core ContextMind functionality:
+## Root Demo Files
+
+Four main demo files are located at the **repository root** for easy access:
 
 - **interactive_demo.py** - Interactive CLI demo for testing context engineering
 - **gradio_demo.py** - Web UI demo using Gradio
 - **chat_interactive_demo.py** - Interactive chat mode demo
 - **chat_gradio_demo.py** - Chat mode with Gradio web UI
 
-## Advanced Demos (`advanced/`)
-
-Advanced usage patterns and plugin customization:
-
-- **plugin_examples.py** - Demonstrates custom plugin registration and usage
-
-## Applications (`applications/`)
-
-Sample application templates showing real-world usage:
-
-- **callcenter_app.py** - Call center customer service application
-- **chat_app.py** - General chat application
-
 ## Usage
 
 Each demo is self-contained and can be run directly:
 
 ```bash
-# Basic demos
-python demos/basic/interactive_demo.py
-python demos/basic/gradio_demo.py
+# Root demos (in repository root directory)
+python interactive_demo.py
+python gradio_demo.py
+python chat_interactive_demo.py
+python chat_gradio_demo.py
 
-# Advanced demos
-python demos/advanced/plugin_examples.py
-
-# Sample applications
-python demos/applications/callcenter_app.py
-python demos/applications/chat_app.py
+# Example code (in demos/ directory)
+python demos/plugin_examples.py
+python demos/callcenter_app.py
+python demos/chat_app.py
 ```
 
 ## v7.0 Architecture
 
 All demos use the clean v7.0 ContextMind architecture:
 - Pure context engineering framework (Steps 1-4 + 6)
-- LLM invocation (Step 5) handled externally
-- Modular plugin system for all components
+- LLM invocation (Step 5) handled externally by user code
+- Modular plugin system for all components (extractors, retrievers, updaters)
+- Flat directory structure - no unnecessary nesting
