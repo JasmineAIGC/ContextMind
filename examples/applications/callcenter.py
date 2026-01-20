@@ -6,8 +6,8 @@ CallCenterApplication - 客服应用示例
 """
 
 from contextmind import ContextEngine, Client, ContextResult
-from contextmind.modules.compressor import DEFAULT_MAX_SESSION_ITEMS
-from contextmind.utils.logger import get_logger
+from contextmind.pipeline.compressor import DEFAULT_MAX_SESSION_ITEMS
+from contextmind.utils import get_logger
 from .base import BaseApplication
 from ..prompts import get_system_prompt
 

@@ -85,8 +85,6 @@ async def main():
         app_name="demo-app",
         user_id="demo-user",
         llm_client=llm_client,
-        session_service=InMemorySessionService(),
-        memory_service=InMemoryMemoryService() if args.use_memory else None,
         max_recent_events=args.max_events,
     )
     print("✅ 引擎初始化完成")

@@ -133,13 +133,6 @@ class GradioDemo:
         user_profile = self._get_user_profile()
         business_rules = {**self._get_core_duties(), **self._get_communication_strategy(), **self._get_reply_requirements()}
 
-        # 根据配置决定是否使用记忆服务
-        if self.use_memory:
-            from google.adk.memory import InMemoryMemoryService
-            memory_service = InMemoryMemoryService()
-        else:
-            memory_service = None
-        
         # 如果禁用会话历史，设置max_recent_events为0
         effective_max_events = self.max_recent_events if self.use_session else 0
             
@@ -147,8 +140,7 @@ class GradioDemo:
             app_name="callcenter-gradio",
             user_id="gradio-user",
             llm_client=client,
-            max_recent_events=effective_max_events,  # 使用实际有效值
-            memory_service=memory_service,
+            max_recent_events=effective_max_events,
         )
             
         logger.info(f"🔧 [Gradio] 已创建引擎 (会话:{self.use_session}, 记忆:{self.use_memory}, 最大轮数:{effective_max_events})")

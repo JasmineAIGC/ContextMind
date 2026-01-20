@@ -5,12 +5,12 @@
 """
 
 import pytest
-from contextmind.data_models import (
+from contextmind.core import (
     ProcessedContext, ContextResult, ContextItem, ContextSource,
     Message, MessageRole
 )
 from contextmind.strategies.optimization import CompressionStrategy, RerankingStrategy
-from contextmind.modules.compressor import ContextCompressor
+from contextmind.pipeline.compressor import ContextCompressor
 
 
 class TestPipelineIntegration:

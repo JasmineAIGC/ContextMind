@@ -8,13 +8,13 @@ import pytest
 import asyncio
 from datetime import datetime
 
-from contextmind.data_models import (
+from contextmind.core import (
     Message, MessageRole, ContextItem, ContextSource,
     ContextResult, ProcessedContext, Knowledge, KnowledgeType,
     Chunk, ContextState
 )
 
-from contextmind.modules import (
+from contextmind.pipeline import (
     InputPreprocessor, ContextReorderer, ContextCompressor
 )
 
