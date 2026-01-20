@@ -29,7 +29,6 @@ from datetime import datetime
 
 from .client import Client
 from .core import (
-    get_logger,
     Message,
     MessageRole,
     ContextResult,
@@ -38,6 +37,7 @@ from .core import (
     ProcessedContext,
     Knowledge,
 )
+from .utils import get_logger
 from .pipeline import (
     SessionManager,
     InputPreprocessor,
