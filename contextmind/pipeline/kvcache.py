@@ -1,17 +1,25 @@
 """
-KVCacheManager - KV Cache管理模块
+KVCacheManager - KV Cache管理接口（轻量级）
 
-在LLM注意力计算（推理生成）过程中实时介入。
-缓存过去的Key-Value注意力状态，优化eviction（剔除不重要缓存），
-支持超长上下文而不过度消耗显存/计算。
+重要：KV Cache管理（Step 5）属于LLM推理层优化，在EXTERNAL实现（vLLM、sglang等）。
+ContextMind的核心是Step 1-4（上下文工程）+ Step 6（输出后处理）。
 
-注意：此模块属于推理层优化，不改变Prompt内容。
-通常需要与vLLM、sglang等推理框架集成。
+此模块提供轻量级接口，用于：
+1. 定义KV Cache策略的标准接口
+2. 与外部推理框架（vLLM、sglang）集成时的配置指引
+3. 研究和实验目的
 
-常用方法：
+实际KV Cache管理由用户的LLM推理引擎处理：
+- vLLM: 内置PagedAttention + 自定义eviction
+- sglang: 内置RadixAttention + 自定义eviction  
+- HuggingFace: 用户自行实现cache管理
+
+常用KV Cache策略（供参考）：
 - Eviction策略：H2O（注意力分数阈值）、SnapKV（快照关键KV）、PyramidKV
 - 其他：滑动窗口fallback、Infini-attention（无限长支持）
-- 底层集成：vLLM/sglang hook
+- 底层集成：需要hook到vLLM/sglang的attention计算层
+
+注意：此模块不改变Prompt内容，属于推理优化而非上下文工程。
 """
 
 from abc import ABC, abstractmethod

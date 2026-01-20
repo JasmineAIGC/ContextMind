@@ -4,24 +4,33 @@ ContextMind Configuration API - Simple framework configuration
 Provides a simple, unified API for configuring the entire ContextMind framework.
 Makes integration easy with sensible defaults and minimal boilerplate.
 
+ContextMind focuses on context engineering (Steps 1-4 + Step 6):
+- Steps 1-4: Build efficient prompt (context engineering core) - INSIDE ContextMind
+- Step 5: LLM invocation (with KV cache) - EXTERNAL (user's LLM)
+- Step 6: Output post-processing - INSIDE ContextMind
+
 Example:
     ```python
     from contextmind import ContextMind
     
-    # Simple setup with defaults
-    cm = ContextMind(llm_client=your_llm)
+    # Setup
+    cm = ContextMind()
     
-    # Or customize
-    cm = ContextMind(
-        llm_client=your_llm,
-        extractor='llm_entity',
-        retriever='hybrid',
-        enable_memory=True,
-        enable_compression=True,
+    # Steps 1-4: ContextMind builds optimized context
+    context = await cm.prepare_context("Hello", session_id="user123")
+    
+    # Step 5: User invokes EXTERNAL LLM (vLLM, OpenAI, etc.)
+    llm_output = await your_llm.generate(
+        system_prompt=context['system_prompt'],
+        messages=context['optimized_context'],
+        user_input=context['user_input']
     )
     
-    # Use it
-    response = await cm.process(user_input, session_id="user123")
+    # Step 6: ContextMind post-processes
+    final_response = await cm.post_process(
+        llm_output,
+        session_id="user123"
+    )
     ```
 """
 
@@ -36,16 +45,20 @@ logger = get_logger(__name__)
 
 class ContextMind:
     """
-    Unified, easy-to-use interface for ContextMind framework
+    Unified interface for ContextMind context engineering framework
     
-    This class provides a simplified API that hides complexity while
-    maintaining full configurability. Perfect for quick integration.
+    ContextMind focuses on context engineering (Steps 1-4 + Step 6):
+    - Steps 1-4: Build efficient prompt (InputPreprocessor → Retriever → Compressor → Reorderer)
+    - Step 5: LLM invocation is EXTERNAL (user calls their own LLM)
+    - Step 6: Post-process LLM output (PostProcessor)
+    
+    This design keeps ContextMind universal - works with ANY LLM provider.
     
     Features:
     - Automatic plugin selection with sensible defaults
-    - Simple process() method for common use cases
+    - prepare_context() for Steps 1-4 (returns optimized context)
+    - post_process() for Step 6 (processes LLM output)
     - Built-in session management
-    - Automatic memory extraction and storage
     - Easy plugin swapping
     
     Attributes:
@@ -119,28 +132,53 @@ class ContextMind:
         self.session_id: Optional[str] = None
         logger.info("[ContextMind] ✓ Initialization complete")
     
-    async def process(
+    async def prepare_context(
         self,
         user_input: str,
         session_id: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        extract_knowledge: bool = True,
-    ) -> str:
+    ) -> Dict[str, Any]:
         """
-        Process user input and return AI response
+        Steps 1-4: Build optimized context for LLM invocation
         
-        This is a simplified, high-level method that handles the entire
-        conversation flow including context optimization, LLM generation,
-        and knowledge extraction.
+        This method runs the context engineering pipeline:
+        1. InputPreprocessor - clean and normalize input
+        2. ContextRetriever + MemoryBank - retrieve relevant context
+        3. ContextCompressor - compress to fit context window
+        4. ContextReorderer - reorder for optimal attention
+        
+        After this, user should invoke their LLM (Step 5) and then call
+        post_process() on the LLM output (Step 6).
         
         Args:
             user_input: User's message
             session_id: Session ID for conversation tracking
             system_prompt: Optional system prompt override
-            extract_knowledge: Whether to extract knowledge from the conversation
             
         Returns:
-            AI's response text
+            Dict containing:
+                - 'optimized_context': List of context items ready for LLM
+                - 'system_prompt': str - System instructions
+                - 'user_input': str - Processed user input
+                - 'messages': List - Full message history
+                - 'metadata': Dict - Additional metadata
+        
+        Example:
+            ```python
+            cm = ContextMind()
+            # Steps 1-4: ContextMind builds optimized context
+            context = await cm.prepare_context("Hello", session_id="user123")
+            
+            # Step 5: User invokes EXTERNAL LLM
+            llm_output = await your_llm.generate(
+                system_prompt=context['system_prompt'],
+                messages=context['optimized_context'],
+                user_input=context['user_input']
+            )
+            
+            # Step 6: ContextMind post-processes
+            final = cm.post_process(llm_output, session_id="user123")
+            ```
         """
         # Use provided session_id or stored one
         sid = session_id or self.session_id
@@ -158,7 +196,7 @@ class ContextMind:
         # Add current message
         messages.append(user_msg)
         
-        # Optimize context
+        # Steps 1-4: Optimize context (core context engineering)
         optimized = await self.engine.optimize_context(
             messages=messages,
             query=user_input,
@@ -166,42 +204,92 @@ class ContextMind:
             system_prompt=system_prompt,
         )
         
-        # Generate response using LLM client
-        # Note: This is a simplified example. In production, you should:
-        # 1. Build the complete prompt from optimized context
-        # 2. Call your LLM client with the prompt
-        # 3. Handle the response appropriately
-        
-        # Example LLM call (you'll need to adapt this to your LLM client):
-        # response_text = await self.engine.llm_client.generate(optimized.context, user_input)
-        
-        # For now, return a placeholder that shows what was processed
-        logger.warning(
-            "[ContextMind] process() method uses placeholder response. "
-            "Override this method or call engine.optimize_context() + your LLM directly."
-        )
-        response_text = (
-            f"[ContextMind processed your input with {len(optimized.context)} context items. "
-            f"Please implement actual LLM call in your application.]"
+        logger.info(
+            f"[ContextMind] ✓ Context optimized: {len(optimized.context)} items ready for LLM"
         )
         
-        # Create assistant message
-        assistant_msg = Message(role=MessageRole.ASSISTANT, content=response_text)
+        # Return structured context for external LLM invocation
+        return {
+            'optimized_context': optimized.context,
+            'system_prompt': system_prompt or "",
+            'user_input': user_input,
+            'messages': messages,
+            'metadata': {
+                'session_id': sid,
+                'context_items': len(optimized.context),
+                'compression_applied': hasattr(optimized, 'compression_ratio'),
+            }
+        }
+    
+    async def post_process(
+        self,
+        llm_output: str,
+        session_id: Optional[str] = None,
+        extract_knowledge: bool = True,
+    ) -> str:
+        """
+        Step 6: Post-process LLM output and update memory
         
-        # Save to session
+        Applies PostProcessor to ensure output quality:
+        - Format validation and correction
+        - Remove duplicates  
+        - Citation generation (if applicable)
+        - Consistency checks
+        
+        Also handles knowledge extraction and session updates.
+        
+        Args:
+            llm_output: Raw output from LLM
+            session_id: Session ID for conversation tracking
+            extract_knowledge: Whether to extract knowledge from the conversation
+            
+        Returns:
+            Final processed response ready for user
+        
+        Example:
+            ```python
+            # After calling LLM
+            final_response = await cm.post_process(
+                llm_output,
+                session_id="user123",
+                extract_knowledge=True
+            )
+            ```
+        """
+        logger.info(f"[ContextMind] Step 6: Post-processing LLM output ({len(llm_output)} chars)...")
+        
+        # Apply PostProcessor if available
+        processed_output = llm_output
+        if hasattr(self.engine, 'postprocessor') and self.engine.postprocessor:
+            processed_output = self.engine.postprocessor.process(llm_output)
+            logger.debug(f"[ContextMind] PostProcessor applied")
+        
+        # Use provided session_id or stored one
+        sid = session_id or self.session_id
+        
+        # Create assistant message for session storage
         if sid and self.engine.session:
-            await self.engine.session.add_message(sid, user_msg)
+            assistant_msg = Message(role=MessageRole.ASSISTANT, content=processed_output)
             await self.engine.session.add_message(sid, assistant_msg)
+            logger.debug(f"[ContextMind] Response saved to session: {sid}")
         
         # Extract knowledge if enabled
-        if extract_knowledge and self.engine.extractor:
-            knowledge = await self.engine.extractor.extract([user_msg, assistant_msg])
-            if knowledge and self.engine.memory:
-                for k in knowledge:
-                    await self.engine.memory.add(k)
-                logger.info(f"[ContextMind] Extracted and stored {len(knowledge)} knowledge items")
+        if extract_knowledge and self.engine.extractor and self.engine.memory:
+            # Get last user message from session
+            if sid and self.engine.session:
+                recent_messages = await self.engine.session.get_messages(sid, limit=2)
+                if len(recent_messages) >= 2:
+                    user_msg = recent_messages[-2]
+                    assistant_msg = Message(role=MessageRole.ASSISTANT, content=processed_output)
+                    
+                    knowledge = await self.engine.extractor.extract([user_msg, assistant_msg])
+                    if knowledge:
+                        for k in knowledge:
+                            await self.engine.memory.add(k)
+                        logger.info(f"[ContextMind] ✓ Extracted and stored {len(knowledge)} knowledge items")
         
-        return response_text
+        logger.info(f"[ContextMind] ✓ Post-processing complete")
+        return processed_output
     
     def set_extractor(self, extractor_name: str):
         """Change the extractor plugin"""
