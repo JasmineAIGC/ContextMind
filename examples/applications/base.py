@@ -54,7 +54,7 @@ class BaseApplication(ABC):
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(format_context_result(context_result))
             
-            memory_cache = self.context_engine.memory_manager.get_memory_cache() if hasattr(self.context_engine, 'memory_manager') else []
+            memory_cache = self.context_engine.memory_bank.get_memory_cache() if hasattr(self.context_engine, 'memory_bank') else []
             logger.debug(format_memory_cache(memory_cache))
         
         # 构建 Prompt
