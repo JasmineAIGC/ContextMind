@@ -1,26 +1,23 @@
 """
 SessionManager - 会话管理器
 
-封装 Google ADK Session Service，提供简化的会话管理接口。
+提供简化的会话管理接口。
 负责管理短期对话历史，支持添加消息、获取历史和清空会话。
 """
 
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 import uuid
+from datetime import datetime
 
-from google.adk.events.event import Event
-from google.adk.sessions.base_session_service import BaseSessionService, GetSessionConfig
-from google.adk.sessions import Session
-from google.genai.types import Content, Part
-
-from ..core import Message, MessageRole, get_logger
+from ..core import Message, MessageRole
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class SessionManager:
     """
-    会话管理器 - 封装 ADK Session Service
+    会话管理器
     
     提供对话会话的创建、管理和查询功能，是上下文优化框架的核心组件之一。
     
@@ -31,7 +28,6 @@ class SessionManager:
     - 清空会话历史
     
     Attributes:
-        session_service: ADK Session Service 实例
         app_name: 应用名称
         user_id: 用户ID
         max_recent_events: 保留的最大近期事件数量
@@ -39,47 +35,31 @@ class SessionManager:
     
     def __init__(
         self,
-        session_service: Optional[BaseSessionService],
-        app_name: str,
-        user_id: str,
+        session_service: Optional[Any] = None,  # 保留参数以保持兼容性，但不再使用
+        app_name: str = "default_app",
+        user_id: str = "default_user",
         max_recent_events: int = 9999,
     ):
         """
         初始化会话管理器
         
         Args:
-            session_service: ADK Session Service 实例 (可选)
+            session_service: 会话服务实例 (可选，暂不使用)
             app_name: 应用名称，用于区分不同应用
             user_id: 用户ID，用于区分不同用户
             max_recent_events: 保留的最大近期事件数量，默认9999（实际不限制）
         """
-        self.session_service = session_service
         self.app_name = app_name
         self.user_id = user_id
         self.max_recent_events = max_recent_events
-        self._session_id: Optional[str] = None
+        self._session_id: str = str(uuid.uuid4())
+        self._messages: List[Message] = []  # 使用本地缓存
     
     async def _ensure_session(self) -> None:
         """确保会话存在，如果不存在则创建"""
-        if self._session_id:
-            try:
-                session = await self.session_service.get_session(
-                    app_name=self.app_name,
-                    user_id=self.user_id,
-                    session_id=self._session_id,
-                )
-                if session:
-                    return
-            except Exception as e:
-                logger.debug(f"Failed to get existing session: {str(e)}")
-        
-        # 创建新会话
-        session = await self.session_service.create_session(
-            app_name=self.app_name,
-            user_id=self.user_id,
-        )
-        self._session_id = session.id
-        logger.debug(f"Created new session: {self._session_id}")
+        if not self._session_id:
+            self._session_id = str(uuid.uuid4())
+            logger.debug(f"Created new session: {self._session_id}")
     
     async def add_message(self, role: MessageRole, content: str) -> None:
         """
@@ -91,16 +71,14 @@ class SessionManager:
         """
         await self._ensure_session()
         
-        # 创建事件
-        event = Event(
-            invocation_id=self._new_invocation_id(),
-            author=role.value,
-            content=Content(role=role.value, parts=[Part(text=content)]),
+        # 直接添加到本地缓存
+        message = Message(
+            role=role,
+            content=content,
+            timestamp=datetime.now(),
+            metadata={}
         )
-        
-        # 获取会话并添加事件
-        session = await self._get_session()
-        await self.session_service.append_event(session=session, event=event)
+        self._messages.append(message)
         
         logger.debug(f"Added {role.value} message to session")
     
@@ -117,40 +95,12 @@ class SessionManager:
         await self._ensure_session()
         
         num_events = limit if limit is not None else self.max_recent_events
-        config = GetSessionConfig(num_recent_events=num_events)
         
-        session = await self.session_service.get_session(
-            app_name=self.app_name,
-            user_id=self.user_id,
-            session_id=self._session_id,
-            config=config,
-        )
-        
-        if not session or not session.events:
-            return []
-        
-        # 转换事件为消息
-        messages = []
-        for event in session.events:
-            content = self._content_to_text(event.content)
-            if not content:
-                continue
-            
-            # 确定角色
-            try:
-                role = MessageRole(event.author)
-            except ValueError:
-                # 如果角色不是标准的，使用 SYSTEM
-                role = MessageRole.SYSTEM
-            
-            messages.append(Message(
-                role=role,
-                content=content,
-                timestamp=event.timestamp if hasattr(event, 'timestamp') else None,
-                metadata={}
-            ))
-        
-        return messages
+        # 从本地缓存返回
+        if num_events >= len(self._messages):
+            return self._messages.copy()
+        else:
+            return self._messages[-num_events:].copy()
     
     async def clear(self) -> None:
         """
@@ -158,12 +108,9 @@ class SessionManager:
         
         创建一个新的会话来替换当前会话。
         """
-        # 创建新会话
-        session = await self.session_service.create_session(
-            app_name=self.app_name,
-            user_id=self.user_id,
-        )
-        self._session_id = session.id
+        # 清空本地缓存并创建新会话ID
+        self._messages.clear()
+        self._session_id = str(uuid.uuid4())
         logger.debug("Session cleared, new session created")
     
     async def get_session_id(self) -> str:
@@ -175,43 +122,3 @@ class SessionManager:
         """
         await self._ensure_session()
         return self._session_id
-    
-    async def _get_session(self) -> Session:
-        """获取完整的会话对象（内部使用）"""
-        if not self._session_id:
-            raise RuntimeError("Session has not been initialized")
-        
-        session = await self.session_service.get_session(
-            app_name=self.app_name,
-            user_id=self.user_id,
-            session_id=self._session_id,
-        )
-        
-        if not session:
-            raise RuntimeError("Unable to load session from SessionService")
-        
-        return session
-    
-    @staticmethod
-    def _content_to_text(content: Optional[Content]) -> str:
-        """将 Content 对象转换为纯文本"""
-        if not content or not content.parts:
-            return ""
-        
-        fragments: List[str] = []
-        for part in content.parts:
-            if part.text:
-                fragments.append(part.text)
-            elif part.function_call:
-                fragments.append(f"[FunctionCall] {part.function_call.name}")
-            elif part.function_response:
-                fragments.append(f"[FunctionResponse] {part.function_response.name}")
-            elif part.code_execution_result:
-                fragments.append(part.code_execution_result.output_text or "")
-        
-        return "\n".join(fragment for fragment in fragments if fragment)
-    
-    @staticmethod
-    def _new_invocation_id() -> str:
-        """生成新的调用ID"""
-        return str(uuid.uuid4())

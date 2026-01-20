@@ -1,7 +1,7 @@
 """
 Core - Foundation layer
 
-Core data models, configuration, and logging utilities.
+Core data models and configuration.
 """
 
 from .data_models import (
@@ -24,7 +24,6 @@ from .config import (
     MemorySystemConfig,
     DEFAULT_MEMORY_CONFIG,
 )
-from .logger import get_logger, setup_logging, INFO, DEBUG
 
 __all__ = [
     # Data models
@@ -45,9 +44,4 @@ __all__ = [
     "CompressionConfig",
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
-    # Logging
-    "get_logger",
-    "setup_logging",
-    "INFO",
-    "DEBUG",
 ]

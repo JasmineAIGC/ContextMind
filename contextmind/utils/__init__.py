@@ -1,7 +1,7 @@
 """
 Utils - Utility modules
 
-Consolidated utility modules for tokenization, formatting, monitoring, and text building.
+Consolidated utility modules for tokenization, formatting, monitoring, text building, and logging.
 """
 
 from .tokenizer import TokenizerService, TokenizerType
@@ -16,6 +16,7 @@ from .formatter import (
     SummarizedHistory,
 )
 from .monitor import PerformanceMonitor, ContextMetrics
+from .logger import get_logger, setup_logging, INFO, DEBUG
 
 __all__ = [
     "TokenizerService",
@@ -30,4 +31,8 @@ __all__ = [
     "SummarizedHistory",
     "PerformanceMonitor",
     "ContextMetrics",
+    "get_logger",
+    "setup_logging",
+    "INFO",
+    "DEBUG",
 ]

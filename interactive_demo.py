@@ -20,8 +20,6 @@ from contextmind import (
     INFO,
     DEBUG,
 )
-from google.adk.memory import InMemoryMemoryService
-from google.adk.sessions import InMemorySessionService
 
 from examples.applications.callcenter import CallCenterApplication
 

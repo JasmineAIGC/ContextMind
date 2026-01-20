@@ -51,11 +51,6 @@ from .core import (
     CompressionConfig,
     MemorySystemConfig,
     DEFAULT_MEMORY_CONFIG,
-    # 日志
-    get_logger,
-    setup_logging,
-    INFO,
-    DEBUG,
 )
 
 # 流水线层
@@ -122,6 +117,11 @@ from .utils import (
     SummarizedHistory,
     PerformanceMonitor,
     ContextMetrics,
+    # 日志
+    get_logger,
+    setup_logging,
+    INFO,
+    DEBUG,
 )
 
 __all__ = [
