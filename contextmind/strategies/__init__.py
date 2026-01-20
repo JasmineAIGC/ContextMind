@@ -1,5 +1,5 @@
 """
-Strategies module for ContextMind v6.0
+Strategies module for ContextMind v7.0
 
 This module contains plugin-based strategies for context engineering:
 - Base strategy interfaces (base.py)
@@ -13,27 +13,23 @@ All strategies follow a plugin architecture pattern for easy swapping and extens
 from .base import (
     ExtractionStrategy,
     RetrievalStrategy,
-    UpdateStrategy,
-    CompressionStrategy,
-    ReorderStrategy,
-    PostProcessorStrategy,
-    SummarizerStrategy,
-    KVCacheManagerStrategy
+    IntegrationStrategy,
+    OptimizationStrategy,
 )
 
 # Plugin implementations
 from . import extractors, retrievers, updaters
 
+# Create a simple BaseStrategy alias for backwards compatibility
+BaseStrategy = ExtractionStrategy
+
 __all__ = [
     # Base strategy interfaces
     'ExtractionStrategy',
     'RetrievalStrategy',
-    'UpdateStrategy',
-    'CompressionStrategy',
-    'ReorderStrategy',
-    'PostProcessorStrategy',
-    'SummarizerStrategy',
-    'KVCacheManagerStrategy',
+    'IntegrationStrategy',
+    'OptimizationStrategy',
+    'BaseStrategy',
     # Plugin modules
     'extractors',
     'retrievers',

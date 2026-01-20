@@ -1,5 +1,5 @@
 """
-Data models for ContextMind v6.0
+Data models for ContextMind v7.0
 
 Minimal data classes for context engineering framework.
 """
@@ -48,33 +48,36 @@ class Knowledge:
     Extracted knowledge from conversation
     
     Attributes:
-        type: Type of knowledge
         content: Knowledge content
-        source: Source of the knowledge
-        confidence: Confidence score (0.0-1.0)
+        knowledge_type: Type of knowledge
+        confidence: Confidence score (0-1)
+        source: Source information
+        timestamp: When extracted
         metadata: Additional metadata
     """
-    type: KnowledgeType
     content: str
-    source: str = ""
+    knowledge_type: KnowledgeType
     confidence: float = 1.0
+    source: str = ""
+    timestamp: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class ContextSource(str, Enum):
     """Source of context item"""
-    SESSION = "session"        # From current session
-    LONG_TERM = "long_term"    # From long-term memory
+    MEMORY = "memory"
+    RAG = "rag"
+    HISTORY = "history"
 
 
 @dataclass
 class ContextItem:
     """
-    Item in optimized context
+    Context item for prompt building
     
     Attributes:
         content: Item content
-        source: Source of the item
+        source: Where this item comes from
         score: Relevance score
         metadata: Additional metadata
     """
@@ -87,24 +90,22 @@ class ContextItem:
 @dataclass
 class ContextResult:
     """
-    Result of context optimization
+    Result from context retrieval/processing
     
     Attributes:
-        session_history: Recent session messages
-        long_term_memory: Retrieved long-term memories
-        user_input: Current user input
-        metadata: Additional metadata (stats, scores, etc.)
+        items: List of context items
+        total_tokens: Total token count
+        metadata: Processing metadata
     """
-    session_history: List[Message] = field(default_factory=list)
-    long_term_memory: List[ContextItem] = field(default_factory=list)
-    user_input: str = ""
+    items: List[ContextItem] = field(default_factory=list)
+    total_tokens: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ProcessedContext:
     """
-    Processed/optimized context ready for LLM
+    Processed and optimized context
     
     Attributes:
         items: List of context items
@@ -114,6 +115,53 @@ class ProcessedContext:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+# Configuration classes
+@dataclass
+class RetrievalConfig:
+    """Configuration for context retrieval"""
+    top_k: int = 5
+    min_score: float = 0.5
+    use_semantic: bool = True
+    use_keyword: bool = False
+
+
+@dataclass
+class ExtractionConfig:
+    """Configuration for knowledge extraction"""
+    min_confidence: float = 0.6
+    extract_preferences: bool = True
+    extract_facts: bool = True
+    extract_events: bool = True
+
+
+@dataclass
+class CompressionConfig:
+    """Configuration for context compression"""
+    max_tokens: int = 2000
+    strategy: str = "simple"
+
+
+@dataclass
+class SummarizationConfig:
+    """Configuration for conversation summarization"""
+    enabled: bool = False
+    max_turns: int = 10
+
+
+@dataclass
+class MemorySystemConfig:
+    """Configuration for memory system"""
+    retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
+    extraction: ExtractionConfig = field(default_factory=ExtractionConfig)
+    compression: CompressionConfig = field(default_factory=CompressionConfig)
+    summarization: SummarizationConfig = field(default_factory=SummarizationConfig)
+
+
+# Default configuration
+DEFAULT_MEMORY_CONFIG = MemorySystemConfig()
+
+
+# Logging utilities
 def get_logger(name: str):
     """
     Simple logger factory
@@ -126,3 +174,21 @@ def get_logger(name: str):
     """
     import logging
     return logging.getLogger(name)
+
+
+def setup_logging(level=None):
+    """Setup basic logging configuration"""
+    import logging
+    if level is None:
+        level = logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='[%(asctime)s] %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+
+# Logging levels
+import logging
+INFO = logging.INFO
+DEBUG = logging.DEBUG

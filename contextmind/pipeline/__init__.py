@@ -15,24 +15,20 @@ Core processing modules for context optimization:
 """
 
 from .preprocessor import InputPreprocessor
-from .retriever import ContextRetriever
 from .memory import MemoryBank
 from .compressor import ContextCompressor
 from .reorderer import ContextReorderer
 from .session import SessionManager
-from .extractor import KnowledgeExtractor
 from .summarizer import ConversationSummarizer
 from .postprocessor import PostProcessor
 from .kvcache import KVCacheManager
 
 __all__ = [
     "InputPreprocessor",
-    "ContextRetriever",
     "MemoryBank",
     "ContextCompressor",
     "ContextReorderer",
     "SessionManager",
-    "KnowledgeExtractor",
     "ConversationSummarizer",
     "PostProcessor",
     "KVCacheManager",
