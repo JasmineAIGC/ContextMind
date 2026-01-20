@@ -5,9 +5,8 @@ ChatApplication - 通用闲聊应用示例
 适用于日常闲聊、知识问答、娱乐互动等场景。
 """
 
-from contextmind import ContextEngine, Client, ContextResult
-from contextmind.utils import get_logger
-from .base import BaseApplication
+from contextmind import ContextEngine
+from contextmind.models import Message, MessageRole, ContextResult, get_logger
 
 logger = get_logger(__name__)
 
@@ -36,13 +35,12 @@ CHAT_SYSTEM_PROMPT = """你是一个友好、有趣的聊天助手。
 请与用户进行愉快的对话交流！"""
 
 
-class ChatApplication(BaseApplication):
+class ChatApplication:
     """通用闲聊应用示例"""
     
     def __init__(
         self,
         context_engine: ContextEngine,
-        llm_client: Client,
         system_prompt: str = CHAT_SYSTEM_PROMPT,
         history_turns: int = 10,
         **config
@@ -51,19 +49,14 @@ class ChatApplication(BaseApplication):
         
         Args:
             context_engine: 上下文引擎
-            llm_client: LLM客户端
             system_prompt: 系统提示词（可自定义）
             history_turns: Prompt中包含的历史轮数
             **config: 其他配置参数
         """
-        super().__init__(
-            context_engine=context_engine,
-            llm_client=llm_client,
-            system_prompt=system_prompt,
-            **config
-        )
-        
+        self.context_engine = context_engine
+        self.system_prompt = system_prompt
         self.history_turns = history_turns
+        self.config = config
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
         """构建闲聊场景 Prompt

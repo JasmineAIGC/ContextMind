@@ -21,7 +21,7 @@ from contextmind import (
     DEBUG,
 )
 
-from examples.applications.callcenter import CallCenterApplication
+from demos.applications.callcenter_app import CallCenterApplication
 
 load_dotenv()
 logger = get_logger(__name__)

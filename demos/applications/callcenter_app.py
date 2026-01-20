@@ -5,38 +5,45 @@ CallCenterApplication - 客服应用示例
 重点展示上下文工程能力：利用历史、记忆和知识提供连贯回复。
 """
 
-from contextmind import ContextEngine, Client, ContextResult
-from contextmind.pipeline.compressor import DEFAULT_MAX_SESSION_ITEMS
-from contextmind.utils import get_logger
-from .base import BaseApplication
-from ..prompts import get_system_prompt
+from contextmind import ContextEngine
+from contextmind.models import Message, MessageRole, ContextResult, get_logger
 
 logger = get_logger(__name__)
 
+# 客服系统提示词
+CALLCENTER_SYSTEM_PROMPT = """你是一个专业的客服助手。
 
-class CallCenterApplication(BaseApplication):
+## 角色定位：
+- 热情、耐心、专业的客服人员
+- 及时准确地回答客户问题
+- 记住客户信息，提供个性化服务
+
+## 服务原则：
+1. **及时响应**：快速理解客户需求
+2. **准确回答**：基于已知信息给出正确答复
+3. **记住客户**：利用历史信息提供连贯服务
+4. **专业礼貌**：保持礼貌，使用专业术语
+
+请为客户提供专业的服务！"""
+
+
+class CallCenterApplication:
     """客服应用示例"""
     
     def __init__(
         self,
         context_engine: ContextEngine,
-        llm_client: Client,
         business_info: str = "",
         history_turns: int = 10,
+        system_prompt: str = CALLCENTER_SYSTEM_PROMPT,
         **config
     ):
         """初始化客服应用"""
-        system_prompt = get_system_prompt(include_business_info=True)
-
-        super().__init__(
-            context_engine=context_engine,
-            llm_client=llm_client,
-            system_prompt=system_prompt,
-            **config
-        )
-        
+        self.context_engine = context_engine
         self.business_info = business_info
         self.history_turns = history_turns
+        self.system_prompt = system_prompt
+        self.config = config
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
         """构建客服场景 Prompt"""

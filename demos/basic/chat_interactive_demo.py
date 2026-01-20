@@ -21,7 +21,7 @@ from contextmind import (
     DEBUG,
 )
 
-from examples.applications.chat import ChatApplication, CHAT_SYSTEM_PROMPT
+from demos.applications.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
 load_dotenv()
 logger = get_logger(__name__)
