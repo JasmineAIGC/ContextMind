@@ -14,7 +14,8 @@ ContextRetriever - 统一检索模块
 """
 
 from typing import List, Optional
-from ..core import ProcessedContext, ContextItem, ContextSource, get_logger
+from ..core import ProcessedContext, ContextItem, ContextSource
+from ..utils import get_logger
 from .session import SessionManager
 from .memory import MemoryBank
 

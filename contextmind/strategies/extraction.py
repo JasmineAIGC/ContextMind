@@ -14,7 +14,7 @@ import json
 
 from ..core import Message, Knowledge, KnowledgeType
 from .base import ExtractionStrategy
-from ..core import get_logger
+from ..utils import get_logger
 from ..core import DEFAULT_MEMORY_CONFIG, ExtractionConfig
 
 logger = get_logger(__name__)

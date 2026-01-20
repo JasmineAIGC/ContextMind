@@ -16,7 +16,7 @@ KnowledgeExtractor - 知识提取模块
 from typing import List, Optional
 from ..core import Message, Knowledge
 from ..strategies.extraction import RuleBasedExtractionStrategy
-from ..core import get_logger
+from ..utils import get_logger
 
 logger = get_logger(__name__)
 

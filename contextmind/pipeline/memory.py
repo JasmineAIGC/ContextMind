@@ -28,7 +28,8 @@ import uuid
 import re
 from datetime import datetime, timedelta
 
-from ..core import ContextItem, ContextSource, Knowledge, get_logger, DEFAULT_MEMORY_CONFIG, RetrievalConfig
+from ..core import ContextItem, ContextSource, Knowledge, DEFAULT_MEMORY_CONFIG, RetrievalConfig
+from ..utils import get_logger
 from ..core.data_models import MemoryNote, MemoryType
 
 logger = get_logger(__name__)

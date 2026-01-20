@@ -9,7 +9,7 @@ from datetime import datetime
 
 from ..core import ProcessedContext, ContextItem, ContextSource
 from .base import IntegrationStrategy
-from ..core import get_logger
+from ..utils import get_logger
 
 logger = get_logger(__name__)
 

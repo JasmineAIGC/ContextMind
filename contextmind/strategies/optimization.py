@@ -13,7 +13,7 @@ from datetime import datetime
 
 from ..core import ProcessedContext, ContextItem, ContextResult, ContextSource
 from .base import OptimizationStrategy
-from ..core import get_logger
+from ..utils import get_logger
 from ..core import DEFAULT_MEMORY_CONFIG, CompressionConfig
 
 logger = get_logger(__name__)

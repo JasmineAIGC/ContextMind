@@ -10,7 +10,7 @@ from typing import Optional
 import logging
 
 from contextmind import ContextEngine, Client, ContextResult
-from contextmind.logger import get_logger
+from contextmind.utils.logger import get_logger
 from contextmind.utils.context_formatter import (
     format_context_result,
     format_memory_cache,

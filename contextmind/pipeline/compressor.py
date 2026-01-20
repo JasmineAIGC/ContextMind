@@ -22,7 +22,8 @@ ContextCompressor - 上下文压缩模块
 """
 
 from typing import List, Optional
-from ..core import ContextResult, ProcessedContext, get_logger
+from ..core import ContextResult, ProcessedContext
+from ..utils import get_logger
 from ..strategies.optimization import CompressionStrategy
 
 logger = get_logger(__name__)

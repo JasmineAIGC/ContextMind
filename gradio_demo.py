@@ -275,7 +275,7 @@ class GradioDemo:
     
     def _log_engine_box(self, result, is_debug: bool = False):
         """输出引擎处理日志"""
-        from contextmind.logger import get_logger
+        from contextmind.utils.logger import get_logger
         logger = get_logger(__name__)
         
         symbol = '🤖'
@@ -370,7 +370,7 @@ class GradioDemo:
     
     async def _get_single_response(self, engine, user_input):
         """获取引擎回复"""
-        from contextmind.logger import get_logger, ContextMindLogger
+        from contextmind.utils.logger import get_logger, ContextMindLogger
         import time
         local_logger = get_logger(__name__)
         
@@ -553,7 +553,7 @@ class GradioDemo:
             
             def apply_config(use_session, max_events, use_memory, debug_mode):
                 """应用配置"""
-                from contextmind.logger import DEBUG, INFO, ContextMindLogger
+                from contextmind.utils.logger import DEBUG, INFO, ContextMindLogger
                 new_level = DEBUG if debug_mode else INFO
                 ContextMindLogger.set_level(new_level)
                 

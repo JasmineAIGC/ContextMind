@@ -7,7 +7,8 @@ Provides formatting, visualization, and summarization tools.
 
 from typing import List, Optional, TYPE_CHECKING, Tuple
 from dataclasses import dataclass
-from ..core import get_logger, DEFAULT_MEMORY_CONFIG, SummarizationConfig, Message
+from ..core import DEFAULT_MEMORY_CONFIG, SummarizationConfig, Message
+from .logger import get_logger
 
 if TYPE_CHECKING:
     from ..core import ContextResult, ContextItem

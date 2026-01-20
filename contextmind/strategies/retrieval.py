@@ -9,7 +9,7 @@ import re
 
 from ..core import ContextItem, ContextSource
 from .base import RetrievalStrategy
-from ..core import get_logger
+from ..utils import get_logger
 
 logger = get_logger(__name__)
 

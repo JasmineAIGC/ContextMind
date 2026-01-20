@@ -7,7 +7,8 @@ Provides adapters for different LLM frameworks and custom integrations.
 
 from typing import Optional, List, Dict, Any, Callable
 from .base import BaseAdapter, DialogContext, DialogMessage
-from ..core import Message, MessageRole, get_logger
+from ..core import Message, MessageRole
+from ..utils import get_logger
 from ..utils import ContextTextBuilder
 
 logger = get_logger(__name__)

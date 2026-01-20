@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from collections import OrderedDict
 
-from ..core import get_logger
+from ..utils import get_logger
 
 logger = get_logger(__name__)
 
