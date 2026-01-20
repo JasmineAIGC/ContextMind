@@ -90,15 +90,8 @@ async def main():
     print("✅ 引擎初始化完成")
     print()
     
-    # 植入记忆种子
-    if args.use_memory:
-        print("🧠 植入业务知识...")
-        business_facts = [
-            "[预设知识] 产品: 安逸花/马上消费 | 功能: 额度提升、资金周转、优惠福利 | 服务: 7x24小时",
-        ]
-        await context_engine.seed_memory(business_facts)
-        print(f"✅ 已植入 {len(business_facts)} 条业务知识")
-        print()
+    # 不再植入预设记忆，让对话更自然流畅
+    # 记忆系统会根据实际对话动态学习
     
     # 初始化应用
     print("🔧 初始化应用...")
