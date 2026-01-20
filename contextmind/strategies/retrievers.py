@@ -9,9 +9,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 
-from ...core import ContextItem, ContextSource
-from ...core.config import RetrievalConfig, DEFAULT_MEMORY_CONFIG
-from ...utils import get_logger
+from ..models import ContextItem, ContextSource, RetrievalConfig, DEFAULT_MEMORY_CONFIG, get_logger
 
 logger = get_logger(__name__)
 

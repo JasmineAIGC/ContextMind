@@ -10,8 +10,7 @@ from typing import List, Optional
 import re
 from datetime import datetime
 
-from ...core import ContextItem, ContextSource, Knowledge, KnowledgeType
-from ...utils import get_logger
+from ..models import ContextItem, ContextSource, Knowledge, KnowledgeType, get_logger
 
 logger = get_logger(__name__)
 

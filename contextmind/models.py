@@ -42,6 +42,13 @@ class KnowledgeType(str, Enum):
     EVENT = "event"            # Events or actions
 
 
+class MemoryType(str, Enum):
+    """Type of memory storage"""
+    SEMANTIC = "semantic"      # Semantic/vector-based storage
+    KEYWORD = "keyword"        # Keyword-based storage
+    STRUCTURED = "structured"  # Structured data storage
+
+
 @dataclass
 class Knowledge:
     """
@@ -112,6 +119,51 @@ class ProcessedContext:
         metadata: Processing metadata (compression ratio, etc.)
     """
     items: List[ContextItem] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class MemoryNote:
+    """
+    Memory note stored in memory bank
+    
+    Attributes:
+        content: Note content
+        memory_type: Type of memory
+        timestamp: When created
+        metadata: Additional metadata (access_count, last_access, etc.)
+    """
+    content: str
+    memory_type: str = "semantic"
+    timestamp: datetime = field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Chunk:
+    """
+    Text chunk for processing
+    
+    Attributes:
+        text: Chunk text
+        metadata: Chunk metadata
+    """
+    text: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ContextState:
+    """
+    Context processing state
+    
+    Attributes:
+        current_tokens: Current token count
+        max_tokens: Maximum allowed tokens
+        metadata: Additional state metadata
+    """
+    current_tokens: int = 0
+    max_tokens: int = 2000
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

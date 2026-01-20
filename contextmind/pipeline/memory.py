@@ -33,10 +33,15 @@ from ..models import (
     ContextSource,
     Knowledge,
     KnowledgeType,
+    MemoryType,
+    MemoryNote,
     DEFAULT_MEMORY_CONFIG,
     RetrievalConfig,
     get_logger
 )
+
+# Setup logger immediately after import
+logger = get_logger(__name__)
 
 # Import plugin interfaces (optional - will use internal implementations if not available)
 try:
@@ -53,7 +58,7 @@ except ImportError:
     PLUGINS_AVAILABLE = False
     logger.debug("[MemoryBank] Plugin architecture not available, using internal implementations")
 
-logger = get_logger(__name__)
+# Moved logger definition to after imports but before it's used
 
 # 停用词列表（可配置，支持国际化扩展）
 STOPWORDS = {

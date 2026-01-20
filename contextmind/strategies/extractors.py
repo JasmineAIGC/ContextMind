@@ -9,9 +9,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 
-from ...core import Message, Knowledge, KnowledgeType
-from ...core.config import ExtractionConfig, DEFAULT_MEMORY_CONFIG
-from ...utils import get_logger
+from ..models import Message, Knowledge, KnowledgeType, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger
 
 logger = get_logger(__name__)
 
