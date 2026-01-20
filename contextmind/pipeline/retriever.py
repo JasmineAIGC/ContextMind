@@ -21,6 +21,10 @@ from .memory import MemoryBank
 
 logger = get_logger(__name__)
 
+# 日志显示常量
+LOG_PREVIEW_ITEMS = 3  # 日志中显示的条目预览数量
+LOG_PREVIEW_LENGTH = 60  # 日志中内容预览的字符长度
+
 
 class ContextRetriever:
     """
@@ -85,10 +89,10 @@ class ContextRetriever:
                 logger.info(f"[Retriever] ✓ 会话历史检索完成 - 获取 {len(history)} 条对话")
                 if history:
                     logger.debug(f"[Retriever] 会话历史详情:")
-                    for i, msg in enumerate(history[:3], 1):  # Show first 3 for brevity
-                        logger.debug(f"  {i}. [{msg.role.value}] {msg.content[:60]}...")
-                    if len(history) > 3:
-                        logger.debug(f"  ... 以及其他 {len(history) - 3} 条对话")
+                    for i, msg in enumerate(history[:LOG_PREVIEW_ITEMS], 1):
+                        logger.debug(f"  {i}. [{msg.role.value}] {msg.content[:LOG_PREVIEW_LENGTH]}...")
+                    if len(history) > LOG_PREVIEW_ITEMS:
+                        logger.debug(f"  ... 以及其他 {len(history) - LOG_PREVIEW_ITEMS} 条对话")
             except Exception as e:
                 logger.warning(f"[Retriever] ✗ 会话历史检索失败: {e}")
         

@@ -28,6 +28,7 @@ import os
 from pathlib import Path
 
 from contextmind import Client, ClientConfig, ContextEngine, setup_logging, get_logger, INFO, DEBUG
+from contextmind.utils.logger import ContextMindLogger
 
 setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
 logger = get_logger(__name__)
@@ -239,9 +240,6 @@ class GradioDemo:
     
     def _log_engine_box(self, result, is_debug: bool = False):
         """输出引擎处理日志"""
-        from contextmind.utils.logger import get_logger
-        logger = get_logger(__name__)
-        
         symbol = '🤖'
         
         # 顶部边框
@@ -334,7 +332,6 @@ class GradioDemo:
     
     async def _get_single_response(self, engine, user_input):
         """获取引擎回复"""
-        from contextmind.utils.logger import get_logger, ContextMindLogger
         import time
         local_logger = get_logger(__name__)
         
@@ -393,7 +390,6 @@ class GradioDemo:
     
     def _build_prompt(self, user_input: str, context_result) -> str:
         """构建 LLM prompt"""
-        from contextmind.utils.logger import get_logger, DEBUG, ContextMindLogger
         local_logger = get_logger(__name__)
         
         local_logger.debug("[Prompt] 开始构建Prompt")

@@ -397,7 +397,6 @@ class MemoryBank:
         # 当前所有知识仅存储在本地缓存中
         if self.memory_service:
             logger.debug("[MemoryBank] Memory Service 可用但外部存储未实现 - 仅使用本地缓存")
-
     
     def _is_similar(self, text1: str, text2: str) -> bool:
         """
