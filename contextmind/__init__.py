@@ -108,9 +108,13 @@ from .strategies import (
 
 # 工具
 from .models import (
-    # 日志
+    # 日志系统 (NEW in v7.0 - Unified Logging)
+    ContextMindLogger,
+    LogLevel,
     get_logger,
     setup_logging,
+    set_global_log_level,
+    get_global_log_level,
     INFO,
     DEBUG,
 )
@@ -146,9 +150,13 @@ __all__ = [
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
     
-    # 核心层 - 日志
+    # 核心层 - 日志系统 (NEW in v7.0)
+    "ContextMindLogger",
+    "LogLevel",
     "get_logger",
     "setup_logging",
+    "set_global_log_level",
+    "get_global_log_level",
     "INFO",
     "DEBUG",
     

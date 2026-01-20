@@ -213,34 +213,167 @@ class MemorySystemConfig:
 DEFAULT_MEMORY_CONFIG = MemorySystemConfig()
 
 
-# Logging utilities
-def get_logger(name: str):
+# Logging utilities and system
+import logging
+from enum import Enum as PyEnum
+
+class LogLevel(PyEnum):
+    """Logging levels for ContextMind"""
+    BASIC = "BASIC"      # Basic mode: pipeline-level logs
+    DETAILED = "DETAILED"  # Detailed mode: step-level logs
+    DEBUG = "DEBUG"      # Debug mode: all logs including internal details
+
+
+class ContextMindLogger:
     """
-    Simple logger factory
+    Unified logging system for ContextMind v7.0
+    
+    Features:
+    - Basic mode: Logs pipeline-level inputs, outputs, and key information
+    - Detailed mode: Logs step-level inputs, outputs, and intermediate information
+    - Debug mode: Logs all internal details
+    
+    Usage:
+        logger = ContextMindLogger("MyModule", level=LogLevel.BASIC)
+        logger.pipeline("Starting context optimization")
+        logger.step("Step 1: Preprocessing")
+        logger.detail("Detailed information")
+    """
+    
+    def __init__(self, name: str, level: LogLevel = LogLevel.BASIC):
+        """
+        Initialize logger
+        
+        Args:
+            name: Module name
+            level: Logging level (BASIC, DETAILED, or DEBUG)
+        """
+        self.name = name
+        self.level = level
+        self._logger = logging.getLogger(name)
+        
+    def set_level(self, level: LogLevel):
+        """Set logging level"""
+        self.level = level
+    
+    def pipeline(self, message: str):
+        """
+        Pipeline-level log (shown in BASIC, DETAILED, and DEBUG modes)
+        Use for major pipeline events: start, end, inputs, outputs
+        """
+        self._logger.info(f"[{self.name}] {message}")
+    
+    def step(self, message: str):
+        """
+        Step-level log (shown in DETAILED and DEBUG modes)
+        Use for individual step events within the pipeline
+        """
+        if self.level in [LogLevel.DETAILED, LogLevel.DEBUG]:
+            self._logger.info(f"[{self.name}] {message}")
+    
+    def detail(self, message: str):
+        """
+        Detailed log (shown in DEBUG mode only)
+        Use for internal details and debugging information
+        """
+        if self.level == LogLevel.DEBUG:
+            self._logger.debug(f"[{self.name}] {message}")
+    
+    def separator(self, char="=", length=100):
+        """Print separator line (shown in all modes)"""
+        self._logger.info(char * length)
+    
+    def section_start(self, title: str):
+        """Start a major section (shown in all modes)"""
+        self.separator("=")
+        self._logger.info(f"[{self.name}] ========== {title} ==========")
+        self.separator("=")
+    
+    def section_end(self, title: str = None):
+        """End a major section (shown in all modes)"""
+        if title:
+            self.separator("-")
+            self._logger.info(f"[{self.name}] ========== {title} 结束 ==========")
+            self.separator("-")
+        else:
+            self.separator("-")
+    
+    def info(self, message: str):
+        """General info log (shown in all modes)"""
+        self._logger.info(f"[{self.name}] {message}")
+    
+    def warning(self, message: str):
+        """Warning log (shown in all modes)"""
+        self._logger.warning(f"[{self.name}] {message}")
+    
+    def error(self, message: str):
+        """Error log (shown in all modes)"""
+        self._logger.error(f"[{self.name}] {message}")
+
+
+# Global logging level
+_GLOBAL_LOG_LEVEL = LogLevel.BASIC
+
+
+def set_global_log_level(level: LogLevel):
+    """
+    Set global logging level for all ContextMind loggers
     
     Args:
-        name: Logger name
+        level: LogLevel.BASIC, LogLevel.DETAILED, or LogLevel.DEBUG
+    """
+    global _GLOBAL_LOG_LEVEL
+    _GLOBAL_LOG_LEVEL = level
+
+
+def get_global_log_level() -> LogLevel:
+    """Get current global logging level"""
+    return _GLOBAL_LOG_LEVEL
+
+
+def get_logger(name: str, level: LogLevel = None) -> ContextMindLogger:
+    """
+    Get a ContextMind logger instance
+    
+    Args:
+        name: Logger name (usually module name)
+        level: Logging level (uses global level if not specified)
         
     Returns:
-        Python logger instance
+        ContextMindLogger instance
     """
-    import logging
-    return logging.getLogger(name)
-
-
-def setup_logging(level=None):
-    """Setup basic logging configuration"""
-    import logging
     if level is None:
-        level = logging.INFO
+        level = _GLOBAL_LOG_LEVEL
+    return ContextMindLogger(name, level)
+
+
+def setup_logging(level: LogLevel = LogLevel.BASIC, python_log_level=None):
+    """
+    Setup ContextMind logging configuration
+    
+    Args:
+        level: ContextMind logging level (BASIC, DETAILED, or DEBUG)
+        python_log_level: Python logging level (defaults based on ContextMind level)
+    """
+    # Set global ContextMind log level
+    set_global_log_level(level)
+    
+    # Map ContextMind level to Python logging level
+    if python_log_level is None:
+        if level == LogLevel.DEBUG:
+            python_log_level = logging.DEBUG
+        else:
+            python_log_level = logging.INFO
+    
+    # Configure Python logging
     logging.basicConfig(
-        level=level,
+        level=python_log_level,
         format='[%(asctime)s] %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        datefmt='%Y-%m-%d %H:%M:%S',
+        force=True  # Override any existing configuration
     )
 
 
-# Logging levels
-import logging
+# Export logging levels for backward compatibility
 INFO = logging.INFO
 DEBUG = logging.DEBUG
