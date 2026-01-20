@@ -378,13 +378,12 @@ class MemoryBank:
             
             if not is_duplicate:
                 new_knowledge.append(k)
-                item = ContextItem(
+                self._local_cache.append(ContextItem(
                     content=formatted_content,
                     source=ContextSource.MEMORY,
                     score=k.confidence,
                     metadata=k.metadata
-                )
-                self._local_cache.append(item)
+                ))
                 logger.debug(f"[MemoryBank] ✓ 已存储: {formatted_content[:80]}...")
         
         if not new_knowledge:

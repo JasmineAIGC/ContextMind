@@ -402,13 +402,12 @@ class GradioDemo:
         
         # 添加长期记忆（如果有）
         if context_result.long_term_memory:
-            memory_items = context_result.long_term_memory[:3]
             memory_text = "\n".join(
                 f"- {item.content}"
-                for item in memory_items
+                for item in context_result.long_term_memory[:3]
             )
             prompt_parts.append(f"\n## 用户历史信息\n{memory_text}")
-            local_logger.debug(f"[Prompt] 添加长期记忆: {len(memory_items)} 条")
+            local_logger.debug(f"[Prompt] 添加长期记忆: {len(context_result.long_term_memory[:3])} 条")
         else:
             local_logger.debug("[Prompt] 无长期记忆")
         
