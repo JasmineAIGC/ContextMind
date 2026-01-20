@@ -376,14 +376,14 @@ class MemoryBank:
         for k in knowledge:
             # 根据类型设置不同的置信度阈值
             min_confidence = {
-                KnowledgeType.PREFERENCE: 0.75,
-                KnowledgeType.FACT: 0.70,
-                KnowledgeType.EVENT: 0.70,
-            }.get(k.type, 0.70)
+                KnowledgeType.PREFERENCE: self.STORAGE_THRESHOLD_PREFERENCE,
+                KnowledgeType.FACT: self.STORAGE_THRESHOLD_FACT,
+                KnowledgeType.EVENT: self.STORAGE_THRESHOLD_EVENT,
+            }.get(k.type, self.STORAGE_THRESHOLD_FACT)
             
             # 过滤条件
             if (k.confidence >= min_confidence 
-                and len(k.content.strip()) >= 3
+                and len(k.content.strip()) >= self.STORAGE_MIN_LENGTH
                 and not k.content.isdigit()):  # 排除纯数字
                 filtered_knowledge.append(k)
             else:

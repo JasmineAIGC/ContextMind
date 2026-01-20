@@ -66,13 +66,12 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
         logger.debug(f"[Extractor] 提取事件: {len(events)} 条")
         
         # 过滤低置信度的知识 - 降低阈值以提取更多
-        min_confidence = 0.60  # 从默认0.70降低到0.60
         before_filter = len(knowledge)
-        knowledge = [k for k in knowledge if k.confidence >= min_confidence]
+        knowledge = [k for k in knowledge if k.confidence >= self.CONFIDENCE_FILTER_MIN]
         filtered_count = before_filter - len(knowledge)
         
         if filtered_count > 0:
-            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {min_confidence})")
+            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.CONFIDENCE_FILTER_MIN})")
         
         logger.info(f"[Extractor] ✓ 知识提取完成 - 总计 {len(knowledge)} 条有效知识")
         
@@ -118,7 +117,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
                     
                     # 质量检查：长度合理（放宽要求），不以否定词开头
-                    if (1 <= len(phrase) <= 100 
+                    if (2 <= len(phrase) <= 100  # Minimum 2 chars instead of 1
                         and not phrase.startswith(('不', '没', '无'))
                         and phrase.strip()):
                         # 保留完整上下文
@@ -126,7 +125,7 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                         preferences.append(Knowledge(
                             content=full_content,
                             type=KnowledgeType.PREFERENCE,
-                            confidence=0.80,  # 降低置信度要求以提取更多
+                            confidence=self.CONFIDENCE_PREFERENCE_POSITIVE,
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '偏好'}
                         ))
             
@@ -153,13 +152,13 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     phrase = phrase.strip()
                     
                     # 质量检查 - 放宽要求
-                    if (1 <= len(phrase) <= self.config.max_phrase_length
+                    if (2 <= len(phrase) <= self.config.max_phrase_length  # Minimum 2 chars
                         and phrase.strip()):
                         content_str = f"{keyword}{phrase}" if keyword else phrase
                         preferences.append(Knowledge(
                             content=content_str,
                             type=KnowledgeType.PREFERENCE,
-                            confidence=0.80,
+                            confidence=self.CONFIDENCE_PREFERENCE_NEGATIVE,
                             metadata={'sentiment': sentiment, 'keyword': keyword, 'category': '拒绝'}
                         ))
         
@@ -237,12 +236,12 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     fact = re.sub(r'[，。！？,.!?；:：]+$', '', fact)
                     
                     # 质量检查 - 放宽要求
-                    if (1 <= len(fact) <= self.config.max_phrase_length 
+                    if (2 <= len(fact) <= self.config.max_phrase_length  # Minimum 2 chars
                         and fact.strip()):
                         facts.append(Knowledge(
                             content=f"{category}: {fact}",
                             type=KnowledgeType.FACT,
-                            confidence=0.70,  # 降低置信度要求
+                            confidence=self.CONFIDENCE_FACT,
                             metadata={'category': category}
                         ))
         
@@ -294,13 +293,13 @@ class RuleBasedExtractionStrategy(ExtractionStrategy):
                     detail = detail.strip()
                     
                     # 质量检查 - 放宽要求
-                    if (1 <= len(detail) <= self.config.max_phrase_length 
+                    if (2 <= len(detail) <= self.config.max_phrase_length  # Minimum 2 chars
                         and detail.strip()):
                         content_str = f"{keyword}{detail}" if keyword else detail
                         events.append(Knowledge(
                             content=content_str,
                             type=KnowledgeType.EVENT,
-                            confidence=0.75,  # 降低置信度要求
+                            confidence=self.CONFIDENCE_EVENT,
                             metadata={'keyword': keyword, 'category': category}
                         ))
         
