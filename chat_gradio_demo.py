@@ -130,15 +130,28 @@ class ChatGradioDemo:
 - 适当提问，保持对话互动
 - 如果用户分享了个人信息（如名字、爱好、城市等），记住并在后续对话中自然提及"""
             
-            # 使用引擎处理
-            result = await self.engine.process(
-                query=user_message,
-                system_prompt=system_prompt,
-                use_session_history=self.use_session,
-                use_long_term_memory=self.use_memory,
+            # 1. 优化上下文
+            context_result = await self.engine.optimize(
+                user_input=user_message,
+                include_session=self.use_session,
+                include_memory=self.use_memory,
             )
             
-            assistant_response = result.get_final_response()
+            # 2. 构建prompt
+            prompt = f"{system_prompt}\n\n用户: {user_message}\n助手:"
+            
+            # 3. 调用LLM生成回复
+            _, assistant_response = self.llm_client.generate(prompt)
+            
+            # 4. 更新对话历史
+            await self.engine.update(
+                user_input=user_message,
+                assistant_response=assistant_response
+            )
+            
+            # 5. 提取知识到长期记忆
+            if self.use_memory:
+                await self.engine.extract_knowledge(auto_store=True)
             
             # 记录对话
             self.conversation_history.append({
@@ -150,7 +163,7 @@ class ChatGradioDemo:
             processing_time = time.time() - start_time
             
             # 获取上下文信息
-            history_count = len(result.context_items) if hasattr(result, 'context_items') else 0
+            history_count = len(context_result.context_items) if hasattr(context_result, 'context_items') else 0
             memory_count = 0
             
             logger.info(f"🤖 助手回复: {assistant_response}")
@@ -203,7 +216,7 @@ def create_gradio_interface():
         return demo_instance.reset_conversation(), [], ""
     
     # 创建界面
-    with gr.Blocks(title="ContextMind 闲聊Demo v5.1", theme=gr.themes.Soft()) as app:
+    with gr.Blocks(title="ContextMind 闲聊Demo v5.1") as app:
         gr.Markdown("# 🎭 ContextMind v5.1 闲聊演示")
         gr.Markdown("基于五层架构的智能对话系统，支持上下文理解和长期记忆")
         
@@ -328,5 +341,6 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        show_error=True
+        show_error=True,
+        theme=gr.themes.Soft()
     )

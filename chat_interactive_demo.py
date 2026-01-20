@@ -141,23 +141,36 @@ async def main():
             print(f"[轮次 {turn_counter}] 处理中...")
             start_time = time.time()
             
-            # 使用引擎处理
-            result = await context_engine.process(
-                query=user_input,
-                system_prompt=system_prompt,
-                use_session_history=not args.no_session,
-                use_long_term_memory=not args.no_memory,
+            # 1. 优化上下文
+            context_result = await context_engine.optimize(
+                user_input=user_input,
+                include_session=not args.no_session,
+                include_memory=not args.no_memory,
             )
             
-            assistant_response = result.get_final_response()
+            # 2. 构建prompt
+            prompt = f"{system_prompt}\n\n用户: {user_input}\n助手:"
+            
+            # 3. 调用LLM生成回复
+            _, assistant_response = llm_client.generate(prompt)
             processing_time = time.time() - start_time
+            
+            # 4. 更新对话历史
+            await context_engine.update(
+                user_input=user_input,
+                assistant_response=assistant_response
+            )
+            
+            # 5. 提取知识到长期记忆
+            if not args.no_memory:
+                await context_engine.extract_knowledge(auto_store=True)
             
             # 显示回复
             print(f"\n助手: {assistant_response}")
             
             # 显示统计信息
             if args.debug:
-                context_count = len(result.context_items) if hasattr(result, 'context_items') else 0
+                context_count = len(context_result.context_items) if hasattr(context_result, 'context_items') else 0
                 print(f"\n[统计] 耗时: {processing_time:.2f}s | 上下文: {context_count}项")
             
             print("\n" + "-" * 60 + "\n")
