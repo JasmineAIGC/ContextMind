@@ -7,7 +7,7 @@ Strategy Base Classes - 策略基类
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..core import ContextItem, ProcessedContext, ContextResult, Message, Knowledge
+from ..models import ContextItem, ProcessedContext, ContextResult, Message, Knowledge
 
 
 class RetrievalStrategy(ABC):

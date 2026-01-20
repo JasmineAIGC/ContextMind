@@ -28,9 +28,8 @@ import uuid
 import re
 from datetime import datetime, timedelta
 
-from ..core import ContextItem, ContextSource, Knowledge, DEFAULT_MEMORY_CONFIG, RetrievalConfig
-from ..utils import get_logger
-from ..core.data_models import MemoryNote, MemoryType, KnowledgeType
+from ..models import ContextItem, ContextSource, Knowledge, DEFAULT_MEMORY_CONFIG, RetrievalConfig, get_logger
+from ..models.data_models import MemoryNote, MemoryType, KnowledgeType
 
 # Import plugin interfaces (optional - will use internal implementations if not available)
 try:

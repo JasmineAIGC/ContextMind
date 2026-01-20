@@ -20,7 +20,7 @@ Example:
 """
 
 from typing import Dict, Type, Optional, Any, Callable
-from .utils import get_logger
+from .models import get_logger
 
 logger = get_logger(__name__)
 

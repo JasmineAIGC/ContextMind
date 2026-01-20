@@ -37,8 +37,7 @@ Example:
 from typing import Optional, Dict, Any
 from .engine import ContextEngine
 from .registry import registry
-from .core import Message, MessageRole
-from .utils import get_logger
+from .models import Message, MessageRole, get_logger
 
 logger = get_logger(__name__)
 

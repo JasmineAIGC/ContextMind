@@ -27,8 +27,7 @@ from __future__ import annotations
 from typing import Optional, List, Any
 from datetime import datetime
 
-from .client import Client
-from .core import (
+from .models import (
     Message,
     MessageRole,
     ContextResult,
@@ -36,8 +35,8 @@ from .core import (
     ContextSource,
     ProcessedContext,
     Knowledge,
+    get_logger,
 )
-from .utils import get_logger
 from .pipeline import (
     SessionManager,
     InputPreprocessor,
@@ -79,13 +78,11 @@ class ContextEngine:
     
     使用示例：
         ```python
-        from contextmind import ContextEngine, Client
+        from contextmind import ContextEngine
         
-        client = Client()
         engine = ContextEngine(
             app_name="my-app",
-            user_id="user-123",
-            llm_client=client
+            user_id="user-123"
         )
         
         # 优化上下文
@@ -104,7 +101,7 @@ class ContextEngine:
         *,
         app_name: str,
         user_id: str,
-        llm_client: Optional[Client] = None,
+        llm_client: Optional[Any] = None,
         session_service: Optional[Any] = None,
         memory_service: Optional[Any] = None,
         max_recent_events: int = 9999,

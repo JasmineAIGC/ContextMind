@@ -75,7 +75,7 @@ from .config_api import ContextMind
 from .engine import ContextEngine
 
 # 核心层
-from .core import (
+from .models import (
     # 数据模型
     Message,
     MessageRole,
@@ -107,8 +107,7 @@ from .pipeline import (
     SessionManager,
 )
 
-# 客户端
-from .client import Client, ClientConfig
+
 
 # 策略
 from .strategies import (
@@ -147,6 +146,14 @@ from .adapters import (
 )
 
 # 工具
+from .models import (
+    # 日志
+    get_logger,
+    setup_logging,
+    INFO,
+    DEBUG,
+)
+
 from .utils import (
     TokenizerService,
     TokenizerType,
@@ -160,11 +167,6 @@ from .utils import (
     SummarizedHistory,
     PerformanceMonitor,
     ContextMetrics,
-    # 日志
-    get_logger,
-    setup_logging,
-    INFO,
-    DEBUG,
 )
 
 __all__ = [
@@ -213,9 +215,6 @@ __all__ = [
     "KnowledgeExtractor",
     "SessionManager",
     
-    # 客户端
-    "Client",
-    "ClientConfig",
     
     # 策略基类
     "RetrievalStrategy",

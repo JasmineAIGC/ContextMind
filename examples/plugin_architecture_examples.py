@@ -7,7 +7,7 @@ for customizing memory extraction, retrieval, and update strategies.
 
 import asyncio
 from contextmind import ContextEngine
-from contextmind.core import Message, MessageRole
+from contextmind.models import Message, MessageRole
 
 
 # ============================================================================
@@ -105,7 +105,7 @@ async def example_custom_retriever():
     )
     
     # Store some memories
-    from contextmind.core import Knowledge, KnowledgeType
+    from contextmind.models import Knowledge, KnowledgeType
     
     test_knowledge = [
         Knowledge(
@@ -144,7 +144,7 @@ async def example_custom_extractor():
     print("=" * 80)
     
     from contextmind.strategies.memory import BaseExtractor
-    from contextmind.core import Knowledge, KnowledgeType, Message
+    from contextmind.models import Knowledge, KnowledgeType, Message
     from typing import List
     
     class SimpleKeywordExtractor(BaseExtractor):
@@ -204,7 +204,7 @@ async def example_custom_updater():
     print("=" * 80)
     
     from contextmind.strategies.memory import BaseUpdater
-    from contextmind.core import ContextItem, ContextSource, Knowledge, KnowledgeType
+    from contextmind.models import ContextItem, ContextSource, Knowledge, KnowledgeType
     from typing import List
     
     class CapacityLimitedUpdater(BaseUpdater):

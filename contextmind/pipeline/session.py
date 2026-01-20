@@ -9,8 +9,7 @@ from typing import List, Optional, Any, Dict
 import uuid
 from datetime import datetime
 
-from ..core import Message, MessageRole
-from ..utils.logger import get_logger
+from ..models import Message, MessageRole, get_logger
 
 logger = get_logger(__name__)
 
