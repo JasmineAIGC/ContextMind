@@ -10,14 +10,12 @@ from typing import Optional
 import logging
 
 from contextmind import ContextEngine, Client, ContextResult
-from contextmind.utils.logger import get_logger
-from contextmind.utils.context_formatter import (
+from contextmind.utils import (
+    get_logger,
     format_context_result,
     format_memory_cache,
     format_prompt_analysis,
     format_complete_prompt,
-    LOG_PREFIX_PROCESS,
-    LOG_PREFIX_COMPLETE,
 )
 
 logger = get_logger(__name__)
@@ -43,7 +41,7 @@ class BaseApplication(ABC):
     
     async def process_turn(self, user_input: str) -> str:
         """处理一轮对话"""
-        logger.debug(f"{LOG_PREFIX_PROCESS} 用户输入: {user_input}")
+        logger.debug(f"[处理中] 用户输入: {user_input}")
         
         # 优化上下文
         context_result = await self.context_engine.optimize(
@@ -83,7 +81,7 @@ class BaseApplication(ABC):
         if self.config.get('auto_extract_knowledge', False):
             await self.context_engine.extract_knowledge(auto_store=True)
         
-        logger.debug(f"{LOG_PREFIX_COMPLETE} 助手回复: {response}")
+        logger.debug(f"[完成] 助手回复: {response}")
         
         return response
     
