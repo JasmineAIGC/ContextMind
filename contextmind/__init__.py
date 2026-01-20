@@ -68,6 +68,9 @@ v6.0 核心改进：
 # Plugin Registry (NEW in v6.0)
 from .registry import registry, PluginRegistry
 
+# Easy Integration API (NEW in v6.0)
+from .config_api import ContextMind
+
 # 核心引擎
 from .engine import ContextEngine
 
@@ -165,6 +168,9 @@ from .utils import (
 )
 
 __all__ = [
+    # Easy Integration API (NEW in v6.0)
+    "ContextMind",
+    
     # Plugin System (NEW in v6.0)
     "registry",
     "PluginRegistry",
