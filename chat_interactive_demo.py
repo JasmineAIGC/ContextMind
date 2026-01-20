@@ -21,6 +21,8 @@ from contextmind import (
     DEBUG,
 )
 
+from examples.applications.chat import ChatApplication, CHAT_SYSTEM_PROMPT
+
 load_dotenv()
 logger = get_logger(__name__)
 
@@ -33,6 +35,7 @@ async def main():
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--no-memory', action='store_true', help='禁用长期记忆')
     parser.add_argument('--max-events', type=int, default=20, help='最大历史轮数')
+    parser.add_argument('--history-turns', type=int, default=10, help='Prompt中的历史轮数')
     parser.add_argument('--debug', action='store_true', help='调试模式')
     args = parser.parse_args()
     
@@ -50,6 +53,7 @@ async def main():
     print(f"   - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
     print(f"   - 长期记忆: {'❌ 禁用' if args.no_memory else '✅ 启用'}")
     print(f"   - 最大轮数: {args.max_events}")
+    print(f"   - Prompt历史: {args.history_turns}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
@@ -71,19 +75,17 @@ async def main():
     print("✅ 引擎初始化完成")
     print()
     
-    # 系统提示词 - 简洁的闲聊角色设定
-    system_prompt = """你是一个友好、有趣的聊天助手。
-
-特点：
-- 亲切自然，像朋友一样交流
-- 适当使用表情和轻松的语气
-- 记住用户提到的信息，让对话更连贯
-- 话题广泛，可以聊天、讲笑话、分享知识
-
-注意：
-- 回复简洁有趣，不要过于正式
-- 适当提问，保持对话互动
-- 如果用户分享了个人信息（如名字、爱好、城市等），记住并在后续对话中自然提及"""
+    # 初始化应用
+    print("🔧 初始化应用...")
+    app = ChatApplication(
+        context_engine=context_engine,
+        llm_client=llm_client,
+        system_prompt=CHAT_SYSTEM_PROMPT,
+        history_turns=args.history_turns,
+        auto_extract_knowledge=not args.no_memory,  # 根据参数决定是否提取知识
+    )
+    print("✅ 应用初始化完成")
+    print()
     
     # 开始对话
     print("💡 使用提示:")
@@ -91,6 +93,8 @@ async def main():
     print("   - 输入 'quit' 或 'exit' 退出")
     print("   - 输入 'reset' 重置对话")
     print("   - 输入 'help' 查看帮助")
+    if not args.no_memory:
+        print("   - 输入 '/status' 查看记忆状态")
     print()
     print("=" * 60)
     print("🎭 开始闲聊吧！")
@@ -115,6 +119,7 @@ async def main():
         if user_input.lower() == 'reset':
             print("\n🔄 对话已重置\n")
             turn_counter = 0
+            await context_engine.clear_session()
             continue
         
         if user_input.lower() == 'help':
@@ -122,12 +127,29 @@ async def main():
             print("   - quit/exit/q: 退出程序")
             print("   - reset: 重置对话")
             print("   - help: 显示此帮助")
+            if not args.no_memory:
+                print("   - /status: 查看记忆状态")
             print("\n💬 话题建议:")
             print("   - 自我介绍")
             print("   - 聊聊兴趣爱好")
             print("   - 讲个笑话")
             print("   - 推荐电影/书籍")
             print("   - 生活小窍门\n")
+            continue
+        
+        if user_input.lower() == '/status' and not args.no_memory:
+            # 显示记忆状态
+            memory_cache = context_engine.memory_bank.get_memory_cache()
+            history = await context_engine.session_manager.get_recent_history()
+            print(f"\n📊 状态:")
+            print(f"  - 对话轮次: {turn_counter}")
+            print(f"  - 历史消息: {len(history)}")
+            print(f"  - 长期记忆: {len(memory_cache)} 条")
+            if memory_cache:
+                print("  记忆内容:")
+                for i, mem in enumerate(memory_cache[:5], 1):  # 显示前5条
+                    print(f"    {i}. {mem.content}")
+            print()
             continue
         
         if not user_input:
@@ -141,37 +163,23 @@ async def main():
             print(f"[轮次 {turn_counter}] 处理中...")
             start_time = time.time()
             
-            # 1. 优化上下文
-            context_result = await context_engine.optimize(
+            # 使用应用的process_turn方法处理对话
+            # 这会自动处理: optimize → generate → update → extract_knowledge
+            response = await app.process_turn(
                 user_input=user_input,
                 include_session=not args.no_session,
                 include_memory=not args.no_memory,
             )
             
-            # 2. 构建prompt
-            prompt = f"{system_prompt}\n\n用户: {user_input}\n助手:"
-            
-            # 3. 调用LLM生成回复
-            _, assistant_response = llm_client.generate(prompt)
             processing_time = time.time() - start_time
             
-            # 4. 更新对话历史
-            await context_engine.update(
-                user_input=user_input,
-                assistant_response=assistant_response
-            )
-            
-            # 5. 提取知识到长期记忆
-            if not args.no_memory:
-                await context_engine.extract_knowledge(auto_store=True)
-            
             # 显示回复
-            print(f"\n助手: {assistant_response}")
+            print(f"\n助手: {response}")
             
             # 显示统计信息
             if args.debug:
-                context_count = len(context_result.context_items) if hasattr(context_result, 'context_items') else 0
-                print(f"\n[统计] 耗时: {processing_time:.2f}s | 上下文: {context_count}项")
+                memory_cache = context_engine.memory_bank.get_memory_cache()
+                print(f"\n[统计] 耗时: {processing_time:.2f}s | 记忆: {len(memory_cache)}条")
             
             print("\n" + "-" * 60 + "\n")
             

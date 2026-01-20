@@ -1,11 +1,12 @@
-"""
-ContextMind Applications - 应用层示例
-
-提供基于ContextEngine的应用层实现示例。
-"""
+"""Applications Package"""
 
 from .base import BaseApplication
+from .callcenter import CallCenterApplication
+from .chat import ChatApplication, CHAT_SYSTEM_PROMPT
 
 __all__ = [
     "BaseApplication",
+    "CallCenterApplication",
+    "ChatApplication",
+    "CHAT_SYSTEM_PROMPT"
 ]
