@@ -349,9 +349,17 @@ class MemoryBank:
         """
         存储知识到长期记忆
         
-        将提取的知识存储到长期记忆中，供后续检索使用。
-        自动去重，避免存储重复的知识。
-        同时存储到本地缓存，确保备用检索可用。
+        实现知识存储策略：
+        1. 过滤低质量知识
+        2. 去重（避免存储重复知识）
+        3. 存储到本地缓存和Memory Service（如果配置）
+        
+        存储标准 (Issue 6):
+        - 偏好(PREFERENCE): 置信度 >= 0.75
+        - 事实(FACT): 置信度 >= 0.70
+        - 事件(EVENT): 置信度 >= 0.70
+        - 内容长度 >= 3 字符
+        - 非重复内容
         
         Args:
             knowledge: 知识列表
@@ -361,10 +369,32 @@ class MemoryBank:
             return
         
         logger.info(f"[MemoryBank] 开始存储知识 - 收到 {len(knowledge)} 条知识项")
+        logger.info("")
+        
+        # 应用存储策略 (Issue 6)
+        filtered_knowledge = []
+        for k in knowledge:
+            # 根据类型设置不同的置信度阈值
+            min_confidence = {
+                KnowledgeType.PREFERENCE: 0.75,
+                KnowledgeType.FACT: 0.70,
+                KnowledgeType.EVENT: 0.70,
+            }.get(k.type, 0.70)
+            
+            # 过滤条件
+            if (k.confidence >= min_confidence 
+                and len(k.content.strip()) >= 3
+                and not k.content.isdigit()):  # 排除纯数字
+                filtered_knowledge.append(k)
+            else:
+                logger.debug(f"[MemoryBank] ✗ 过滤低质量知识: [{k.type.value}] {k.content[:50]}... (置信度={k.confidence:.2f})")
+        
+        if len(filtered_knowledge) < len(knowledge):
+            logger.info(f"[MemoryBank] 质量过滤: {len(knowledge)} → {len(filtered_knowledge)} 条知识")
         
         # 去重：检查是否已存在相似的知识
         new_knowledge = []
-        for k in knowledge:
+        for k in filtered_knowledge:
             formatted_content = f"[{k.type.value.upper()}] {k.content}"
             
             # 检查是否已存在相似内容
@@ -372,7 +402,7 @@ class MemoryBank:
             for existing in self._local_cache:
                 # 简单的相似度检查：如果内容高度相似，认为是重复
                 if self._is_similar(formatted_content, existing.content):
-                    logger.debug(f"[MemoryBank] 跳过重复知识: {formatted_content[:50]}...")
+                    logger.debug(f"[MemoryBank] ✗ 跳过重复知识: {formatted_content[:50]}...")
                     is_duplicate = True
                     break
             
@@ -387,11 +417,14 @@ class MemoryBank:
                 logger.debug(f"[MemoryBank] ✓ 已存储: {formatted_content[:80]}...")
         
         if not new_knowledge:
-            logger.info("[MemoryBank] 所有知识项均为重复，未存储新内容")
+            logger.info("[MemoryBank] 所有知识项均为重复或低质量，未存储新内容")
+            logger.info("")
             return
         
-        logger.info(f"[MemoryBank] ✓ 存储完成 - 新增 {len(new_knowledge)} 条知识 (过滤 {len(knowledge) - len(new_knowledge)} 条重复)")
+        logger.info("")
+        logger.info(f"[MemoryBank] ✓ 存储完成 - 新增 {len(new_knowledge)} 条知识 (过滤 {len(knowledge) - len(new_knowledge)} 条)")
         logger.info(f"[MemoryBank] 当前记忆库总计: {len(self._local_cache)} 条记忆")
+        logger.info("")
         
         # 注意：Memory Service 存储功能已禁用（需要外部服务支持）
         # 当前所有知识仅存储在本地缓存中

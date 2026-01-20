@@ -329,6 +329,71 @@ class ContextEngine:
         
         return knowledge
     
+    async def generate_summary(self) -> str:
+        """
+        生成对话摘要 (Issue 3)
+        
+        从当前对话历史中生成摘要，用于快速理解对话内容。
+        当前实现为基于规则的简单摘要，未来可扩展为LLM生成。
+        
+        Returns:
+            对话摘要文本
+        """
+        logger.info("")
+        logger.info("=" * 100)
+        logger.info("[Summary] ========== 开始生成对话摘要 ==========")
+        logger.info("=" * 100)
+        logger.info("")
+        
+        messages = await self.session_manager.get_recent_history()
+        
+        if not messages:
+            logger.info("[Summary] 无对话历史，无法生成摘要")
+            logger.info("")
+            return "暂无对话历史"
+        
+        # 简单的基于规则的摘要生成
+        summary_parts = []
+        
+        # 统计信息
+        user_msgs = [m for m in messages if m.role == MessageRole.USER]
+        assistant_msgs = [m for m in messages if m.role == MessageRole.ASSISTANT]
+        
+        summary_parts.append(f"对话轮次: {len(messages) // 2} 轮")
+        summary_parts.append(f"用户消息: {len(user_msgs)} 条")
+        summary_parts.append(f"助手回复: {len(assistant_msgs)} 条")
+        
+        # 提取关键话题（基于用户消息）
+        if user_msgs:
+            recent_topics = []
+            for msg in user_msgs[-5:]:  # 最近5条用户消息
+                if len(msg.content) > 0:
+                    topic = msg.content[:30] + "..." if len(msg.content) > 30 else msg.content
+                    recent_topics.append(topic)
+            
+            if recent_topics:
+                summary_parts.append(f"\n最近话题:")
+                for i, topic in enumerate(recent_topics, 1):
+                    summary_parts.append(f"  {i}. {topic}")
+        
+        # 记忆库状态
+        memory_cache = self.memory_bank.get_memory_cache()
+        if memory_cache:
+            summary_parts.append(f"\n记忆库: {len(memory_cache)} 条记忆")
+            for i, mem in enumerate(memory_cache[:3], 1):
+                summary_parts.append(f"  {i}. {mem.content[:50]}...")
+        
+        summary = "\n".join(summary_parts)
+        
+        logger.info("[Summary] ✓ 摘要生成完成:")
+        logger.info(summary)
+        logger.info("")
+        logger.info("-" * 100)
+        logger.info("[Summary] ========== 对话摘要结束 ==========")
+        logger.info("")
+        
+        return summary
+    
     async def seed_memory(self, facts: List[str]) -> None:
         """
         植入记忆种子
