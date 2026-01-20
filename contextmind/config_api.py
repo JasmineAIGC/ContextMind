@@ -166,9 +166,24 @@ class ContextMind:
             system_prompt=system_prompt,
         )
         
-        # Generate response (simplified - assumes engine has generate method)
-        # In real usage, you'd call your LLM here with optimized context
-        response_text = f"[ContextMind processed: {len(optimized.context)} context items]"
+        # Generate response using LLM client
+        # Note: This is a simplified example. In production, you should:
+        # 1. Build the complete prompt from optimized context
+        # 2. Call your LLM client with the prompt
+        # 3. Handle the response appropriately
+        
+        # Example LLM call (you'll need to adapt this to your LLM client):
+        # response_text = await self.engine.llm_client.generate(optimized.context, user_input)
+        
+        # For now, return a placeholder that shows what was processed
+        logger.warning(
+            "[ContextMind] process() method uses placeholder response. "
+            "Override this method or call engine.optimize_context() + your LLM directly."
+        )
+        response_text = (
+            f"[ContextMind processed your input with {len(optimized.context)} context items. "
+            f"Please implement actual LLM call in your application.]"
+        )
         
         # Create assistant message
         assistant_msg = Message(role=MessageRole.ASSISTANT, content=response_text)
