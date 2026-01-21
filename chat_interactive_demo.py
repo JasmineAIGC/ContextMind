@@ -175,7 +175,9 @@ async def main():
             
         except Exception as e:
             print(f"\n❌ 错误: {str(e)}\n")
-            logger.error(f"处理失败: {e}", exc_info=True)
+            import traceback
+            logger.error(f"处理失败: {e}")
+            logger.debug(traceback.format_exc())
             continue
 
 
@@ -186,4 +188,6 @@ if __name__ == "__main__":
         print("\n\n👋 程序已中断")
     except Exception as e:
         print(f"\n❌ 程序错误: {str(e)}")
-        logger.error("程序异常", exc_info=True)
+        import traceback
+        logger.error("程序异常")
+        logger.debug(traceback.format_exc())

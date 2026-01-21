@@ -359,11 +359,17 @@ class RetrievalConfig:
     # 语义检索参数
     min_overlap_chars: int = 3  # 最小字符重叠数
     base_score: float = 0.3  # 基础相关性分数
+    relevance_threshold: float = 0.0  # 相关性阈值 (0表示不使用阈值过滤)
     
     # 新近性加权
     enable_recency_boost: bool = True  # 是否启用新近性加权
     recency_weight: float = 0.2  # 新近性权重
     recency_days_threshold: int = 7  # 新近性天数阈值
+    
+    # 去重和限制
+    enable_deduplication: bool = True  # 是否启用去重
+    similarity_threshold_for_dedup: float = 0.95  # 去重相似度阈值
+    max_limit: int = 100  # 最大返回数量
 
 
 @dataclass

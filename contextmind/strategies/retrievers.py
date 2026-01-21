@@ -107,7 +107,7 @@ class SemanticSearchRetriever(BaseRetriever):
                     score = self.config.base_score
             
             # 新近性加权
-            if self.config.enable_recency_boost and item.timestamp:
+            if self.config.enable_recency_boost and hasattr(item, 'timestamp') and item.timestamp:
                 try:
                     from datetime import datetime
                     if isinstance(item.timestamp, datetime):
@@ -151,8 +151,10 @@ class SemanticSearchRetriever(BaseRetriever):
                 content=item.content,
                 source=item.source,
                 score=score,
-                timestamp=item.timestamp,
-                metadata=item.metadata
+                metadata={
+                    **item.metadata,
+                    'timestamp': item.timestamp if hasattr(item, 'timestamp') else None
+                }
             )
             for item, score in filtered_items
         ]
