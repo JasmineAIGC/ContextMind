@@ -50,46 +50,201 @@ class MemoryType(str, Enum):
 
 
 @dataclass
+class EmbeddingInfo:
+    """
+    Embedding向量信息
+    
+    支持多种embedding模型，便于跨模型检索和模型升级
+    """
+    model: str  # embedding模型名称
+    vector: List[float]  # 向量数据
+    dimension: int  # 向量维度
+    created_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class ScoreInfo:
+    """
+    知识评分信息
+    
+    四维评分体系用于检索排序和知识淡化
+    """
+    importance: float = 0.5  # 重要性分数（基于访问频率和知识类型）
+    confidence: float = 0.5  # 置信度分数（基于提取方法和验证次数）
+    relevance: float = 0.5  # 相关性分数（基于时间衰减和上下文匹配）
+    quality: float = 0.5  # 质量分数（基于来源可靠性和内容完整性）
+
+
+@dataclass
+class VersionRecord:
+    """
+    知识版本记录
+    
+    追踪知识的演化历史，支持回滚和审计
+    """
+    version: int
+    content: str
+    updated_at: datetime
+    update_reason: str
+    confidence_delta: float = 0.0
+    updated_by: str = "system"
+
+
+@dataclass
 class Knowledge:
     """
-    从对话中提取的知识
+    优化的知识存储模型
+    
+    设计目标:
+    1. 检索优化 - 多层次索引，支持向量+关键词混合检索
+    2. 便于更新 - 版本追踪，冲突检测，智能合并
+    3. 多模态支持 - 支持多种embedding算法和模型
+    4. 算法驱动 - 动态评分，自动淡化，智能排序
     
     Attributes:
-        content: 知识内容
-        knowledge_type: 知识类型  (改用type属性保持一致性)
-        confidence: 置信度分数 (0-1)
-        source: 来源信息
-        timestamp: 提取时间
+        memory_id: 唯一标识符
+        user_id: 所属用户ID
+        session_id: 所属会话ID（可选）
+        
+        knowledge_type: 知识类型 (preference/fact/event)
+        content: 核心文本内容
+        summary: 简短摘要（可选）
+        
+        embeddings: 多embedding向量字典 {name: EmbeddingInfo}
+        scores: 四维评分信息
+        version_history: 版本历史记录
+        
         extraction_method: 提取方法 ('rule' 或 'llm')
-        source_message_ids: 源消息ID列表 (追溯来源)
-        last_accessed: 最后访问时间 (用于淡化旧记忆)
-        access_count: 访问次数 (用于判断重要性)
-        importance_score: 重要性分数 (0-1, 可动态调整)
-        metadata: 附加元数据
-            - category: 细分类别 (例如: 食物偏好、个人信息等)
-            - entities: 涉及的实体列表
+        source_message_ids: 源消息ID列表（完整追溯）
+        
+        created_at: 创建时间
+        updated_at: 最后更新时间
+        last_accessed: 最后访问时间
+        access_count: 访问次数
+        
+        status: 状态 (active/archived/deleted)
+        metadata: 扩展元数据
+            - category: 细分类别
+            - tags: 标签列表
             - keywords: 关键词列表
-            - sentiment: 情感倾向 (positive/negative/neutral)
-            - context: 原始上下文片段
-            - relationships: 相关关系 (例如: "张三是李四的同事")
+            - entities: 实体列表 [{text, type, sentiment}]
+            - relationships: 关系列表 [{relation_type, target, strength}]
+            - context: 上下文信息
+            - conflicts: 冲突记录
+    
+    参考文档: docs/KNOWLEDGE_STORAGE_DESIGN.md
     """
-    content: str
-    knowledge_type: KnowledgeType  # 保持属性名为 knowledge_type 以兼容现有代码
-    confidence: float = 1.0
-    source: str = ""
-    timestamp: datetime = field(default_factory=datetime.now)
+    # 核心标识
+    memory_id: str = field(default_factory=lambda: str(__import__('uuid').uuid4()))
+    user_id: str = ""
+    session_id: Optional[str] = None
+    
+    # 知识内容
+    knowledge_type: KnowledgeType  # 保持兼容性
+    content: str = ""
+    summary: Optional[str] = None
+    
+    # 多模态支持
+    embeddings: Dict[str, EmbeddingInfo] = field(default_factory=dict)
+    
+    # 评分系统
+    scores: ScoreInfo = field(default_factory=ScoreInfo)
+    
+    # 版本历史
+    version_history: List[VersionRecord] = field(default_factory=list)
+    
+    # 提取信息
     extraction_method: str = "rule"  # 'rule' or 'llm'
     source_message_ids: List[str] = field(default_factory=list)
+    
+    # 时间戳
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     last_accessed: Optional[datetime] = None
+    
+    # 访问统计
     access_count: int = 0
-    importance_score: float = 1.0
+    
+    # 状态
+    status: str = "active"  # active/archived/deleted
+    
+    # 扩展元数据
     metadata: Dict[str, Any] = field(default_factory=dict)
     
-    # 为了兼容性，添加type属性作为knowledge_type的别名
+    # 兼容性属性
     @property
     def type(self) -> KnowledgeType:
         """兼容性别名: knowledge_type -> type"""
         return self.knowledge_type
+    
+    @property
+    def confidence(self) -> float:
+        """兼容性别名: scores.confidence -> confidence"""
+        return self.scores.confidence
+    
+    @property
+    def importance_score(self) -> float:
+        """兼容性别名: scores.importance -> importance_score"""
+        return self.scores.importance
+    
+    @property
+    def timestamp(self) -> datetime:
+        """兼容性别名: created_at -> timestamp"""
+        return self.created_at
+    
+    @property
+    def source(self) -> str:
+        """兼容性别名: metadata中的source"""
+        return self.metadata.get("source", "")
+    
+    def to_storage_dict(self) -> Dict[str, Any]:
+        """
+        转换为存储格式
+        
+        完整的JSON Schema参考: docs/KNOWLEDGE_STORAGE_DESIGN.md
+        """
+        return {
+            "memory_id": self.memory_id,
+            "user_id": self.user_id,
+            "session_id": self.session_id,
+            "type": self.knowledge_type.value,
+            "content": self.content,
+            "summary": self.summary,
+            "embeddings": {
+                name: {
+                    "model": emb.model,
+                    "vector": emb.vector,
+                    "dimension": emb.dimension,
+                    "created_at": emb.created_at.isoformat()
+                }
+                for name, emb in self.embeddings.items()
+            },
+            "metadata": self.metadata,
+            "scores": {
+                "importance": self.scores.importance,
+                "confidence": self.scores.confidence,
+                "relevance": self.scores.relevance,
+                "quality": self.scores.quality
+            },
+            "version_history": [
+                {
+                    "version": v.version,
+                    "content": v.content,
+                    "updated_at": v.updated_at.isoformat(),
+                    "update_reason": v.update_reason,
+                    "confidence_delta": v.confidence_delta,
+                    "updated_by": v.updated_by
+                }
+                for v in self.version_history
+            ],
+            "extraction_method": self.extraction_method,
+            "source_message_ids": self.source_message_ids,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "last_accessed": self.last_accessed.isoformat() if self.last_accessed else None,
+            "access_count": self.access_count,
+            "status": self.status
+        }
 
 
 class ContextSource(str, Enum):
