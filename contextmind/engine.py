@@ -138,14 +138,14 @@ class ContextEngine:
         self.reorderer = ContextReorderer()
         # Note: Knowledge extraction is handled by extractors in strategies layer
         
-        # v3.4 Optional components
-        if use_postprocessor and OPTIONAL_COMPONENTS_AVAILABLE:
+        # v7.1 Optional components (all components are now standard)
+        if use_postprocessor:
             self.postprocessor = PostProcessor()
             logger.info("[ContextEngine] PostProcessor enabled")
         else:
             self.postprocessor = None
         
-        if use_summarizer and OPTIONAL_COMPONENTS_AVAILABLE:
+        if use_summarizer:
             self.summarizer = ConversationSummarizer()
             logger.info("[ContextEngine] ConversationSummarizer enabled")
         else:
@@ -197,26 +197,38 @@ class ContextEngine:
         logger.debug(f"[ContextEngine] 预处理完成: '{processed_input[:60]}...'")
         logger.debug("")
         
-        # 2. 检索上下文（RAG）
+        # 2. 检索上下文（使用 MemoryBank 和 SessionManager）
         logger.debug(f"[ContextEngine] 步骤 2/4: 检索上下文")
-        retrieved_context = await self.retriever.retrieve(
-            query=processed_input,
-            include_session=include_session,
-            include_memory=include_memory,
-            include_knowledge=include_knowledge,
+        
+        # 获取会话历史
+        recent_history = []
+        if include_session:
+            recent_history = await self.session_manager.get_recent_messages()
+            logger.debug(f"[ContextEngine] 检索到会话历史: {len(recent_history)} 条")
+        
+        # 检索长期记忆
+        long_term_memory = []
+        if include_memory:
+            long_term_memory = await self.memory_bank.search(
+                query=processed_input,
+                top_k=10
+            )
+            logger.debug(f"[ContextEngine] 检索到长期记忆: {len(long_term_memory)} 条")
+        
+        logger.debug("")
+        
+        # 3. 构建 ContextResult
+        logger.debug(f"[ContextEngine] 步骤 3/4: 构建上下文结果")
+        
+        # 创建 ContextResult
+        compressed_result = ContextResult(
+            recent_history=recent_history,
+            long_term_memory=long_term_memory,
+            external_knowledge=[],
+            metadata={}
         )
-        logger.debug(f"[ContextEngine] 检索完成 - 获得 {len(retrieved_context.items)} 个上下文项")
+        logger.debug(f"[ContextEngine] 上下文构建完成")
         logger.debug("")
-        
-        # 3. 重排序上下文
-        logger.debug(f"[ContextEngine] 步骤 3/4: 重排序上下文")
-        reordered_context = await self.reorderer.reorder(retrieved_context)
-        logger.debug(f"[ContextEngine] 重排序完成")
-        logger.debug("")
-        
-        # 4. 压缩上下文
-        logger.debug(f"[ContextEngine] 步骤 4/4: 压缩上下文")
-        compressed_result = await self.compressor.compress(reordered_context)
         
         # Log final result with details
         logger.info("")

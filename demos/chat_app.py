@@ -123,3 +123,47 @@ class ChatApplication:
         logger.info("")
         
         return final_prompt
+    
+    async def process_turn(self, user_input: str) -> str:
+        """处理一轮对话
+        
+        完整的对话处理流程：
+        1. 优化上下文（获取相关历史和记忆）
+        2. 构建 Prompt
+        3. 调用 LLM 生成回复（模拟）
+        4. 更新上下文
+        5. 提取知识
+        
+        Args:
+            user_input: 用户输入
+            
+        Returns:
+            助手回复
+        """
+        # 1. 优化上下文
+        context_result = await self.context_engine.optimize(
+            user_input=user_input,
+            include_session=True,
+            include_memory=True,
+        )
+        
+        # 2. 构建 Prompt
+        prompt = self.build_prompt(user_input, context_result)
+        
+        # 3. 模拟 LLM 调用（v7.1: LLM invocation is external）
+        # 在实际应用中，这里应该调用外部 LLM（OpenAI、vLLM等）
+        response = f"[模拟回复] 收到您的消息：{user_input}。这是一个示例回复，实际应用中需要调用真实的LLM。"
+        
+        # 4. 更新上下文
+        await self.context_engine.update(
+            user_input=user_input,
+            assistant_response=response
+        )
+        
+        # 5. 提取知识（如果需要）
+        try:
+            await self.context_engine.extract_knowledge(auto_store=True)
+        except Exception as e:
+            logger.warning(f"知识提取失败: {e}")
+        
+        return response
