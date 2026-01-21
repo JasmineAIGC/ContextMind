@@ -1,7 +1,7 @@
 """
-Default Strategy Implementations - 默认策略实现
+默认策略实现
 
-Provides simple default implementations for strategies to maintain backward compatibility.
+提供简单的默认实现用于策略以维持向后兼容性。
 """
 
 from typing import List

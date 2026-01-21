@@ -69,7 +69,7 @@ class GradioDemo:
     def __init__(self):
         """初始化 Gradio 演示"""
         self.engine = None
-        self.llm_client = None  # LLM client for demo
+        self.llm_client = None  # 演示用的 LLM 客户端
         self.opening_scripts = [
             "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
             "您好，我是马上消费的客服，有个好消息要通知您。",
@@ -163,7 +163,7 @@ class GradioDemo:
     
     def _get_base_prompt(self) -> str:
         """获取系统提示词"""
-        # System prompt directly defined (examples.prompts was removed in v7.1)
+        # System prompt 已直接定义（v7.1 中移除了 examples.prompts）
         return """你是一个专业的客服助手，代表马上消费/优逸花与客户沟通。
 
 ## 角色定位：
@@ -323,7 +323,7 @@ class GradioDemo:
         logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
         # 动态计算时间行的填充空格，防止负数
         time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{self.turn_counter}轮对话"
-        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 for closing ║
+        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 用于闭合符号 ║
         logger.info(time_str + ' ' * time_padding + "║")
         logger.info("╚" + "═" * self.BOX_BORDER_WIDTH + "╝")
         logger.info("")  # 空行
@@ -444,7 +444,7 @@ class GradioDemo:
         # 添加对话历史
         if history_items:
             history_text = "\n".join(
-                f"{item.content}"  # ContextItem content already formatted
+                f"{item.content}"  # ContextItem 内容已格式化
                 for item in history_items
             )
             prompt_parts.append(f"\n## 近期对话\n{history_text}")

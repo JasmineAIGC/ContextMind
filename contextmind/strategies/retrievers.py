@@ -1,8 +1,7 @@
 """
-Memory Retrievers - Plugin implementations for memory retrieval
+Memory Retrievers - 内存检索的插件实现
 
-This module provides various strategies for retrieving relevant memories
-based on the current query/context.
+该模块提供各种策略用于根据当前查询/Context 检索相关记忆。
 """
 
 from abc import ABC, abstractmethod
@@ -16,10 +15,10 @@ logger = get_logger(__name__)
 
 class BaseRetriever(ABC):
     """
-    Base interface for memory retrievers
+    Memory Retriever 的基类接口
     
-    Retrievers find and rank relevant memories from the memory bank
-    based on the current query or context.
+    Retriever 从 Memory Bank 中查找和排序相关记忆，
+    基于当前查询或 Context。
     """
     
     @abstractmethod
@@ -30,33 +29,33 @@ class BaseRetriever(ABC):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        Retrieve relevant memories
+        检索相关记忆
         
         Args:
-            query: Current query/context to match against
-            memory_cache: Available memories to search
-            limit: Maximum number of memories to return
+            query: 待匹配的当前查询/Context
+            memory_cache: 可用的记忆库进行搜索
+            limit: 返回记忆的最大数量
             
         Returns:
-            List of relevant context items, ranked by relevance
+            按相关性排序的相关 Context Item 列表
         """
         pass
 
 
 class SemanticSearchRetriever(BaseRetriever):
     """
-    Semantic search retriever (existing implementation)
+    Semantic Search Retriever（现有实现）
     
-    Uses character-level overlap and similarity metrics to find
-    relevant memories. Supports recency weighting and deduplication.
+    使用字符级别的重叠度和相似性指标来查找相关记忆。
+    支持新近性加权和去重。
     """
     
     def __init__(self, config: Optional[RetrievalConfig] = None):
         """
-        Initialize semantic search retriever
+        初始化 Semantic Search Retriever
         
         Args:
-            config: Retrieval configuration, uses default if None
+            config: Retrieval 配置，若为 None 则使用默认配置
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
     
@@ -67,15 +66,15 @@ class SemanticSearchRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        Retrieve memories using semantic similarity
+        使用 Semantic Similarity 检索记忆
         
         Args:
-            query: Query string
-            memory_cache: Memory cache to search
-            limit: Maximum results to return
+            query: 查询字符串
+            memory_cache: 待搜索的 Memory Cache
+            limit: 返回结果的最大数量
             
         Returns:
-            Ranked list of relevant memories
+            按相关性排序的记忆列表
         """
         logger.info(f"[SemanticRetriever] 从缓存检索 - 查询: '{query[:50]}', 缓存大小: {len(memory_cache)}")
         
@@ -85,29 +84,29 @@ class SemanticSearchRetriever(BaseRetriever):
         
         query_lower = query.lower()
         
-        # Calculate relevance scores
+        # 计算相关性分数
         scored_items = []
         for item in memory_cache:
             content_lower = item.content.lower()
             
-            # Method 1: Full match
+            # 方法 1: 完全匹配
             if query_lower in content_lower or content_lower in query_lower:
                 score = 0.9
-            # Method 2: Character overlap (better for Chinese)
+            # 方法 2: 字符重叠（适合中文）
             else:
                 query_chars = set(query_lower)
                 content_chars = set(content_lower)
                 overlap = len(query_chars & content_chars)
                 
                 if overlap >= self.config.min_overlap_chars:
-                    # Jaccard similarity
+                    # Jaccard Similarity（Jaccard 相似度）
                     union = len(query_chars | content_chars)
                     similarity = overlap / union if union > 0 else 0
                     score = self.config.base_score + similarity * (0.9 - self.config.base_score)
                 else:
                     score = self.config.base_score
             
-            # Recency weighting
+            # 新近性加权
             if self.config.enable_recency_boost and item.timestamp:
                 try:
                     from datetime import datetime
@@ -119,14 +118,14 @@ class SemanticSearchRetriever(BaseRetriever):
                             )
                             score = min(1.0, score + recency_boost)
                 except Exception as e:
-                    logger.debug(f"Error calculating recency boost: {e}")
+                    logger.debug(f"计算新近性加权时出错: {e}")
             
             scored_items.append((item, score))
         
-        # Sort by score
+        # 按分数排序
         scored_items.sort(key=lambda x: x[1], reverse=True)
         
-        # Relevance filtering
+        # 相关性过滤
         if self.config.relevance_threshold > 0:
             filtered_items = [
                 (item, score) for item, score in scored_items
@@ -139,14 +138,14 @@ class SemanticSearchRetriever(BaseRetriever):
         else:
             filtered_items = scored_items
         
-        # Deduplication
+        # 去重
         if self.config.enable_deduplication:
             filtered_items = self._deduplicate_memories(filtered_items)
         
-        # Limit results
+        # 限制结果数量
         filtered_items = filtered_items[:min(limit, self.config.max_limit)]
         
-        # Build result
+        # 构建结果
         result = [
             ContextItem(
                 content=item.content,
@@ -169,7 +168,7 @@ class SemanticSearchRetriever(BaseRetriever):
         return result
     
     def _deduplicate_memories(self, scored_items: List[tuple]) -> List[tuple]:
-        """Remove highly similar memories"""
+        """移除高度相似的记忆"""
         if not scored_items:
             return []
         
@@ -184,7 +183,7 @@ class SemanticSearchRetriever(BaseRetriever):
                 similarity = self._calculate_similarity(content, seen)
                 if similarity >= self.config.similarity_threshold_for_dedup:
                     is_duplicate = True
-                    logger.debug(f"Skipping duplicate memory (similarity={similarity:.2f}): {item.content[:40]}...")
+                    logger.debug(f"跳过重复的记忆（相似度={similarity:.2f}）: {item.content[:40]}...")
                     break
             
             if not is_duplicate:
@@ -194,7 +193,7 @@ class SemanticSearchRetriever(BaseRetriever):
         return deduplicated
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """Calculate Jaccard similarity between two texts"""
+        """计算两个文本之间的 Jaccard Similarity"""
         chars1 = set(text1)
         chars2 = set(text2)
         
@@ -209,16 +208,16 @@ class SemanticSearchRetriever(BaseRetriever):
 
 class HybridRetriever(BaseRetriever):
     """
-    Hybrid retriever (placeholder for future implementation)
+    混合 Retriever（未来实现的占位符）
     
-    Combines semantic search with keyword matching for improved
-    retrieval accuracy. Supports type-based filtering.
+    结合 Semantic Search 和关键词匹配以提高检索精度。
+    支持基于类型的过滤。
     
-    Future enhancements:
-    - BM25 keyword scoring
-    - Weighted combination of semantic + keyword
-    - Memory type filtering
-    - Query expansion
+    未来增强功能：
+    - BM25 关键词评分
+    - Semantic 和关键词的加权组合
+    - Memory 类型过滤
+    - Query 扩展
     """
     
     def __init__(
@@ -228,18 +227,18 @@ class HybridRetriever(BaseRetriever):
         keyword_weight: float = 0.3
     ):
         """
-        Initialize hybrid retriever
+        初始化混合 Retriever
         
         Args:
-            config: Retrieval configuration
-            semantic_weight: Weight for semantic similarity (0-1)
-            keyword_weight: Weight for keyword matching (0-1)
+            config: Retrieval 配置
+            semantic_weight: Semantic Similarity 的权重（0-1）
+            keyword_weight: 关键词匹配的权重（0-1）
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
         self.semantic_weight = semantic_weight
         self.keyword_weight = keyword_weight
-        self._fallback = None  # Lazy initialization
-        logger.info(f"[HybridRetriever] Initialized (placeholder) - semantic={semantic_weight}, keyword={keyword_weight}")
+        self._fallback = None  # 延迟初始化
+        logger.info(f"[HybridRetriever] 已初始化（占位符）- semantic={semantic_weight}, keyword={keyword_weight}")
     
     async def retrieve(
         self,
@@ -248,28 +247,28 @@ class HybridRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        Retrieve using hybrid semantic + keyword approach
+        使用混合 Semantic + 关键词方法进行检索
         
-        Current implementation is a placeholder that falls back to semantic search.
+        当前实现是一个占位符，会回退到 Semantic Search。
         
-        Future TODO:
-        - Implement BM25 keyword scoring
-        - Combine semantic and keyword scores with weights
-        - Add query expansion
+        未来待做事项：
+        - 实现 BM25 关键词评分
+        - 使用权重组合 Semantic 和关键词分数
+        - 添加 Query 扩展
         
         Args:
-            query: Query string
-            memory_cache: Memory cache
-            limit: Maximum results
+            query: 查询字符串
+            memory_cache: Memory Cache
+            limit: 最大结果数
             
         Returns:
-            Retrieved memories (currently uses fallback)
+            检索到的记忆（目前使用回退方案）
         """
-        logger.debug("[HybridRetriever] Using fallback to SemanticSearchRetriever (not yet implemented)")
+        logger.debug("[HybridRetriever] 使用 SemanticSearchRetriever 的回退方案（尚未实现）")
         return await self._get_fallback_retriever().retrieve(query, memory_cache, limit)
     
     def _get_fallback_retriever(self) -> SemanticSearchRetriever:
-        """Get or create fallback retriever (lazy initialization)"""
+        """获取或创建回退 Retriever（延迟初始化）"""
         if self._fallback is None:
             self._fallback = SemanticSearchRetriever(self.config)
         return self._fallback
@@ -277,19 +276,18 @@ class HybridRetriever(BaseRetriever):
 
 class LocatorRetriever(BaseRetriever):
     """
-    Locator-based retriever (placeholder for future implementation)
+    基于 Locator 的 Retriever（未来实现的占位符）
     
-    Uses precise location mechanisms to find memories based on
-    contextual positioning and metadata. Particularly useful for
-    long-context scenarios.
+    使用精确位置机制基于 Context 位置和元数据查找记忆。
+    特别适用于长 Context 场景。
     
-    Based on Locator mechanism research (2025 SOTA).
+    基于 Locator 机制研究（2025 SOTA）。
     
-    Future enhancements:
-    - Context-aware positioning
-    - Metadata-based filtering
-    - Multi-hop memory retrieval
-    - Confidence boosting for frequently accessed memories
+    未来增强功能：
+    - Context 感知定位
+    - 基于元数据的过滤
+    - 多跳 Memory 检索
+    - 为频繁访问的记忆提升置信度
     """
     
     def __init__(
@@ -298,16 +296,16 @@ class LocatorRetriever(BaseRetriever):
         use_metadata: bool = True
     ):
         """
-        Initialize locator retriever
+        初始化 Locator Retriever
         
         Args:
-            config: Retrieval configuration
-            use_metadata: Whether to use metadata for locating
+            config: Retrieval 配置
+            use_metadata: 是否使用元数据进行定位
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
         self.use_metadata = use_metadata
-        self._fallback = None  # Lazy initialization
-        logger.info(f"[LocatorRetriever] Initialized (placeholder) - metadata={use_metadata}")
+        self._fallback = None  # 延迟初始化
+        logger.info(f"[LocatorRetriever] 已初始化（占位符）- metadata={use_metadata}")
     
     async def retrieve(
         self,
@@ -316,28 +314,28 @@ class LocatorRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        Retrieve using locator mechanism
+        使用 Locator 机制进行检索
         
-        Current implementation is a placeholder that falls back to semantic search.
+        当前实现是一个占位符，会回退到 Semantic Search。
         
-        Future TODO:
-        - Implement context-aware positioning
-        - Add metadata-based filtering
-        - Support multi-hop retrieval
+        未来待做事项：
+        - 实现 Context 感知定位
+        - 添加基于元数据的过滤
+        - 支持多跳检索
         
         Args:
-            query: Query string
-            memory_cache: Memory cache
-            limit: Maximum results
+            query: 查询字符串
+            memory_cache: Memory Cache
+            limit: 最大结果数
             
         Returns:
-            Retrieved memories (currently uses fallback)
+            检索到的记忆（目前使用回退方案）
         """
-        logger.debug("[LocatorRetriever] Using fallback to SemanticSearchRetriever (not yet implemented)")
+        logger.debug("[LocatorRetriever] 使用 SemanticSearchRetriever 的回退方案（尚未实现）")
         return await self._get_fallback_retriever().retrieve(query, memory_cache, limit)
     
     def _get_fallback_retriever(self) -> SemanticSearchRetriever:
-        """Get or create fallback retriever (lazy initialization)"""
+        """获取或创建回退 Retriever（延迟初始化）"""
         if self._fallback is None:
             self._fallback = SemanticSearchRetriever(self.config)
         return self._fallback

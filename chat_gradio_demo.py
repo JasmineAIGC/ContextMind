@@ -142,7 +142,7 @@ class ChatGradioDemo:
             # 2. 构建prompt
             prompt = f"{system_prompt}\n\n用户: {user_message}\n助手:"
             
-            # 3. 调用LLM生成回复
+            # 3. 调用 LLM 生成回复
             _, assistant_response = self.llm_client.generate(prompt)
             
             # 4. 更新对话历史
@@ -202,7 +202,7 @@ def create_gradio_interface():
     async def chat_async(message, history):
         try:
             result = await demo_instance.chat(message)
-            # Gradio chatbot 格式：[(user_msg, bot_msg), ...]
+            # Gradio chatbot 格式：[(用户消息, 机器人消息), ...]
             history.append((message, result.response))
             
             # 构建状态信息

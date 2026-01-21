@@ -14,8 +14,8 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
-    print("LLM features may not work without .env configuration.")
+    print("警告: 未安装 python-dotenv。请通过以下命令安装: pip install python-dotenv")
+    print("未配置 .env 文件可能导致 LLM 功能无法正常工作")
 
 from contextmind import (
     ContextEngine,
@@ -73,7 +73,7 @@ async def main():
     print("🔧 初始化应用...")
     app = ChatApplication(
         context_engine=context_engine,
-        # Note: In v7.1, LLM client is handled externally
+        # 注意: 在 v7.1 中，LLM 客户端由外部处理
         system_prompt=CHAT_SYSTEM_PROMPT,
         history_turns=args.history_turns,
         auto_extract_knowledge=not args.no_memory,  # 根据参数决定是否提取知识
