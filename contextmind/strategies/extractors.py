@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 
-from ..models import Message, Knowledge, KnowledgeType, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger
+from ..models import Message, Knowledge, KnowledgeType, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger, ScoreInfo
 
 logger = get_logger(__name__)
 
@@ -195,7 +195,7 @@ class RuleBasedExtractor(BaseExtractor):
                         preferences.append(Knowledge(
                             content=full_content,
                             knowledge_type=KnowledgeType.PREFERENCE,
-                            confidence=0.75,  # 意图表达置信度
+                            scores=ScoreInfo(confidence=0.75),  # 意图表达置信度
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -227,7 +227,7 @@ class RuleBasedExtractor(BaseExtractor):
                         preferences.append(Knowledge(
                             content=full_content,
                             knowledge_type=KnowledgeType.PREFERENCE,
-                            confidence=self.CONFIDENCE_PREFERENCE_POSITIVE,
+                            scores=ScoreInfo(confidence=self.CONFIDENCE_PREFERENCE_POSITIVE),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -257,7 +257,7 @@ class RuleBasedExtractor(BaseExtractor):
                         preferences.append(Knowledge(
                             content=full_content,
                             knowledge_type=KnowledgeType.PREFERENCE,
-                            confidence=self.CONFIDENCE_PREFERENCE_NEGATIVE,
+                            scores=ScoreInfo(confidence=self.CONFIDENCE_PREFERENCE_NEGATIVE),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -285,7 +285,7 @@ class RuleBasedExtractor(BaseExtractor):
                     preferences.append(Knowledge(
                         content=full_content,
                         knowledge_type=KnowledgeType.PREFERENCE,
-                        confidence=0.85,  # 明确的数值约束置信度高
+                        scores=ScoreInfo(confidence=0.85),  # 明确的数值约束置信度高
                         extraction_method='rule',
                         source_message_ids=[getattr(msg, 'id', '')],
                         metadata={
@@ -360,7 +360,7 @@ class RuleBasedExtractor(BaseExtractor):
                         facts.append(Knowledge(
                             content=f"{subject}{detail}",
                             knowledge_type=KnowledgeType.FACT,
-                            confidence=self.CONFIDENCE_FACT,
+                            scores=ScoreInfo(confidence=self.CONFIDENCE_FACT),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -386,7 +386,7 @@ class RuleBasedExtractor(BaseExtractor):
                         facts.append(Knowledge(
                             content=f"{fact_text}",
                             knowledge_type=KnowledgeType.FACT,
-                            confidence=self.CONFIDENCE_FACT * 0.9,  # 属性描述置信度略低
+                            scores=ScoreInfo(confidence=self.CONFIDENCE_FACT * 0.9),  # 属性描述置信度略低
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -411,7 +411,7 @@ class RuleBasedExtractor(BaseExtractor):
                         facts.append(Knowledge(
                             content=f"{fact_text}",
                             knowledge_type=KnowledgeType.FACT,
-                            confidence=self.CONFIDENCE_FACT * 0.95,  # 客观数据置信度高
+                            scores=ScoreInfo(confidence=self.CONFIDENCE_FACT * 0.95),  # 客观数据置信度高
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -452,7 +452,7 @@ class RuleBasedExtractor(BaseExtractor):
                         events.append(Knowledge(
                             content=f"{keyword}{detail}",
                             knowledge_type=KnowledgeType.EVENT,
-                            confidence=self.CONFIDENCE_EVENT,
+                            scores=ScoreInfo(confidence=self.CONFIDENCE_EVENT),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={
@@ -686,7 +686,7 @@ class LLMBasedExtractor(BaseExtractor):
                         knowledge = Knowledge(
                             content=item.get('content', ''),
                             knowledge_type=knowledge_type,
-                            confidence=float(item.get('confidence', 0.8)),
+                            scores=ScoreInfo(confidence=float(item.get('confidence', 0.8))),
                             extraction_method='llm',
                             source_message_ids=[getattr(msg, 'id', '') for msg in messages],
                             metadata={
