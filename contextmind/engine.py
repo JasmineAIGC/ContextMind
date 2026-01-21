@@ -40,11 +40,12 @@ from .models import (
 from .pipeline import (
     SessionManager,
     InputPreprocessor,
-    ContextRetriever,
     MemoryBank,
     ContextCompressor,
     ContextReorderer,
-    KnowledgeExtractor,
+    PostProcessor,
+    ConversationSummarizer,
+    KVCacheManager,
 )
 
 # Optional components (v3.4 Plugin Architecture)

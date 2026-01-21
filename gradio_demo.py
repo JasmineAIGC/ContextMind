@@ -102,17 +102,14 @@ class GradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建客户端
-            client = Client()
-            
-            # 创建引擎
-            self.engine = self._create_engine(client)
+            # 创建引擎 (v7.0: LLM invocation is external, no client needed)
+            self.engine = self._create_engine()
             
             # 如果使用长期记忆，植入种子数据
             if use_memory:
                 await self._seed_long_term_memory()
 
-            logger.info("✅ [Gradio] 引擎初始化成功")
+            logger.info("✅ [Gradio] 引擎初始化成功 (v7.0 - Pure Context Engineering)")
             
             # 首次启动时添加开场白
             await self.start_new_conversation(is_initial_start=True)
@@ -126,7 +123,7 @@ class GradioDemo:
             logger.error(traceback.format_exc())
             return error_msg
 
-    def _create_engine(self, client: Client) -> ContextEngine:
+    def _create_engine(self) -> ContextEngine:
         """创建引擎实例"""
         
         base_prompt = self._get_base_prompt()
@@ -139,7 +136,6 @@ class GradioDemo:
         engine = ContextEngine(
             app_name="callcenter-gradio",
             user_id="gradio-user",
-            llm_client=client,
             max_recent_events=effective_max_events,
         )
             
@@ -155,8 +151,21 @@ class GradioDemo:
     
     def _get_base_prompt(self) -> str:
         """获取系统提示词"""
-        from examples.prompts import get_system_prompt
-        return get_system_prompt(include_business_info=True)
+        # System prompt directly defined (examples.prompts was removed in v7.0)
+        return """你是一个专业的客服助手，代表马上消费/优逸花与客户沟通。
+
+## 角色定位：
+- 热情、耐心、专业的客服人员
+- 及时准确地回答客户问题
+- 记住客户信息，提供个性化服务
+
+## 服务原则：
+1. **及时响应**：快速理解客户需求
+2. **准确回答**：基于已知信息给出正确答复
+3. **记住客户**：利用历史信息提供连贯服务
+4. **专业礼貌**：保持礼貌，使用专业术语
+
+请为客户提供专业的服务！"""
     
     def _get_user_profile(self) -> dict:
         """用户画像"""

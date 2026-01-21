@@ -30,7 +30,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
-from contextmind import Client, ClientConfig, ContextEngine, setup_logging, get_logger, INFO, DEBUG
+from contextmind import ContextEngine, setup_logging, get_logger, INFO, DEBUG
 
 setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
 logger = get_logger(__name__)
@@ -84,17 +84,14 @@ class ChatGradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 初始化客户端
-            client_config = ClientConfig.from_env()
-            llm_client = Client(config=client_config)
-            
-            # 创建引擎
+            # 创建引擎 (v7.0: LLM invocation is external, no client needed)
             self.engine = ContextEngine(
                 app_name="chat-demo",
                 user_id="chat-user",
-                llm_client=llm_client,
                 max_recent_events=max_recent_events,
             )
+            
+            logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.0 - Pure Context Engineering)")
             
             # 重置对话历史
             self.conversation_history = []

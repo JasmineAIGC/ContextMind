@@ -13,15 +13,13 @@ from dotenv import load_dotenv
 
 from contextmind import (
     ContextEngine,
-    Client,
-    ClientConfig,
     setup_logging,
     get_logger,
     INFO,
     DEBUG,
 )
 
-from examples.applications.callcenter import CallCenterApplication
+from demos.callcenter_app import CallCenterApplication
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -72,22 +70,14 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化客户端
-    print("🔧 初始化客户端...")
-    client_config = ClientConfig.from_env()
-    llm_client = Client(config=client_config)
-    print(f"✅ 客户端初始化完成: {llm_client.config.model}")
-    print()
-    
-    # 初始化引擎
+    # 初始化引擎 (v7.0: LLM invocation is external, no client needed)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="demo-app",
         user_id="demo-user",
-        llm_client=llm_client,
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成")
+    print("✅ 引擎初始化完成 (v7.0 - Pure Context Engineering)")
     print()
     
     # 不再植入预设记忆，让对话更自然流畅

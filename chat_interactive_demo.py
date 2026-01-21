@@ -13,15 +13,13 @@ from dotenv import load_dotenv
 
 from contextmind import (
     ContextEngine,
-    Client,
-    ClientConfig,
     setup_logging,
     get_logger,
     INFO,
     DEBUG,
 )
 
-from examples.applications.chat import ChatApplication, CHAT_SYSTEM_PROMPT
+from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -57,22 +55,14 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化客户端
-    print("🔧 初始化客户端...")
-    client_config = ClientConfig.from_env()
-    llm_client = Client(config=client_config)
-    print(f"✅ 客户端初始化完成: {llm_client.config.model}")
-    print()
-    
-    # 初始化引擎
+    # 初始化引擎 (v7.0: LLM invocation is external, no client needed)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="chat-demo",
         user_id="chat-user",
-        llm_client=llm_client,
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成")
+    print("✅ 引擎初始化完成 (v7.0 - Pure Context Engineering)")
     print()
     
     # 初始化应用
