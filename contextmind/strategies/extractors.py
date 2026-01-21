@@ -192,9 +192,17 @@ class RuleBasedExtractor(BaseExtractor):
                     if (2 <= len(target) <= self.config.max_phrase_length
                         and target.strip()):
                         full_content = f"用户{category}: {action}{target}" if action else f"用户{category}: {target}"
+                        # 根据category映射到正确的知识类型
+                        if category in ('intent', 'plan', 'hope'):
+                            k_type = KnowledgeType.INTENT
+                        elif category == 'need':
+                            k_type = KnowledgeType.NEED
+                        else:
+                            k_type = KnowledgeType.PREFERENCE
+                        
                         preferences.append(Knowledge(
                             content=full_content,
-                            knowledge_type=KnowledgeType.PREFERENCE,
+                            knowledge_type=k_type,
                             scores=ScoreInfo(confidence=0.75),  # 意图表达置信度
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
@@ -284,7 +292,7 @@ class RuleBasedExtractor(BaseExtractor):
                     full_content = f"用户约束: {full_value}"
                     preferences.append(Knowledge(
                         content=full_content,
-                        knowledge_type=KnowledgeType.PREFERENCE,
+                        knowledge_type=KnowledgeType.CONSTRAINT,  # 使用CONSTRAINT类型
                         scores=ScoreInfo(confidence=0.85),  # 明确的数值约束置信度高
                         extraction_method='rule',
                         source_message_ids=[getattr(msg, 'id', '')],
@@ -296,6 +304,104 @@ class RuleBasedExtractor(BaseExtractor):
                             'context': content[:100]
                         }
                     ))
+            
+            # 5. 观点和看法表达（新增）
+            opinion_patterns = [
+                (r'我(觉得|认为|感觉|think|believe)(.+?)(?=[。！？,.!?；：]|$)', 'opinion'),
+                (r'在我看来(.+?)(?=[。！？,.!?；：]|$)', 'viewpoint'),
+                (r'我的(看法|观点|意见)是(.+?)(?=[。！？,.!?；：]|$)', 'view'),
+            ]
+            
+            for pattern, category in opinion_patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        opinion_text = match[1].strip()
+                    else:
+                        opinion_text = match[0].strip() if isinstance(match, str) else ''
+                    
+                    opinion_text = re.sub(r'[，。！？,.!?；:：]+$', '', opinion_text)
+                    
+                    if 2 <= len(opinion_text) <= self.config.max_phrase_length and opinion_text.strip():
+                        full_content = f"用户观点: {opinion_text}"
+                        preferences.append(Knowledge(
+                            content=full_content,
+                            knowledge_type=KnowledgeType.OPINION,
+                            scores=ScoreInfo(confidence=0.70),
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={
+                                'category': category,
+                                'opinion': opinion_text,
+                                'context': content[:100]
+                            }
+                        ))
+            
+            # 6. 习惯表达（新增）
+            habit_patterns = [
+                (r'我(经常|常常|总是|一般|通常|平时|习惯)(.+?)(?=[。！？,.!?；：]|$)', 'habit'),
+                (r'我(每天|每周|每月|每年)(.+?)(?=[。！？,.!?；：]|$)', 'routine'),
+            ]
+            
+            for pattern, category in habit_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        frequency = match[0]
+                        action = match[1].strip()
+                    else:
+                        frequency = ''
+                        action = match[0].strip() if isinstance(match, str) else ''
+                    
+                    action = re.sub(r'[，。！？,.!?；:：]+$', '', action)
+                    
+                    if 2 <= len(action) <= self.config.max_phrase_length and action.strip():
+                        full_content = f"用户习惯: {frequency}{action}"
+                        preferences.append(Knowledge(
+                            content=full_content,
+                            knowledge_type=KnowledgeType.HABIT,
+                            scores=ScoreInfo(confidence=0.80),
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={
+                                'category': category,
+                                'frequency': frequency,
+                                'action': action,
+                                'context': content[:100]
+                            }
+                        ))
+            
+            # 7. 兴趣表达（新增）
+            interest_patterns = [
+                (r'我(对|关于)(.+?)(感兴趣|有兴趣|很感兴趣|挺感兴趣)', 'interest'),
+                (r'我(喜欢|爱好)(.+?)(?=[。！？,.!?；：]|$)', 'hobby'),
+                (r'我(关注|在意)(.+?)(?=[。！？,.!?；：]|$)', 'concern'),
+            ]
+            
+            for pattern, category in interest_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        topic = match[1].strip() if len(match) > 1 else match[0].strip()
+                    else:
+                        topic = match[0].strip() if isinstance(match, str) else ''
+                    
+                    topic = re.sub(r'[，。！？,.!?；:：]+$', '', topic)
+                    
+                    if 2 <= len(topic) <= self.config.max_phrase_length and topic.strip():
+                        full_content = f"用户兴趣: {topic}"
+                        preferences.append(Knowledge(
+                            content=full_content,
+                            knowledge_type=KnowledgeType.INTEREST,
+                            scores=ScoreInfo(confidence=0.75),
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={
+                                'category': category,
+                                'topic': topic,
+                                'context': content[:100]
+                            }
+                        ))
         
         return preferences
     

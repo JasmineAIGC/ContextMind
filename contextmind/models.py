@@ -37,9 +37,15 @@ class Message:
 
 class KnowledgeType(str, Enum):
     """从对话中提取的知识类型"""
-    PREFERENCE = "preference"  # 用户偏好
+    PREFERENCE = "preference"  # 用户偏好（喜欢/不喜欢）
     FACT = "fact"              # 关于用户或主题的事实
     EVENT = "event"            # 事件或行为
+    INTENT = "intent"          # 用户意图（想要做什么）
+    NEED = "need"              # 用户需求（需要什么）
+    OPINION = "opinion"        # 用户观点/看法
+    HABIT = "habit"            # 用户习惯
+    CONSTRAINT = "constraint"  # 约束条件（如预算、时间限制）
+    INTEREST = "interest"      # 用户兴趣
 
 
 class MemoryType(str, Enum):
