@@ -9,7 +9,13 @@ import asyncio
 import os
 import argparse
 import time
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
+    print("LLM features may not work without .env configuration.")
 
 from contextmind import (
     ContextEngine,
@@ -20,7 +26,6 @@ from contextmind import (
 
 from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
-load_dotenv()
 logger = get_logger(__name__)
 
 

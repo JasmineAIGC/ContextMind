@@ -9,7 +9,13 @@ import asyncio
 import os
 import argparse
 import random
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
+    print("LLM features may not work without .env configuration.")
 
 from contextmind import (
     ContextEngine,
@@ -20,7 +26,6 @@ from contextmind import (
 
 from demos.callcenter_app import CallCenterApplication
 
-load_dotenv()
 logger = get_logger(__name__)
 
 # 开场白选项
@@ -50,7 +55,6 @@ async def main():
     parser.add_argument('--enable-memory-thinking', action='store_true', help='启用记忆思考')
     parser.add_argument('--no-llm', action='store_true', help='禁用真实LLM，使用模拟回复')
     parser.add_argument('--detailed', action='store_true', help='详细日志模式')
-    parser.add_argument('--debug', action='store_true', help='调试日志模式')
     parser.add_argument('--debug', action='store_true', help='调试模式')
     args = parser.parse_args()
     

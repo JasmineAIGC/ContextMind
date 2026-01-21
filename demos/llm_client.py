@@ -16,11 +16,12 @@ from typing import Optional, Sequence, Tuple
 
 try:
     from openai import OpenAI
+    OPENAI_AVAILABLE = True
 except ImportError:
-    raise ImportError(
-        "OpenAI package is required for LLM calls. "
-        "Install it with: pip install openai"
-    )
+    OPENAI_AVAILABLE = False
+    OpenAI = None  # type: ignore
+    print("Warning: OpenAI package not installed. Real LLM calls will not work.")
+    print("Install with: pip install openai")
 
 from contextmind import get_logger
 
@@ -148,6 +149,13 @@ class SimpleLLMClient:
 
     def __init__(self, config: Optional[LLMConfig] = None):
         """初始化客户端。"""
+        if not OPENAI_AVAILABLE:
+            raise RuntimeError(
+                "OpenAI package is not installed. "
+                "Install it with: pip install openai\n"
+                "Or use --no-llm flag to run without real LLM calls."
+            )
+        
         self.config = config or LLMConfig.from_env()
         logger.info(f"[LLM Client] Initializing with model: {self.config.model}")
 

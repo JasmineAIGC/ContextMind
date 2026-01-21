@@ -28,6 +28,7 @@ import os
 from pathlib import Path
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
+from contextmind.models import ContextSource
 from demos.llm_client import SimpleLLMClient
 
 setup_logging(level=LogLevel.BASIC)
@@ -394,11 +395,15 @@ class GradioDemo:
             
             processing_time = time.time() - start_time
             
+            # 获取历史和记忆数量（从items中过滤）
+            history_items = [item for item in context_result.items if item.source == ContextSource.HISTORY]
+            memory_items = [item for item in context_result.items if item.source == ContextSource.MEMORY]
+            
             # 构建结果
             result = ProcessResult(
                 response=response,
-                history_count=len(context_result.recent_history),
-                memory_count=len(context_result.long_term_memory),
+                history_count=len(history_items),
+                memory_count=len(memory_items),
                 rules_count=0,
                 profile_summary="",
                 prompt=prompt,
@@ -421,25 +426,29 @@ class GradioDemo:
         
         prompt_parts = [self._get_base_prompt()]
         
+        # 从items中过滤长期记忆和对话历史
+        memory_items = [item for item in context_result.items if item.source == ContextSource.MEMORY]
+        history_items = [item for item in context_result.items if item.source == ContextSource.HISTORY]
+        
         # 添加长期记忆（如果有）
-        if context_result.long_term_memory:
+        if memory_items:
             memory_text = "\n".join(
                 f"- {item.content}"
-                for item in context_result.long_term_memory[:3]
+                for item in memory_items[:3]
             )
             prompt_parts.append(f"\n## 用户历史信息\n{memory_text}")
-            local_logger.debug(f"[Prompt] 添加长期记忆: {len(context_result.long_term_memory[:3])} 条")
+            local_logger.debug(f"[Prompt] 添加长期记忆: {len(memory_items[:3])} 条")
         else:
             local_logger.debug("[Prompt] 无长期记忆")
         
         # 添加对话历史
-        if context_result.recent_history:
+        if history_items:
             history_text = "\n".join(
-                f"{msg.role.value}: {msg.content}"
-                for msg in context_result.recent_history
+                f"{item.content}"  # ContextItem content already formatted
+                for item in history_items
             )
             prompt_parts.append(f"\n## 近期对话\n{history_text}")
-            local_logger.debug(f"[Prompt] 添加对话历史: {len(context_result.recent_history)} 条")
+            local_logger.debug(f"[Prompt] 添加对话历史: {len(history_items)} 条")
         else:
             local_logger.debug("[Prompt] 无对话历史")
         
