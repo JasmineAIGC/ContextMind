@@ -1,5 +1,5 @@
 """
-ContextMind v7.0 Interactive Demo
+ContextMind v7.1 Interactive Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 提供命令行交互式演示。
@@ -42,7 +42,7 @@ async def main():
     """主函数"""
     
     # 解析参数
-    parser = argparse.ArgumentParser(description='ContextMind v7.0 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v7.1 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数')
@@ -55,7 +55,7 @@ async def main():
     setup_logging(level=log_level)
     
     print("=" * 60)
-    print("ContextMind v7.0 Interactive Demo")
+    print("ContextMind v7.1 Interactive Demo")
     print("五层架构 (core/pipeline/strategies/adapters/utils)")
     print("=" * 60)
     print()
@@ -69,14 +69,14 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化引擎 (v7.0: LLM invocation is external, no client needed)
+    # 初始化引擎 (v7.1: LLM invocation is external, no client needed)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="demo-app",
         user_id="demo-user",
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成 (v7.0 - Pure Context Engineering)")
+    print("✅ 引擎初始化完成 (v7.1 - Pure Context Engineering)")
     print()
     
     # 不再植入预设记忆，让对话更自然流畅
@@ -96,7 +96,7 @@ async def main():
     
     app = CallCenterApplication(
         context_engine=context_engine,
-        # Note: In v7.0, LLM client is handled externally
+        # Note: In v7.1, LLM client is handled externally
         business_info=business_info.strip(),
         auto_extract_knowledge=True,
         history_turns=args.history_turns,
@@ -182,7 +182,7 @@ async def main():
             import traceback
             traceback.print_exc()
     
-    print("\n感谢使用 ContextMind v7.0!")
+    print("\n感谢使用 ContextMind v7.1!")
 
 
 if __name__ == "__main__":

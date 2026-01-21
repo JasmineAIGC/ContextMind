@@ -1,10 +1,10 @@
 """
-ContextMind v7.0 闲聊 Gradio Demo
+ContextMind v7.1 闲聊 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 适用于日常闲聊场景，支持上下文理解和长期记忆。
 
-v7.0 新特性：
+v7.1 新特性：
 - 增强的日志系统：模块前缀、状态指示器、详细的记忆追踪
 - 完整的记忆生命周期：提取 → 存储 → 检索
 - 改进的可观测性：记忆库内容可见、检索结果带分数
@@ -84,14 +84,14 @@ class ChatGradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建引擎 (v7.0: LLM invocation is external, no client needed)
+            # 创建引擎 (v7.1: LLM invocation is external, no client needed)
             self.engine = ContextEngine(
                 app_name="chat-demo",
                 user_id="chat-user",
                 max_recent_events=max_recent_events,
             )
             
-            logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.0 - Pure Context Engineering)")
+            logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
             
             # 重置对话历史
             self.conversation_history = []
@@ -218,8 +218,8 @@ def create_gradio_interface():
         return demo_instance.reset_conversation(), [], ""
     
     # 创建界面
-    with gr.Blocks(title="ContextMind 闲聊Demo v7.0") as app:
-        gr.Markdown("# 🎭 ContextMind v7.0 闲聊演示")
+    with gr.Blocks(title="ContextMind 闲聊Demo v7.1") as app:
+        gr.Markdown("# 🎭 ContextMind v7.1 闲聊演示")
         gr.Markdown("基于五层架构的智能对话系统，支持上下文理解和长期记忆")
         
         with gr.Row():
@@ -332,7 +332,7 @@ def create_gradio_interface():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🎭 ContextMind v7.0 闲聊 Gradio Demo")
+    print("🎭 ContextMind v7.1 闲聊 Gradio Demo")
     print("=" * 60)
     print()
     

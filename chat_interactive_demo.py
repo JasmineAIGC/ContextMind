@@ -1,5 +1,5 @@
 """
-ContextMind v7.0 闲聊 Interactive Demo
+ContextMind v7.1 闲聊 Interactive Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 命令行交互式闲聊演示。
@@ -28,7 +28,7 @@ async def main():
     """主函数"""
     
     # 解析参数
-    parser = argparse.ArgumentParser(description='ContextMind v7.0 闲聊 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v7.1 闲聊 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--no-memory', action='store_true', help='禁用长期记忆')
     parser.add_argument('--max-events', type=int, default=20, help='最大历史轮数')
@@ -40,7 +40,7 @@ async def main():
     setup_logging(level=log_level)
     
     print("=" * 60)
-    print("🎭 ContextMind v7.0 闲聊 Interactive Demo")
+    print("🎭 ContextMind v7.1 闲聊 Interactive Demo")
     print("五层架构 (core/pipeline/strategies/adapters/utils)")
     print("=" * 60)
     print()
@@ -54,21 +54,21 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化引擎 (v7.0: LLM invocation is external, no client needed)
+    # 初始化引擎 (v7.1: LLM invocation is external, no client needed)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="chat-demo",
         user_id="chat-user",
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成 (v7.0 - Pure Context Engineering)")
+    print("✅ 引擎初始化完成 (v7.1 - Pure Context Engineering)")
     print()
     
     # 初始化应用
     print("🔧 初始化应用...")
     app = ChatApplication(
         context_engine=context_engine,
-        # Note: In v7.0, LLM client is handled externally
+        # Note: In v7.1, LLM client is handled externally
         system_prompt=CHAT_SYSTEM_PROMPT,
         history_turns=args.history_turns,
         auto_extract_knowledge=not args.no_memory,  # 根据参数决定是否提取知识

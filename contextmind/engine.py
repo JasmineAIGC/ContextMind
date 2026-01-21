@@ -1,20 +1,16 @@
 """
-ContextEngine - 上下文引擎核心模块 v7.0
-ContextEngine - Core Context Engine Module v7.0
+ContextEngine - 上下文引擎核心模块 v7.1
+ContextEngine - Core Context Engine Module v7.1
 
 清晰的模块化架构设计 Clear modular architecture design：
 - 应用层 Application Layer：使用引擎的应用（示例：客服、聊天机器人等）
   Applications using the engine (e.g., customer service, chatbots)
-- 适配器层 Adapter Layer：对话系统集成接口
-  Dialogue system integration interfaces
 - 引擎层 Engine Layer：ContextEngine 统一接口
   ContextEngine unified interface
 - 模块层 Module Layer：InputPreprocessor, MemoryBank, 
   ContextCompressor, ContextReorderer, PostProcessor, ConversationSummarizer
 - 策略层 Strategy Layer：可插拔的策略实现
   Pluggable strategy implementations
-- 基础层 Foundation Layer：TokenizerService, VectorClient, CacheManager
-  Foundation services
 
 核心职责 Core Responsibilities：
 1. 上下文优化 Context optimization (optimize)
@@ -48,22 +44,12 @@ from .pipeline import (
     KVCacheManager,
 )
 
-# Optional components (v3.4 Plugin Architecture)
-try:
-    from .pipeline.postprocessor import PostProcessor
-    from .pipeline.summarizer import ConversationSummarizer
-    OPTIONAL_COMPONENTS_AVAILABLE = True
-except ImportError:
-    PostProcessor = None
-    ConversationSummarizer = None
-    OPTIONAL_COMPONENTS_AVAILABLE = False
-
 logger = get_logger(__name__)
 
 
 class ContextEngine:
     """
-    上下文引擎 v4.0
+    上下文引擎 v7.1
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult
@@ -75,7 +61,6 @@ class ContextEngine:
     - 模块解耦：Pipeline、Manager、Strategy各司其职
     - 易于扩展：所有策略都可插拔替换
     - 异步优先：全面使用async/await
-    - 容错机制：FlowController 和 CircuitBreaker 保障稳定性
     
     使用示例：
         ```python

@@ -1,6 +1,6 @@
 """
-ContextMind - 专业的上下文优化框架 v7.0
-ContextMind - Professional Context Optimization Framework v7.0
+ContextMind - 专业的上下文优化框架 v7.1
+ContextMind - Professional Context Optimization Framework v7.1
 
 完全通用化的上下文工程框架，支持任意对话场景
 Fully generalized context engineering framework supporting any dialogue scenario
@@ -14,7 +14,7 @@ Fully generalized context engineering framework supporting any dialogue scenario
 - ConversationSummarizer: 对话摘要 / Conversation summarization
 - KVCacheManager: KV缓存管理 / KV cache management
 
-NEW in v7.0 - Clean Architecture:
+NEW in v7.1 - Architecture Refinement:
 {
     from contextmind import ContextMind, registry
     
@@ -48,13 +48,14 @@ NEW in v7.0 - Clean Architecture:
 │  - 可插拔的算法实现 (Plugin System)       │  ← registry
 └─────────────────────────────────────────┘
 
-v7.0 核心改进：
-- ✨ Clean Architecture: 移除所有旧代码 (~5130 lines)
+v7.1 核心改进：
+- ✨ Clean Architecture: 移除所有旧代码和冗余文件
 - ✨ Flat Structure: 扁平化目录结构，无冗余嵌套
 - ✨ Plugin System: 统一的插件注册和发现机制
 - ✨ Modular: 所有算法都可通过插件替换
 - ✨ Universal: 适用任何LLM，推理在外部完成
 - ✨ Enhanced Observability: 改进的日志系统
+- ✨ Simplified API: 清晰的模块边界和导出接口
 """
 
 # Plugin Registry (NEW in v7.0)
@@ -174,4 +175,4 @@ __all__ = [
     "BaseStrategy",
 ]
 
-__version__ = "7.0.0"  # 当前版本 Current version - Complete Refactoring & Cleanup
+__version__ = "7.1.0"  # 当前版本 Current version - Architecture Refinement

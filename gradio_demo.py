@@ -1,5 +1,5 @@
 """
-ContextMind v7.0 Gradio Demo
+ContextMind v7.1 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 生产级记忆系统
 提供可视化界面，展示智能上下文优化能力。
@@ -102,14 +102,14 @@ class GradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建引擎 (v7.0: LLM invocation is external, no client needed)
+            # 创建引擎 (v7.1: LLM invocation is external, no client needed)
             self.engine = self._create_engine()
             
             # 如果使用长期记忆，植入种子数据
             if use_memory:
                 await self._seed_long_term_memory()
 
-            logger.info("✅ [Gradio] 引擎初始化成功 (v7.0 - Pure Context Engineering)")
+            logger.info("✅ [Gradio] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
             
             # 首次启动时添加开场白
             await self.start_new_conversation(is_initial_start=True)
@@ -151,7 +151,7 @@ class GradioDemo:
     
     def _get_base_prompt(self) -> str:
         """获取系统提示词"""
-        # System prompt directly defined (examples.prompts was removed in v7.0)
+        # System prompt directly defined (examples.prompts was removed in v7.1)
         return """你是一个专业的客服助手，代表马上消费/优逸花与客户沟通。
 
 ## 角色定位：
@@ -449,8 +449,8 @@ class GradioDemo:
         
     def create_interface(self):
         """创建界面"""
-        with gr.Blocks(title="ContextMind v7.0 - 优逸花客服演示") as demo:
-            gr.Markdown("# 🤖 Context Mind v7.0 - 优逸花客服演示")
+        with gr.Blocks(title="ContextMind v7.1 - 优逸花客服演示") as demo:
+            gr.Markdown("# 🤖 Context Mind v7.1 - 优逸花客服演示")
             gr.Markdown("五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统")
             
             initial_history = self._get_initial_history()
