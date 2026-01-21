@@ -89,26 +89,31 @@ class ContextEngine:
         max_recent_events: int = 9999,
         use_postprocessor: bool = False,
         use_summarizer: bool = False,
+        extraction_method: str = "rule",  # 'rule' 或 'llm'
+        extraction_config: Optional[Any] = None,
     ):
         """
         初始化上下文引擎
         
-        v3.4 Plugin 架构:
-        现在支持可选的 PostProcessor 和 Summarizer 组件
+        v7.1 知识提取架构:
+        支持规则提取和LLM自动提取两种方式
         
         Args:
             app_name: 应用名称
             user_id: 用户 ID
-            llm_client: LLM 客户端实例 (可选)
+            llm_client: LLM 客户端实例 (可选, LLM提取时必需)
             session_service: Session 服务实例 (可选)
             memory_service: Memory 服务实例 (可选)
             max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
             use_postprocessor: 是否使用输出后处理器 (默认 False)
             use_summarizer: 是否使用对话摘要器 (默认 False)
+            extraction_method: 知识提取方式 ('rule' 规则提取 或 'llm' LLM自动提取)
+            extraction_config: 提取配置对象 (可选)
         """
         self.app_name = app_name
         self.user_id = user_id
         self.llm_client = llm_client
+        self.extraction_method = extraction_method
         
         # 初始化管理器
         self.session_manager = SessionManager(
@@ -133,10 +138,29 @@ class ContextEngine:
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
         
-        # 初始化知识提取器 (v7.1)
-        from .strategies.extractors import RuleBasedExtractor
-        self.extractor = RuleBasedExtractor()
-        logger.info("[ContextEngine] RuleBasedExtractor 已初始化用于知识提取")
+        # 初始化知识提取器 (v7.1 - 支持规则和LLM两种方式)
+        from .strategies.extractors import RuleBasedExtractor, LLMBasedExtractor
+        from .models import DEFAULT_MEMORY_CONFIG
+        
+        # 使用提供的配置或默认配置
+        config = extraction_config or DEFAULT_MEMORY_CONFIG.extraction
+        # 设置提取方式
+        config.extraction_method = extraction_method
+        
+        if extraction_method == "llm":
+            if not llm_client:
+                logger.warning(
+                    "[ContextEngine] LLM提取模式需要llm_client参数，"
+                    "回退到规则提取"
+                )
+                self.extractor = RuleBasedExtractor(config)
+                self.extraction_method = "rule"
+            else:
+                self.extractor = LLMBasedExtractor(llm_client, config)
+                logger.info("[ContextEngine] LLMBasedExtractor 已初始化用于知识提取")
+        else:
+            self.extractor = RuleBasedExtractor(config)
+            logger.info("[ContextEngine] RuleBasedExtractor 已初始化用于知识提取")
         
         # v7.1 可选组件 (所有组件现在都是标准的)
         if use_postprocessor:

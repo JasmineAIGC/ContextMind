@@ -56,18 +56,40 @@ class Knowledge:
     
     Attributes:
         content: 知识内容
-        knowledge_type: 知识类型
+        knowledge_type: 知识类型  (改用type属性保持一致性)
         confidence: 置信度分数 (0-1)
         source: 来源信息
         timestamp: 提取时间
+        extraction_method: 提取方法 ('rule' 或 'llm')
+        source_message_ids: 源消息ID列表 (追溯来源)
+        last_accessed: 最后访问时间 (用于淡化旧记忆)
+        access_count: 访问次数 (用于判断重要性)
+        importance_score: 重要性分数 (0-1, 可动态调整)
         metadata: 附加元数据
+            - category: 细分类别 (例如: 食物偏好、个人信息等)
+            - entities: 涉及的实体列表
+            - keywords: 关键词列表
+            - sentiment: 情感倾向 (positive/negative/neutral)
+            - context: 原始上下文片段
+            - relationships: 相关关系 (例如: "张三是李四的同事")
     """
     content: str
-    knowledge_type: KnowledgeType
+    knowledge_type: KnowledgeType  # 保持属性名为 knowledge_type 以兼容现有代码
     confidence: float = 1.0
     source: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
+    extraction_method: str = "rule"  # 'rule' or 'llm'
+    source_message_ids: List[str] = field(default_factory=list)
+    last_accessed: Optional[datetime] = None
+    access_count: int = 0
+    importance_score: float = 1.0
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # 为了兼容性，添加type属性作为knowledge_type的别名
+    @property
+    def type(self) -> KnowledgeType:
+        """兼容性别名: knowledge_type -> type"""
+        return self.knowledge_type
 
 
 class ContextSource(str, Enum):
@@ -180,14 +202,31 @@ class RetrievalConfig:
 @dataclass
 class ExtractionConfig:
     """知识提取配置"""
+    # 提取方式: 'rule' (规则提取) 或 'llm' (LLM 自动提取)
+    extraction_method: str = "rule"  # 'rule' or 'llm'
+    
+    # 通用配置
     min_confidence: float = 0.6
+    max_phrase_length: int = 50
+    
+    # 提取类型开关
     extract_preferences: bool = True
     extract_facts: bool = True
     extract_events: bool = True
+    extract_entities: bool = True  # 实体提取 (人名、地名等)
+    extract_relationships: bool = True  # 关系提取 (例如: "张三是李四的同事")
+    
     # 各类知识的置信度设置
     preference_confidence: float = 0.8
     fact_confidence: float = 0.7
     event_confidence: float = 0.6
+    entity_confidence: float = 0.75
+    relationship_confidence: float = 0.7
+    
+    # LLM 提取专用配置
+    llm_temperature: float = 0.1  # 较低的温度确保提取的稳定性
+    llm_max_tokens: int = 1000  # 提取结果的最大 token 数
+    llm_batch_size: int = 10  # 批量处理消息数
 
 
 @dataclass

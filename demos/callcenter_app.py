@@ -39,6 +39,7 @@ class CallCenterApplication:
         system_prompt: str = CALLCENTER_SYSTEM_PROMPT,
         llm_config: Optional[LLMConfig] = None,
         use_real_llm: bool = True,
+        extraction_method: str = None,  # 知识提取方式 ('rule' 或 'llm')
         **config
     ):
         """初始化客服应用
@@ -50,6 +51,8 @@ class CallCenterApplication:
             system_prompt: 系统提示
             llm_config: LLM 配置（可选，从环境变量加载）
             use_real_llm: 是否使用真实 LLM（True=调用API，False=模拟回复）
+            extraction_method: 知识提取方式 ('rule' 规则提取, 'llm' LLM自动提取)
+                如未指定，使用引擎的extraction_method
         """
         self.context_engine = context_engine
         self.business_info = business_info
@@ -58,11 +61,20 @@ class CallCenterApplication:
         self.config = config
         self.use_real_llm = use_real_llm
         
+        # 记录提取方式
+        if extraction_method:
+            self.extraction_method = extraction_method
+        else:
+            self.extraction_method = getattr(context_engine, 'extraction_method', 'rule')
+        
         # 初始化 LLM 客户端（如果使用真实 LLM）
         if use_real_llm:
             try:
                 self.llm_client = SimpleLLMClient(llm_config)
-                logger.info("[CallCenterApplication] ✓ 初始化完成 (使用真实 LLM)")
+                logger.info(
+                    f"[CallCenterApplication] ✓ 初始化完成 "
+                    f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
+                )
             except Exception as e:
                 logger.warning(f"[CallCenterApplication] ⚠ LLM 客户端初始化失败: {e}")
                 logger.warning("[CallCenterApplication] 将使用模拟回复")
@@ -70,7 +82,10 @@ class CallCenterApplication:
                 self.llm_client = None
         else:
             self.llm_client = None
-            logger.info("[CallCenterApplication] ✓ 初始化完成 (使用模拟回复)")
+            logger.info(
+                f"[CallCenterApplication] ✓ 初始化完成 "
+                f"(模拟回复, 知识提取: {self.extraction_method})"
+            )
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
         """构建客服场景 Prompt"""
