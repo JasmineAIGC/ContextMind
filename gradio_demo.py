@@ -410,7 +410,7 @@ class GradioDemo:
                 processing_time=processing_time,
             )
             
-            is_debug = ContextMindLogger.get_current_level() <= DEBUG
+            is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
             self._log_engine_box(result, is_debug)
             
             return response
@@ -461,7 +461,7 @@ class GradioDemo:
         final_prompt = "\n".join(prompt_parts)
         
         # 在DEBUG模式下输出完整prompt
-        is_debug = ContextMindLogger.get_current_level() <= DEBUG
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
         if is_debug:
             local_logger.debug(f"[Prompt] 完整Prompt内容 ({len(final_prompt)} 字符):")
             local_logger.debug("=" * 80)

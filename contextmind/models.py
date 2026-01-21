@@ -240,6 +240,9 @@ class ContextMindLogger:
         logger.detail("Detailed information")
     """
     
+    # 类级别变量：跟踪全局日志级别
+    _global_level: LogLevel = LogLevel.BASIC
+    
     def __init__(self, name: str, level: LogLevel = LogLevel.BASIC):
         """
         初始化 Logger
@@ -255,6 +258,26 @@ class ContextMindLogger:
     def set_level(self, level: LogLevel):
         """设置日志级别"""
         self.level = level
+    
+    @classmethod
+    def get_current_level(cls) -> LogLevel:
+        """
+        获取当前全局日志级别
+        
+        Returns:
+            LogLevel: 当前的全局日志级别
+        """
+        return cls._global_level
+    
+    @classmethod
+    def set_global_level(cls, level: LogLevel):
+        """
+        设置全局日志级别
+        
+        Args:
+            level: 要设置的日志级别
+        """
+        cls._global_level = level
     
     def pipeline(self, message: str):
         """
@@ -331,6 +354,8 @@ def set_global_log_level(level: LogLevel):
     """
     global _GLOBAL_LOG_LEVEL
     _GLOBAL_LOG_LEVEL = level
+    # 同时更新类级别变量
+    ContextMindLogger.set_global_level(level)
 
 
 def get_global_log_level() -> LogLevel:

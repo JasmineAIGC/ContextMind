@@ -1,20 +1,19 @@
 """
-ContextMind Plugin Registry - Centralized plugin discovery and management
+ContextMind Plugin Registry - 集中式插件发现和管理
 
-This module provides a unified registry for all ContextMind plugins, making it easy
-to discover, swap, and configure different algorithm implementations.
+本模块为所有 ContextMind 插件提供统一的注册中心，便于发现、替换和配置不同的算法实现。
 
-Example:
+使用示例:
     ```python
     from contextmind import registry
     
-    # List available extractors
+    # 列出可用的提取器
     print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
     
-    # Get an extractor plugin
+    # 获取提取器插件
     extractor = registry.get_extractor('rule_based')
     
-    # Swap extractors at runtime
+    # 运行时切换提取器
     engine.set_extractor(registry.get_extractor('llm_entity'))
     ```
 """
@@ -27,10 +26,10 @@ logger = get_logger(__name__)
 
 class PluginRegistry:
     """
-    Central registry for all ContextMind plugins
+    所有 ContextMind 插件的集中注册中心
     
-    Provides discovery, registration, and instantiation of plugins.
-    Makes ContextMind truly modular and extensible.
+    提供插件的发现、注册和实例化功能。
+    使 ContextMind 真正模块化和可扩展。
     """
     
     def __init__(self):
@@ -48,12 +47,12 @@ class PluginRegistry:
         self._initialized = False
     
     def _lazy_init(self):
-        """Lazy initialization of default plugins"""
+        """延迟初始化默认插件"""
         if self._initialized:
             return
         
         try:
-            # Import and register extractors
+            # 导入并注册提取器
             from .strategies.extractors import (
                 RuleBasedExtractor,
                 LLMEntityExtractor,
@@ -63,7 +62,7 @@ class PluginRegistry:
             self.register('extractors', 'llm_entity', LLMEntityExtractor)
             self.register('extractors', 'importance', ImportancePredictorExtractor)
             
-            # Import and register retrievers
+            # 导入并注册检索器
             from .strategies.retrievers import (
                 SemanticSearchRetriever,
                 HybridRetriever,
@@ -73,7 +72,7 @@ class PluginRegistry:
             self.register('retrievers', 'hybrid', HybridRetriever)
             self.register('retrievers', 'locator', LocatorRetriever)
             
-            # Import and register updaters
+            # 导入并注册更新器
             from .strategies.updaters import (
                 SimpleUpdater,
                 ConflictResolverUpdater,
@@ -83,7 +82,7 @@ class PluginRegistry:
             self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
             self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
-            # Import and register other pipeline components
+            # 导入并注册其他 Pipeline 组件
             from .pipeline.compressor import ContextCompressor
             from .pipeline.reorderer import ContextReorderer
             from .pipeline.preprocessor import InputPreprocessor
@@ -99,67 +98,67 @@ class PluginRegistry:
             self.register('kvcache_managers', 'sliding_window', SlidingWindowKVCache)
             
             self._initialized = True
-            logger.info("[PluginRegistry] ✓ Initialized with default plugins")
+            logger.info("[PluginRegistry] ✓ 默认插件初始化完成")
             
         except Exception as e:
-            logger.error(f"[PluginRegistry] Failed to initialize plugins: {e}")
+            logger.error(f"[PluginRegistry] 插件初始化失败: {e}")
     
     def register(self, category: str, name: str, plugin_class: Type):
-        """Register a plugin in a category"""
+        """在类别中注册插件"""
         if category not in self._plugins:
             self._plugins[category] = {}
         self._plugins[category][name] = plugin_class
-        logger.debug(f"[PluginRegistry] Registered {category}::{name}")
+        logger.debug(f"[PluginRegistry] 已注册 {category}::{name}")
     
     def get(self, category: str, name: str, **kwargs) -> Optional[Any]:
-        """Get a plugin instance by category and name"""
+        """根据类别和名称获取插件实例"""
         self._lazy_init()
         if category not in self._plugins or name not in self._plugins[category]:
-            logger.warning(f"[PluginRegistry] Plugin '{category}::{name}' not found")
+            logger.warning(f"[PluginRegistry] 未找到插件 '{category}::{name}'")
             return None
         try:
             return self._plugins[category][name](**kwargs)
         except Exception as e:
-            logger.error(f"[PluginRegistry] Failed to instantiate {category}::{name}: {e}")
+            logger.error(f"[PluginRegistry] 实例化插件 {category}::{name} 失败: {e}")
             return None
     
     def list_plugins(self, category: str) -> list:
-        """List all plugins in a category"""
+        """列出类别中的所有插件"""
         self._lazy_init()
         return list(self._plugins.get(category, {}).keys())
     
     def get_all_plugins(self) -> Dict[str, list]:
-        """Get all registered plugins by category"""
+        """按类别获取所有已注册的插件"""
         self._lazy_init()
         return {cat: list(plugins.keys()) for cat, plugins in self._plugins.items()}
     
-    # Convenience methods for each category
+    # 每个类别的便捷方法
     def get_extractor(self, name: str = 'rule_based', **kwargs):
-        """Get an extractor plugin (default: rule_based)"""
+        """获取提取器插件 (默认: rule_based)"""
         return self.get('extractors', name, **kwargs)
     
     def list_extractors(self):
-        """List all registered extractors"""
+        """列出所有已注册的提取器"""
         return self.list_plugins('extractors')
     
     def get_retriever(self, name: str = 'semantic', **kwargs):
-        """Get a retriever plugin (default: semantic)"""
+        """获取检索器插件 (默认: semantic)"""
         return self.get('retrievers', name, **kwargs)
     
     def list_retrievers(self):
-        """List all registered retrievers"""
+        """列出所有已注册的检索器"""
         return self.list_plugins('retrievers')
     
     def get_updater(self, name: str = 'simple', **kwargs):
-        """Get an updater plugin (default: simple)"""
+        """获取更新器插件 (默认: simple)"""
         return self.get('updaters', name, **kwargs)
     
     def list_updaters(self):
-        """List all registered updaters"""
+        """列出所有已注册的更新器"""
         return self.list_plugins('updaters')
 
 
-# Global registry instance
+# 全局注册中心实例
 registry = PluginRegistry()
 
 __all__ = ['PluginRegistry', 'registry']

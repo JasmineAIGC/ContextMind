@@ -1,11 +1,11 @@
 """
-Simple LLM Client for ContextMind v7.1 Demos
+ContextMind v7.1 演示用的简单 LLM 客户端
 
-Provides a lightweight OpenAI-compatible LLM client for demo applications.
-Based on v6.0 client but simplified for demo purposes.
+为演示应用提供轻量级的 OpenAI 兼容 LLM 客户端。
+基于 v6.0 客户端但为演示目的进行了简化。
 
-Note: In v7.1, LLM invocation is external to the ContextMind framework.
-This client is only for demo applications, not part of the core framework.
+注意: 在 v7.1 中，LLM 调用在 ContextMind 框架外部。
+此客户端仅用于演示应用，不是核心框架的一部分。
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ DEFAULT_TEMPERATURE = 0.6
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
     """按顺序读取环境变量，返回首个非空值。
     
-    支持多个环境变量名，便于适配不同的部署环境（Qwen、DeepSeek、OpenAI等）。
+    支持多个环境变量名，便于适配不同的部署环境（Qwen、DeepSeek、OpenAI 等）。
     """
     for key in keys:
         if value := os.getenv(key):
@@ -70,8 +70,8 @@ class LLMConfig:
         )
         if not api_key:
             raise ValueError(
-                "Missing API key. Please set one of: QWEN3_API_KEY, "
-                "LLM_API_KEY, OPENAI_API_KEY, etc. in .env file"
+                "缺少 API key。请在 .env 文件中设置以下变量之一: QWEN3_API_KEY, "
+                "LLM_API_KEY, OPENAI_API_KEY 等"
             )
 
         # 读取 Base URL（可选）
@@ -141,23 +141,23 @@ class LLMConfig:
 
 
 class SimpleLLMClient:
-    """Simple LLM client for demo applications (v7.1).
+    """演示应用的简单 LLM 客户端 (v7.1)。
     
-    Note: This is NOT part of the ContextMind core framework.
-    In v7.1, LLM invocation is external. This client is only for demos.
+    注意: 这不是 ContextMind 核心框架的一部分。
+    在 v7.1 中，LLM 调用是外部的。此客户端仅用于演示。
     """
 
     def __init__(self, config: Optional[LLMConfig] = None):
         """初始化客户端。"""
         if not OPENAI_AVAILABLE:
             raise RuntimeError(
-                "OpenAI package is not installed. "
-                "Install it with: pip install openai\n"
-                "Or use --no-llm flag to run without real LLM calls."
+                "未安装 OpenAI 包。"
+                "请使用以下命令安装: pip install openai\n"
+                "或使用 --no-llm 标志运行而不需要真实的 LLM 调用。"
             )
         
         self.config = config or LLMConfig.from_env()
-        logger.info(f"[LLM Client] Initializing with model: {self.config.model}")
+        logger.info(f"[LLM Client] 正在初始化，model: {self.config.model}")
 
         # 构造 headers，如果需要 Access Key
         headers = {}
@@ -170,18 +170,18 @@ class SimpleLLMClient:
             base_url=self.config.base_url,
             default_headers=headers or None,
         )
-        logger.info(f"[LLM Client] Initialized successfully")
+        logger.info(f"[LLM Client] 初始化成功")
 
     def generate(self, prompt: str) -> Tuple[str, str]:
-        """基于 prompt 调用 LLM，返回 (reasoning, content)。
+        """基于 Prompt 调用 LLM，返回 (reasoning, content)。
         
         Args:
-            prompt: 完整的 prompt（已包含系统提示、历史、当前输入等）
+            prompt: 完整的 Prompt（已包含系统提示、历史、当前输入等）
             
         Returns:
             (reasoning_content, response_content) - 推理链和回复内容
             
-        Note:
+        注意:
             - reasoning_content: 某些模型支持（如 DeepSeek-R1）
             - response_content: 实际的回复内容
         """
@@ -205,13 +205,13 @@ class SimpleLLMClient:
         except Exception as e:
             # 包装异常，提供更清晰的错误信息
             raise RuntimeError(
-                f"Failed to call LLM API (model: {self.config.model}): {str(e)}"
+                f"调用 LLM API 失败 (model: {self.config.model}): {str(e)}"
             ) from e
 
         # 检查响应是否有效
         if not response.choices:
             raise ValueError(
-                f"API returned empty choices (model: {self.config.model})"
+                f"API 返回空的 choices (model: {self.config.model})"
             )
 
         # 提取消息内容
@@ -219,7 +219,7 @@ class SimpleLLMClient:
 
         if not choice:
             raise ValueError(
-                f"API returned invalid message (model: {self.config.model})"
+                f"API 返回无效的 message (model: {self.config.model})"
             )
 
         # 提取推理链（某些模型支持）
@@ -247,6 +247,6 @@ class SimpleLLMClient:
     async def generate_async(self, prompt: str) -> Tuple[str, str]:
         """异步版本的 generate（当前简单封装同步版本）。
         
-        Note: 实际生产环境应使用 AsyncOpenAI
+        注意: 实际生产环境应使用 AsyncOpenAI
         """
         return self.generate(prompt)

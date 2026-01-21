@@ -1,32 +1,32 @@
 """
-ContextMind Configuration API - Simple framework configuration
+ContextMind Configuration API - 简单的框架配置
 
-Provides a simple, unified API for configuring the entire ContextMind framework.
-Makes integration easy with sensible defaults and minimal boilerplate.
+提供一个简单、统一的 API 来配置整个 ContextMind 框架。
+通过合理的默认值和最少的样板代码使集成变得简单。
 
-ContextMind focuses on context engineering (Steps 1-4 + Step 6):
-- Steps 1-4: Build efficient prompt (context engineering core) - INSIDE ContextMind
-- Step 5: LLM invocation (with KV cache) - EXTERNAL (user's LLM)
-- Step 6: Output post-processing - INSIDE ContextMind
+ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
+- 步骤 1-4: 构建高效 Prompt (上下文工程核心) - 在 ContextMind 内部
+- 步骤 5: LLM 调用 (含 KV cache) - 外部实现 (用户的 LLM)
+- 步骤 6: 输出后处理 - 在 ContextMind 内部
 
-Example:
+使用示例:
     ```python
     from contextmind import ContextMind
     
-    # Setup
+    # 设置
     cm = ContextMind()
     
-    # Steps 1-4: ContextMind builds optimized context
+    # 步骤 1-4: ContextMind 构建优化后的 Context
     context = await cm.prepare_context("Hello", session_id="user123")
     
-    # Step 5: User invokes EXTERNAL LLM (vLLM, OpenAI, etc.)
+    # 步骤 5: 用户调用外部 LLM (vLLM, OpenAI 等)
     llm_output = await your_llm.generate(
         system_prompt=context['system_prompt'],
         messages=context['optimized_context'],
         user_input=context['user_input']
     )
     
-    # Step 6: ContextMind post-processes
+    # 步骤 6: ContextMind 后处理
     final_response = await cm.post_process(
         llm_output,
         session_id="user123"
@@ -44,25 +44,25 @@ logger = get_logger(__name__)
 
 class ContextMind:
     """
-    Unified interface for ContextMind context engineering framework
+    ContextMind 上下文工程框架的统一接口
     
-    ContextMind focuses on context engineering (Steps 1-4 + Step 6):
-    - Steps 1-4: Build efficient prompt (InputPreprocessor → Retriever → Compressor → Reorderer)
-    - Step 5: LLM invocation is EXTERNAL (user calls their own LLM)
-    - Step 6: Post-process LLM output (PostProcessor)
+    ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
+    - 步骤 1-4: 构建高效 Prompt (InputPreprocessor → Retriever → Compressor → Reorderer)
+    - 步骤 5: LLM 调用是外部的 (用户调用自己的 LLM)
+    - 步骤 6: 后处理 LLM 输出 (PostProcessor)
     
-    This design keeps ContextMind universal - works with ANY LLM provider.
+    这种设计使 ContextMind 保持通用性 - 适用于任何 LLM 提供商。
     
-    Features:
-    - Automatic plugin selection with sensible defaults
-    - prepare_context() for Steps 1-4 (returns optimized context)
-    - post_process() for Step 6 (processes LLM output)
-    - Built-in session management
-    - Easy plugin swapping
+    功能特性:
+    - 自动插件选择，合理的默认配置
+    - prepare_context() 用于步骤 1-4 (返回优化后的 Context)
+    - post_process() 用于步骤 6 (处理 LLM 输出)
+    - 内置 Session 管理
+    - 简单的插件切换
     
-    Attributes:
-        engine: The underlying ContextEngine instance
-        session_id: Current session ID (if set)
+    属性:
+        engine: 底层的 ContextEngine 实例
+        session_id: 当前 Session ID (如果已设置)
     """
     
     def __init__(
@@ -79,41 +79,41 @@ class ContextMind:
         **engine_kwargs
     ):
         """
-        Initialize ContextMind with configuration
+        使用配置初始化 ContextMind
         
         Args:
-            llm_client: LLM client for generating responses
-            extractor: Extractor plugin name (default: 'rule_based')
-            retriever: Retriever plugin name (default: 'semantic')
-            updater: Updater plugin name (default: 'simple')
-            enable_memory: Enable memory management (default: True)
-            enable_compression: Enable context compression (default: True)
-            enable_reordering: Enable context reordering (default: True)
-            enable_postprocessing: Enable output post-processing (default: True)
-            enable_summarization: Enable conversation summarization (default: False)
-            **engine_kwargs: Additional arguments for ContextEngine
+            llm_client: 用于生成回复的 LLM 客户端
+            extractor: 提取器插件名称 (默认: 'rule_based')
+            retriever: 检索器插件名称 (默认: 'semantic')
+            updater: 更新器插件名称 (默认: 'simple')
+            enable_memory: 启用记忆管理 (默认: True)
+            enable_compression: 启用上下文压缩 (默认: True)
+            enable_reordering: 启用上下文重排序 (默认: True)
+            enable_postprocessing: 启用输出后处理 (默认: True)
+            enable_summarization: 启用对话摘要 (默认: False)
+            **engine_kwargs: ContextEngine 的额外参数
         """
-        logger.info(f"[ContextMind] Initializing with extractor={extractor}, retriever={retriever}")
+        logger.info(f"[ContextMind] 正在初始化，extractor={extractor}, retriever={retriever}")
         
-        # Create engine
+        # 创建引擎
         self.engine = ContextEngine(llm_client=llm_client, **engine_kwargs)
         
-        # Configure plugins
+        # 配置插件
         if enable_memory:
-            # Set extractor
+            # 设置提取器
             extractor_plugin = registry.get_extractor(extractor)
             if extractor_plugin:
                 from .pipeline.extractor import KnowledgeExtractor
                 self.engine.extractor = KnowledgeExtractor(strategy=extractor_plugin)
             
-            # Set retriever and updater for memory bank
+            # 为 Memory Bank 设置检索器和更新器
             retriever_plugin = registry.get_retriever(retriever)
             updater_plugin = registry.get_updater(updater)
             if self.engine.memory and retriever_plugin and updater_plugin:
                 self.engine.memory.set_retriever(retriever_plugin)
                 self.engine.memory.set_updater(updater_plugin)
         
-        # Configure pipeline components
+        # 配置 Pipeline 组件
         if not enable_compression and hasattr(self.engine, 'compressor'):
             self.engine.compressor = None
         
@@ -129,7 +129,7 @@ class ContextMind:
             self.engine.summarizer = ConversationSummarizer()
         
         self.session_id: Optional[str] = None
-        logger.info("[ContextMind] ✓ Initialization complete")
+        logger.info("[ContextMind] ✓ 初始化完成")
     
     async def prepare_context(
         self,
@@ -138,64 +138,64 @@ class ContextMind:
         system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Steps 1-4: Build optimized context for LLM invocation
+        步骤 1-4: 为 LLM 调用构建优化的 Context
         
-        This method runs the context engineering pipeline:
-        1. InputPreprocessor - clean and normalize input
-        2. ContextRetriever + MemoryBank - retrieve relevant context
-        3. ContextCompressor - compress to fit context window
-        4. ContextReorderer - reorder for optimal attention
+        此方法运行上下文工程 Pipeline:
+        1. InputPreprocessor - 清理和规范化输入
+        2. ContextRetriever + MemoryBank - 检索相关 Context
+        3. ContextCompressor - 压缩以适应 Context 窗口
+        4. ContextReorderer - 重排序以获得最佳注意力
         
-        After this, user should invoke their LLM (Step 5) and then call
-        post_process() on the LLM output (Step 6).
+        之后，用户应调用他们的 LLM (步骤 5)，然后对 LLM 输出调用
+        post_process() (步骤 6)。
         
         Args:
-            user_input: User's message
-            session_id: Session ID for conversation tracking
-            system_prompt: Optional system prompt override
+            user_input: 用户消息
+            session_id: 用于对话跟踪的 Session ID
+            system_prompt: 可选的系统提示词覆盖
             
         Returns:
-            Dict containing:
-                - 'optimized_context': List of context items ready for LLM
-                - 'system_prompt': str - System instructions
-                - 'user_input': str - Processed user input
-                - 'messages': List - Full message history
-                - 'metadata': Dict - Additional metadata
+            包含以下内容的字典:
+                - 'optimized_context': List - 准备好供 LLM 使用的 Context 项
+                - 'system_prompt': str - 系统指令
+                - 'user_input': str - 处理后的用户输入
+                - 'messages': List - 完整的消息历史
+                - 'metadata': Dict - 附加元数据
         
-        Example:
+        使用示例:
             ```python
             cm = ContextMind()
-            # Steps 1-4: ContextMind builds optimized context
+            # 步骤 1-4: ContextMind 构建优化的 Context
             context = await cm.prepare_context("Hello", session_id="user123")
             
-            # Step 5: User invokes EXTERNAL LLM
+            # 步骤 5: 用户调用外部 LLM
             llm_output = await your_llm.generate(
                 system_prompt=context['system_prompt'],
                 messages=context['optimized_context'],
                 user_input=context['user_input']
             )
             
-            # Step 6: ContextMind post-processes
+            # 步骤 6: ContextMind 后处理
             final = cm.post_process(llm_output, session_id="user123")
             ```
         """
-        # Use provided session_id or stored one
+        # 使用提供的 session_id 或存储的
         sid = session_id or self.session_id
         if sid:
             self.session_id = sid
         
-        # Create user message
+        # 创建用户消息
         user_msg = Message(role=MessageRole.USER, content=user_input)
         
-        # Get conversation history
+        # 获取对话历史
         messages = []
         if sid and self.engine.session:
             messages = await self.engine.session.get_messages(sid)
         
-        # Add current message
+        # 添加当前消息
         messages.append(user_msg)
         
-        # Steps 1-4: Optimize context (core context engineering)
+        # 步骤 1-4: 优化 Context (核心上下文工程)
         optimized = await self.engine.optimize_context(
             messages=messages,
             query=user_input,
@@ -204,10 +204,10 @@ class ContextMind:
         )
         
         logger.info(
-            f"[ContextMind] ✓ Context optimized: {len(optimized.context)} items ready for LLM"
+            f"[ContextMind] ✓ Context 已优化: {len(optimized.context)} 项准备供 LLM 使用"
         )
         
-        # Return structured context for external LLM invocation
+        # 返回结构化的 Context 用于外部 LLM 调用
         return {
             'optimized_context': optimized.context,
             'system_prompt': system_prompt or "",
@@ -227,27 +227,27 @@ class ContextMind:
         extract_knowledge: bool = True,
     ) -> str:
         """
-        Step 6: Post-process LLM output and update memory
+        步骤 6: 后处理 LLM 输出并更新记忆
         
-        Applies PostProcessor to ensure output quality:
-        - Format validation and correction
-        - Remove duplicates  
-        - Citation generation (if applicable)
-        - Consistency checks
+        应用 PostProcessor 以确保输出质量:
+        - 格式验证和纠正
+        - 删除重复内容
+        - 生成引用 (如适用)
+        - 一致性检查
         
-        Also handles knowledge extraction and session updates.
+        还处理知识提取和 Session 更新。
         
         Args:
-            llm_output: Raw output from LLM
-            session_id: Session ID for conversation tracking
-            extract_knowledge: Whether to extract knowledge from the conversation
+            llm_output: LLM 的原始输出
+            session_id: 用于对话跟踪的 Session ID
+            extract_knowledge: 是否从对话中提取知识
             
         Returns:
-            Final processed response ready for user
+            处理后准备供用户使用的最终回复
         
-        Example:
+        使用示例:
             ```python
-            # After calling LLM
+            # 调用 LLM 后
             final_response = await cm.post_process(
                 llm_output,
                 session_id="user123",
@@ -255,26 +255,26 @@ class ContextMind:
             )
             ```
         """
-        logger.info(f"[ContextMind] Step 6: Post-processing LLM output ({len(llm_output)} chars)...")
+        logger.info(f"[ContextMind] 步骤 6: 正在后处理 LLM 输出 ({len(llm_output)} 字符)...")
         
-        # Apply PostProcessor if available
+        # 如果可用则应用 PostProcessor
         processed_output = llm_output
         if hasattr(self.engine, 'postprocessor') and self.engine.postprocessor:
             processed_output = self.engine.postprocessor.process(llm_output)
-            logger.debug(f"[ContextMind] PostProcessor applied")
+            logger.debug(f"[ContextMind] PostProcessor 已应用")
         
-        # Use provided session_id or stored one
+        # 使用提供的 session_id 或存储的
         sid = session_id or self.session_id
         
-        # Create assistant message for session storage
+        # 创建助手消息用于 Session 存储
         if sid and self.engine.session:
             assistant_msg = Message(role=MessageRole.ASSISTANT, content=processed_output)
             await self.engine.session.add_message(sid, assistant_msg)
-            logger.debug(f"[ContextMind] Response saved to session: {sid}")
+            logger.debug(f"[ContextMind] 回复已保存到 Session: {sid}")
         
-        # Extract knowledge if enabled
+        # 如果启用则提取知识
         if extract_knowledge and self.engine.extractor and self.engine.memory:
-            # Get last user message from session
+            # 从 Session 获取最后一条用户消息
             if sid and self.engine.session:
                 recent_messages = await self.engine.session.get_messages(sid, limit=2)
                 if len(recent_messages) >= 2:
@@ -285,33 +285,33 @@ class ContextMind:
                     if knowledge:
                         for k in knowledge:
                             await self.engine.memory.add(k)
-                        logger.info(f"[ContextMind] ✓ Extracted and stored {len(knowledge)} knowledge items")
+                        logger.info(f"[ContextMind] ✓ 已提取并存储 {len(knowledge)} 条知识项")
         
-        logger.info(f"[ContextMind] ✓ Post-processing complete")
+        logger.info(f"[ContextMind] ✓ 后处理完成")
         return processed_output
     
     def set_extractor(self, extractor_name: str):
-        """Change the extractor plugin"""
+        """切换提取器插件"""
         extractor = registry.get_extractor(extractor_name)
         if extractor:
             from .pipeline.extractor import KnowledgeExtractor
             self.engine.extractor = KnowledgeExtractor(strategy=extractor)
-            logger.info(f"[ContextMind] Switched to extractor: {extractor_name}")
+            logger.info(f"[ContextMind] 已切换到提取器: {extractor_name}")
     
     def set_retriever(self, retriever_name: str):
-        """Change the retriever plugin"""
+        """切换检索器插件"""
         retriever = registry.get_retriever(retriever_name)
         if retriever and self.engine.memory:
             self.engine.memory.set_retriever(retriever)
-            logger.info(f"[ContextMind] Switched to retriever: {retriever_name}")
+            logger.info(f"[ContextMind] 已切换到检索器: {retriever_name}")
     
     def set_updater(self, updater_name: str):
-        """Change the updater plugin"""
+        """切换更新器插件"""
         updater = registry.get_updater(updater_name)
         if updater and self.engine.memory:
             self.engine.memory.set_updater(updater)
-            logger.info(f"[ContextMind] Switched to updater: {updater_name}")
+            logger.info(f"[ContextMind] 已切换到更新器: {updater_name}")
     
     def list_available_plugins(self) -> Dict[str, list]:
-        """List all available plugins"""
+        """列出所有可用插件"""
         return registry.get_all_plugins()
