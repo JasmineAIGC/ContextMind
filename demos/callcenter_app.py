@@ -5,12 +5,18 @@ CallCenterApplication - 客服应用示例
 重点展示上下文工程能力：利用历史、记忆和知识提供连贯回复。
 """
 
+import logging
 from typing import Optional
 
 from contextmind import ContextEngine
 from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 
 from .llm_client import SimpleLLMClient, LLMConfig
+
+# 禁用HTTP/网络层的debug日志，减少噪音
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.INFO)
 
 logger = get_logger(__name__)
 
@@ -134,14 +140,19 @@ class CallCenterApplication:
         logger.info("")
         
         # 添加对话历史到 Prompt - 从items中提取
+        # 智能选择: 最近N轮 (默认5-10轮，避免prompt过长)
         history_items = [item for item in context.items if item.source == ContextSource.HISTORY]
         if history_items:
-            relevant_history = history_items[-self.history_turns:]
+            # 限制对话历史数量，避免prompt过长
+            MAX_HISTORY_TURNS = min(self.history_turns, 10)  # 最多10轮
+            relevant_history = history_items[-MAX_HISTORY_TURNS:]
             history_text = "\n".join(
                 item.content for item in relevant_history
             )
             prompt_parts.append(f"\n## 对话历史\n{history_text}")
             logger.info(f"[Prompt] ✓ 添加对话历史到 Prompt (最近 {len(relevant_history)} 轮，共 {len(history_items)} 轮可用)")
+            if len(history_items) > MAX_HISTORY_TURNS:
+                logger.debug(f"[Prompt] 提示: 共{len(history_items)}轮对话，仅使用最近{MAX_HISTORY_TURNS}轮（其余{len(history_items)-MAX_HISTORY_TURNS}轮已省略）")
         else:
             logger.info("[Prompt] ⚠ 无对话历史")
         logger.info("")
