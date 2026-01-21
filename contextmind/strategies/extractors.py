@@ -122,7 +122,7 @@ class RuleBasedExtractor(BaseExtractor):
         return knowledge
     
     def _extract_preferences(self, messages: List[Message]) -> List[Knowledge]:
-        """Extract user preferences from messages"""
+        """提取用户偏好"""
         preferences = []
         
         for msg in messages:
@@ -133,12 +133,57 @@ class RuleBasedExtractor(BaseExtractor):
             if len(content) < 2:
                 continue
             
-            # Positive preferences
+            # 购买意图和需求（电商场景）
+            purchase_patterns = [
+                (r'想(买|要|购买|入手)(.+?)(?=[。！？,.!?；：]|$)', 'purchase_intent'),
+                (r'需要(.+?)(?=[。！？,.!?；：]|$)', 'need'),
+                (r'给我(推荐|介绍|找|看看)(.+?)(?=[。！？,.!?；：]|$)', 'recommendation_request'),
+                (r'(买|要|想要)(.+?)(冰箱|电视|洗衣机|空调|热水器|微波炉|烤箱)', 'product_request'),
+            ]
+            
+            # 正向偏好
             positive_patterns = [
                 (r'我(喜欢|想要|希望|需要|偏好|想|要|爱)(.+?)(?=[。！？,.!?；：]|$)', 'positive'),
                 (r'(想|要|愿意)(.+?)(?=[。！？,.!?；：]|$)', 'interest'),
             ]
             
+            # 品牌和价格偏好
+            brand_price_patterns = [
+                (r'(西门子|海尔|美的|格力|TCL|海信|小米|华为|松下|索尼|三星|LG)', 'brand_preference'),
+                (r'(\d+元?以下|低于\d+|不超过\d+|\d+左右)', 'price_constraint'),
+            ]
+            
+            # 处理购买意图
+            for pattern, category in purchase_patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for match in matches:
+                    if len(match) >= 2:
+                        keyword = match[0] if len(match) > 1 else ''
+                        phrase = match[1].strip() if len(match) > 1 else match[0].strip()
+                    else:
+                        keyword = ''
+                        phrase = match[0].strip() if match else ''
+                    
+                    phrase = re.sub(r'[，。！？,.!?；:：]+$', '', phrase)
+                    
+                    if (1 <= len(phrase) <= 100
+                        and phrase.strip()):
+                        full_content = f"用户{category}: {phrase}"
+                        preferences.append(Knowledge(
+                            content=full_content,
+                            knowledge_type=KnowledgeType.PREFERENCE,
+                            confidence=0.85,  # 购买意图置信度较高
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={
+                                'category': category,
+                                'keyword': keyword,
+                                'phrase': phrase,
+                                'context': content[:100]
+                            }
+                        ))
+            
+            # 处理正向偏好
             for pattern, sentiment in positive_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
@@ -160,14 +205,36 @@ class RuleBasedExtractor(BaseExtractor):
                                 'sentiment': sentiment,
                                 'keyword': keyword,
                                 'category': '偏好',
-                                'context': content[:100]  # 保留上下文前100字符
+                                'context': content[:100]
+                            }
+                        ))
+            
+            # 处理品牌和价格偏好
+            for pattern, category in brand_price_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    phrase = match if isinstance(match, str) else match[0]
+                    phrase = phrase.strip()
+                    
+                    if phrase:
+                        full_content = f"用户偏好: {phrase}"
+                        preferences.append(Knowledge(
+                            content=full_content,
+                            knowledge_type=KnowledgeType.PREFERENCE,
+                            confidence=0.9,  # 明确的品牌和价格信息置信度高
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={
+                                'category': category,
+                                'value': phrase,
+                                'context': content[:100]
                             }
                         ))
         
         return preferences
     
     def _extract_facts(self, messages: List[Message]) -> List[Knowledge]:
-        """Extract factual statements from messages"""
+        """提取事实陈述"""
         facts = []
         
         for msg in messages:
@@ -178,13 +245,22 @@ class RuleBasedExtractor(BaseExtractor):
             if len(content) < 3:
                 continue
             
-            # Fact patterns
+            # 用户信息
             fact_patterns = [
                 (r'(我|他|她|它)是(.+?)(?=[。！？,.!?；：]|$)', 'identity'),
                 (r'(我|他|她)叫(.+?)(?=[。！？,.!?；：]|$)', 'name'),
                 (r'(我|他|她)(.+?岁)(?=[。！？,.!?；：]|$)', 'age'),
             ]
             
+            # 产品需求细节
+            product_detail_patterns = [
+                (r'(容量|尺寸|大小)(.+?)(?=[。！？,.!?；：]|$)', 'product_spec'),
+                (r'(折扣|活动|优惠)(.+?)(?=[。！？,.!?；：]|$)', 'promotion_interest'),
+                (r'([0-9]+[升L])(?=[。！？,.!?；：]|$)', 'capacity'),
+                (r'(\d+元)', 'price_mention'),
+            ]
+            
+            # 处理用户信息
             for pattern, category in fact_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
@@ -202,6 +278,31 @@ class RuleBasedExtractor(BaseExtractor):
                             metadata={
                                 'category': category,
                                 'subject': subject,
+                                'context': content[:100]
+                            }
+                        ))
+            
+            # 处理产品需求细节
+            for pattern, category in product_detail_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        detail = ''.join(match).strip()
+                    else:
+                        detail = match.strip()
+                    
+                    detail = re.sub(r'[，。！？,.!?；:：]+$', '', detail)
+                    
+                    if detail and len(detail) <= self.config.max_phrase_length:
+                        facts.append(Knowledge(
+                            content=f"产品需求: {detail}",
+                            knowledge_type=KnowledgeType.FACT,
+                            confidence=0.75,
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={
+                                'category': category,
+                                'detail': detail,
                                 'context': content[:100]
                             }
                         ))
