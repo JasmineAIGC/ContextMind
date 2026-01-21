@@ -184,6 +184,10 @@ class ExtractionConfig:
     extract_preferences: bool = True
     extract_facts: bool = True
     extract_events: bool = True
+    # 各类知识的置信度设置
+    preference_confidence: float = 0.8
+    fact_confidence: float = 0.7
+    event_confidence: float = 0.6
 
 
 @dataclass
@@ -379,13 +383,15 @@ def get_logger(name: str, level: LogLevel = None) -> ContextMindLogger:
     return ContextMindLogger(name, level)
 
 
-def setup_logging(level: LogLevel = LogLevel.BASIC, python_log_level=None):
+def setup_logging(level: LogLevel = LogLevel.BASIC, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
     """
     设置 ContextMind 日志配置
     
     Args:
         level: ContextMind 日志级别 (BASIC, DETAILED 或 DEBUG)
         python_log_level: Python 日志级别 (默认基于 ContextMind 级别)
+        save_to_file: 是否自动保存日志到文件 (默认: True)
+        log_dir: 日志文件保存目录 (默认: "logs")
     """
     # 设置全局 ContextMind 日志级别
     set_global_log_level(level)
@@ -397,11 +403,50 @@ def setup_logging(level: LogLevel = LogLevel.BASIC, python_log_level=None):
         else:
             python_log_level = logging.INFO
     
+    # 配置 handlers
+    handlers = []
+    
+    # 控制台 handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(python_log_level)
+    console_formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(console_formatter)
+    handlers.append(console_handler)
+    
+    # 文件 handler (如果启用)
+    if save_to_file:
+        import os
+        from pathlib import Path
+        
+        # 创建日志目录
+        log_path = Path(log_dir)
+        log_path.mkdir(parents=True, exist_ok=True)
+        
+        # 生成日志文件名 (包含时间戳)
+        log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        log_filepath = log_path / log_filename
+        
+        # 创建文件 handler
+        file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
+        file_handler.setLevel(python_log_level)
+        file_formatter = logging.Formatter(
+            '[%(asctime)s] %(levelname)s - [%(name)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(file_formatter)
+        handlers.append(file_handler)
+        
+        print(f"📝 日志将自动保存到: {log_filepath}")
+    
     # 配置 Python 日志
     logging.basicConfig(
         level=python_log_level,
         format='[%(asctime)s] %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=handlers,
         force=True  # 覆盖任何现有配置
     )
 
