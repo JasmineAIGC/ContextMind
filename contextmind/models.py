@@ -281,10 +281,12 @@ class ContextResult:
     Attributes:
         items: Context 项列表
         total_tokens: 总 Token 数
+        compressed: 是否经过压缩
         metadata: 处理元数据
     """
     items: List[ContextItem] = field(default_factory=list)
     total_tokens: int = 0
+    compressed: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

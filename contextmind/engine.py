@@ -265,9 +265,11 @@ class ContextEngine:
         # 4. 上下文压缩（如果需要）
         logger.info(f"[ContextEngine] 🗜️  步骤 4/5: 上下文压缩")
         # 当前版本：上下文项数量较少时不需要压缩
+        is_compressed = False
         if len(all_items) > 50:  # 超过50条才需要压缩
             logger.info(f"[ContextEngine]   - 上下文项过多，需要压缩")
             # TODO: 实现压缩逻辑
+            is_compressed = True
             logger.info(f"[ContextEngine] ✓ 压缩完成")
         else:
             logger.info(f"[ContextEngine]   - 上下文项数量适中({len(all_items)}条)，无需压缩")
@@ -278,6 +280,7 @@ class ContextEngine:
         compressed_result = ContextResult(
             items=all_items,
             total_tokens=0,  # TODO: 计算实际 Token 数
+            compressed=is_compressed,
             metadata={
                 "session_history_count": len(recent_history),
                 "long_term_memory_count": len(long_term_memory),
