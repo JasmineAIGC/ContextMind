@@ -203,15 +203,15 @@ class ContextEngine:
         # 获取会话历史
         recent_history = []
         if include_session:
-            recent_history = await self.session_manager.get_recent_messages()
+            recent_history = await self.session_manager.get_recent_history()
             logger.debug(f"[ContextEngine] 检索到会话历史: {len(recent_history)} 条")
         
         # 检索长期记忆
         long_term_memory = []
         if include_memory:
-            long_term_memory = await self.memory_bank.search(
+            long_term_memory = await self.memory_bank.retrieve(
                 query=processed_input,
-                top_k=10
+                limit=10
             )
             logger.debug(f"[ContextEngine] 检索到长期记忆: {len(long_term_memory)} 条")
         
@@ -220,14 +220,31 @@ class ContextEngine:
         # 3. 构建 ContextResult
         logger.debug(f"[ContextEngine] 步骤 3/4: 构建上下文结果")
         
+        # Combine all context items
+        all_items = []
+        
+        # Convert recent history (Message objects) to ContextItem
+        for msg in recent_history:
+            all_items.append(ContextItem(
+                content=f"{msg.role.value}: {msg.content}",
+                source=ContextSource.HISTORY,
+                score=1.0,
+                metadata={"timestamp": msg.timestamp.isoformat() if msg.timestamp else None}
+            ))
+        
+        # Add long-term memory items (already ContextItem)
+        all_items.extend(long_term_memory)
+        
         # 创建 ContextResult
         compressed_result = ContextResult(
-            recent_history=recent_history,
-            long_term_memory=long_term_memory,
-            external_knowledge=[],
-            metadata={}
+            items=all_items,
+            total_tokens=0,  # TODO: Calculate actual token count
+            metadata={
+                "session_history_count": len(recent_history),
+                "long_term_memory_count": len(long_term_memory),
+            }
         )
-        logger.debug(f"[ContextEngine] 上下文构建完成")
+        logger.debug(f"[ContextEngine] 上下文构建完成: {len(all_items)} 条")
         logger.debug("")
         
         # Log final result with details
@@ -235,23 +252,18 @@ class ContextEngine:
         logger.info("-" * 100)
         logger.info(
             f"[ContextEngine] ✓ 上下文优化完成 - "
-            f"会话历史: {len(compressed_result.recent_history)} 条, "
-            f"长期记忆: {len(compressed_result.long_term_memory)} 条, "
-            f"外部知识: {len(compressed_result.external_knowledge)} 条"
+            f"总共: {len(compressed_result.items)} 条上下文项 "
+            f"(会话历史: {compressed_result.metadata.get('session_history_count', 0)}, "
+            f"长期记忆: {compressed_result.metadata.get('long_term_memory_count', 0)})"
         )
         
         # Log details of what was included
-        if compressed_result.recent_history:
-            logger.debug(f"[ContextEngine] 会话历史详情:")
-            for i, msg in enumerate(compressed_result.recent_history[:3], 1):
-                logger.debug(f"  {i}. {msg.content[:80]}...")
-            if len(compressed_result.recent_history) > 3:
-                logger.debug(f"  ... 以及其他 {len(compressed_result.recent_history) - 3} 条")
-        
-        if compressed_result.long_term_memory:
-            logger.debug(f"[ContextEngine] 长期记忆详情:")
-            for i, mem in enumerate(compressed_result.long_term_memory, 1):
-                logger.debug(f"  {i}. {mem.content[:80]}...")
+        if compressed_result.items:
+            logger.debug(f"[ContextEngine] 上下文项详情:")
+            for i, item in enumerate(compressed_result.items[:5], 1):
+                logger.debug(f"  {i}. [{item.source.value}] {item.content[:80]}...")
+            if len(compressed_result.items) > 5:
+                logger.debug(f"  ... 以及其他 {len(compressed_result.items) - 5} 条")
         
         logger.info("-" * 100)
         logger.info(f"[ContextEngine] ========== 上下文优化结束 ==========")

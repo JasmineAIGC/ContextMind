@@ -6,7 +6,7 @@ CallCenterApplication - 客服应用示例
 """
 
 from contextmind import ContextEngine
-from contextmind.models import Message, MessageRole, ContextResult, get_logger
+from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 
 logger = get_logger(__name__)
 
@@ -55,12 +55,13 @@ class CallCenterApplication:
         
         prompt_parts = [self.system_prompt]
         
-        # 记忆库日志
+        # 记忆库日志 - 从items中提取长期记忆
         logger.info("[Prompt] 📚 检查记忆库状态:")
-        if context.long_term_memory:
-            for i, item in enumerate(context.long_term_memory, 1):
+        long_term_items = [item for item in context.items if item.source == ContextSource.MEMORY]
+        if long_term_items:
+            for i, item in enumerate(long_term_items, 1):
                 logger.info(f"  [{i}] {item.content} (score={item.score:.2f})")
-            logger.info(f"  总计: {len(context.long_term_memory)} 条")
+            logger.info(f"  总计: {len(long_term_items)} 条")
         else:
             logger.warning("  记忆库为空")
         logger.info("")
@@ -68,9 +69,9 @@ class CallCenterApplication:
         # 添加相关记忆到 Prompt
         RELEVANCE_THRESHOLD = 0.3
         
-        if context.long_term_memory:
+        if long_term_items:
             relevant_memories = [
-                item for item in context.long_term_memory
+                item for item in long_term_items
                 if item.score >= RELEVANCE_THRESHOLD
             ]
             
@@ -90,15 +91,15 @@ class CallCenterApplication:
             logger.warning("[Prompt] ⚠ 无长期记忆")
         logger.info("")
         
-        # 添加对话历史到 Prompt - 只添加最近N轮
-        if context.recent_history:
-            relevant_history = context.recent_history[-self.history_turns:]
+        # 添加对话历史到 Prompt - 从items中提取
+        history_items = [item for item in context.items if item.source == ContextSource.HISTORY]
+        if history_items:
+            relevant_history = history_items[-self.history_turns:]
             history_text = "\n".join(
-                f"{msg.role.value}: {msg.content}"
-                for msg in relevant_history
+                item.content for item in relevant_history
             )
             prompt_parts.append(f"\n## 对话历史\n{history_text}")
-            logger.info(f"[Prompt] ✓ 添加对话历史到 Prompt (最近 {len(relevant_history)} 轮，共 {len(context.recent_history)} 轮可用)")
+            logger.info(f"[Prompt] ✓ 添加对话历史到 Prompt (最近 {len(relevant_history)} 轮，共 {len(history_items)} 轮可用)")
         else:
             logger.info("[Prompt] ⚠ 无对话历史")
         logger.info("")

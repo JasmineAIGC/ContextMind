@@ -6,7 +6,7 @@ ChatApplication - 通用闲聊应用示例
 """
 
 from contextmind import ContextEngine
-from contextmind.models import Message, MessageRole, ContextResult, get_logger
+from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 
 logger = get_logger(__name__)
 
@@ -74,10 +74,12 @@ class ChatApplication:
         # 添加相关记忆（如果有）
         RELEVANCE_THRESHOLD = 0.3
         
-        if context.long_term_memory:
-            logger.info(f"[Prompt] 检查长期记忆: {len(context.long_term_memory)} 条")
+        # 从items中提取长期记忆
+        long_term_items = [item for item in context.items if item.source == ContextSource.MEMORY]
+        if long_term_items:
+            logger.info(f"[Prompt] 检查长期记忆: {len(long_term_items)} 条")
             relevant_memories = [
-                item for item in context.long_term_memory
+                item for item in long_term_items
                 if item.score >= RELEVANCE_THRESHOLD
             ]
             
@@ -97,15 +99,15 @@ class ChatApplication:
             logger.debug("[Prompt] 无长期记忆")
         logger.info("")
         
-        # 添加对话历史 - 只添加最近N轮
-        if context.recent_history:
-            relevant_history = context.recent_history[-self.history_turns:]
+        # 添加对话历史 - 从items中提取
+        history_items = [item for item in context.items if item.source == ContextSource.HISTORY]
+        if history_items:
+            relevant_history = history_items[-self.history_turns:]
             history_text = "\n".join(
-                f"{msg.role.value}: {msg.content}"
-                for msg in relevant_history
+                item.content for item in relevant_history
             )
             prompt_parts.append(f"\n## 对话历史\n{history_text}")
-            logger.info(f"[Prompt] ✓ 添加对话历史到 Prompt (最近 {len(relevant_history)} 轮，共 {len(context.recent_history)} 轮可用)")
+            logger.info(f"[Prompt] ✓ 添加对话历史到 Prompt (最近 {len(relevant_history)} 轮，共 {len(history_items)} 轮可用)")
         else:
             logger.debug("[Prompt] 无对话历史")
         logger.info("")
