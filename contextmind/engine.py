@@ -136,7 +136,11 @@ class ContextEngine:
         # No separate ContextRetriever needed
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
-        # Note: Knowledge extraction is handled by extractors in strategies layer
+        
+        # Initialize knowledge extractor (v7.1)
+        from .strategies.extractors import RuleBasedExtractor
+        self.extractor = RuleBasedExtractor()
+        logger.info("[ContextEngine] RuleBasedExtractor initialized for knowledge extraction")
         
         # v7.1 Optional components (all components are now standard)
         if use_postprocessor:
