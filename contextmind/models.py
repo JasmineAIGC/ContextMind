@@ -134,14 +134,16 @@ class Knowledge:
     
     参考文档: docs/KNOWLEDGE_STORAGE_DESIGN.md
     """
+    # 知识内容（无默认值字段必须在前）
+    knowledge_type: KnowledgeType  # 保持兼容性
+    content: str
+    
     # 核心标识
     memory_id: str = field(default_factory=lambda: str(__import__('uuid').uuid4()))
     user_id: str = ""
     session_id: Optional[str] = None
     
-    # 知识内容
-    knowledge_type: KnowledgeType  # 保持兼容性
-    content: str = ""
+    # 其他内容
     summary: Optional[str] = None
     
     # 多模态支持
