@@ -423,7 +423,11 @@ class GradioDemo:
             if is_debug:
                 memory_cache = engine.memory_bank.get_memory_cache()
                 debug_info['memory_before'] = [
-                    {"content": m.content, "type": str(m.knowledge_type), "confidence": m.confidence}
+                    {
+                        "content": m.content,
+                        "type": m.metadata.get('type', 'UNKNOWN') if hasattr(m, 'metadata') else 'UNKNOWN',
+                        "confidence": m.score  # ContextItem 使用 score 而不是 confidence
+                    }
                     for m in memory_cache
                 ]
             

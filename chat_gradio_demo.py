@@ -125,7 +125,9 @@ class ChatGradioDemo:
                 logger.info("\n1️⃣  记忆库内容:")
                 if memory_cache:
                     for i, mem in enumerate(memory_cache[:5], 1):
-                        logger.info(f"   [{i}] [{mem.knowledge_type}] {mem.content[:60]}... (置信度: {mem.confidence:.2f})")
+                        # ContextItem.content 格式为 "[TYPE] content"，提取类型
+                        mem_type = mem.metadata.get('type', 'UNKNOWN') if hasattr(mem, 'metadata') and mem.metadata else 'UNKNOWN'
+                        logger.info(f"   [{i}] [{mem_type}] {mem.content[:60]}... (置信度: {mem.score:.2f})")
                     if len(memory_cache) > 5:
                         logger.info(f"   ... (还有{len(memory_cache) - 5}条)")
                 else:
