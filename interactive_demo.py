@@ -179,9 +179,59 @@ async def main():
             turn_count += 1
             print(f"\n[第 {turn_count} 轮]")
             
-            response = await app.process_turn(user_input)
+            if args.debug:
+                response, debug_info = await app.process_turn(user_input, debug=True)
+            else:
+                response = await app.process_turn(user_input)
             
             print(f"助手: {response}\n")
+            
+            # Debug 模式下显示详细信息
+            if args.debug:
+                print("=" * 80)
+                print("📊 DEBUG 信息")
+                print("=" * 80)
+                
+                # 1. 记忆库内容
+                if debug_info.get('memory_before'):
+                    print(f"\n1️⃣  记忆库内容（{len(debug_info['memory_before'])}条）:")
+                    for i, mem in enumerate(debug_info['memory_before'], 1):
+                        print(f"   [{i}] [{mem['type']}] {mem['content']} (置信度: {mem['confidence']:.2f})")
+                else:
+                    print("\n1️⃣  记忆库内容: 空")
+                
+                # 2. 召回结果
+                if debug_info.get('context_result'):
+                    ctx = debug_info['context_result']
+                    print(f"\n2️⃣  召回结果（共{ctx['total_items']}项，压缩: {ctx['compressed']}）:")
+                    for i, item in enumerate(ctx['items'], 1):
+                        print(f"   [{i}] [{item['source']}] {item['content'][:80]}... (分数: {item['score']:.2f})")
+                else:
+                    print("\n2️⃣  召回结果: 无")
+                
+                # 3. 上下文优化后的结果
+                print(f"\n3️⃣  上下文优化: 已完成 (压缩: {debug_info.get('context_result', {}).get('compressed', False)})")
+                
+                # 4. 完整的Prompt
+                if debug_info.get('prompt'):
+                    prompt_preview = debug_info['prompt']
+                    print(f"\n4️⃣  完整Prompt ({len(prompt_preview)}字符):")
+                    print("   " + "-" * 76)
+                    print("   " + prompt_preview[:500].replace("\n", "\n   "))
+                    if len(prompt_preview) > 500:
+                        print(f"   ... (还有{len(prompt_preview) - 500}字符)")
+                    print("   " + "-" * 76)
+                
+                # 5. 提取的知识
+                if debug_info.get('extracted_knowledge'):
+                    print(f"\n5️⃣  提取的知识（{len(debug_info['extracted_knowledge'])}条）:")
+                    for i, k in enumerate(debug_info['extracted_knowledge'], 1):
+                        print(f"   [{i}] [{k['type']}] {k['content']} (置信度: {k['confidence']:.2f})")
+                else:
+                    print("\n5️⃣  提取的知识: 无")
+                
+                print("=" * 80)
+                print()
             
         except Exception as e:
             print(f"\n❌ 错误: {str(e)}\n")

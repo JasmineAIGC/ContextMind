@@ -156,7 +156,7 @@ class ChatApplication:
         
         return final_prompt
     
-    async def process_turn(self, user_input: str) -> str:
+    async def process_turn(self, user_input: str, debug: bool = False):
         """处理一轮对话
         
         完整的对话处理流程：
@@ -168,19 +168,49 @@ class ChatApplication:
         
         Args:
             user_input: 用户输入
+            debug: 是否返回调试信息
             
         Returns:
-            助手回复
+            助手回复，或 (助手回复, 调试信息字典) 当debug=True时
         """
+        debug_info = {} if debug else None
+        
         # 1. 优化上下文
+        if debug:
+            # 保存优化前的记忆库状态
+            memory_cache = self.context_engine.memory_bank.get_memory_cache()
+            debug_info['memory_before'] = [
+                {"content": m.content, "type": str(m.knowledge_type), "confidence": m.confidence}
+                for m in memory_cache
+            ]
+        
         context_result = await self.context_engine.optimize(
             user_input=user_input,
             include_session=True,
             include_memory=True,
         )
         
+        if debug:
+            # 保存召回结果
+            debug_info['context_result'] = {
+                'items': [
+                    {
+                        'content': item.content,
+                        'source': str(item.source),
+                        'score': item.score,
+                        'metadata': item.metadata
+                    }
+                    for item in context_result.items
+                ],
+                'total_items': len(context_result.items),
+                'compressed': context_result.compressed
+            }
+        
         # 2. 构建 Prompt
         prompt = self.build_prompt(user_input, context_result)
+        
+        if debug:
+            debug_info['prompt'] = prompt
         
         # 3. 调用 LLM（v7.1: LLM invocation is external）
         if self.use_real_llm and self.llm_client:
@@ -205,9 +235,23 @@ class ChatApplication:
         )
         
         # 5. 提取知识（如果需要）
+        extracted_knowledge = []
         try:
-            await self.context_engine.extract_knowledge(auto_store=True)
+            knowledge_list = await self.context_engine.extract_knowledge(auto_store=True)
+            if debug and knowledge_list:
+                extracted_knowledge = [
+                    {
+                        'content': k.content,
+                        'type': str(k.knowledge_type),
+                        'confidence': k.confidence
+                    }
+                    for k in knowledge_list
+                ]
         except Exception as e:
             logger.warning(f"知识提取失败: {e}")
+        
+        if debug:
+            debug_info['extracted_knowledge'] = extracted_knowledge
+            return response, debug_info
         
         return response

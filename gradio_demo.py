@@ -258,7 +258,7 @@ class GradioDemo:
             {"role": "assistant", "content": opening_script}
         ]
     
-    def _log_engine_box(self, result, is_debug: bool = False):
+    def _log_engine_box(self, result, is_debug: bool = False, debug_info: dict = None):
         """输出引擎处理日志"""
         symbol = '🤖'
         
@@ -283,8 +283,67 @@ class GradioDemo:
         
         logger.info("│ " + " | ".join(context_parts))
         
-        # DEBUG 模式额外信息
-        if is_debug:
+        # DEBUG 模式额外信息 - 增强版
+        if is_debug and debug_info:
+            logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+            logger.info("│ 📊 DEBUG 详细信息")
+            logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+            
+            # 1. 记忆库内容
+            if debug_info.get('memory_before'):
+                logger.info("│ ")
+                logger.info(f"│ 1️⃣  记忆库内容（{len(debug_info['memory_before'])}条）:")
+                for i, mem in enumerate(debug_info['memory_before'][:3], 1):
+                    logger.info(f"│   [{i}] [{mem['type']}] {mem['content'][:60]}... (置信度: {mem['confidence']:.2f})")
+                if len(debug_info['memory_before']) > 3:
+                    logger.info(f"│   ... (还有{len(debug_info['memory_before']) - 3}条)")
+            else:
+                logger.info("│ ")
+                logger.info("│ 1️⃣  记忆库内容: 空")
+            
+            # 2. 召回结果
+            if debug_info.get('context_result'):
+                ctx = debug_info['context_result']
+                logger.info("│ ")
+                logger.info(f"│ 2️⃣  召回结果（共{ctx['total_items']}项，压缩: {ctx['compressed']}）:")
+                for i, item in enumerate(ctx['items'][:3], 1):
+                    logger.info(f"│   [{i}] [{item['source']}] {item['content'][:50]}... (分数: {item['score']:.2f})")
+                if len(ctx['items']) > 3:
+                    logger.info(f"│   ... (还有{len(ctx['items']) - 3}项)")
+            
+            # 3. 上下文优化
+            logger.info("│ ")
+            compressed = debug_info.get('context_result', {}).get('compressed', False)
+            logger.info(f"│ 3️⃣  上下文优化: 已完成 (压缩: {compressed})")
+            
+            # 4. Prompt预览
+            if debug_info.get('prompt'):
+                prompt = debug_info['prompt']
+                logger.info("│ ")
+                logger.info(f"│ 4️⃣  完整Prompt ({len(prompt)}字符):")
+                prompt_lines = prompt[:300].split('\n')
+                for line in prompt_lines[:4]:
+                    if line:
+                        logger.info(f"│   {line[:70]}")
+                logger.info(f"│   ... (共{len(prompt)}字符)")
+            
+            # 5. 提取的知识
+            logger.info("│ ")
+            if debug_info.get('extracted_knowledge'):
+                knowledge = debug_info['extracted_knowledge']
+                logger.info(f"│ 5️⃣  提取的知识（{len(knowledge)}条）:")
+                for i, k in enumerate(knowledge[:3], 1):
+                    logger.info(f"│   [{i}] [{k['type']}] {k['content'][:55]}... (置信度: {k['confidence']:.2f})")
+                if len(knowledge) > 3:
+                    logger.info(f"│   ... (还有{len(knowledge) - 3}条)")
+            else:
+                logger.info("│ 5️⃣  提取的知识: 无")
+            
+            logger.info("│ ")
+            logger.info(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
+            logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+        elif is_debug:
+            # 原有的简单debug模式
             logger.debug("│ ")
             logger.debug(f"│ 📝 Prompt摘要 ({len(result.prompt)}字符):")
             # 提取 prompt 的前几行作为摘要
@@ -356,8 +415,18 @@ class GradioDemo:
         local_logger = get_logger(__name__)
         
         start_time = time.time()
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
+        debug_info = {} if is_debug else None
         
         try:
+            # Debug: 保存优化前的记忆库状态
+            if is_debug:
+                memory_cache = engine.memory_bank.get_memory_cache()
+                debug_info['memory_before'] = [
+                    {"content": m.content, "type": str(m.knowledge_type), "confidence": m.confidence}
+                    for m in memory_cache
+                ]
+            
             # 优化上下文
             context_result = await engine.optimize(
                 user_input=user_input,
@@ -365,8 +434,27 @@ class GradioDemo:
                 include_memory=self.use_memory,
             )
             
+            # Debug: 保存召回结果
+            if is_debug:
+                debug_info['context_result'] = {
+                    'items': [
+                        {
+                            'content': item.content,
+                            'source': str(item.source),
+                            'score': item.score,
+                            'metadata': item.metadata
+                        }
+                        for item in context_result.items
+                    ],
+                    'total_items': len(context_result.items),
+                    'compressed': context_result.compressed
+                }
+            
             # 构建 prompt
             prompt = self._build_prompt(user_input, context_result)
+            
+            if is_debug:
+                debug_info['prompt'] = prompt
             
             # 调用 LLM (v7.1: LLM invocation is external)
             if self.llm_client:
@@ -387,11 +475,24 @@ class GradioDemo:
             )
             
             # 提取并存储知识到长期记忆（如果启用了记忆功能）
+            extracted_knowledge = []
             if self.use_memory:
                 try:
-                    await engine.extract_knowledge(auto_store=True)
+                    knowledge_list = await engine.extract_knowledge(auto_store=True)
+                    if is_debug and knowledge_list:
+                        extracted_knowledge = [
+                            {
+                                'content': k.content,
+                                'type': str(k.knowledge_type),
+                                'confidence': k.confidence
+                            }
+                            for k in knowledge_list
+                        ]
                 except Exception as e:
                     local_logger.warning(f"知识提取失败: {e}")
+            
+            if is_debug:
+                debug_info['extracted_knowledge'] = extracted_knowledge
             
             processing_time = time.time() - start_time
             
@@ -410,8 +511,7 @@ class GradioDemo:
                 processing_time=processing_time,
             )
             
-            is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
-            self._log_engine_box(result, is_debug)
+            self._log_engine_box(result, is_debug, debug_info)
             
             return response
         except Exception as e:

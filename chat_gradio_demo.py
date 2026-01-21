@@ -112,12 +112,25 @@ class ChatGradioDemo:
         
         start_time = time.time()
         self.turn_counter += 1
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
         
         logger.info(f"\n{'='*80}")
         logger.info(f"💬 [轮次 {self.turn_counter}] 用户输入: {user_message}")
         logger.info(f"{'='*80}")
         
         try:
+            # Debug: 保存优化前的记忆库状态
+            if is_debug:
+                memory_cache = self.engine.memory_bank.get_memory_cache()
+                logger.info("\n1️⃣  记忆库内容:")
+                if memory_cache:
+                    for i, mem in enumerate(memory_cache[:5], 1):
+                        logger.info(f"   [{i}] [{mem.knowledge_type}] {mem.content[:60]}... (置信度: {mem.confidence:.2f})")
+                    if len(memory_cache) > 5:
+                        logger.info(f"   ... (还有{len(memory_cache) - 5}条)")
+                else:
+                    logger.info("   空")
+            
             # 构建系统提示词 - 简洁的闲聊角色设定
             system_prompt = """你是一个友好、有趣的聊天助手。
 
@@ -139,8 +152,27 @@ class ChatGradioDemo:
                 include_memory=self.use_memory,
             )
             
+            # Debug: 显示召回结果
+            if is_debug:
+                logger.info(f"\n2️⃣  召回结果（共{len(context_result.items)}项，压缩: {context_result.compressed}）:")
+                for i, item in enumerate(context_result.items[:5], 1):
+                    logger.info(f"   [{i}] [{item.source}] {item.content[:50]}... (分数: {item.score:.2f})")
+                if len(context_result.items) > 5:
+                    logger.info(f"   ... (还有{len(context_result.items) - 5}项)")
+                logger.info(f"\n3️⃣  上下文优化: 已完成 (压缩: {context_result.compressed})")
+            
             # 2. 构建prompt
             prompt = f"{system_prompt}\n\n用户: {user_message}\n助手:"
+            
+            # Debug: 显示Prompt
+            if is_debug:
+                logger.info(f"\n4️⃣  完整Prompt ({len(prompt)}字符):")
+                prompt_lines = prompt[:300].split('\n')
+                for line in prompt_lines[:4]:
+                    if line:
+                        logger.info(f"   {line[:70]}")
+                if len(prompt) > 300:
+                    logger.info(f"   ... (共{len(prompt)}字符)")
             
             # 3. 调用 LLM 生成回复
             _, assistant_response = self.llm_client.generate(prompt)
@@ -152,8 +184,23 @@ class ChatGradioDemo:
             )
             
             # 5. 提取知识到长期记忆
+            extracted_knowledge = []
             if self.use_memory:
-                await self.engine.extract_knowledge(auto_store=True)
+                knowledge_list = await self.engine.extract_knowledge(auto_store=True)
+                if is_debug and knowledge_list:
+                    extracted_knowledge = knowledge_list
+            
+            # Debug: 显示提取的知识
+            if is_debug:
+                logger.info("\n5️⃣  提取的知识:")
+                if extracted_knowledge:
+                    for i, k in enumerate(extracted_knowledge[:5], 1):
+                        logger.info(f"   [{i}] [{k.knowledge_type}] {k.content[:55]}... (置信度: {k.confidence:.2f})")
+                    if len(extracted_knowledge) > 5:
+                        logger.info(f"   ... (还有{len(extracted_knowledge) - 5}条)")
+                else:
+                    logger.info("   无")
+                logger.info("")
             
             # 记录对话
             self.conversation_history.append({
