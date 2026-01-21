@@ -1,13 +1,13 @@
 """
 ConversationSummarizer - 对话摘要模块
 
-从对话历史中提取和生成摘要，用于压缩上下文、快速理解对话内容。
-支持规则-based和LLM-based两种摘要策略。
+从对话历史中提取和生成摘要, 用于压缩上下文、快速理解对话内容
+支持基于规则和基于 LLM 两种摘要策略
 
-摘要类型：
-- 短期摘要：最近N轮对话的总结
-- 长期摘要：整个对话session的总结
-- 增量摘要：随对话进行动态更新
+摘要类型:
+- 短期摘要: 最近 N 轮对话的总结
+- 长期摘要: 整个对话 Session 的总结
+- 增量摘要: 随对话进行动态更新
 """
 
 from abc import ABC, abstractmethod
@@ -34,7 +34,7 @@ class SummarizerStrategy(ABC):
         
         Args:
             messages: 消息列表
-            existing_summary: 已有摘要（用于增量更新）
+            existing_summary: 已有摘要 (用于增量更新)
             
         Returns:
             摘要文本
@@ -46,8 +46,8 @@ class RuleBasedSummarizer(SummarizerStrategy):
     """
     基于规则的摘要器
     
-    使用统计信息和关键词提取生成摘要。
-    轻量级，适合快速摘要。
+    使用统计信息和关键词提取生成摘要
+    轻量级, 适合快速摘要
     """
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -55,7 +55,7 @@ class RuleBasedSummarizer(SummarizerStrategy):
         初始化规则摘要器
         
         Args:
-            config: 配置字典，可包含：
+            config: 配置字典, 可包含:
                 - max_topics: 最多提取的话题数
                 - topic_length: 每个话题的最大长度
                 - include_stats: 是否包含统计信息
@@ -70,7 +70,7 @@ class RuleBasedSummarizer(SummarizerStrategy):
         messages: List[Message],
         existing_summary: Optional[str] = None
     ) -> str:
-        """生成规则-based摘要"""
+        """生成基于规则的摘要"""
         if not messages:
             return "暂无对话历史"
         
@@ -85,7 +85,7 @@ class RuleBasedSummarizer(SummarizerStrategy):
             summary_parts.append(f"用户消息: {len(user_msgs)} 条")
             summary_parts.append(f"助手回复: {len(assistant_msgs)} 条")
         
-        # 提取关键话题（基于用户消息）
+        # 提取关键话题 (基于用户消息)
         user_msgs = [m for m in messages if m.role == MessageRole.USER]
         if user_msgs:
             recent_topics = []
@@ -101,7 +101,7 @@ class RuleBasedSummarizer(SummarizerStrategy):
                 for i, topic in enumerate(recent_topics, 1):
                     summary_parts.append(f"  {i}. {topic}")
         
-        # 合并已有摘要（如果是增量更新）
+        # 合并已有摘要 (如果是增量更新)
         if existing_summary:
             summary_parts.append(f"\n[历史摘要]: {existing_summary}")
         
@@ -112,7 +112,7 @@ class ConversationSummarizer:
     """
     对话摘要器主类
     
-    提供对话摘要功能，支持短期和长期摘要。
+    提供对话摘要功能, 支持短期和长期摘要
     """
     
     def __init__(
@@ -124,8 +124,8 @@ class ConversationSummarizer:
         初始化摘要器
         
         Args:
-            strategy: 摘要策略，默认使用RuleBasedSummarizer
-            window_size: 摘要窗口大小（消息条数）
+            strategy: 摘要策略, 默认使用 RuleBasedSummarizer
+            window_size: 摘要窗口大小 (消息条数)
         """
         self.strategy = strategy or RuleBasedSummarizer()
         self.window_size = window_size
@@ -146,7 +146,7 @@ class ConversationSummarizer:
         
         Args:
             messages: 消息列表
-            incremental: 是否增量更新（基于已有摘要）
+            incremental: 是否增量更新 (基于已有摘要)
             
         Returns:
             摘要文本

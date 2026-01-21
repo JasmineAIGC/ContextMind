@@ -1,8 +1,7 @@
 """
-Memory Extractors - Plugin implementations for knowledge extraction
+Memory Extractors - 知识提取的 Plugin 实现
 
-This module provides various strategies for extracting valuable information
-from conversations that should be stored in long-term memory.
+本模块提供多种策略, 用于从对话中提取有价值的信息并存储到长期记忆
 """
 
 from abc import ABC, abstractmethod
@@ -16,44 +15,44 @@ logger = get_logger(__name__)
 
 class BaseExtractor(ABC):
     """
-    Base interface for memory extractors
+    Memory Extractor 基类接口
     
-    Extractors analyze conversations and identify information worth storing
-    in long-term memory (facts, preferences, events, etc.)
+    Extractor 分析对话并识别值得存储到长期记忆的信息
+    (事实、偏好、事件等)
     """
     
     @abstractmethod
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """
-        Extract knowledge from messages
+        从消息中提取知识
         
         Args:
-            messages: List of conversation messages
+            messages: 对话消息列表
             
         Returns:
-            List of extracted knowledge items
+            提取的知识项列表
         """
         pass
 
 
 class RuleBasedExtractor(BaseExtractor):
     """
-    Rule-based knowledge extractor (existing implementation)
+    基于规则的知识提取器 (现有实现)
     
-    Uses pattern matching and heuristics to extract facts, preferences,
-    and events from conversations. Lightweight and deterministic.
+    使用模式匹配和启发式方法从对话中提取事实、偏好和事件
+    轻量级且确定性的提取方式
     """
     
     def __init__(self, config: Optional[ExtractionConfig] = None):
         """
-        Initialize rule-based extractor
+        初始化基于规则的提取器
         
         Args:
-            config: Extraction configuration, uses default if None
+            config: 提取配置, 未指定时使用默认配置
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.extraction
     
-    # Properties for backward compatibility with existing code
+    # 属性用于与现有代码向后兼容
     @property
     def CONFIDENCE_FILTER_MIN(self) -> float:
         return self.config.min_confidence
@@ -76,7 +75,7 @@ class RuleBasedExtractor(BaseExtractor):
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """
-        Extract knowledge using rule-based patterns
+        使用基于规则的模式提取知识
         
         Args:
             messages: Conversation messages

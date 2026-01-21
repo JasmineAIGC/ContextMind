@@ -1,13 +1,13 @@
 """
 PostProcessor - 输出后处理模块
 
-对LLM生成的原始输出进行精炼、一致性检查和修正。
-保障响应格式正确、事实可靠、自洽，提升用户体验。
+对 LLM 生成的原始输出进行精炼、一致性检查和修正
+保障响应格式正确、事实可靠、自洽, 提升用户体验
 
-常用方法：
-- 规则-based：格式修正、正则检查
-- 高端版：Self-Refine（LLM自洽性精炼）、事实 verification
-- 其他：Citation生成（RAG来源标注）
+常用方法:
+- 基于规则: 格式修正、正则检查
+- 高端版: Self-Refine (LLM 自洽性精炼)、事实验证
+- 其他: Citation 生成 (RAG 来源标注)
 """
 
 from abc import ABC, abstractmethod
@@ -26,11 +26,11 @@ class PostProcessorStrategy(ABC):
     @abstractmethod
     async def process(self, raw_output: str, context: Optional[ContextResult] = None) -> str:
         """
-        处理LLM原始输出
+        处理 LLM 原始输出
         
         Args:
-            raw_output: LLM原始输出
-            context: 上下文结果（可选，用于事实验证等）
+            raw_output: LLM 原始输出
+            context: 上下文结果 (可选, 用于事实验证等)
             
         Returns:
             处理后的输出
@@ -42,8 +42,8 @@ class RuleBasedPostProcessor(PostProcessorStrategy):
     """
     基于规则的后处理器
     
-    使用正则表达式和规则进行格式修正、一致性检查。
-    轻量级，适合大多数场景。
+    使用正则表达式和规则进行格式修正、一致性检查
+    轻量级, 适合大多数场景
     """
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -51,8 +51,8 @@ class RuleBasedPostProcessor(PostProcessorStrategy):
         初始化规则后处理器
         
         Args:
-            config: 配置字典，可包含：
-                - fix_markdown: 是否修复markdown格式
+            config: 配置字典, 可包含:
+                - fix_markdown: 是否修复 Markdown 格式
                 - remove_duplicates: 是否移除重复句子
                 - max_length: 最大输出长度
                 - strip_whitespace: 是否清理多余空白
@@ -65,7 +65,7 @@ class RuleBasedPostProcessor(PostProcessorStrategy):
     
     async def process(self, raw_output: str, context: Optional[ContextResult] = None) -> str:
         """处理输出"""
-        logger.debug("[PostProcessor] 开始规则-based后处理")
+        logger.debug("[PostProcessor] 开始基于规则的后处理")
         
         output = raw_output
         
@@ -101,7 +101,7 @@ class RuleBasedPostProcessor(PostProcessorStrategy):
         return text
     
     def _fix_markdown(self, text: str) -> str:
-        """修复常见markdown格式问题"""
+        """修复常见 Markdown 格式问题"""
         # 确保标题前后有空行
         text = re.sub(r'([^\n])(#{1,6} )', r'\1\n\n\2', text)
         text = re.sub(r'(#{1,6} [^\n]+)([^\n])', r'\1\n\n\2', text)
@@ -148,18 +148,18 @@ class PostProcessor:
         初始化后处理器
         
         Args:
-            strategy: 后处理策略，默认使用RuleBasedPostProcessor
+            strategy: 后处理策略, 默认使用 RuleBasedPostProcessor
         """
         self.strategy = strategy or RuleBasedPostProcessor()
         logger.info(f"[PostProcessor] 初始化完成 - 策略: {self.strategy.__class__.__name__}")
     
     async def process(self, raw_output: str, context: Optional[ContextResult] = None) -> str:
         """
-        处理LLM原始输出
+        处理 LLM 原始输出
         
         Args:
-            raw_output: LLM原始输出
-            context: 上下文结果（可选）
+            raw_output: LLM 原始输出
+            context: 上下文结果 (可选)
             
         Returns:
             处理后的输出
