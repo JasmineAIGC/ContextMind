@@ -28,6 +28,7 @@ import os
 from pathlib import Path
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
+from demos.llm_client import SimpleLLMClient
 
 setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
@@ -67,6 +68,7 @@ class GradioDemo:
     def __init__(self):
         """初始化 Gradio 演示"""
         self.engine = None
+        self.llm_client = None  # LLM client for demo
         self.opening_scripts = [
             "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
             "您好，我是马上消费的客服，有个好消息要通知您。",
@@ -104,6 +106,15 @@ class GradioDemo:
             
             # 创建引擎 (v7.1: LLM invocation is external, no client needed)
             self.engine = self._create_engine()
+            
+            # 初始化 LLM 客户端
+            try:
+                self.llm_client = SimpleLLMClient()
+                logger.info("✅ [Gradio] LLM 客户端初始化成功")
+            except Exception as e:
+                logger.warning(f"⚠️ [Gradio] LLM 客户端初始化失败: {e}")
+                logger.warning("[Gradio] 将使用模拟回复")
+                self.llm_client = None
             
             # 如果使用长期记忆，植入种子数据
             if use_memory:
@@ -356,11 +367,17 @@ class GradioDemo:
             # 构建 prompt
             prompt = self._build_prompt(user_input, context_result)
             
-            # 调用 LLM
-            if engine.llm_client:
-                _, response = engine.llm_client.generate(prompt)
+            # 调用 LLM (v7.1: LLM invocation is external)
+            if self.llm_client:
+                try:
+                    _, response = self.llm_client.generate(prompt)
+                    local_logger.info(f"[LLM] 生成回复 ({len(response)} 字符)")
+                except Exception as e:
+                    local_logger.error(f"❌ LLM调用失败: {e}")
+                    response = "抱歉，系统暂时无法回复。请稍后再试。"
             else:
-                response = "[LLM未配置]"
+                response = f"[模拟回复] 收到您的问题：{user_input}。需要配置LLM才能获得真实回复。"
+                local_logger.warning("[Simulated] 使用模拟回复（未配置LLM）")
             
             # 更新会话
             await engine.update(

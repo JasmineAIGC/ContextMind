@@ -48,6 +48,9 @@ async def main():
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数')
     parser.add_argument('--history-turns', type=int, default=10, help='Prompt中的历史轮数')
     parser.add_argument('--enable-memory-thinking', action='store_true', help='启用记忆思考')
+    parser.add_argument('--no-llm', action='store_true', help='禁用真实LLM，使用模拟回复')
+    parser.add_argument('--detailed', action='store_true', help='详细日志模式')
+    parser.add_argument('--debug', action='store_true', help='调试日志模式')
     parser.add_argument('--debug', action='store_true', help='调试模式')
     args = parser.parse_args()
     
@@ -96,10 +99,9 @@ async def main():
     
     app = CallCenterApplication(
         context_engine=context_engine,
-        # Note: In v7.1, LLM client is handled externally
         business_info=business_info.strip(),
-        auto_extract_knowledge=True,
         history_turns=args.history_turns,
+        use_real_llm=not args.no_llm,  # Enable real LLM by default
     )
     print("✅ 应用初始化完成")
     print()

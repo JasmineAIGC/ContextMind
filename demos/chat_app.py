@@ -5,8 +5,12 @@ ChatApplication - 通用闲聊应用示例
 适用于日常闲聊、知识问答、娱乐互动等场景。
 """
 
+from typing import Optional
+
 from contextmind import ContextEngine
 from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+
+from .llm_client import SimpleLLMClient, LLMConfig
 
 logger = get_logger(__name__)
 
@@ -43,6 +47,8 @@ class ChatApplication:
         context_engine: ContextEngine,
         system_prompt: str = CHAT_SYSTEM_PROMPT,
         history_turns: int = 10,
+        llm_config: Optional[LLMConfig] = None,
+        use_real_llm: bool = True,
         **config
     ):
         """初始化闲聊应用
@@ -51,12 +57,29 @@ class ChatApplication:
             context_engine: 上下文引擎
             system_prompt: 系统提示词（可自定义）
             history_turns: Prompt中包含的历史轮数
+            llm_config: LLM 配置（可选，从环境变量加载）
+            use_real_llm: 是否使用真实 LLM（True=调用API，False=模拟回复）
             **config: 其他配置参数
         """
         self.context_engine = context_engine
         self.system_prompt = system_prompt
         self.history_turns = history_turns
         self.config = config
+        self.use_real_llm = use_real_llm
+        
+        # 初始化 LLM 客户端（如果使用真实 LLM）
+        if use_real_llm:
+            try:
+                self.llm_client = SimpleLLMClient(llm_config)
+                logger.info("[ChatApplication] ✓ 初始化完成 (使用真实 LLM)")
+            except Exception as e:
+                logger.warning(f"[ChatApplication] ⚠ LLM 客户端初始化失败: {e}")
+                logger.warning("[ChatApplication] 将使用模拟回复")
+                self.use_real_llm = False
+                self.llm_client = None
+        else:
+            self.llm_client = None
+            logger.info("[ChatApplication] ✓ 初始化完成 (使用模拟回复)")
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
         """构建闲聊场景 Prompt
@@ -152,9 +175,21 @@ class ChatApplication:
         # 2. 构建 Prompt
         prompt = self.build_prompt(user_input, context_result)
         
-        # 3. 模拟 LLM 调用（v7.1: LLM invocation is external）
-        # 在实际应用中，这里应该调用外部 LLM（OpenAI、vLLM等）
-        response = f"[模拟回复] 收到您的消息：{user_input}。这是一个示例回复，实际应用中需要调用真实的LLM。"
+        # 3. 调用 LLM（v7.1: LLM invocation is external）
+        if self.use_real_llm and self.llm_client:
+            try:
+                # 调用真实 LLM
+                reasoning, response = await self.llm_client.generate_async(prompt)
+                if reasoning:
+                    logger.debug(f"[LLM Reasoning] {reasoning[:200]}...")
+                logger.info(f"[LLM Response] 生成回复 ({len(response)} 字符)")
+            except Exception as e:
+                logger.error(f"❌ LLM调用失败: {e}")
+                response = f"抱歉，我现在有点问题，等会儿再聊好吗？😅"
+        else:
+            # 模拟回复（仅用于测试）
+            response = f"[模拟回复] 收到您的消息：{user_input}。这是一个示例回复，需要配置LLM才能获得真实回复。"
+            logger.warning("[Simulated] 使用模拟回复（未配置LLM）")
         
         # 4. 更新上下文
         await self.context_engine.update(
