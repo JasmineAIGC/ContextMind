@@ -1,5 +1,5 @@
 """
-ContextMind v5.1 Interactive Demo
+ContextMind v7.0 Interactive Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 提供命令行交互式演示。
@@ -45,7 +45,7 @@ async def main():
     """主函数"""
     
     # 解析参数
-    parser = argparse.ArgumentParser(description='ContextMind v5.1 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v7.0 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数')
@@ -58,7 +58,7 @@ async def main():
     setup_logging(level=log_level, log_to_console=True, auto_create_file=True)
     
     print("=" * 60)
-    print("ContextMind v5.1 Interactive Demo")
+    print("ContextMind v7.0 Interactive Demo")
     print("五层架构 (core/pipeline/strategies/adapters/utils)")
     print("=" * 60)
     print()
@@ -193,7 +193,7 @@ async def main():
             import traceback
             traceback.print_exc()
     
-    print("\n感谢使用 ContextMind v5.1!")
+    print("\n感谢使用 ContextMind v7.0!")
 
 
 if __name__ == "__main__":

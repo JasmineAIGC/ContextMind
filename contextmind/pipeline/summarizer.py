@@ -15,7 +15,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
 
-from contextmind.core.data_models import Message, MessageRole
+from contextmind.models import Message, MessageRole
 
 logger = logging.getLogger(__name__)
 

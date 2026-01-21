@@ -1,5 +1,5 @@
 """
-Data models for ContextMind v6.0
+Data models for ContextMind v7.0
 
 Minimal data classes for context engineering framework.
 """

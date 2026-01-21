@@ -57,10 +57,10 @@ v7.0 核心改进：
 - ✨ Enhanced Observability: 改进的日志系统
 """
 
-# Plugin Registry (NEW in v6.0)
+# Plugin Registry (NEW in v7.0)
 from .registry import registry, PluginRegistry
 
-# Easy Integration API (NEW in v6.0)
+# Easy Integration API (NEW in v7.0)
 from .config_api import ContextMind
 
 # 核心引擎
@@ -120,10 +120,10 @@ from .models import (
 )
 
 __all__ = [
-    # Easy Integration API (NEW in v6.0)
+    # Easy Integration API (NEW in v7.0)
     "ContextMind",
     
-    # Plugin System (NEW in v6.0)
+    # Plugin System (NEW in v7.0)
     "registry",
     "PluginRegistry",
     

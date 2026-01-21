@@ -1,5 +1,5 @@
 """
-ContextMind v5.1 Gradio Demo
+ContextMind v7.0 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 生产级记忆系统
 提供可视化界面，展示智能上下文优化能力。
@@ -27,8 +27,7 @@ import threading
 import os
 from pathlib import Path
 
-from contextmind import Client, ClientConfig, ContextEngine, setup_logging, get_logger, INFO, DEBUG
-from contextmind.utils.logger import ContextMindLogger
+from contextmind import ContextEngine, setup_logging, get_logger, INFO, DEBUG, ContextMindLogger
 
 setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
 logger = get_logger(__name__)
@@ -441,8 +440,8 @@ class GradioDemo:
         
     def create_interface(self):
         """创建界面"""
-        with gr.Blocks(title="ContextMind v5.1 - 优逸花客服演示") as demo:
-            gr.Markdown("# 🤖 Context Mind v5.1 - 优逸花客服演示")
+        with gr.Blocks(title="ContextMind v7.0 - 优逸花客服演示") as demo:
+            gr.Markdown("# 🤖 Context Mind v7.0 - 优逸花客服演示")
             gr.Markdown("五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统")
             
             initial_history = self._get_initial_history()
@@ -543,9 +542,9 @@ class GradioDemo:
             
             def apply_config(use_session, max_events, use_memory, debug_mode):
                 """应用配置"""
-                from contextmind.utils.logger import DEBUG, INFO, ContextMindLogger
-                new_level = DEBUG if debug_mode else INFO
-                ContextMindLogger.set_level(new_level)
+                from contextmind import DEBUG, INFO, ContextMindLogger, set_global_log_level, LogLevel
+                new_level = LogLevel.DEBUG if debug_mode else LogLevel.BASIC
+                set_global_log_level(new_level)
                 
                 try:
                     import concurrent.futures

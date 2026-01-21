@@ -1,6 +1,6 @@
 """
-ContextEngine - 上下文引擎核心模块 v5.1
-ContextEngine - Core Context Engine Module v5.1
+ContextEngine - 上下文引擎核心模块 v7.0
+ContextEngine - Core Context Engine Module v7.0
 
 清晰的模块化架构设计 Clear modular architecture design：
 - 应用层 Application Layer：使用引擎的应用（示例：客服、聊天机器人等）
