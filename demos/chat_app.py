@@ -10,6 +10,7 @@ from typing import Optional
 
 from contextmind import ContextEngine
 from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from contextmind.pipeline.summarization import ConversationSummarizer, SummarizationConfig
 
 from .llm_client import SimpleLLMClient, LLMConfig
 
@@ -93,6 +94,19 @@ class ChatApplication:
                 f"[ChatApplication] ✓ 初始化完成 "
                 f"(模拟回复, 知识提取: {self.extraction_method})"
             )
+        
+        # 初始化对话摘要器
+        summarization_config = SummarizationConfig(
+            summarize_threshold=15,  # 超过15轮触发摘要
+            keep_recent_turns=5,  # 保留最近5轮
+            method="rule"  # 使用规则摘要（快速）
+        )
+        self.summarizer = ConversationSummarizer(
+            config=summarization_config,
+            llm_client=self.llm_client if use_real_llm else None
+        )
+        logger.debug(f"[ChatApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
+
     
     def build_prompt(self, user_input: str, context: ContextResult) -> str:
         """构建闲聊场景 Prompt
@@ -136,19 +150,33 @@ class ChatApplication:
         logger.info("")
         
         # 添加对话历史 - 从items中提取
-        # 智能选择: 最近N轮 (默认5-10轮，避免prompt过长)
+        # 使用对话摘要器智能处理历史
         history_items = [item for item in context.items if item.source == ContextSource.HISTORY]
         if history_items:
-            # 限制对话历史数量，避免prompt过长
-            MAX_HISTORY_TURNS = min(self.history_turns, 10)  # 最多10轮
-            relevant_history = history_items[-MAX_HISTORY_TURNS:]
-            history_text = "\n".join(
-                item.content for item in relevant_history
-            )
-            prompt_parts.append(f"\n## 对话历史\n{history_text}")
-            logger.info(f"[Prompt] ✓ 添加对话历史到 Prompt (最近 {len(relevant_history)} 轮，共 {len(history_items)} 轮可用)")
-            if len(history_items) > MAX_HISTORY_TURNS:
-                logger.debug(f"[Prompt] 提示: 共{len(history_items)}轮对话，仅使用最近{MAX_HISTORY_TURNS}轮（其余{len(history_items)-MAX_HISTORY_TURNS}轮已省略）")
+            total_turns = len(history_items)
+            
+            # 使用摘要器判断是否需要摘要
+            summary, recent_history = self.summarizer.get_summary_and_recent(history_items)
+            
+            if summary:
+                # 有摘要：添加摘要 + 最近对话
+                prompt_parts.append(f"\n## 早期对话摘要\n{summary}")
+                logger.info(f"[Prompt] ✓ 添加对话摘要 (总共{total_turns}轮，前{total_turns - len(recent_history)}轮已摘要)")
+                
+                # 添加最近对话
+                if recent_history:
+                    history_text = "\n".join(item.content for item in recent_history)
+                    prompt_parts.append(f"\n## 最近对话\n{history_text}")
+                    logger.info(f"[Prompt] ✓ 添加最近对话 ({len(recent_history)} 轮)")
+            else:
+                # 无摘要：使用传统方式（最多10轮）
+                MAX_HISTORY_TURNS = min(self.history_turns, 10)  # 最多10轮
+                relevant_history = history_items[-MAX_HISTORY_TURNS:]
+                history_text = "\n".join(item.content for item in relevant_history)
+                prompt_parts.append(f"\n## 对话历史\n{history_text}")
+                logger.info(f"[Prompt] ✓ 添加对话历史 (最近{len(relevant_history)}轮，共{len(history_items)}轮可用)")
+                if len(history_items) > MAX_HISTORY_TURNS:
+                    logger.debug(f"[Prompt] 提示: 共{len(history_items)}轮对话，仅使用最近{MAX_HISTORY_TURNS}轮（其余{len(history_items)-MAX_HISTORY_TURNS}轮已省略）")
         else:
             logger.debug("[Prompt] 无对话历史")
         logger.info("")
