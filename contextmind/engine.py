@@ -9,8 +9,8 @@ ContextEngine - Core Context Engine Module v7.0
   Dialogue system integration interfaces
 - 引擎层 Engine Layer：ContextEngine 统一接口
   ContextEngine unified interface
-- 模块层 Module Layer：InputPreprocessor, ContextRetriever, MemoryBank, 
-  ContextCompressor, ContextReorderer, KnowledgeExtractor
+- 模块层 Module Layer：InputPreprocessor, MemoryBank, 
+  ContextCompressor, ContextReorderer, PostProcessor, ConversationSummarizer
 - 策略层 Strategy Layer：可插拔的策略实现
   Pluggable strategy implementations
 - 基础层 Foundation Layer：TokenizerService, VectorClient, CacheManager
@@ -145,15 +145,13 @@ class ContextEngine:
             user_id=user_id,
         )
         
-        # 初始化模块化组件
+        # Initialize modular components (v7.0 architecture)
         self.preprocessor = InputPreprocessor()
-        self.retriever = ContextRetriever(
-            session_manager=self.session_manager,
-            memory_bank=self.memory_bank,
-        )
+        # Note: In v7.0, MemoryBank handles both storage and retrieval
+        # No separate ContextRetriever needed
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
-        self.extractor = KnowledgeExtractor()
+        # Note: Knowledge extraction is handled by extractors in strategies layer
         
         # v3.4 Optional components
         if use_postprocessor and OPTIONAL_COMPONENTS_AVAILABLE:
@@ -181,11 +179,11 @@ class ContextEngine:
         """
         优化上下文 - 核心方法
         
-        执行完整的模块化上下文优化流程：
+        执行完整的模块化上下文优化流程 v7.0：
         1. InputPreprocessor: 预处理输入
-        2. ContextRetriever: 检索上下文（RAG）
-        3. ContextReorderer: 重排序上下文
-        4. ContextCompressor: 压缩上下文
+        2. MemoryBank: 检索长期记忆
+        3. ContextCompressor: 压缩上下文
+        4. ContextReorderer: 重排序上下文
         
         Args:
             user_input: 用户输入

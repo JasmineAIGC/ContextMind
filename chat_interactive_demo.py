@@ -15,8 +15,7 @@ from contextmind import (
     ContextEngine,
     setup_logging,
     get_logger,
-    INFO,
-    DEBUG,
+    LogLevel,
 )
 
 from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
@@ -37,8 +36,8 @@ async def main():
     parser.add_argument('--debug', action='store_true', help='调试模式')
     args = parser.parse_args()
     
-    log_level = DEBUG if args.debug else INFO
-    setup_logging(level=log_level, log_to_console=True, auto_create_file=True)
+    log_level = LogLevel.DEBUG if args.debug else LogLevel.BASIC
+    setup_logging(level=log_level)
     
     print("=" * 60)
     print("🎭 ContextMind v7.0 闲聊 Interactive Demo")
@@ -69,7 +68,7 @@ async def main():
     print("🔧 初始化应用...")
     app = ChatApplication(
         context_engine=context_engine,
-        llm_client=llm_client,
+        # Note: In v7.0, LLM client is handled externally
         system_prompt=CHAT_SYSTEM_PROMPT,
         history_turns=args.history_turns,
         auto_extract_knowledge=not args.no_memory,  # 根据参数决定是否提取知识

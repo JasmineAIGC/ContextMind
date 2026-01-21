@@ -15,8 +15,7 @@ from contextmind import (
     ContextEngine,
     setup_logging,
     get_logger,
-    INFO,
-    DEBUG,
+    LogLevel,
 )
 
 from demos.callcenter_app import CallCenterApplication
@@ -52,8 +51,8 @@ async def main():
     parser.add_argument('--debug', action='store_true', help='调试模式')
     args = parser.parse_args()
     
-    log_level = DEBUG if args.debug else INFO
-    setup_logging(level=log_level, log_to_console=True, auto_create_file=True)
+    log_level = LogLevel.DEBUG if args.debug else LogLevel.BASIC
+    setup_logging(level=log_level)
     
     print("=" * 60)
     print("ContextMind v7.0 Interactive Demo")
@@ -97,7 +96,7 @@ async def main():
     
     app = CallCenterApplication(
         context_engine=context_engine,
-        llm_client=llm_client,
+        # Note: In v7.0, LLM client is handled externally
         business_info=business_info.strip(),
         auto_extract_knowledge=True,
         history_turns=args.history_turns,

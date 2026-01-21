@@ -279,6 +279,13 @@ class ContextMindLogger:
         if self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
     
+    def debug(self, message: str):
+        """
+        Debug log - backward compatibility alias for detail()
+        Shown in DEBUG mode only
+        """
+        self.detail(message)
+    
     def separator(self, char="=", length=100):
         """Print separator line (shown in all modes)"""
         self._logger.info(char * length)

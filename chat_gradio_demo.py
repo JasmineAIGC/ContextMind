@@ -30,9 +30,9 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
-from contextmind import ContextEngine, setup_logging, get_logger, INFO, DEBUG
+from contextmind import ContextEngine, setup_logging, get_logger, LogLevel
 
-setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
+setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
