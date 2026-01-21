@@ -1,8 +1,8 @@
 """
-ContextMind v7.1 Interactive Demo
+ContextMind v7.1 交互式演示
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
-提供命令行交互式演示。
+提供命令行交互式演示
 """
 
 import asyncio
@@ -14,8 +14,8 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
-    print("LLM features may not work without .env configuration.")
+    print("警告: 未安装 python-dotenv。请使用 pip install python-dotenv 安装")
+    print("LLM 功能可能无法正常工作, 需要 .env 配置文件")
 
 from contextmind import (
     ContextEngine,
@@ -51,9 +51,9 @@ async def main():
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数')
-    parser.add_argument('--history-turns', type=int, default=10, help='Prompt中的历史轮数')
+    parser.add_argument('--history-turns', type=int, default=10, help='Prompt 中的历史轮数')
     parser.add_argument('--enable-memory-thinking', action='store_true', help='启用记忆思考')
-    parser.add_argument('--no-llm', action='store_true', help='禁用真实LLM，使用模拟回复')
+    parser.add_argument('--no-llm', action='store_true', help='禁用真实 LLM, 使用模拟回复')
     parser.add_argument('--detailed', action='store_true', help='详细日志模式')
     parser.add_argument('--debug', action='store_true', help='调试模式')
     args = parser.parse_args()
@@ -72,11 +72,11 @@ async def main():
     print(f"   - 会话历史: {'❌ 禁用' if args.no_session else '✅ 启用'}")
     print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
     print(f"   - 最大轮数: {args.max_events}")
-    print(f"   - Prompt历史: {args.history_turns}")
+    print(f"   - Prompt 历史: {args.history_turns}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化引擎 (v7.1: LLM invocation is external, no client needed)
+    # 初始化引擎 (v7.1: LLM 调用在外部, 不需要客户端)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="demo-app",

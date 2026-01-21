@@ -1,7 +1,7 @@
 """
-Data models for ContextMind v7.0
+ContextMind v7.0 数据模型
 
-Minimal data classes for context engineering framework.
+Context Engineering 框架的最小化数据类定义
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional
 
 
 class MessageRole(str, Enum):
-    """Message role in conversation"""
+    """对话消息角色"""
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -21,13 +21,13 @@ class MessageRole(str, Enum):
 @dataclass
 class Message:
     """
-    Conversation message
+    对话消息
     
     Attributes:
-        role: Message role (user/assistant/system)
-        content: Message content
-        timestamp: When the message was created
-        metadata: Additional metadata
+        role: 消息角色 (user/assistant/system)
+        content: 消息内容
+        timestamp: 消息创建时间
+        metadata: 附加元数据
     """
     role: MessageRole
     content: str
@@ -36,31 +36,31 @@ class Message:
 
 
 class KnowledgeType(str, Enum):
-    """Type of knowledge extracted from conversation"""
-    PREFERENCE = "preference"  # User preferences
-    FACT = "fact"              # Facts about user or topic
-    EVENT = "event"            # Events or actions
+    """从对话中提取的知识类型"""
+    PREFERENCE = "preference"  # 用户偏好
+    FACT = "fact"              # 关于用户或主题的事实
+    EVENT = "event"            # 事件或行为
 
 
 class MemoryType(str, Enum):
-    """Type of memory storage"""
-    SEMANTIC = "semantic"      # Semantic/vector-based storage
-    KEYWORD = "keyword"        # Keyword-based storage
-    STRUCTURED = "structured"  # Structured data storage
+    """记忆存储类型"""
+    SEMANTIC = "semantic"      # 语义/向量存储
+    KEYWORD = "keyword"        # 关键词存储
+    STRUCTURED = "structured"  # 结构化数据存储
 
 
 @dataclass
 class Knowledge:
     """
-    Extracted knowledge from conversation
+    从对话中提取的知识
     
     Attributes:
-        content: Knowledge content
-        knowledge_type: Type of knowledge
-        confidence: Confidence score (0-1)
-        source: Source information
-        timestamp: When extracted
-        metadata: Additional metadata
+        content: 知识内容
+        knowledge_type: 知识类型
+        confidence: 置信度分数 (0-1)
+        source: 来源信息
+        timestamp: 提取时间
+        metadata: 附加元数据
     """
     content: str
     knowledge_type: KnowledgeType
@@ -71,7 +71,7 @@ class Knowledge:
 
 
 class ContextSource(str, Enum):
-    """Source of context item"""
+    """Context 项来源"""
     MEMORY = "memory"
     RAG = "rag"
     HISTORY = "history"
@@ -80,13 +80,13 @@ class ContextSource(str, Enum):
 @dataclass
 class ContextItem:
     """
-    Context item for prompt building
+    用于 Prompt 构建的 Context 项
     
     Attributes:
-        content: Item content
-        source: Where this item comes from
-        score: Relevance score
-        metadata: Additional metadata
+        content: 项内容
+        source: 来源
+        score: 相关性分数
+        metadata: 附加元数据
     """
     content: str
     source: ContextSource
@@ -97,12 +97,12 @@ class ContextItem:
 @dataclass
 class ContextResult:
     """
-    Result from context retrieval/processing
+    Context 检索/处理结果
     
     Attributes:
-        items: List of context items
-        total_tokens: Total token count
-        metadata: Processing metadata
+        items: Context 项列表
+        total_tokens: 总 Token 数
+        metadata: 处理元数据
     """
     items: List[ContextItem] = field(default_factory=list)
     total_tokens: int = 0
@@ -112,11 +112,11 @@ class ContextResult:
 @dataclass
 class ProcessedContext:
     """
-    Processed and optimized context
+    已处理和优化的 Context
     
     Attributes:
-        items: List of context items
-        metadata: Processing metadata (compression ratio, etc.)
+        items: Context 项列表
+        metadata: 处理元数据 (压缩比等)
     """
     items: List[ContextItem] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -125,13 +125,13 @@ class ProcessedContext:
 @dataclass
 class MemoryNote:
     """
-    Memory note stored in memory bank
+    存储在 Memory Bank 中的记忆笔记
     
     Attributes:
-        content: Note content
-        memory_type: Type of memory
-        timestamp: When created
-        metadata: Additional metadata (access_count, last_access, etc.)
+        content: 笔记内容
+        memory_type: 记忆类型
+        timestamp: 创建时间
+        metadata: 附加元数据 (访问次数、最后访问时间等)
     """
     content: str
     memory_type: str = "semantic"
@@ -142,11 +142,11 @@ class MemoryNote:
 @dataclass
 class Chunk:
     """
-    Text chunk for processing
+    用于处理的文本块
     
     Attributes:
-        text: Chunk text
-        metadata: Chunk metadata
+        text: 文本块内容
+        metadata: 文本块元数据
     """
     text: str
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -155,22 +155,22 @@ class Chunk:
 @dataclass
 class ContextState:
     """
-    Context processing state
+    Context 处理状态
     
     Attributes:
-        current_tokens: Current token count
-        max_tokens: Maximum allowed tokens
-        metadata: Additional state metadata
+        current_tokens: 当前 Token 数
+        max_tokens: 最大允许 Token 数
+        metadata: 附加状态元数据
     """
     current_tokens: int = 0
     max_tokens: int = 2000
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-# Configuration classes
+# 配置类
 @dataclass
 class RetrievalConfig:
-    """Configuration for context retrieval"""
+    """Context 检索配置"""
     top_k: int = 5
     min_score: float = 0.5
     use_semantic: bool = True
@@ -179,7 +179,7 @@ class RetrievalConfig:
 
 @dataclass
 class ExtractionConfig:
-    """Configuration for knowledge extraction"""
+    """知识提取配置"""
     min_confidence: float = 0.6
     extract_preferences: bool = True
     extract_facts: bool = True
@@ -188,52 +188,52 @@ class ExtractionConfig:
 
 @dataclass
 class CompressionConfig:
-    """Configuration for context compression"""
+    """Context 压缩配置"""
     max_tokens: int = 2000
     strategy: str = "simple"
 
 
 @dataclass
 class SummarizationConfig:
-    """Configuration for conversation summarization"""
+    """对话摘要配置"""
     enabled: bool = False
     max_turns: int = 10
 
 
 @dataclass
 class MemorySystemConfig:
-    """Configuration for memory system"""
+    """记忆系统配置"""
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
     extraction: ExtractionConfig = field(default_factory=ExtractionConfig)
     compression: CompressionConfig = field(default_factory=CompressionConfig)
     summarization: SummarizationConfig = field(default_factory=SummarizationConfig)
 
 
-# Default configuration
+# 默认配置
 DEFAULT_MEMORY_CONFIG = MemorySystemConfig()
 
 
-# Logging utilities and system
+# 日志工具和系统
 import logging
 from enum import Enum as PyEnum
 
 class LogLevel(PyEnum):
-    """Logging levels for ContextMind"""
-    BASIC = "BASIC"      # Basic mode: pipeline-level logs
-    DETAILED = "DETAILED"  # Detailed mode: step-level logs
-    DEBUG = "DEBUG"      # Debug mode: all logs including internal details
+    """ContextMind 日志级别"""
+    BASIC = "BASIC"      # 基础模式: Pipeline 级别日志
+    DETAILED = "DETAILED"  # 详细模式: 步骤级别日志
+    DEBUG = "DEBUG"      # 调试模式: 所有日志包括内部细节
 
 
 class ContextMindLogger:
     """
-    Unified logging system for ContextMind v7.0
+    ContextMind v7.0 统一日志系统
     
-    Features:
-    - Basic mode: Logs pipeline-level inputs, outputs, and key information
-    - Detailed mode: Logs step-level inputs, outputs, and intermediate information
-    - Debug mode: Logs all internal details
+    功能特性:
+    - 基础模式: 记录 Pipeline 级别的输入、输出和关键信息
+    - 详细模式: 记录步骤级别的输入、输出和中间信息
+    - 调试模式: 记录所有内部细节
     
-    Usage:
+    使用示例:
         logger = ContextMindLogger("MyModule", level=LogLevel.BASIC)
         logger.pipeline("Starting context optimization")
         logger.step("Step 1: Preprocessing")
@@ -242,62 +242,62 @@ class ContextMindLogger:
     
     def __init__(self, name: str, level: LogLevel = LogLevel.BASIC):
         """
-        Initialize logger
+        初始化 Logger
         
         Args:
-            name: Module name
-            level: Logging level (BASIC, DETAILED, or DEBUG)
+            name: 模块名称
+            level: 日志级别 (BASIC, DETAILED 或 DEBUG)
         """
         self.name = name
         self.level = level
         self._logger = logging.getLogger(name)
         
     def set_level(self, level: LogLevel):
-        """Set logging level"""
+        """设置日志级别"""
         self.level = level
     
     def pipeline(self, message: str):
         """
-        Pipeline-level log (shown in BASIC, DETAILED, and DEBUG modes)
-        Use for major pipeline events: start, end, inputs, outputs
+        Pipeline 级别日志 (在 BASIC、DETAILED 和 DEBUG 模式下显示)
+        用于主要的 Pipeline 事件: 开始、结束、输入、输出
         """
         self._logger.info(f"[{self.name}] {message}")
     
     def step(self, message: str):
         """
-        Step-level log (shown in DETAILED and DEBUG modes)
-        Use for individual step events within the pipeline
+        步骤级别日志 (在 DETAILED 和 DEBUG 模式下显示)
+        用于 Pipeline 中的各个步骤事件
         """
         if self.level in [LogLevel.DETAILED, LogLevel.DEBUG]:
             self._logger.info(f"[{self.name}] {message}")
     
     def detail(self, message: str):
         """
-        Detailed log (shown in DEBUG mode only)
-        Use for internal details and debugging information
+        详细日志 (仅在 DEBUG 模式下显示)
+        用于内部细节和调试信息
         """
         if self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
     
     def debug(self, message: str):
         """
-        Debug log - backward compatibility alias for detail()
-        Shown in DEBUG mode only
+        调试日志 - detail() 的向后兼容别名
+        仅在 DEBUG 模式下显示
         """
         self.detail(message)
     
     def separator(self, char="=", length=100):
-        """Print separator line (shown in all modes)"""
+        """打印分隔线 (在所有模式下显示)"""
         self._logger.info(char * length)
     
     def section_start(self, title: str):
-        """Start a major section (shown in all modes)"""
+        """开始主要章节 (在所有模式下显示)"""
         self.separator("=")
         self._logger.info(f"[{self.name}] ========== {title} ==========")
         self.separator("=")
     
     def section_end(self, title: str = None):
-        """End a major section (shown in all modes)"""
+        """结束主要章节 (在所有模式下显示)"""
         if title:
             self.separator("-")
             self._logger.info(f"[{self.name}] ========== {title} 结束 ==========")
@@ -306,48 +306,48 @@ class ContextMindLogger:
             self.separator("-")
     
     def info(self, message: str):
-        """General info log (shown in all modes)"""
+        """常规信息日志 (在所有模式下显示)"""
         self._logger.info(f"[{self.name}] {message}")
     
     def warning(self, message: str):
-        """Warning log (shown in all modes)"""
+        """警告日志 (在所有模式下显示)"""
         self._logger.warning(f"[{self.name}] {message}")
     
     def error(self, message: str):
-        """Error log (shown in all modes)"""
+        """错误日志 (在所有模式下显示)"""
         self._logger.error(f"[{self.name}] {message}")
 
 
-# Global logging level
+# 全局日志级别
 _GLOBAL_LOG_LEVEL = LogLevel.BASIC
 
 
 def set_global_log_level(level: LogLevel):
     """
-    Set global logging level for all ContextMind loggers
+    为所有 ContextMind Logger 设置全局日志级别
     
     Args:
-        level: LogLevel.BASIC, LogLevel.DETAILED, or LogLevel.DEBUG
+        level: LogLevel.BASIC, LogLevel.DETAILED 或 LogLevel.DEBUG
     """
     global _GLOBAL_LOG_LEVEL
     _GLOBAL_LOG_LEVEL = level
 
 
 def get_global_log_level() -> LogLevel:
-    """Get current global logging level"""
+    """获取当前全局日志级别"""
     return _GLOBAL_LOG_LEVEL
 
 
 def get_logger(name: str, level: LogLevel = None) -> ContextMindLogger:
     """
-    Get a ContextMind logger instance
+    获取 ContextMind Logger 实例
     
     Args:
-        name: Logger name (usually module name)
-        level: Logging level (uses global level if not specified)
+        name: Logger 名称 (通常为模块名)
+        level: 日志级别 (未指定时使用全局级别)
         
     Returns:
-        ContextMindLogger instance
+        ContextMindLogger 实例
     """
     if level is None:
         level = _GLOBAL_LOG_LEVEL
@@ -356,31 +356,31 @@ def get_logger(name: str, level: LogLevel = None) -> ContextMindLogger:
 
 def setup_logging(level: LogLevel = LogLevel.BASIC, python_log_level=None):
     """
-    Setup ContextMind logging configuration
+    设置 ContextMind 日志配置
     
     Args:
-        level: ContextMind logging level (BASIC, DETAILED, or DEBUG)
-        python_log_level: Python logging level (defaults based on ContextMind level)
+        level: ContextMind 日志级别 (BASIC, DETAILED 或 DEBUG)
+        python_log_level: Python 日志级别 (默认基于 ContextMind 级别)
     """
-    # Set global ContextMind log level
+    # 设置全局 ContextMind 日志级别
     set_global_log_level(level)
     
-    # Map ContextMind level to Python logging level
+    # 将 ContextMind 级别映射到 Python 日志级别
     if python_log_level is None:
         if level == LogLevel.DEBUG:
             python_log_level = logging.DEBUG
         else:
             python_log_level = logging.INFO
     
-    # Configure Python logging
+    # 配置 Python 日志
     logging.basicConfig(
         level=python_log_level,
         format='[%(asctime)s] %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
-        force=True  # Override any existing configuration
+        force=True  # 覆盖任何现有配置
     )
 
 
-# Export logging levels for backward compatibility
+# 导出日志级别以保持向后兼容
 INFO = logging.INFO
 DEBUG = logging.DEBUG

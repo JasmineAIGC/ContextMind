@@ -27,7 +27,7 @@ from ..strategies.defaults import CompressionStrategy
 
 logger = get_logger(__name__)
 
-# Default maximum number of session items (for backward compatibility)
+# 默认最大 Session 项数量 (用于向后兼容)
 DEFAULT_MAX_SESSION_ITEMS = 10
 
 
@@ -79,16 +79,16 @@ class ContextCompressor:
         # 记录压缩前的信息
         input_items_count = len(context.items)
         
-        # 委托给压缩策略（策略会返回 ContextResult）
+        # 委托给压缩策略 (策略会返回 ContextResult)
         result = await self.strategy.optimize(context)
         
         # 使用 ContextResult 的属性记录日志
         logger.debug(
-            f"Compressed context: "
-            f"{input_items_count} items → "
-            f"{len(result.recent_history)} history + "
-            f"{len(result.long_term_memory)} memory + "
-            f"{len(result.external_knowledge)} knowledge"
+            f"压缩上下文: "
+            f"{input_items_count} 项 → "
+            f"{len(result.recent_history)} 历史 + "
+            f"{len(result.long_term_memory)} 记忆 + "
+            f"{len(result.external_knowledge)} 知识"
         )
         
         return result

@@ -1,8 +1,8 @@
 """
 SessionManager - 会话管理器
 
-提供简化的会话管理接口。
-负责管理短期对话历史，支持添加消息、获取历史和清空会话。
+提供简化的会话管理接口
+负责管理短期对话历史, 支持添加消息、获取历史和清空会话
 """
 
 from typing import List, Optional, Any, Dict
@@ -18,9 +18,9 @@ class SessionManager:
     """
     会话管理器
     
-    提供对话会话的创建、管理和查询功能，是上下文优化框架的核心组件之一。
+    提供对话会话的创建、管理和查询功能, 是上下文优化框架的核心组件之一
     
-    主要功能：
+    主要功能:
     - 创建和管理会话
     - 添加用户和助手消息
     - 获取最近的对话历史
@@ -28,13 +28,13 @@ class SessionManager:
     
     Attributes:
         app_name: 应用名称
-        user_id: 用户ID
+        user_id: 用户 ID
         max_recent_events: 保留的最大近期事件数量
     """
     
     def __init__(
         self,
-        session_service: Optional[Any] = None,  # 保留参数以保持兼容性，但不再使用
+        session_service: Optional[Any] = None,  # 保留参数以保持兼容性, 但不再使用
         app_name: str = "default_app",
         user_id: str = "default_user",
         max_recent_events: int = 9999,
@@ -43,10 +43,10 @@ class SessionManager:
         初始化会话管理器
         
         Args:
-            session_service: 会话服务实例 (可选，暂不使用)
-            app_name: 应用名称，用于区分不同应用
-            user_id: 用户ID，用于区分不同用户
-            max_recent_events: 保留的最大近期事件数量，默认9999（实际不限制）
+            session_service: 会话服务实例 (可选, 暂不使用)
+            app_name: 应用名称, 用于区分不同应用
+            user_id: 用户 ID, 用于区分不同用户
+            max_recent_events: 保留的最大近期事件数量, 默认 9999 (实际不限制)
         """
         self.app_name = app_name
         self.user_id = user_id
@@ -55,17 +55,17 @@ class SessionManager:
         self._messages: List[Message] = []  # 使用本地缓存
     
     async def _ensure_session(self) -> None:
-        """确保会话存在，如果不存在则创建"""
+        """确保会话存在, 如果不存在则创建"""
         if not self._session_id:
             self._session_id = str(uuid.uuid4())
-            logger.debug(f"Created new session: {self._session_id}")
+            logger.debug(f"创建新会话: {self._session_id}")
     
     async def add_message(self, role: MessageRole, content: str) -> None:
         """
         添加消息到会话
         
         Args:
-            role: 消息角色（USER, ASSISTANT, SYSTEM）
+            role: 消息角色 (USER, ASSISTANT, SYSTEM)
             content: 消息内容
         """
         await self._ensure_session()
@@ -79,17 +79,17 @@ class SessionManager:
         )
         self._messages.append(message)
         
-        logger.debug(f"Added {role.value} message to session")
+        logger.debug(f"添加 {role.value} 消息到会话")
     
     async def get_recent_history(self, limit: Optional[int] = None) -> List[Message]:
         """
         获取最近的对话历史
         
         Args:
-            limit: 返回的最大消息数量，默认使用 max_recent_events
+            limit: 返回的最大消息数量, 默认使用 max_recent_events
             
         Returns:
-            消息列表，按时间顺序排列
+            消息列表, 按时间顺序排列
         """
         await self._ensure_session()
         
@@ -105,19 +105,19 @@ class SessionManager:
         """
         清空当前会话
         
-        创建一个新的会话来替换当前会话。
+        创建一个新的会话来替换当前会话
         """
-        # 清空本地缓存并创建新会话ID
+        # 清空本地缓存并创建新会话 ID
         self._messages.clear()
         self._session_id = str(uuid.uuid4())
-        logger.debug("Session cleared, new session created")
+        logger.debug("会话已清空, 创建新会话")
     
     async def get_session_id(self) -> str:
         """
-        获取当前会话ID
+        获取当前会话 ID
         
         Returns:
-            会话ID字符串
+            会话 ID 字符串
         """
         await self._ensure_session()
         return self._session_id

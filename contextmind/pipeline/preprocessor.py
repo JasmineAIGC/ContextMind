@@ -62,14 +62,14 @@ class InputPreprocessor:
         
         # 验证长度
         if len(processed) < self.min_length:
-            raise ValueError(f"Input too short (minimum {self.min_length} characters)")
+            raise ValueError(f"输入过短 (最小 {self.min_length} 字符)")
         
         if len(processed) > self.max_length:
-            raise ValueError(f"Input too long (maximum {self.max_length} characters)")
+            raise ValueError(f"输入过长 (最大 {self.max_length} 字符)")
         
         # 移除多余空白
         processed = re.sub(r'\s+', ' ', processed)
         
-        logger.debug(f"Preprocessed input: '{processed[:50]}...'")
+        logger.debug(f"预处理输入: '{processed[:50]}...'")
         
         return processed

@@ -56,11 +56,11 @@ try:
     PLUGINS_AVAILABLE = True
 except ImportError:
     PLUGINS_AVAILABLE = False
-    logger.debug("[MemoryBank] Plugin architecture not available, using internal implementations")
+    logger.debug("[MemoryBank] Plugin 架构不可用, 使用内部实现")
 
-# Moved logger definition to after imports but before it's used
+# 将 Logger 定义移到 import 之后但在使用之前
 
-# 停用词列表（可配置，支持国际化扩展）
+# 停用词列表 (可配置, 支持国际化扩展)
 STOPWORDS = {
     # 中文常用停用词
     '的', '了', '是', '在', '有', '和', '与', '或', '我', '你', '他', '她', '它', '们',
@@ -78,32 +78,32 @@ class MemoryBank:
     """
     记忆管理器 - 封装 ADK Memory Service
     
-    提供长期记忆的存储、检索和管理功能，是上下文优化框架的核心组件之一。
+    提供长期记忆的存储、检索和管理功能, 是上下文优化框架的核心组件之一
     
-    v3.2 Agent Memory System 架构：
-    基于A-MEM（Agentic Memory）设计，实现智能记忆管理。
+    v3.2 Agent Memory System 架构:
+    基于 A-MEM (Agentic Memory) 设计, 实现智能记忆管理
     
-    三层记忆模型：
-    1. 工作记忆（Working Memory）：当前任务的即时上下文，由Session管理
-    2. 语义记忆（Semantic Memory）：结构化知识网络，包含关键词、标签、链接
-    3. 情节记忆（Episodic Memory）：时间序列的事件历史，支持因果链追溯
+    三层记忆模型:
+    1. 工作记忆 (Working Memory): 当前任务的即时上下文, 由 Session 管理
+    2. 语义记忆 (Semantic Memory): 结构化知识网络, 包含关键词、标签、链接
+    3. 情节记忆 (Episodic Memory): 时间序列的事件历史, 支持因果链追溯
     
-    核心功能：
-    - 检索相关记忆（支持语义搜索和关键词备用）
-    - 存储结构化记忆笔记（MemoryNote）
-    - 记忆演化：热度评估、动态淘汰、链接更新
-    - 知识网络构建：自动建立记忆间的语义关联
+    核心功能:
+    - 检索相关记忆 (支持语义搜索和关键词备用)
+    - 存储结构化记忆笔记 (MemoryNote)
+    - 记忆演化: 热度评估、动态淘汰、链接更新
+    - 知识网络构建: 自动建立记忆间的语义关联
     
     Attributes:
-        memory_service: ADK Memory Service 实例（可选）
+        memory_service: ADK Memory Service 实例 (可选)
         app_name: 应用名称
-        user_id: 用户ID
-        session_service: Session Service 实例（用于创建临时会话）
-        _memory_notes: 结构化记忆笔记存储（MemoryNote）
-        _local_cache: 本地记忆缓存，用于备用检索（兼容）
+        user_id: 用户 ID
+        session_service: Session Service 实例 (用于创建临时会话)
+        _memory_notes: 结构化记忆笔记存储 (MemoryNote)
+        _local_cache: 本地记忆缓存, 用于备用检索 (兼容)
     """
     
-    # Storage thresholds for backward compatibility with updater
+    # 存储阈值 (用于与 Updater 向后兼容)
     STORAGE_THRESHOLD_PREFERENCE = 0.75
     STORAGE_THRESHOLD_FACT = 0.70
     STORAGE_THRESHOLD_EVENT = 0.70
@@ -122,17 +122,17 @@ class MemoryBank:
         """
         初始化记忆管理器
         
-        v3.4 Plugin Architecture:
-        Now supports pluggable retriever and updater strategies.
+        v3.4 Plugin 架构:
+        现在支持可插拔的 Retriever 和 Updater 策略
         
         Args:
-            memory_service: Memory Service 实例（可选），如果为None则仅使用本地缓存
-            session_service: Session Service 实例（可选）
+            memory_service: Memory Service 实例 (可选), 如果为 None 则仅使用本地缓存
+            session_service: Session Service 实例 (可选)
             app_name: 应用名称
-            user_id: 用户ID
-            retrieval_config: 检索配置，如果为None则使用默认配置
-            retriever: Custom retriever plugin (optional), uses SemanticSearchRetriever by default
-            updater: Custom updater plugin (optional), uses SimpleUpdater by default
+            user_id: 用户 ID
+            retrieval_config: 检索配置, 如果为 None 则使用默认配置
+            retriever: 自定义 Retriever Plugin (可选), 默认使用 SemanticSearchRetriever
+            updater: 自定义 Updater Plugin (可选), 默认使用 SimpleUpdater
         """
         self.memory_service = memory_service
         self.session_service = session_service
@@ -140,11 +140,11 @@ class MemoryBank:
         self.user_id = user_id
         self.config = retrieval_config or DEFAULT_MEMORY_CONFIG.retrieval
         
-        # v3.4 Plugin Architecture: Initialize plugins
+        # v3.4 Plugin 架构: 初始化 Plugin
         if PLUGINS_AVAILABLE:
             self._retriever = retriever or SemanticSearchRetriever(self.config)
             self._updater = updater or SimpleUpdater()
-            logger.debug(f"[MemoryBank] Using plugins - Retriever: {type(self._retriever).__name__}, Updater: {type(self._updater).__name__}")
+            logger.debug(f"[MemoryBank] 使用 Plugin - Retriever: {type(self._retriever).__name__}, Updater: {type(self._updater).__name__}")
         else:
             self._retriever = None
             self._updater = None
