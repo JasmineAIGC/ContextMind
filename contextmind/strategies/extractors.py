@@ -702,132 +702,117 @@ class LLMBasedExtractor(BaseExtractor):
         # 构建提取提示词 - 支持40种知识类型
         system_prompt = """你是一个专业的知识提取助手。你的任务是从对话中提取结构化的知识信息。
 
-请从对话中提取以下类型的知识（40种）：
+**关键要求**:
+1. **总结提炼**：不要直接复制对话原文，而是总结归纳成简洁的知识点
+2. **准确分类**：必须使用下面40种类型之一，不要使用UNKNOWN或其他类型
+3. **合理置信度**：根据信息的明确程度合理评分（0.6-1.0之间）
+4. **有效信息**：只提取有价值的信息，忽略无关对话（如问候、确认等）
+5. **完整整合**：将分散在多轮对话中的相关信息整合成完整的知识点
 
-**1. 用户画像类**:
-- user_info: 用户基本信息（年龄、职业、姓名、居住地等）
-- personality: 性格特征（外向/内向、乐观/悲观等）
+**支持的40种知识类型**:
+
+**1. 用户画像类(4种)**:
+- user_info: 用户基本信息（年龄、职业、姓名、居住地）
+- personality: 性格特征（外向/内向、乐观/悲观）
 - values: 价值观和人生观
-- lifestyle: 生活方式和习惯
+- lifestyle: 生活方式和日常习惯
 
-**2. 认知类**:
+**2. 认知类(4种)**:
 - opinion: 观点和看法
 - belief: 信念和信仰
 - attitude: 态度和立场
 - value_judgment: 价值判断
 
-**3. 行为类**:
+**3. 行为类(6种)**:
 - event: 发生的事件和活动
 - habit: 习惯和常规行为
 - experience: 过往经历
 - skill: 技能和能力
 - achievement: 成就和里程碑
 
-**4. 意图类**:
+**4. 意图类(6种)**:
 - intent: 意图和打算
 - need: 需求和要求
 - goal: 目标和追求
-- plan: 计划和安排
+- plan: 具体计划和安排（含时间/地点）
 - expectation: 期望和预期
 
-**5. 关系类**:
+**5. 关系类(3种)**:
 - relationship: 社交关系
 - emotional_connection: 情感连接
 - influence: 影响因素
 
-**6. 知识类**:
+**6. 知识类(4种)**:
 - fact: 客观事实
 - procedural: 程序性知识（如何做某事）
 - domain_knowledge: 领域专业知识
 - common_sense: 常识
 
-**7. 情感类**:
+**7. 情感类(3种)**:
 - preference: 偏好和喜好
 - emotion: 情绪状态
 - sentiment: 情感倾向
 
-**8. 策略类**:
+**8. 策略类(4种)**:
 - solution: 解决方案
 - strategy: 策略方法
 - best_practice: 最佳实践
 - lesson_learned: 经验教训
 
-**9. 上下文类**:
+**9. 上下文类(4种)**:
 - constraint: 约束条件
-- interest: 兴趣爱好
+- interest: 兴趣爱好（长期的）
 - topic: 讨论话题
 - scenario: 场景和情境
 
-**10. 多轮对话分析**:
+**10. 多轮对话分析(4种)**:
 - conversation_pattern: 对话模式
 - topic_evolution: 话题演变
 - problem_solution_sequence: 问题解决序列
 - causality: 因果关系
 
-对每个提取的知识，提供：
-- content: 知识内容的完整描述（简洁明了，5-25词）
-- type: 知识类型（从上述40种中选择最合适的，必须使用上面列出的准确类型名称）
-- confidence: 置信度（0-1之间，基于信息明确程度）
-- category: 具体子分类（可选）
-- entities: 涉及的实体列表（人名、地名等）
-- keywords: 关键词列表
-
-请以JSON格式返回提取结果，格式如下：
+**输出格式**:
 ```json
 {
   "knowledge": [
     {
-      "content": "用户是一名25岁的软件工程师",
+      "content": "用户是软件工程师，25岁",
       "type": "user_info",
-      "confidence": 0.95,
-      "category": "基本信息",
-      "entities": ["软件工程师"],
-      "keywords": ["25岁", "软件工程师"]
-    },
-    {
-      "content": "用户喜欢吃辣的食物",
-      "type": "preference",
-      "confidence": 0.9,
-      "category": "饮食偏好",
-      "entities": [],
-      "keywords": ["喜欢", "辣", "食物"]
-    },
-    {
-      "content": "用户计划在明年学习机器学习",
-      "type": "plan",
-      "confidence": 0.85,
-      "category": "学习计划",
-      "entities": ["机器学习"],
-      "keywords": ["计划", "明年", "学习"]
+      "confidence": 0.95
     }
   ]
 }
 ```
 
-提取原则：
-- ✅ 优先提取明确、有价值的信息
-- ✅ 根据语义选择最合适的知识类型，不局限于表面关键词
-- ✅ 理解上下文和隐含意图
-- ✅ **跨轮次理解**：综合多轮对话理解完整意图（例如："有啊" + "丽江" + "过两个月去" = "计划过两个月去丽江旅行"）
-- ✅ **提取完整信息**：即使分散在多轮对话中，也要整合成完整的knowledge条目
-- ✅ 置信度基于信息明确程度（明确陈述0.9+，推断0.7-0.8，猜测<0.7）
-- ❌ 不要编造或推断不存在的信息
-- ❌ 不要提取过于模糊或无价值的信息
-- ❌ 如果没有值得提取的知识，返回空列表
+**置信度评分标准**:
+- 0.90-1.00: 用户明确陈述的事实信息
+- 0.75-0.89: 从对话中可以合理推断的信息
+- 0.60-0.74: 需要一定推理才能得出的信息
+- <0.60: 不要提取，太不确定
 
-**多轮对话示例**：
-对话：
-用户: 我喜欢旅行
-助手: 有什么特别想去的地方吗？
-用户: 丽江
-助手: 丽江真不错，什么时候去呢？
+**提取示例**:
+
+❌ **错误示例**（直接复制对话、类型错误）:
+对话:
+用户: 想去丽江
+助手: 什么时候去呢？
 用户: 过两个月
 
-应提取：
-1. {"content": "用户喜欢旅行", "type": "interest", "confidence": 0.9}
-2. {"content": "用户想去丽江旅行", "type": "intent", "confidence": 0.85}
-3. {"content": "用户计划过两个月去丽江", "type": "plan", "confidence": 0.85}
-"""
+错误提取:
+- {"content": "想去丽江", "type": "UNKNOWN", "confidence": 0.5}  ← 类型错误、置信度过低
+- {"content": "过两个月", "type": "event", "confidence": 0.3}  ← 分类错误、信息不完整
+
+✅ **正确示例**（总结归纳、准确分类）:
+- {"content": "用户想去丽江旅行", "type": "intent", "confidence": 0.85}
+- {"content": "用户计划两个月后去丽江", "type": "plan", "confidence": 0.85}
+
+**不要提取的内容**:
+- 助手的回复（只提取用户信息）
+- 简单的确认回复（"好的"、"嗯"、"没有"）
+- 问候语（"你好"、"再见"）
+- 无实际信息内容的对话
+
+请严格按照要求提取知识，返回有效的JSON格式。"""
         
         user_prompt = f"""请从以下对话中提取结构化知识：
 
@@ -835,26 +820,19 @@ class LLMBasedExtractor(BaseExtractor):
 
 请返回JSON格式的提取结果。"""
         
-        # 调用LLM
+        # 合并system_prompt和user_prompt为完整的prompt
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        
+        # 调用LLM（SimpleLLMClient只接受单个prompt参数）
         try:
-            if hasattr(self.llm_client, 'generate'):
+            if hasattr(self.llm_client, 'generate_async'):
                 # 异步调用
-                response = await self.llm_client.generate(
-                    user_prompt,
-                    system_prompt=system_prompt,
-                    temperature=self.config.llm_temperature,
-                    max_tokens=self.config.llm_max_tokens
-                )
-            elif hasattr(self.llm_client, 'generate_sync'):
-                # 同步调用
-                response = self.llm_client.generate_sync(
-                    user_prompt,
-                    system_prompt=system_prompt,
-                    temperature=self.config.llm_temperature,
-                    max_tokens=self.config.llm_max_tokens
-                )
+                _, response = await self.llm_client.generate_async(full_prompt)
+            elif hasattr(self.llm_client, 'generate'):
+                # 同步调用（返回 reasoning, content 元组）
+                _, response = self.llm_client.generate(full_prompt)
             else:
-                raise ValueError("LLM客户端缺少generate或generate_sync方法")
+                raise ValueError("LLM客户端缺少generate或generate_async方法")
             
             return response
             
@@ -894,22 +872,48 @@ class LLMBasedExtractor(BaseExtractor):
             if 'knowledge' in data:
                 for item in data['knowledge']:
                     try:
-                        # 映射类型字符串到KnowledgeType枚举（支持40种类型）
-                        type_str = item.get('type', 'fact').lower()
+                        # 获取内容和类型
+                        content = item.get('content', '').strip()
+                        type_str = item.get('type', '').lower()
+                        confidence = float(item.get('confidence', 0.8))
+                        
+                        # **验证1**: 跳过无效类型（UNKNOWN等）
+                        if not type_str or type_str in ['unknown', 'none', '']:
+                            logger.debug(f"[LLMBasedExtractor] 跳过无效类型的知识: type={type_str}, content={content[:50]}")
+                            continue
+                        
+                        # **验证2**: 内容不能为空或过短
+                        if not content or len(content) < 2:
+                            logger.debug(f"[LLMBasedExtractor] 跳过内容过短的知识: {content}")
+                            continue
+                        
+                        # **验证3**: 跳过无意义的简短回复
+                        meaningless_phrases = {'好的', '嗯', '哦', '没有', '是的', '不是', '可以', '不可以', '你好', '再见'}
+                        if content in meaningless_phrases:
+                            logger.debug(f"[LLMBasedExtractor] 跳过无意义短语: {content}")
+                            continue
+                        
+                        # **验证4**: 置信度必须合理（0.6-1.0）
+                        if confidence < 0.6:
+                            logger.debug(f"[LLMBasedExtractor] 跳过低置信度知识: confidence={confidence}, content={content[:50]}")
+                            continue
+                        if confidence > 1.0:
+                            logger.warning(f"[LLMBasedExtractor] 置信度>1.0，调整为1.0: {confidence}")
+                            confidence = 1.0
                         
                         # 使用静态映射表进行O(1)查找
                         knowledge_type = self._TYPE_MAPPING.get(type_str)
                         
-                        # 如果没找到匹配，使用默认值
+                        # 如果没找到匹配，跳过（不再使用默认值）
                         if knowledge_type is None:
-                            logger.warning(f"[LLMBasedExtractor] 未知知识类型 '{type_str}'，使用默认值 FACT")
-                            knowledge_type = KnowledgeType.FACT
+                            logger.warning(f"[LLMBasedExtractor] 未知知识类型 '{type_str}'，跳过该知识: {content[:50]}")
+                            continue
                         
                         # 创建Knowledge对象
                         knowledge = Knowledge(
-                            content=item.get('content', ''),
+                            content=content,
                             knowledge_type=knowledge_type,
-                            scores=ScoreInfo(confidence=float(item.get('confidence', 0.8))),
+                            scores=ScoreInfo(confidence=confidence),
                             extraction_method='llm',
                             source_message_ids=[getattr(msg, 'id', '') for msg in messages],
                             metadata={
