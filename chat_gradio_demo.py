@@ -277,7 +277,6 @@ def create_gradio_interface():
                 chatbot = gr.Chatbot(
                     label="对话窗口",
                     height=500,
-                    show_copy_button=True,
                 )
                 
                 with gr.Row():
