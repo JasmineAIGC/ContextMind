@@ -31,6 +31,7 @@ import os
 from pathlib import Path
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel
+from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
 setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
@@ -62,7 +63,7 @@ class ChatGradioDemo:
     def __init__(self):
         """初始化闲聊 Gradio 演示"""
         self.engine = None
-        self.conversation_history = []
+        self.app = None  # ChatApplication instance
         self.turn_counter = 0
         # 上下文控制参数
         self.use_session = True
@@ -93,8 +94,15 @@ class ChatGradioDemo:
             
             logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
             
-            # 重置对话历史
-            self.conversation_history = []
+            # 初始化 ChatApplication - 使用与 chat_interactive_demo 相同的模式
+            self.app = ChatApplication(
+                context_engine=self.engine,
+                system_prompt=CHAT_SYSTEM_PROMPT,
+                history_turns=10,  # Prompt中显示的历史轮数
+                use_real_llm=True,  # 使用真实LLM
+            )
+            
+            # 重置计数器
             self.turn_counter = 0
             
             logger.info("✅ 引擎初始化完成")
@@ -106,124 +114,36 @@ class ChatGradioDemo:
             return error_msg
     
     async def chat(self, user_message: str) -> ChatResult:
-        """处理聊天消息"""
-        if not self.engine:
+        """处理聊天消息 - 使用 ChatApplication.process_turn()"""
+        if not self.app:
             raise ValueError("引擎未初始化，请先点击'初始化引擎'按钮")
         
         start_time = time.time()
         self.turn_counter += 1
-        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
         
         logger.info(f"\n{'='*80}")
         logger.info(f"💬 [轮次 {self.turn_counter}] 用户输入: {user_message}")
         logger.info(f"{'='*80}")
         
         try:
-            # Debug: 保存优化前的记忆库状态
-            if is_debug:
-                memory_cache = self.engine.memory_bank.get_memory_cache()
-                logger.info("\n1️⃣  记忆库内容:")
-                if memory_cache:
-                    for i, mem in enumerate(memory_cache[:5], 1):
-                        # ContextItem.content 格式为 "[TYPE] content"，提取类型
-                        mem_type = mem.metadata.get('type', 'UNKNOWN') if hasattr(mem, 'metadata') and mem.metadata else 'UNKNOWN'
-                        logger.info(f"   [{i}] [{mem_type}] {mem.content[:60]}... (置信度: {mem.score:.2f})")
-                    if len(memory_cache) > 5:
-                        logger.info(f"   ... (还有{len(memory_cache) - 5}条)")
-                else:
-                    logger.info("   空")
-            
-            # 构建系统提示词 - 简洁的闲聊角色设定
-            system_prompt = """你是一个友好、有趣的聊天助手。
-
-特点：
-- 亲切自然，像朋友一样交流
-- 适当使用表情和轻松的语气
-- 记住用户提到的信息，让对话更连贯
-- 话题广泛，可以聊天、讲笑话、分享知识
-
-注意：
-- 回复简洁有趣，不要过于正式
-- 适当提问，保持对话互动
-- 如果用户分享了个人信息（如名字、爱好、城市等），记住并在后续对话中自然提及"""
-            
-            # 1. 优化上下文
-            context_result = await self.engine.optimize(
-                user_input=user_message,
-                include_session=self.use_session,
-                include_memory=self.use_memory,
-            )
-            
-            # Debug: 显示召回结果
-            if is_debug:
-                logger.info(f"\n2️⃣  召回结果（共{len(context_result.items)}项，压缩: {context_result.compressed}）:")
-                for i, item in enumerate(context_result.items[:5], 1):
-                    logger.info(f"   [{i}] [{item.source}] {item.content[:50]}... (分数: {item.score:.2f})")
-                if len(context_result.items) > 5:
-                    logger.info(f"   ... (还有{len(context_result.items) - 5}项)")
-                logger.info(f"\n3️⃣  上下文优化: 已完成 (压缩: {context_result.compressed})")
-            
-            # 2. 构建prompt
-            prompt = f"{system_prompt}\n\n用户: {user_message}\n助手:"
-            
-            # Debug: 显示Prompt
-            if is_debug:
-                logger.info(f"\n4️⃣  完整Prompt ({len(prompt)}字符):")
-                prompt_lines = prompt[:300].split('\n')
-                for line in prompt_lines[:4]:
-                    if line:
-                        logger.info(f"   {line[:70]}")
-                if len(prompt) > 300:
-                    logger.info(f"   ... (共{len(prompt)}字符)")
-            
-            # 3. 调用 LLM 生成回复
-            _, assistant_response = self.llm_client.generate(prompt)
-            
-            # 4. 更新对话历史
-            await self.engine.update(
-                user_input=user_message,
-                assistant_response=assistant_response
-            )
-            
-            # 5. 提取知识到长期记忆
-            extracted_knowledge = []
-            if self.use_memory:
-                knowledge_list = await self.engine.extract_knowledge(auto_store=True)
-                if is_debug and knowledge_list:
-                    extracted_knowledge = knowledge_list
-            
-            # Debug: 显示提取的知识
-            if is_debug:
-                logger.info("\n5️⃣  提取的知识:")
-                if extracted_knowledge:
-                    for i, k in enumerate(extracted_knowledge[:5], 1):
-                        logger.info(f"   [{i}] [{k.knowledge_type}] {k.content[:55]}... (置信度: {k.confidence:.2f})")
-                    if len(extracted_knowledge) > 5:
-                        logger.info(f"   ... (还有{len(extracted_knowledge) - 5}条)")
-                else:
-                    logger.info("   无")
-                logger.info("")
-            
-            # 记录对话
-            self.conversation_history.append({
-                "user": user_message,
-                "assistant": assistant_response,
-                "turn": self.turn_counter
-            })
+            # 使用 ChatApplication 的 process_turn 方法处理对话
+            # 这会自动处理: optimize → build_prompt → generate → update → extract_knowledge
+            # 与 chat_interactive_demo 使用相同的处理流程
+            response = await self.app.process_turn(user_input=user_message)
             
             processing_time = time.time() - start_time
             
-            # 获取上下文信息
-            history_count = len(context_result.context_items) if hasattr(context_result, 'context_items') else 0
-            memory_count = 0
+            # 获取记忆库状态
+            memory_cache = self.engine.memory_bank.get_memory_cache()
+            memory_count = len(memory_cache)
             
-            logger.info(f"🤖 助手回复: {assistant_response}")
+            logger.info(f"🤖 助手回复: {response}")
             logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
-            logger.info(f"📊 上下文项: {history_count}")
+            logger.info(f"📊 长期记忆: {memory_count}条")
             
             return ChatResult(
-                response=assistant_response,
-                history_count=history_count,
+                response=response,
+                history_count=0,  # ChatApplication 内部处理历史
                 memory_count=memory_count,
                 processing_time=processing_time
             )
@@ -235,8 +155,14 @@ class ChatGradioDemo:
     
     def reset_conversation(self):
         """重置对话"""
-        self.conversation_history = []
         self.turn_counter = 0
+        if self.engine:
+            # 使用异步方式清空会话历史
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(self.engine.clear_session())
+            else:
+                asyncio.run(self.engine.clear_session())
         logger.info("🔄 对话已重置")
         return "✅ 对话已重置，可以开始新的聊天了！"
 
