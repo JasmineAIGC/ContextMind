@@ -60,14 +60,14 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化引擎 (v7.1: LLM invocation is external, no client needed)
+    # 初始化引擎 (v7.1: LLM 调用在外部，不需要客户端)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="chat-demo",
         user_id="chat-user",
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成 (v7.1 - Pure Context Engineering)")
+    print("✅ 引擎初始化完成 (v7.1 - 纯上下文工程)")
     print()
     
     # 初始化应用

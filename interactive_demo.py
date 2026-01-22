@@ -76,14 +76,14 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化引擎 (v7.1: LLM 调用在外部, 不需要客户端)
+    # 初始化引擎 (v7.1: LLM 调用在外部，不需要客户端)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="demo-app",
         user_id="demo-user",
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成 (v7.1 - Pure Context Engineering)")
+    print("✅ 引擎初始化完成 (v7.1 - 纯上下文工程)")
     print()
     
     # 不再植入预设记忆，让对话更自然流畅
@@ -105,7 +105,7 @@ async def main():
         context_engine=context_engine,
         business_info=business_info.strip(),
         history_turns=args.history_turns,
-        use_real_llm=not args.no_llm,  # Enable real LLM by default
+        use_real_llm=not args.no_llm,  # 默认启用真实 LLM
     )
     print("✅ 应用初始化完成")
     print()
