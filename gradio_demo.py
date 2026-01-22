@@ -363,8 +363,8 @@ class GradioDemo:
                 print(f"\n2️⃣  召回结果（共{ctx['total_items']}项，压缩: {ctx['compressed']}）:")
                 
                 # 分类显示：记忆库 vs 历史对话
-                memory_items = [item for item in ctx['items'] if 'MEMORY' in item['source']]
-                history_items = [item for item in ctx['items'] if 'MEMORY' not in item['source']]
+                memory_items = [item for item in ctx['items'] if item['source'] == 'ContextSource.MEMORY']
+                history_items = [item for item in ctx['items'] if item['source'] != 'ContextSource.MEMORY']
                 
                 if memory_items:
                     print(f"\n   📚 从记忆库召回 ({len(memory_items)}项):")
