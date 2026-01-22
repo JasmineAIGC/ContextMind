@@ -89,7 +89,7 @@ class ChatGradioDemo:
             
             # 创建LLM客户端用于知识提取
             from demos.llm_client import SimpleLLMClient, LLMConfig
-            llm_client_for_extraction = SimpleLLMClient(LLMConfig())
+            llm_client_for_extraction = SimpleLLMClient(LLMConfig.from_env())
             
             # 创建引擎 (v7.1: 使用LLM提取知识，语义理解，支持40种知识类型)
             self.engine = ContextEngine(
