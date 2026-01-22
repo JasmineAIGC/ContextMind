@@ -30,7 +30,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
-from contextmind import ContextEngine, setup_logging, get_logger, LogLevel
+from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
 from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
 # 设置日志级别为 INFO (使用 BASIC)
@@ -122,6 +122,9 @@ class ChatGradioDemo:
         start_time = time.time()
         self.turn_counter += 1
         
+        # 检测是否为 DEBUG 模式
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
+        
         logger.info(f"\n{'='*80}")
         logger.info(f"💬 [轮次 {self.turn_counter}] 用户输入: {user_message}")
         logger.info(f"{'='*80}")
@@ -130,7 +133,10 @@ class ChatGradioDemo:
             # 使用 ChatApplication 的 process_turn 方法处理对话
             # 这会自动处理: optimize → build_prompt → generate → update → extract_knowledge
             # 与 chat_interactive_demo 使用相同的处理流程
-            response = await self.app.process_turn(user_input=user_message)
+            if is_debug:
+                response, debug_info = await self.app.process_turn(user_input=user_message, debug=True)
+            else:
+                response = await self.app.process_turn(user_input=user_message)
             
             processing_time = time.time() - start_time
             
@@ -145,6 +151,96 @@ class ChatGradioDemo:
             logger.info(f"🤖 助手回复: {response}")
             logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
             logger.info(f"📊 历史: {history_count}轮 | 记忆: {memory_count}条")
+            
+            # Debug 模式下显示详细信息
+            if is_debug:
+                print("\n" + "=" * 80)
+                print("📊 DEBUG 信息")
+                print("=" * 80)
+                
+                # 1. 记忆库内容
+                if debug_info.get('memory_before'):
+                    print(f"\n1️⃣  记忆库内容（{len(debug_info['memory_before'])}条）:")
+                    for i, mem in enumerate(debug_info['memory_before'], 1):
+                        print(f"   [{i}] [{mem['type']}] {mem['content']} (置信度: {mem['confidence']:.2f})")
+                else:
+                    print("\n1️⃣  记忆库内容: 空")
+                
+                # 2. 召回结果 - 明确区分记忆库和历史对话
+                if debug_info.get('context_result'):
+                    ctx = debug_info['context_result']
+                    print(f"\n2️⃣  召回结果（共{ctx['total_items']}项，压缩: {ctx['compressed']}）:")
+                    
+                    # 分类显示：记忆库 vs 历史对话
+                    memory_items = [item for item in ctx['items'] if item['source'] == 'ContextSource.MEMORY']
+                    history_items = [item for item in ctx['items'] if item['source'] != 'ContextSource.MEMORY']
+                    
+                    if memory_items:
+                        print(f"\n   📚 从记忆库召回 ({len(memory_items)}项):")
+                        for i, item in enumerate(memory_items, 1):
+                            print(f"      [{i}] {item['content']} (分数: {item['score']:.2f})")
+                    else:
+                        print(f"\n   📚 从记忆库召回: 无")
+                    
+                    if history_items:
+                        print(f"\n   💬 从历史对话召回 ({len(history_items)}项):")
+                        for i, item in enumerate(history_items, 1):
+                            content = item['content'][:80] + "..." if len(item['content']) > 80 else item['content']
+                            print(f"      [{i}] {content} (分数: {item['score']:.2f})")
+                    else:
+                        print(f"\n   💬 从历史对话召回: 无")
+                else:
+                    print("\n2️⃣  召回结果: 无")
+                
+                # 3. 上下文优化后的结果 (已包含在召回结果中)
+                print(f"\n3️⃣  上下文优化: 已完成 (压缩: {debug_info.get('context_result', {}).get('compressed', False)})")
+                
+                # 4. 完整的Prompt - 显示完整内容
+                if debug_info.get('prompt'):
+                    prompt_text = debug_info['prompt']
+                    print(f"\n4️⃣  完整Prompt ({len(prompt_text)}字符):")
+                    print("   " + "-" * 76)
+                    
+                    # 解析并完整显示各个部分
+                    if "## 早期对话摘要" in prompt_text:
+                        parts = prompt_text.split("## 早期对话摘要")
+                        print("   " + parts[0].replace("\n", "\n   ").strip())
+                        print("\n   ## 早期对话摘要")
+                        
+                        summary_part = parts[1].split("## 对话历史")[0] if "## 对话历史" in parts[1] else parts[1]
+                        summary_part = summary_part.split("## 最近对话")[0] if "## 最近对话" in summary_part else summary_part
+                        print("   " + summary_part.replace("\n", "\n   ").strip())
+                    
+                    # 查找最近对话部分 - 完整显示不省略
+                    if "## 最近对话" in prompt_text or "## 对话历史" in prompt_text:
+                        history_marker = "## 最近对话" if "## 最近对话" in prompt_text else "## 对话历史"
+                        parts = prompt_text.split(history_marker)
+                        if len(parts) > 1:
+                            print(f"\n   {history_marker}")
+                            history_part = parts[1].split("## 当前问题")[0] if "## 当前问题" in parts[1] else parts[1]
+                            history_part = history_part.split("## 已知信息")[0] if "## 已知信息" in history_part else history_part
+                            print("   " + history_part.replace("\n", "\n   ").strip())
+                    
+                    # 显示当前问题
+                    if "## 当前问题" in prompt_text:
+                        parts = prompt_text.split("## 当前问题")
+                        if len(parts) > 1:
+                            print("\n   ## 当前问题")
+                            print("   " + parts[1].replace("\n", "\n   ").strip())
+                    
+                    print("   " + "-" * 76)
+                
+                # 5. 提取的知识
+                if debug_info.get('extracted_knowledge'):
+                    print(f"\n5️⃣  提取的知识（{len(debug_info['extracted_knowledge'])}条）:")
+                    for i, k in enumerate(debug_info['extracted_knowledge'], 1):
+                        print(f"   [{i}] [{k['type']}] {k['content']} (置信度: {k['confidence']:.2f})")
+                else:
+                    print("\n5️⃣  提取的知识: 无")
+                
+                print("\n" + "=" * 80)
+                print(f"\n[统计] 耗时: {processing_time:.2f}s | 记忆: {memory_count}条")
+                print("\n" + "-" * 60 + "\n")
             
             return ChatResult(
                 response=response,

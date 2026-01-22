@@ -343,6 +343,72 @@ class GradioDemo:
             logger.info("│ ")
             logger.info(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
             logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+            
+            # 同时输出到控制台（与 chat_interactive_demo 一致）
+            print("\n" + "=" * 80)
+            print("📊 DEBUG 信息")
+            print("=" * 80)
+            
+            # 1. 记忆库内容
+            if debug_info.get('memory_before'):
+                print(f"\n1️⃣  记忆库内容（{len(debug_info['memory_before'])}条）:")
+                for i, mem in enumerate(debug_info['memory_before'], 1):
+                    print(f"   [{i}] [{mem['type']}] {mem['content']} (置信度: {mem['confidence']:.2f})")
+            else:
+                print("\n1️⃣  记忆库内容: 空")
+            
+            # 2. 召回结果
+            if debug_info.get('context_result'):
+                ctx = debug_info['context_result']
+                print(f"\n2️⃣  召回结果（共{ctx['total_items']}项，压缩: {ctx['compressed']}）:")
+                
+                # 分类显示：记忆库 vs 历史对话
+                memory_items = [item for item in ctx['items'] if 'MEMORY' in item['source']]
+                history_items = [item for item in ctx['items'] if 'MEMORY' not in item['source']]
+                
+                if memory_items:
+                    print(f"\n   📚 从记忆库召回 ({len(memory_items)}项):")
+                    for i, item in enumerate(memory_items, 1):
+                        print(f"      [{i}] {item['content']} (分数: {item['score']:.2f})")
+                else:
+                    print(f"\n   📚 从记忆库召回: 无")
+                
+                if history_items:
+                    print(f"\n   💬 从历史对话召回 ({len(history_items)}项):")
+                    for i, item in enumerate(history_items, 1):
+                        content = item['content'][:80] + "..." if len(item['content']) > 80 else item['content']
+                        print(f"      [{i}] {content} (分数: {item['score']:.2f})")
+                else:
+                    print(f"\n   💬 从历史对话召回: 无")
+            else:
+                print("\n2️⃣  召回结果: 无")
+            
+            # 3. 上下文优化
+            print(f"\n3️⃣  上下文优化: 已完成 (压缩: {compressed})")
+            
+            # 4. 完整Prompt
+            if debug_info.get('prompt'):
+                prompt_text = debug_info['prompt']
+                print(f"\n4️⃣  完整Prompt ({len(prompt_text)}字符):")
+                print("   " + "-" * 76)
+                # 显示前500字符
+                print("   " + prompt_text[:500].replace("\n", "\n   "))
+                if len(prompt_text) > 500:
+                    print(f"   ... (还有{len(prompt_text) - 500}字符)")
+                print("   " + "-" * 76)
+            
+            # 5. 提取的知识
+            if debug_info.get('extracted_knowledge'):
+                knowledge = debug_info['extracted_knowledge']
+                print(f"\n5️⃣  提取的知识（{len(knowledge)}条）:")
+                for i, k in enumerate(knowledge, 1):
+                    print(f"   [{i}] [{k['type']}] {k['content']} (置信度: {k['confidence']:.2f})")
+            else:
+                print("\n5️⃣  提取的知识: 无")
+            
+            print("\n" + "=" * 80)
+            print(f"\n[统计] 耗时: {result.processing_time:.1f}s")
+            print("\n" + "-" * 60 + "\n")
         elif is_debug:
             # 原有的简单debug模式
             logger.debug("│ ")
