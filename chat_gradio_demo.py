@@ -251,7 +251,7 @@ def create_gradio_interface():
     async def chat_async(message, history):
         try:
             result = await demo_instance.chat(message)
-            # Gradio 6.x chatbot 格式：[{"role": "user/assistant", "content": "..."}, ...]
+            # Gradio 6.x chatbot format: each message is a dict with 'role' and 'content'
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": result.response})
             
