@@ -1,12 +1,12 @@
 """
 ContextReorderer - 上下文重排序模块
 
-职责：
+职责:
 - 重排序上下文
 - 重要性评分
-- 避免Lost-in-the-Middle问题
+- 避免 Lost-in-the-Middle 问题
 
-可插拔策略：
+可插拔策略:
 - PPR (Personalized PageRank)
 - 重要性评分
 - LongGenBench mitigation
@@ -14,9 +14,8 @@ ContextReorderer - 上下文重排序模块
 """
 
 from typing import List, Optional
-from ..core import ProcessedContext
-from ..utils import get_logger
-from ..strategies.optimization import RerankingStrategy
+from ..models import ProcessedContext, get_logger
+from ..strategies.defaults import RerankingStrategy
 
 logger = get_logger(__name__)
 
@@ -25,10 +24,10 @@ class ContextReorderer:
     """
     上下文重排序器
     
-    对上下文进行重排序以突出关键信息：
+    对上下文进行重排序以突出关键信息:
     - 按时间戳排序
     - 按来源优先级排序
-    - 按相关性评分排序（预留）
+    - 按相关性评分排序 (预留)
     """
     
     def __init__(
@@ -39,7 +38,7 @@ class ContextReorderer:
         初始化重排序器
         
         Args:
-            strategy: 重排序策略（可插拔）
+            strategy: 重排序策略 (可插拔)
         """
         self.strategy = strategy or RerankingStrategy()
     
@@ -59,6 +58,6 @@ class ContextReorderer:
         # 委托给重排序策略
         reordered = await self.strategy.optimize(context)
         
-        logger.debug(f"Reordered {len(reordered.items)} context items")
+        logger.debug(f"重排序 {len(reordered.items)} 个上下文项")
         
         return reordered

@@ -7,7 +7,7 @@ ContextMind 类型安全测试
 import pytest
 from datetime import datetime
 
-from contextmind.data_models import (
+from contextmind.models import (
     Message, MessageRole, ContextItem, ContextSource,
     ContextResult, ProcessedContext
 )

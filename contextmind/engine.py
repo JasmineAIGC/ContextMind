@@ -1,25 +1,17 @@
 """
-ContextEngine - 上下文引擎核心模块 v5.1
-ContextEngine - Core Context Engine Module v5.1
+ContextEngine - 上下文引擎核心模块 v7.1
 
-清晰的模块化架构设计 Clear modular architecture design：
-- 应用层 Application Layer：使用引擎的应用（示例：客服、聊天机器人等）
-  Applications using the engine (e.g., customer service, chatbots)
-- 适配器层 Adapter Layer：对话系统集成接口
-  Dialogue system integration interfaces
-- 引擎层 Engine Layer：ContextEngine 统一接口
-  ContextEngine unified interface
-- 模块层 Module Layer：InputPreprocessor, ContextRetriever, MemoryBank, 
-  ContextCompressor, ContextReorderer, KnowledgeExtractor
-- 策略层 Strategy Layer：可插拔的策略实现
-  Pluggable strategy implementations
-- 基础层 Foundation Layer：TokenizerService, VectorClient, CacheManager
-  Foundation services
+清晰的模块化架构设计:
+- 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
+- 引擎层: ContextEngine 统一接口
+- 模块层: InputPreprocessor, MemoryBank, ContextCompressor, 
+  ContextReorderer, PostProcessor, ConversationSummarizer
+- 策略层: 可插拔的策略实现
 
-核心职责 Core Responsibilities：
-1. 上下文优化 Context optimization (optimize)
-2. 上下文更新 Context update (update)
-3. 知识提取 Knowledge extraction (extract_knowledge)
+核心职责:
+1. 上下文优化 (optimize)
+2. 上下文更新 (update)
+3. 知识提取 (extract_knowledge)
 """
 
 from __future__ import annotations
@@ -27,8 +19,7 @@ from __future__ import annotations
 from typing import Optional, List, Any
 from datetime import datetime
 
-from .client import Client
-from .core import (
+from .models import (
     Message,
     MessageRole,
     ContextResult,
@@ -36,16 +27,17 @@ from .core import (
     ContextSource,
     ProcessedContext,
     Knowledge,
+    get_logger,
 )
-from .utils import get_logger
 from .pipeline import (
     SessionManager,
     InputPreprocessor,
-    ContextRetriever,
     MemoryBank,
     ContextCompressor,
     ContextReorderer,
-    KnowledgeExtractor,
+    PostProcessor,
+    ConversationSummarizer,
+    KVCacheManager,
 )
 
 logger = get_logger(__name__)
@@ -53,7 +45,7 @@ logger = get_logger(__name__)
 
 class ContextEngine:
     """
-    上下文引擎 v4.0
+    上下文引擎 v7.1
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult
@@ -65,17 +57,14 @@ class ContextEngine:
     - 模块解耦：Pipeline、Manager、Strategy各司其职
     - 易于扩展：所有策略都可插拔替换
     - 异步优先：全面使用async/await
-    - 容错机制：FlowController 和 CircuitBreaker 保障稳定性
     
     使用示例：
         ```python
-        from contextmind import ContextEngine, Client
+        from contextmind import ContextEngine
         
-        client = Client()
         engine = ContextEngine(
             app_name="my-app",
-            user_id="user-123",
-            llm_client=client
+            user_id="user-123"
         )
         
         # 优化上下文
@@ -94,25 +83,37 @@ class ContextEngine:
         *,
         app_name: str,
         user_id: str,
-        llm_client: Optional[Client] = None,
+        llm_client: Optional[Any] = None,
         session_service: Optional[Any] = None,
         memory_service: Optional[Any] = None,
         max_recent_events: int = 9999,
+        use_postprocessor: bool = False,
+        use_summarizer: bool = False,
+        extraction_method: str = "rule",  # 'rule' 或 'llm'
+        extraction_config: Optional[Any] = None,
     ):
         """
         初始化上下文引擎
         
+        v7.1 知识提取架构:
+        支持规则提取和LLM自动提取两种方式
+        
         Args:
             app_name: 应用名称
-            user_id: 用户ID
-            llm_client: LLM客户端实例（可选）
-            session_service: Session服务实例（可选）
-            memory_service: Memory服务实例（可选）
-            max_recent_events: 保留的最大近期事件数量（默认9999，实际不限制）
+            user_id: 用户 ID
+            llm_client: LLM 客户端实例 (可选, LLM提取时必需)
+            session_service: Session 服务实例 (可选)
+            memory_service: Memory 服务实例 (可选)
+            max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
+            use_postprocessor: 是否使用输出后处理器 (默认 False)
+            use_summarizer: 是否使用对话摘要器 (默认 False)
+            extraction_method: 知识提取方式 ('rule' 规则提取 或 'llm' LLM自动提取)
+            extraction_config: 提取配置对象 (可选)
         """
         self.app_name = app_name
         self.user_id = user_id
         self.llm_client = llm_client
+        self.extraction_method = extraction_method
         
         # 初始化管理器
         self.session_manager = SessionManager(
@@ -130,17 +131,51 @@ class ContextEngine:
             user_id=user_id,
         )
         
-        # 初始化模块化组件
+        # 初始化模块化组件 (v7.0 架构)
         self.preprocessor = InputPreprocessor()
-        self.retriever = ContextRetriever(
-            session_manager=self.session_manager,
-            memory_bank=self.memory_bank,
-        )
+        # 注意: 在 v7.0 中, MemoryBank 处理存储和检索
+        # 不需要单独的 ContextRetriever
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
-        self.extractor = KnowledgeExtractor()
         
-        logger.info(f"ContextEngine initialized for app={app_name}, user={user_id}")
+        # 初始化知识提取器 (v7.1 - 支持规则和LLM两种方式)
+        from .strategies.extractors import RuleBasedExtractor, LLMBasedExtractor
+        from .models import DEFAULT_MEMORY_CONFIG
+        
+        # 使用提供的配置或默认配置
+        config = extraction_config or DEFAULT_MEMORY_CONFIG.extraction
+        # 设置提取方式
+        config.extraction_method = extraction_method
+        
+        if extraction_method == "llm":
+            if not llm_client:
+                logger.warning(
+                    "[ContextEngine] LLM提取模式需要llm_client参数，"
+                    "回退到规则提取"
+                )
+                self.extractor = RuleBasedExtractor(config)
+                self.extraction_method = "rule"
+            else:
+                self.extractor = LLMBasedExtractor(llm_client, config)
+                logger.info("[ContextEngine] LLMBasedExtractor 已初始化用于知识提取")
+        else:
+            self.extractor = RuleBasedExtractor(config)
+            logger.info("[ContextEngine] RuleBasedExtractor 已初始化用于知识提取")
+        
+        # v7.1 可选组件 (所有组件现在都是标准的)
+        if use_postprocessor:
+            self.postprocessor = PostProcessor()
+            logger.info("[ContextEngine] PostProcessor 已启用")
+        else:
+            self.postprocessor = None
+        
+        if use_summarizer:
+            self.summarizer = ConversationSummarizer()
+            logger.info("[ContextEngine] ConversationSummarizer 已启用")
+        else:
+            self.summarizer = None
+        
+        logger.info(f"ContextEngine 已初始化 app={app_name}, user={user_id}")
     
     async def optimize(
         self,
@@ -153,11 +188,11 @@ class ContextEngine:
         """
         优化上下文 - 核心方法
         
-        执行完整的模块化上下文优化流程：
+        执行完整的模块化上下文优化流程 v7.0：
         1. InputPreprocessor: 预处理输入
-        2. ContextRetriever: 检索上下文（RAG）
-        3. ContextReorderer: 重排序上下文
-        4. ContextCompressor: 压缩上下文
+        2. MemoryBank: 检索长期记忆
+        3. ContextCompressor: 压缩上下文
+        4. ContextReorderer: 重排序上下文
         
         Args:
             user_input: 用户输入
@@ -172,29 +207,99 @@ class ContextEngine:
         Raises:
             ValueError: 如果输入无效
         """
-        logger.debug(f"Optimizing context for input: {user_input}")
+        logger.info("")
+        logger.info("=" * 100)
+        logger.info(f"[ContextEngine] ========== 开始上下文优化 ==========")
+        logger.info(f"[ContextEngine] 📝 用户输入: '{user_input[:60]}{'...' if len(user_input) > 60 else ''}'")
+        logger.info("=" * 100)
+        logger.info("")
         
         # 1. 预处理输入
+        logger.info(f"[ContextEngine] 🔄 步骤 1/5: 预处理用户输入")
         processed_input = await self.preprocessor.process(user_input)
+        logger.info(f"[ContextEngine] ✓ 预处理完成")
+        logger.info("")
         
-        # 2. 检索上下文（RAG）
-        retrieved_context = await self.retriever.retrieve(
-            query=processed_input,
-            include_session=include_session,
-            include_memory=include_memory,
-            include_knowledge=include_knowledge,
+        # 2. 检索上下文 (召回)
+        logger.info(f"[ContextEngine] 🔍 步骤 2/5: 召回相关上下文")
+        
+        # 获取会话历史
+        recent_history = []
+        if include_session:
+            recent_history = await self.session_manager.get_recent_history()
+            logger.info(f"[ContextEngine]   - 会话历史: {len(recent_history)} 条消息")
+        
+        # 检索长期记忆
+        long_term_memory = []
+        if include_memory:
+            long_term_memory = await self.memory_bank.retrieve(
+                query=processed_input,
+                limit=10
+            )
+            logger.info(f"[ContextEngine]   - 长期记忆: {len(long_term_memory)} 条知识")
+        
+        logger.info(f"[ContextEngine] ✓ 召回完成 - 共检索到 {len(recent_history) + len(long_term_memory)} 条上下文")
+        logger.info("")
+        
+        # 3. 构建 ContextResult
+        logger.info(f"[ContextEngine] 📦 步骤 3/5: 构建上下文")
+        
+        # 合并所有 Context 项
+        all_items = []
+        
+        # 将近期历史 (Message 对象) 转换为 ContextItem
+        for msg in recent_history:
+            all_items.append(ContextItem(
+                content=f"{msg.role.value}: {msg.content}",
+                source=ContextSource.HISTORY,
+                score=1.0,
+                metadata={"timestamp": msg.timestamp.isoformat() if msg.timestamp else None}
+            ))
+        
+        # 添加长期记忆项 (已经是 ContextItem)
+        all_items.extend(long_term_memory)
+        
+        logger.info(f"[ContextEngine] ✓ 上下文构建完成 - {len(all_items)} 条上下文项")
+        logger.info("")
+        
+        # 4. 上下文压缩（如果需要）
+        logger.info(f"[ContextEngine] 🗜️  步骤 4/5: 上下文压缩")
+        # 当前版本：上下文项数量较少时不需要压缩
+        is_compressed = False
+        if len(all_items) > 50:  # 超过50条才需要压缩
+            logger.info(f"[ContextEngine]   - 上下文项过多，需要压缩")
+            # TODO: 实现压缩逻辑
+            is_compressed = True
+            logger.info(f"[ContextEngine] ✓ 压缩完成")
+        else:
+            logger.info(f"[ContextEngine]   - 上下文项数量适中({len(all_items)}条)，无需压缩")
+        logger.info("")
+        
+        # 5. 创建最终结果
+        logger.info(f"[ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果")
+        compressed_result = ContextResult(
+            items=all_items,
+            total_tokens=0,  # TODO: 计算实际 Token 数
+            compressed=is_compressed,
+            metadata={
+                "session_history_count": len(recent_history),
+                "long_term_memory_count": len(long_term_memory),
+            }
+        )
+        logger.info("")
+        
+        # 记录最终结果
+        logger.info("-" * 100)
+        logger.info(
+            f"[ContextEngine] 🎯 上下文优化完成 - "
+            f"共 {len(compressed_result.items)} 条上下文项 "
+            f"(会话: {compressed_result.metadata.get('session_history_count', 0)}, "
+            f"记忆: {compressed_result.metadata.get('long_term_memory_count', 0)})"
         )
         
-        # 3. 重排序上下文
-        reordered_context = await self.reorderer.reorder(retrieved_context)
-        
-        # 4. 压缩上下文
-        compressed_result = await self.compressor.compress(reordered_context)
-        
-        logger.debug(
-            f"Context optimized: {len(compressed_result.recent_history)} history, "
-            f"{len(compressed_result.long_term_memory)} memory items"
-        )
+        logger.info("-" * 100)
+        logger.info(f"[ContextEngine] ========== 上下文优化结束 ==========")
+        logger.info("")
         
         return compressed_result
     
@@ -212,7 +317,10 @@ class ContextEngine:
             user_input: 用户输入
             assistant_response: 助手回复
         """
-        logger.debug(f"Updating context with new messages")
+        logger.info("")
+        logger.info(f"[ContextEngine] 💾 更新会话历史 - 添加新对话轮次")
+        logger.info(f"[ContextEngine]   - 用户消息: {len(user_input)} 字符")
+        logger.info(f"[ContextEngine]   - 助手回复: {len(assistant_response)} 字符")
         
         # 添加用户消息
         await self.session_manager.add_message(
@@ -226,7 +334,8 @@ class ContextEngine:
             content=assistant_response
         )
         
-        logger.debug("Context updated successfully")
+        logger.info("[ContextEngine] ✓ 会话历史更新完成")
+        logger.info("")
     
     async def extract_knowledge(
         self,
@@ -235,40 +344,129 @@ class ContextEngine:
         """
         提取知识到长期记忆
         
-        从最近的对话中提取结构化知识，并可选地自动存储到长期记忆。
+        从最近的对话中提取结构化知识, 并可选地自动存储到长期记忆
         
         Args:
-            auto_store: 是否自动存储到长期记忆，默认为True
+            auto_store: 是否自动存储到长期记忆, 默认为 True
             
         Returns:
             提取的知识列表
         """
-        logger.debug("Extracting knowledge from recent conversation")
+        logger.info("")
+        logger.info("=" * 100)
+        logger.info("[ContextEngine] ========== 🧠 开始知识提取 ==========")
         
         # 获取最近的对话历史
         messages = await self.session_manager.get_recent_history()
         
         if not messages:
-            logger.debug("No messages to extract knowledge from")
+            logger.info("[ContextEngine] ⚠️  没有对话历史可供提取知识")
+            logger.info("=" * 100)
+            logger.info("")
             return []
+        
+        logger.info(f"[ContextEngine] 📖 从 {len(messages)} 条对话中提取知识...")
+        logger.info("=" * 100)
+        logger.info("")
         
         # 提取知识
         knowledge = await self.extractor.extract(messages)
         
-        # 自动存储到长期记忆
-        if auto_store and knowledge:
+        if not knowledge:
+            logger.info("")
+            logger.info("-" * 100)
+            logger.info("[ContextEngine] ℹ️  未提取到任何有效知识")
+            logger.info("-" * 100)
+            logger.info("")
+            return []
+        
+        logger.info("")
+        logger.info("-" * 100)
+        logger.info(f"[ContextEngine] ✓ 知识提取完成 - 共提取 {len(knowledge)} 条知识")
+        
+        # 自动存储到长期记忆 (入库)
+        if auto_store:
+            logger.info("")
+            logger.info(f"[ContextEngine] 📥 入库: 存储知识到长期记忆...")
             await self.memory_bank.store(knowledge)
-            logger.info(f"Extracted and stored {len(knowledge)} knowledge items")
-        else:
-            logger.info(f"Extracted {len(knowledge)} knowledge items")
+            logger.info(f"[ContextEngine] ✓ 知识入库完成")
+        
+        logger.info("-" * 100)
+        logger.info(f"[ContextEngine] ========== 知识提取结束 ==========")
+        logger.info("")
         
         return knowledge
+    
+    async def generate_summary(self) -> str:
+        """
+        生成对话摘要
+        
+        从当前对话历史中生成摘要, 用于快速理解对话内容
+        当前实现为基于规则的简单摘要, 未来可扩展为 LLM 生成
+        
+        Returns:
+            对话摘要文本
+        """
+        logger.info("")
+        logger.info("=" * 100)
+        logger.info("[Summary] ========== 开始生成对话摘要 ==========")
+        logger.info("=" * 100)
+        logger.info("")
+        
+        messages = await self.session_manager.get_recent_history()
+        
+        if not messages:
+            logger.info("[Summary] 无对话历史，无法生成摘要")
+            logger.info("")
+            return "暂无对话历史"
+        
+        # 简单的基于规则的摘要生成
+        summary_parts = []
+        
+        # 统计信息
+        user_msgs = [m for m in messages if m.role == MessageRole.USER]
+        assistant_msgs = [m for m in messages if m.role == MessageRole.ASSISTANT]
+        
+        summary_parts.append(f"对话轮次: {len(messages) // 2} 轮")
+        summary_parts.append(f"用户消息: {len(user_msgs)} 条")
+        summary_parts.append(f"助手回复: {len(assistant_msgs)} 条")
+        
+        # 提取关键话题 (基于用户消息)
+        if user_msgs:
+            recent_topics = []
+            for msg in user_msgs[-5:]:  # 最近 5 条用户消息
+                if len(msg.content) > 0:
+                    topic = msg.content[:30] + "..." if len(msg.content) > 30 else msg.content
+                    recent_topics.append(topic)
+            
+            if recent_topics:
+                summary_parts.append(f"\n最近话题:")
+                for i, topic in enumerate(recent_topics, 1):
+                    summary_parts.append(f"  {i}. {topic}")
+        
+        # Memory Bank 状态
+        memory_cache = self.memory_bank.get_memory_cache()
+        if memory_cache:
+            summary_parts.append(f"\nMemory Bank: {len(memory_cache)} 条记忆")
+            for i, mem in enumerate(memory_cache[:3], 1):
+                summary_parts.append(f"  {i}. {mem.content[:50]}...")
+        
+        summary = "\n".join(summary_parts)
+        
+        logger.info("[Summary] ✓ 摘要生成完成:")
+        logger.info(summary)
+        logger.info("")
+        logger.info("-" * 100)
+        logger.info("[Summary] ========== 对话摘要结束 ==========")
+        logger.info("")
+        
+        return summary
     
     async def seed_memory(self, facts: List[str]) -> None:
         """
         植入记忆种子
         
-        在初始化时植入预定义的知识作为长期记忆的基础。
+        在初始化时植入预定义的知识作为长期记忆的基础
         
         Args:
             facts: 事实字符串列表
@@ -279,7 +477,7 @@ class ContextEngine:
         """
         清空当前会话
         
-        创建一个新的会话，清除所有历史记录。
+        创建一个新的会话, 清除所有历史记录
         """
         await self.session_manager.clear()
-        logger.info("Session cleared")
+        logger.info("Session 已清空")

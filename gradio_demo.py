@@ -1,5 +1,5 @@
 """
-ContextMind v5.1 Gradio Demo
+ContextMind v7.1 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 生产级记忆系统
 提供可视化界面，展示智能上下文优化能力。
@@ -27,9 +27,11 @@ import threading
 import os
 from pathlib import Path
 
-from contextmind import Client, ClientConfig, ContextEngine, setup_logging, get_logger, INFO, DEBUG
+from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
+from contextmind.models import ContextSource
+from demos.llm_client import SimpleLLMClient
 
-setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
+setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -67,6 +69,7 @@ class GradioDemo:
     def __init__(self):
         """初始化 Gradio 演示"""
         self.engine = None
+        self.llm_client = None  # 演示用的 LLM 客户端
         self.opening_scripts = [
             "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
             "您好，我是马上消费的客服，有个好消息要通知您。",
@@ -102,17 +105,23 @@ class GradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建客户端
-            client = Client()
+            # 创建引擎 (v7.1: LLM invocation is external, no client needed)
+            self.engine = self._create_engine()
             
-            # 创建引擎
-            self.engine = self._create_engine(client)
+            # 初始化 LLM 客户端
+            try:
+                self.llm_client = SimpleLLMClient()
+                logger.info("✅ [Gradio] LLM 客户端初始化成功")
+            except Exception as e:
+                logger.warning(f"⚠️ [Gradio] LLM 客户端初始化失败: {e}")
+                logger.warning("[Gradio] 将使用模拟回复")
+                self.llm_client = None
             
             # 如果使用长期记忆，植入种子数据
             if use_memory:
                 await self._seed_long_term_memory()
 
-            logger.info("✅ [Gradio] 引擎初始化成功")
+            logger.info("✅ [Gradio] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
             
             # 首次启动时添加开场白
             await self.start_new_conversation(is_initial_start=True)
@@ -126,7 +135,7 @@ class GradioDemo:
             logger.error(traceback.format_exc())
             return error_msg
 
-    def _create_engine(self, client: Client) -> ContextEngine:
+    def _create_engine(self) -> ContextEngine:
         """创建引擎实例"""
         
         base_prompt = self._get_base_prompt()
@@ -139,7 +148,6 @@ class GradioDemo:
         engine = ContextEngine(
             app_name="callcenter-gradio",
             user_id="gradio-user",
-            llm_client=client,
             max_recent_events=effective_max_events,
         )
             
@@ -155,8 +163,21 @@ class GradioDemo:
     
     def _get_base_prompt(self) -> str:
         """获取系统提示词"""
-        from examples.prompts import get_system_prompt
-        return get_system_prompt(include_business_info=True)
+        # System prompt 已直接定义（v7.1 中移除了 examples.prompts）
+        return """你是一个专业的客服助手，代表马上消费/优逸花与客户沟通。
+
+## 角色定位：
+- 热情、耐心、专业的客服人员
+- 及时准确地回答客户问题
+- 记住客户信息，提供个性化服务
+
+## 服务原则：
+1. **及时响应**：快速理解客户需求
+2. **准确回答**：基于已知信息给出正确答复
+3. **记住客户**：利用历史信息提供连贯服务
+4. **专业礼貌**：保持礼貌，使用专业术语
+
+请为客户提供专业的服务！"""
     
     def _get_user_profile(self) -> dict:
         """用户画像"""
@@ -237,11 +258,8 @@ class GradioDemo:
             {"role": "assistant", "content": opening_script}
         ]
     
-    def _log_engine_box(self, result, is_debug: bool = False):
+    def _log_engine_box(self, result, is_debug: bool = False, debug_info: dict = None):
         """输出引擎处理日志"""
-        from contextmind.utils.logger import get_logger
-        logger = get_logger(__name__)
-        
         symbol = '🤖'
         
         # 顶部边框
@@ -265,8 +283,67 @@ class GradioDemo:
         
         logger.info("│ " + " | ".join(context_parts))
         
-        # DEBUG 模式额外信息
-        if is_debug:
+        # DEBUG 模式额外信息 - 增强版
+        if is_debug and debug_info:
+            logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+            logger.info("│ 📊 DEBUG 详细信息")
+            logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+            
+            # 1. 记忆库内容
+            if debug_info.get('memory_before'):
+                logger.info("│ ")
+                logger.info(f"│ 1️⃣  记忆库内容（{len(debug_info['memory_before'])}条）:")
+                for i, mem in enumerate(debug_info['memory_before'][:3], 1):
+                    logger.info(f"│   [{i}] [{mem['type']}] {mem['content'][:60]}... (置信度: {mem['confidence']:.2f})")
+                if len(debug_info['memory_before']) > 3:
+                    logger.info(f"│   ... (还有{len(debug_info['memory_before']) - 3}条)")
+            else:
+                logger.info("│ ")
+                logger.info("│ 1️⃣  记忆库内容: 空")
+            
+            # 2. 召回结果
+            if debug_info.get('context_result'):
+                ctx = debug_info['context_result']
+                logger.info("│ ")
+                logger.info(f"│ 2️⃣  召回结果（共{ctx['total_items']}项，压缩: {ctx['compressed']}）:")
+                for i, item in enumerate(ctx['items'][:3], 1):
+                    logger.info(f"│   [{i}] [{item['source']}] {item['content'][:50]}... (分数: {item['score']:.2f})")
+                if len(ctx['items']) > 3:
+                    logger.info(f"│   ... (还有{len(ctx['items']) - 3}项)")
+            
+            # 3. 上下文优化
+            logger.info("│ ")
+            compressed = debug_info.get('context_result', {}).get('compressed', False)
+            logger.info(f"│ 3️⃣  上下文优化: 已完成 (压缩: {compressed})")
+            
+            # 4. Prompt预览
+            if debug_info.get('prompt'):
+                prompt = debug_info['prompt']
+                logger.info("│ ")
+                logger.info(f"│ 4️⃣  完整Prompt ({len(prompt)}字符):")
+                prompt_lines = prompt[:300].split('\n')
+                for line in prompt_lines[:4]:
+                    if line:
+                        logger.info(f"│   {line[:70]}")
+                logger.info(f"│   ... (共{len(prompt)}字符)")
+            
+            # 5. 提取的知识
+            logger.info("│ ")
+            if debug_info.get('extracted_knowledge'):
+                knowledge = debug_info['extracted_knowledge']
+                logger.info(f"│ 5️⃣  提取的知识（{len(knowledge)}条）:")
+                for i, k in enumerate(knowledge[:3], 1):
+                    logger.info(f"│   [{i}] [{k['type']}] {k['content'][:55]}... (置信度: {k['confidence']:.2f})")
+                if len(knowledge) > 3:
+                    logger.info(f"│   ... (还有{len(knowledge) - 3}条)")
+            else:
+                logger.info("│ 5️⃣  提取的知识: 无")
+            
+            logger.info("│ ")
+            logger.info(f"│ ⏱️  耗时: {result.processing_time:.1f}s")
+            logger.info("│ " + "─" * (self.BOX_BORDER_WIDTH - 3))
+        elif is_debug:
+            # 原有的简单debug模式
             logger.debug("│ ")
             logger.debug(f"│ 📝 Prompt摘要 ({len(result.prompt)}字符):")
             # 提取 prompt 的前几行作为摘要
@@ -305,7 +382,7 @@ class GradioDemo:
         logger.info(f"║  👤 用户输入: {user_input_display}{' ' * padding} ║")
         # 动态计算时间行的填充空格，防止负数
         time_str = f"║  📅 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 🔄 第{self.turn_counter}轮对话"
-        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 for closing ║
+        time_padding = max(0, self.BOX_BORDER_WIDTH - len(time_str) - 1)  # -1 用于闭合符号 ║
         logger.info(time_str + ' ' * time_padding + "║")
         logger.info("╚" + "═" * self.BOX_BORDER_WIDTH + "╝")
         logger.info("")  # 空行
@@ -334,13 +411,26 @@ class GradioDemo:
     
     async def _get_single_response(self, engine, user_input):
         """获取引擎回复"""
-        from contextmind.utils.logger import get_logger, ContextMindLogger
         import time
         local_logger = get_logger(__name__)
         
         start_time = time.time()
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
+        debug_info = {} if is_debug else None
         
         try:
+            # Debug: 保存优化前的记忆库状态
+            if is_debug:
+                memory_cache = engine.memory_bank.get_memory_cache()
+                debug_info['memory_before'] = [
+                    {
+                        "content": m.content,
+                        "type": m.metadata.get('type', 'UNKNOWN') if hasattr(m, 'metadata') else 'UNKNOWN',
+                        "confidence": m.score  # ContextItem 使用 score 而不是 confidence
+                    }
+                    for m in memory_cache
+                ]
+            
             # 优化上下文
             context_result = await engine.optimize(
                 user_input=user_input,
@@ -348,14 +438,39 @@ class GradioDemo:
                 include_memory=self.use_memory,
             )
             
+            # Debug: 保存召回结果
+            if is_debug:
+                debug_info['context_result'] = {
+                    'items': [
+                        {
+                            'content': item.content,
+                            'source': str(item.source),
+                            'score': item.score,
+                            'metadata': item.metadata
+                        }
+                        for item in context_result.items
+                    ],
+                    'total_items': len(context_result.items),
+                    'compressed': context_result.compressed
+                }
+            
             # 构建 prompt
             prompt = self._build_prompt(user_input, context_result)
             
-            # 调用 LLM
-            if engine.llm_client:
-                _, response = engine.llm_client.generate(prompt)
+            if is_debug:
+                debug_info['prompt'] = prompt
+            
+            # 调用 LLM (v7.1: LLM invocation is external)
+            if self.llm_client:
+                try:
+                    _, response = self.llm_client.generate(prompt)
+                    local_logger.info(f"[LLM] 生成回复 ({len(response)} 字符)")
+                except Exception as e:
+                    local_logger.error(f"❌ LLM调用失败: {e}")
+                    response = "抱歉，系统暂时无法回复。请稍后再试。"
             else:
-                response = "[LLM未配置]"
+                response = f"[模拟回复] 收到您的问题：{user_input}。需要配置LLM才能获得真实回复。"
+                local_logger.warning("[Simulated] 使用模拟回复（未配置LLM）")
             
             # 更新会话
             await engine.update(
@@ -363,21 +478,44 @@ class GradioDemo:
                 assistant_response=response
             )
             
+            # 提取并存储知识到长期记忆（如果启用了记忆功能）
+            extracted_knowledge = []
+            if self.use_memory:
+                try:
+                    knowledge_list = await engine.extract_knowledge(auto_store=True)
+                    if is_debug and knowledge_list:
+                        extracted_knowledge = [
+                            {
+                                'content': k.content,
+                                'type': str(k.knowledge_type),
+                                'confidence': k.confidence
+                            }
+                            for k in knowledge_list
+                        ]
+                except Exception as e:
+                    local_logger.warning(f"知识提取失败: {e}")
+            
+            if is_debug:
+                debug_info['extracted_knowledge'] = extracted_knowledge
+            
             processing_time = time.time() - start_time
+            
+            # 获取历史和记忆数量（从items中过滤）
+            history_items = [item for item in context_result.items if item.source == ContextSource.HISTORY]
+            memory_items = [item for item in context_result.items if item.source == ContextSource.MEMORY]
             
             # 构建结果
             result = ProcessResult(
                 response=response,
-                history_count=len(context_result.recent_history),
-                memory_count=len(context_result.long_term_memory),
+                history_count=len(history_items),
+                memory_count=len(memory_items),
                 rules_count=0,
                 profile_summary="",
                 prompt=prompt,
                 processing_time=processing_time,
             )
             
-            is_debug = ContextMindLogger.get_current_level() <= DEBUG
-            self._log_engine_box(result, is_debug)
+            self._log_engine_box(result, is_debug, debug_info)
             
             return response
         except Exception as e:
@@ -386,23 +524,37 @@ class GradioDemo:
     
     def _build_prompt(self, user_input: str, context_result) -> str:
         """构建 LLM prompt"""
+        local_logger = get_logger(__name__)
+        
+        local_logger.debug("[Prompt] 开始构建Prompt")
+        
         prompt_parts = [self._get_base_prompt()]
         
+        # 从items中过滤长期记忆和对话历史
+        memory_items = [item for item in context_result.items if item.source == ContextSource.MEMORY]
+        history_items = [item for item in context_result.items if item.source == ContextSource.HISTORY]
+        
         # 添加长期记忆（如果有）
-        if context_result.long_term_memory:
+        if memory_items:
             memory_text = "\n".join(
                 f"- {item.content}"
-                for item in context_result.long_term_memory[:3]
+                for item in memory_items[:3]
             )
             prompt_parts.append(f"\n## 用户历史信息\n{memory_text}")
+            local_logger.debug(f"[Prompt] 添加长期记忆: {len(memory_items[:3])} 条")
+        else:
+            local_logger.debug("[Prompt] 无长期记忆")
         
         # 添加对话历史
-        if context_result.recent_history:
+        if history_items:
             history_text = "\n".join(
-                f"{msg.role.value}: {msg.content}"
-                for msg in context_result.recent_history
+                f"{item.content}"  # ContextItem 内容已格式化
+                for item in history_items
             )
             prompt_parts.append(f"\n## 近期对话\n{history_text}")
+            local_logger.debug(f"[Prompt] 添加对话历史: {len(history_items)} 条")
+        else:
+            local_logger.debug("[Prompt] 无对话历史")
         
         # 添加当前用户输入
         prompt_parts.append(f"\n## 当前用户输入\nuser: {user_input}")
@@ -410,13 +562,25 @@ class GradioDemo:
         # 添加回复指令
         prompt_parts.append("\n请根据以上信息，给出合适的回复：")
         
-        return "\n".join(prompt_parts)
+        final_prompt = "\n".join(prompt_parts)
+        
+        # 在DEBUG模式下输出完整prompt
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
+        if is_debug:
+            local_logger.debug(f"[Prompt] 完整Prompt内容 ({len(final_prompt)} 字符):")
+            local_logger.debug("=" * 80)
+            local_logger.debug(final_prompt)
+            local_logger.debug("=" * 80)
+        else:
+            local_logger.debug(f"[Prompt] 构建完成 - 总长度: {len(final_prompt)} 字符")
+        
+        return final_prompt
     
         
     def create_interface(self):
         """创建界面"""
-        with gr.Blocks(title="ContextMind v5.1 - 优逸花客服演示") as demo:
-            gr.Markdown("# 🤖 Context Mind v5.1 - 优逸花客服演示")
+        with gr.Blocks(title="ContextMind v7.1 - 优逸花客服演示") as demo:
+            gr.Markdown("# 🤖 Context Mind v7.1 - 优逸花客服演示")
             gr.Markdown("五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统")
             
             initial_history = self._get_initial_history()
@@ -517,9 +681,9 @@ class GradioDemo:
             
             def apply_config(use_session, max_events, use_memory, debug_mode):
                 """应用配置"""
-                from contextmind.utils.logger import DEBUG, INFO, ContextMindLogger
-                new_level = DEBUG if debug_mode else INFO
-                ContextMindLogger.set_level(new_level)
+                from contextmind import DEBUG, INFO, ContextMindLogger, set_global_log_level, LogLevel
+                new_level = LogLevel.DEBUG if debug_mode else LogLevel.BASIC
+                set_global_log_level(new_level)
                 
                 try:
                     import concurrent.futures

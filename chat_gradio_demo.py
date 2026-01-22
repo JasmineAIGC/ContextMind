@@ -1,8 +1,13 @@
 """
-ContextMind v5.1 闲聊 Gradio Demo
+ContextMind v7.1 闲聊 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 适用于日常闲聊场景，支持上下文理解和长期记忆。
+
+v7.1 新特性：
+- 增强的日志系统：模块前缀、状态指示器、详细的记忆追踪
+- 完整的记忆生命周期：提取 → 存储 → 检索
+- 改进的可观测性：记忆库内容可见、检索结果带分数
 """
 
 try:
@@ -25,9 +30,9 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
-from contextmind import Client, ClientConfig, ContextEngine, setup_logging, get_logger, INFO, DEBUG
+from contextmind import ContextEngine, setup_logging, get_logger, LogLevel
 
-setup_logging(level=INFO, log_to_console=True, auto_create_file=True)
+setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -79,17 +84,14 @@ class ChatGradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 初始化客户端
-            client_config = ClientConfig.from_env()
-            llm_client = Client(config=client_config)
-            
-            # 创建引擎
+            # 创建引擎 (v7.1: LLM invocation is external, no client needed)
             self.engine = ContextEngine(
                 app_name="chat-demo",
                 user_id="chat-user",
-                llm_client=llm_client,
                 max_recent_events=max_recent_events,
             )
+            
+            logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
             
             # 重置对话历史
             self.conversation_history = []
@@ -110,12 +112,27 @@ class ChatGradioDemo:
         
         start_time = time.time()
         self.turn_counter += 1
+        is_debug = ContextMindLogger.get_current_level() == LogLevel.DEBUG
         
         logger.info(f"\n{'='*80}")
         logger.info(f"💬 [轮次 {self.turn_counter}] 用户输入: {user_message}")
         logger.info(f"{'='*80}")
         
         try:
+            # Debug: 保存优化前的记忆库状态
+            if is_debug:
+                memory_cache = self.engine.memory_bank.get_memory_cache()
+                logger.info("\n1️⃣  记忆库内容:")
+                if memory_cache:
+                    for i, mem in enumerate(memory_cache[:5], 1):
+                        # ContextItem.content 格式为 "[TYPE] content"，提取类型
+                        mem_type = mem.metadata.get('type', 'UNKNOWN') if hasattr(mem, 'metadata') and mem.metadata else 'UNKNOWN'
+                        logger.info(f"   [{i}] [{mem_type}] {mem.content[:60]}... (置信度: {mem.score:.2f})")
+                    if len(memory_cache) > 5:
+                        logger.info(f"   ... (还有{len(memory_cache) - 5}条)")
+                else:
+                    logger.info("   空")
+            
             # 构建系统提示词 - 简洁的闲聊角色设定
             system_prompt = """你是一个友好、有趣的聊天助手。
 
@@ -137,10 +154,29 @@ class ChatGradioDemo:
                 include_memory=self.use_memory,
             )
             
+            # Debug: 显示召回结果
+            if is_debug:
+                logger.info(f"\n2️⃣  召回结果（共{len(context_result.items)}项，压缩: {context_result.compressed}）:")
+                for i, item in enumerate(context_result.items[:5], 1):
+                    logger.info(f"   [{i}] [{item.source}] {item.content[:50]}... (分数: {item.score:.2f})")
+                if len(context_result.items) > 5:
+                    logger.info(f"   ... (还有{len(context_result.items) - 5}项)")
+                logger.info(f"\n3️⃣  上下文优化: 已完成 (压缩: {context_result.compressed})")
+            
             # 2. 构建prompt
             prompt = f"{system_prompt}\n\n用户: {user_message}\n助手:"
             
-            # 3. 调用LLM生成回复
+            # Debug: 显示Prompt
+            if is_debug:
+                logger.info(f"\n4️⃣  完整Prompt ({len(prompt)}字符):")
+                prompt_lines = prompt[:300].split('\n')
+                for line in prompt_lines[:4]:
+                    if line:
+                        logger.info(f"   {line[:70]}")
+                if len(prompt) > 300:
+                    logger.info(f"   ... (共{len(prompt)}字符)")
+            
+            # 3. 调用 LLM 生成回复
             _, assistant_response = self.llm_client.generate(prompt)
             
             # 4. 更新对话历史
@@ -150,8 +186,23 @@ class ChatGradioDemo:
             )
             
             # 5. 提取知识到长期记忆
+            extracted_knowledge = []
             if self.use_memory:
-                await self.engine.extract_knowledge(auto_store=True)
+                knowledge_list = await self.engine.extract_knowledge(auto_store=True)
+                if is_debug and knowledge_list:
+                    extracted_knowledge = knowledge_list
+            
+            # Debug: 显示提取的知识
+            if is_debug:
+                logger.info("\n5️⃣  提取的知识:")
+                if extracted_knowledge:
+                    for i, k in enumerate(extracted_knowledge[:5], 1):
+                        logger.info(f"   [{i}] [{k.knowledge_type}] {k.content[:55]}... (置信度: {k.confidence:.2f})")
+                    if len(extracted_knowledge) > 5:
+                        logger.info(f"   ... (还有{len(extracted_knowledge) - 5}条)")
+                else:
+                    logger.info("   无")
+                logger.info("")
             
             # 记录对话
             self.conversation_history.append({
@@ -200,7 +251,7 @@ def create_gradio_interface():
     async def chat_async(message, history):
         try:
             result = await demo_instance.chat(message)
-            # Gradio chatbot 格式：[(user_msg, bot_msg), ...]
+            # Gradio chatbot 格式：[(用户消息, 机器人消息), ...]
             history.append((message, result.response))
             
             # 构建状态信息
@@ -216,8 +267,8 @@ def create_gradio_interface():
         return demo_instance.reset_conversation(), [], ""
     
     # 创建界面
-    with gr.Blocks(title="ContextMind 闲聊Demo v5.1") as app:
-        gr.Markdown("# 🎭 ContextMind v5.1 闲聊演示")
+    with gr.Blocks(title="ContextMind 闲聊Demo v7.1") as app:
+        gr.Markdown("# 🎭 ContextMind v7.1 闲聊演示")
         gr.Markdown("基于五层架构的智能对话系统，支持上下文理解和长期记忆")
         
         with gr.Row():
@@ -330,7 +381,7 @@ def create_gradio_interface():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🎭 ContextMind v5.1 闲聊 Gradio Demo")
+    print("🎭 ContextMind v7.1 闲聊 Gradio Demo")
     print("=" * 60)
     print()
     

@@ -1,510 +1,824 @@
-[2026-01-20 16:49:29] DEBUG - ✓ 已加载环境变量文件: /share/airesearch/data/yejiang.zhou/workspace/ContextMind/.env
-[2026-01-20 16:49:29] INFO - 🚀 正在启动优逸花客服对话演示...
-[2026-01-20 16:49:29] INFO - 📋 功能说明:
-[2026-01-20 16:49:29] INFO -    - 支持灵活配置会话历史和长期记忆
-[2026-01-20 16:49:29] INFO -    - 可调整保留的最大对话轮数
-[2026-01-20 16:49:29] INFO -    - 演示上下文优化框架的核心能力
-[2026-01-20 16:49:29] INFO - 🔧 正在初始化引擎...
-[2026-01-20 16:49:29] INFO - ================================================================================
-[2026-01-20 16:49:29] INFO - 🚀 [Gradio] 开始初始化引擎...
-[2026-01-20 16:49:29] INFO -    - 会话历史: ✅
-[2026-01-20 16:49:29] INFO -    - 长期记忆: ❌
-[2026-01-20 16:49:29] INFO -    - 最大历史: 10轮
-[2026-01-20 16:49:29] INFO - ================================================================================
-[2026-01-20 16:49:29] INFO - Initializing client with model: Qwen3-32B
-[2026-01-20 16:49:29] DEBUG - Client initialized with base_url: http://10.112.172.30:18019/v1
-[2026-01-20 16:49:29] INFO - ContextEngine initialized for app=callcenter-gradio, user=gradio-user
-[2026-01-20 16:49:29] INFO - 🔧 [Gradio] 已创建引擎 (会话:True, 记忆:False, 最大轮数:10)
-[2026-01-20 16:49:29] INFO - ✅ [Gradio] 引擎初始化成功
-[2026-01-20 16:49:29] DEBUG - Added assistant message to session
-[2026-01-20 16:49:29] INFO - ✅ 引擎初始化完成
-[2026-01-20 16:49:29] INFO - ✅ 界面创建成功!
-[2026-01-20 16:49:29] INFO - 🌐 启动Web服务器...
-[2026-01-20 16:49:29] INFO - 📱 访问地址: http://localhost:7860
-[2026-01-20 16:49:29] INFO - 🔗 局域网访问: http://0.0.0.0:7860
-[2026-01-20 16:49:29] INFO - ⚠️  按 Ctrl+C 停止服务
-[2026-01-20 16:49:29] INFO - ==================================================
-[2026-01-20 16:49:48] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:49:48] INFO - ║  👤 用户输入: 什么福利                                                           ║
-[2026-01-20 16:49:48] INFO - ║  📅 时间: 2026-01-20 16:49:48 | 🔄 第1轮对话                                       ║
-[2026-01-20 16:49:48] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:49:48] INFO - 
-[2026-01-20 16:49:48] DEBUG - Optimizing context for input: 什么福利
-[2026-01-20 16:49:48] DEBUG - Preprocessed input: '什么福利...'
-[2026-01-20 16:49:48] DEBUG - Retrieved 1 session messages
-[2026-01-20 16:49:48] DEBUG - Reordered 1 context items
-[2026-01-20 16:49:48] DEBUG - CompressionStrategy: 1 items after optimization
-[2026-01-20 16:49:48] DEBUG - CompressionStrategy converted to ContextResult: 1 history, 0 memory, 0 knowledge
-[2026-01-20 16:49:48] DEBUG - Compressed context: 1 items → 1 history + 0 memory + 0 knowledge
-[2026-01-20 16:49:48] DEBUG - Context optimized: 1 history, 0 memory items
-[2026-01-20 16:49:49] DEBUG - Updating context with new messages
-[2026-01-20 16:49:49] DEBUG - Added user message to session
-[2026-01-20 16:49:49] DEBUG - Added assistant message to session
-[2026-01-20 16:49:49] DEBUG - Context updated successfully
-[2026-01-20 16:49:49] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:49:49] INFO - │ ⚙️  处理中...
-[2026-01-20 16:49:49] INFO - │ 💭 历史: 1条对话
-[2026-01-20 16:49:49] DEBUG - │ 
-[2026-01-20 16:49:49] DEBUG - │ 📝 Prompt摘要 (760字符):
-[2026-01-20 16:49:49] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:49:49] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:49:49] DEBUG - │ 
-[2026-01-20 16:49:49] DEBUG - │ ⏱️  耗时: 1.1s
-[2026-01-20 16:49:49] INFO - │ 🤖 回复: 我们近期推出了专属福利活动，参与即可享受额度提升、费率优惠等多重福利，您方便时可以登录APP查看详情哦。
-[2026-01-20 16:49:49] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:49:49] INFO - 
-[2026-01-20 16:49:49] INFO - ✅ 引擎处理完成 (耗时: 1.2s)
-[2026-01-20 16:49:49] INFO - 
-[2026-01-20 16:50:11] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:50:11] INFO - ║  👤 用户输入: 不需要。我有钱                                                        ║
-[2026-01-20 16:50:11] INFO - ║  📅 时间: 2026-01-20 16:50:11 | 🔄 第2轮对话                                       ║
-[2026-01-20 16:50:11] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:50:11] INFO - 
-[2026-01-20 16:50:11] DEBUG - Optimizing context for input: 不需要。我有钱
-[2026-01-20 16:50:11] DEBUG - Preprocessed input: '不需要。我有钱...'
-[2026-01-20 16:50:11] DEBUG - Retrieved 3 session messages
-[2026-01-20 16:50:11] DEBUG - Reordered 3 context items
-[2026-01-20 16:50:11] DEBUG - CompressionStrategy: 3 items after optimization
-[2026-01-20 16:50:11] DEBUG - CompressionStrategy converted to ContextResult: 3 history, 0 memory, 0 knowledge
-[2026-01-20 16:50:11] DEBUG - Compressed context: 3 items → 3 history + 0 memory + 0 knowledge
-[2026-01-20 16:50:11] DEBUG - Context optimized: 3 history, 0 memory items
-[2026-01-20 16:50:12] DEBUG - Updating context with new messages
-[2026-01-20 16:50:12] DEBUG - Added user message to session
-[2026-01-20 16:50:12] DEBUG - Added assistant message to session
-[2026-01-20 16:50:12] DEBUG - Context updated successfully
-[2026-01-20 16:50:12] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:50:12] INFO - │ ⚙️  处理中...
-[2026-01-20 16:50:12] INFO - │ 💭 历史: 3条对话
-[2026-01-20 16:50:12] DEBUG - │ 
-[2026-01-20 16:50:12] DEBUG - │ 📝 Prompt摘要 (838字符):
-[2026-01-20 16:50:12] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:50:12] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:50:12] DEBUG - │ 
-[2026-01-20 16:50:12] DEBUG - │ ⏱️  耗时: 0.6s
-[2026-01-20 16:50:12] INFO - │ 🤖 回复: 好的，感谢您的回复，祝您生活愉快！如有需要可随时联系我，再见。
-[2026-01-20 16:50:12] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:50:12] INFO - 
-[2026-01-20 16:50:12] INFO - ✅ 引擎处理完成 (耗时: 0.6s)
-[2026-01-20 16:50:12] INFO - 
-[2026-01-20 16:50:26] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:50:26] INFO - ║  👤 用户输入: 我喜欢旅行，有没有旅行贷款                                                  ║
-[2026-01-20 16:50:26] INFO - ║  📅 时间: 2026-01-20 16:50:26 | 🔄 第3轮对话                                       ║
-[2026-01-20 16:50:26] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:50:26] INFO - 
-[2026-01-20 16:50:26] DEBUG - Optimizing context for input: 我喜欢旅行，有没有旅行贷款
-[2026-01-20 16:50:26] DEBUG - Preprocessed input: '我喜欢旅行，有没有旅行贷款...'
-[2026-01-20 16:50:26] DEBUG - Retrieved 5 session messages
-[2026-01-20 16:50:26] DEBUG - RerankingStrategy: reranked 5 items
-[2026-01-20 16:50:26] DEBUG - Reordered 5 context items
-[2026-01-20 16:50:26] DEBUG - CompressionStrategy: 5 items after optimization
-[2026-01-20 16:50:26] DEBUG - CompressionStrategy converted to ContextResult: 5 history, 0 memory, 0 knowledge
-[2026-01-20 16:50:26] DEBUG - Compressed context: 5 items → 5 history + 0 memory + 0 knowledge
-[2026-01-20 16:50:26] DEBUG - Context optimized: 5 history, 0 memory items
-[2026-01-20 16:50:27] DEBUG - Updating context with new messages
-[2026-01-20 16:50:27] DEBUG - Added user message to session
-[2026-01-20 16:50:27] DEBUG - Added assistant message to session
-[2026-01-20 16:50:27] DEBUG - Context updated successfully
-[2026-01-20 16:50:27] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:50:27] INFO - │ ⚙️  处理中...
-[2026-01-20 16:50:27] INFO - │ 💭 历史: 5条对话
-[2026-01-20 16:50:27] DEBUG - │ 
-[2026-01-20 16:50:27] DEBUG - │ 📝 Prompt摘要 (901字符):
-[2026-01-20 16:50:27] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:50:27] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:50:27] DEBUG - │ 
-[2026-01-20 16:50:27] DEBUG - │ ⏱️  耗时: 0.8s
-[2026-01-20 16:50:27] INFO - │ 🤖 回复: 我们目前没有专门的旅行贷款产品，但您可以使用额度进行合理规划，如果有其他需求欢迎随时咨询。祝您旅途愉快！
-[2026-01-20 16:50:27] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:50:27] INFO - 
-[2026-01-20 16:50:27] INFO - ✅ 引擎处理完成 (耗时: 0.8s)
-[2026-01-20 16:50:27] INFO - 
-[2026-01-20 16:50:52] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:50:52] INFO - ║  👤 用户输入: 也可以给我讲讲有的产品                                                    ║
-[2026-01-20 16:50:52] INFO - ║  📅 时间: 2026-01-20 16:50:52 | 🔄 第4轮对话                                       ║
-[2026-01-20 16:50:52] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:50:52] INFO - 
-[2026-01-20 16:50:52] DEBUG - Optimizing context for input: 也可以给我讲讲有的产品
-[2026-01-20 16:50:52] DEBUG - Preprocessed input: '也可以给我讲讲有的产品...'
-[2026-01-20 16:50:52] DEBUG - Retrieved 7 session messages
-[2026-01-20 16:50:52] DEBUG - RerankingStrategy: reranked 7 items
-[2026-01-20 16:50:52] DEBUG - Reordered 7 context items
-[2026-01-20 16:50:52] DEBUG - CompressionStrategy: 7 items after optimization
-[2026-01-20 16:50:52] DEBUG - CompressionStrategy converted to ContextResult: 7 history, 0 memory, 0 knowledge
-[2026-01-20 16:50:52] DEBUG - Compressed context: 7 items → 7 history + 0 memory + 0 knowledge
-[2026-01-20 16:50:52] DEBUG - Context optimized: 7 history, 0 memory items
-[2026-01-20 16:50:52] DEBUG - Updating context with new messages
-[2026-01-20 16:50:52] DEBUG - Added user message to session
-[2026-01-20 16:50:52] DEBUG - Added assistant message to session
-[2026-01-20 16:50:52] DEBUG - Context updated successfully
-[2026-01-20 16:50:52] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:50:52] INFO - │ ⚙️  处理中...
-[2026-01-20 16:50:52] INFO - │ 💭 历史: 7条对话
-[2026-01-20 16:50:52] DEBUG - │ 
-[2026-01-20 16:50:52] DEBUG - │ 📝 Prompt摘要 (983字符):
-[2026-01-20 16:50:52] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:50:52] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:50:52] DEBUG - │ 
-[2026-01-20 16:50:52] DEBUG - │ ⏱️  耗时: 0.9s
-[2026-01-20 16:50:52] INFO - │ 🤖 回复: 我们目前没有专门的旅行贷款产品，但您可以使用现有额度进行合理规划，如有其他需求欢迎随时咨询。祝您旅途愉快！
-[2026-01-20 16:50:52] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:50:52] INFO - 
-[2026-01-20 16:50:52] INFO - ✅ 引擎处理完成 (耗时: 0.9s)
-[2026-01-20 16:50:52] INFO - 
-[2026-01-20 16:51:04] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:51:04] INFO - ║  👤 用户输入: 那有什么贷款                                                         ║
-[2026-01-20 16:51:04] INFO - ║  📅 时间: 2026-01-20 16:51:04 | 🔄 第5轮对话                                       ║
-[2026-01-20 16:51:04] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:51:04] INFO - 
-[2026-01-20 16:51:04] DEBUG - Optimizing context for input: 那有什么贷款
-[2026-01-20 16:51:04] DEBUG - Preprocessed input: '那有什么贷款...'
-[2026-01-20 16:51:04] DEBUG - Retrieved 9 session messages
-[2026-01-20 16:51:04] DEBUG - RerankingStrategy: reranked 9 items
-[2026-01-20 16:51:04] DEBUG - Reordered 9 context items
-[2026-01-20 16:51:04] DEBUG - CompressionStrategy: 9 items after optimization
-[2026-01-20 16:51:04] DEBUG - CompressionStrategy converted to ContextResult: 9 history, 0 memory, 0 knowledge
-[2026-01-20 16:51:04] DEBUG - Compressed context: 9 items → 9 history + 0 memory + 0 knowledge
-[2026-01-20 16:51:04] DEBUG - Context optimized: 9 history, 0 memory items
-[2026-01-20 16:51:05] DEBUG - Updating context with new messages
-[2026-01-20 16:51:05] DEBUG - Added user message to session
-[2026-01-20 16:51:05] DEBUG - Added assistant message to session
-[2026-01-20 16:51:05] DEBUG - Context updated successfully
-[2026-01-20 16:51:05] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:51:05] INFO - │ ⚙️  处理中...
-[2026-01-20 16:51:05] INFO - │ 💭 历史: 9条对话
-[2026-01-20 16:51:05] DEBUG - │ 
-[2026-01-20 16:51:05] DEBUG - │ 📝 Prompt摘要 (1061字符):
-[2026-01-20 16:51:05] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:51:05] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:51:05] DEBUG - │ 
-[2026-01-20 16:51:05] DEBUG - │ ⏱️  耗时: 1.0s
-[2026-01-20 16:51:05] INFO - │ 🤖 回复: 我们主要提供额度提升、资金周转等服务，具体产品信息您可以登录马上消费APP查看，或我为您发送一份产品简介，您看是否需要？
-[2026-01-20 16:51:05] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:51:05] INFO - 
-[2026-01-20 16:51:05] INFO - ✅ 引擎处理完成 (耗时: 1.0s)
-[2026-01-20 16:51:05] INFO - 
-[2026-01-20 16:51:13] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:51:13] INFO - ║  👤 用户输入: 资金周转是什么                                                        ║
-[2026-01-20 16:51:13] INFO - ║  📅 时间: 2026-01-20 16:51:13 | 🔄 第6轮对话                                       ║
-[2026-01-20 16:51:13] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:51:13] INFO - 
-[2026-01-20 16:51:13] DEBUG - Optimizing context for input: 资金周转是什么
-[2026-01-20 16:51:13] DEBUG - Preprocessed input: '资金周转是什么...'
-[2026-01-20 16:51:13] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:51:13] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:51:13] DEBUG - Reordered 10 context items
-[2026-01-20 16:51:13] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:51:13] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:51:13] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:51:13] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:51:14] DEBUG - Updating context with new messages
-[2026-01-20 16:51:14] DEBUG - Added user message to session
-[2026-01-20 16:51:14] DEBUG - Added assistant message to session
-[2026-01-20 16:51:14] DEBUG - Context updated successfully
-[2026-01-20 16:51:14] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:51:14] INFO - │ ⚙️  处理中...
-[2026-01-20 16:51:14] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:51:14] DEBUG - │ 
-[2026-01-20 16:51:14] DEBUG - │ 📝 Prompt摘要 (1110字符):
-[2026-01-20 16:51:14] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:51:14] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:51:14] DEBUG - │ 
-[2026-01-20 16:51:14] DEBUG - │ ⏱️  耗时: 1.5s
-[2026-01-20 16:51:14] INFO - │ 🤖 回复: 资金周转是我们的一项核心服务，主要是为了帮助您在日常消费或临时资金需求时，提供灵活的信用额度支持，方便您合理安排资金使用。您可以通过APP申请使用，具体操作也方便快捷。需要我为您详细介绍一下吗？
-[2026-01-20 16:51:14] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:51:14] INFO - 
-[2026-01-20 16:51:14] INFO - ✅ 引擎处理完成 (耗时: 1.5s)
-[2026-01-20 16:51:14] INFO - 
-[2026-01-20 16:51:26] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:51:26] INFO - ║  👤 用户输入: 那你详细介绍下吧                                                       ║
-[2026-01-20 16:51:26] INFO - ║  📅 时间: 2026-01-20 16:51:26 | 🔄 第7轮对话                                       ║
-[2026-01-20 16:51:26] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:51:26] INFO - 
-[2026-01-20 16:51:26] DEBUG - Optimizing context for input: 那你详细介绍下吧
-[2026-01-20 16:51:26] DEBUG - Preprocessed input: '那你详细介绍下吧...'
-[2026-01-20 16:51:26] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:51:26] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:51:26] DEBUG - Reordered 10 context items
-[2026-01-20 16:51:26] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:51:26] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:51:26] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:51:26] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:51:28] DEBUG - Updating context with new messages
-[2026-01-20 16:51:28] DEBUG - Added user message to session
-[2026-01-20 16:51:28] DEBUG - Added assistant message to session
-[2026-01-20 16:51:28] DEBUG - Context updated successfully
-[2026-01-20 16:51:28] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:51:28] INFO - │ ⚙️  处理中...
-[2026-01-20 16:51:28] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:51:28] DEBUG - │ 
-[2026-01-20 16:51:28] DEBUG - │ 📝 Prompt摘要 (1159字符):
-[2026-01-20 16:51:28] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:51:28] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:51:28] DEBUG - │ 
-[2026-01-20 16:51:28] DEBUG - │ ⏱️  耗时: 2.2s
-[2026-01-20 16:51:28] INFO - │ 🤖 回复: 好的，资金周转服务是为我们客户提供的一种灵活信用支持，您可以在额度范围内随时提取资金，用于日常消费、购物、旅游或应急等合理用途，使用方便、申请快捷。同时，我们还提供分期还款功能，帮助您更轻松地管理资金。如果您感兴趣，我可以为您发送一份详细介绍，或者指导您如何在APP上操作，您看需要吗？
-[2026-01-20 16:51:28] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:51:28] INFO - 
-[2026-01-20 16:51:28] INFO - ✅ 引擎处理完成 (耗时: 2.2s)
-[2026-01-20 16:51:28] INFO - 
-[2026-01-20 16:51:34] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:51:34] INFO - ║  👤 用户输入: 不用了                                                            ║
-[2026-01-20 16:51:34] INFO - ║  📅 时间: 2026-01-20 16:51:34 | 🔄 第8轮对话                                       ║
-[2026-01-20 16:51:34] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:51:34] INFO - 
-[2026-01-20 16:51:34] DEBUG - Optimizing context for input: 不用了
-[2026-01-20 16:51:34] DEBUG - Preprocessed input: '不用了...'
-[2026-01-20 16:51:34] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:51:34] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:51:34] DEBUG - Reordered 10 context items
-[2026-01-20 16:51:34] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:51:34] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:51:34] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:51:34] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:51:35] DEBUG - Updating context with new messages
-[2026-01-20 16:51:35] DEBUG - Added user message to session
-[2026-01-20 16:51:35] DEBUG - Added assistant message to session
-[2026-01-20 16:51:35] DEBUG - Context updated successfully
-[2026-01-20 16:51:35] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:51:35] INFO - │ ⚙️  处理中...
-[2026-01-20 16:51:35] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:51:35] DEBUG - │ 
-[2026-01-20 16:51:35] DEBUG - │ 📝 Prompt摘要 (1267字符):
-[2026-01-20 16:51:35] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:51:35] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:51:35] DEBUG - │ 
-[2026-01-20 16:51:35] DEBUG - │ ⏱️  耗时: 0.7s
-[2026-01-20 16:51:35] INFO - │ 🤖 回复: 好的，感谢您的咨询，如有其他问题或需要帮助，欢迎随时联系我们。祝您生活愉快！
-[2026-01-20 16:51:35] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:51:35] INFO - 
-[2026-01-20 16:51:35] INFO - ✅ 引擎处理完成 (耗时: 0.7s)
-[2026-01-20 16:51:35] INFO - 
-[2026-01-20 16:51:47] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:51:47] INFO - ║  👤 用户输入: 你觉得我差钱吗                                                        ║
-[2026-01-20 16:51:47] INFO - ║  📅 时间: 2026-01-20 16:51:47 | 🔄 第9轮对话                                       ║
-[2026-01-20 16:51:47] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:51:47] INFO - 
-[2026-01-20 16:51:47] DEBUG - Optimizing context for input: 你觉得我差钱吗
-[2026-01-20 16:51:47] DEBUG - Preprocessed input: '你觉得我差钱吗...'
-[2026-01-20 16:51:47] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:51:47] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:51:47] DEBUG - Reordered 10 context items
-[2026-01-20 16:51:47] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:51:47] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:51:47] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:51:47] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:51:48] DEBUG - Updating context with new messages
-[2026-01-20 16:51:48] DEBUG - Added user message to session
-[2026-01-20 16:51:48] DEBUG - Added assistant message to session
-[2026-01-20 16:51:48] DEBUG - Context updated successfully
-[2026-01-20 16:51:48] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:51:48] INFO - │ ⚙️  处理中...
-[2026-01-20 16:51:48] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:51:48] DEBUG - │ 
-[2026-01-20 16:51:48] DEBUG - │ 📝 Prompt摘要 (1247字符):
-[2026-01-20 16:51:48] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:51:48] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:51:48] DEBUG - │ 
-[2026-01-20 16:51:48] DEBUG - │ ⏱️  耗时: 1.0s
-[2026-01-20 16:51:48] INFO - │ 🤖 回复: 我们理解每个人的资金需求情况不同，我们的服务旨在为有临时资金周转需求的客户提供支持。如果您有任何相关需求或疑问，欢迎随时咨询。感谢您的理解！
-[2026-01-20 16:51:48] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:51:48] INFO - 
-[2026-01-20 16:51:48] INFO - ✅ 引擎处理完成 (耗时: 1.0s)
-[2026-01-20 16:51:48] INFO - 
-[2026-01-20 16:51:56] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:51:56] INFO - ║  👤 用户输入: 你觉得我差不差钱                                                       ║
-[2026-01-20 16:51:56] INFO - ║  📅 时间: 2026-01-20 16:51:56 | 🔄 第10轮对话                                      ║
-[2026-01-20 16:51:56] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:51:56] INFO - 
-[2026-01-20 16:51:56] DEBUG - Optimizing context for input: 你觉得我差不差钱
-[2026-01-20 16:51:56] DEBUG - Preprocessed input: '你觉得我差不差钱...'
-[2026-01-20 16:51:56] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:51:56] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:51:56] DEBUG - Reordered 10 context items
-[2026-01-20 16:51:56] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:51:56] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:51:56] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:51:56] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:51:57] DEBUG - Updating context with new messages
-[2026-01-20 16:51:57] DEBUG - Added user message to session
-[2026-01-20 16:51:57] DEBUG - Added assistant message to session
-[2026-01-20 16:51:57] DEBUG - Context updated successfully
-[2026-01-20 16:51:57] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:51:57] INFO - │ ⚙️  处理中...
-[2026-01-20 16:51:57] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:51:57] DEBUG - │ 
-[2026-01-20 16:51:57] DEBUG - │ 📝 Prompt摘要 (1261字符):
-[2026-01-20 16:51:57] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:51:57] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:51:57] DEBUG - │ 
-[2026-01-20 16:51:57] DEBUG - │ ⏱️  耗时: 1.0s
-[2026-01-20 16:51:57] INFO - │ 🤖 回复: 我们理解每个人的资金状况不同，我们的服务旨在为有临时资金周转需求的客户提供支持。如果您有任何相关需求或疑问，欢迎随时咨询。感谢您的理解！
-[2026-01-20 16:51:57] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:51:57] INFO - 
-[2026-01-20 16:51:57] INFO - ✅ 引擎处理完成 (耗时: 1.0s)
-[2026-01-20 16:51:57] INFO - 
-[2026-01-20 16:52:03] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:52:03] INFO - ║  👤 用户输入: 我不差                                                            ║
-[2026-01-20 16:52:03] INFO - ║  📅 时间: 2026-01-20 16:52:03 | 🔄 第11轮对话                                      ║
-[2026-01-20 16:52:03] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:52:03] INFO - 
-[2026-01-20 16:52:03] DEBUG - Optimizing context for input: 我不差
-[2026-01-20 16:52:03] DEBUG - Preprocessed input: '我不差...'
-[2026-01-20 16:52:03] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:52:03] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:52:03] DEBUG - Reordered 10 context items
-[2026-01-20 16:52:03] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:52:03] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:52:03] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:52:03] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:52:04] DEBUG - Updating context with new messages
-[2026-01-20 16:52:04] DEBUG - Added user message to session
-[2026-01-20 16:52:04] DEBUG - Added assistant message to session
-[2026-01-20 16:52:04] DEBUG - Context updated successfully
-[2026-01-20 16:52:04] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:52:04] INFO - │ ⚙️  处理中...
-[2026-01-20 16:52:04] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:52:04] DEBUG - │ 
-[2026-01-20 16:52:04] DEBUG - │ 📝 Prompt摘要 (1266字符):
-[2026-01-20 16:52:04] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:52:04] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:52:04] DEBUG - │ 
-[2026-01-20 16:52:04] DEBUG - │ ⏱️  耗时: 0.8s
-[2026-01-20 16:52:04] INFO - │ 🤖 回复: 感谢您的理解，我们始终尊重每一位客户的情况。如果您未来有资金周转或其他方面的需求，欢迎随时联系我们。祝您一切顺利！
-[2026-01-20 16:52:04] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:52:04] INFO - 
-[2026-01-20 16:52:04] INFO - ✅ 引擎处理完成 (耗时: 0.9s)
-[2026-01-20 16:52:04] INFO - 
-[2026-01-20 16:52:10] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:52:10] INFO - ║  👤 用户输入: 狗屁                                                             ║
-[2026-01-20 16:52:10] INFO - ║  📅 时间: 2026-01-20 16:52:10 | 🔄 第12轮对话                                      ║
-[2026-01-20 16:52:10] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:52:10] INFO - 
-[2026-01-20 16:52:10] DEBUG - Optimizing context for input: 狗屁
-[2026-01-20 16:52:10] DEBUG - Preprocessed input: '狗屁...'
-[2026-01-20 16:52:10] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:52:10] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:52:10] DEBUG - Reordered 10 context items
-[2026-01-20 16:52:10] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:52:10] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:52:10] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:52:10] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:52:11] DEBUG - Updating context with new messages
-[2026-01-20 16:52:11] DEBUG - Added user message to session
-[2026-01-20 16:52:11] DEBUG - Added assistant message to session
-[2026-01-20 16:52:11] DEBUG - Context updated successfully
-[2026-01-20 16:52:11] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:52:11] INFO - │ ⚙️  处理中...
-[2026-01-20 16:52:11] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:52:11] DEBUG - │ 
-[2026-01-20 16:52:11] DEBUG - │ 📝 Prompt摘要 (1221字符):
-[2026-01-20 16:52:11] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:52:11] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:52:11] DEBUG - │ 
-[2026-01-20 16:52:11] DEBUG - │ ⏱️  耗时: 0.7s
-[2026-01-20 16:52:11] INFO - │ 🤖 回复: 非常抱歉如果给您带来了不愉快，感谢您的反馈。祝您生活愉快，如有任何需求欢迎随时联系我们！
-[2026-01-20 16:52:11] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:52:11] INFO - 
-[2026-01-20 16:52:11] INFO - ✅ 引擎处理完成 (耗时: 0.7s)
-[2026-01-20 16:52:11] INFO - 
-[2026-01-20 16:52:19] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:52:19] INFO - ║  👤 用户输入: 我会缺钱吗                                                          ║
-[2026-01-20 16:52:19] INFO - ║  📅 时间: 2026-01-20 16:52:19 | 🔄 第13轮对话                                      ║
-[2026-01-20 16:52:19] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:52:19] INFO - 
-[2026-01-20 16:52:19] DEBUG - Optimizing context for input: 我会缺钱吗
-[2026-01-20 16:52:19] DEBUG - Preprocessed input: '我会缺钱吗...'
-[2026-01-20 16:52:19] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:52:19] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:52:19] DEBUG - Reordered 10 context items
-[2026-01-20 16:52:19] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:52:19] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:52:19] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:52:19] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:52:20] DEBUG - Updating context with new messages
-[2026-01-20 16:52:20] DEBUG - Added user message to session
-[2026-01-20 16:52:20] DEBUG - Added assistant message to session
-[2026-01-20 16:52:20] DEBUG - Context updated successfully
-[2026-01-20 16:52:20] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:52:20] INFO - │ ⚙️  处理中...
-[2026-01-20 16:52:20] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:52:20] DEBUG - │ 
-[2026-01-20 16:52:20] DEBUG - │ 📝 Prompt摘要 (1119字符):
-[2026-01-20 16:52:20] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:52:20] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:52:20] DEBUG - │ 
-[2026-01-20 16:52:20] DEBUG - │ ⏱️  耗时: 1.2s
-[2026-01-20 16:52:20] INFO - │ 🤖 回复: 我们理解您对资金状况的关注，每个人的情况都不同，我们的服务旨在为有临时资金需求的客户提供支持。如果您有相关需求或疑问，欢迎随时咨询。祝您一切顺利！
-[2026-01-20 16:52:20] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:52:20] INFO - 
-[2026-01-20 16:52:20] INFO - ✅ 引擎处理完成 (耗时: 1.2s)
-[2026-01-20 16:52:20] INFO - 
-[2026-01-20 16:52:34] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:52:34] INFO - ║  👤 用户输入: 问你，我会不会缺                                                       ║
-[2026-01-20 16:52:34] INFO - ║  📅 时间: 2026-01-20 16:52:34 | 🔄 第14轮对话                                      ║
-[2026-01-20 16:52:34] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:52:34] INFO - 
-[2026-01-20 16:52:34] DEBUG - Optimizing context for input: 问你，我会不会缺
-[2026-01-20 16:52:34] DEBUG - Preprocessed input: '问你，我会不会缺...'
-[2026-01-20 16:52:34] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:52:34] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:52:34] DEBUG - Reordered 10 context items
-[2026-01-20 16:52:34] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:52:34] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:52:34] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:52:34] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:52:36] DEBUG - Updating context with new messages
-[2026-01-20 16:52:36] DEBUG - Added user message to session
-[2026-01-20 16:52:36] DEBUG - Added assistant message to session
-[2026-01-20 16:52:36] DEBUG - Context updated successfully
-[2026-01-20 16:52:36] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:52:36] INFO - │ ⚙️  处理中...
-[2026-01-20 16:52:36] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:52:36] DEBUG - │ 
-[2026-01-20 16:52:36] DEBUG - │ 📝 Prompt摘要 (1159字符):
-[2026-01-20 16:52:36] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:52:36] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:52:36] DEBUG - │ 
-[2026-01-20 16:52:36] DEBUG - │ ⏱️  耗时: 1.2s
-[2026-01-20 16:52:36] INFO - │ 🤖 回复: 我们理解您对资金状况的关注，每个人的情况不同，我们的服务旨在为有临时资金周转需求的客户提供支持。如果您有相关需求或疑问，欢迎随时咨询。祝您一切顺利！
-[2026-01-20 16:52:36] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:52:36] INFO - 
-[2026-01-20 16:52:36] INFO - ✅ 引擎处理完成 (耗时: 1.2s)
-[2026-01-20 16:52:36] INFO - 
-[2026-01-20 16:52:44] INFO - ╔══════════════════════════════════════════════════════════════════════════════╗
-[2026-01-20 16:52:44] INFO - ║  👤 用户输入: 你直接回答，我缺不缺                                                     ║
-[2026-01-20 16:52:44] INFO - ║  📅 时间: 2026-01-20 16:52:44 | 🔄 第15轮对话                                      ║
-[2026-01-20 16:52:44] INFO - ╚══════════════════════════════════════════════════════════════════════════════╝
-[2026-01-20 16:52:44] INFO - 
-[2026-01-20 16:52:44] DEBUG - Optimizing context for input: 你直接回答，我缺不缺
-[2026-01-20 16:52:44] DEBUG - Preprocessed input: '你直接回答，我缺不缺...'
-[2026-01-20 16:52:44] DEBUG - Retrieved 10 session messages
-[2026-01-20 16:52:44] DEBUG - RerankingStrategy: reranked 10 items
-[2026-01-20 16:52:44] DEBUG - Reordered 10 context items
-[2026-01-20 16:52:44] DEBUG - CompressionStrategy: 10 items after optimization
-[2026-01-20 16:52:44] DEBUG - CompressionStrategy converted to ContextResult: 10 history, 0 memory, 0 knowledge
-[2026-01-20 16:52:44] DEBUG - Compressed context: 10 items → 10 history + 0 memory + 0 knowledge
-[2026-01-20 16:52:44] DEBUG - Context optimized: 10 history, 0 memory items
-[2026-01-20 16:52:45] DEBUG - Updating context with new messages
-[2026-01-20 16:52:45] DEBUG - Added user message to session
-[2026-01-20 16:52:45] DEBUG - Added assistant message to session
-[2026-01-20 16:52:45] DEBUG - Context updated successfully
-[2026-01-20 16:52:45] INFO - ┌─ 🤖 引擎处理 [详细] ───────────────────────────────────────────────────────────────┐
-[2026-01-20 16:52:45] INFO - │ ⚙️  处理中...
-[2026-01-20 16:52:45] INFO - │ 💭 历史: 10条对话
-[2026-01-20 16:52:45] DEBUG - │ 
-[2026-01-20 16:52:45] DEBUG - │ 📝 Prompt摘要 (1166字符):
-[2026-01-20 16:52:45] DEBUG - │   ├─ 你是一位专业的客服对话助手。你的任务是与用户进行自然、专业的对话。
-[2026-01-20 16:52:45] DEBUG - │   ├─ ## 核心职责：
-[2026-01-20 16:52:45] DEBUG - │ 
-[2026-01-20 16:52:45] DEBUG - │ ⏱️  耗时: 1.2s
-[2026-01-20 16:52:45] INFO - │ 🤖 回复: 我们无法判断您的资金状况，也从未对客户的情况做出主观评价。我们的服务是为有临时资金周转需求的客户提供的，如果您有相关需求，欢迎随时咨询。感谢您的理解！
-[2026-01-20 16:52:45] INFO - └─────────────────────────────────────────────────────────────────────────────┘
-[2026-01-20 16:52:45] INFO - 
-[2026-01-20 16:52:45] INFO - ✅ 引擎处理完成 (耗时: 1.2s)
-[2026-01-20 16:52:45] INFO - 
-[2026-01-20 16:52:52] INFO - 🔄 [Gradio] 开始新一轮对话，重置引擎状态...
-[2026-01-20 16:52:52] INFO - Initializing client with model: Qwen3-32B
-[2026-01-20 16:52:52] DEBUG - Client initialized with base_url: http://10.112.172.30:18019/v1
-[2026-01-20 16:52:52] INFO - ContextEngine initialized for app=callcenter-gradio, user=gradio-user
-[2026-01-20 16:52:52] INFO - 🔧 [Gradio] 已创建引擎 (会话:True, 记忆:False, 最大轮数:10)
-[2026-01-20 16:52:52] DEBUG - Added assistant message to session
+[2026-01-21 18:56:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] RuleBasedExtractor 已初始化用于知识提取
+[2026-01-21 18:56:27] INFO - [contextmind.engine] [contextmind.engine] ContextEngine 已初始化 app=chat-demo, user=chat-user
+[2026-01-21 18:56:27] INFO - [demos.llm_client] [demos.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-72B-Instruct-AWQ
+[2026-01-21 18:56:27] INFO - [demos.llm_client] [demos.llm_client] [LLM Client] 初始化成功
+[2026-01-21 18:56:27] INFO - [demos.chat_app] [demos.chat_app] [ChatApplication] ✓ 初始化完成 (真实LLM: True, 知识提取: rule)
+[2026-01-21 18:56:27] INFO - [contextmind.pipeline.summarizer] [contextmind.pipeline.summarizer] [Summarizer] 初始化完成 - 策略: RuleBasedSummarizer, 窗口: 10
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '你是谁'
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 0 条消息
+[2026-01-21 18:56:38] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '你是谁'
+[2026-01-21 18:56:38] WARNING - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] ⚠️ 记忆库为空 - 没有可检索的记忆
+[2026-01-21 18:56:38] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '你是谁', 缓存大小: 0
+[2026-01-21 18:56:38] WARNING - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] ✗ 本地缓存为空 - 无法检索记忆
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 0 条知识
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 0 条上下文
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 0 条上下文项
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(0条)，无需压缩
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 0 条上下文项 (会话: 0, 记忆: 0)
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 18:56:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 246 字符)
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:56:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:56:39] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (37 字符)
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 3 字符
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 37 字符
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 2 条对话中提取知识...
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:39] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 2 条消息
+[2026-01-21 18:56:39] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 0 条有效知识
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ℹ️  未提取到任何有效知识
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:56:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '你了解我吗？就和我聊天'
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 2 条消息
+[2026-01-21 18:57:09] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '你了解我吗？就和我聊天'
+[2026-01-21 18:57:09] WARNING - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] ⚠️ 记忆库为空 - 没有可检索的记忆
+[2026-01-21 18:57:09] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '你了解我吗？就和我聊天', 缓存大小: 0
+[2026-01-21 18:57:09] WARNING - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] ✗ 本地缓存为空 - 无法检索记忆
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 0 条知识
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 2 条上下文
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 2 条上下文项
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(2条)，无需压缩
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 2 条上下文项 (会话: 2, 记忆: 0)
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近2轮，共2轮可用)
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 322 字符)
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:09] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (33 字符)
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 11 字符
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 33 字符
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 4 条对话中提取知识...
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 4 条消息
+[2026-01-21 18:57:09] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 0 条有效知识
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ℹ️  未提取到任何有效知识
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:09] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '我叫 一二三，重庆人，吃火锅，喜欢旅行，单身，喜欢简单的生活方式'
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 4 条消息
+[2026-01-21 18:57:48] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '我叫 一二三，重庆人，吃火锅，喜欢旅行，单身，喜欢简单的生活方式'
+[2026-01-21 18:57:48] WARNING - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] ⚠️ 记忆库为空 - 没有可检索的记忆
+[2026-01-21 18:57:48] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '我叫 一二三，重庆人，吃火锅，喜欢旅行，单身，喜欢简单的生活方式', 缓存大小: 0
+[2026-01-21 18:57:48] WARNING - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] ✗ 本地缓存为空 - 无法检索记忆
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 0 条知识
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 4 条上下文
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 4 条上下文项
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(4条)，无需压缩
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 4 条上下文项 (会话: 4, 记忆: 0)
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 18:57:48] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近4轮，共4轮可用)
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 406 字符)
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:48] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 18:57:49] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (49 字符)
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 32 字符
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 49 字符
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 6 条对话中提取知识...
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:49] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 6 条消息
+[2026-01-21 18:57:49] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 18:57:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 18:57:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 18:57:49] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 18:57:49] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] ✓ 存储完成 - 新增 1 条知识
+[2026-01-21 18:57:49] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 当前记忆库总计: 1 条记忆
+[2026-01-21 18:57:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 18:57:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '红汤锅底最好，川西风景最好'
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 6 条消息
+[2026-01-21 19:01:16] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '红汤锅底最好，川西风景最好'
+[2026-01-21 19:01:16] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '红汤锅底最好，川西风景最好', 缓存大小: 1
+[2026-01-21 19:01:16] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '红汤锅底最好，川西风景最好', 缓存大小: 1
+[2026-01-21 19:01:16] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 7 条上下文
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 7 条上下文项
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(7条)，无需压缩
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 7 条上下文项 (会话: 6, 记忆: 1)
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:01:16] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近6轮，共6轮可用)
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 536 字符)
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:16] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:17] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (54 字符)
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 13 字符
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 54 字符
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 8 条对话中提取知识...
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:17] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 8 条消息
+[2026-01-21 19:01:17] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:01:17] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:01:17] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:01:17] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:01:17] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:01:17] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:01:17] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '去过鱼子西，新都桥'
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 8 条消息
+[2026-01-21 19:01:46] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '去过鱼子西，新都桥'
+[2026-01-21 19:01:46] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '去过鱼子西，新都桥', 缓存大小: 1
+[2026-01-21 19:01:46] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '去过鱼子西，新都桥', 缓存大小: 1
+[2026-01-21 19:01:46] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 9 条上下文
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 9 条上下文项
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(9条)，无需压缩
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 9 条上下文项 (会话: 8, 记忆: 1)
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:01:46] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近8轮，共8轮可用)
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 618 字符)
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:46] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:01:47] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (51 字符)
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 9 字符
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 51 字符
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 10 条对话中提取知识...
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:47] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 10 条消息
+[2026-01-21 19:01:47] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:01:47] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:01:47] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:01:47] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:01:47] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:01:47] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:01:47] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '还是去川西'
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 10 条消息
+[2026-01-21 19:06:27] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '还是去川西'
+[2026-01-21 19:06:27] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '还是去川西', 缓存大小: 1
+[2026-01-21 19:06:27] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '还是去川西', 缓存大小: 1
+[2026-01-21 19:06:27] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 11 条上下文
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 11 条上下文项
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(11条)，无需压缩
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 11 条上下文项 (会话: 10, 记忆: 1)
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:06:27] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近10轮，共10轮可用)
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 693 字符)
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:27] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:28] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (48 字符)
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 5 字符
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 48 字符
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 12 条对话中提取知识...
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:28] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 12 条消息
+[2026-01-21 19:06:28] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:06:28] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:06:28] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:06:28] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:06:28] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:06:28] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:06:28] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '去看雪山'
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:06:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 12 条消息
+[2026-01-21 19:06:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '去看雪山'
+[2026-01-21 19:06:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '去看雪山', 缓存大小: 1
+[2026-01-21 19:06:49] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '去看雪山', 缓存大小: 1
+[2026-01-21 19:06:50] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 13 条上下文
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 13 条上下文项
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(13条)，无需压缩
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 13 条上下文项 (会话: 12, 记忆: 1)
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近10轮，共12轮可用)
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 705 字符)
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:06:50] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (51 字符)
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 4 字符
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 51 字符
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 14 条对话中提取知识...
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 14 条消息
+[2026-01-21 19:06:50] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:06:50] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:06:50] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:06:50] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:06:50] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:06:50] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:06:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '明年空了就去'
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 14 条消息
+[2026-01-21 19:07:19] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '明年空了就去'
+[2026-01-21 19:07:19] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '明年空了就去', 缓存大小: 1
+[2026-01-21 19:07:19] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '明年空了就去', 缓存大小: 1
+[2026-01-21 19:07:19] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 15 条上下文
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 15 条上下文项
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(15条)，无需压缩
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 15 条上下文项 (会话: 14, 记忆: 1)
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:07:19] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话历史 (最近10轮，共14轮可用)
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 718 字符)
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:19] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:20] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (65 字符)
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 6 字符
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 65 字符
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 16 条对话中提取知识...
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:20] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 16 条消息
+[2026-01-21 19:07:20] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:07:20] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:07:20] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:07:20] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:07:20] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:07:20] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:07:20] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '其他没有了'
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 16 条消息
+[2026-01-21 19:07:31] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '其他没有了'
+[2026-01-21 19:07:31] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '其他没有了', 缓存大小: 1
+[2026-01-21 19:07:31] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '其他没有了', 缓存大小: 1
+[2026-01-21 19:07:31] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 17 条上下文
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 17 条上下文项
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(17条)，无需压缩
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 17 条上下文项 (会话: 16, 记忆: 1)
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:31] INFO - [contextmind.pipeline.summarizer] [contextmind.pipeline.summarizer] [Summarizer] 对话分层: 前11轮已摘要，保留最近5轮
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话摘要 (总共16轮，前11轮已摘要)
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加最近对话 (5 轮)
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 717 字符)
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:31] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (35 字符)
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 5 字符
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 35 字符
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 18 条对话中提取知识...
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 18 条消息
+[2026-01-21 19:07:31] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:07:31] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:07:31] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:07:31] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:07:31] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:07:31] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:07:31] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '好的'
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 18 条消息
+[2026-01-21 19:07:38] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '好的'
+[2026-01-21 19:07:38] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '好的', 缓存大小: 1
+[2026-01-21 19:07:38] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '好的', 缓存大小: 1
+[2026-01-21 19:07:38] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 19 条上下文
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 19 条上下文项
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(19条)，无需压缩
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 19 条上下文项 (会话: 18, 记忆: 1)
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:07:38] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:38] INFO - [contextmind.pipeline.summarizer] [contextmind.pipeline.summarizer] [Summarizer] 对话分层: 前13轮已摘要，保留最近5轮
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话摘要 (总共18轮，前13轮已摘要)
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加最近对话 (5 轮)
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 702 字符)
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:38] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:07:39] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (32 字符)
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 2 字符
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 32 字符
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 20 条对话中提取知识...
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:39] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 20 条消息
+[2026-01-21 19:07:39] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:07:39] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:07:39] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:07:39] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:07:39] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:07:39] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:07:39] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 开始上下文优化 ==========
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📝 用户输入: '最新心情不好'
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔄 步骤 1/5: 预处理用户输入
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 预处理完成
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🔍 步骤 2/5: 召回相关上下文
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 会话历史: 20 条消息
+[2026-01-21 19:08:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始检索记忆 - 查询: '最新心情不好'
+[2026-01-21 19:08:49] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 从本地缓存检索 - 查询: '最新心情不好', 缓存大小: 1
+[2026-01-21 19:08:49] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] 从缓存检索 - 查询: '最新心情不好', 缓存大小: 1
+[2026-01-21 19:08:49] INFO - [contextmind.strategies.retrievers] [contextmind.strategies.retrievers] [SemanticRetriever] ✓ 检索成功 - 找到 1 条相关记忆 (最高分: 0.30)
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 长期记忆: 1 条知识
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 召回完成 - 共检索到 21 条上下文
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📦 步骤 3/5: 构建上下文
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 上下文构建完成 - 21 条上下文项
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🗜️  步骤 4/5: 上下文压缩
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 上下文项数量适中(21条)，无需压缩
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 🎯 上下文优化完成 - 共 21 条上下文项 (会话: 20, 记忆: 1)
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 上下文优化结束 ==========
+[2026-01-21 19:08:49] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ========== 开始构建 Prompt ==========
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] ====================================================================================================
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] 检查长期记忆: 1 条
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加长期记忆到 Prompt: 1 条
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:08:49] INFO - [contextmind.pipeline.summarizer] [contextmind.pipeline.summarizer] [Summarizer] 对话分层: 前15轮已摘要，保留最近5轮
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加对话摘要 (总共20轮，前15轮已摘要)
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加最近对话 (5 轮)
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ 添加当前用户输入
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] [Prompt] ✓ Prompt 构建完成 (总长度: 683 字符)
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:08:49] INFO - [demos.chat_app] [demos.chat_app] 
+[2026-01-21 19:08:50] INFO - [demos.chat_app] [demos.chat_app] [LLM Response] 生成回复 (46 字符)
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 💾 更新会话历史 - 添加新对话轮次
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 用户消息: 6 字符
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine]   - 助手回复: 46 字符
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 会话历史更新完成
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 🧠 开始知识提取 ==========
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📖 从 20 条对话中提取知识...
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] ====================================================================================================
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:50] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] 开始基于规则的知识提取 - 处理 20 条消息
+[2026-01-21 19:08:50] INFO - [contextmind.strategies.extractors] [contextmind.strategies.extractors] [Extractor] ✓ 知识提取完成 - 总计 1 条有效知识
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识提取完成 - 共提取 1 条知识
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] 📥 入库: 存储知识到长期记忆...
+[2026-01-21 19:08:50] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] [MemoryBank] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:08:50] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:08:50] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
+[2026-01-21 19:08:50] INFO - [contextmind.strategies.updaters] [contextmind.strategies.updaters] [SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容
+[2026-01-21 19:08:50] INFO - [contextmind.pipeline.memory] [contextmind.pipeline.memory] 
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ✓ 知识入库完成
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] ----------------------------------------------------------------------------------------------------
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] [ContextEngine] ========== 知识提取结束 ==========
+[2026-01-21 19:08:50] INFO - [contextmind.engine] [contextmind.engine] 
