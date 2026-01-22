@@ -52,7 +52,7 @@
       "dialog-002"
     ],
     "extraction_method": "llm",                     // 提取方法: rule/llm/hybrid
-    "extractor_version": "v7.1.0",                  // 提取器版本
+    "extractor_version": "v7.2.0",                  // 提取器版本
     
     // --- 时间信息 ---
     "created_at": "2026-01-20T10:30:00Z",          // 创建时间

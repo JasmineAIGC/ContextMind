@@ -1,8 +1,8 @@
-# ContextMind v7.1 演示的 LLM 集成
+# ContextMind v7.2 演示的 LLM 集成
 
 ## 概述
 
-在 ContextMind v7.1 中，**LLM 调用在核心框架外部**。这意味着:
+在 ContextMind v7.2 中，**LLM 调用在核心框架外部**。这意味着:
 - ContextMind 框架处理**上下文工程** (步骤 1-4 + 6)
 - 您的应用负责**调用 LLM** (步骤 5)
 

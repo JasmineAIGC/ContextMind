@@ -1,8 +1,8 @@
-# ContextMind v7.0 Logging System
+# ContextMind v7.2 Logging System
 
 ## Overview
 
-ContextMind v7.0 includes a unified, professional logging system designed for context engineering workflows. The system provides three logging levels to support different use cases:
+ContextMind v7.2 includes a unified, professional logging system designed for context engineering workflows. The system provides three logging levels to support different use cases:
 
 - **BASIC**: Pipeline-level logging (inputs, outputs, major events)
 - **DETAILED**: Step-level logging (individual steps within pipeline)
@@ -305,7 +305,7 @@ logger.detail("Internal detail")       # Debug-level
 
 ## Summary
 
-The v7.0 logging system provides:
+The v7.2 logging system provides:
 
 - **BASIC**: See the forest (pipeline overview)
 - **DETAILED**: See the trees (individual steps)

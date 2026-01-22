@@ -2,7 +2,7 @@
 
 ## 概述
 
-ContextMind v7.1 提供两种知识提取方式：
+ContextMind v7.2 提供两种知识提取方式：
 1. **规则提取 (Rule-based)** - 快速、通用、零成本
 2. **LLM自动提取 (LLM-based)** - 智能、深度理解、需要API
 
