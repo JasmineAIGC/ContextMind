@@ -99,13 +99,13 @@ class ChatApplication:
         summarization_config = SummarizationConfig(
             summarize_threshold=5,  # 超过5轮触发摘要（降低阈值以更早生成摘要）
             keep_recent_turns=3,  # 保留最近3轮（摘要后显示更少原始对话）
-            method="rule"  # 使用规则摘要（快速）
+            method="llm"  # 使用LLM摘要（更高质量）
         )
         self.summarizer = ConversationSummarizer(
             config=summarization_config,
             llm_client=self.llm_client if use_real_llm else None
         )
-        logger.debug(f"[ChatApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
+        logger.debug(f"[ChatApplication] ✓ 对话摘要器已初始化 (方式: {summarization_config.method}, 触发阈值: {summarization_config.summarize_threshold}轮)")
 
     
     def build_prompt(self, user_input: str, context: ContextResult, debug_info: Optional[Dict] = None) -> str:
