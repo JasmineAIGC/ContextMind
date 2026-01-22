@@ -251,8 +251,9 @@ def create_gradio_interface():
     async def chat_async(message, history):
         try:
             result = await demo_instance.chat(message)
-            # Gradio chatbot 格式：[(用户消息, 机器人消息), ...]
-            history.append((message, result.response))
+            # Gradio 6.x chatbot 格式：[{"role": "user/assistant", "content": "..."}, ...]
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": result.response})
             
             # 构建状态信息
             status = f"⏱️ {result.processing_time:.2f}s | 📝 上下文: {result.history_count}项"
@@ -260,7 +261,8 @@ def create_gradio_interface():
             return history, status
         except Exception as e:
             error_response = f"❌ 错误: {str(e)}"
-            history.append((message, error_response))
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": error_response})
             return history, "❌ 处理失败"
     
     def reset_async():
