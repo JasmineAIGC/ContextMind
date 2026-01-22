@@ -6,7 +6,7 @@ ChatApplication - 通用闲聊应用示例
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
 from contextmind import ContextEngine
 from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
@@ -108,7 +108,7 @@ class ChatApplication:
         logger.debug(f"[ChatApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
 
     
-    def build_prompt(self, user_input: str, context: ContextResult, debug_info: dict = None) -> str:
+    def build_prompt(self, user_input: str, context: ContextResult, debug_info: Optional[Dict] = None) -> str:
         """构建闲聊场景 Prompt
         
         包含系统提示词、相关记忆、对话历史和当前输入。
@@ -124,6 +124,7 @@ class ChatApplication:
         
         # 总是添加"已知信息"部分（即使为空）
         RELEVANCE_THRESHOLD = 0.3
+        NO_MEMORY_TEXT = "(暂无相关记忆)"
         
         # 从items中提取长期记忆
         long_term_items = [item for item in context.items if item.source == ContextSource.MEMORY]
@@ -146,11 +147,11 @@ class ChatApplication:
                     logger.debug(f"  {i}. {item.content} (score={item.score:.2f})")
             else:
                 # 即使无相关记忆，也添加该部分（标记为空）
-                prompt_parts.append(f"\n## 已知信息\n(暂无相关记忆)")
+                prompt_parts.append(f"\n## 已知信息\n{NO_MEMORY_TEXT}")
                 logger.debug(f"[Prompt] 已添加空的'已知信息'部分 (阈值: {RELEVANCE_THRESHOLD})")
         else:
             # 记忆库为空时，也添加该部分
-            prompt_parts.append(f"\n## 已知信息\n(暂无相关记忆)")
+            prompt_parts.append(f"\n## 已知信息\n{NO_MEMORY_TEXT}")
             logger.debug("[Prompt] 已添加空的'已知信息'部分 (记忆库为空)")
         logger.info("")
         
@@ -202,7 +203,7 @@ class ChatApplication:
             summary_info = {'has_summary': False, 'recent_turns': 0}
         
         # 如果提供了debug_info，保存摘要信息
-        if debug_info is not None and summary_info:
+        if summary_info and debug_info is not None:
             debug_info['summary_info'] = summary_info
         
         logger.info("")
