@@ -899,3 +899,903 @@ class ImportancePredictorExtractor(BaseExtractor):
         # TODO: Implement when model is available
         # Current implementation returns neutral score
         return 1.0
+
+
+class EnhancedExtractor(BaseExtractor):
+    """
+    增强知识提取器 - 支持30种知识类型
+    
+    在RuleBasedExtractor基础上扩展，提取更全面的知识类型：
+    - 单轮对话提取：21种基础知识类型
+    - 多轮对话提取：4种对话级知识类型
+    - 跨对话提取：5种模式识别类型
+    
+    提取策略：
+    1. 基于规则的模式匹配（快速、确定性）
+    2. 多轮上下文分析（识别对话模式）
+    3. 语义关联提取（知识间的关系）
+    """
+    
+    def __init__(self, config: Optional[ExtractionConfig] = None):
+        """
+        初始化增强提取器
+        
+        Args:
+            config: 提取配置, 未指定时使用默认配置
+        """
+        self.config = config or DEFAULT_MEMORY_CONFIG.extraction
+        # 复用基础提取器的逻辑
+        self.base_extractor = RuleBasedExtractor(config)
+    
+    async def extract(self, messages: List[Message]) -> List[Knowledge]:
+        """
+        使用增强规则提取30种知识类型
+        
+        Args:
+            messages: 对话消息列表
+            
+        Returns:
+            提取的知识列表
+        """
+        logger.info(f"[EnhancedExtractor] 开始增强知识提取 - 处理 {len(messages)} 条消息，支持30种知识类型")
+        
+        knowledge = []
+        
+        # 1. 使用基础提取器提取原有9种类型
+        base_knowledge = await self.base_extractor.extract(messages)
+        knowledge.extend(base_knowledge)
+        logger.debug(f"[EnhancedExtractor] 基础提取: {len(base_knowledge)} 条")
+        
+        # 2. 提取新增的21种知识类型
+        
+        # 用户画像类 (4种)
+        user_profile = self._extract_user_profile(messages)
+        knowledge.extend(user_profile)
+        logger.debug(f"[EnhancedExtractor] 用户画像: {len(user_profile)} 条")
+        
+        # 认知类 (3种新增)
+        cognitive = self._extract_cognitive(messages)
+        knowledge.extend(cognitive)
+        logger.debug(f"[EnhancedExtractor] 认知类: {len(cognitive)} 条")
+        
+        # 行为类 (3种新增)
+        behavioral = self._extract_behavioral(messages)
+        knowledge.extend(behavioral)
+        logger.debug(f"[EnhancedExtractor] 行为类: {len(behavioral)} 条")
+        
+        # 意图类 (3种新增)
+        intentional = self._extract_intentional(messages)
+        knowledge.extend(intentional)
+        logger.debug(f"[EnhancedExtractor] 意图类: {len(intentional)} 条")
+        
+        # 关系类 (3种)
+        relational = self._extract_relational(messages)
+        knowledge.extend(relational)
+        logger.debug(f"[EnhancedExtractor] 关系类: {len(relational)} 条")
+        
+        # 知识类 (3种新增)
+        epistemic = self._extract_epistemic(messages)
+        knowledge.extend(epistemic)
+        logger.debug(f"[EnhancedExtractor] 知识类: {len(epistemic)} 条")
+        
+        # 情感类 (2种新增)
+        emotional = self._extract_emotional(messages)
+        knowledge.extend(emotional)
+        logger.debug(f"[EnhancedExtractor] 情感类: {len(emotional)} 条")
+        
+        # 策略类 (4种)
+        strategic = self._extract_strategic(messages)
+        knowledge.extend(strategic)
+        logger.debug(f"[EnhancedExtractor] 策略类: {len(strategic)} 条")
+        
+        # 上下文类 (2种新增)
+        contextual = self._extract_contextual(messages)
+        knowledge.extend(contextual)
+        logger.debug(f"[EnhancedExtractor] 上下文类: {len(contextual)} 条")
+        
+        # 3. 多轮对话分析 (4种)
+        if len(messages) >= 3:  # 至少3条消息才能分析多轮模式
+            multi_turn = self._extract_multi_turn(messages)
+            knowledge.extend(multi_turn)
+            logger.debug(f"[EnhancedExtractor] 多轮对话: {len(multi_turn)} 条")
+        
+        # 过滤低置信度知识
+        before_filter = len(knowledge)
+        knowledge = [k for k in knowledge if k.confidence >= self.config.min_confidence]
+        filtered_count = before_filter - len(knowledge)
+        
+        if filtered_count > 0:
+            logger.debug(f"[EnhancedExtractor] 过滤低置信度知识: {filtered_count} 条")
+        
+        logger.info(f"[EnhancedExtractor] ✓ 增强知识提取完成 - 总计 {len(knowledge)} 条有效知识（30种类型）")
+        
+        if knowledge:
+            # 按类型统计
+            type_counts = {}
+            for k in knowledge:
+                type_name = k.knowledge_type.value
+                type_counts[type_name] = type_counts.get(type_name, 0) + 1
+            
+            logger.debug(f"[EnhancedExtractor] 知识类型分布:")
+            for ktype, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+                logger.debug(f"  - {ktype}: {count} 条")
+            if len(type_counts) > 10:
+                logger.debug(f"  ... 以及其他 {len(type_counts) - 10} 种类型")
+        
+        return knowledge
+    
+    def _extract_user_profile(self, messages: List[Message]) -> List[Knowledge]:
+        """提取用户画像类知识 (4种)"""
+        knowledge = []
+        
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            # USER_INFO: 基本信息
+            info_patterns = [
+                (r'我(今年|是)(\d+)(岁|周岁)', 'age'),
+                (r'我(是|在|做)(.{2,10})(工作|职业|行业)', 'occupation'),
+                (r'我(在|住在|来自)(.{2,15})(市|省|区|县)', 'location'),
+                (r'我(叫|是|名字叫)(.{2,6})(?=[，。！？]|$)', 'name'),
+            ]
+            
+            for pattern, category in info_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        info_value = match[1].strip() if len(match) > 1 else match[0].strip()
+                        if 2 <= len(info_value) <= 20:
+                            knowledge.append(Knowledge(
+                                content=f"用户{category}: {info_value}",
+                                knowledge_type=KnowledgeType.USER_INFO,
+                                scores=ScoreInfo(confidence=0.8),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'category': category, 'value': info_value}
+                            ))
+            
+            # PERSONALITY: 性格特征
+            personality_patterns = [
+                (r'我(是个|比较|很)(.{2,8})(的人|性格)', 'trait'),
+                (r'我(性格|为人)(.{2,8})', 'trait'),
+            ]
+            
+            for pattern, category in personality_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        trait = match[1].strip()
+                        if 2 <= len(trait) <= 15:
+                            knowledge.append(Knowledge(
+                                content=f"用户性格: {trait}",
+                                knowledge_type=KnowledgeType.PERSONALITY,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'trait': trait}
+                            ))
+            
+            # VALUES: 价值观
+            value_patterns = [
+                (r'我(认为|觉得|相信)(.{5,30})(很重要|重要|最重要)', 'importance'),
+                (r'对我来说(.{3,20})(最重要|很重要)', 'importance'),
+            ]
+            
+            for pattern, category in value_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        value = match[0].strip() if len(match) == 1 else match[1].strip()
+                        if 3 <= len(value) <= 30:
+                            knowledge.append(Knowledge(
+                                content=f"用户价值观: {value}",
+                                knowledge_type=KnowledgeType.VALUES,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'value': value}
+                            ))
+            
+            # LIFESTYLE: 生活方式
+            lifestyle_patterns = [
+                (r'我(经常|总是|习惯|平时)(.{3,20})', 'routine'),
+                (r'我(每天|每周|每月)(.{3,20})', 'frequency'),
+            ]
+            
+            for pattern, category in lifestyle_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        activity = match[1].strip()
+                        if 3 <= len(activity) <= 25:
+                            knowledge.append(Knowledge(
+                                content=f"用户生活方式: {activity}",
+                                knowledge_type=KnowledgeType.LIFESTYLE,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'activity': activity}
+                            ))
+        
+        return knowledge
+    
+    def _extract_cognitive(self, messages: List[Message]) -> List[Knowledge]:
+        """提取认知类知识 (3种新增)"""
+        knowledge = []
+        
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            # BELIEF: 信念
+            belief_patterns = [
+                (r'我(相信|坚信|深信)(.{3,30})', 'belief'),
+                (r'我(一直|始终)(相信|认为)(.{3,30})', 'belief'),
+            ]
+            
+            for pattern, category in belief_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        belief_text = match[-1].strip()
+                        if 3 <= len(belief_text) <= 40:
+                            knowledge.append(Knowledge(
+                                content=f"用户信念: {belief_text}",
+                                knowledge_type=KnowledgeType.BELIEF,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'belief': belief_text}
+                            ))
+            
+            # ATTITUDE: 态度
+            attitude_patterns = [
+                (r'我(对|对于)(.{2,15})(的态度|持|保持)(.{2,20})', 'attitude'),
+                (r'我(支持|反对|赞成)(.{3,25})', 'stance'),
+            ]
+            
+            for pattern, category in attitude_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        target = match[1].strip()
+                        attitude_text = match[-1].strip() if len(match) > 2 else target
+                        if 2 <= len(attitude_text) <= 30:
+                            knowledge.append(Knowledge(
+                                content=f"用户态度: {attitude_text}",
+                                knowledge_type=KnowledgeType.ATTITUDE,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'target': target, 'attitude': attitude_text}
+                            ))
+            
+            # VALUE_JUDGMENT: 价值判断
+            judgment_patterns = [
+                (r'(.{2,15})(是|很|非常)(好|不好|糟糕|优秀|差)', 'judgment'),
+                (r'我(认为|觉得)(.{3,20})(不错|很好|不行|不好)', 'opinion_judgment'),
+            ]
+            
+            for pattern, category in judgment_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        subject = match[0].strip() if category == 'judgment' else match[1].strip()
+                        judgment = match[-1].strip()
+                        if 2 <= len(subject) <= 25:
+                            knowledge.append(Knowledge(
+                                content=f"用户判断: {subject} - {judgment}",
+                                knowledge_type=KnowledgeType.VALUE_JUDGMENT,
+                                scores=ScoreInfo(confidence=0.65),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'subject': subject, 'judgment': judgment}
+                            ))
+        
+        return knowledge
+    
+    def _extract_behavioral(self, messages: List[Message]) -> List[Knowledge]:
+        """提取行为类知识 (3种新增)"""
+        knowledge = []
+        
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            # EXPERIENCE: 经验
+            experience_patterns = [
+                (r'我(曾经|以前|之前)(.{3,30})(过|了)', 'past_experience'),
+                (r'我(有|具有)(.{3,25})(经验|经历)', 'has_experience'),
+                (r'我(试过|尝试过|做过)(.{3,30})', 'tried'),
+            ]
+            
+            for pattern, category in experience_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        exp_text = match[1].strip()
+                        if 3 <= len(exp_text) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"用户经验: {exp_text}",
+                                knowledge_type=KnowledgeType.EXPERIENCE,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'experience': exp_text, 'category': category}
+                            ))
+            
+            # SKILL: 技能
+            skill_patterns = [
+                (r'我(会|能|擅长|精通)(.{2,20})', 'can_do'),
+                (r'我(掌握|学会|学过)(.{2,20})', 'learned'),
+            ]
+            
+            for pattern, category in skill_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        skill = match[1].strip()
+                        if 2 <= len(skill) <= 25:
+                            knowledge.append(Knowledge(
+                                content=f"用户技能: {skill}",
+                                knowledge_type=KnowledgeType.SKILL,
+                                scores=ScoreInfo(confidence=0.8),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'skill': skill}
+                            ))
+            
+            # ACHIEVEMENT: 成就
+            achievement_patterns = [
+                (r'我(获得|拿到|取得|赢得)(.{3,30})(奖|证书|成就|认证)', 'award'),
+                (r'我(完成|实现|达成)(.{3,30})', 'accomplishment'),
+            ]
+            
+            for pattern, category in achievement_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        achievement = match[1].strip()
+                        if 3 <= len(achievement) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"用户成就: {achievement}",
+                                knowledge_type=KnowledgeType.ACHIEVEMENT,
+                                scores=ScoreInfo(confidence=0.8),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'achievement': achievement}
+                            ))
+        
+        return knowledge
+    
+    def _extract_intentional(self, messages: List[Message]) -> List[Knowledge]:
+        """提取意图类知识 (3种新增)"""
+        knowledge = []
+        
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            # GOAL: 目标
+            goal_patterns = [
+                (r'我(的目标|希望|目标)是(.{3,30})', 'explicit_goal'),
+                (r'我(想要|要)(实现|达到|达成)(.{3,30})', 'achieve_goal'),
+            ]
+            
+            for pattern, category in goal_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        goal = match[-1].strip()
+                        if 3 <= len(goal) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"用户目标: {goal}",
+                                knowledge_type=KnowledgeType.GOAL,
+                                scores=ScoreInfo(confidence=0.8),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'goal': goal}
+                            ))
+            
+            # PLAN: 计划
+            plan_patterns = [
+                (r'我(打算|计划|准备)(.{3,30})', 'plan'),
+                (r'我(会|将要|要去)(.{3,30})', 'future_action'),
+            ]
+            
+            for pattern, category in plan_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        plan = match[1].strip()
+                        if 3 <= len(plan) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"用户计划: {plan}",
+                                knowledge_type=KnowledgeType.PLAN,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'plan': plan}
+                            ))
+            
+            # EXPECTATION: 期望
+            expectation_patterns = [
+                (r'我(期望|期待|希望)(.{3,30})', 'expectation'),
+                (r'最好(.{3,25})', 'preference_expectation'),
+            ]
+            
+            for pattern, category in expectation_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        expectation = match[0].strip() if len(match) == 1 else match[1].strip()
+                        if 3 <= len(expectation) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"用户期望: {expectation}",
+                                knowledge_type=KnowledgeType.EXPECTATION,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'expectation': expectation}
+                            ))
+        
+        return knowledge
+    
+    def _extract_relational(self, messages: List[Message]) -> List[Knowledge]:
+        """提取关系类知识 (3种)"""
+        knowledge = []
+        
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            # RELATIONSHIP: 社交关系
+            relationship_patterns = [
+                (r'我(的|有个?)(.{2,8})(叫|是|名字)(.{2,10})', 'person'),
+                (r'我(和|跟)(.{2,10})(是|认识|熟悉)', 'connection'),
+            ]
+            
+            for pattern, category in relationship_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        relation = match[1].strip()
+                        person = match[-1].strip() if len(match) > 2 else relation
+                        if 2 <= len(relation) <= 15:
+                            knowledge.append(Knowledge(
+                                content=f"用户关系: {relation} - {person}",
+                                knowledge_type=KnowledgeType.RELATIONSHIP,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'relation': relation, 'person': person}
+                            ))
+            
+            # EMOTIONAL_CONNECTION: 情感连接
+            emotion_connection_patterns = [
+                (r'我(很|非常)(喜欢|爱|在乎|关心)(.{2,15})', 'care'),
+                (r'(.{2,15})(对我|对于我)(很重要|重要)', 'important_to_me'),
+            ]
+            
+            for pattern, category in emotion_connection_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        target = match[-1].strip() if category == 'care' else match[0].strip()
+                        if 2 <= len(target) <= 20:
+                            knowledge.append(Knowledge(
+                                content=f"用户情感连接: {target}",
+                                knowledge_type=KnowledgeType.EMOTIONAL_CONNECTION,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'target': target}
+                            ))
+            
+            # INFLUENCE: 影响因素
+            influence_patterns = [
+                (r'(.{2,15})(影响|影响了|会影响)(.{2,20})', 'influence'),
+                (r'因为(.{3,20})(所以|导致|使得)(.{3,25})', 'causation'),
+            ]
+            
+            for pattern, category in influence_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 2:
+                        factor = match[0].strip()
+                        effect = match[-1].strip()
+                        if 2 <= len(factor) <= 25:
+                            knowledge.append(Knowledge(
+                                content=f"影响因素: {factor} → {effect}",
+                                knowledge_type=KnowledgeType.INFLUENCE,
+                                scores=ScoreInfo(confidence=0.65),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'factor': factor, 'effect': effect}
+                            ))
+        
+        return knowledge
+    
+    def _extract_epistemic(self, messages: List[Message]) -> List[Knowledge]:
+        """提取知识类 (3种新增)"""
+        knowledge = []
+        
+        for msg in messages:
+            content = msg.content.strip()
+            
+            # PROCEDURAL: 程序性知识（如何做）
+            procedural_patterns = [
+                (r'(要|需要|应该)(先|首先)(.{3,20})(然后|再|接着)(.{3,20})', 'steps'),
+                (r'(可以|能够)(通过|用|使用)(.{3,25})(来|去)(.{3,20})', 'method'),
+            ]
+            
+            for pattern, category in procedural_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 3:
+                        step1 = match[2].strip()
+                        step2 = match[-1].strip()
+                        if 3 <= len(step1) <= 30:
+                            knowledge.append(Knowledge(
+                                content=f"程序性知识: {step1} → {step2}",
+                                knowledge_type=KnowledgeType.PROCEDURAL,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'steps': [step1, step2]}
+                            ))
+            
+            # DOMAIN_KNOWLEDGE: 领域知识
+            domain_patterns = [
+                (r'在(.{2,10})(领域|行业|方面)(.{3,30})', 'domain_fact'),
+                (r'(.{3,15})(是|指|意思是)(.{3,35})', 'definition'),
+            ]
+            
+            for pattern, category in domain_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        domain = match[0].strip() if category == 'domain_fact' else match[0].strip()
+                        knowledge_text = match[-1].strip()
+                        if 3 <= len(knowledge_text) <= 40:
+                            knowledge.append(Knowledge(
+                                content=f"领域知识: {domain} - {knowledge_text}",
+                                knowledge_type=KnowledgeType.DOMAIN_KNOWLEDGE,
+                                scores=ScoreInfo(confidence=0.65),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'domain': domain, 'knowledge': knowledge_text}
+                            ))
+            
+            # COMMON_SENSE: 常识
+            common_sense_patterns = [
+                (r'(一般|通常|普遍)(.{3,25})', 'general'),
+                (r'(大家|人们|大部分人)(都|通常)(.{3,25})', 'common'),
+            ]
+            
+            for pattern, category in common_sense_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        sense = match[-1].strip()
+                        if 3 <= len(sense) <= 30:
+                            knowledge.append(Knowledge(
+                                content=f"常识: {sense}",
+                                knowledge_type=KnowledgeType.COMMON_SENSE,
+                                scores=ScoreInfo(confidence=0.6),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'sense': sense}
+                            ))
+        
+        return knowledge
+    
+    def _extract_emotional(self, messages: List[Message]) -> List[Knowledge]:
+        """提取情感类知识 (2种新增)"""
+        knowledge = []
+        
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            # EMOTION: 情绪状态
+            emotion_patterns = [
+                (r'我(感到|觉得|很|非常)(开心|高兴|难过|伤心|生气|愤怒|焦虑|紧张|兴奋|激动|失望|沮丧|害怕|担心)', 'emotion_state'),
+                (r'我(心情|情绪)(好|不好|低落|高涨)', 'mood'),
+            ]
+            
+            for pattern, category in emotion_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        emotion = match[-1].strip()
+                        knowledge.append(Knowledge(
+                            content=f"用户情绪: {emotion}",
+                            knowledge_type=KnowledgeType.EMOTION,
+                            scores=ScoreInfo(confidence=0.75),
+                            extraction_method='rule',
+                            source_message_ids=[getattr(msg, 'id', '')],
+                            metadata={'emotion': emotion}
+                        ))
+            
+            # SENTIMENT: 情感倾向
+            sentiment_patterns = [
+                (r'我(对|对于)(.{2,15})(持|保持)(积极|消极|乐观|悲观|正面|负面)', 'sentiment_toward'),
+                (r'(.{2,15})(让我|使我)(感到|觉得)(高兴|难过|生气|失望)', 'triggered_sentiment'),
+            ]
+            
+            for pattern, category in sentiment_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        target = match[1].strip() if category == 'sentiment_toward' else match[0].strip()
+                        sentiment = match[-1].strip()
+                        if 2 <= len(target) <= 20:
+                            knowledge.append(Knowledge(
+                                content=f"用户情感倾向: {target} - {sentiment}",
+                                knowledge_type=KnowledgeType.SENTIMENT,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'target': target, 'sentiment': sentiment}
+                            ))
+        
+        return knowledge
+    
+    def _extract_strategic(self, messages: List[Message]) -> List[Knowledge]:
+        """提取策略类知识 (4种)"""
+        knowledge = []
+        
+        for msg in messages:
+            content = msg.content.strip()
+            
+            # SOLUTION: 解决方案
+            solution_patterns = [
+                (r'(可以|能够)(用|通过|采用)(.{3,30})(来解决|解决|处理)', 'solution_method'),
+                (r'(解决方案|办法|方法)是(.{3,30})', 'explicit_solution'),
+            ]
+            
+            for pattern, category in solution_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        solution = match[-2].strip() if category == 'solution_method' else match[-1].strip()
+                        if 3 <= len(solution) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"解决方案: {solution}",
+                                knowledge_type=KnowledgeType.SOLUTION,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'solution': solution}
+                            ))
+            
+            # STRATEGY: 策略
+            strategy_patterns = [
+                (r'(策略|战略|方针)是(.{3,30})', 'strategy'),
+                (r'(应该|需要|要)(采取|使用|运用)(.{3,25})(策略|方法)', 'recommended_strategy'),
+            ]
+            
+            for pattern, category in strategy_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        strategy = match[-2].strip() if category == 'recommended_strategy' else match[-1].strip()
+                        if 3 <= len(strategy) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"策略: {strategy}",
+                                knowledge_type=KnowledgeType.STRATEGY,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'strategy': strategy}
+                            ))
+            
+            # BEST_PRACTICE: 最佳实践
+            best_practice_patterns = [
+                (r'(最好|建议|推荐)(.{3,30})', 'recommendation'),
+                (r'(最佳|理想)(做法|方法|实践)是(.{3,30})', 'best_practice'),
+            ]
+            
+            for pattern, category in best_practice_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        practice = match[-1].strip()
+                        if 3 <= len(practice) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"最佳实践: {practice}",
+                                knowledge_type=KnowledgeType.BEST_PRACTICE,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'practice': practice}
+                            ))
+            
+            # LESSON_LEARNED: 经验教训
+            lesson_patterns = [
+                (r'(我学到|学会|明白|懂得)(.{3,30})', 'learned'),
+                (r'(教训|经验)是(.{3,30})', 'lesson'),
+                (r'(不应该|不要|避免)(.{3,25})', 'what_not_to_do'),
+            ]
+            
+            for pattern, category in lesson_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        lesson = match[-1].strip()
+                        if 3 <= len(lesson) <= 35:
+                            knowledge.append(Knowledge(
+                                content=f"经验教训: {lesson}",
+                                knowledge_type=KnowledgeType.LESSON_LEARNED,
+                                scores=ScoreInfo(confidence=0.7),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'lesson': lesson, 'category': category}
+                            ))
+        
+        return knowledge
+    
+    def _extract_contextual(self, messages: List[Message]) -> List[Knowledge]:
+        """提取上下文类知识 (2种新增)"""
+        knowledge = []
+        
+        # TOPIC: 话题识别
+        if messages:
+            # 简单的话题提取：从用户消息中提取高频词汇
+            user_messages = [m for m in messages if m.role.value == "user"]
+            if user_messages:
+                # 提取最后几条消息的主题词
+                recent_content = " ".join([m.content for m in user_messages[-3:]])
+                # 简单的关键词提取（这里使用简化版本）
+                words = re.findall(r'[\u4e00-\u9fff]{2,6}', recent_content)
+                word_counts = {}
+                for word in words:
+                    if word not in ['我们', '你们', '他们', '什么', '怎么', '这个', '那个', '可以', '需要']:
+                        word_counts[word] = word_counts.get(word, 0) + 1
+                
+                # 提取高频主题词
+                top_topics = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+                for topic, count in top_topics:
+                    if count >= 2:  # 至少出现2次
+                        knowledge.append(Knowledge(
+                            content=f"对话话题: {topic}",
+                            knowledge_type=KnowledgeType.TOPIC,
+                            scores=ScoreInfo(confidence=0.6),
+                            extraction_method='frequency',
+                            source_message_ids=[getattr(m, 'id', '') for m in user_messages[-3:]],
+                            metadata={'topic': topic, 'frequency': count}
+                        ))
+        
+        # SCENARIO: 场景识别
+        for msg in messages:
+            if msg.role.value != "user":
+                continue
+            
+            content = msg.content.strip()
+            
+            scenario_patterns = [
+                (r'在(.{2,10})(的时候|时|中)(.{3,20})', 'when_doing'),
+                (r'(工作|生活|学习|旅行|购物)(中|时)(.{3,25})', 'context'),
+            ]
+            
+            for pattern, category in scenario_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        scenario = match[0].strip() if category == 'when_doing' else match[0].strip()
+                        context = match[-1].strip()
+                        if 2 <= len(scenario) <= 15:
+                            knowledge.append(Knowledge(
+                                content=f"场景: {scenario} - {context}",
+                                knowledge_type=KnowledgeType.SCENARIO,
+                                scores=ScoreInfo(confidence=0.65),
+                                extraction_method='rule',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'scenario': scenario, 'context': context}
+                            ))
+        
+        return knowledge
+    
+    def _extract_multi_turn(self, messages: List[Message]) -> List[Knowledge]:
+        """提取多轮对话知识 (4种)"""
+        knowledge = []
+        
+        if len(messages) < 3:
+            return knowledge
+        
+        # CONVERSATION_PATTERN: 对话模式
+        # 分析问答模式
+        qa_sequences = []
+        for i in range(len(messages) - 1):
+            if messages[i].role.value == "user" and messages[i+1].role.value == "assistant":
+                user_content = messages[i].content[:50]
+                qa_sequences.append(user_content)
+        
+        if len(qa_sequences) >= 2:
+            knowledge.append(Knowledge(
+                content=f"对话模式: 问答序列 ({len(qa_sequences)}轮)",
+                knowledge_type=KnowledgeType.CONVERSATION_PATTERN,
+                scores=ScoreInfo(confidence=0.65),
+                extraction_method='multi_turn_analysis',
+                source_message_ids=[getattr(m, 'id', '') for m in messages],
+                metadata={'pattern_type': 'qa_sequence', 'turns': len(qa_sequences)}
+            ))
+        
+        # TOPIC_EVOLUTION: 主题演变
+        # 简单检测主题变化
+        user_messages = [m for m in messages if m.role.value == "user"]
+        if len(user_messages) >= 3:
+            first_topics = set(re.findall(r'[\u4e00-\u9fff]{2,6}', user_messages[0].content))
+            last_topics = set(re.findall(r'[\u4e00-\u9fff]{2,6}', user_messages[-1].content))
+            
+            common = first_topics & last_topics
+            new_topics = last_topics - first_topics
+            
+            if new_topics:
+                knowledge.append(Knowledge(
+                    content=f"主题演变: 从 {len(first_topics)} 个初始话题扩展到 {len(last_topics)} 个话题",
+                    knowledge_type=KnowledgeType.TOPIC_EVOLUTION,
+                    scores=ScoreInfo(confidence=0.6),
+                    extraction_method='multi_turn_analysis',
+                    source_message_ids=[getattr(m, 'id', '') for m in user_messages],
+                    metadata={'initial_topics': len(first_topics), 'final_topics': len(last_topics), 'new_topics': len(new_topics)}
+                ))
+        
+        # PROBLEM_SOLUTION_SEQ: 问题-解决序列
+        # 检测问题和解决方案的序列
+        problem_keywords = ['问题', '困难', '麻烦', '怎么办', '如何', '怎样']
+        solution_keywords = ['解决', '办法', '方法', '可以', '建议', '推荐']
+        
+        has_problem = any(any(kw in m.content for kw in problem_keywords) for m in messages if m.role.value == "user")
+        has_solution = any(any(kw in m.content for kw in solution_keywords) for m in messages if m.role.value == "assistant")
+        
+        if has_problem and has_solution:
+            knowledge.append(Knowledge(
+                content="问题-解决序列: 用户提出问题 → 系统提供解决方案",
+                knowledge_type=KnowledgeType.PROBLEM_SOLUTION_SEQ,
+                scores=ScoreInfo(confidence=0.7),
+                extraction_method='multi_turn_analysis',
+                source_message_ids=[getattr(m, 'id', '') for m in messages],
+                metadata={'has_problem': has_problem, 'has_solution': has_solution}
+            ))
+        
+        # CAUSALITY: 因果关系
+        # 检测因果关系表达
+        causality_patterns = [
+            r'因为(.{3,20})(所以|导致|使得)(.{3,20})',
+            r'由于(.{3,20})(造成|引起)(.{3,20})',
+        ]
+        
+        for msg in messages:
+            content = msg.content
+            for pattern in causality_patterns:
+                matches = re.findall(pattern, content)
+                for match in matches:
+                    if isinstance(match, tuple) and len(match) >= 3:
+                        cause = match[0].strip()
+                        effect = match[2].strip()
+                        if 3 <= len(cause) <= 25 and 3 <= len(effect) <= 25:
+                            knowledge.append(Knowledge(
+                                content=f"因果关系: {cause} → {effect}",
+                                knowledge_type=KnowledgeType.CAUSALITY,
+                                scores=ScoreInfo(confidence=0.75),
+                                extraction_method='multi_turn_analysis',
+                                source_message_ids=[getattr(msg, 'id', '')],
+                                metadata={'cause': cause, 'effect': effect}
+                            ))
+        
+        return knowledge
