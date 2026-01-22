@@ -55,10 +55,12 @@ class PluginRegistry:
             # 导入并注册提取器
             from .strategies.extractors import (
                 RuleBasedExtractor,
+                LLMBasedExtractor,
                 LLMEntityExtractor,
                 ImportancePredictorExtractor,
             )
-            self.register('extractors', 'rule_based', RuleBasedExtractor)
+            self.register('extractors', 'llm_based', LLMBasedExtractor)  # 推荐使用
+            self.register('extractors', 'rule_based', RuleBasedExtractor)  # 已弃用，仅作fallback
             self.register('extractors', 'llm_entity', LLMEntityExtractor)
             self.register('extractors', 'importance', ImportancePredictorExtractor)
             
