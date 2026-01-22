@@ -29,6 +29,7 @@ from typing import List
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
 from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
@@ -115,9 +116,8 @@ class ChatGradioDemo:
             return "✅ 引擎初始化成功！可以开始聊天了。"
             
         except Exception as e:
-            import traceback
-            error_msg = f"❌ 引擎初始化失败: {str(e)}"
             error_details = traceback.format_exc()
+            error_msg = f"❌ 引擎初始化失败: {str(e)}"
             logger.error(error_msg)
             logger.error(f"错误详情:\n{error_details}")
             return error_msg
@@ -258,9 +258,8 @@ class ChatGradioDemo:
             )
             
         except Exception as e:
-            import traceback
-            error_msg = f"处理失败: {str(e)}"
             error_details = traceback.format_exc()
+            error_msg = f"处理失败: {str(e)}"
             logger.error(f"❌ {error_msg}")
             logger.error(f"错误详情:\n{error_details}")
             raise
@@ -307,7 +306,6 @@ def create_gradio_interface():
             
             return history, status
         except Exception as e:
-            import traceback
             error_details = traceback.format_exc()
             logger.error(f"[Gradio] 处理失败: {str(e)}")
             logger.error(f"[Gradio] 错误详情:\n{error_details}")
