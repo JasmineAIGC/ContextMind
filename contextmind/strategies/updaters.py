@@ -67,7 +67,7 @@ class SimpleUpdater(BaseUpdater):
     
     # 相似度阈值（用于检测需要合并的记忆）
     SIMILARITY_THRESHOLD_FOR_MERGE = 0.65  # 降低到65%以捕获更多相似记忆
-    EXACT_DUPLICATE_THRESHOLD = 0.90  # 90%以上认为是完全重复
+    EXACT_DUPLICATE_THRESHOLD = 0.85  # 85%以上认为是完全重复（降低以捕获近似重复）
     
     async def update(
         self,
@@ -95,8 +95,10 @@ class SimpleUpdater(BaseUpdater):
         
         logger.info(f"[SimpleUpdater] 开始存储知识 - 收到 {len(new_knowledge)} 条知识项")
         
-        # 按置信度过滤
+        # 按置信度和内容质量过滤
         filtered_knowledge = []
+        robot_keywords = ["助手", "机器人", "Qwen", "阿里巴巴", "大模型", "语言模型", "AI助手"]
+        
         for k in new_knowledge:
             min_confidence = {
                 KnowledgeType.PREFERENCE: self.STORAGE_THRESHOLD_PREFERENCE,
@@ -104,12 +106,21 @@ class SimpleUpdater(BaseUpdater):
                 KnowledgeType.EVENT: self.STORAGE_THRESHOLD_EVENT,
             }.get(k.type, self.STORAGE_THRESHOLD_FACT)
             
+            # 检查是否包含机器人相关信息（不应该存储）
+            is_robot_info = any(keyword in k.content for keyword in robot_keywords)
+            
             if (k.confidence >= min_confidence 
                 and len(k.content.strip()) >= self.STORAGE_MIN_LENGTH
-                and not k.content.isdigit()):
+                and not k.content.isdigit()
+                and not is_robot_info):  # 过滤机器人信息
                 filtered_knowledge.append(k)
             else:
-                logger.debug(f"[SimpleUpdater] 过滤低质量知识: [{k.type.value}] {k.content[:50]}... (置信度={k.confidence:.2f})")
+                reason = ""
+                if is_robot_info:
+                    reason = " (机器人信息)"
+                elif k.confidence < min_confidence:
+                    reason = f" (置信度={k.confidence:.2f})"
+                logger.debug(f"[SimpleUpdater] 过滤低质量知识{reason}: [{k.type.value}] {k.content[:50]}...")
         
         if len(filtered_knowledge) < len(new_knowledge):
             logger.info(f"[SimpleUpdater] 质量过滤: {len(new_knowledge)} → {len(filtered_knowledge)} 条知识")
