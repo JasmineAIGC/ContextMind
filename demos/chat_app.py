@@ -108,7 +108,7 @@ class ChatApplication:
         logger.debug(f"[ChatApplication] ✓ 对话摘要器已初始化 (方式: {summarization_config.method}, 触发阈值: {summarization_config.summarize_threshold}轮)")
 
     
-    def build_prompt(self, user_input: str, context: ContextResult, debug_info: Optional[Dict] = None) -> str:
+    async def build_prompt(self, user_input: str, context: ContextResult, debug_info: Optional[Dict] = None) -> str:
         """构建闲聊场景 Prompt
         
         包含系统提示词、相关记忆、对话历史和当前输入。
@@ -188,23 +188,9 @@ class ChatApplication:
                 actual_turns = total_turns
             
             # 使用摘要器判断是否需要摘要（传入实际轮数用于增量判断）
-            # 注意：get_summary_and_recent 是 async 方法，需要 await
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 在async context中
-                    summary, recent_history = asyncio.create_task(
-                        self.summarizer.get_summary_and_recent(history_items, actual_turns)
-                    ).result()
-                else:
-                    summary, recent_history = loop.run_until_complete(
-                        self.summarizer.get_summary_and_recent(history_items, actual_turns)
-                    )
-            except RuntimeError:
-                # 没有事件循环
-                summary, recent_history = asyncio.run(
-                    self.summarizer.get_summary_and_recent(history_items, actual_turns)
-                )
+            # 注意：get_summary_and_recent 是 async 方法
+            # build_prompt 从 async process_turn 调用，因此可以使用 await
+            summary, recent_history = await self.summarizer.get_summary_and_recent(history_items, actual_turns)
             
             if summary:
                 # 有摘要：添加摘要 + 最近对话
@@ -318,7 +304,7 @@ class ChatApplication:
             }
         
         # 2. 构建 Prompt (传递debug_info以保存摘要信息)
-        prompt = self.build_prompt(user_input, context_result, debug_info if debug else None)
+        prompt = await self.build_prompt(user_input, context_result, debug_info if debug else None)
         
         if debug:
             debug_info['prompt'] = prompt
