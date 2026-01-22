@@ -87,11 +87,17 @@ class ChatGradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建引擎 (v7.1: LLM invocation is external, no client needed)
+            # 创建LLM客户端用于知识提取
+            from demos.llm_client import SimpleLLMClient, LLMConfig
+            llm_client_for_extraction = SimpleLLMClient(LLMConfig())
+            
+            # 创建引擎 (v7.1: 使用LLM提取知识，语义理解，支持40种知识类型)
             self.engine = ContextEngine(
                 app_name="chat-demo",
                 user_id="chat-user",
                 max_recent_events=max_recent_events,
+                llm_client=llm_client_for_extraction,  # LLM客户端用于知识提取
+                extraction_method="llm",  # 使用LLM提取（语义理解，40种类型）
             )
             
             logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
@@ -156,21 +162,19 @@ class ChatGradioDemo:
             history = await self.engine.session_manager.get_recent_history()
             history_count = len(history)
             
-            logger.info(f"🤖 助手回复: {response}")
-            logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
-            logger.info(f"📊 历史: {history_count}轮 | 记忆: {memory_count}条")
-            
-            # Debug 模式下显示详细信息
+            # Debug 模式下显示详细信息（先打印DEBUG，再打印回复和统计）
             if is_debug:
-                print("\n" + "=" * 80)
+                print("\n" + "=" * 100)
                 print("📊 DEBUG 信息")
-                print("=" * 80)
+                print("=" * 100)
                 
-                # 1. 记忆库内容
+                # 1. 记忆库内容 - 使用简化的清晰格式
                 if debug_info.get('memory_before'):
                     print(f"\n1️⃣  记忆库内容（{len(debug_info['memory_before'])}条）:")
                     for i, mem in enumerate(debug_info['memory_before'], 1):
-                        print(f"   [{i}] [{mem['type']}] {mem['content']} (置信度: {mem['confidence']:.2f})")
+                        # 简化格式：只显示核心信息
+                        print(f"   [{i}] {mem['content']}")
+                        print(f"       类型:{mem['type']} | 置信度:{mem['confidence']:.2f}")
                 else:
                     print("\n1️⃣  记忆库内容: 空")
                 
@@ -193,62 +197,64 @@ class ChatGradioDemo:
                     if history_items:
                         print(f"\n   💬 从历史对话召回 ({len(history_items)}项):")
                         for i, item in enumerate(history_items, 1):
-                            content = item['content'][:80] + "..." if len(item['content']) > 80 else item['content']
+                            content = item['content'][:100] + "..." if len(item['content']) > 100 else item['content']
                             print(f"      [{i}] {content} (分数: {item['score']:.2f})")
                     else:
                         print(f"\n   💬 从历史对话召回: 无")
                 else:
                     print("\n2️⃣  召回结果: 无")
                 
-                # 3. 上下文优化后的结果 (已包含在召回结果中)
-                print(f"\n3️⃣  上下文优化: 已完成 (压缩: {debug_info.get('context_result', {}).get('compressed', False)})")
+                # 3. 上下文优化后的结果 (包括摘要信息)
+                print(f"\n3️⃣  上下文优化: 已完成")
+                if debug_info.get('summary_info'):
+                    summary_info = debug_info['summary_info']
+                    print(f"   对话摘要: {summary_info.get('has_summary', False)}")
+                    if summary_info.get('has_summary'):
+                        print(f"   摘要轮数: {summary_info.get('summarized_turns', 0)}")
+                        print(f"   保留轮数: {summary_info.get('recent_turns', 0)}")
+                        print(f"   摘要内容: {summary_info.get('summary_text', 'N/A')[:200]}...")
                 
-                # 4. 完整的Prompt - 显示完整内容
+                # 4. 完整的Prompt - 显示所有部分
                 if debug_info.get('prompt'):
                     prompt_text = debug_info['prompt']
                     print(f"\n4️⃣  完整Prompt ({len(prompt_text)}字符):")
-                    print("   " + "-" * 76)
+                    print("   " + "-" * 96)
                     
-                    # 解析并完整显示各个部分
-                    if "## 早期对话摘要" in prompt_text:
-                        parts = prompt_text.split("## 早期对话摘要")
-                        print("   " + parts[0].replace("\n", "\n   ").strip())
-                        print("\n   ## 早期对话摘要")
-                        
-                        summary_part = parts[1].split("## 对话历史")[0] if "## 对话历史" in parts[1] else parts[1]
-                        summary_part = summary_part.split("## 最近对话")[0] if "## 最近对话" in summary_part else summary_part
-                        print("   " + summary_part.replace("\n", "\n   ").strip())
+                    # 按部分显示Prompt，确保所有部分都可见
+                    lines = prompt_text.split("\n")
+                    for line in lines:
+                        print("   " + line)
                     
-                    # 查找最近对话部分 - 完整显示不省略
-                    if "## 最近对话" in prompt_text or "## 对话历史" in prompt_text:
-                        history_marker = "## 最近对话" if "## 最近对话" in prompt_text else "## 对话历史"
-                        parts = prompt_text.split(history_marker)
-                        if len(parts) > 1:
-                            print(f"\n   {history_marker}")
-                            history_part = parts[1].split("## 当前问题")[0] if "## 当前问题" in parts[1] else parts[1]
-                            history_part = history_part.split("## 已知信息")[0] if "## 已知信息" in history_part else history_part
-                            print("   " + history_part.replace("\n", "\n   ").strip())
+                    print("   " + "-" * 96)
                     
-                    # 显示当前问题
-                    if "## 当前问题" in prompt_text:
-                        parts = prompt_text.split("## 当前问题")
-                        if len(parts) > 1:
-                            print("\n   ## 当前问题")
-                            print("   " + parts[1].replace("\n", "\n   ").strip())
+                    # 检查并提示Prompt中是否包含各个部分
+                    has_memory = "## 已知信息" in prompt_text
+                    has_summary = "## 早期对话摘要" in prompt_text
+                    has_recent = "## 最近对话" in prompt_text or "## 对话历史" in prompt_text
+                    has_current = "## 当前问题" in prompt_text
                     
-                    print("   " + "-" * 76)
+                    print(f"\n   Prompt结构检查:")
+                    print(f"      已知信息: {'✓' if has_memory else '✗'}")
+                    print(f"      对话摘要: {'✓' if has_summary else '✗'}")
+                    print(f"      对话历史: {'✓' if has_recent else '✗'}")
+                    print(f"      当前问题: {'✓' if has_current else '✗'}")
                 
-                # 5. 提取的知识
+                # 5. 提取的知识 - 使用简化格式
                 if debug_info.get('extracted_knowledge'):
                     print(f"\n5️⃣  提取的知识（{len(debug_info['extracted_knowledge'])}条）:")
                     for i, k in enumerate(debug_info['extracted_knowledge'], 1):
-                        print(f"   [{i}] [{k['type']}] {k['content']} (置信度: {k['confidence']:.2f})")
+                        # 简化格式：每条知识一行
+                        print(f"   [{i}] {k['content']}")
+                        print(f"       类型:{k['type']} | 置信度:{k['confidence']:.2f}")
                 else:
                     print("\n5️⃣  提取的知识: 无")
                 
-                print("\n" + "=" * 80)
-                print(f"\n[统计] 耗时: {processing_time:.2f}s | 记忆: {memory_count}条")
-                print("\n" + "-" * 60 + "\n")
+                print("\n" + "=" * 100)
+            
+            # 在DEBUG信息之后打印助手回复和统计信息
+            logger.info(f"🤖 助手回复: {response}")
+            logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
+            logger.info(f"📊 历史: {history_count}轮 | 记忆: {memory_count}条")
             
             return ChatResult(
                 response=response,

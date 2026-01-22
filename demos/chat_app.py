@@ -108,10 +108,11 @@ class ChatApplication:
         logger.debug(f"[ChatApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
 
     
-    def build_prompt(self, user_input: str, context: ContextResult) -> str:
+    def build_prompt(self, user_input: str, context: ContextResult, debug_info: dict = None) -> str:
         """构建闲聊场景 Prompt
         
         包含系统提示词、相关记忆、对话历史和当前输入。
+        确保所有部分都在Prompt中体现（即使为空）。
         """
         logger.info("")
         logger.info("=" * 100)
@@ -121,7 +122,7 @@ class ChatApplication:
         
         prompt_parts = [self.system_prompt]
         
-        # 添加相关记忆（如果有）
+        # 总是添加"已知信息"部分（即使为空）
         RELEVANCE_THRESHOLD = 0.3
         
         # 从items中提取长期记忆
@@ -144,14 +145,20 @@ class ChatApplication:
                 for i, item in enumerate(used_memories, 1):
                     logger.debug(f"  {i}. {item.content} (score={item.score:.2f})")
             else:
-                logger.debug(f"[Prompt] 无相关记忆 (阈值: {RELEVANCE_THRESHOLD})")
+                # 即使无相关记忆，也添加该部分（标记为空）
+                prompt_parts.append(f"\n## 已知信息\n(暂无相关记忆)")
+                logger.debug(f"[Prompt] 已添加空的'已知信息'部分 (阈值: {RELEVANCE_THRESHOLD})")
         else:
-            logger.debug("[Prompt] 无长期记忆")
+            # 记忆库为空时，也添加该部分
+            prompt_parts.append(f"\n## 已知信息\n(暂无相关记忆)")
+            logger.debug("[Prompt] 已添加空的'已知信息'部分 (记忆库为空)")
         logger.info("")
         
         # 添加对话历史 - 从items中提取
         # 使用对话摘要器智能处理历史
         history_items = [item for item in context.items if item.source == ContextSource.HISTORY]
+        summary_info = None  # 摘要信息用于debug
+        
         if history_items:
             total_turns = len(history_items)
             
@@ -162,6 +169,14 @@ class ChatApplication:
                 # 有摘要：添加摘要 + 最近对话
                 prompt_parts.append(f"\n## 早期对话摘要\n{summary}")
                 logger.info(f"[Prompt] ✓ 添加对话摘要 (总共{total_turns}轮，前{total_turns - len(recent_history)}轮已摘要)")
+                
+                # 保存摘要信息用于debug
+                summary_info = {
+                    'has_summary': True,
+                    'summary_text': summary,
+                    'summarized_turns': total_turns - len(recent_history),
+                    'recent_turns': len(recent_history)
+                }
                 
                 # 添加最近对话
                 if recent_history:
@@ -177,8 +192,19 @@ class ChatApplication:
                 logger.info(f"[Prompt] ✓ 添加对话历史 (最近{len(relevant_history)}轮，共{len(history_items)}轮可用)")
                 if len(history_items) > MAX_HISTORY_TURNS:
                     logger.debug(f"[Prompt] 提示: 共{len(history_items)}轮对话，仅使用最近{MAX_HISTORY_TURNS}轮（其余{len(history_items)-MAX_HISTORY_TURNS}轮已省略）")
+                
+                summary_info = {
+                    'has_summary': False,
+                    'recent_turns': len(relevant_history)
+                }
         else:
             logger.debug("[Prompt] 无对话历史")
+            summary_info = {'has_summary': False, 'recent_turns': 0}
+        
+        # 如果提供了debug_info，保存摘要信息
+        if debug_info is not None and summary_info:
+            debug_info['summary_info'] = summary_info
+        
         logger.info("")
         
         # 添加当前输入
@@ -249,8 +275,8 @@ class ChatApplication:
                 'compressed': context_result.compressed
             }
         
-        # 2. 构建 Prompt
-        prompt = self.build_prompt(user_input, context_result)
+        # 2. 构建 Prompt (传递debug_info以保存摘要信息)
+        prompt = self.build_prompt(user_input, context_result, debug_info if debug else None)
         
         if debug:
             debug_info['prompt'] = prompt
