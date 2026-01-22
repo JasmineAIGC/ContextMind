@@ -206,13 +206,18 @@ class ChatGradioDemo:
                 
                 # 3. 上下文优化后的结果 (包括摘要信息)
                 print(f"\n3️⃣  上下文优化: 已完成")
-                if debug_info.get('summary_info'):
-                    summary_info = debug_info['summary_info']
-                    print(f"   对话摘要: {summary_info.get('has_summary', False)}")
-                    if summary_info.get('has_summary'):
-                        print(f"   摘要轮数: {summary_info.get('summarized_turns', 0)}")
-                        print(f"   保留轮数: {summary_info.get('recent_turns', 0)}")
-                        print(f"   摘要内容: {summary_info.get('summary_text', 'N/A')[:200]}...")
+                # 总是显示摘要信息（即使没有摘要）
+                summary_info = debug_info.get('summary_info', {'has_summary': False, 'recent_turns': 0})
+                print(f"   对话摘要: {'是' if summary_info.get('has_summary', False) else '否'}")
+                if summary_info.get('has_summary'):
+                    print(f"   - 摘要轮数: {summary_info.get('summarized_turns', 0)}轮")
+                    print(f"   - 保留轮数: {summary_info.get('recent_turns', 0)}轮")
+                    summary_text = summary_info.get('summary_text', 'N/A')
+                    preview = summary_text[:150] + "..." if len(summary_text) > 150 else summary_text
+                    print(f"   - 摘要内容: {preview}")
+                else:
+                    recent_turns = summary_info.get('recent_turns', 0)
+                    print(f"   - 对话历史: {recent_turns}轮 (未达到摘要阈值5轮)")
                 
                 # 4. 完整的Prompt - 显示所有部分
                 if debug_info.get('prompt'):
