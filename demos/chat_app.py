@@ -97,8 +97,8 @@ class ChatApplication:
         
         # 初始化对话摘要器
         summarization_config = SummarizationConfig(
-            summarize_threshold=15,  # 超过15轮触发摘要
-            keep_recent_turns=5,  # 保留最近5轮
+            summarize_threshold=5,  # 超过5轮触发摘要（降低阈值以更早生成摘要）
+            keep_recent_turns=3,  # 保留最近3轮（摘要后显示更少原始对话）
             method="rule"  # 使用规则摘要（快速）
         )
         self.summarizer = ConversationSummarizer(
