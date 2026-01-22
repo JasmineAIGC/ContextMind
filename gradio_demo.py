@@ -31,6 +31,7 @@ from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, Cont
 from contextmind.models import ContextSource
 from demos.llm_client import SimpleLLMClient
 
+# 设置日志级别为 INFO (使用 BASIC)
 setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
 

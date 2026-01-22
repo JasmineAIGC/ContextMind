@@ -38,9 +38,10 @@ async def main():
     parser.add_argument('--no-memory', action='store_true', help='禁用长期记忆')
     parser.add_argument('--max-events', type=int, default=20, help='最大历史轮数')
     parser.add_argument('--history-turns', type=int, default=10, help='Prompt中的历史轮数')
-    parser.add_argument('--debug', action='store_true', help='调试模式')
+    parser.add_argument('--debug', action='store_true', help='调试模式 (详细日志)')
     args = parser.parse_args()
     
+    # 设置日志级别: DEBUG (详细信息) 或 BASIC (重要信息)
     log_level = LogLevel.DEBUG if args.debug else LogLevel.BASIC
     setup_logging(level=log_level)
     

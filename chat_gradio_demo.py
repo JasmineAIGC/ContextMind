@@ -33,6 +33,7 @@ from pathlib import Path
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel
 from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
+# 设置日志级别为 INFO (使用 BASIC)
 setup_logging(level=LogLevel.BASIC)
 logger = get_logger(__name__)
 
@@ -204,44 +205,57 @@ def create_gradio_interface():
         gr.Markdown("基于五层架构的智能对话系统，支持上下文理解和长期记忆")
         
         with gr.Row():
-            with gr.Column(scale=3):
-                # 聊天界面
+            with gr.Column(scale=4):
+                # 聊天界面 - 主要区域
                 chatbot = gr.Chatbot(
                     label="对话窗口",
-                    height=500,
+                    height=600,
+                    show_label=False,
                 )
                 
                 with gr.Row():
                     msg_input = gr.Textbox(
-                        label="输入消息",
-                        placeholder="输入你想说的话...",
-                        lines=2,
-                        scale=4
+                        label="",
+                        placeholder="输入你想说的话... (按 Enter 发送，Shift+Enter 换行)",
+                        lines=1,
+                        scale=9,
+                        show_label=False,
                     )
-                    submit_btn = gr.Button("发送", variant="primary", scale=1)
-                
-                status_text = gr.Textbox(
-                    label="状态",
-                    interactive=False,
-                    lines=1
-                )
+                    submit_btn = gr.Button("📤 发送", variant="primary", scale=1, size="lg")
                 
                 with gr.Row():
-                    clear_btn = gr.Button("清空对话", variant="secondary")
+                    status_text = gr.Textbox(
+                        label="",
+                        interactive=False,
+                        lines=1,
+                        show_label=False,
+                        container=False,
+                    )
+                    clear_btn = gr.Button("🗑️ 清空", variant="secondary", size="sm")
             
             with gr.Column(scale=1):
-                gr.Markdown("### ⚙️ 引擎配置")
+                gr.Markdown("### ⚙️ 配置")
+                
+                init_btn = gr.Button("🚀 初始化引擎", variant="primary", size="lg")
+                init_status = gr.Textbox(
+                    label="",
+                    interactive=False,
+                    lines=2,
+                    show_label=False,
+                )
+                
+                gr.Markdown("---")
                 
                 use_session_check = gr.Checkbox(
-                    label="启用会话历史",
+                    label="会话历史",
                     value=True,
                     info="记住对话上下文"
                 )
                 
                 use_memory_check = gr.Checkbox(
-                    label="启用长期记忆",
+                    label="长期记忆",
                     value=True,
-                    info="记住用户偏好和重要信息"
+                    info="记住用户偏好"
                 )
                 
                 max_events_slider = gr.Slider(
@@ -249,30 +263,23 @@ def create_gradio_interface():
                     maximum=50,
                     value=20,
                     step=5,
-                    label="最大历史轮数",
+                    label="历史轮数",
                     info="保留的对话轮数"
                 )
                 
-                init_btn = gr.Button("初始化引擎", variant="primary")
-                init_status = gr.Textbox(
-                    label="初始化状态",
-                    interactive=False,
-                    lines=2
-                )
-                
+                gr.Markdown("---")
                 gr.Markdown("### 💡 使用提示")
                 gr.Markdown("""
-                1. 点击"初始化引擎"开始
-                2. 输入消息后点击"发送"
-                3. 系统会记住你的偏好
-                4. 随时可以"清空对话"重新开始
+                1. 点击 **初始化引擎**
+                2. 输入消息，按 **Enter** 发送
+                3. 系统会记住对话内容
                 
-                **试试这些话题：**
+                **话题建议：**
                 - 自我介绍
-                - 聊聊兴趣爱好
+                - 兴趣爱好
                 - 讲个笑话
-                - 推荐电影/书籍
-                - 生活小窍门
+                - 推荐电影
+                - 生活窍门
                 """)
         
         # 事件绑定
@@ -324,5 +331,5 @@ if __name__ == "__main__":
         server_port=7860,
         share=False,
         show_error=True,
-        theme=gr.themes.Soft()
+        theme=gr.themes.Soft(),
     )
