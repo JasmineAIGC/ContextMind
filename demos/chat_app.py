@@ -109,10 +109,10 @@ class ChatApplication:
 
     
     async def build_prompt(self, user_input: str, context: ContextResult, debug_info: Optional[Dict] = None) -> str:
-        """构建闲聊场景 Prompt
+        """构建闲聊场景的 Prompt
         
-        包含系统提示词、相关记忆、对话历史和当前输入。
-        确保所有部分都在Prompt中体现（即使为空）。
+        包含系统提示词、相关记忆、对话历史和当前输入
+        确保所有部分都在 Prompt 中体现（即使为空）
         """
         logger.info("")
         logger.info("=" * 100)
@@ -174,7 +174,7 @@ class ChatApplication:
                     try:
                         loop = asyncio.get_event_loop()
                         if loop.is_running():
-                            # 创建任务获取历史
+                            # 创建任务以获取历史
                             full_history = asyncio.create_task(session.get_recent_history(limit=1000))
                             actual_turns = len(full_history.result()) if hasattr(full_history, 'result') else total_turns
                         else:
@@ -309,7 +309,7 @@ class ChatApplication:
         if debug:
             debug_info['prompt'] = prompt
         
-        # 3. 调用 LLM（v7.1: LLM invocation is external）
+        # 3. 调用 LLM（v7.1: LLM 调用是外部的）
         if self.use_real_llm and self.llm_client:
             try:
                 # 调用真实 LLM

@@ -81,10 +81,10 @@ class RuleBasedExtractor(BaseExtractor):
         使用基于规则的模式提取知识
         
         Args:
-            messages: Conversation messages
+            messages: 对话消息列表
             
         Returns:
-            List of extracted knowledge
+            提取的知识列表
         """
         logger.info(f"[Extractor] 开始基于规则的知识提取 - 处理 {len(messages)} 条消息")
         
@@ -533,7 +533,7 @@ class RuleBasedExtractor(BaseExtractor):
         return facts
     
     def _extract_events(self, messages: List[Message]) -> List[Knowledge]:
-        """Extract events from messages"""
+        """从消息中提取事件"""
         events = []
         
         for msg in messages:
@@ -544,7 +544,7 @@ class RuleBasedExtractor(BaseExtractor):
             if len(content) < 3:
                 continue
             
-            # Event patterns
+            # 事件模式
             event_patterns = [
                 (r'(昨天|今天|明天)(.+?)(?=[。！？,.!?；：]|$)', 'temporal'),
                 (r'(刚才|之前|后来)(.+?)(?=[。！？,.!?；：]|$)', 'temporal'),
@@ -948,15 +948,15 @@ class LLMBasedExtractor(BaseExtractor):
 
 class ImportancePredictorExtractor(BaseExtractor):
     """
-    Importance-aware extractor (placeholder for future implementation)
+    重要性感知提取器（未来实现的占位符）
     
-    Uses a trained model to predict the long-term importance of extracted
-    information. Filters out low-value memories before storage.
+    使用训练好的模型预测提取信息的长期重要性
+    在存储前过滤低价值记忆
     
-    Future enhancements:
-    - Fine-tuned BERT model for importance prediction
-    - Multi-factor scoring (recency, frequency, user engagement)
-    - Adaptive thresholds based on memory capacity
+    未来增强功能：
+    - 用于重要性预测的微调 BERT 模型
+    - 多因素评分（新近性、频率、用户参与度）
+    - 基于记忆容量的自适应阈值
     """
     
     def __init__(
@@ -965,45 +965,45 @@ class ImportancePredictorExtractor(BaseExtractor):
         config: Optional[ExtractionConfig] = None
     ):
         """
-        Initialize importance predictor extractor
+        初始化重要性预测提取器
         
         Args:
-            model: Trained importance prediction model
-            config: Extraction configuration
+            model: 训练好的重要性预测模型
+            config: 提取配置
         """
         self.model = model
         self.config = config or DEFAULT_MEMORY_CONFIG.extraction
-        logger.info("[ImportancePredictorExtractor] Initialized (placeholder implementation)")
+        logger.info("[ImportancePredictorExtractor] 已初始化（占位符实现）")
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """
-        Extract knowledge with importance prediction
+        使用重要性预测提取知识
         
-        Current implementation is a placeholder that falls back to rule-based extraction.
+        当前实现是占位符，会回退到基于规则的提取
         
-        Future TODO:
-        - Train/load importance prediction model
-        - Score each extracted item for long-term value
-        - Filter based on predicted importance threshold
+        未来待做事项：
+        - 训练/加载重要性预测模型
+        - 为每个提取项评分长期价值
+        - 基于预测的重要性阈值进行过滤
         
         Args:
-            messages: Conversation messages
+            messages: 对话消息列表
             
         Returns:
-            Extracted knowledge (currently uses fallback)
+            提取的知识（当前使用回退方案）
         """
-        logger.debug("[ImportancePredictorExtractor] Using fallback to RuleBasedExtractor (not yet implemented)")
+        logger.debug("[ImportancePredictorExtractor] 使用回退到 RuleBasedExtractor（尚未实现）")
         
-        # Fallback to rule-based for now
+        # 目前回退到基于规则的提取
         fallback = RuleBasedExtractor(self.config)
         knowledge = await fallback.extract(messages)
         
-        # Future: Add importance prediction scoring here
-        # This would involve:
-        # 1. Loading/initializing the importance prediction model
-        # 2. Scoring each knowledge item based on predicted long-term value
-        # 3. Filtering items below importance threshold
-        # Example implementation (when model is available):
+        # 未来：在此处添加重要性预测评分
+        # 这将涉及：
+        # 1. 加载/初始化重要性预测模型
+        # 2. 根据预测的长期价值为每个知识项评分
+        # 3. 过滤低于重要性阈值的项
+        # 示例实现（当模型可用时）：
         #   for item in knowledge:
         #       importance_score = self._predict_importance(item)
         #       item.confidence *= importance_score
@@ -1012,15 +1012,14 @@ class ImportancePredictorExtractor(BaseExtractor):
     
     def _predict_importance(self, knowledge: Knowledge) -> float:
         """
-        Predict importance score for a knowledge item (placeholder)
+        预测知识项的重要性分数（占位符）
         
-        This method would use a trained model to predict how important
-        this knowledge will be for future conversations.
+        此方法将使用训练好的模型来预测此知识对未来对话的重要性
         
         Args:
-            knowledge: Knowledge item to score
+            knowledge: 要评分的知识项
             
         Returns:
-            Importance score (0-1)
+            重要性分数（0-1）
         """
-        # TODO: Implement when model is available
+        # TODO: 当模型可用时实现

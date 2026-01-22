@@ -91,13 +91,13 @@ class ChatGradioDemo:
             from demos.llm_client import SimpleLLMClient, LLMConfig
             llm_client_for_extraction = SimpleLLMClient(LLMConfig.from_env())
             
-            # 创建引擎 (v7.1: 使用LLM提取知识，语义理解，支持40种知识类型)
+            # 创建引擎 (v7.1: 使用 LLM 提取知识，语义理解，支持 40 种知识类型)
             self.engine = ContextEngine(
                 app_name="chat-demo",
                 user_id="chat-user",
                 max_recent_events=max_recent_events,
-                llm_client=llm_client_for_extraction,  # LLM客户端用于知识提取
-                extraction_method="llm",  # 使用LLM提取（语义理解，40种类型）
+                llm_client=llm_client_for_extraction,  # 用于知识提取的 LLM 客户端
+                extraction_method="llm",  # 使用 LLM 提取（语义理解，40 种类型）
             )
             
             logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
@@ -107,8 +107,8 @@ class ChatGradioDemo:
                 self.app = ChatApplication(
                     context_engine=self.engine,
                     system_prompt=CHAT_SYSTEM_PROMPT,
-                    history_turns=10,  # Prompt中显示的历史轮数
-                    use_real_llm=True,  # 使用真实LLM
+                    history_turns=10,  # Prompt 中显示的历史轮数
+                    use_real_llm=True,  # 使用真实 LLM
                 )
                 logger.info("✅ ChatApplication 初始化成功")
             except Exception as app_err:
@@ -145,7 +145,7 @@ class ChatGradioDemo:
         
         try:
             # 使用 ChatApplication 的 process_turn 方法处理对话
-            # 这会自动处理: optimize → build_prompt → generate → update → extract_knowledge
+            # 这会自动处理：optimize → build_prompt → generate → update → extract_knowledge
             # 与 chat_interactive_demo 使用相同的处理流程
             if is_debug:
                 response, debug_info = await self.app.process_turn(user_input=user_message, debug=True)
@@ -162,7 +162,7 @@ class ChatGradioDemo:
             history = await self.engine.session_manager.get_recent_history()
             history_count = len(history)
             
-            # Debug 模式下显示详细信息（先打印DEBUG，再打印回复和统计）
+            # Debug 模式下显示详细信息（先打印 DEBUG，再打印回复和统计）
             if is_debug:
                 print("\n" + "=" * 100)
                 print("📊 DEBUG 信息")
@@ -204,7 +204,7 @@ class ChatGradioDemo:
                 else:
                     print("\n2️⃣  召回结果: 无")
                 
-                # 3. 上下文优化后的结果 (包括摘要信息)
+                # 3. 上下文优化后的结果（包括摘要信息）
                 print(f"\n3️⃣  上下文优化: 已完成")
                 # 总是显示摘要信息（即使没有摘要）
                 summary_info = debug_info.get('summary_info', {'has_summary': False, 'recent_turns': 0})
@@ -222,7 +222,7 @@ class ChatGradioDemo:
                     recent_turns = summary_info.get('recent_turns', 0)
                     print(f"   - 对话历史: {recent_turns}轮 (未达到摘要阈值5轮)")
                 
-                # 4. 完整的Prompt - 显示所有部分
+                # 4. 完整的 Prompt - 显示所有部分
                 if debug_info.get('prompt'):
                     prompt_text = debug_info['prompt']
                     print(f"\n4️⃣  完整Prompt ({len(prompt_text)}字符):")
@@ -259,7 +259,7 @@ class ChatGradioDemo:
                 
                 print("\n" + "=" * 100)
             
-            # 在DEBUG信息之后打印助手回复和统计信息
+            # 在 DEBUG 信息之后打印助手回复和统计信息
             logger.info(f"🤖 助手回复: {response}")
             logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
             logger.info(f"📊 历史: {history_count}轮 | 记忆: {memory_count}条")
@@ -309,7 +309,7 @@ def create_gradio_interface():
             
             result = await demo_instance.chat(message)
             
-            # Gradio 6.x chatbot format: each message is a dict with 'role' and 'content'
+            # Gradio 6.x chatbot 格式：每条消息是带有 'role' 和 'content' 的字典
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": result.response})
             
