@@ -665,15 +665,6 @@ class LLMBasedExtractor(BaseExtractor):
             if filtered_count > 0:
                 logger.debug(f"[LLMBasedExtractor] 过滤低置信度知识: {filtered_count} 条")
             
-            # **新增**: 限制提取数量（每轮最多3条高质量知识）
-            MAX_KNOWLEDGE_PER_TURN = 3
-            if len(knowledge_list) > MAX_KNOWLEDGE_PER_TURN:
-                # 按置信度排序，保留最高质量的
-                knowledge_list.sort(key=lambda k: k.confidence, reverse=True)
-                excess = len(knowledge_list) - MAX_KNOWLEDGE_PER_TURN
-                knowledge_list = knowledge_list[:MAX_KNOWLEDGE_PER_TURN]
-                logger.debug(f"[LLMBasedExtractor] 限制提取数量: 保留前{MAX_KNOWLEDGE_PER_TURN}条，过滤{excess}条较低质量知识")
-            
             logger.info(f"[LLMBasedExtractor] ✓ 知识提取完成 - 总计 {len(knowledge_list)} 条有效知识")
             
             if knowledge_list:
@@ -715,7 +706,7 @@ class LLMBasedExtractor(BaseExtractor):
 1. **总结提炼**：不要直接复制对话原文，而是总结归纳成简洁的知识点
 2. **准确分类**：必须使用下面40种类型之一，不要使用UNKNOWN或其他类型
 3. **合理置信度**：根据信息的明确程度合理评分（0.7-1.0之间，严格筛选）
-4. **精选重要信息**：只提取真正有价值的核心知识，每轮对话最多提取2-3条最重要的
+4. **精选重要信息**：只提取真正有价值的核心知识
 5. **完整整合**：将分散在多轮对话中的相关信息整合成完整的知识点
 6. **避免重复**：不要提取已经在之前对话中提到过的相同或相似信息
 
@@ -800,8 +791,8 @@ class LLMBasedExtractor(BaseExtractor):
 - 0.70-0.74: 需要一定推理但仍重要的信息
 - <0.70: 不要提取，质量不够高
 
-**提取数量限制**:
-- 每轮对话最多提取2-3条最重要、最有价值的知识
+**提取原则**:
+- 只提取真正有价值的核心知识点
 - 优先提取用户的核心信息（user_info, plan, preference, goal等）
 - 不要提取次要的、模糊的、重复的信息
 

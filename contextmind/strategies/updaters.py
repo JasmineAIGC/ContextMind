@@ -52,6 +52,11 @@ class SimpleUpdater(BaseUpdater):
     
     基本的增加/更新/去重逻辑，具有可配置的阈值。
     按置信度过滤、去重并限制 Cache 大小。
+    
+    v3.5: 新增记忆合并功能
+    - 检测相似记忆并合并/更新
+    - 保留高置信度版本
+    - 更新时间戳
     """
     
     # 存储阈值（来自现有代码）
@@ -60,17 +65,21 @@ class SimpleUpdater(BaseUpdater):
     STORAGE_THRESHOLD_EVENT = 0.70
     STORAGE_MIN_LENGTH = 3
     
+    # 相似度阈值（用于检测需要合并的记忆）
+    SIMILARITY_THRESHOLD_FOR_MERGE = 0.7  # 70%相似度认为需要合并
+    
     async def update(
         self,
         memory_cache: List[ContextItem],
         new_knowledge: List[Knowledge]
     ) -> List[ContextItem]:
         """
-        简单更新策略
+        简单更新策略（含记忆合并）
         
         1. 过滤低质量知识
-        2. 对现有 Cache 去重
-        3. 向 Cache 添加新条目
+        2. 检测并合并相似记忆
+        3. 对现有 Cache 去重
+        4. 向 Cache 添加新条目
         
         Args:
             memory_cache: 当前 Cache
@@ -104,39 +113,116 @@ class SimpleUpdater(BaseUpdater):
         if len(filtered_knowledge) < len(new_knowledge):
             logger.info(f"[SimpleUpdater] 质量过滤: {len(new_knowledge)} → {len(filtered_knowledge)} 条知识")
         
-        # 对现有 Cache 进行去重
+        # **新增**: 记忆合并逻辑
+        # 复制当前cache用于更新
+        updated_cache = list(memory_cache)
         new_items = []
+        merged_count = 0
+        
         for k in filtered_knowledge:
             formatted_content = f"[{k.type.value.upper()}] {k.content}"
             
-            # 检查重复项
-            is_duplicate = False
-            for existing in memory_cache:
+            # 检查是否有相似的现有记忆需要合并/更新
+            merge_target_idx = None
+            max_similarity = 0.0
+            
+            for idx, existing in enumerate(updated_cache):
+                similarity = self._calculate_similarity(formatted_content, existing.content)
+                
+                # 如果相似度很高（完全重复），跳过
                 if self._is_similar(formatted_content, existing.content):
                     logger.debug(f"[SimpleUpdater] 跳过重复知识: {formatted_content[:50]}...")
-                    is_duplicate = True
+                    merge_target_idx = -1  # 标记为完全重复，不处理
                     break
+                
+                # 如果相似度中等（需要合并），记录最相似的条目
+                if similarity >= self.SIMILARITY_THRESHOLD_FOR_MERGE and similarity > max_similarity:
+                    max_similarity = similarity
+                    merge_target_idx = idx
             
-            if not is_duplicate:
+            if merge_target_idx == -1:
+                # 完全重复，跳过
+                continue
+            elif merge_target_idx is not None:
+                # 找到相似记忆，需要合并/更新
+                existing_item = updated_cache[merge_target_idx]
+                
+                # 如果新知识置信度更高，替换旧记忆
+                if k.confidence > existing_item.score:
+                    logger.info(f"[SimpleUpdater] 🔄 合并记忆 (相似度={max_similarity:.2f}, 新置信度={k.confidence:.2f} > 旧={existing_item.score:.2f})")
+                    logger.debug(f"  旧: {existing_item.content[:60]}...")
+                    logger.debug(f"  新: {formatted_content[:60]}...")
+                    
+                    # 更新为新版本
+                    updated_cache[merge_target_idx] = ContextItem(
+                        content=formatted_content,
+                        source=ContextSource.MEMORY,
+                        score=k.confidence,
+                        timestamp=datetime.now(),  # 更新时间戳
+                        metadata={**k.metadata, 'updated': True, 'previous_score': existing_item.score}
+                    )
+                    merged_count += 1
+                else:
+                    # 旧记忆置信度更高，保留旧的
+                    logger.debug(f"[SimpleUpdater] 保留旧记忆 (相似度={max_similarity:.2f}, 旧置信度={existing_item.score:.2f} >= 新={k.confidence:.2f}): {existing_item.content[:50]}...")
+            else:
+                # 没有相似记忆，添加为新项
                 new_items.append(ContextItem(
                     content=formatted_content,
                     source=ContextSource.MEMORY,
                     score=k.confidence,
+                    timestamp=datetime.now(),
                     metadata=k.metadata
                 ))
                 logger.debug(f"[SimpleUpdater] 已存储: {formatted_content[:80]}...")
         
-        if not new_items:
+        if not new_items and merged_count == 0:
             logger.info("[SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容")
-            return memory_cache
+            return updated_cache
         
-        # 添加到 Cache
-        updated_cache = list(memory_cache) + new_items
+        # 添加新项到cache
+        if new_items:
+            updated_cache.extend(new_items)
         
-        logger.info(f"[SimpleUpdater] ✓ 存储完成 - 新增 {len(new_items)} 条知识")
+        logger.info(f"[SimpleUpdater] ✓ 存储完成 - 新增 {len(new_items)} 条知识, 合并/更新 {merged_count} 条")
         logger.info(f"[SimpleUpdater] 当前记忆库总计: {len(updated_cache)} 条记忆")
         
         return updated_cache
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """
+        计算两个文本的Jaccard相似度
+        
+        Args:
+            text1: 文本1
+            text2: 文本2
+            
+        Returns:
+            相似度分数（0-1）
+        """
+        # 移除类型标签用于比较
+        clean1 = re.sub(r'\[.*?\]\s*', '', text1).strip().lower()
+        clean2 = re.sub(r'\[.*?\]\s*', '', text2).strip().lower()
+        
+        if not clean1 or not clean2:
+            return 0.0
+        
+        # 对于中文，使用字符集合
+        chars1 = set(clean1)
+        chars2 = set(clean2)
+        
+        # 移除空格和标点
+        chars1 = {c for c in chars1 if c.strip() and c not in '，。！？,.!?；:：'}
+        chars2 = {c for c in chars2 if c.strip() and c not in '，。！？,.!?；:：'}
+        
+        if not chars1 or not chars2:
+            return 0.0
+        
+        # 计算Jaccard相似度
+        intersection = len(chars1 & chars2)
+        union = len(chars1 | chars2)
+        
+        return intersection / union if union > 0 else 0.0
     
     def _is_similar(self, text1: str, text2: str) -> bool:
         """检查两个文本是否相似（支持中文）"""
