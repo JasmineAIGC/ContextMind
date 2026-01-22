@@ -583,6 +583,11 @@ class LLMBasedExtractor(BaseExtractor):
     4. 处理上下文相关的信息
     """
     
+    # 静态类型映射表（优化查找性能）
+    _TYPE_MAPPING = {
+        kt.value.lower(): kt for kt in KnowledgeType
+    }
+    
     def __init__(
         self,
         llm_client: Optional[any] = None,
@@ -741,8 +746,8 @@ class LLMBasedExtractor(BaseExtractor):
 - causality: 因果关系
 
 对每个提取的知识，提供：
-- content: 知识内容的完整描述（简洁明了，10-50字）
-- type: 知识类型（从上述40种中选择最合适的）
+- content: 知识内容的完整描述（简洁明了，5-25词）
+- type: 知识类型（从上述40种中选择最合适的，必须使用上面列出的准确类型名称）
 - confidence: 置信度（0-1之间，基于信息明确程度）
 - category: 具体子分类（可选）
 - entities: 涉及的实体列表（人名、地名等）
@@ -858,12 +863,8 @@ class LLMBasedExtractor(BaseExtractor):
                         # 映射类型字符串到KnowledgeType枚举（支持40种类型）
                         type_str = item.get('type', 'fact').lower()
                         
-                        # 尝试直接匹配枚举值
-                        knowledge_type = None
-                        for kt in KnowledgeType:
-                            if kt.value.lower() == type_str:
-                                knowledge_type = kt
-                                break
+                        # 使用静态映射表进行O(1)查找
+                        knowledge_type = self._TYPE_MAPPING.get(type_str)
                         
                         # 如果没找到匹配，使用默认值
                         if knowledge_type is None:
