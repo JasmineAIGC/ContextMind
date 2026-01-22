@@ -327,11 +327,13 @@ class ContextItem:
         content: 项内容
         source: 来源
         score: 相关性分数
+        timestamp: 创建/更新时间
         metadata: 附加元数据
     """
     content: str
     source: ContextSource
     score: float = 1.0
+    timestamp: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
