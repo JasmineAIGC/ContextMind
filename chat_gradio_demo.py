@@ -212,6 +212,9 @@ class ChatGradioDemo:
                 if summary_info.get('has_summary'):
                     print(f"   - 摘要轮数: {summary_info.get('summarized_turns', 0)}轮")
                     print(f"   - 保留轮数: {summary_info.get('recent_turns', 0)}轮")
+                    incremental_count = summary_info.get('incremental_count', 0)
+                    if incremental_count > 0:
+                        print(f"   - 增量摘要: {incremental_count}个")
                     summary_text = summary_info.get('summary_text', 'N/A')
                     preview = summary_text[:150] + "..." if len(summary_text) > 150 else summary_text
                     print(f"   - 摘要内容: {preview}")

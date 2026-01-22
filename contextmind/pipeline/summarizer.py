@@ -193,6 +193,7 @@ class ConversationSummarizer:
     对话摘要器主类
     
     提供对话摘要功能, 支持短期和长期摘要
+    支持增量摘要模式，避免信息丢失
     """
     
     def __init__(
@@ -227,11 +228,17 @@ class ConversationSummarizer:
         
         self.window_size = window_size
         
-        # 存储摘要
-        self.current_summary: Optional[str] = None
+        # 增量摘要存储
+        self.base_summary: Optional[str] = None  # 基础摘要（最早的对话）
+        self.incremental_summaries: List[str] = []  # 增量摘要列表
+        self.last_summarized_turn: int = 0  # 上次摘要到的轮数
         self.last_update: Optional[datetime] = None
         
-        logger.info(f"[Summarizer] 初始化完成 - 策略: {self.strategy.__class__.__name__}, 窗口: {window_size}")
+        # 增量摘要配置
+        self.increment_interval: int = 5  # 每5轮生成一次增量摘要
+        self.consolidate_threshold: int = 3  # 有3个增量摘要时合并到基础摘要
+        
+        logger.info(f"[Summarizer] 初始化完成 - 策略: {self.strategy.__class__.__name__}, 窗口: {window_size}, 增量模式启用")
     
     def should_summarize(self, history_length: int) -> bool:
         """判断是否需要生成摘要
@@ -243,6 +250,23 @@ class ConversationSummarizer:
             是否需要摘要
         """
         return history_length > self.config.summarize_threshold
+    
+    def should_create_incremental_summary(self, current_turn: int) -> bool:
+        """判断是否需要生成增量摘要
+        
+        Args:
+            current_turn: 当前轮数
+            
+        Returns:
+            是否需要生成增量摘要
+        """
+        # 如果还没有基础摘要，不生成增量
+        if self.base_summary is None:
+            return False
+        
+        # 检查是否到达增量间隔
+        turns_since_last = current_turn - self.last_summarized_turn
+        return turns_since_last >= self.increment_interval
     
     async def generate_summary(
         self,
@@ -274,11 +298,10 @@ class ConversationSummarizer:
         messages_to_summarize = messages[-self.window_size:] if len(messages) > self.window_size else messages
         
         # 生成摘要
-        existing = self.current_summary if incremental else None
+        existing = self.get_combined_summary() if incremental else None
         summary = await self.strategy.summarize(messages_to_summarize, existing)
         
-        # 更新存储的摘要
-        self.current_summary = summary
+        # 更新存储的摘要（兼容旧代码）
         self.last_update = datetime.now()
         
         logger.info("[Summarizer] ✓ 摘要生成完成:")
@@ -292,71 +315,169 @@ class ConversationSummarizer:
         
         return summary
     
+    async def create_base_summary(self, messages: List[Message], turns: int):
+        """创建基础摘要
+        
+        Args:
+            messages: 要摘要的消息列表
+            turns: 摘要覆盖的轮数
+        """
+        logger.info(f"[Summarizer] 创建基础摘要 (轮数: {turns})")
+        self.base_summary = await self.generate_summary(messages, incremental=False)
+        self.last_summarized_turn = turns
+        logger.info(f"[Summarizer] ✓ 基础摘要已创建，覆盖到第{turns}轮")
+    
+    async def create_incremental_summary(self, messages: List[Message], turns: int):
+        """创建增量摘要
+        
+        Args:
+            messages: 新的消息列表
+            turns: 当前轮数
+        """
+        logger.info(f"[Summarizer] 创建增量摘要 (轮数: {self.last_summarized_turn}→{turns})")
+        increment = await self.generate_summary(messages, incremental=False)
+        self.incremental_summaries.append(increment)
+        self.last_summarized_turn = turns
+        
+        logger.info(f"[Summarizer] ✓ 增量摘要已添加 (共{len(self.incremental_summaries)}个增量)")
+        
+        # 检查是否需要合并
+        if len(self.incremental_summaries) >= self.consolidate_threshold:
+            await self.consolidate_summaries()
+    
+    async def consolidate_summaries(self):
+        """合并所有增量摘要到基础摘要"""
+        if not self.incremental_summaries:
+            return
+        
+        logger.info(f"[Summarizer] 🔄 合并摘要: 基础摘要 + {len(self.incremental_summaries)}个增量")
+        
+        # 创建合并后的摘要文本
+        all_parts = [self.base_summary] + self.incremental_summaries
+        combined_text = "\n\n".join(f"[阶段{i+1}] {part}" for i, part in enumerate(all_parts))
+        
+        # 使用策略重新生成更紧凑的摘要
+        # 创建临时消息列表（用于模拟）
+        temp_messages = [Message(role=MessageRole.ASSISTANT, content=combined_text)]
+        new_base = await self.strategy.summarize(temp_messages, None)
+        
+        # 更新基础摘要，清空增量列表
+        self.base_summary = new_base
+        self.incremental_summaries = []
+        
+        logger.info("[Summarizer] ✓ 摘要合并完成，增量列表已清空")
+    
+    def get_combined_summary(self) -> Optional[str]:
+        """获取合并后的完整摘要
+        
+        Returns:
+            合并了基础摘要和所有增量的完整摘要
+        """
+        if self.base_summary is None:
+            return None
+        
+        if not self.incremental_summaries:
+            return self.base_summary
+        
+        # 返回格式化的组合摘要
+        parts = [f"[基础] {self.base_summary}"]
+        for i, inc in enumerate(self.incremental_summaries, 1):
+            parts.append(f"[增量{i}] {inc}")
+        
+        return "\n\n".join(parts)
+    
     def get_current_summary(self) -> Optional[str]:
-        """获取当前摘要"""
-        return self.current_summary
+        """获取当前摘要（兼容旧接口）"""
+        return self.get_combined_summary()
     
     def clear_summary(self):
-        """清空摘要"""
-        logger.info("[Summarizer] 清空摘要")
-        self.current_summary = None
+        """清空所有摘要"""
+        logger.info("[Summarizer] 清空所有摘要")
+        self.base_summary = None
+        self.incremental_summaries = []
+        self.last_summarized_turn = 0
         self.last_update = None
     
-    def get_summary_and_recent(self, all_history: List[ContextItem]) -> Tuple[Optional[str], List[ContextItem]]:
-        """获取摘要和最近对话（便捷方法）
+    async def get_summary_and_recent(
+        self, 
+        all_history: List[ContextItem],
+        current_turn: int = None
+    ) -> Tuple[Optional[str], List[ContextItem]]:
+        """获取摘要和最近对话（使用增量摘要）
         
         根据配置自动判断是否需要摘要，并返回摘要和最近对话。
+        支持增量摘要模式，避免信息丢失。
         
         Args:
             all_history: 所有对话历史（ContextItem列表）
+            current_turn: 当前轮数（如果提供，用于增量判断）
             
         Returns:
             (摘要文本, 最近对话列表)
             - 如果不需要摘要：返回 (None, all_history)
-            - 如果需要摘要：返回 (摘要文本, 最近N轮对话)
+            - 如果需要摘要：返回 (合并的摘要文本, 最近N轮对话)
         """
         total_turns = len(all_history)
+        if current_turn is None:
+            current_turn = total_turns
         
+        # 第一步：检查是否需要开始摘要
         if not self.should_summarize(total_turns):
             # 不需要摘要，返回所有历史
             return None, all_history
         
-        # 需要摘要：对早期对话生成摘要，保留最近对话
-        summary_turns = total_turns - self.config.keep_recent_turns
+        # 第二步：处理基础摘要
+        if self.base_summary is None:
+            # 首次创建基础摘要
+            summary_turns = total_turns - self.config.keep_recent_turns
+            if summary_turns > 0:
+                messages_to_summarize = []
+                for item in all_history[:summary_turns]:
+                    messages_to_summarize.append(self._contextitem_to_message(item))
+                
+                await self.create_base_summary(messages_to_summarize, summary_turns)
+                logger.info(f"[Summarizer] 📝 基础摘要已创建，覆盖第1-{summary_turns}轮")
         
-        # 将 ContextItem 转换为 Message 用于摘要
-        messages_to_summarize = []
-        for item in all_history[:summary_turns]:
-            # 解析content，提取role和内容
-            content = item.content
-            if "user:" in content.lower():
-                role = MessageRole.USER
-                content = content.split(":", 1)[1].strip() if ":" in content else content
-            elif "assistant:" in content.lower():
-                role = MessageRole.ASSISTANT
-                content = content.split(":", 1)[1].strip() if ":" in content else content
-            else:
-                # 默认为用户消息
-                role = MessageRole.USER
+        # 第三步：检查是否需要增量摘要
+        elif self.should_create_incremental_summary(current_turn):
+            # 创建增量摘要：从上次摘要位置到保留轮次之前
+            start_turn = self.last_summarized_turn
+            end_turn = total_turns - self.config.keep_recent_turns
             
-            messages_to_summarize.append(Message(role=role, content=content))
+            if end_turn > start_turn:
+                messages_for_increment = []
+                for item in all_history[start_turn:end_turn]:
+                    messages_for_increment.append(self._contextitem_to_message(item))
+                
+                await self.create_incremental_summary(messages_for_increment, end_turn)
+                logger.info(f"[Summarizer] 📝 增量摘要已创建，覆盖第{start_turn+1}-{end_turn}轮")
         
-        # 生成摘要（同步调用，因为RuleBasedSummarizer是同步的）
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 在异步环境中，直接await
-                summary = asyncio.create_task(self.strategy.summarize(messages_to_summarize, None))
-            else:
-                summary = loop.run_until_complete(self.strategy.summarize(messages_to_summarize, None))
-        except RuntimeError:
-            # 没有事件循环，创建一个
-            summary = asyncio.run(self.strategy.summarize(messages_to_summarize, None))
-        
-        # 保留最近对话
+        # 第四步：返回组合摘要和最近对话
+        combined_summary = self.get_combined_summary()
         recent_history = all_history[-self.config.keep_recent_turns:]
         
-        logger.info(f"[Summarizer] 对话分层: 前{summary_turns}轮已摘要，保留最近{len(recent_history)}轮")
+        logger.info(
+            f"[Summarizer] 对话分层: "
+            f"基础摘要(第1-{self.last_summarized_turn if self.base_summary else 0}轮) + "
+            f"{len(self.incremental_summaries)}个增量 + "
+            f"最近{len(recent_history)}轮原始对话"
+        )
         
-        return summary, recent_history
+        return combined_summary, recent_history
+    
+    def _contextitem_to_message(self, item: ContextItem) -> Message:
+        """将 ContextItem 转换为 Message（内部辅助方法）"""
+        content = item.content
+        
+        # 解析content，提取role和内容
+        if "user:" in content.lower():
+            role = MessageRole.USER
+            content = content.split(":", 1)[1].strip() if ":" in content else content
+        elif "assistant:" in content.lower():
+            role = MessageRole.ASSISTANT
+            content = content.split(":", 1)[1].strip() if ":" in content else content
+        else:
+            # 默认为用户消息
+            role = MessageRole.USER
+        
+        return Message(role=role, content=content)

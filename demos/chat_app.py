@@ -156,15 +156,55 @@ class ChatApplication:
         logger.info("")
         
         # 添加对话历史 - 从items中提取
-        # 使用对话摘要器智能处理历史
+        # 使用对话摘要器智能处理历史（增量摘要模式）
         history_items = [item for item in context.items if item.source == ContextSource.HISTORY]
         summary_info = None  # 摘要信息用于debug
         
         if history_items:
             total_turns = len(history_items)
             
-            # 使用摘要器判断是否需要摘要
-            summary, recent_history = self.summarizer.get_summary_and_recent(history_items)
+            # 获取完整session历史以确定真实轮数（用于增量判断）
+            # 从engine的session获取实际轮数
+            import asyncio
+            try:
+                # 尝试获取session的完整历史长度
+                session = self.context_engine.session_manager.get_session()
+                if session:
+                    # 使用同步方式获取历史（如果在事件循环中）
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # 创建任务获取历史
+                            full_history = asyncio.create_task(session.get_recent_history(limit=1000))
+                            actual_turns = len(full_history.result()) if hasattr(full_history, 'result') else total_turns
+                        else:
+                            full_history = loop.run_until_complete(session.get_recent_history(limit=1000))
+                            actual_turns = len(full_history)
+                    except:
+                        actual_turns = total_turns
+                else:
+                    actual_turns = total_turns
+            except:
+                actual_turns = total_turns
+            
+            # 使用摘要器判断是否需要摘要（传入实际轮数用于增量判断）
+            # 注意：get_summary_and_recent 是 async 方法，需要 await
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # 在async context中
+                    summary, recent_history = asyncio.create_task(
+                        self.summarizer.get_summary_and_recent(history_items, actual_turns)
+                    ).result()
+                else:
+                    summary, recent_history = loop.run_until_complete(
+                        self.summarizer.get_summary_and_recent(history_items, actual_turns)
+                    )
+            except RuntimeError:
+                # 没有事件循环
+                summary, recent_history = asyncio.run(
+                    self.summarizer.get_summary_and_recent(history_items, actual_turns)
+                )
             
             if summary:
                 # 有摘要：添加摘要 + 最近对话
@@ -175,8 +215,9 @@ class ChatApplication:
                 summary_info = {
                     'has_summary': True,
                     'summary_text': summary,
-                    'summarized_turns': total_turns - len(recent_history),
-                    'recent_turns': len(recent_history)
+                    'summarized_turns': self.summarizer.last_summarized_turn,
+                    'recent_turns': len(recent_history),
+                    'incremental_count': len(self.summarizer.incremental_summaries)
                 }
                 
                 # 添加最近对话
