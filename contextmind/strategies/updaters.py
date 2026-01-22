@@ -59,14 +59,15 @@ class SimpleUpdater(BaseUpdater):
     - 更新时间戳
     """
     
-    # 存储阈值（来自现有代码）
-    STORAGE_THRESHOLD_PREFERENCE = 0.75
-    STORAGE_THRESHOLD_FACT = 0.70
-    STORAGE_THRESHOLD_EVENT = 0.70
-    STORAGE_MIN_LENGTH = 3
+    # 存储阈值（提高质量要求）
+    STORAGE_THRESHOLD_PREFERENCE = 0.80  # 0.75 → 0.80
+    STORAGE_THRESHOLD_FACT = 0.75  # 0.70 → 0.75
+    STORAGE_THRESHOLD_EVENT = 0.75  # 0.70 → 0.75
+    STORAGE_MIN_LENGTH = 5  # 3 → 5 最小字符数
     
     # 相似度阈值（用于检测需要合并的记忆）
-    SIMILARITY_THRESHOLD_FOR_MERGE = 0.7  # 70%相似度认为需要合并
+    SIMILARITY_THRESHOLD_FOR_MERGE = 0.65  # 降低到65%以捕获更多相似记忆
+    EXACT_DUPLICATE_THRESHOLD = 0.90  # 90%以上认为是完全重复
     
     async def update(
         self,
@@ -129,9 +130,9 @@ class SimpleUpdater(BaseUpdater):
             for idx, existing in enumerate(updated_cache):
                 similarity = self._calculate_similarity(formatted_content, existing.content)
                 
-                # 如果相似度很高（完全重复），跳过
-                if self._is_similar(formatted_content, existing.content):
-                    logger.debug(f"[SimpleUpdater] 跳过重复知识: {formatted_content[:50]}...")
+                # 如果相似度极高（完全重复），跳过
+                if similarity >= self.EXACT_DUPLICATE_THRESHOLD:
+                    logger.debug(f"[SimpleUpdater] 跳过完全重复知识 (相似度={similarity:.2f}): {formatted_content[:50]}...")
                     merge_target_idx = -1  # 标记为完全重复，不处理
                     break
                 

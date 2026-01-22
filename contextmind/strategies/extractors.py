@@ -888,19 +888,24 @@ class LLMBasedExtractor(BaseExtractor):
                             logger.debug(f"[LLMBasedExtractor] 跳过无效类型的知识: type={type_str}, content={content[:50]}")
                             continue
                         
-                        # **验证2**: 内容不能为空或过短
-                        if not content or len(content) < 2:
+                        # **验证2**: 内容不能为空或过短（至少5个字符）
+                        if not content or len(content) < 5:
                             logger.debug(f"[LLMBasedExtractor] 跳过内容过短的知识: {content}")
                             continue
                         
-                        # **验证3**: 跳过无意义的简短回复
-                        meaningless_phrases = {'好的', '嗯', '哦', '没有', '是的', '不是', '可以', '不可以', '你好', '再见'}
-                        if content in meaningless_phrases:
+                        # **验证3**: 跳过无意义的简短回复和过于简单的描述
+                        meaningless_phrases = {'好的', '嗯', '哦', '没有', '是的', '不是', '可以', '不可以', '你好', '再见', '谢谢', '不客气'}
+                        if content in meaningless_phrases or content.strip() in meaningless_phrases:
                             logger.debug(f"[LLMBasedExtractor] 跳过无意义短语: {content}")
                             continue
                         
-                        # **验证4**: 置信度必须合理（0.7-1.0）- 提高阈值以减少低质量提取
-                        if confidence < 0.7:
+                        # **验证3.5**: 跳过过于简短且信息量低的内容（少于8个汉字且不含实体信息）
+                        if len(content) < 8 and not any(char.isdigit() or char in '年月日时' for char in content):
+                            logger.debug(f"[LLMBasedExtractor] 跳过信息量过低的短内容: {content}")
+                            continue
+                        
+                        # **验证4**: 置信度必须合理（0.72-1.0）- 再次提高阈值
+                        if confidence < 0.72:
                             logger.debug(f"[LLMBasedExtractor] 跳过低置信度知识: confidence={confidence}, content={content[:50]}")
                             continue
                         if confidence > 1.0:

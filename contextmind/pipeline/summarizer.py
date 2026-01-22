@@ -569,7 +569,7 @@ class ConversationSummarizer:
         
         Args:
             all_history: 所有对话历史（ContextItem列表）
-            current_turn: 当前轮数（如果提供，用于增量判断）
+            current_turn: 当前轮数（实际session轮数，用于摘要判断）
             
         Returns:
             (摘要文本, 最近对话列表)
@@ -577,12 +577,16 @@ class ConversationSummarizer:
             - 如果需要摘要：返回 (合并的摘要文本, 最近N轮对话)
         """
         total_turns = len(all_history)
+        
+        # 使用实际轮数（current_turn）而非截断后的历史长度来判断
+        # 这样才能正确触发摘要
         if current_turn is None:
             current_turn = total_turns
         
-        # 第一步：检查是否需要开始摘要
-        if not self.should_summarize(total_turns):
+        # 第一步：检查是否需要开始摘要（使用实际轮数）
+        if not self.should_summarize(current_turn):
             # 不需要摘要，返回所有历史
+            logger.debug(f"[Summarizer] 当前{current_turn}轮，未达到摘要阈值{self.config.summarize_threshold}轮")
             return None, all_history
         
         # 第二步：处理基础摘要
