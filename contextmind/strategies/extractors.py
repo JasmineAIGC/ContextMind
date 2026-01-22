@@ -675,19 +675,76 @@ class LLMBasedExtractor(BaseExtractor):
         Returns:
             LLM返回的结构化知识（JSON格式字符串）
         """
-        # 构建提取提示词
+        # 构建提取提示词 - 支持40种知识类型
         system_prompt = """你是一个专业的知识提取助手。你的任务是从对话中提取结构化的知识信息。
 
-请从对话中提取以下类型的知识：
-1. **偏好 (preference)**: 用户的喜好、需求、意愿
-2. **事实 (fact)**: 关于用户或主题的客观事实（姓名、年龄、身份等）
-3. **事件 (event)**: 发生的事件、行为或活动
+请从对话中提取以下类型的知识（40种）：
+
+**1. 用户画像类**:
+- user_info: 用户基本信息（年龄、职业、姓名、居住地等）
+- personality: 性格特征（外向/内向、乐观/悲观等）
+- values: 价值观和人生观
+- lifestyle: 生活方式和习惯
+
+**2. 认知类**:
+- opinion: 观点和看法
+- belief: 信念和信仰
+- attitude: 态度和立场
+- value_judgment: 价值判断
+
+**3. 行为类**:
+- event: 发生的事件和活动
+- habit: 习惯和常规行为
+- experience: 过往经历
+- skill: 技能和能力
+- achievement: 成就和里程碑
+
+**4. 意图类**:
+- intent: 意图和打算
+- need: 需求和要求
+- goal: 目标和追求
+- plan: 计划和安排
+- expectation: 期望和预期
+
+**5. 关系类**:
+- relationship: 社交关系
+- emotional_connection: 情感连接
+- influence: 影响因素
+
+**6. 知识类**:
+- fact: 客观事实
+- procedural: 程序性知识（如何做某事）
+- domain_knowledge: 领域专业知识
+- common_sense: 常识
+
+**7. 情感类**:
+- preference: 偏好和喜好
+- emotion: 情绪状态
+- sentiment: 情感倾向
+
+**8. 策略类**:
+- solution: 解决方案
+- strategy: 策略方法
+- best_practice: 最佳实践
+- lesson_learned: 经验教训
+
+**9. 上下文类**:
+- constraint: 约束条件
+- interest: 兴趣爱好
+- topic: 讨论话题
+- scenario: 场景和情境
+
+**10. 多轮对话分析**:
+- conversation_pattern: 对话模式
+- topic_evolution: 话题演变
+- problem_solution_sequence: 问题解决序列
+- causality: 因果关系
 
 对每个提取的知识，提供：
-- content: 知识内容的完整描述
-- type: 知识类型 (preference/fact/event)
-- confidence: 置信度 (0-1之间的数值)
-- category: 具体分类（如"食物偏好"、"个人信息"等）
+- content: 知识内容的完整描述（简洁明了，10-50字）
+- type: 知识类型（从上述40种中选择最合适的）
+- confidence: 置信度（0-1之间，基于信息明确程度）
+- category: 具体子分类（可选）
 - entities: 涉及的实体列表（人名、地名等）
 - keywords: 关键词列表
 
@@ -696,22 +753,41 @@ class LLMBasedExtractor(BaseExtractor):
 {
   "knowledge": [
     {
+      "content": "用户是一名25岁的软件工程师",
+      "type": "user_info",
+      "confidence": 0.95,
+      "category": "基本信息",
+      "entities": ["软件工程师"],
+      "keywords": ["25岁", "软件工程师"]
+    },
+    {
       "content": "用户喜欢吃辣的食物",
       "type": "preference",
       "confidence": 0.9,
-      "category": "食物偏好",
+      "category": "饮食偏好",
       "entities": [],
       "keywords": ["喜欢", "辣", "食物"]
+    },
+    {
+      "content": "用户计划在明年学习机器学习",
+      "type": "plan",
+      "confidence": 0.85,
+      "category": "学习计划",
+      "entities": ["机器学习"],
+      "keywords": ["计划", "明年", "学习"]
     }
   ]
 }
 ```
 
-注意：
-- 只提取明确、有价值的信息
-- 不要编造或推断不存在的信息
-- 置信度要基于信息的明确程度
-- 如果没有值得提取的知识，返回空列表
+提取原则：
+- ✅ 优先提取明确、有价值的信息
+- ✅ 根据语义选择最合适的知识类型，不局限于表面关键词
+- ✅ 理解上下文和隐含意图
+- ✅ 置信度基于信息明确程度（明确陈述0.9+，推断0.7-0.8，猜测<0.7）
+- ❌ 不要编造或推断不存在的信息
+- ❌ 不要提取过于模糊或无价值的信息
+- ❌ 如果没有值得提取的知识，返回空列表
 """
         
         user_prompt = f"""请从以下对话中提取结构化知识：
@@ -779,13 +855,19 @@ class LLMBasedExtractor(BaseExtractor):
             if 'knowledge' in data:
                 for item in data['knowledge']:
                     try:
-                        # 映射类型字符串到KnowledgeType枚举
+                        # 映射类型字符串到KnowledgeType枚举（支持40种类型）
                         type_str = item.get('type', 'fact').lower()
-                        if type_str == 'preference':
-                            knowledge_type = KnowledgeType.PREFERENCE
-                        elif type_str == 'event':
-                            knowledge_type = KnowledgeType.EVENT
-                        else:
+                        
+                        # 尝试直接匹配枚举值
+                        knowledge_type = None
+                        for kt in KnowledgeType:
+                            if kt.value.lower() == type_str:
+                                knowledge_type = kt
+                                break
+                        
+                        # 如果没找到匹配，使用默认值
+                        if knowledge_type is None:
+                            logger.warning(f"[LLMBasedExtractor] 未知知识类型 '{type_str}'，使用默认值 FACT")
                             knowledge_type = KnowledgeType.FACT
                         
                         # 创建Knowledge对象
