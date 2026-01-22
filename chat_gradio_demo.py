@@ -116,7 +116,7 @@ class ChatGradioDemo:
     async def chat(self, user_message: str) -> ChatResult:
         """处理聊天消息 - 使用 ChatApplication.process_turn()"""
         if not self.app:
-            raise ValueError("引擎未初始化，请先点击'初始化引擎'按钮")
+            raise ValueError("应用未初始化，请先点击'初始化引擎'按钮")
         
         start_time = time.time()
         self.turn_counter += 1
@@ -133,17 +133,21 @@ class ChatGradioDemo:
             
             processing_time = time.time() - start_time
             
-            # 获取记忆库状态
+            # 获取记忆库和会话历史状态
             memory_cache = self.engine.memory_bank.get_memory_cache()
             memory_count = len(memory_cache)
             
+            # 获取历史消息数量
+            history = await self.engine.session_manager.get_recent_history()
+            history_count = len(history)
+            
             logger.info(f"🤖 助手回复: {response}")
             logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
-            logger.info(f"📊 长期记忆: {memory_count}条")
+            logger.info(f"📊 历史: {history_count}轮 | 记忆: {memory_count}条")
             
             return ChatResult(
                 response=response,
-                history_count=0,  # ChatApplication 内部处理历史
+                history_count=history_count,
                 memory_count=memory_count,
                 processing_time=processing_time
             )
@@ -153,18 +157,18 @@ class ChatGradioDemo:
             logger.error(f"❌ {error_msg}")
             raise
     
-    def reset_conversation(self):
-        """重置对话"""
+    async def reset_conversation_async(self):
+        """重置对话（异步版本）"""
         self.turn_counter = 0
         if self.engine:
-            # 使用异步方式清空会话历史
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(self.engine.clear_session())
-            else:
-                asyncio.run(self.engine.clear_session())
+            await self.engine.clear_session()
         logger.info("🔄 对话已重置")
         return "✅ 对话已重置，可以开始新的聊天了！"
+    
+    def reset_conversation(self):
+        """重置对话（同步包装）"""
+        # 为 Gradio 提供同步接口
+        return asyncio.run(self.reset_conversation_async())
 
 
 def create_gradio_interface():
