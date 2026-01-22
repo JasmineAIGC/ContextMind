@@ -96,12 +96,17 @@ class ChatGradioDemo:
             logger.info("✅ [闲聊Demo] 引擎初始化成功 (v7.1 - Pure Context Engineering)")
             
             # 初始化 ChatApplication - 使用与 chat_interactive_demo 相同的模式
-            self.app = ChatApplication(
-                context_engine=self.engine,
-                system_prompt=CHAT_SYSTEM_PROMPT,
-                history_turns=10,  # Prompt中显示的历史轮数
-                use_real_llm=True,  # 使用真实LLM
-            )
+            try:
+                self.app = ChatApplication(
+                    context_engine=self.engine,
+                    system_prompt=CHAT_SYSTEM_PROMPT,
+                    history_turns=10,  # Prompt中显示的历史轮数
+                    use_real_llm=True,  # 使用真实LLM
+                )
+                logger.info("✅ ChatApplication 初始化成功")
+            except Exception as app_err:
+                logger.error(f"❌ ChatApplication 初始化失败: {str(app_err)}")
+                raise
             
             # 重置计数器
             self.turn_counter = 0
@@ -110,8 +115,11 @@ class ChatGradioDemo:
             return "✅ 引擎初始化成功！可以开始聊天了。"
             
         except Exception as e:
+            import traceback
             error_msg = f"❌ 引擎初始化失败: {str(e)}"
+            error_details = traceback.format_exc()
             logger.error(error_msg)
+            logger.error(f"错误详情:\n{error_details}")
             return error_msg
     
     async def chat(self, user_message: str) -> ChatResult:
@@ -250,8 +258,11 @@ class ChatGradioDemo:
             )
             
         except Exception as e:
+            import traceback
             error_msg = f"处理失败: {str(e)}"
+            error_details = traceback.format_exc()
             logger.error(f"❌ {error_msg}")
+            logger.error(f"错误详情:\n{error_details}")
             raise
     
     async def reset_conversation_async(self):
@@ -277,7 +288,14 @@ def create_gradio_interface():
     
     async def chat_async(message, history):
         try:
+            # 添加输入验证
+            if not message or not message.strip():
+                return history, "⚠️ 请输入消息"
+            
+            logger.info(f"[Gradio] 开始处理消息，当前历史长度: {len(history)}")
+            
             result = await demo_instance.chat(message)
+            
             # Gradio 6.x chatbot format: each message is a dict with 'role' and 'content'
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": result.response})
@@ -285,15 +303,28 @@ def create_gradio_interface():
             # 构建状态信息
             status = f"⏱️ {result.processing_time:.2f}s | 📝 上下文: {result.history_count}项"
             
+            logger.info(f"[Gradio] 消息处理完成，新历史长度: {len(history)}")
+            
             return history, status
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            logger.error(f"[Gradio] 处理失败: {str(e)}")
+            logger.error(f"[Gradio] 错误详情:\n{error_details}")
+            
             error_response = f"❌ 错误: {str(e)}"
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": error_response})
-            return history, "❌ 处理失败"
+            return history, f"❌ 处理失败: {str(e)}"
     
-    def reset_async():
-        return demo_instance.reset_conversation(), [], ""
+    async def reset_async():
+        try:
+            # 使用异步版本避免 asyncio.run 嵌套问题
+            result = await demo_instance.reset_conversation_async()
+            return result, [], ""
+        except Exception as e:
+            logger.error(f"[Gradio] 重置失败: {str(e)}")
+            return f"❌ 重置失败: {str(e)}", [], ""
     
     # 创建界面
     with gr.Blocks(title="ContextMind 闲聊Demo v7.1") as app:
