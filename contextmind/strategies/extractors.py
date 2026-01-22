@@ -1023,3 +1023,9 @@ class ImportancePredictorExtractor(BaseExtractor):
             重要性分数（0-1）
         """
         # TODO: 当模型可用时实现
+        # 实现步骤：
+        # 1. 提取知识的特征（类型、内容长度、置信度等）
+        # 2. 使用训练好的模型预测长期价值
+        # 3. 返回 0-1 之间的重要性分数
+        # 当前返回默认值
+        return 1.0

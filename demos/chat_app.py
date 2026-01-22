@@ -109,10 +109,10 @@ class ChatApplication:
 
     
     async def build_prompt(self, user_input: str, context: ContextResult, debug_info: Optional[Dict] = None) -> str:
-        """构建闲聊场景的 Prompt
+        """构建闲聊场景的 Prompt。
         
-        包含系统提示词、相关记忆、对话历史和当前输入
-        确保所有部分都在 Prompt 中体现（即使为空）
+        包含系统提示词、相关记忆、对话历史和当前输入。
+        确保所有部分都在 Prompt 中体现（即使为空）。
         """
         logger.info("")
         logger.info("=" * 100)
