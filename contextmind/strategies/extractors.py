@@ -903,12 +903,13 @@ class ImportancePredictorExtractor(BaseExtractor):
 
 class EnhancedExtractor(BaseExtractor):
     """
-    增强知识提取器 - 支持30种知识类型
+    增强知识提取器 - 支持40种知识类型
     
     在RuleBasedExtractor基础上扩展，提取更全面的知识类型：
-    - 单轮对话提取：21种基础知识类型
-    - 多轮对话提取：4种对话级知识类型
-    - 跨对话提取：5种模式识别类型
+    - 原有基础类型：9种 (preference, fact, event, intent, need, opinion, habit, constraint, interest)
+    - 新增单轮类型：27种 (用户画像、认知、行为、意图、关系、知识、情感、策略、上下文)
+    - 多轮对话类型：4种 (对话模式、主题演变、问题解决、因果关系)
+    - 总计：40种知识类型
     
     提取策略：
     1. 基于规则的模式匹配（快速、确定性）
@@ -929,7 +930,7 @@ class EnhancedExtractor(BaseExtractor):
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """
-        使用增强规则提取30种知识类型
+        使用增强规则提取40种知识类型
         
         Args:
             messages: 对话消息列表
@@ -937,7 +938,7 @@ class EnhancedExtractor(BaseExtractor):
         Returns:
             提取的知识列表
         """
-        logger.info(f"[EnhancedExtractor] 开始增强知识提取 - 处理 {len(messages)} 条消息，支持30种知识类型")
+        logger.info(f"[EnhancedExtractor] 开始增强知识提取 - 处理 {len(messages)} 条消息，支持40种知识类型")
         
         knowledge = []
         
@@ -1007,7 +1008,7 @@ class EnhancedExtractor(BaseExtractor):
         if filtered_count > 0:
             logger.debug(f"[EnhancedExtractor] 过滤低置信度知识: {filtered_count} 条")
         
-        logger.info(f"[EnhancedExtractor] ✓ 增强知识提取完成 - 总计 {len(knowledge)} 条有效知识（30种类型）")
+        logger.info(f"[EnhancedExtractor] ✓ 增强知识提取完成 - 总计 {len(knowledge)} 条有效知识（40种类型）")
         
         if knowledge:
             # 按类型统计
