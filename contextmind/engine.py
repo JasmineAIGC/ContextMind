@@ -29,16 +29,9 @@ from .models import (
     Knowledge,
     get_logger,
 )
-from .pipeline import (
-    SessionManager,
-    InputPreprocessor,
-    MemoryBank,
-    ContextCompressor,
-    ContextReorderer,
-    PostProcessor,
-    ConversationSummarizer,
-    KVCacheManager,
-)
+from .memory import SessionManager, MemoryBank, KVCacheManager
+from .pipeline import InputPreprocessor, ContextCompressor, ContextReorderer, PostProcessor
+from .summarizer import ConversationSummarizer
 
 logger = get_logger(__name__)
 

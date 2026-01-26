@@ -1,24 +1,22 @@
 """
-Pipeline - Core pipeline modules
+Pipeline - Core pipeline modules (backward compatibility)
 
-Core processing modules for context optimization.
-
-此文件保持向后兼容性，所有类现在从 memory/ 和 processing/ 模块导入
+此文件保持向后兼容性，所有类现在从简化后的模块导入
 """
 
 # Re-export from memory module
 from ..memory import MemoryBank, SessionManager, KVCacheManager
 
-# Re-export from processing module
-from ..processing import (
+# Re-export from pipeline module
+from ..pipeline import (
     InputPreprocessor,
     ContextCompressor,
     ContextReorderer,
     PostProcessor,
 )
 
-# Re-export from processing.summarizer module
-from ..processing.summarizer import ConversationSummarizer
+# Re-export from summarizer module
+from ..summarizer import ConversationSummarizer
 
 __all__ = [
     "InputPreprocessor",
