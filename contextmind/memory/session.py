@@ -8,7 +8,7 @@ import uuid
 from typing import List, Optional, Any
 from datetime import datetime
 
-from ..models import Message, MessageRole, get_logger
+from ..core.models import Message, MessageRole, get_logger
 
 logger = get_logger(__name__)
 

@@ -58,18 +58,11 @@ v7.2 核心改进：
 - ✨ Simplified API: 清晰的模块边界和导出接口
 """
 
-# Plugin Registry (NEW in v7.0)
-from .registry import registry, PluginRegistry
-
-# Easy Integration API (NEW in v7.0)
-from .config import ContextMind
-
-# 核心引擎
-from .engine import ContextEngine
-
-# 核心层
-from .models import (
-    # 数据模型
+# Core Framework Components
+from .core import (
+    ContextMindEngine,
+    PluginRegistry,
+    ContextMindConfig,
     Message,
     MessageRole,
     ContextItem,
@@ -80,48 +73,20 @@ from .models import (
     KnowledgeType,
     Chunk,
     ContextState,
-    # 配置
+    EmbeddingInfo,
     ExtractionConfig,
     RetrievalConfig,
     SummarizationConfig,
     CompressionConfig,
     MemorySystemConfig,
     DEFAULT_MEMORY_CONFIG,
-)
-
-# Pipeline components (Step-by-step architecture)
-from .preprocessor import InputPreprocessor
-from .compressor import ContextCompressor
-from .reorderer import ContextReorderer
-from .postprocessor import PostProcessor
-from .retriever import ContextRetriever
-from .kvcache import KVCacheManager
-
-# Memory components
-from .memory import (
-    MemoryBank,
-    SessionManager,
-)
-from .summarizer import (
-    ConversationSummarizer,
-)
-
-# 策略 (Plugin System)
-from .strategies import (
-    # 基类
-    BaseStrategy,
     ExtractionStrategy,
     RetrievalStrategy,
     IntegrationStrategy,
     OptimizationStrategy,
-    # Default implementations
     CompressionStrategy,
     RerankingStrategy,
-)
-
-# 工具
-from .models import (
-    # 日志系统 (NEW in v7.0 - Unified Logging)
+    # Logging
     ContextMindLogger,
     LogLevel,
     get_logger,
@@ -132,18 +97,52 @@ from .models import (
     DEBUG,
 )
 
+# Pipeline Components (6-Step Processing)
+from .pipeline import (
+    Preprocessor,
+    ContextRetriever,
+    ContextCompressor,
+    ContextReorderer,
+    KVCacheManager,
+    PostProcessor,
+    BaseSummarizer,
+    LLMBasedSummarizer,
+    RuleBasedSummarizer,
+)
+
+# Memory Bank Module
+from .memory import (
+    MemoryBank,
+    SessionManager,
+    LLMBasedExtractor,
+    SemanticSearchRetriever,
+    SimpleUpdater,
+    BaseExtractor,
+    BaseRetriever,
+    BaseUpdater,
+)
+
+# Backward compatibility aliases
+registry = PluginRegistry()
+ContextMind = ContextMindConfig
+ContextEngine = ContextMindEngine
+InputPreprocessor = Preprocessor
+ConversationSummarizer = LLMBasedSummarizer
+
 __all__ = [
-    # Easy Integration API (NEW in v7.0)
+    # Easy Integration API
     "ContextMind",
+    "ContextMindConfig",
     
-    # Plugin System (NEW in v7.0)
+    # Plugin System
     "registry",
     "PluginRegistry",
     
-    # 核心引擎
+    # Core Engine
     "ContextEngine",
+    "ContextMindEngine",
     
-    # 核心层 - 数据模型
+    # Data Models
     "Message",
     "MessageRole",
     "ContextItem",
@@ -154,8 +153,9 @@ __all__ = [
     "KnowledgeType",
     "Chunk",
     "ContextState",
+    "EmbeddingInfo",
     
-    # 核心层 - 配置
+    # Configurations
     "ExtractionConfig",
     "RetrievalConfig",
     "SummarizationConfig",
@@ -163,7 +163,7 @@ __all__ = [
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
     
-    # 核心层 - 日志系统 (NEW in v7.0)
+    # Logging System
     "ContextMindLogger",
     "LogLevel",
     "get_logger",
@@ -173,21 +173,32 @@ __all__ = [
     "INFO",
     "DEBUG",
     
-    # 流水线层 (Pipeline Architecture - 6 Steps)
-    "InputPreprocessor",      # Step 1: Input Preprocessing
-    "ContextRetriever",       # Step 2: Context Retrieval (placeholder)
-    "MemoryBank",             # Step 2: MemoryBank (main retrieval)
-    "ContextCompressor",      # Step 3: Context Compression
-    "ContextReorderer",       # Step 4: Context Reordering
-    "KVCacheManager",         # Step 5: KV Cache Management
-    "PostProcessor",          # Step 6: Output Post-processing
+    # Pipeline (6 Steps)
+    "InputPreprocessor",      # Backward compatibility
+    "Preprocessor",           # Step 1
+    "ContextRetriever",       # Step 2
+    "ContextCompressor",      # Step 3
+    "ContextReorderer",       # Step 4
+    "KVCacheManager",         # Step 5
+    "PostProcessor",          # Step 6
     
-    # Supporting components
+    # Supporting Components
+    "BaseSummarizer",
+    "LLMBasedSummarizer",
+    "RuleBasedSummarizer",
+    "ConversationSummarizer",  # Backward compatibility
+    
+    # Memory Bank
+    "MemoryBank",
     "SessionManager",
-    "ConversationSummarizer",
+    "LLMBasedExtractor",
+    "SemanticSearchRetriever",
+    "SimpleUpdater",
     
-    # 策略基类
-    "BaseStrategy",
+    # Strategy Base Classes
+    "BaseExtractor",
+    "BaseRetriever",
+    "BaseUpdater",
     "ExtractionStrategy",
     "RetrievalStrategy",
     "IntegrationStrategy",

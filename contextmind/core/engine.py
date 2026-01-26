@@ -29,13 +29,13 @@ from .models import (
     Knowledge,
     get_logger,
 )
-from .memory import SessionManager, MemoryBank
-from .kvcache import KVCacheManager
-from .preprocessor import InputPreprocessor
-from .compressor import ContextCompressor
-from .reorderer import ContextReorderer
-from .postprocessor import PostProcessor
-from .summarizer import ConversationSummarizer
+from ..memory import SessionManager, MemoryBank
+from ..pipeline.kvcache import KVCacheManager
+from ..pipeline.preprocessor import InputPreprocessor
+from ..pipeline.compressor import ContextCompressor
+from ..pipeline.reorderer import ContextReorderer
+from ..pipeline.postprocessor import PostProcessor
+from ..pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
 
 logger = get_logger(__name__)
 

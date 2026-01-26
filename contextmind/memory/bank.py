@@ -7,7 +7,7 @@ import uuid
 import re
 from datetime import datetime
 
-from ..models import (
+from ..core.models import (
     ContextItem,
     ContextSource,
     MemoryNote,

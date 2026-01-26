@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 
-from ..models import ContextItem, ContextSource, RetrievalConfig, DEFAULT_MEMORY_CONFIG, get_logger
+from ..core.models import ContextItem, ContextSource, RetrievalConfig, DEFAULT_MEMORY_CONFIG, get_logger
 from ..utils.embedding import get_embedding_client, calculate_embedding_similarity
 
 logger = get_logger(__name__)

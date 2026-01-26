@@ -15,8 +15,8 @@ from typing import List, Optional
 import re
 import json
 
-from ..models import Message, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger
-from ..models import Knowledge, KnowledgeType, ScoreInfo
+from ..core.models import Message, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger
+from ..core.models import Knowledge, KnowledgeType, ScoreInfo
 from ..utils.embedding import get_embedding_client
 
 logger = get_logger(__name__)

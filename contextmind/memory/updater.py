@@ -9,7 +9,7 @@ from typing import List, Optional
 import re
 from datetime import datetime
 
-from ..models import ContextItem, ContextSource, Knowledge, KnowledgeType, get_logger
+from ..core.models import ContextItem, ContextSource, Knowledge, KnowledgeType, get_logger
 from ..utils.embedding import calculate_embedding_similarity
 
 logger = get_logger(__name__)

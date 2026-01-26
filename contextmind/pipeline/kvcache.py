@@ -7,7 +7,7 @@ KV cache management during LLM inference.
 from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
 
-from .models import get_logger
+from ..core.models import get_logger
 
 logger = get_logger(__name__)
 

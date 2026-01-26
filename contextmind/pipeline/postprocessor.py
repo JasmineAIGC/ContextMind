@@ -8,7 +8,7 @@ import re
 from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
 
-from .models import ContextResult, get_logger
+from ..core.models import ContextResult, get_logger
 
 logger = get_logger(__name__)
 

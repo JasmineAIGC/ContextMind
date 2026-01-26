@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from dataclasses import dataclass
 
-from .models import Message, MessageRole, ContextItem, get_logger
+from ..core.models import Message, MessageRole, ContextItem, get_logger
 
 logger = get_logger(__name__)
 
