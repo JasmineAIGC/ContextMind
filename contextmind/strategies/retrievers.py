@@ -113,7 +113,6 @@ class SemanticSearchRetriever(BaseRetriever):
             
             if use_embedding and item.embeddings:
                 # 使用 embedding 相似度
-                # 获取默认 embedding
                 item_embedding = item.embeddings.get('default')
                 if item_embedding:
                     similarity, success = calculate_embedding_similarity(query_embedding, item_embedding)
@@ -129,7 +128,6 @@ class SemanticSearchRetriever(BaseRetriever):
             else:
                 # 使用字符级相似度
                 score = self._calculate_char_similarity(query_lower, content_lower)
-                overlap = len(query_chars & content_chars)
                 
                 if overlap >= self.config.min_overlap_chars:
                     # Jaccard Similarity（Jaccard 相似度）
@@ -208,7 +206,7 @@ class SemanticSearchRetriever(BaseRetriever):
     
     def _calculate_char_similarity(self, query_lower: str, content_lower: str) -> float:
         """
-        计算字符级相似度（Jaccard similarity）
+        计算字符级相似度（Jaccard similarity）- 回退方案
         
         Args:
             query_lower: 小写查询字符串
@@ -226,36 +224,15 @@ class SemanticSearchRetriever(BaseRetriever):
         content_chars = set(content_lower)
         overlap = len(query_chars & content_chars)
         
-        # 去重
-        if self.config.enable_deduplication:
-            filtered_items = self._deduplicate_memories(filtered_items)
-        
-        # 限制结果数量
-        filtered_items = filtered_items[:min(limit, self.config.max_limit)]
-        
-        # 构建结果
-        result = [
-            ContextItem(
-                content=item.content,
-                source=item.source,
-                score=score,
-                metadata={
-                    **item.metadata,
-                    'timestamp': item.timestamp if hasattr(item, 'timestamp') else None
-                }
-            )
-            for item, score in filtered_items
-        ]
-        
-        if result:
-            logger.info(f"[SemanticRetriever] ✓ 检索成功 - 找到 {len(result)} 条相关记忆 (最高分: {filtered_items[0][1]:.2f})")
-            logger.debug(f"[SemanticRetriever] 检索结果详情:")
-            for i, (item, score) in enumerate(filtered_items[:limit]):
-                logger.debug(f"  {i+1}. [score={score:.2f}] {item.content[:80]}...")
+        if overlap >= self.config.min_overlap_chars:
+            # Jaccard Similarity（Jaccard 相似度）
+            union = len(query_chars | content_chars)
+            similarity = overlap / union if union > 0 else 0
+            score = self.config.base_score + similarity * (0.9 - self.config.base_score)
         else:
-            logger.warning(f"[SemanticRetriever] 未找到相关记忆 - 查询: '{query}'")
+            score = self.config.base_score
         
-        return result
+        return score
     
     def _deduplicate_memories(self, scored_items: List[tuple]) -> List[tuple]:
         """移除高度相似的记忆"""
