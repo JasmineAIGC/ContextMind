@@ -64,7 +64,7 @@ class EmbeddingConfig:
         if not api_key:
             raise ValueError(
                 "缺少 API key。请在 .env 文件中设置以下变量之一: QWEN3_API_KEY, "
-                "LLM_API_KEY, OPENAI_API_KEY 等"
+                "CONTEXTMIND_API_KEY, LLM_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, QWEN_API_KEY"
             )
         
         # 读取 Base URL（可选）
@@ -147,7 +147,7 @@ class EmbeddingClient:
             self.client = OpenAI(
                 api_key=self.config.api_key,
                 base_url=self.config.base_url,
-                default_headers=headers or None,
+                default_headers=headers if headers else None,
             )
             logger.info(f"[EmbeddingClient] 初始化成功 - model: {self.config.model}")
         except Exception as e:
