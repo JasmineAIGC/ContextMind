@@ -9,6 +9,7 @@ from typing import List, Optional
 import re
 
 from ..models import Message, Knowledge, KnowledgeType, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger, ScoreInfo
+from ..utils.embedding import get_embedding_client
 
 logger = get_logger(__name__)
 
@@ -934,6 +935,15 @@ class LLMBasedExtractor(BaseExtractor):
                                 'llm_extracted': True
                             }
                         )
+                        
+                        # 生成 embedding（异步）
+                        embedding_client = get_embedding_client()
+                        if embedding_client:
+                            embedding_info = embedding_client.generate_embedding(content)
+                            if embedding_info:
+                                knowledge.embeddings['default'] = embedding_info
+                                logger.debug(f"[LLMBasedExtractor] 已生成 embedding - dim: {embedding_info.dimension}")
+                        
                         knowledge_list.append(knowledge)
                         
                     except Exception as e:

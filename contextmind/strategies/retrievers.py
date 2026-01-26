@@ -9,6 +9,7 @@ from typing import List, Optional
 import re
 
 from ..models import ContextItem, ContextSource, RetrievalConfig, DEFAULT_MEMORY_CONFIG, get_logger
+from ..utils.embedding import get_embedding_client, calculate_embedding_similarity
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,9 @@ class SemanticSearchRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        使用 Semantic Similarity 检索记忆
+        使用 Embedding + Semantic Similarity 检索记忆
+        
+        优先使用 embedding 向量相似度，如果不可用则回退到字符级相似度
         
         Args:
             query: 查询字符串
@@ -82,6 +85,25 @@ class SemanticSearchRetriever(BaseRetriever):
             logger.warning("[SemanticRetriever] 缓存为空 - 无法检索记忆")
             return []
         
+        # 尝试生成查询的 embedding
+        embedding_client = get_embedding_client()
+        query_embedding = None
+        if embedding_client:
+            query_embedding = embedding_client.generate_embedding(query)
+            if query_embedding:
+                logger.debug(f"[SemanticRetriever] 已生成查询 embedding - dim: {query_embedding.dimension}")
+        
+        # 检查是否可以使用 embedding 检索
+        use_embedding = query_embedding is not None
+        if use_embedding:
+            # 检查缓存中有多少项有 embedding
+            items_with_embedding = sum(1 for item in memory_cache if item.embeddings)
+            if items_with_embedding == 0:
+                logger.debug("[SemanticRetriever] 缓存中无 embedding，回退到字符级检索")
+                use_embedding = False
+            else:
+                logger.debug(f"[SemanticRetriever] 使用 embedding 检索 - {items_with_embedding}/{len(memory_cache)} 项有 embedding")
+        
         query_lower = query.lower()
         
         # 计算相关性分数
@@ -89,13 +111,24 @@ class SemanticSearchRetriever(BaseRetriever):
         for item in memory_cache:
             content_lower = item.content.lower()
             
-            # 方法 1: 完全匹配
-            if query_lower in content_lower or content_lower in query_lower:
-                score = 0.9
-            # 方法 2: 字符重叠（适合中文）
+            if use_embedding and item.embeddings:
+                # 使用 embedding 相似度
+                # 获取默认 embedding
+                item_embedding = item.embeddings.get('default')
+                if item_embedding:
+                    similarity, success = calculate_embedding_similarity(query_embedding, item_embedding)
+                    if success:
+                        score = similarity
+                        logger.debug(f"[SemanticRetriever] Embedding 相似度: {score:.3f} - {item.content[:50]}...")
+                    else:
+                        # embedding 计算失败，回退到字符级
+                        score = self._calculate_char_similarity(query_lower, content_lower)
+                else:
+                    # 没有 embedding，回退到字符级
+                    score = self._calculate_char_similarity(query_lower, content_lower)
             else:
-                query_chars = set(query_lower)
-                content_chars = set(content_lower)
+                # 使用字符级相似度
+                score = self._calculate_char_similarity(query_lower, content_lower)
                 overlap = len(query_chars & content_chars)
                 
                 if overlap >= self.config.min_overlap_chars:
@@ -105,6 +138,20 @@ class SemanticSearchRetriever(BaseRetriever):
                     score = self.config.base_score + similarity * (0.9 - self.config.base_score)
                 else:
                     score = self.config.base_score
+            
+            # 新近性加权
+            if self.config.enable_recency_boost and hasattr(item, 'timestamp') and item.timestamp:
+                try:
+                    from datetime import datetime
+                    if isinstance(item.timestamp, datetime):
+                        days_ago = (datetime.now() - item.timestamp).days
+                        if days_ago <= self.config.recency_days_threshold:
+                            recency_boost = self.config.recency_weight * (
+                                1 - days_ago / self.config.recency_days_threshold
+                            )
+                            score = min(1.0, score + recency_boost)
+                except Exception as e:
+                    logger.debug(f"计算新近性加权时出错: {e}")
             
             # 新近性加权
             if self.config.enable_recency_boost and hasattr(item, 'timestamp') and item.timestamp:
@@ -137,6 +184,47 @@ class SemanticSearchRetriever(BaseRetriever):
                 filtered_items = scored_items[:limit]
         else:
             filtered_items = scored_items
+        
+        # 去重
+        if self.config.enable_deduplication:
+            deduplicated = []
+            seen_contents = set()
+            for item, score in filtered_items:
+                content_key = item.content[:50].lower()
+                if content_key not in seen_contents:
+                    deduplicated.append((item, score))
+                    seen_contents.add(content_key)
+            filtered_items = deduplicated
+        
+        # 返回限制数量的结果
+        result = [item for item, score in filtered_items[:limit]]
+        
+        if result:
+            logger.info(f"[SemanticRetriever] ✓ 检索成功 - 找到 {len(result)} 条相关记忆 (最高分: {filtered_items[0][1]:.2f})")
+        else:
+            logger.info("[SemanticRetriever] ✗ 未找到相关记忆")
+        
+        return result
+    
+    def _calculate_char_similarity(self, query_lower: str, content_lower: str) -> float:
+        """
+        计算字符级相似度（Jaccard similarity）
+        
+        Args:
+            query_lower: 小写查询字符串
+            content_lower: 小写内容字符串
+            
+        Returns:
+            相似度分数 (0-1)
+        """
+        # 方法 1: 完全匹配
+        if query_lower in content_lower or content_lower in query_lower:
+            return 0.9
+        
+        # 方法 2: 字符重叠（适合中文）
+        query_chars = set(query_lower)
+        content_chars = set(content_lower)
+        overlap = len(query_chars & content_chars)
         
         # 去重
         if self.config.enable_deduplication:

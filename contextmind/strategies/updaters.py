@@ -10,6 +10,7 @@ import re
 from datetime import datetime
 
 from ..models import ContextItem, ContextSource, Knowledge, KnowledgeType, get_logger
+from ..utils.embedding import calculate_embedding_similarity
 
 logger = get_logger(__name__)
 
@@ -135,7 +136,8 @@ class SimpleUpdater(BaseUpdater):
             max_similarity = 0.0
             
             for idx, existing in enumerate(updated_cache):
-                similarity = self._calculate_similarity(formatted_content, existing.content)
+                # 优先使用 embedding 相似度，如果不可用则回退到字符级
+                similarity = self._calculate_similarity_with_embedding(k, existing)
                 
                 # 如果相似度极高（完全重复），跳过
                 if similarity >= self.EXACT_DUPLICATE_THRESHOLD:
@@ -167,6 +169,7 @@ class SimpleUpdater(BaseUpdater):
                         source=ContextSource.MEMORY,
                         score=k.confidence,
                         timestamp=datetime.now(),  # 更新时间戳
+                        embeddings=k.embeddings,  # 保留 embeddings
                         metadata={**k.metadata, 'updated': True, 'previous_score': existing_item.score}
                     )
                     merged_count += 1
@@ -180,6 +183,7 @@ class SimpleUpdater(BaseUpdater):
                     source=ContextSource.MEMORY,
                     score=k.confidence,
                     timestamp=datetime.now(),
+                    embeddings=k.embeddings,  # 添加 embeddings
                     metadata=k.metadata
                 ))
                 logger.debug(f"[SimpleUpdater] 已存储: {formatted_content[:80]}...")
@@ -196,6 +200,32 @@ class SimpleUpdater(BaseUpdater):
         logger.info(f"[SimpleUpdater] 当前记忆库总计: {len(updated_cache)} 条记忆")
         
         return updated_cache
+    
+    def _calculate_similarity_with_embedding(self, knowledge: Knowledge, existing: ContextItem) -> float:
+        """
+        计算知识与现有记忆的相似度，优先使用 embedding
+        
+        Args:
+            knowledge: 新知识对象
+            existing: 现有记忆项
+            
+        Returns:
+            相似度分数（0-1）
+        """
+        # 尝试使用 embedding 相似度
+        if knowledge.embeddings and existing.embeddings:
+            knowledge_emb = knowledge.embeddings.get('default')
+            existing_emb = existing.embeddings.get('default')
+            
+            if knowledge_emb and existing_emb:
+                similarity, success = calculate_embedding_similarity(knowledge_emb, existing_emb)
+                if success:
+                    logger.debug(f"[SimpleUpdater] 使用 embedding 相似度: {similarity:.3f}")
+                    return similarity
+        
+        # 回退到字符级相似度
+        formatted_content = f"[{knowledge.type.value.upper()}] {knowledge.content}"
+        return self._calculate_similarity(formatted_content, existing.content)
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """
