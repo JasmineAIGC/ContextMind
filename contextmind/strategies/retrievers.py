@@ -129,13 +129,6 @@ class SemanticSearchRetriever(BaseRetriever):
                 # 使用字符级相似度
                 score = self._calculate_char_similarity(query_lower, content_lower)
                 
-                if overlap >= self.config.min_overlap_chars:
-                    # Jaccard Similarity（Jaccard 相似度）
-                    union = len(query_chars | content_chars)
-                    similarity = overlap / union if union > 0 else 0
-                    score = self.config.base_score + similarity * (0.9 - self.config.base_score)
-                else:
-                    score = self.config.base_score
             
             # 新近性加权
             if self.config.enable_recency_boost and hasattr(item, 'timestamp') and item.timestamp:
@@ -151,19 +144,6 @@ class SemanticSearchRetriever(BaseRetriever):
                 except Exception as e:
                     logger.debug(f"计算新近性加权时出错: {e}")
             
-            # 新近性加权
-            if self.config.enable_recency_boost and hasattr(item, 'timestamp') and item.timestamp:
-                try:
-                    from datetime import datetime
-                    if isinstance(item.timestamp, datetime):
-                        days_ago = (datetime.now() - item.timestamp).days
-                        if days_ago <= self.config.recency_days_threshold:
-                            recency_boost = self.config.recency_weight * (
-                                1 - days_ago / self.config.recency_days_threshold
-                            )
-                            score = min(1.0, score + recency_boost)
-                except Exception as e:
-                    logger.debug(f"计算新近性加权时出错: {e}")
             
             scored_items.append((item, score))
         
