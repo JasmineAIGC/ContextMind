@@ -7,12 +7,12 @@ Merged from:
 - processing/summarizer/llm.py (LLMBasedSummarizer)
 """
 
-from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from dataclasses import dataclass
 
 from ..core.models import Message, MessageRole, ContextItem, get_logger
+from ..core.strategies import SummarizerStrategy  # Use core base class
 
 logger = get_logger(__name__)
 
@@ -41,32 +41,6 @@ class SummarizationConfig:
     # LLM摘要配置（如果使用LLM）
     llm_max_tokens: int = 150  # LLM摘要最大token数
     llm_temperature: float = 0.3  # LLM温度（越低越稳定）
-
-
-# ============================================================================
-# Base Strategy
-# ============================================================================
-
-class SummarizerStrategy(ABC):
-    """摘要策略基类"""
-    
-    @abstractmethod
-    async def summarize(
-        self,
-        messages: List[Message],
-        existing_summary: Optional[str] = None
-    ) -> str:
-        """
-        生成摘要
-        
-        Args:
-            messages: 消息列表
-            existing_summary: 已有摘要 (用于增量更新)
-            
-        Returns:
-            摘要文本
-        """
-        pass
 
 
 # ============================================================================

@@ -4,43 +4,14 @@ Memory Retrievers - 内存检索的插件实现
 该模块提供各种策略用于根据当前查询/Context 检索相关记忆。
 """
 
-from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 
 from ..core.models import ContextItem, ContextSource, RetrievalConfig, DEFAULT_MEMORY_CONFIG, get_logger
+from ..core.strategies import RetrievalStrategy as BaseRetriever  # Use core base class
 from ..utils.embedding import get_embedding_client, calculate_embedding_similarity
 
 logger = get_logger(__name__)
-
-
-class BaseRetriever(ABC):
-    """
-    Memory Retriever 的基类接口
-    
-    Retriever 从 Memory Bank 中查找和排序相关记忆，
-    基于当前查询或 Context。
-    """
-    
-    @abstractmethod
-    async def retrieve(
-        self,
-        query: str,
-        memory_cache: List[ContextItem],
-        limit: int = 5
-    ) -> List[ContextItem]:
-        """
-        检索相关记忆
-        
-        Args:
-            query: 待匹配的当前查询/Context
-            memory_cache: 可用的记忆库进行搜索
-            limit: 返回记忆的最大数量
-            
-        Returns:
-            按相关性排序的相关 Context Item 列表
-        """
-        pass
 
 
 class SemanticSearchRetriever(BaseRetriever):

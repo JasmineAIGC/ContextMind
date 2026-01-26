@@ -10,42 +10,16 @@ Merged from:
 本模块提供多种策略, 用于从对话中提取有价值的信息并存储到长期记忆
 """
 
-from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 import json
 
 from ..core.models import Message, ExtractionConfig, DEFAULT_MEMORY_CONFIG, get_logger
 from ..core.models import Knowledge, KnowledgeType, ScoreInfo
+from ..core.strategies import ExtractionStrategy as BaseExtractor  # Use core base class
 from ..utils.embedding import get_embedding_client
 
 logger = get_logger(__name__)
-
-# ============================================================================
-# BaseExtractor - Abstract Base Class
-# ============================================================================
-
-class BaseExtractor(ABC):
-    """
-    Memory Extractor 基类接口
-    
-    Extractor 分析对话并识别值得存储到长期记忆的信息
-    (事实、偏好、事件等)
-    """
-    
-    @abstractmethod
-    async def extract(self, messages: List[Message]) -> List[Knowledge]:
-        """
-        从消息中提取知识
-        
-        Args:
-            messages: 对话消息列表
-            
-        Returns:
-            提取的知识项列表
-        """
-        pass
-
 
 # ============================================================================
 # RuleBasedExtractor - Rule-based Extraction

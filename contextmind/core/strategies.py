@@ -5,7 +5,7 @@ Strategy Base Classes - 策略基类
 """
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from .models import ContextItem, ProcessedContext, ContextResult, Message, Knowledge, get_logger
 
@@ -20,12 +20,13 @@ class RetrievalStrategy(ABC):
     """
     
     @abstractmethod
-    async def retrieve(self, query: str, limit: int = 5, **kwargs) -> List[ContextItem]:
+    async def retrieve(self, query: str, memory_cache: List[ContextItem] = None, limit: int = 5, **kwargs) -> List[ContextItem]:
         """
         检索相关上下文
         
         Args:
             query: 查询字符串
+            memory_cache: 可用的记忆库（用于内存检索）
             limit: 返回的最大结果数
             **kwargs: 其他参数
             
@@ -112,8 +113,55 @@ class ExtractionStrategy(ABC):
         pass
 
 
+class UpdateStrategy(ABC):
+    """
+    更新策略基类
+    
+    定义了如何将新知识添加到记忆库的接口，包括去重、合并等逻辑。
+    """
+    
+    @abstractmethod
+    async def update(self, memory_cache: List[ContextItem], new_knowledge: List[Knowledge]) -> List[ContextItem]:
+        """
+        更新记忆库
+        
+        Args:
+            memory_cache: 当前记忆库条目
+            new_knowledge: 新提取的知识列表
+            
+        Returns:
+            更新后的记忆库条目列表
+        """
+        pass
+
+
+class SummarizerStrategy(ABC):
+    """
+    摘要策略基类
+    
+    定义了对话摘要的接口。
+    """
+    
+    @abstractmethod
+    async def summarize(self, messages: List[Message], existing_summary: Optional[str] = None) -> str:
+        """
+        生成对话摘要
+        
+        Args:
+            messages: 消息列表
+            existing_summary: 已有摘要（用于增量更新）
+            
+        Returns:
+            摘要文本
+        """
+        pass
+
+
 # Alias for backwards compatibility
 BaseStrategy = ExtractionStrategy
+BaseExtractor = ExtractionStrategy
+BaseRetriever = RetrievalStrategy
+BaseUpdater = UpdateStrategy
 
 
 # Default Implementations
@@ -188,7 +236,13 @@ __all__ = [
     'RetrievalStrategy',
     'IntegrationStrategy',
     'OptimizationStrategy',
+    'UpdateStrategy',
+    'SummarizerStrategy',
+    # Backward compatibility aliases
     'BaseStrategy',
+    'BaseExtractor',
+    'BaseRetriever',
+    'BaseUpdater',
     # Default strategies
     'CompressionStrategy',
     'RerankingStrategy',

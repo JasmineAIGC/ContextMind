@@ -4,47 +4,15 @@ Memory Updaters - Memory 更新的插件实现
 该模块提供各种策略用于更新和维护 Memory Bank（增加、更新、删除操作）。
 """
 
-from abc import ABC, abstractmethod
 from typing import List, Optional
 import re
 from datetime import datetime
 
 from ..core.models import ContextItem, ContextSource, Knowledge, KnowledgeType, get_logger
+from ..core.strategies import UpdateStrategy as BaseUpdater  # Use core base class
 from ..utils.embedding import calculate_embedding_similarity
 
 logger = get_logger(__name__)
-
-
-class BaseUpdater(ABC):
-    """
-    Memory Updater 的基类接口
-    
-    Updater 处理 Add、Update 和 Delete 操作
-    来维护 Memory Bank。
-    """
-    
-    @abstractmethod
-    async def update(
-        self,
-        memory_cache: List[ContextItem],
-        new_knowledge: List[Knowledge]
-    ) -> List[ContextItem]:
-        """
-        使用新知识更新 Memory Cache
-        
-        处理：
-        - Add: 插入新记忆
-        - Update: 合并或替换现有记忆
-        - Delete: 移除过时或低价值的记忆
-        
-        Args:
-            memory_cache: 当前 Memory Cache
-            new_knowledge: 待集成的新知识
-            
-        Returns:
-            更新后的 Memory Cache
-        """
-        pass
 
 
 class SimpleUpdater(BaseUpdater):
