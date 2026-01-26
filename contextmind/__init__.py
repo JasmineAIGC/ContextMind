@@ -62,7 +62,7 @@ v7.2 核心改进：
 from .registry import registry, PluginRegistry
 
 # Easy Integration API (NEW in v7.0)
-from .config_api import ContextMind
+from .config import ContextMind
 
 # 核心引擎
 from .engine import ContextEngine
@@ -110,6 +110,13 @@ from .summarizer import (
 from .strategies import (
     # 基类
     BaseStrategy,
+    ExtractionStrategy,
+    RetrievalStrategy,
+    IntegrationStrategy,
+    OptimizationStrategy,
+    # Default implementations
+    CompressionStrategy,
+    RerankingStrategy,
 )
 
 # 工具
@@ -181,6 +188,12 @@ __all__ = [
     
     # 策略基类
     "BaseStrategy",
+    "ExtractionStrategy",
+    "RetrievalStrategy",
+    "IntegrationStrategy",
+    "OptimizationStrategy",
+    "CompressionStrategy",
+    "RerankingStrategy",
 ]
 
 __version__ = "7.2.0"  # 当前版本 Current version - Architecture Refinement

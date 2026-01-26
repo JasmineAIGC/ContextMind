@@ -9,8 +9,8 @@ from contextmind.models import (
     ProcessedContext, ContextResult, ContextItem, ContextSource,
     Message, MessageRole
 )
-from contextmind.strategies.base import CompressionStrategy, RerankingStrategy
-from contextmind.pipeline.compressor import ContextCompressor
+from contextmind.strategies.defaults import CompressionStrategy, RerankingStrategy
+from contextmind.compressor import ContextCompressor
 
 
 class TestPipelineIntegration:

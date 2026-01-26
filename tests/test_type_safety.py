@@ -11,7 +11,7 @@ from contextmind.models import (
     Message, MessageRole, ContextItem, ContextSource,
     ContextResult, ProcessedContext
 )
-from contextmind.strategies.optimization import CompressionStrategy, RerankingStrategy
+from contextmind.strategies.defaults import CompressionStrategy, RerankingStrategy
 
 
 class TestProcessedContextBoundary:
