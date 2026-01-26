@@ -28,16 +28,18 @@ import uuid
 import re
 from datetime import datetime, timedelta
 
-from ..models import (
+from ..core.models import (
     ContextItem,
     ContextSource,
-    Knowledge,
-    KnowledgeType,
-    MemoryType,
     MemoryNote,
     DEFAULT_MEMORY_CONFIG,
     RetrievalConfig,
-    get_logger
+    get_logger,
+)
+from ..core.types import (
+    Knowledge,
+    KnowledgeType,
+    MemoryType,
 )
 
 # Setup logger immediately after import
