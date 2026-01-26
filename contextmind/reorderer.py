@@ -7,7 +7,7 @@ Context reordering and prioritization.
 from typing import Optional
 
 from .models import ProcessedContext, get_logger
-from .strategies.defaults import RerankingStrategy
+from .strategies import RerankingStrategy
 
 logger = get_logger(__name__)
 

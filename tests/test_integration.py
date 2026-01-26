@@ -9,7 +9,7 @@ from contextmind.models import (
     ProcessedContext, ContextResult, ContextItem, ContextSource,
     Message, MessageRole
 )
-from contextmind.strategies.defaults import CompressionStrategy, RerankingStrategy
+from contextmind.strategies import CompressionStrategy, RerankingStrategy
 from contextmind.compressor import ContextCompressor
 
 

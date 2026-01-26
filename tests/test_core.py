@@ -14,7 +14,7 @@ from contextmind.models import (
     Chunk, ContextState
 )
 
-from contextmind.pipeline import (
+from contextmind import (
     InputPreprocessor, ContextReorderer, ContextCompressor
 )
 

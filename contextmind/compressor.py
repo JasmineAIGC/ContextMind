@@ -7,7 +7,7 @@ Context compression and optimization.
 from typing import Optional
 
 from .models import ProcessedContext, ContextResult, get_logger
-from .strategies.defaults import CompressionStrategy
+from .strategies import CompressionStrategy
 
 logger = get_logger(__name__)
 

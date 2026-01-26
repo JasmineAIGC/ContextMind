@@ -23,11 +23,11 @@ logger = get_logger(__name__)
 
 # Import plugin interfaces (optional)
 try:
-    from ..strategies.retrievers import (
+    from .retriever import (
         BaseRetriever,
         SemanticSearchRetriever,
     )
-    from ..strategies.updaters import (
+    from .updater import (
         BaseUpdater,
         SimpleUpdater,
     )

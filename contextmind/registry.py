@@ -53,19 +53,17 @@ class PluginRegistry:
         
         try:
             # 导入并注册提取器
-            from .strategies.extractors import (
+            from .memory.extractor import (
                 RuleBasedExtractor,
                 LLMBasedExtractor,
-                LLMEntityExtractor,
                 ImportancePredictorExtractor,
             )
             self.register('extractors', 'llm_based', LLMBasedExtractor)  # 推荐使用
             self.register('extractors', 'rule_based', RuleBasedExtractor)  # 已弃用，仅作fallback
-            self.register('extractors', 'llm_entity', LLMEntityExtractor)
             self.register('extractors', 'importance', ImportancePredictorExtractor)
             
             # 导入并注册检索器
-            from .strategies.retrievers import (
+            from .memory.retriever import (
                 SemanticSearchRetriever,
                 HybridRetriever,
                 LocatorRetriever,
@@ -75,7 +73,7 @@ class PluginRegistry:
             self.register('retrievers', 'locator', LocatorRetriever)
             
             # 导入并注册更新器
-            from .strategies.updaters import (
+            from .memory.updater import (
                 SimpleUpdater,
                 ConflictResolverUpdater,
                 AdaptiveEvictionUpdater,
@@ -85,19 +83,19 @@ class PluginRegistry:
             self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
             # 导入并注册其他 Pipeline 组件
-            from .pipeline.compressor import ContextCompressor
-            from .pipeline.reorderer import ContextReorderer
-            from .pipeline.preprocessor import InputPreprocessor
-            from .pipeline.postprocessor import PostProcessor, RuleBasedPostProcessor
-            from .pipeline.summarizer import ConversationSummarizer, RuleBasedSummarizer
-            from .pipeline.kvcache import KVCacheManager, SlidingWindowKVCache
+            from .compressor import ContextCompressor
+            from .reorderer import ContextReorderer
+            from .preprocessor import InputPreprocessor
+            from .postprocessor import PostProcessor
+            from .summarizer import ConversationSummarizer
+            from .kvcache import KVCacheManager
             
             self.register('compressors', 'default', ContextCompressor)
             self.register('reorderers', 'default', ContextReorderer)
             self.register('preprocessors', 'default', InputPreprocessor)
-            self.register('postprocessors', 'rule_based', RuleBasedPostProcessor)
-            self.register('summarizers', 'rule_based', RuleBasedSummarizer)
-            self.register('kvcache_managers', 'sliding_window', SlidingWindowKVCache)
+            self.register('postprocessors', 'default', PostProcessor)
+            self.register('summarizers', 'default', ConversationSummarizer)
+            self.register('kvcache_managers', 'default', KVCacheManager)
             
             self._initialized = True
             logger.info("[PluginRegistry] ✓ 默认插件初始化完成")
