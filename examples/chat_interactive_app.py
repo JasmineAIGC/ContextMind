@@ -24,7 +24,7 @@ from contextmind import (
     LogLevel,
 )
 
-from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
+from examples.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 

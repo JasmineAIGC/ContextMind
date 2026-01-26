@@ -24,7 +24,7 @@ from contextmind import (
     LogLevel,
 )
 
-from demos.callcenter_app import CallCenterApplication
+from examples.callcenter_app import CallCenterApplication
 
 logger = get_logger(__name__)
 

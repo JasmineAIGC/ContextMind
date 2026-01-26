@@ -12,7 +12,7 @@ from contextmind import ContextEngine
 from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from contextmind.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
-from .llm_client import SimpleLLMClient, LLMConfig
+from examples.llm_client import SimpleLLMClient, LLMConfig
 
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)

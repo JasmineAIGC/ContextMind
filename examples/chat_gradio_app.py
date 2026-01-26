@@ -32,7 +32,7 @@ from pathlib import Path
 import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
-from demos.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
+from examples.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
 
 # 设置日志级别为 INFO (使用 BASIC)
 setup_logging(level=LogLevel.BASIC)
@@ -88,7 +88,7 @@ class ChatGradioDemo:
             self.max_recent_events = max_recent_events
             
             # 创建LLM客户端用于知识提取
-            from demos.llm_client import SimpleLLMClient, LLMConfig
+            from examples.llm_client import SimpleLLMClient, LLMConfig
             llm_client_for_extraction = SimpleLLMClient(LLMConfig.from_env())
             
             # 创建引擎 (v7.1: 使用 LLM 提取知识，语义理解，支持 40 种知识类型)
