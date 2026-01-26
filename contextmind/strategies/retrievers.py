@@ -90,8 +90,6 @@ class SemanticSearchRetriever(BaseRetriever):
         query_embedding = None
         if embedding_client:
             query_embedding = embedding_client.generate_embedding(query)
-            if query_embedding:
-                logger.debug(f"[SemanticRetriever] 已生成查询 embedding - dim: {query_embedding.dimension}")
         
         # 检查是否可以使用 embedding 检索
         use_embedding = query_embedding is not None
@@ -99,10 +97,7 @@ class SemanticSearchRetriever(BaseRetriever):
             # 检查缓存中有多少项有 embedding
             items_with_embedding = sum(1 for item in memory_cache if item.embeddings)
             if items_with_embedding == 0:
-                logger.debug("[SemanticRetriever] 缓存中无 embedding，回退到字符级检索")
                 use_embedding = False
-            else:
-                logger.debug(f"[SemanticRetriever] 使用 embedding 检索 - {items_with_embedding}/{len(memory_cache)} 项有 embedding")
         
         query_lower = query.lower()
         
@@ -118,12 +113,9 @@ class SemanticSearchRetriever(BaseRetriever):
                     similarity, success = calculate_embedding_similarity(query_embedding, item_embedding)
                     if success:
                         score = similarity
-                        logger.debug(f"[SemanticRetriever] Embedding 相似度: {score:.3f} - {item.content[:50]}...")
                     else:
-                        # embedding 计算失败，回退到字符级
                         score = self._calculate_char_similarity(query_lower, content_lower)
                 else:
-                    # 没有 embedding，回退到字符级
                     score = self._calculate_char_similarity(query_lower, content_lower)
             else:
                 # 使用字符级相似度

@@ -936,13 +936,12 @@ class LLMBasedExtractor(BaseExtractor):
                             }
                         )
                         
-                        # 生成 embedding（异步）
+                        # 生成 embedding
                         embedding_client = get_embedding_client()
                         if embedding_client:
                             embedding_info = embedding_client.generate_embedding(content)
                             if embedding_info:
                                 knowledge.embeddings['default'] = embedding_info
-                                logger.debug(f"[LLMBasedExtractor] 已生成 embedding - dim: {embedding_info.dimension}")
                         
                         knowledge_list.append(knowledge)
                         

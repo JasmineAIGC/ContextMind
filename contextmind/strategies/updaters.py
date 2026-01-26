@@ -220,7 +220,6 @@ class SimpleUpdater(BaseUpdater):
             if knowledge_emb and existing_emb:
                 similarity, success = calculate_embedding_similarity(knowledge_emb, existing_emb)
                 if success:
-                    logger.debug(f"[SimpleUpdater] 使用 embedding 相似度: {similarity:.3f}")
                     return similarity
         
         # 回退到字符级相似度

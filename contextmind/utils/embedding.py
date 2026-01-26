@@ -197,14 +197,6 @@ class EmbeddingClient:
         except Exception as e:
             logger.error(f"[EmbeddingClient] 生成 embedding 失败: {e}")
             return None
-    
-    async def generate_embedding_async(self, text: str) -> Optional[EmbeddingInfo]:
-        """
-        异步生成 embedding（当前简单封装同步版本）
-        
-        注意: 生产环境应使用 AsyncOpenAI
-        """
-        return self.generate_embedding(text)
 
 
 def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
@@ -259,11 +251,6 @@ def calculate_embedding_similarity(
     if not emb1 or not emb2:
         return 0.0, False
     
-    # 检查模型是否匹配（可选）
-    if emb1.model != emb2.model:
-        logger.debug(f"[calculate_embedding_similarity] 模型不匹配: {emb1.model} vs {emb2.model}")
-        # 注意：不同模型的 embedding 也可以比较，但精度可能降低
-    
     # 计算余弦相似度
     similarity = cosine_similarity(emb1.vector, emb2.vector)
     return similarity, True
@@ -273,19 +260,16 @@ def calculate_embedding_similarity(
 _global_client: Optional[EmbeddingClient] = None
 
 
-def get_embedding_client(force_new: bool = False) -> Optional[EmbeddingClient]:
+def get_embedding_client() -> Optional[EmbeddingClient]:
     """
     获取全局 Embedding 客户端（单例模式）
     
-    Args:
-        force_new: 是否强制创建新客户端
-        
     Returns:
         EmbeddingClient 实例，如果配置不可用则返回 None
     """
     global _global_client
     
-    if force_new or _global_client is None:
+    if _global_client is None:
         _global_client = EmbeddingClient()
     
     return _global_client
