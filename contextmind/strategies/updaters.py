@@ -109,7 +109,16 @@ class SimpleUpdater(BaseUpdater):
                 and not k.content.isdigit()):
                 filtered_knowledge.append(k)
             else:
-                logger.debug(f"[SimpleUpdater] 过滤低质量知识: [{k.type.value}] {k.content[:50]}... (置信度={k.confidence:.2f})")
+                # Provide specific reason for filtering to aid debugging
+                if k.confidence < min_confidence:
+                    reason = f"置信度不足 ({k.confidence:.2f} < {min_confidence:.2f})"
+                elif len(k.content.strip()) < self.STORAGE_MIN_LENGTH:
+                    reason = f"内容过短 ({len(k.content.strip())} < {self.STORAGE_MIN_LENGTH})"
+                elif k.content.isdigit():
+                    reason = "纯数字内容"
+                else:
+                    reason = "未知原因"
+                logger.debug(f"[SimpleUpdater] 过滤低质量知识 ({reason}): [{k.type.value}] {k.content[:50]}...")
         
         if len(filtered_knowledge) < len(new_knowledge):
             logger.info(f"[SimpleUpdater] 质量过滤: {len(new_knowledge)} → {len(filtered_knowledge)} 条知识")
