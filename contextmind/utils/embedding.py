@@ -4,7 +4,10 @@ Embedding Utilities - 向量嵌入工具
 提供文本嵌入生成和相似度计算功能，用于语义检索和去重。
 """
 
-from typing import List, Optional, Tuple
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import List, Optional, Sequence, Tuple
 import math
 import os
 
@@ -21,6 +24,89 @@ except ImportError:
     OpenAI = None  # type: ignore
 
 
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+
+
+def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
+    """按顺序读取环境变量，返回首个非空值。
+    
+    支持多个环境变量名，便于适配不同的部署环境（Qwen、DeepSeek、OpenAI 等）。
+    """
+    for key in keys:
+        if value := os.getenv(key):
+            return value
+    return default
+
+
+@dataclass
+class EmbeddingConfig:
+    """Embedding 配置"""
+    
+    api_key: str
+    model: str = DEFAULT_EMBEDDING_MODEL
+    base_url: Optional[str] = None
+    access_key: Optional[str] = None
+    
+    @classmethod
+    def from_env(cls) -> "EmbeddingConfig":
+        """从环境变量加载配置。"""
+        # 读取 API Key（必需）
+        api_key = _first_env(
+            [
+                "QWEN3_API_KEY",
+                "CONTEXTMIND_API_KEY",
+                "LLM_API_KEY",
+                "OPENAI_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "QWEN_API_KEY",
+            ]
+        )
+        if not api_key:
+            raise ValueError(
+                "缺少 API key。请在 .env 文件中设置以下变量之一: QWEN3_API_KEY, "
+                "LLM_API_KEY, OPENAI_API_KEY 等"
+            )
+        
+        # 读取 Base URL（可选）
+        base_url = _first_env(
+            [
+                "QWEN3_BASE_URL",
+                "CONTEXTMIND_BASE_URL",
+                "LLM_BASE_URL",
+                "OPENAI_BASE_URL",
+                "DEEPSEEK_BASE_URL",
+                "QWEN_BASE_URL",
+            ]
+        )
+        
+        # 读取模型名称（可选）
+        model = _first_env(
+            [
+                "EMBEDDING_MODEL",
+                "QWEN3_EMBEDDING_MODEL",
+                "CONTEXTMIND_EMBEDDING_MODEL",
+            ],
+            default=DEFAULT_EMBEDDING_MODEL,
+        )
+        
+        # 读取 Access Key（可选，某些网关需要）
+        access_key = _first_env(
+            [
+                "QWEN3_ACCESS_KEY",
+                "CONTEXTMIND_ACCESS_KEY",
+                "LLM_ACCESS_KEY",
+                "ACCESS_KEY",
+            ]
+        )
+        
+        return cls(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            access_key=access_key,
+        )
+
+
 class EmbeddingClient:
     """
     Embedding 客户端
@@ -29,74 +115,44 @@ class EmbeddingClient:
     支持多种 embedding 模型。
     """
     
-    def __init__(
-        self,
-        model: str = "text-embedding-3-small",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None
-    ):
+    def __init__(self, config: Optional[EmbeddingConfig] = None):
         """
         初始化 Embedding 客户端
         
         Args:
-            model: Embedding 模型名称
-            api_key: API 密钥（如果为 None，从环境变量读取）
-            base_url: API 基础 URL（如果为 None，从环境变量读取）
+            config: Embedding 配置，若为 None 则从环境变量加载
         """
         if not OPENAI_AVAILABLE:
             logger.warning("[EmbeddingClient] OpenAI 未安装，embedding 功能不可用")
             self.client = None
-            self.model = model
+            self.config = None
             return
         
-        # 从环境变量读取配置
-        self.api_key = api_key or self._get_api_key()
-        self.base_url = base_url or self._get_base_url()
-        self.model = model
-        
-        if not self.api_key:
-            logger.warning("[EmbeddingClient] 未配置 API key，embedding 功能不可用")
+        # 从环境变量或参数加载配置
+        try:
+            self.config = config or EmbeddingConfig.from_env()
+        except ValueError as e:
+            logger.warning(f"[EmbeddingClient] 配置加载失败: {e}")
             self.client = None
+            self.config = None
             return
+        
+        # 构造 headers，如果需要 Access Key
+        headers = {}
+        if self.config.access_key:
+            headers["access-key"] = self.config.access_key
         
         # 创建客户端
         try:
             self.client = OpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url
+                api_key=self.config.api_key,
+                base_url=self.config.base_url,
+                default_headers=headers or None,
             )
-            logger.info(f"[EmbeddingClient] 初始化成功 - model: {self.model}")
+            logger.info(f"[EmbeddingClient] 初始化成功 - model: {self.config.model}")
         except Exception as e:
             logger.error(f"[EmbeddingClient] 初始化失败: {e}")
             self.client = None
-    
-    def _get_api_key(self) -> Optional[str]:
-        """从环境变量获取 API key"""
-        keys = [
-            "EMBEDDING_API_KEY",
-            "QWEN3_API_KEY",
-            "CONTEXTMIND_API_KEY",
-            "LLM_API_KEY",
-            "OPENAI_API_KEY",
-        ]
-        for key in keys:
-            if value := os.getenv(key):
-                return value
-        return None
-    
-    def _get_base_url(self) -> Optional[str]:
-        """从环境变量获取 base URL"""
-        urls = [
-            "EMBEDDING_BASE_URL",
-            "QWEN3_BASE_URL",
-            "CONTEXTMIND_BASE_URL",
-            "LLM_BASE_URL",
-            "OPENAI_BASE_URL",
-        ]
-        for url in urls:
-            if value := os.getenv(url):
-                return value
-        return None
     
     def generate_embedding(self, text: str) -> Optional[EmbeddingInfo]:
         """
@@ -108,7 +164,7 @@ class EmbeddingClient:
         Returns:
             EmbeddingInfo 对象，如果失败则返回 None
         """
-        if not self.client:
+        if not self.client or not self.config:
             return None
         
         if not text or not text.strip():
@@ -118,7 +174,7 @@ class EmbeddingClient:
         try:
             # 调用 OpenAI Embeddings API
             response = self.client.embeddings.create(
-                model=self.model,
+                model=self.config.model,
                 input=text
             )
             
@@ -133,7 +189,7 @@ class EmbeddingClient:
             logger.debug(f"[EmbeddingClient] 生成 embedding - dim: {dimension}, text: {text[:50]}...")
             
             return EmbeddingInfo(
-                model=self.model,
+                model=self.config.model,
                 vector=vector,
                 dimension=dimension
             )
@@ -217,15 +273,11 @@ def calculate_embedding_similarity(
 _global_client: Optional[EmbeddingClient] = None
 
 
-def get_embedding_client(
-    model: str = "text-embedding-3-small",
-    force_new: bool = False
-) -> Optional[EmbeddingClient]:
+def get_embedding_client(force_new: bool = False) -> Optional[EmbeddingClient]:
     """
     获取全局 Embedding 客户端（单例模式）
     
     Args:
-        model: Embedding 模型名称
         force_new: 是否强制创建新客户端
         
     Returns:
@@ -234,6 +286,6 @@ def get_embedding_client(
     global _global_client
     
     if force_new or _global_client is None:
-        _global_client = EmbeddingClient(model=model)
+        _global_client = EmbeddingClient()
     
     return _global_client
