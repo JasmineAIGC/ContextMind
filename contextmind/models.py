@@ -10,8 +10,6 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Any, Optional
 
-from .types import EmbeddingInfo
-
 
 class MessageRole(str, Enum):
     """对话消息角色"""
