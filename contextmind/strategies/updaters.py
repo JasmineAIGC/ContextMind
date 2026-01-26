@@ -97,8 +97,6 @@ class SimpleUpdater(BaseUpdater):
         
         # 按置信度和内容质量过滤
         filtered_knowledge = []
-        robot_keywords = ["助手", "机器人", "Qwen", "阿里巴巴", "大模型", "语言模型", "AI助手"]
-        
         for k in new_knowledge:
             min_confidence = {
                 KnowledgeType.PREFERENCE: self.STORAGE_THRESHOLD_PREFERENCE,
@@ -106,21 +104,12 @@ class SimpleUpdater(BaseUpdater):
                 KnowledgeType.EVENT: self.STORAGE_THRESHOLD_EVENT,
             }.get(k.type, self.STORAGE_THRESHOLD_FACT)
             
-            # 检查是否包含机器人相关信息（不应该存储）
-            is_robot_info = any(keyword in k.content for keyword in robot_keywords)
-            
             if (k.confidence >= min_confidence 
                 and len(k.content.strip()) >= self.STORAGE_MIN_LENGTH
-                and not k.content.isdigit()
-                and not is_robot_info):  # 过滤机器人信息
+                and not k.content.isdigit()):
                 filtered_knowledge.append(k)
             else:
-                reason = ""
-                if is_robot_info:
-                    reason = " (机器人信息)"
-                elif k.confidence < min_confidence:
-                    reason = f" (置信度={k.confidence:.2f})"
-                logger.debug(f"[SimpleUpdater] 过滤低质量知识{reason}: [{k.type.value}] {k.content[:50]}...")
+                logger.debug(f"[SimpleUpdater] 过滤低质量知识: [{k.type.value}] {k.content[:50]}... (置信度={k.confidence:.2f})")
         
         if len(filtered_knowledge) < len(new_knowledge):
             logger.info(f"[SimpleUpdater] 质量过滤: {len(new_knowledge)} → {len(filtered_knowledge)} 条知识")
