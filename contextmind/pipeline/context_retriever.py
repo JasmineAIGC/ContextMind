@@ -6,7 +6,8 @@ is currently handled by MemoryBank.
 """
 
 from typing import List, Optional, Any
-from ..core.models import ContextItem, get_logger
+from ..core.data_models import ContextItem
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 

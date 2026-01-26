@@ -1,5 +1,5 @@
 """
-ContextEngine - 上下文引擎核心模块 v7.1
+ContextEngine - 上下文引擎核心模块 v7.3
 
 清晰的模块化架构设计:
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
@@ -19,23 +19,22 @@ from __future__ import annotations
 from typing import Optional, List, Any
 from datetime import datetime
 
-from .models import (
+from .core.data_models import (
     Message,
-    MessageRole,
     ContextResult,
     ContextItem,
-    ContextSource,
     ProcessedContext,
     Knowledge,
-    get_logger,
 )
-from ..memory import SessionManager, MemoryBank
-from ..pipeline.kvcache import KVCacheManager
-from ..pipeline.preprocessor import InputPreprocessor
-from ..pipeline.compressor import ContextCompressor
-from ..pipeline.reorderer import ContextReorderer
-from ..pipeline.postprocessor import PostProcessor
-from ..pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
+from .core.types import MessageRole, ContextSource
+from .utils.logger import get_logger
+from .memory import SessionManager, MemoryBank
+from .pipeline.kvcache import KVCacheManager
+from .pipeline.preprocessor import InputPreprocessor
+from .pipeline.compressor import ContextCompressor
+from .pipeline.reorderer import ContextReorderer
+from .pipeline.postprocessor import PostProcessor
+from .pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
 
 logger = get_logger(__name__)
 

@@ -11,7 +11,9 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 from dataclasses import dataclass
 
-from ..core.models import Message, MessageRole, ContextItem, get_logger
+from ..core.data_models import Message, ContextItem
+from ..core.types import MessageRole
+from ..utils.logger import get_logger
 from ..core.strategies import SummarizerStrategy  # Use core base class
 
 logger = get_logger(__name__)

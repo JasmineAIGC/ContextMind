@@ -1,26 +1,41 @@
 """Core framework components."""
 
-from .engine import ContextEngine as ContextMindEngine
+from ..engine import ContextEngine as ContextMindEngine
 from .registry import PluginRegistry, registry
 from .config import ContextMind as ContextMindConfig
-from .models import (
-    Message,
+
+# Import from new modular structure
+from .types import (
+    KnowledgeType,
+    MemoryType,
     MessageRole,
-    ContextItem,
     ContextSource,
+)
+
+from .data_models import (
+    Message,
+    ContextItem,
     ContextResult,
     ProcessedContext,
     Knowledge,
-    KnowledgeType,
     Chunk,
     ContextState,
     EmbeddingInfo,
+    ScoreInfo,
+    VersionRecord,
+    MemoryNote,
+)
+
+from .configs import (
     ExtractionConfig,
     RetrievalConfig,
     SummarizationConfig,
     CompressionConfig,
     MemorySystemConfig,
     DEFAULT_MEMORY_CONFIG,
+)
+
+from ..utils.logger import (
     ContextMindLogger,
     LogLevel,
     get_logger,
@@ -30,6 +45,7 @@ from .models import (
     INFO,
     DEBUG,
 )
+
 from .strategies import (
     ExtractionStrategy,
     RetrievalStrategy,
@@ -44,23 +60,31 @@ __all__ = [
     "PluginRegistry",
     "registry",
     "ContextMindConfig",
-    "Message",
+    # Types
+    "KnowledgeType",
+    "MemoryType",
     "MessageRole",
-    "ContextItem",
     "ContextSource",
+    # Data Models
+    "Message",
+    "ContextItem",
     "ContextResult",
     "ProcessedContext",
     "Knowledge",
-    "KnowledgeType",
     "Chunk",
     "ContextState",
     "EmbeddingInfo",
+    "ScoreInfo",
+    "VersionRecord",
+    "MemoryNote",
+    # Configs
     "ExtractionConfig",
     "RetrievalConfig",
     "SummarizationConfig",
     "CompressionConfig",
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
+    # Logger
     "ContextMindLogger",
     "LogLevel",
     "get_logger",
@@ -69,6 +93,7 @@ __all__ = [
     "get_global_log_level",
     "INFO",
     "DEBUG",
+    # Strategies
     "ExtractionStrategy",
     "RetrievalStrategy",
     "IntegrationStrategy",
@@ -76,3 +101,4 @@ __all__ = [
     "CompressionStrategy",
     "RerankingStrategy",
 ]
+

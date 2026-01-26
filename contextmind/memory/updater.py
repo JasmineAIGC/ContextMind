@@ -8,7 +8,9 @@ from typing import List, Optional
 import re
 from datetime import datetime
 
-from ..core.models import ContextItem, ContextSource, Knowledge, KnowledgeType, get_logger
+from ..core.data_models import ContextItem, Knowledge
+from ..core.types import ContextSource, KnowledgeType
+from ..utils.logger import get_logger
 from ..core.strategies import UpdateStrategy as BaseUpdater  # Use core base class
 from ..utils.embedding import calculate_embedding_similarity
 

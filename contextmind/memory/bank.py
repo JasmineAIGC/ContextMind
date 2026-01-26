@@ -7,17 +7,14 @@ import uuid
 import re
 from datetime import datetime
 
-from ..core.models import (
+from ..core.data_models import (
     ContextItem,
-    ContextSource,
     MemoryNote,
-    DEFAULT_MEMORY_CONFIG,
-    RetrievalConfig,
     Knowledge,
-    KnowledgeType,
-    MemoryType,
-    get_logger,
 )
+from ..core.types import ContextSource, KnowledgeType, MemoryType
+from ..core.configs import DEFAULT_MEMORY_CONFIG, RetrievalConfig
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 

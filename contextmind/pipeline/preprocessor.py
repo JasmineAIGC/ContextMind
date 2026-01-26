@@ -5,7 +5,7 @@ Input preprocessing and normalization.
 """
 
 import re
-from ..core.models import get_logger
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -6,7 +6,8 @@ Context reordering and prioritization.
 
 from typing import Optional
 
-from ..core.models import ProcessedContext, get_logger
+from ..core.data_models import ProcessedContext
+from ..utils.logger import get_logger
 from ..core.strategies import RerankingStrategy
 
 logger = get_logger(__name__)

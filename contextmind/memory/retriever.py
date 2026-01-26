@@ -7,7 +7,10 @@ Memory Retrievers - 内存检索的插件实现
 from typing import List, Optional
 import re
 
-from ..core.models import ContextItem, ContextSource, RetrievalConfig, DEFAULT_MEMORY_CONFIG, get_logger
+from ..core.data_models import ContextItem
+from ..core.types import ContextSource
+from ..core.configs import RetrievalConfig, DEFAULT_MEMORY_CONFIG
+from ..utils.logger import get_logger
 from ..core.strategies import RetrievalStrategy as BaseRetriever  # Use core base class
 from ..utils.embedding import get_embedding_client, calculate_embedding_similarity
 

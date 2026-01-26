@@ -35,9 +35,11 @@ ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
 """
 
 from typing import Optional, Dict, Any
-from .engine import ContextEngine
+from ..engine import ContextEngine
 from .registry import registry
-from .models import Message, MessageRole, get_logger
+from .data_models import Message
+from .types import MessageRole
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 

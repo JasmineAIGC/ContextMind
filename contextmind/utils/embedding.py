@@ -11,7 +11,8 @@ from typing import List, Optional, Sequence, Tuple
 import math
 import os
 
-from ..core.models import EmbeddingInfo, get_logger
+from ..core.data_models import EmbeddingInfo
+from .logger import get_logger
 
 logger = get_logger(__name__)
 

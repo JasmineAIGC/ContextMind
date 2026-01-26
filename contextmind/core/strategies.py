@@ -7,7 +7,8 @@ Strategy Base Classes - 策略基类
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from .models import ContextItem, ProcessedContext, ContextResult, Message, Knowledge, get_logger
+from .data_models import ContextItem, ProcessedContext, ContextResult, Message, Knowledge
+from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 

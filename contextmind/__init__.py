@@ -1,6 +1,6 @@
 """
-ContextMind - 专业的上下文优化框架 v7.2
-ContextMind - Professional Context Optimization Framework v7.2
+ContextMind - 专业的上下文优化框架 v7.3
+ContextMind - Professional Context Optimization Framework v7.3
 
 完全通用化的上下文工程框架，支持任意对话场景
 Fully generalized context engineering framework supporting any dialogue scenario
@@ -14,7 +14,7 @@ Fully generalized context engineering framework supporting any dialogue scenario
 - ConversationSummarizer: 对话摘要 / Conversation summarization
 - KVCacheManager: KV缓存管理 / KV cache management
 
-NEW in v7.2 - Architecture Refinement:
+NEW in v7.3 - Modular Structure & Code Quality:
 {
     from contextmind import ContextMind, registry
     
@@ -48,14 +48,13 @@ NEW in v7.2 - Architecture Refinement:
 │  - 可插拔的算法实现 (Plugin System)       │  ← registry
 └─────────────────────────────────────────┘
 
-v7.2 核心改进：
-- ✨ Clean Architecture: 移除所有旧代码和冗余文件
-- ✨ Flat Structure: 扁平化目录结构，无冗余嵌套
-- ✨ Plugin System: 统一的插件注册和发现机制
-- ✨ Modular: 所有算法都可通过插件替换
-- ✨ Universal: 适用任何LLM，推理在外部完成
-- ✨ Enhanced Observability: 改进的日志系统
-- ✨ Simplified API: 清晰的模块边界和导出接口
+v7.3 核心改进：
+- ✨ Modular Structure: Split models.py into types, data_models, configs, logger
+- ✨ Engine Reorganization: Moved engine.py to top level for better access
+- ✨ Code Quality: Improved organization and maintainability
+- ✨ Logger Utilities: Dedicated logger module in utils/
+- ✨ Clean Imports: Better import organization with backward compatibility
+- ✨ Enhanced Observability: Improved logging structure
 """
 
 # Core Framework Components
@@ -207,4 +206,4 @@ __all__ = [
     "RerankingStrategy",
 ]
 
-__version__ = "7.2.0"  # 当前版本 Current version - Architecture Refinement
+__version__ = "7.3.0"  # 当前版本 Current version - Modular Structure & Code Quality
