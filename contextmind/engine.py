@@ -136,7 +136,7 @@ class ContextEngine:
         
         # 初始化知识提取器 (v7.1 - 支持规则和LLM两种方式)
         from .memory import RuleBasedExtractor, LLMBasedExtractor
-        from .models import DEFAULT_MEMORY_CONFIG
+        from .core.configs import DEFAULT_MEMORY_CONFIG
         
         # 使用提供的配置或默认配置
         config = extraction_config or DEFAULT_MEMORY_CONFIG.extraction
