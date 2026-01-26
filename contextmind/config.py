@@ -100,11 +100,8 @@ class ContextMind:
         
         # 配置插件
         if enable_memory:
-            # 设置提取器
-            extractor_plugin = registry.get_extractor(extractor)
-            if extractor_plugin:
-                from .pipeline.extractor import KnowledgeExtractor
-                self.engine.extractor = KnowledgeExtractor(strategy=extractor_plugin)
+            # 提取器已在 engine 初始化时设置
+            # 不需要额外配置
             
             # 为 Memory Bank 设置检索器和更新器
             retriever_plugin = registry.get_retriever(retriever)
@@ -121,11 +118,11 @@ class ContextMind:
             self.engine.reorderer = None
         
         if enable_postprocessing:
-            from .pipeline.postprocessor import PostProcessor
+            from .postprocessor import PostProcessor
             self.engine.postprocessor = PostProcessor()
         
         if enable_summarization:
-            from .pipeline.summarizer import ConversationSummarizer
+            from .summarizer import ConversationSummarizer
             self.engine.summarizer = ConversationSummarizer()
         
         self.session_id: Optional[str] = None
@@ -294,9 +291,10 @@ class ContextMind:
         """切换提取器插件"""
         extractor = registry.get_extractor(extractor_name)
         if extractor:
-            from .pipeline.extractor import KnowledgeExtractor
-            self.engine.extractor = KnowledgeExtractor(strategy=extractor)
-            logger.info(f"[ContextMind] 已切换到提取器: {extractor_name}")
+            # Extractor is set via engine initialization
+            # This method is deprecated
+            logger.warning(f"[ContextMind] set_extractor is deprecated. Use engine initialization parameters instead.")
+            logger.info(f"[ContextMind] 提取器: {extractor_name}")
     
     def set_retriever(self, retriever_name: str):
         """切换检索器插件"""

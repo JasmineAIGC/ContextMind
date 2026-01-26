@@ -29,8 +29,12 @@ from .models import (
     Knowledge,
     get_logger,
 )
-from .memory import SessionManager, MemoryBank, KVCacheManager
-from .pipeline import InputPreprocessor, ContextCompressor, ContextReorderer, PostProcessor
+from .memory import SessionManager, MemoryBank
+from .kvcache import KVCacheManager
+from .preprocessor import InputPreprocessor
+from .compressor import ContextCompressor
+from .reorderer import ContextReorderer
+from .postprocessor import PostProcessor
 from .summarizer import ConversationSummarizer
 
 logger = get_logger(__name__)
@@ -132,7 +136,7 @@ class ContextEngine:
         self.reorderer = ContextReorderer()
         
         # 初始化知识提取器 (v7.1 - 支持规则和LLM两种方式)
-        from .strategies.extractors import RuleBasedExtractor, LLMBasedExtractor
+        from .memory import RuleBasedExtractor, LLMBasedExtractor
         from .models import DEFAULT_MEMORY_CONFIG
         
         # 使用提供的配置或默认配置

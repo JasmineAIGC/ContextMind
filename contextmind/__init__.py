@@ -89,17 +89,18 @@ from .models import (
     DEFAULT_MEMORY_CONFIG,
 )
 
-# 流水线层
-from .pipeline import (
-    InputPreprocessor,
-    ContextCompressor,
-    ContextReorderer,
-    PostProcessor,
-)
+# Pipeline components (Step-by-step architecture)
+from .preprocessor import InputPreprocessor
+from .compressor import ContextCompressor
+from .reorderer import ContextReorderer
+from .postprocessor import PostProcessor
+from .retriever import ContextRetriever
+from .kvcache import KVCacheManager
+
+# Memory components
 from .memory import (
     MemoryBank,
     SessionManager,
-    KVCacheManager,
 )
 from .summarizer import (
     ConversationSummarizer,
@@ -165,15 +166,18 @@ __all__ = [
     "INFO",
     "DEBUG",
     
-    # 流水线层
-    "InputPreprocessor",
-    "MemoryBank",
-    "ContextCompressor",
-    "ContextReorderer",
+    # 流水线层 (Pipeline Architecture - 6 Steps)
+    "InputPreprocessor",      # Step 1: Input Preprocessing
+    "ContextRetriever",       # Step 2: Context Retrieval (placeholder)
+    "MemoryBank",             # Step 2: MemoryBank (main retrieval)
+    "ContextCompressor",      # Step 3: Context Compression
+    "ContextReorderer",       # Step 4: Context Reordering
+    "KVCacheManager",         # Step 5: KV Cache Management
+    "PostProcessor",          # Step 6: Output Post-processing
+    
+    # Supporting components
     "SessionManager",
     "ConversationSummarizer",
-    "PostProcessor",
-    "KVCacheManager",
     
     # 策略基类
     "BaseStrategy",
