@@ -1,7 +1,8 @@
 """
-Core Data Models
+Core Data Models (v7.3)
 
 Dataclass models for messages, context items, knowledge, and other core data structures.
+Extracted from models.py during v7.3 modular refactoring for better organization.
 """
 
 from __future__ import annotations

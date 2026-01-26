@@ -1,7 +1,8 @@
 """
-Configuration Data Models
+Configuration Data Models (v7.3)
 
 Configuration dataclasses for retrieval, extraction, compression, and memory systems.
+Extracted from models.py during v7.3 modular refactoring for better organization.
 """
 
 from dataclasses import dataclass, field

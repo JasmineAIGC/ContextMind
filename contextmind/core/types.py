@@ -1,7 +1,8 @@
 """
-Core Type Definitions
+Core Type Definitions (v7.3)
 
 Enumerations used throughout ContextMind for knowledge types, memory types, and message roles.
+Extracted from models.py during v7.3 modular refactoring for better organization.
 """
 
 from enum import Enum
