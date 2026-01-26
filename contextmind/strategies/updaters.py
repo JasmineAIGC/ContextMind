@@ -67,7 +67,7 @@ class SimpleUpdater(BaseUpdater):
     
     # 相似度阈值（用于检测需要合并的记忆）
     SIMILARITY_THRESHOLD_FOR_MERGE = 0.65  # 降低到65%以捕获更多相似记忆
-    EXACT_DUPLICATE_THRESHOLD = 0.85  # 85%以上认为是完全重复（降低以捕获近似重复）
+    EXACT_DUPLICATE_THRESHOLD = 0.85  # 从0.90降至0.85，捕获更多重复项
     
     async def update(
         self,
@@ -109,15 +109,13 @@ class SimpleUpdater(BaseUpdater):
                 and not k.content.isdigit()):
                 filtered_knowledge.append(k)
             else:
-                # Provide specific reason for filtering to aid debugging
+                # 提供具体的过滤原因以辅助调试
                 if k.confidence < min_confidence:
                     reason = f"置信度不足 ({k.confidence:.2f} < {min_confidence:.2f})"
                 elif len(k.content.strip()) < self.STORAGE_MIN_LENGTH:
                     reason = f"内容过短 ({len(k.content.strip())} < {self.STORAGE_MIN_LENGTH})"
-                elif k.content.isdigit():
+                else:  # k.content.isdigit()
                     reason = "纯数字内容"
-                else:
-                    reason = "未知原因"
                 logger.debug(f"[SimpleUpdater] 过滤低质量知识 ({reason}): [{k.type.value}] {k.content[:50]}...")
         
         if len(filtered_knowledge) < len(new_knowledge):
