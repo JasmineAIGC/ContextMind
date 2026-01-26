@@ -15,7 +15,7 @@ from typing import Optional, Dict, Any
 import re
 import logging
 
-from contextmind.models import ContextResult
+from ..models import ContextResult
 
 logger = logging.getLogger(__name__)
 
