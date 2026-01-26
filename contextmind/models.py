@@ -328,12 +328,14 @@ class ContextItem:
         source: 来源
         score: 相关性分数
         timestamp: 创建/更新时间
+        embeddings: 向量嵌入（用于语义检索）
         metadata: 附加元数据
     """
     content: str
     source: ContextSource
     score: float = 1.0
     timestamp: datetime = field(default_factory=datetime.now)
+    embeddings: Dict[str, EmbeddingInfo] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
