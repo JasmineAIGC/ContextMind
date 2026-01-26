@@ -1,7 +1,7 @@
 """Pipeline processing components."""
 
 from .preprocessor import InputPreprocessor as Preprocessor
-from .retriever import ContextRetriever
+from .context_retriever import ContextRetriever
 from .compressor import ContextCompressor
 from .reorderer import ContextReorderer
 from .kvcache import KVCacheManager
