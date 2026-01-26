@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 from contextmind import ContextEngine
-from contextmind.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from contextmind.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from contextmind.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
 from examples.llm_client import SimpleLLMClient, LLMConfig

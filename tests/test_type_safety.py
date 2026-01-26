@@ -7,11 +7,11 @@ ContextMind 类型安全测试
 import pytest
 from datetime import datetime
 
-from contextmind.models import (
+from contextmind.core.models import (
     Message, MessageRole, ContextItem, ContextSource,
     ContextResult, ProcessedContext
 )
-from contextmind.strategies import CompressionStrategy, RerankingStrategy
+from contextmind.core.strategies import CompressionStrategy, RerankingStrategy
 
 
 class TestProcessedContextBoundary:

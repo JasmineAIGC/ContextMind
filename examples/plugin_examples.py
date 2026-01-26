@@ -7,7 +7,7 @@ Plugin 架构示例
 
 import asyncio
 from contextmind import ContextEngine
-from contextmind.models import Message, MessageRole
+from contextmind.core.models import Message, MessageRole
 
 
 # ============================================================================
@@ -105,7 +105,7 @@ async def example_custom_retriever():
     )
     
     # 存储一些记忆
-    from contextmind.models import Knowledge, KnowledgeType
+    from contextmind.core.models import Knowledge, KnowledgeType
     
     test_knowledge = [
         Knowledge(
@@ -144,7 +144,7 @@ async def example_custom_extractor():
     print("=" * 80)
     
     from contextmind.memory import BaseExtractor
-    from contextmind.models import Knowledge, KnowledgeType, Message
+    from contextmind.core.models import Knowledge, KnowledgeType, Message
     from typing import List
     
     class SimpleKeywordExtractor(BaseExtractor):
@@ -204,7 +204,7 @@ async def example_custom_updater():
     print("=" * 80)
     
     from contextmind.memory import BaseUpdater
-    from contextmind.models import ContextItem, ContextSource, Knowledge, KnowledgeType
+    from contextmind.core.models import ContextItem, ContextSource, Knowledge, KnowledgeType
     from typing import List
     
     class CapacityLimitedUpdater(BaseUpdater):

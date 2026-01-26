@@ -8,7 +8,7 @@ import pytest
 import asyncio
 from datetime import datetime
 
-from contextmind.models import (
+from contextmind.core.models import (
     Message, MessageRole, ContextItem, ContextSource,
     ContextResult, ProcessedContext, Knowledge, KnowledgeType,
     Chunk, ContextState
@@ -252,7 +252,7 @@ class TestAgentMemorySystem:
     
     def test_memory_note_creation(self):
         """MemoryNote 创建"""
-        from contextmind.models import MemoryNote, MemoryType
+        from contextmind.core.models import MemoryNote, MemoryType
         
         note = MemoryNote(
             id="test001",
@@ -271,7 +271,7 @@ class TestAgentMemorySystem:
     
     def test_memory_note_access(self):
         """MemoryNote 访问记录"""
-        from contextmind.models import MemoryNote, MemoryType
+        from contextmind.core.models import MemoryNote, MemoryType
         
         note = MemoryNote(id="test002", content="测试内容")
         
@@ -287,7 +287,7 @@ class TestAgentMemorySystem:
     
     def test_memory_note_linking(self):
         """MemoryNote 关联"""
-        from contextmind.models import MemoryNote, MemoryType
+        from contextmind.core.models import MemoryNote, MemoryType
         
         note1 = MemoryNote(id="note1", content="内容1")
         note2 = MemoryNote(id="note2", content="内容2")
@@ -301,7 +301,7 @@ class TestAgentMemorySystem:
     
     def test_memory_note_importance_update(self):
         """MemoryNote 重要性更新"""
-        from contextmind.models import MemoryNote, MemoryType
+        from contextmind.core.models import MemoryNote, MemoryType
         
         note = MemoryNote(id="test003", content="测试", importance_score=0.8)
         
@@ -316,7 +316,7 @@ class TestAgentMemorySystem:
     
     def test_memory_note_to_context_item(self):
         """MemoryNote 转 ContextItem"""
-        from contextmind.models import MemoryNote, MemoryType, ContextSource
+        from contextmind.core.models import MemoryNote, MemoryType, ContextSource
         
         note = MemoryNote(
             id="test004",
@@ -336,7 +336,7 @@ class TestAgentMemorySystem:
     
     def test_memory_type_enum(self):
         """MemoryType 枚举"""
-        from contextmind.models import MemoryType
+        from contextmind.core.models import MemoryType
         
         assert MemoryType.WORKING.value == "working"
         assert MemoryType.SEMANTIC.value == "semantic"
