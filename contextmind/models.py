@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional
 
 
 # ============================================================================
-# Knowledge Types - Define early since used by other classes
+# Core Types - Define early since used by other classes
 # ============================================================================
 
 class KnowledgeType(str, Enum):
