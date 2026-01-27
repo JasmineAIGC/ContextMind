@@ -25,10 +25,14 @@
 用户输入 → [ContextMind 上下文工程] → 优化后的上下文 → 你的大语言模型 → 高质量响应
 ```
 
-ContextMind 通过**六步流水线架构**将原始对话数据转换为精确优化的上下文：
-- **步骤 1-4**：构建高效提示（上下文工程核心）
-- **步骤 5**：大语言模型推理（外部 - 你控制你的模型）
-- **步骤 6**：后处理大语言模型输出
+ContextMind 通过**五步流水线架构**将原始对话数据转换为精确优化的上下文：
+1. **预处理** - 清理和规范化输入
+2. **检索** - 召回相关记忆和上下文
+3. **压缩** - 智能减少 token 使用
+4. **重排序** - 优化上下文顺序
+5. **响应处理** - 更新记忆库（LLM 调用后）
+
+**注意**：LLM 调用发生在步骤 4 和 5 之间，由用户控制。
 
 ---
 
@@ -74,76 +78,80 @@ pip install -r requirements.txt
 
 ```python
 import asyncio
-from contextmind import ContextMind
+from contextmind import ContextEngine
 
 async def main():
-    # 使用你的大语言模型客户端初始化 ContextMind
-    cm = ContextMind(
-        llm_client=your_llm_client,  # 任意大语言模型客户端（OpenAI、vLLM 等）
-        retriever='semantic',         # 选择检索策略
-        enable_compression=True,      # 启用上下文压缩
-        enable_reordering=True        # 启用上下文重排序
+    # 初始化上下文引擎
+    engine = ContextEngine(
+        app_name="my-app",
+        user_id="user-123",
+        llm_client=your_llm_client,  # 可选：用于知识提取
+        extraction_method="llm"      # 或 "rule"
     )
     
-    # 步骤 1-4：ContextMind 准备优化后的上下文
-    context = await cm.prepare_context(
-        user_input="我的账户余额是多少？",
-        session_id="user-123"
+    # 步骤 1-4：准备优化后的上下文
+    context = await engine.optimize("今天天气怎么样？")
+    
+    # 步骤 5：你调用外部大语言模型（ContextMind 外部）
+    llm_response = await your_llm_client.chat(
+        messages=context.to_messages(),  # 转换为消息格式
+        # 或使用 context.to_prompt() 获取字符串
     )
     
-    # 步骤 5：你调用外部大语言模型
-    llm_output = await your_llm_client.generate(
-        system_prompt=context['system_prompt'],
-        messages=context['optimized_context'],
-        user_input=context['user_input']
+    # 步骤 6：处理响应并自动更新记忆
+    result = await engine.handle_response(
+        user_input="今天天气怎么样？",
+        llm_response=llm_response,
+        context=context,
+        auto_extract=True,   # 自动提取知识
+        auto_store=True      # 自动存储到记忆库
     )
     
-    # 步骤 6：ContextMind 后处理输出
-    final_response = await cm.post_process(
-        llm_output,
-        session_id="user-123",
-        extract_knowledge=True  # 自动提取并存储知识
-    )
-    
-    print(final_response)
+    print(f"响应已处理: {result['recorded']}")
+    print(f"提取知识: {len(result['extracted_knowledge'])} 条")
+    print(f"已入库: {result['stored']}")
 
 asyncio.run(main())
 ```
 
-### 插件系统示例
+### 简化用法（向后兼容）
 
 ```python
-from contextmind import ContextMind, registry
-
-# 列出可用插件
-print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
-print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
-print(registry.list_updaters())    # ['simple', 'conflict_resolver', 'adaptive']
-
-# 使用特定插件进行配置
-cm = ContextMind(
-    llm_client=your_llm,
-    extractor='llm_entity',          # 使用大语言模型辅助提取
-    retriever='hybrid',              # 使用混合检索（语义 + 关键词）
-    updater='conflict_resolver',     # 使用智能冲突解决
-    enable_memory=True,              # 启用长期记忆
-    enable_summarization=True        # 启用对话摘要
-)
-
-# 动态切换插件
-cm.set_retriever('semantic')
-cm.set_updater('adaptive')
+# 如果只需要简单的对话记录，无需知识提取
+async def simple_usage():
+    engine = ContextEngine(app_name="my-app", user_id="user-123")
+    
+    context = await engine.optimize("你好")
+    response = await your_llm.chat(context.to_prompt())
+    
+    # 仅记录对话，不提取知识
+    await engine.update("你好", response)
 ```
 
 ---
 
 ## 📐 架构
 
-### 六步流水线
+### 五步流水线 (v7.3)
 
 ```
 用户输入
     ↓
+1. InputPreprocessor     (清理和规范化)
+    ↓
+2. ContextRetriever +    (检索上下文)
+   MemoryBank            (召回长期记忆)
+    ↓
+3. ContextCompressor     (智能压缩)
+    ↓
+4. ContextReorderer      (重排序优化)
+    ↓
+构建提示 → [用户调用 LLM] → 获得响应
+    ↓
+5. ResponseHandler       (处理响应 + 更新记忆)
+    ↓
+最终结果 + 记忆已更新
+```
 ┌─────────────────────────────────────────┐
 │ 步骤 1：输入预处理                        │  清理和规范化输入
 │         (Preprocessor)                   │

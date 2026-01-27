@@ -5,18 +5,19 @@ ContextEngine - 上下文引擎核心模块 v7.3
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
 - 引擎层: ContextEngine 统一接口
 - 模块层: InputPreprocessor, MemoryBank, ContextCompressor, 
-  ContextReorderer, PostProcessor, ConversationSummarizer
+  ContextReorderer, ResponseHandler, ConversationSummarizer
 - 策略层: 可插拔的策略实现
 
 核心职责:
 1. 上下文优化 (optimize)
-2. 上下文更新 (update)
+2. 响应处理 (handle_response)
 3. 知识提取 (extract_knowledge)
+4. 上下文更新 (update) - 向后兼容
 """
 
 from __future__ import annotations
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 
 from .core.data_models import (
@@ -29,11 +30,10 @@ from .core.data_models import (
 from .core.types import MessageRole, ContextSource
 from .utils.logger import get_logger
 from .memory import SessionManager, MemoryBank
-from .pipeline.kvcache import KVCacheManager
+from .pipeline.response_handler import ResponseHandler
 from .pipeline.preprocessor import InputPreprocessor
 from .pipeline.compressor import ContextCompressor
 from .pipeline.reorderer import ContextReorderer
-from .pipeline.postprocessor import PostProcessor
 from .pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
 
 logger = get_logger(__name__)
@@ -101,7 +101,7 @@ class ContextEngine:
             session_service: Session 服务实例 (可选)
             memory_service: Memory 服务实例 (可选)
             max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
-            use_postprocessor: 是否使用输出后处理器 (默认 False)
+            use_postprocessor: (已废弃) 使用 handle_response 代替
             use_summarizer: 是否使用对话摘要器 (默认 False)
             extraction_method: 知识提取方式 ('rule' 规则提取 或 'llm' LLM自动提取)
             extraction_config: 提取配置对象 (可选)
@@ -158,18 +158,27 @@ class ContextEngine:
             self.extractor = RuleBasedExtractor(config)
             logger.info("[ContextEngine] RuleBasedExtractor 已初始化用于知识提取")
         
-        # v7.1 可选组件 (所有组件现在都是标准的)
-        if use_postprocessor:
-            self.postprocessor = PostProcessor()
-            logger.info("[ContextEngine] PostProcessor 已启用")
-        else:
-            self.postprocessor = None
+        # 初始化响应处理器 (v7.3 - 替代 PostProcessor)
+        self.response_handler = ResponseHandler(
+            session_manager=self.session_manager,
+            memory_bank=self.memory_bank,
+            extractor=self.extractor
+        )
+        logger.info("[ContextEngine] ResponseHandler 已初始化")
         
+        # v7.1 可选组件
         if use_summarizer:
             self.summarizer = ConversationSummarizer()
             logger.info("[ContextEngine] ConversationSummarizer 已启用")
         else:
             self.summarizer = None
+        
+        # 向后兼容：use_postprocessor 参数已废弃
+        if use_postprocessor:
+            logger.warning(
+                "[ContextEngine] use_postprocessor 已废弃，"
+                "请使用 handle_response() 方法代替"
+            )
         
         logger.info(f"ContextEngine 已初始化 app={app_name}, user={user_id}")
     
@@ -305,9 +314,12 @@ class ContextEngine:
         assistant_response: str,
     ) -> None:
         """
-        更新上下文
+        更新上下文 (简化版本，向后兼容)
         
         将用户输入和助手回复添加到会话历史中。
+        
+        注意: 这是简化的 API，仅记录对话。
+        如需完整功能（包括知识提取和记忆更新），请使用 handle_response()。
         
         Args:
             user_input: 用户输入
@@ -332,6 +344,61 @@ class ContextEngine:
         
         logger.info("[ContextEngine] ✓ 会话历史更新完成")
         logger.info("")
+    
+    async def handle_response(
+        self,
+        user_input: str,
+        llm_response: str,
+        context: Optional[ContextResult] = None,
+        auto_extract: bool = True,
+        auto_store: bool = True
+    ) -> Dict[str, Any]:
+        """
+        处理 LLM 响应（完整版本）
+        
+        这是流水线的最后一步，负责：
+        1. 记录对话到会话历史
+        2. 从对话中提取知识
+        3. 自动存储知识到记忆库
+        
+        推荐使用此方法代替 update()，因为它提供完整的记忆更新功能。
+        
+        Args:
+            user_input: 原始用户输入
+            llm_response: LLM 生成的响应
+            context: 使用的上下文结果（可选，用于分析）
+            auto_extract: 是否自动提取知识（默认 True）
+            auto_store: 是否自动存储到记忆库（默认 True）
+            
+        Returns:
+            处理结果字典，包含：
+            - recorded: 是否已记录对话
+            - extracted_knowledge: 提取的知识列表
+            - stored: 是否已存储到记忆库
+            
+        示例:
+            ```python
+            # 1. 优化上下文
+            context = await engine.optimize("今天天气怎么样？")
+            
+            # 2. 调用 LLM（用户自己的代码）
+            response = await your_llm.chat(context.to_prompt())
+            
+            # 3. 处理响应并更新记忆
+            result = await engine.handle_response(
+                user_input="今天天气怎么样？",
+                llm_response=response,
+                context=context
+            )
+            ```
+        """
+        return await self.response_handler.handle_response(
+            user_input=user_input,
+            llm_response=llm_response,
+            context=context,
+            auto_extract=auto_extract,
+            auto_store=auto_store
+        )
     
     async def extract_knowledge(
         self,

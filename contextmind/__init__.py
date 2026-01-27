@@ -94,14 +94,13 @@ from .core import (
     DEBUG,
 )
 
-# 流水线组件 (6步处理流程)
+# 流水线组件 (5步处理流程 - v7.3)
 from .pipeline import (
     Preprocessor,
     ContextRetriever,
     ContextCompressor,
     ContextReorderer,
-    KVCacheManager,
-    PostProcessor,
+    ResponseHandler,
     BaseSummarizer,
     LLMBasedSummarizer,
     RuleBasedSummarizer,
@@ -170,14 +169,13 @@ __all__ = [
     "INFO",
     "DEBUG",
     
-    # 流水线 (6步处理流程)
+    # 流水线 (5步处理流程 - v7.3)
     "InputPreprocessor",      # 向后兼容性
     "Preprocessor",           # 步骤 1
     "ContextRetriever",       # 步骤 2
     "ContextCompressor",      # 步骤 3
     "ContextReorderer",       # 步骤 4
-    "KVCacheManager",         # 步骤 5
-    "PostProcessor",          # 步骤 6
+    "ResponseHandler",        # 步骤 5 (v7.3)
     
     # 支持组件
     "BaseSummarizer",

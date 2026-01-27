@@ -1,10 +1,10 @@
-# ContextMind 架构 (v7.2+)
+# ContextMind 架构 (v7.3+)
 
 本文档描述基于 `docs/arch_by_me.md` 架构设计文档的优化项目结构。
 
 ## 概述
 
-ContextMind 遵循**六步流水线架构**进行上下文优化：
+ContextMind 遵循**五步流水线架构**进行上下文优化：
 
 ```
 原始用户输入
@@ -18,16 +18,16 @@ ContextMind 遵循**六步流水线架构**进行上下文优化：
     ↓
 4. ContextReorderer       (上下文重排序)
     ↓
-构建最终提示 → 大语言模型
-    ↓ (推理期间)
-5. KVCacheManager         (实时 KV 缓存管理)
+构建最终提示 → [用户调用 LLM] → 获得响应
     ↓
-大语言模型生成输出
+5. ResponseHandler        (响应处理和记忆更新)
     ↓
-6. PostProcessor          (输出后处理)
-    ↓
-最终响应
+最终结果 + 记忆已更新
 ```
+
+**架构变更（v7.3）：**
+- ❌ **移除** KVCacheManager - KV缓存管理属于LLM推理框架职责
+- ✅ **新增** ResponseHandler - 处理响应并更新记忆库
 
 ## 项目结构
 
@@ -40,13 +40,12 @@ ContextMind/
 │   ├── models.py            # 数据模型
 │   ├── registry.py          # 组件注册表
 │   │
-│   │ # 流水线架构 - 6 步
+│   │ # 流水线架构 - 5 步
 │   ├── preprocessor.py      # 步骤 1：InputPreprocessor
 │   ├── retriever.py         # 步骤 2：ContextRetriever（占位符）
 │   ├── compressor.py        # 步骤 3：ContextCompressor
 │   ├── reorderer.py         # 步骤 4：ContextReorderer
-│   ├── kvcache.py           # 步骤 5：KVCacheManager
-│   ├── postprocessor.py     # 步骤 6：PostProcessor
+│   ├── response_handler.py  # 步骤 5：ResponseHandler (v7.3新增)
 │   │
 │   ├── summarizer.py        # ConversationSummarizer（由压缩器使用）
 │   │
@@ -87,7 +86,7 @@ ContextMind/
 
 ## 核心组件
 
-### 1. 流水线组件（6 步）
+### 1. 流水线组件（5 步）
 
 #### 步骤 1：InputPreprocessor (`preprocessor.py`)
 - **目的**：输入清理和规范化
@@ -109,14 +108,14 @@ ContextMind/
 - **技术**：时间戳排序、来源优先级、相关性评分
 - **缓解**："中间丢失"问题
 
-#### 步骤 5：KVCacheManager (`kvcache.py`)
-- **目的**：大语言模型推理期间的实时 KV 缓存管理
-- **策略**：H2O、SnapKV、滑动窗口
-- **集成**：vLLM、sglang 钩子（占位符）
-
-#### 步骤 6：PostProcessor (`postprocessor.py`)
-- **目的**：输出优化和一致性检查
-- **方法**：格式校正、自我优化、事实验证
+#### 步骤 5：ResponseHandler (`response_handler.py`) - v7.3 新增
+- **目的**：处理 LLM 响应并更新记忆库
+- **职责**：
+  1. 解析 LLM 响应
+  2. 从响应中提取知识
+  3. 自动更新记忆库
+  4. 记录完整对话轮次
+- **特点**：形成完整的记忆更新闭环
 
 ### 2. MemoryBank 模块 (`memory/`)
 
@@ -186,8 +185,7 @@ MemoryBank 实现了 4 子模块架构：
 from contextmind.preprocessor import InputPreprocessor
 from contextmind.compressor import ContextCompressor
 from contextmind.reorderer import ContextReorderer
-from contextmind.postprocessor import PostProcessor
-from contextmind.kvcache import KVCacheManager
+from contextmind.response_handler import ResponseHandler
 
 # 记忆组件
 from contextmind.memory import (
@@ -214,17 +212,48 @@ from contextmind.pipeline import (
     InputPreprocessor,
     ContextCompressor,
     ContextReorderer,
-    PostProcessor,
+    ResponseHandler,  # 替代 PostProcessor
 )
 
 # 旧记忆导入仍然有效
-from contextmind.memory import MemoryBank, SessionManager, KVCacheManager
+from contextmind.memory import MemoryBank, SessionManager
 
 # 旧策略导入重定向到 memory
 from contextmind.strategies import extractors, retrievers, updaters
 ```
 
+**注意：** `KVCacheManager` 和 `PostProcessor` 已在 v7.3 中移除。
+
 ## 迁移指南
+
+### 从 v7.2 迁移到 v7.3
+
+**重要变更：**
+
+1. **KVCacheManager 已移除**
+   - KV 缓存管理属于 LLM 推理框架（vLLM, sglang等）职责
+   - 请在您的 LLM 推理层配置 KV 缓存策略
+
+2. **PostProcessor 替换为 ResponseHandler**
+   ```python
+   # 旧代码 (v7.2)
+   await engine.update(user_input, assistant_response)
+   
+   # 新代码 (v7.3) - 推荐
+   result = await engine.handle_response(
+       user_input=user_input,
+       llm_response=assistant_response,
+       auto_extract=True,   # 自动提取知识
+       auto_store=True      # 自动存储到记忆库
+   )
+   
+   # 或继续使用 update() (仅记录对话，不提取知识)
+   await engine.update(user_input, assistant_response)
+   ```
+
+3. **流水线步骤调整**
+   - 步骤数量从 6 步减少到 5 步
+   - 最后一步现在是 ResponseHandler（响应处理和记忆更新）
 
 ### 从 v7.1 迁移到 v7.2+
 
@@ -273,5 +302,5 @@ from contextmind.strategies import extractors, retrievers, updaters
 
 - 为外部知识库实现完整的 ContextRetriever
 - 添加更多 Extractor/Retriever/Updater 策略
-- 为 KVCache 集成真实的推理框架（vLLM、sglang）
-- 使用高级优化策略增强 PostProcessor
+- 增强 ResponseHandler 的响应分析能力
+- 完善基于响应质量的记忆策略调整机制
