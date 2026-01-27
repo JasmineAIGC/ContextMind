@@ -81,7 +81,8 @@ class ContextMindLogger:
         调试日志（仅在 DEBUG 模式下显示）
         用于内部细节和调试信息
         """
-        if self.level == LogLevel.DEBUG:
+        # 检查全局级别而非实例级别，确保DEBUG日志能被保存到文件
+        if self._global_level == LogLevel.DEBUG or self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
     
     def separator(self, char="=", length=100):
