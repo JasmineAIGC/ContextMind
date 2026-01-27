@@ -25,7 +25,7 @@ except ImportError:
     OpenAI = None  # type: ignore
 
 
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_LLM_MODEL = "Qwen3-32B"
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
@@ -41,16 +41,16 @@ def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[s
 
 @dataclass
 class EmbeddingConfig:
-    """Embedding 配置"""
+    """Embedding 配置 - 使用 LLM 模型提取 embedding"""
     
     api_key: str
-    model: str = DEFAULT_EMBEDDING_MODEL
+    model: str = DEFAULT_LLM_MODEL
     base_url: Optional[str] = None
     access_key: Optional[str] = None
     
     @classmethod
     def from_env(cls) -> "EmbeddingConfig":
-        """从环境变量加载配置。"""
+        """从环境变量加载配置 - 使用 .env 中定义的 LLM 配置。"""
         # 读取 API Key（必需）
         api_key = _first_env(
             [
@@ -80,14 +80,17 @@ class EmbeddingConfig:
             ]
         )
         
-        # 读取模型名称（可选）
+        # 读取模型名称（使用 .env 中的 LLM 模型）
         model = _first_env(
             [
-                "EMBEDDING_MODEL",
-                "QWEN3_EMBEDDING_MODEL",
-                "CONTEXTMIND_EMBEDDING_MODEL",
+                "QWEN3_MODEL",
+                "CONTEXTMIND_MODEL",
+                "LLM_MODEL",
+                "OPENAI_MODEL",
+                "DEEPSEEK_MODEL",
+                "QWEN_MODEL",
             ],
-            default=DEFAULT_EMBEDDING_MODEL,
+            default=DEFAULT_LLM_MODEL,
         )
         
         # 读取 Access Key（可选，某些网关需要）
@@ -112,8 +115,7 @@ class EmbeddingClient:
     """
     Embedding 客户端
     
-    使用 OpenAI 兼容的 API 生成文本嵌入向量。
-    支持多种 embedding 模型。
+    使用 .env 中配置的 LLM 模型通过 chat completion 生成文本嵌入向量。
     """
     
     def __init__(self, config: Optional[EmbeddingConfig] = None):
@@ -121,7 +123,7 @@ class EmbeddingClient:
         初始化 Embedding 客户端
         
         Args:
-            config: Embedding 配置，若为 None 则从环境变量加载
+            config: Embedding 配置，若为 None 则从环境变量加载（使用 LLM 配置）
         """
         if not OPENAI_AVAILABLE:
             logger.warning("[EmbeddingClient] OpenAI 未安装，embedding 功能不可用")
@@ -150,14 +152,14 @@ class EmbeddingClient:
                 base_url=self.config.base_url,
                 default_headers=headers if headers else None,
             )
-            logger.info(f"[EmbeddingClient] 初始化成功 - model: {self.config.model}")
+            logger.info(f"[EmbeddingClient] 初始化成功 - 使用 LLM 模型: {self.config.model}")
         except Exception as e:
             logger.error(f"[EmbeddingClient] 初始化失败: {e}")
             self.client = None
     
     def generate_embedding(self, text: str) -> Optional[EmbeddingInfo]:
         """
-        生成文本的 embedding 向量
+        使用 .env 中的 LLM 模型生成文本的 embedding 向量
         
         Args:
             text: 输入文本
@@ -173,7 +175,8 @@ class EmbeddingClient:
             return None
         
         try:
-            # 调用 OpenAI Embeddings API
+            # 使用 LLM 的 embeddings API（OpenAI 兼容）
+            # 注意：使用 .env 中配置的 LLM 模型而非专门的 embedding 模型
             response = self.client.embeddings.create(
                 model=self.config.model,
                 input=text
@@ -202,7 +205,7 @@ class EmbeddingClient:
             
             dimension = len(vector)
             
-            logger.debug(f"[EmbeddingClient] 生成 embedding - dim: {dimension}, text: {text[:50]}...")
+            logger.debug(f"[EmbeddingClient] 使用 LLM 模型生成 embedding - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
             
             return EmbeddingInfo(
                 model=self.config.model,
@@ -215,6 +218,7 @@ class EmbeddingClient:
             return None
         except Exception as e:
             logger.error(f"[EmbeddingClient] 生成 embedding 失败: {e}")
+            logger.info(f"[EmbeddingClient] 提示：请确保 {self.config.model} 模型支持 embedding 生成")
             return None
 
 
