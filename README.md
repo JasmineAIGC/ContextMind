@@ -1,472 +1,470 @@
 # ContextMind
 
-**ContextMind v7.2** - 通用上下文工程框架 ✨
+A **universal, extensible, and easy-to-integrate context engineering framework** for LLM-powered dialogue systems.
 
-**v7.2 新特性**: 增强的可观测性 + 完整的记忆生命周期 + 模块化日志追踪
-
-### v7.2 主要改进
-
-1. **增强的日志系统**
-   - 模块前缀标识：`[MemoryBank]`, `[Retriever]`, `[ContextEngine]`, `[Extractor]`, `[Prompt]`
-   - 阶段分隔符：清晰展示优化流程各个阶段
-   - 状态指示器：✓ 成功 / ✗ 失败，一目了然
-   - 详细的记忆追踪：记忆库内容、检索结果、相关性分数
-
-2. **完整的记忆生命周期**
-   - 知识提取：从对话中提取偏好、事实、事件
-   - 记忆存储：自动去重，智能存储
-   - 记忆检索：带相关性评分的智能检索
-   - 全程可见：每个阶段都有详细日志
-
-3. **改进的可观测性**
-   - DEBUG 模式显示完整 Prompt
-   - 记忆库状态实时可见
-   - 检索过程透明化
-   - 上下文优化全程追踪
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-7.3.0-green.svg)](https://github.com/yourusername/ContextMind)
 
 ---
 
-## 📖 项目简介
+## 🎯 What is ContextMind?
 
-**ContextMind 是一个独立的、可嵌入的上下文工程框架**，专为 LLM 对话系统设计。它解决了对话系统中的三大核心挑战：
+**ContextMind is a pure context engineering framework** that sits between your application and any LLM provider. It solves the fundamental challenge of dialogue systems: **how to intelligently manage, optimize, and deliver context to LLMs**.
 
-1. **上下文窗口限制** - LLM 有 token 限制（4K/8K/32K）
-2. **信息过载** - 不是所有历史都相关，需要智能筛选
-3. **多源整合** - 统一管理会话历史、长期记忆、外部知识
+### The Problem
 
-### 核心价值
+Modern LLMs face three critical challenges:
+1. **Limited Context Windows** - Even 32K/128K token limits are quickly exhausted in long conversations
+2. **Information Overload** - Not all history is relevant; irrelevant context degrades response quality
+3. **Multi-Source Integration** - Session history, long-term memory, and external knowledge need unified management
+
+### The Solution
 
 ```
-用户问题 → [ContextMind 上下文优化] → 精准上下文 → LLM → 高质量回复
+User Input → [ContextMind Context Engineering] → Optimized Context → Your LLM → High-Quality Response
 ```
 
-- 🎯 **精准优化**：从海量历史中提取最相关的上下文
-- ⚡ **高性能**：Token 精确计数 + 智能缓存，5-400x 性能提升
-- 🔌 **易集成**：独立模块，可嵌入任何对话系统
-- 📦 **开箱即用**：提供 OpenAI、LangChain 等适配器
+ContextMind transforms raw conversational data into precisely optimized context through a **6-step pipeline architecture**:
+- **Steps 1-4**: Build efficient prompts (Context Engineering Core)
+- **Step 5**: LLM inference (external - you control your LLM)
+- **Step 6**: Post-process LLM output
 
 ---
 
-## 📂 项目结构 (v7.2)
+## ✨ Key Features
 
-```
-ContextMind/
-├── contextmind/              # 🔥 核心模块 - 纯上下文工程框架
-│   ├── __init__.py           # 框架入口
-│   ├── models.py             # 数据模型（Message, Knowledge, Config等）
-│   ├── engine.py             # ContextEngine - 核心引擎
-│   ├── registry.py           # 插件注册中心
-│   ├── config_api.py         # ContextMind 高层API
-│   │
-│   ├── pipeline/             # 流水线层 - 上下文处理流程
-│   │   ├── session.py        # 会话管理
-│   │   ├── preprocessor.py   # 输入预处理
-│   │   ├── memory.py         # 记忆库管理
-│   │   ├── compressor.py     # 上下文压缩
-│   │   ├── reorderer.py      # 上下文重排序
-│   │   ├── postprocessor.py  # 输出后处理
-│   │   ├── summarizer.py     # 对话摘要
-│   │   └── kvcache.py        # KV缓存策略接口
-│   │
-│   └── strategies/           # 策略层 - 可插拔算法（扁平结构）
-│       ├── base.py           # 策略基类
-│       ├── extractors.py     # 提取策略（RuleBased, LLMEntity, Importance）
-│       ├── retrievers.py     # 检索策略（Semantic, Hybrid, Locator）
-│       └── updaters.py       # 更新策略（Simple, ConflictResolver, Adaptive）
-│
-├── demos/                    # 📚 演示和示例
-│   ├── README.md
-│   ├── plugin_examples.py    # 插件使用示例
-│   ├── callcenter_app.py     # 客服应用示例
-│   └── chat_app.py           # 聊天应用示例
-│
-├── tests/                    # ✅ 测试
-│
-├── docs/                     # 📖 文档
-│   └── arch_by_me.md         # 架构设计文档
-│
-├── interactive_demo.py       # 💬 命令行交互演示（根目录）
-├── gradio_demo.py            # 🎨 Web UI 演示（根目录）
-├── chat_interactive_demo.py  # 💬 聊天命令行演示（根目录）
-├── chat_gradio_demo.py       # 🎨 聊天 Web UI 演示（根目录）
-├── requirements.txt          # 📦 依赖列表
-├── pytest.ini                # ⚙️ 测试配置
-└── README.md                 # 📋 本文件
+### 🎨 Universal & Generic
+- **No UI Framework Dependencies** - Pure context engineering, no Gradio/Streamlit coupling
+- **LLM-Agnostic** - Works with OpenAI, Anthropic, local models, or any LLM provider
+- **Task-Agnostic** - Applicable to chatbots, customer service, RAG, agents, and any dialogue task
 
-```
+### 🔌 Extensible Plugin Architecture
+- **Pluggable Strategies** - Swap extractors, retrievers, compressors without code changes
+- **Custom Plugins** - Easy registration of custom strategies via the plugin registry
+- **Modular Pipeline** - Each component (preprocessor, compressor, reorderer) is independently configurable
 
-### 核心模块说明
+### ⚡ Easy Integration
+- **3-Line Integration** - Minimal boilerplate, maximum power
+- **Async-First** - Native async/await for high-performance applications
+- **Session Management** - Built-in session handling with automatic memory persistence
 
-#### `contextmind/` - 纯上下文工程框架
-
-这是项目的核心，**纯上下文工程框架**，专注于 Steps 1-4（上下文构建）和 Step 6（输出后处理）。
-
-**v7.2 架构特点**：
-1. **扁平化设计** - 去除多余嵌套，直接访问所有模块
-2. **插件化** - 所有策略都是可插拔的（extractors, retrievers, updaters）
-3. **零 LLM 依赖** - LLM 调用由用户控制（Step 5 外部化）
-4. **模块化** - 每个 pipeline 组件独立，可单独使用
-
-**核心文件**：
-- `models.py`: 所有数据模型和配置类
-- `engine.py`: ContextEngine 核心引擎
-- `registry.py`: 插件注册和发现系统
-- `config_api.py`: ContextMind 高层 API（prepare_context, post_process）
-
-**Pipeline 模块** (`pipeline/`):
-- `session.py`: 会话状态管理
-- `preprocessor.py`: 输入预处理
-- `memory.py`: 记忆库（MemoryBank）
-- `compressor.py`, `reorderer.py`: 上下文优化
-- `postprocessor.py`: 输出后处理
-- `summarizer.py`: 对话摘要生成
-- `kvcache.py`: KV缓存策略接口
-
-**Strategy 插件** (`strategies/`):
-- `extractors.py`: 知识提取策略
-- `retrievers.py`: 记忆检索策略  
-- `updaters.py`: 记忆更新策略
-
-#### `demos/` - 演示代码
-
-所有示例代码集中在 demos/ 目录：
-- `plugin_examples.py`: 插件系统使用示例
-- `callcenter_app.py`, `chat_app.py`: 应用模板
-
-#### 根目录演示文件
-
-4 个演示文件放在根目录便于快速访问：
-- `interactive_demo.py`, `gradio_demo.py`: 基础演示
-- `chat_interactive_demo.py`, `chat_gradio_demo.py`: 聊天模式演示
+### 🚀 Advanced Context Optimization
+- **Smart Retrieval** - Semantic search, hybrid retrieval, locator-based strategies
+- **Context Compression** - Reduce tokens while preserving critical information
+- **Memory Management** - Long-term memory with automatic knowledge extraction
+- **Context Reordering** - Mitigate "lost-in-the-middle" problems
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装依赖
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/ContextMind.git
+cd ContextMind
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
-
-创建 `.env` 文件：
-
-```bash
-# API Key（必需）
-QWEN3_API_KEY=your-api-key
-
-# 模型配置（可选）
-QWEN3_MODEL=Qwen3-32B
-QWEN3_BASE_URL=https://api.example.com
-QWEN3_TEMPERATURE=0.6
-QWEN3_MAX_TOKENS=8192
-```
-
-### 3. 基本使用
+### Basic Usage
 
 ```python
 import asyncio
 from contextmind import ContextMind
 
 async def main():
-    # 初始化 ContextMind（纯上下文工程框架）
-    cm = ContextMind()
+    # Initialize ContextMind with your LLM client
+    cm = ContextMind(
+        llm_client=your_llm_client,  # Any LLM client (OpenAI, vLLM, etc.)
+        retriever='semantic',         # Choose retrieval strategy
+        enable_compression=True,      # Enable context compression
+        enable_reordering=True        # Enable context reordering
+    )
     
-    # Step 1-4: 准备优化后的上下文
+    # Step 1-4: ContextMind prepares optimized context
     context = await cm.prepare_context(
-        user_input="你好，我想查询余额",
+        user_input="What's my account balance?",
         session_id="user-123"
     )
     
-    # 查看优化后的上下文
-    print(f"系统提示: {context['system_prompt']}")
-    print(f"优化上下文: {len(context['optimized_context'])} 条")
+    # Step 5: You call your external LLM
+    llm_output = await your_llm_client.generate(
+        system_prompt=context['system_prompt'],
+        messages=context['optimized_context'],
+        user_input=context['user_input']
+    )
     
-    # Step 5: 用户调用自己的 LLM（外部）
-    # llm_output = await your_llm.generate(
-    #     system_prompt=context['system_prompt'],
-    #     messages=context['optimized_context'],
-    #     user_input=context['user_input']
-    # )
+    # Step 6: ContextMind post-processes the output
+    final_response = await cm.post_process(
+        llm_output,
+        session_id="user-123",
+        extract_knowledge=True  # Automatically extract and store knowledge
+    )
     
-    # Step 6: 后处理（可选）
-    # final_response = await cm.post_process(
-    #     llm_output,
-    #     session_id="user-123"
-    # )
+    print(final_response)
 
 asyncio.run(main())
 ```
 
-### 4. 运行演示
-
-```bash
-# 命令行交互式演示
-python interactive_demo.py
-
-# Gradio Web UI 演示
-python gradio_demo.py
-
-# 或使用快速启动脚本
-./run.sh
-```
-
----
-
-## 🎯 核心特性
-
-### 1. 多源上下文整合
-
-- **会话历史** (Session History): 短期对话历史
-- **长期记忆** (Long-term Memory): 跨会话的用户信息和偏好
-- **外部知识** (External Knowledge): 领域知识库（可扩展）
-
-### 2. 智能上下文优化
-
-- ✅ **去重** - 移除重复内容
-- ✅ **排序** - 按相关性和时间排序
-- ✅ **压缩** - Token 级别的精确截断
-- ✅ **提炼** - 自动提取实体、偏好、状态
-- ✅ **分离** - 会话历史与长期记忆分别限制
-
-### 3. 精准 Token 管理
-
-- 使用官方 tokenizer（tiktoken）
-- 精确 Token 计数（误差 <1%）
-- Token 级别截断，杜绝上下文溢出
-
-**对比**：
-| 方法 | 准确率 | 溢出风险 |
-|------|--------|---------|
-| 字符估算 | ±40% | 高 ❌ |
-| TokenizerService | <1% | 无 ✅ |
-
-### 4. 高性能缓存
-
-- LRU 缓存策略 + TTL 自动过期
-- 多层缓存（Embedding、检索、摘要）
-- 5-400x 性能提升
-
-### 5. 可插拔策略
-
-四类策略，支持自定义：
-- **RetrievalStrategy** - 检索策略
-- **IntegrationStrategy** - 整合策略
-- **OptimizationStrategy** - 优化策略
-- **ExtractionStrategy** - 提取策略
-
----
-
-## 📚 文档
-
-### 核心文档（必读）
-- [📐 设计哲学与架构思想](docs/DESIGN_PHILOSOPHY.md) ⭐ 
-- [🏗️ 架构文档](docs/ARCHITECTURE.md)
-- [📚 API 参考](docs/API_REFERENCE.md)
-- [✨ 最佳实践](docs/BEST_PRACTICES.md)
-
-### 专题文档
-- [🔧 基础层详解](docs/FOUNDATION_LAYER.md)
-- [🔍 日志分析指南](docs/LOG_ANALYSIS_GUIDE.md)
-- [📊 上下文流程详解](docs/CONTEXT_FLOW_DETAILED.md)
-
----
-
-## 🏗️ 架构设计
-
-### v7.2 架构设计
-
-```
-用户输入
-    ↓
-┌─────────────────────────────────────────────┐
-│  Step 1-4: 上下文工程（ContextMind 核心）   │
-│                                             │
-│  ┌──────────────────────────────────────┐  │
-│  │ Pipeline (流水线层)                   │  │
-│  │  Session → Preprocessor → Memory →   │  │
-│  │  Compressor → Reorderer              │  │
-│  └──────────────────────────────────────┘  │
-│           ↓                                 │
-│  ┌──────────────────────────────────────┐  │
-│  │ Strategies (插件层)                  │  │
-│  │  Extractors | Retrievers | Updaters │  │
-│  └──────────────────────────────────────┘  │
-│                                             │
-│  输出: 优化后的上下文（optimized_context）  │
-└─────────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────────┐
-│  Step 5: LLM 推理（用户外部调用）            │
-│  your_llm.generate(optimized_context)       │
-│  输出: LLM 原始响应                          │
-└─────────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────────┐
-│  Step 6: 输出后处理（ContextMind）          │
-│  PostProcessor.process(llm_output)          │
-│  输出: 最终响应                              │
-└─────────────────────────────────────────────┘
-```
-
-### 设计原则
-
-1. **模块化** - 每个组件职责单一，可独立替换
-2. **分层设计** - 清晰的层次结构，向上依赖
-3. **委托模式** - Pipeline 委托给 Strategy，避免重复
-4. **数据驱动** - 强类型数据模型
-5. **异步优先** - 全面使用 async/await
-6. **代码复用** - 组合优于继承
-
----
-
-## 🔌 集成示例
-
-### 基础使用
+### Plugin System Example
 
 ```python
 from contextmind import ContextMind, registry
 
-# 初始化（使用默认插件）
-cm = ContextMind()
+# List available plugins
+print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
+print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
+print(registry.list_updaters())    # ['simple', 'conflict_resolver', 'adaptive']
 
-# 准备上下文
-context = await cm.prepare_context(
-    user_input="你好",
-    session_id="user-123"
+# Configure with specific plugins
+cm = ContextMind(
+    llm_client=your_llm,
+    extractor='llm_entity',          # Use LLM-assisted extraction
+    retriever='hybrid',              # Use hybrid retrieval (semantic + keyword)
+    updater='conflict_resolver',     # Use smart conflict resolution
+    enable_memory=True,              # Enable long-term memory
+    enable_summarization=True        # Enable conversation summarization
 )
 
-# 调用你自己的 LLM
-llm_output = await your_llm.generate(context)
-
-# 后处理
-final = await cm.post_process(llm_output, session_id="user-123")
+# Switch plugins dynamically
+cm.set_retriever('semantic')
+cm.set_updater('adaptive')
 ```
 
-### 使用自定义插件
+---
+
+## 📐 Architecture
+
+### 6-Step Pipeline
+
+```
+User Input
+    ↓
+┌─────────────────────────────────────────┐
+│ Step 1: Input Preprocessing              │  Clean & normalize input
+│         (Preprocessor)                   │
+└─────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────┐
+│ Step 2: Context Retrieval                │  Retrieve relevant context
+│         (MemoryBank + Retriever)         │  from memory & knowledge base
+└─────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────┐
+│ Step 3: Context Compression              │  Compress to fit token limits
+│         (Compressor + Summarizer)        │  while preserving key info
+└─────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────┐
+│ Step 4: Context Reordering               │  Optimize context order for
+│         (Reorderer)                      │  better attention patterns
+└─────────────────────────────────────────┘
+    ↓
+Optimized Context → Your LLM (Step 5)
+    ↓
+┌─────────────────────────────────────────┐
+│ Step 6: Post-Processing                  │  Format validation, knowledge
+│         (PostProcessor)                  │  extraction, memory update
+└─────────────────────────────────────────┘
+    ↓
+Final Response
+```
+
+### Layered Design
+
+```
+┌─────────────────────────────────────────┐
+│  Application Layer                       │  Your app code
+│  (demos/, examples/)                     │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  Engine Layer                            │  ContextEngine, ContextMind API
+│  (engine.py, framework_config.py)       │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  Pipeline Layer                          │  6-step processing flow
+│  (pipeline/)                             │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│  Strategy/Plugin Layer                   │  Pluggable algorithms
+│  (strategies/, registry)                 │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 🎯 Core Components
+
+### MemoryBank - Long-Term Memory Management
+Persistent storage and intelligent retrieval of user information, preferences, and facts across sessions.
+
+**Key Features:**
+- Knowledge extraction from conversations
+- Semantic search with configurable retrievers
+- Automatic memory updates with conflict resolution
+- Session management with message history
+
+### Plugin Registry - Extensibility Engine
+Centralized plugin management system for swapping and registering custom strategies.
+
+**Supported Plugin Types:**
+- **Extractors** - Extract knowledge from conversations (rule-based, LLM-assisted, importance-based)
+- **Retrievers** - Retrieve relevant memories (semantic, hybrid, locator-based)
+- **Updaters** - Update memory with smart conflict handling (simple, conflict-resolver, adaptive)
+
+### Pipeline Components
+1. **Preprocessor** - Input cleaning, validation, and normalization
+2. **ContextRetriever** - External knowledge retrieval (extensible placeholder)
+3. **Compressor** - Token-level context compression with summarization
+4. **Reorderer** - Context reordering to combat attention dilution
+5. **PostProcessor** - Output validation, formatting, and refinement
+
+---
+
+## 📚 Project Structure
+
+```
+ContextMind/
+├── contextmind/                    # Core framework (pure context engineering)
+│   ├── __init__.py                 # Framework entry point
+│   ├── engine.py                   # ContextEngine - main orchestrator
+│   ├── core/
+│   │   ├── framework_config.py     # ContextMind high-level API
+│   │   ├── registry.py             # Plugin registry system
+│   │   ├── data_models.py          # Data models (Message, Knowledge, etc.)
+│   │   ├── types.py                # Type definitions
+│   │   ├── configs.py              # Configuration classes
+│   │   └── strategies.py           # Strategy base classes
+│   ├── pipeline/                   # 6-step pipeline components
+│   │   ├── preprocessor.py         # Step 1: Input preprocessing
+│   │   ├── context_retriever.py    # Step 2: External retrieval
+│   │   ├── compressor.py           # Step 3: Context compression
+│   │   ├── reorderer.py            # Step 4: Context reordering
+│   │   ├── kvcache.py              # Step 5: KV cache interface
+│   │   └── postprocessor.py        # Step 6: Output post-processing
+│   ├── memory/                     # MemoryBank module
+│   │   ├── bank.py                 # Main MemoryBank class
+│   │   ├── session.py              # Session management
+│   │   ├── extractor.py            # Knowledge extraction
+│   │   ├── retriever.py            # Memory retrieval
+│   │   └── updater.py              # Memory updates
+│   ├── strategies/                 # Plugin implementations
+│   │   ├── extractors.py           # Extraction strategies
+│   │   ├── retrievers.py           # Retrieval strategies
+│   │   └── updaters.py             # Update strategies
+│   └── utils/                      # Utilities (logger, embedding, etc.)
+│
+├── examples/                       # Application examples
+│   ├── chat_app.py                 # Chat application example
+│   ├── callcenter_app.py           # Customer service example
+│   ├── plugin_examples.py          # Plugin usage examples
+│   └── llm_client.py               # LLM client wrapper
+│
+├── tests/                          # Unit and integration tests
+├── docs/                           # Documentation
+│   ├── ARCHITECTURE.md             # Detailed architecture
+│   ├── MIGRATION.md                # Migration guide
+│   └── arch_by_me.md               # Original architecture reference
+│
+├── interactive_demo.py             # CLI interactive demo
+├── gradio_demo.py                  # Web UI demo (Gradio)
+├── chat_interactive_demo.py        # Chat CLI demo
+├── chat_gradio_demo.py             # Chat web demo
+├── requirements.txt                # Dependencies
+└── README.md                       # This file
+```
+
+---
+
+## 🔧 Advanced Configuration
+
+### Custom Strategy Registration
 
 ```python
 from contextmind import registry
-from contextmind.strategies.extractors import RuleBasedExtractor
-from contextmind.strategies.retrievers import HybridRetriever
+from contextmind.strategies.base import BaseExtractor
 
-# 查看可用插件
-print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
-print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
+class CustomExtractor(BaseExtractor):
+    """Your custom knowledge extraction logic"""
+    async def extract(self, messages):
+        # Implement your extraction logic
+        knowledge_items = []
+        # ... your code here ...
+        return knowledge_items
 
-# 创建自定义配置
+# Register your custom strategy
+registry.register_extractor('custom', CustomExtractor)
+
+# Use it
+cm = ContextMind(llm_client=your_llm, extractor='custom')
+```
+
+### Fine-Grained Configuration
+
+```python
+from contextmind import ContextMind
+from contextmind.core import MemorySystemConfig, CompressionConfig
+
+# Configure memory system
+memory_config = MemorySystemConfig(
+    max_memory_items=1000,
+    retrieval_top_k=5,
+    similarity_threshold=0.7
+)
+
+# Configure compression
+compression_config = CompressionConfig(
+    max_context_tokens=4096,
+    compression_ratio=0.5
+)
+
 cm = ContextMind(
-    extractor='llm_entity',      # 使用 LLM 辅助提取
-    retriever='hybrid',          # 使用混合检索
-    updater='conflict_resolver'  # 使用冲突解决器
+    llm_client=your_llm,
+    memory_config=memory_config,
+    compression_config=compression_config
 )
 ```
 
-### 注册自定义策略
+---
 
+## 📊 Use Cases
+
+### 1. Chatbot with Long-Term Memory
 ```python
-from contextmind.strategies.base import BaseExtractor
+# User: "I like spicy food"
+# ... many conversations later ...
+# User: "Recommend a restaurant"
+# Bot: "Based on your preference for spicy food, I recommend..."
+```
 
-class MyCustomExtractor(BaseExtractor):
-    async def extract(self, messages):
-        # 自定义提取逻辑
-        return extracted_knowledge
+### 2. Customer Service with Context Continuity
+```python
+# Session 1: User reports an issue
+# Session 2 (days later): User follows up
+# Bot remembers the issue details automatically
+```
 
-# 注册自定义插件
-registry.register_extractor('my_custom', MyCustomExtractor)
-
-# 使用自定义插件
-cm = ContextMind(extractor='my_custom')
+### 3. RAG Applications
+```python
+# Combine session history + external knowledge + memory
+context = await cm.prepare_context(
+    user_input="Explain quantum computing",
+    session_id="user-456"
+)
+# ContextMind automatically retrieves relevant docs and past discussions
 ```
 
 ---
 
-## ✅ 测试
+## ✅ Testing
 
 ```bash
-# 运行所有测试
+# Run all tests
 python -m pytest tests/ -v
 
-# 运行特定测试
-python -m pytest tests/test_core.py::TestDataModels -v
+# Run specific test modules
+python -m pytest tests/test_core.py -v
+python -m pytest tests/test_pipeline.py -v
+python -m pytest tests/test_memory.py -v
 ```
 
-测试覆盖：
-- ✅ 数据模型（8 个测试）
-- ✅ Pipeline 组件（4 个测试）
-- ✅ Foundation 服务（5 个测试）
-- ✅ Agent Memory System（6 个测试）
+**Test Coverage:**
+- ✅ Data models and types
+- ✅ Pipeline components (6 steps)
+- ✅ Memory Bank system
+- ✅ Plugin registry
+- ✅ Strategy implementations
 
 ---
 
-## 📊 性能
+## 🎨 Running Demos
 
-### Token 计数准确性
+### Command-Line Demos
+```bash
+# Interactive CLI demo
+python interactive_demo.py
 
-| 方法 | 英文误差 | 中文误差 | 溢出风险 |
-|------|---------|---------|---------|
-| 字符估算 | ±20% | ±40% | 高 ❌ |
-| TokenizerService | <1% | <1% | 无 ✅ |
+# Chat CLI demo
+python chat_interactive_demo.py
+```
 
-### 缓存性能提升
+### Web UI Demos (Gradio)
+```bash
+# Basic Gradio demo
+python gradio_demo.py
 
-| 场景 | 无缓存 | 有缓存 | 提升 |
-|------|--------|--------|------|
-| Embedding 计算 | 500ms | 5ms | 100x ✅ |
-| 向量检索 | 100ms | 10ms | 10x ✅ |
-| LLM 摘要 | 2000ms | 5ms | 400x ✅ |
+# Chat Gradio demo
+python chat_gradio_demo.py
+```
 
----
-
-## 🎨 项目状态
-
-- ✅ **代码质量**: 无重复代码，单一真实来源
-- ✅ **测试覆盖**: 23/23 测试通过
-- ✅ **安全验证**: CodeQL 0 告警
-- ✅ **文档完善**: 完整的设计文档和 API 参考
-- ✅ **架构清晰**: 六层架构，职责分离
-
----
-
-## 📈 版本历史
-
-- **v7.2** (当前) - 增强的可观测性：模块化日志、完整记忆生命周期、透明的上下文追踪
-- **v7.0** - 增强的可观测性：模块化日志、完整记忆生命周期、透明的上下文追踪
-- **v5.2** - 代码质量提升 + 结构优化 + 完全通用化（零场景硬编码）
-- **v5.1** - 五层架构重构：core/pipeline/strategies/adapters/utils 清晰分层
-- **v4.0** - 架构优化版：消除代码冗余（~240行），统一文本格式化，完善文档
-- **v3.2** - 新增 Foundation Layer、Control Layer、增强数据模型
-- **v3.1** - 重构引擎层，优化 API 设计
-- **v3.0** - 完全重构，引入六层架构
+**Note:** Demo files require API keys. Create a `.env` file:
+```bash
+# Example for Qwen API
+QWEN3_API_KEY=your-api-key
+QWEN3_MODEL=Qwen3-32B
+QWEN3_BASE_URL=https://api.example.com
+```
 
 ---
 
-## 🤝 贡献
+## 🌟 Design Principles
 
-欢迎提交 Issue 和 Pull Request！
-
-在提交 PR 前，请确保：
-- ✅ 所有测试通过
-- ✅ 代码符合项目风格
-- ✅ 添加必要的文档
-
----
-
-## 📄 许可证
-
-MIT License
+1. **Modularity** - Each component has a single responsibility and can be independently replaced
+2. **Extensibility** - Plugin architecture allows easy integration of new strategies
+3. **Separation of Concerns** - Context engineering ≠ LLM inference ≠ UI frameworks
+4. **Type Safety** - Strong typing with data models for reliability
+5. **Async-First** - Native async/await for high-performance applications
+6. **Code Reuse** - Composition over inheritance, eliminate duplication
 
 ---
 
-## 🔗 相关链接
+## 📈 Performance
 
-- 设计文档: [DESIGN_PHILOSOPHY.md](docs/DESIGN_PHILOSOPHY.md)
-- 架构详解: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- API 参考: [API_REFERENCE.md](docs/API_REFERENCE.md)
-- 最佳实践: [BEST_PRACTICES.md](docs/BEST_PRACTICES.md)
+### Token Management Accuracy
+| Method | English Error | Chinese Error | Overflow Risk |
+|--------|---------------|---------------|---------------|
+| Character Estimation | ±20% | ±40% | High ❌ |
+| ContextMind | <1% | <1% | None ✅ |
+
+### Caching Performance
+| Scenario | Without Cache | With Cache | Speedup |
+|----------|---------------|------------|---------|
+| Embedding Calculation | 500ms | 5ms | 100x ✅ |
+| Vector Retrieval | 100ms | 10ms | 10x ✅ |
+| LLM Summarization | 2000ms | 5ms | 400x ✅ |
 
 ---
 
-**ContextMind** - 让上下文优化变得简单而强大 ✨
+## 🤝 Contributing
+
+We welcome contributions! Before submitting a PR:
+- ✅ Run all tests and ensure they pass
+- ✅ Follow the existing code style
+- ✅ Add documentation for new features
+- ✅ Update relevant tests
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details
+
+---
+
+## 🔗 Links
+
+- **Documentation**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Examples**: [examples/](examples/)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/ContextMind/issues)
+
+---
+
+**ContextMind** - Making context optimization simple yet powerful ✨
+

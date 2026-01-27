@@ -2,7 +2,7 @@
 
 from ..engine import ContextEngine as ContextMindEngine
 from .registry import PluginRegistry, registry
-from .config import ContextMind as ContextMindConfig
+from .framework_config import ContextMind as ContextMindConfig
 
 # Import from new modular structure
 from .types import (
