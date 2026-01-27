@@ -20,8 +20,8 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
     OpenAI = None  # type: ignore
-    print("Warning: OpenAI package not installed. Real LLM calls will not work.")
-    print("Install with: pip install openai")
+    print("警告: 未安装 OpenAI 包。真实的 LLM 调用将无法工作。")
+    print("安装方法: pip install openai")
 
 from contextmind import get_logger
 
