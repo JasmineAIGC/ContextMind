@@ -9,6 +9,7 @@ import asyncio
 import os
 import argparse
 import time
+import random
 
 try:
     from dotenv import load_dotenv
@@ -22,11 +23,26 @@ from contextmind import (
     setup_logging,
     get_logger,
     LogLevel,
+    MessageRole,
 )
 
 from examples.callcenter_app import CallCenterApplication, CALLCENTER_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
+
+# 开场白列表 - 客服机器人会从中随机选择一条作为开场
+OPENING_SCRIPTS = [
+    "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
+    "您好，我是马上消费的客服，有个好消息要通知您。",
+    "您好，打扰您一下，有个重要业务需要跟您确认一下。",
+    "您好，我是优逸花客服，有个专属福利要通知您。",
+    "您好，耽误您两分钟时间，有个限时优惠要介绍给您。",
+    "您好，我是马上消费工作人员，有个额度提升的好消息。",
+    "您好，打扰您了，有个重要提醒需要通知您。",
+    "您好，我是优逸花客服，有个预留额度业务要介绍。",
+    "您好，有个限时福利要通知您，耽误您一分钟好吗？",
+    "您好，我是马上消费客服，有个资金周转的好方案要介绍。",
+]
 
 
 async def main():
@@ -62,10 +78,35 @@ async def main():
     
     # 初始化引擎 (v7.3: LLM 调用在外部，不需要客户端)
     print("🔧 初始化引擎...")
+    
+    # 配置记忆检索和提取 - 优化客服场景的记忆管理
+    from contextmind.core.configs import RetrievalConfig, ExtractionConfig
+    
+    # 配置记忆检索 - 设置上限(需求4)和综合性(需求3)
+    retrieval_config = RetrievalConfig(
+        top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
+        min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
+        use_semantic=True,
+        enable_recency_boost=True,  # 启用新近性加权
+    )
+    
+    # 配置知识提取 - 确保全面捕获(需求3)
+    extraction_config = ExtractionConfig(
+        extraction_method="llm",  # 使用LLM提取，更全面
+        min_confidence=0.5,  # 适当降低置信度阈值，捕获更多潜在有价值的知识
+        extract_preferences=True,
+        extract_facts=True,
+        extract_events=True,
+        extract_entities=True,
+        extract_relationships=True,
+    )
+    
     context_engine = ContextEngine(
         app_name="customer-service-demo",
         user_id="customer-user",
         max_recent_events=args.max_events,
+        retrieval_config=retrieval_config,
+        extraction_config=extraction_config,
     )
     print("✅ 引擎初始化完成 (v7.3 - 纯上下文工程)")
     print()
@@ -104,6 +145,17 @@ async def main():
     print("📞 客服为您服务！")
     print("=" * 60)
     print()
+    
+    # 机器人主动发起对话 - 随机选择一条开场白
+    opening_message = random.choice(OPENING_SCRIPTS)
+    print(f"客服: {opening_message}\n")
+    logger.info(f"客服开场: {opening_message}")
+    
+    # 将开场白添加到会话历史
+    await context_engine.session_manager.add_message(
+        role=MessageRole.ASSISTANT,
+        content=opening_message
+    )
     
     turn_counter = 0
     

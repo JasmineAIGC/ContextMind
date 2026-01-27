@@ -26,13 +26,14 @@ except ImportError:
 
 import asyncio
 import time
+import random
 from typing import List
 from dataclasses import dataclass
 import os
 from pathlib import Path
 import traceback
 
-from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
+from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger, MessageRole
 from examples.callcenter_app import CallCenterApplication, CALLCENTER_SYSTEM_PROMPT
 
 # 设置日志级别为 INFO
@@ -50,6 +51,21 @@ try:
         logger.warning(f"⚠️  环境变量文件不存在: {env_file}")
 except ImportError:
     logger.warning("⚠️  python-dotenv 未安装，尝试手动设置环境变量")
+
+
+# 开场白列表 - 客服机器人会从中随机选择一条作为开场
+OPENING_SCRIPTS = [
+    "您好，请问是胡女士本人吗？耽误您一分钟，有项业务想跟您同步。",
+    "您好，我是马上消费的客服，有个好消息要通知您。",
+    "您好，打扰您一下，有个重要业务需要跟您确认一下。",
+    "您好，我是优逸花客服，有个专属福利要通知您。",
+    "您好，耽误您两分钟时间，有个限时优惠要介绍给您。",
+    "您好，我是马上消费工作人员，有个额度提升的好消息。",
+    "您好，打扰您了，有个重要提醒需要通知您。",
+    "您好，我是优逸花客服，有个预留额度业务要介绍。",
+    "您好，有个限时福利要通知您，耽误您一分钟好吗？",
+    "您好，我是马上消费客服，有个资金周转的好方案要介绍。",
+]
 
 
 @dataclass
@@ -70,10 +86,10 @@ class CustomerServiceGradioDemo:
         self.turn_counter = 0
         # 上下文控制参数
         self.use_session = True
-        self.use_memory = False  # 客服场景默认不启用长期记忆
+        self.use_memory = True  # 客服场景启用长期记忆以满足需求2-5
         self.max_recent_events = 10  # 客服场景通常对话较短
         
-    async def initialize_engine(self, use_session=True, use_memory=False, max_recent_events=10):
+    async def initialize_engine(self, use_session=True, use_memory=True, max_recent_events=10):
         """初始化引擎"""
         try:
             logger.info("=" * 80)
@@ -90,7 +106,28 @@ class CustomerServiceGradioDemo:
             
             # 创建LLM客户端用于知识提取
             from examples.llm_client import SimpleLLMClient, LLMConfig
+            from contextmind.core.configs import RetrievalConfig, ExtractionConfig
+            
             llm_client_for_extraction = SimpleLLMClient(LLMConfig.from_env())
+            
+            # 配置记忆检索 - 设置上限(需求4)和综合性(需求3)
+            retrieval_config = RetrievalConfig(
+                top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
+                min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
+                use_semantic=True,
+                enable_recency_boost=True,  # 启用新近性加权
+            )
+            
+            # 配置知识提取 - 确保全面捕获(需求3)
+            extraction_config = ExtractionConfig(
+                extraction_method="llm",  # 使用LLM提取，更全面
+                min_confidence=0.5,  # 适当降低置信度阈值，捕获更多潜在有价值的知识
+                extract_preferences=True,
+                extract_facts=True,
+                extract_events=True,
+                extract_entities=True,
+                extract_relationships=True,
+            )
             
             # 创建引擎 (v7.3: 使用 LLM 提取知识，基于嵌入向量的语义理解)
             self.engine = ContextEngine(
@@ -99,6 +136,8 @@ class CustomerServiceGradioDemo:
                 max_recent_events=max_recent_events,
                 llm_client=llm_client_for_extraction,  # 用于知识提取的 LLM 客户端
                 extraction_method="llm",  # 使用 LLM 提取（语义理解，40 种类型）
+                retrieval_config=retrieval_config,  # 应用检索配置
+                extraction_config=extraction_config,  # 应用提取配置
             )
             
             logger.info("✅ [客服Demo] 引擎初始化成功 (v7.3 - Pure Context Engineering)")
@@ -126,11 +165,24 @@ class CustomerServiceGradioDemo:
                 logger.error(f"❌ CallCenterApplication 初始化失败: {str(app_err)}")
                 raise
             
+            # 机器人主动发起对话 - 随机选择一条开场白
+            opening_message = random.choice(OPENING_SCRIPTS)
+            logger.info(f"客服开场: {opening_message}")
+            
+            # 将开场白添加到会话历史
+            await self.engine.session_manager.add_message(
+                role=MessageRole.ASSISTANT,
+                content=opening_message
+            )
+            
+            # 保存开场白以便在UI中显示
+            self.opening_message = opening_message
+            
             # 重置计数器
             self.turn_counter = 0
             
             logger.info("✅ 引擎初始化完成")
-            return "✅ 引擎初始化成功！可以开始客服对话了。"
+            return f"✅ 引擎初始化成功！\n\n📞 客服: {opening_message}"
             
         except Exception as e:
             error_details = traceback.format_exc()
@@ -404,8 +456,8 @@ def create_gradio_interface():
                 
                 use_memory_check = gr.Checkbox(
                     label="长期记忆",
-                    value=False,
-                    info="记住客户信息"
+                    value=True,
+                    info="智能管理客户知识库"
                 )
                 
                 max_events_slider = gr.Slider(
