@@ -1,6 +1,6 @@
 # ContextMind
 
-A **universal, extensible, and easy-to-integrate context engineering framework** for LLM-powered dialogue systems..
+一个**通用、可扩展、易集成的上下文工程框架**，专为基于大语言模型的对话系统设计。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -8,101 +8,101 @@ A **universal, extensible, and easy-to-integrate context engineering framework**
 
 ---
 
-## 🎯 What is ContextMind?
+## 🎯 什么是 ContextMind？
 
-**ContextMind is a pure context engineering framework** that sits between your application and any LLM provider. It solves the fundamental challenge of dialogue systems: **how to intelligently manage, optimize, and deliver context to LLMs**.
+**ContextMind 是一个纯粹的上下文工程框架**，位于你的应用程序和任意大语言模型提供商之间。它解决了对话系统的核心挑战：**如何智能地管理、优化并向大语言模型提供上下文**。
 
-### The Problem
+### 问题背景
 
-Modern LLMs face three critical challenges:
-1. **Limited Context Windows** - Even 32K/128K token limits are quickly exhausted in long conversations
-2. **Information Overload** - Not all history is relevant; irrelevant context degrades response quality
-3. **Multi-Source Integration** - Session history, long-term memory, and external knowledge need unified management
+现代大语言模型面临三大核心挑战：
+1. **有限的上下文窗口** - 即使是 32K/128K 的 token 限制在长对话中也会很快耗尽
+2. **信息过载** - 并非所有历史记录都相关；无关上下文会降低响应质量
+3. **多源整合** - 会话历史、长期记忆和外部知识需要统一管理
 
-### The Solution
+### 解决方案
 
 ```
-User Input → [ContextMind Context Engineering] → Optimized Context → Your LLM → High-Quality Response
+用户输入 → [ContextMind 上下文工程] → 优化后的上下文 → 你的大语言模型 → 高质量响应
 ```
 
-ContextMind transforms raw conversational data into precisely optimized context through a **6-step pipeline architecture**:
-- **Steps 1-4**: Build efficient prompts (Context Engineering Core)
-- **Step 5**: LLM inference (external - you control your LLM)
-- **Step 6**: Post-process LLM output
+ContextMind 通过**六步流水线架构**将原始对话数据转换为精确优化的上下文：
+- **步骤 1-4**：构建高效提示（上下文工程核心）
+- **步骤 5**：大语言模型推理（外部 - 你控制你的模型）
+- **步骤 6**：后处理大语言模型输出
 
 ---
 
-## ✨ Key Features
+## ✨ 核心特性
 
-### 🎨 Universal & Generic
-- **No UI Framework Dependencies** - Pure context engineering, no Gradio/Streamlit coupling
-- **LLM-Agnostic** - Works with OpenAI, Anthropic, local models, or any LLM provider
-- **Task-Agnostic** - Applicable to chatbots, customer service, RAG, agents, and any dialogue task
+### 🎨 通用性
+- **无 UI 框架依赖** - 纯上下文工程，不耦合 Gradio/Streamlit
+- **模型无关** - 适配 OpenAI、Anthropic、本地模型或任何大语言模型提供商
+- **任务无关** - 适用于聊天机器人、客户服务、RAG、智能体及任何对话任务
 
-### 🔌 Extensible Plugin Architecture
-- **Pluggable Strategies** - Swap extractors, retrievers, compressors without code changes
-- **Custom Plugins** - Easy registration of custom strategies via the plugin registry
-- **Modular Pipeline** - Each component (preprocessor, compressor, reorderer) is independently configurable
+### 🔌 可扩展的插件架构
+- **可插拔策略** - 无需修改代码即可切换提取器、检索器、压缩器
+- **自定义插件** - 通过插件注册表轻松注册自定义策略
+- **模块化流水线** - 每个组件（预处理器、压缩器、重排序器）均可独立配置
 
-### ⚡ Easy Integration
-- **3-Line Integration** - Minimal boilerplate, maximum power
-- **Async-First** - Native async/await for high-performance applications
-- **Session Management** - Built-in session handling with automatic memory persistence
+### ⚡ 易于集成
+- **三行代码集成** - 最少样板代码，最大功能
+- **异步优先** - 原生支持 async/await 以实现高性能应用
+- **会话管理** - 内置会话处理和自动记忆持久化
 
-### 🚀 Advanced Context Optimization
-- **Smart Retrieval** - Semantic search, hybrid retrieval, locator-based strategies
-- **Context Compression** - Reduce tokens while preserving critical information
-- **Memory Management** - Long-term memory with automatic knowledge extraction
-- **Context Reordering** - Mitigate "lost-in-the-middle" problems
+### 🚀 高级上下文优化
+- **智能检索** - 语义搜索、混合检索、基于定位器的策略
+- **上下文压缩** - 在保留关键信息的同时减少 token 数量
+- **记忆管理** - 自动提取知识的长期记忆
+- **上下文重排序** - 缓解"中间丢失"问题
 
 ---
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-### Installation
+### 安装
 
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/yourusername/ContextMind.git
 cd ContextMind
 
-# Install dependencies
+# 安装依赖
 pip install -r requirements.txt
 ```
 
-### Basic Usage
+### 基本用法
 
 ```python
 import asyncio
 from contextmind import ContextMind
 
 async def main():
-    # Initialize ContextMind with your LLM client
+    # 使用你的大语言模型客户端初始化 ContextMind
     cm = ContextMind(
-        llm_client=your_llm_client,  # Any LLM client (OpenAI, vLLM, etc.)
-        retriever='semantic',         # Choose retrieval strategy
-        enable_compression=True,      # Enable context compression
-        enable_reordering=True        # Enable context reordering
+        llm_client=your_llm_client,  # 任意大语言模型客户端（OpenAI、vLLM 等）
+        retriever='semantic',         # 选择检索策略
+        enable_compression=True,      # 启用上下文压缩
+        enable_reordering=True        # 启用上下文重排序
     )
     
-    # Step 1-4: ContextMind prepares optimized context
+    # 步骤 1-4：ContextMind 准备优化后的上下文
     context = await cm.prepare_context(
-        user_input="What's my account balance?",
+        user_input="我的账户余额是多少？",
         session_id="user-123"
     )
     
-    # Step 5: You call your external LLM
+    # 步骤 5：你调用外部大语言模型
     llm_output = await your_llm_client.generate(
         system_prompt=context['system_prompt'],
         messages=context['optimized_context'],
         user_input=context['user_input']
     )
     
-    # Step 6: ContextMind post-processes the output
+    # 步骤 6：ContextMind 后处理输出
     final_response = await cm.post_process(
         llm_output,
         session_id="user-123",
-        extract_knowledge=True  # Automatically extract and store knowledge
+        extract_knowledge=True  # 自动提取并存储知识
     )
     
     print(final_response)
@@ -110,216 +110,216 @@ async def main():
 asyncio.run(main())
 ```
 
-### Plugin System Example
+### 插件系统示例
 
 ```python
 from contextmind import ContextMind, registry
 
-# List available plugins
+# 列出可用插件
 print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
 print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
 print(registry.list_updaters())    # ['simple', 'conflict_resolver', 'adaptive']
 
-# Configure with specific plugins
+# 使用特定插件进行配置
 cm = ContextMind(
     llm_client=your_llm,
-    extractor='llm_entity',          # Use LLM-assisted extraction
-    retriever='hybrid',              # Use hybrid retrieval (semantic + keyword)
-    updater='conflict_resolver',     # Use smart conflict resolution
-    enable_memory=True,              # Enable long-term memory
-    enable_summarization=True        # Enable conversation summarization
+    extractor='llm_entity',          # 使用大语言模型辅助提取
+    retriever='hybrid',              # 使用混合检索（语义 + 关键词）
+    updater='conflict_resolver',     # 使用智能冲突解决
+    enable_memory=True,              # 启用长期记忆
+    enable_summarization=True        # 启用对话摘要
 )
 
-# Switch plugins dynamically
+# 动态切换插件
 cm.set_retriever('semantic')
 cm.set_updater('adaptive')
 ```
 
 ---
 
-## 📐 Architecture
+## 📐 架构
 
-### 6-Step Pipeline
+### 六步流水线
 
 ```
-User Input
+用户输入
     ↓
 ┌─────────────────────────────────────────┐
-│ Step 1: Input Preprocessing              │  Clean & normalize input
+│ 步骤 1：输入预处理                        │  清理和规范化输入
 │         (Preprocessor)                   │
 └─────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────┐
-│ Step 2: Context Retrieval                │  Retrieve relevant context
-│         (MemoryBank + Retriever)         │  from memory & knowledge base
+│ 步骤 2：上下文检索                        │  从记忆和知识库中
+│         (MemoryBank + Retriever)         │  检索相关上下文
 └─────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────┐
-│ Step 3: Context Compression              │  Compress to fit token limits
-│         (Compressor + Summarizer)        │  while preserving key info
+│ 步骤 3：上下文压缩                        │  压缩以适应 token 限制
+│         (Compressor + Summarizer)        │  同时保留关键信息
 └─────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────┐
-│ Step 4: Context Reordering               │  Optimize context order for
-│         (Reorderer)                      │  better attention patterns
+│ 步骤 4：上下文重排序                      │  优化上下文顺序以获得
+│         (Reorderer)                      │  更好的注意力模式
 └─────────────────────────────────────────┘
     ↓
-Optimized Context → Your LLM (Step 5)
+优化后的上下文 → 你的大语言模型（步骤 5）
     ↓
 ┌─────────────────────────────────────────┐
-│ Step 6: Post-Processing                  │  Format validation, knowledge
-│         (PostProcessor)                  │  extraction, memory update
+│ 步骤 6：后处理                           │  格式验证、知识提取
+│         (PostProcessor)                  │  记忆更新
 └─────────────────────────────────────────┘
     ↓
-Final Response
+最终响应
 ```
 
-### Layered Design
+### 分层设计
 
 ```
 ┌─────────────────────────────────────────┐
-│  Application Layer                       │  Your app code
+│  应用层                                  │  你的应用代码
 │  (demos/, examples/)                     │
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│  Engine Layer                            │  ContextEngine, ContextMind API
+│  引擎层                                  │  ContextEngine、ContextMind API
 │  (engine.py, framework_config.py)       │
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│  Pipeline Layer                          │  6-step processing flow
+│  流水线层                                │  六步处理流程
 │  (pipeline/)                             │
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│  Strategy/Plugin Layer                   │  Pluggable algorithms
+│  策略/插件层                             │  可插拔算法
 │  (strategies/, registry)                 │
 └─────────────────────────────────────────┘
 ```
 
 ---
 
-## 🎯 Core Components
+## 🎯 核心组件
 
-### MemoryBank - Long-Term Memory Management
-Persistent storage and intelligent retrieval of user information, preferences, and facts across sessions.
+### MemoryBank - 长期记忆管理
+跨会话持久化存储和智能检索用户信息、偏好和事实。
 
-**Key Features:**
-- Knowledge extraction from conversations
-- Semantic search with configurable retrievers
-- Automatic memory updates with conflict resolution
-- Session management with message history
+**核心功能：**
+- 从对话中提取知识
+- 使用可配置检索器进行语义搜索
+- 自动更新记忆并解决冲突
+- 会话管理和消息历史
 
-### Plugin Registry - Extensibility Engine
-Centralized plugin management system for swapping and registering custom strategies.
+### Plugin Registry - 可扩展引擎
+用于切换和注册自定义策略的集中式插件管理系统。
 
-**Supported Plugin Types:**
-- **Extractors** - Extract knowledge from conversations (rule-based, LLM-assisted, importance-based)
-- **Retrievers** - Retrieve relevant memories (semantic, hybrid, locator-based)
-- **Updaters** - Update memory with smart conflict handling (simple, conflict-resolver, adaptive)
+**支持的插件类型：**
+- **提取器（Extractors）** - 从对话中提取知识（基于规则、大语言模型辅助、基于重要性）
+- **检索器（Retrievers）** - 检索相关记忆（语义、混合、基于定位器）
+- **更新器（Updaters）** - 使用智能冲突处理更新记忆（简单、冲突解决器、自适应）
 
-### Pipeline Components
-1. **Preprocessor** - Input cleaning, validation, and normalization
-2. **ContextRetriever** - External knowledge retrieval (extensible placeholder)
-3. **Compressor** - Token-level context compression with summarization
-4. **Reorderer** - Context reordering to combat attention dilution
-5. **PostProcessor** - Output validation, formatting, and refinement
+### 流水线组件
+1. **预处理器（Preprocessor）** - 输入清理、验证和规范化
+2. **上下文检索器（ContextRetriever）** - 外部知识检索（可扩展占位符）
+3. **压缩器（Compressor）** - 带摘要的 token 级上下文压缩
+4. **重排序器（Reorderer）** - 上下文重排序以对抗注意力稀释
+5. **后处理器（PostProcessor）** - 输出验证、格式化和优化
 
 ---
 
-## 📚 Project Structure
+## 📚 项目结构
 
 ```
 ContextMind/
-├── contextmind/                    # Core framework (pure context engineering)
-│   ├── __init__.py                 # Framework entry point
-│   ├── engine.py                   # ContextEngine - main orchestrator
+├── contextmind/                    # 核心框架（纯上下文工程）
+│   ├── __init__.py                 # 框架入口点
+│   ├── engine.py                   # ContextEngine - 主要编排器
 │   ├── core/
-│   │   ├── framework_config.py     # ContextMind high-level API
-│   │   ├── registry.py             # Plugin registry system
-│   │   ├── data_models.py          # Data models (Message, Knowledge, etc.)
-│   │   ├── types.py                # Type definitions
-│   │   ├── configs.py              # Configuration classes
-│   │   └── strategies.py           # Strategy base classes
-│   ├── pipeline/                   # 6-step pipeline components
-│   │   ├── preprocessor.py         # Step 1: Input preprocessing
-│   │   ├── context_retriever.py    # Step 2: External retrieval
-│   │   ├── compressor.py           # Step 3: Context compression
-│   │   ├── reorderer.py            # Step 4: Context reordering
-│   │   ├── kvcache.py              # Step 5: KV cache interface
-│   │   └── postprocessor.py        # Step 6: Output post-processing
-│   ├── memory/                     # MemoryBank module
-│   │   ├── bank.py                 # Main MemoryBank class
-│   │   ├── session.py              # Session management
-│   │   ├── extractor.py            # Knowledge extraction
-│   │   ├── retriever.py            # Memory retrieval
-│   │   └── updater.py              # Memory updates
-│   ├── strategies/                 # Plugin implementations
-│   │   ├── extractors.py           # Extraction strategies
-│   │   ├── retrievers.py           # Retrieval strategies
-│   │   └── updaters.py             # Update strategies
-│   └── utils/                      # Utilities (logger, embedding, etc.)
+│   │   ├── framework_config.py     # ContextMind 高级 API
+│   │   ├── registry.py             # 插件注册系统
+│   │   ├── data_models.py          # 数据模型（Message、Knowledge 等）
+│   │   ├── types.py                # 类型定义
+│   │   ├── configs.py              # 配置类
+│   │   └── strategies.py           # 策略基类
+│   ├── pipeline/                   # 六步流水线组件
+│   │   ├── preprocessor.py         # 步骤 1：输入预处理
+│   │   ├── context_retriever.py    # 步骤 2：外部检索
+│   │   ├── compressor.py           # 步骤 3：上下文压缩
+│   │   ├── reorderer.py            # 步骤 4：上下文重排序
+│   │   ├── kvcache.py              # 步骤 5：KV 缓存接口
+│   │   └── postprocessor.py        # 步骤 6：输出后处理
+│   ├── memory/                     # MemoryBank 模块
+│   │   ├── bank.py                 # 主 MemoryBank 类
+│   │   ├── session.py              # 会话管理
+│   │   ├── extractor.py            # 知识提取
+│   │   ├── retriever.py            # 记忆检索
+│   │   └── updater.py              # 记忆更新
+│   ├── strategies/                 # 插件实现
+│   │   ├── extractors.py           # 提取策略
+│   │   ├── retrievers.py           # 检索策略
+│   │   └── updaters.py             # 更新策略
+│   └── utils/                      # 工具（日志、嵌入等）
 │
-├── examples/                       # Application examples
-│   ├── chat_app.py                 # Chat application example
-│   ├── callcenter_app.py           # Customer service example
-│   ├── plugin_examples.py          # Plugin usage examples
-│   └── llm_client.py               # LLM client wrapper
+├── examples/                       # 应用示例
+│   ├── chat_app.py                 # 聊天应用示例
+│   ├── callcenter_app.py           # 客户服务示例
+│   ├── plugin_examples.py          # 插件使用示例
+│   └── llm_client.py               # 大语言模型客户端包装器
 │
-├── tests/                          # Unit and integration tests
-├── docs/                           # Documentation
-│   ├── ARCHITECTURE.md             # Detailed architecture
-│   ├── MIGRATION.md                # Migration guide
-│   └── arch_by_me.md               # Original architecture reference
+├── tests/                          # 单元和集成测试
+├── docs/                           # 文档
+│   ├── ARCHITECTURE.md             # 详细架构
+│   ├── MIGRATION.md                # 迁移指南
+│   └── arch_by_me.md               # 原始架构参考
 │
-├── interactive_demo.py             # CLI interactive demo
-├── gradio_demo.py                  # Web UI demo (Gradio)
-├── chat_interactive_demo.py        # Chat CLI demo
-├── chat_gradio_demo.py             # Chat web demo
-├── requirements.txt                # Dependencies
-└── README.md                       # This file
+├── interactive_demo.py             # 命令行交互演示
+├── gradio_demo.py                  # Web UI 演示（Gradio）
+├── chat_interactive_demo.py        # 聊天命令行演示
+├── chat_gradio_demo.py             # 聊天 Web 演示
+├── requirements.txt                # 依赖
+└── README.md                       # 本文件
 ```
 
 ---
 
-## 🔧 Advanced Configuration
+## 🔧 高级配置
 
-### Custom Strategy Registration
+### 自定义策略注册
 
 ```python
 from contextmind import registry
 from contextmind.strategies.base import BaseExtractor
 
 class CustomExtractor(BaseExtractor):
-    """Your custom knowledge extraction logic"""
+    """你的自定义知识提取逻辑"""
     async def extract(self, messages):
-        # Implement your extraction logic
+        # 实现你的提取逻辑
         knowledge_items = []
-        # ... your code here ...
+        # ... 你的代码 ...
         return knowledge_items
 
-# Register your custom strategy
+# 注册你的自定义策略
 registry.register_extractor('custom', CustomExtractor)
 
-# Use it
+# 使用它
 cm = ContextMind(llm_client=your_llm, extractor='custom')
 ```
 
-### Fine-Grained Configuration
+### 细粒度配置
 
 ```python
 from contextmind import ContextMind
 from contextmind.core import MemorySystemConfig, CompressionConfig
 
-# Configure memory system
+# 配置记忆系统
 memory_config = MemorySystemConfig(
     max_memory_items=1000,
     retrieval_top_k=5,
     similarity_threshold=0.7
 )
 
-# Configure compression
+# 配置压缩
 compression_config = CompressionConfig(
     max_context_tokens=4096,
     compression_ratio=0.5
@@ -334,79 +334,79 @@ cm = ContextMind(
 
 ---
 
-## 📊 Use Cases
+## 📊 应用场景
 
-### 1. Chatbot with Long-Term Memory
+### 1. 具有长期记忆的聊天机器人
 ```python
-# User: "I like spicy food"
-# ... many conversations later ...
-# User: "Recommend a restaurant"
-# Bot: "Based on your preference for spicy food, I recommend..."
+# 用户："我喜欢吃辣"
+# ... 多次对话后 ...
+# 用户："推荐一家餐厅"
+# 机器人："根据你喜欢吃辣的偏好，我推荐..."
 ```
 
-### 2. Customer Service with Context Continuity
+### 2. 具有上下文连续性的客户服务
 ```python
-# Session 1: User reports an issue
-# Session 2 (days later): User follows up
-# Bot remembers the issue details automatically
+# 会话 1：用户报告问题
+# 会话 2（几天后）：用户跟进
+# 机器人自动记住问题详情
 ```
 
-### 3. RAG Applications
+### 3. RAG 应用
 ```python
-# Combine session history + external knowledge + memory
+# 结合会话历史 + 外部知识 + 记忆
 context = await cm.prepare_context(
-    user_input="Explain quantum computing",
+    user_input="解释量子计算",
     session_id="user-456"
 )
-# ContextMind automatically retrieves relevant docs and past discussions
+# ContextMind 自动检索相关文档和过往讨论
 ```
 
 ---
 
-## ✅ Testing
+## ✅ 测试
 
 ```bash
-# Run all tests
+# 运行所有测试
 python -m pytest tests/ -v
 
-# Run specific test modules
+# 运行特定测试模块
 python -m pytest tests/test_core.py -v
 python -m pytest tests/test_pipeline.py -v
 python -m pytest tests/test_memory.py -v
 ```
 
-**Test Coverage:**
-- ✅ Data models and types
-- ✅ Pipeline components (6 steps)
-- ✅ Memory Bank system
-- ✅ Plugin registry
-- ✅ Strategy implementations
+**测试覆盖率：**
+- ✅ 数据模型和类型
+- ✅ 流水线组件（6 步）
+- ✅ MemoryBank 系统
+- ✅ 插件注册表
+- ✅ 策略实现
 
 ---
 
-## 🎨 Running Demos
+## 🎨 运行演示
 
-### Command-Line Demos
+### 命令行演示
 ```bash
-# Interactive CLI demo
+# 交互式命令行演示
 python interactive_demo.py
 
-# Chat CLI demo
+# 聊天命令行演示
 python chat_interactive_demo.py
 ```
 
-### Web UI Demos (Gradio)
+### Web UI 演示（Gradio）
 ```bash
-# Basic Gradio demo
+# 基础 Gradio 演示
 python gradio_demo.py
 
-# Chat Gradio demo
+# 聊天 Gradio 演示
 python chat_gradio_demo.py
 ```
 
-**Note:** Demo files require API keys. Create a `.env` file:
+**注意：** 演示文件需要 API 密钥。创建 `.env` 文件：
 ```bash
-# Example for Qwen API
+# Qwen API 示例
 QWEN3_API_KEY=your-api-key
 QWEN3_MODEL=Qwen3-32B
 QWEN3_BASE_URL=https://api.example.com
@@ -414,57 +414,57 @@ QWEN3_BASE_URL=https://api.example.com
 
 ---
 
-## 🌟 Design Principles
+## 🌟 设计原则
 
-1. **Modularity** - Each component has a single responsibility and can be independently replaced
-2. **Extensibility** - Plugin architecture allows easy integration of new strategies
-3. **Separation of Concerns** - Context engineering ≠ LLM inference ≠ UI frameworks
-4. **Type Safety** - Strong typing with data models for reliability
-5. **Async-First** - Native async/await for high-performance applications
-6. **Code Reuse** - Composition over inheritance, eliminate duplication
+1. **模块化** - 每个组件都有单一职责，可独立替换
+2. **可扩展性** - 插件架构允许轻松集成新策略
+3. **关注点分离** - 上下文工程 ≠ 大语言模型推理 ≠ UI 框架
+4. **类型安全** - 使用数据模型进行强类型检查以确保可靠性
+5. **异步优先** - 原生支持 async/await 以实现高性能应用
+6. **代码复用** - 组合优于继承，消除重复
 
 ---
 
-## 📈 Performance
+## 📈 性能
 
-### Token Management Accuracy
-| Method | English Error | Chinese Error | Overflow Risk |
+### Token 管理精度
+| 方法 | 英文误差 | 中文误差 | 溢出风险 |
 |--------|---------------|---------------|---------------|
-| Character Estimation | ±20% | ±40% | High ❌ |
-| ContextMind | <1% | <1% | None ✅ |
+| 字符估算 | ±20% | ±40% | 高 ❌ |
+| ContextMind | <1% | <1% | 无 ✅ |
 
-### Caching Performance
-| Scenario | Without Cache | With Cache | Speedup |
+### 缓存性能
+| 场景 | 无缓存 | 有缓存 | 加速 |
 |----------|---------------|------------|---------|
-| Embedding Calculation | 500ms | 5ms | 100x ✅ |
-| Vector Retrieval | 100ms | 10ms | 10x ✅ |
-| LLM Summarization | 2000ms | 5ms | 400x ✅ |
+| 嵌入计算 | 500ms | 5ms | 100x ✅ |
+| 向量检索 | 100ms | 10ms | 10x ✅ |
+| 大语言模型摘要 | 2000ms | 5ms | 400x ✅ |
 
 ---
 
-## 🤝 Contributing
+## 🤝 贡献
 
-We welcome contributions! Before submitting a PR:
-- ✅ Run all tests and ensure they pass
-- ✅ Follow the existing code style
-- ✅ Add documentation for new features
-- ✅ Update relevant tests
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details
+我们欢迎贡献！在提交 PR 之前：
+- ✅ 运行所有测试并确保它们通过
+- ✅ 遵循现有的代码风格
+- ✅ 为新功能添加文档
+- ✅ 更新相关测试
 
 ---
 
-## 🔗 Links
+## 📄 许可证
 
-- **Documentation**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Examples**: [examples/](examples/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/ContextMind/issues)
+MIT 许可证 - 详见 [LICENSE](LICENSE)
 
 ---
 
-**ContextMind** - Making context optimization simple yet powerful ✨
+## 🔗 链接
+
+- **文档**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **示例**: [examples/](examples/)
+- **问题**: [GitHub Issues](https://github.com/yourusername/ContextMind/issues)
+
+---
+
+**ContextMind** - 让上下文优化既简单又强大 ✨
 

@@ -1,78 +1,78 @@
-# ContextMind Architecture (v7.2+)
+# ContextMind 架构 (v7.2+)
 
-This document describes the optimized project structure based on the architecture design document in `docs/arch_by_me.md`.
+本文档描述基于 `docs/arch_by_me.md` 架构设计文档的优化项目结构。
 
-## Overview
+## 概述
 
-ContextMind follows a **6-Step Pipeline Architecture** for context optimization:
+ContextMind 遵循**六步流水线架构**进行上下文优化：
 
 ```
-Raw User Input
+原始用户输入
     ↓
-1. InputPreprocessor      (Input cleaning and normalization)
+1. InputPreprocessor      (输入清理和规范化)
     ↓
-2. ContextRetriever       (External retrieval)
-   + MemoryBank          (Long-term memory management)
+2. ContextRetriever       (外部检索)
+   + MemoryBank          (长期记忆管理)
     ↓
-3. ContextCompressor      (Context compression with ConversationSummarizer)
+3. ContextCompressor      (上下文压缩与对话摘要器)
     ↓
-4. ContextReorderer       (Context reordering)
+4. ContextReorderer       (上下文重排序)
     ↓
-Build Final Prompt → LLM
-    ↓ (During inference)
-5. KVCacheManager         (Real-time KV cache management)
+构建最终提示 → 大语言模型
+    ↓ (推理期间)
+5. KVCacheManager         (实时 KV 缓存管理)
     ↓
-LLM generates output
+大语言模型生成输出
     ↓
-6. PostProcessor          (Output post-processing)
+6. PostProcessor          (输出后处理)
     ↓
-Final Response
+最终响应
 ```
 
-## Project Structure
+## 项目结构
 
 ```
 ContextMind/
-├── contextmind/              # Core framework
-│   ├── __init__.py          # Main exports
-│   ├── config.py            # Easy integration API (ContextMind class)
-│   ├── engine.py            # Main orchestration engine (ContextEngine)
-│   ├── models.py            # Data models
-│   ├── registry.py          # Component registry
+├── contextmind/              # 核心框架
+│   ├── __init__.py          # 主要导出
+│   ├── config.py            # 易集成 API（ContextMind 类）
+│   ├── engine.py            # 主编排引擎（ContextEngine）
+│   ├── models.py            # 数据模型
+│   ├── registry.py          # 组件注册表
 │   │
-│   │ # Pipeline Architecture - 6 Steps
-│   ├── preprocessor.py      # Step 1: InputPreprocessor
-│   ├── retriever.py         # Step 2: ContextRetriever (placeholder)
-│   ├── compressor.py        # Step 3: ContextCompressor
-│   ├── reorderer.py         # Step 4: ContextReorderer
-│   ├── kvcache.py           # Step 5: KVCacheManager
-│   ├── postprocessor.py     # Step 6: PostProcessor
+│   │ # 流水线架构 - 6 步
+│   ├── preprocessor.py      # 步骤 1：InputPreprocessor
+│   ├── retriever.py         # 步骤 2：ContextRetriever（占位符）
+│   ├── compressor.py        # 步骤 3：ContextCompressor
+│   ├── reorderer.py         # 步骤 4：ContextReorderer
+│   ├── kvcache.py           # 步骤 5：KVCacheManager
+│   ├── postprocessor.py     # 步骤 6：PostProcessor
 │   │
-│   ├── summarizer.py        # ConversationSummarizer (used by compressor)
+│   ├── summarizer.py        # ConversationSummarizer（由压缩器使用）
 │   │
-│   │ # MemoryBank Module - 4 Sub-modules
+│   │ # MemoryBank 模块 - 4 个子模块
 │   ├── memory/
-│   │   ├── __init__.py      # Exports all memory components
-│   │   ├── bank.py          # Main MemoryBank class
+│   │   ├── __init__.py      # 导出所有记忆组件
+│   │   ├── bank.py          # 主 MemoryBank 类
 │   │   ├── session.py       # SessionManager
-│   │   ├── extractor.py     # Extract high-value information
-│   │   ├── retriever.py     # Retrieve relevant memories
-│   │   └── updater.py       # Memory updates (Add/Delete/Update)
+│   │   ├── extractor.py     # 提取高价值信息
+│   │   ├── retriever.py     # 检索相关记忆
+│   │   └── updater.py       # 记忆更新（添加/删除/更新）
 │   │
-│   ├── strategies/          # Strategy interfaces
-│   │   ├── __init__.py      # Re-exports from memory
-│   │   ├── base.py          # Base strategy interfaces
-│   │   └── defaults.py      # Default implementations
+│   ├── strategies/          # 策略接口
+│   │   ├── __init__.py      # 从 memory 重新导出
+│   │   ├── base.py          # 基础策略接口
+│   │   └── defaults.py      # 默认实现
 │   │
 │   ├── utils/
 │   │   ├── __init__.py
 │   │   └── embedding.py
 │   │
-│   │ # Backward Compatibility Wrappers
-│   ├── pipeline.py          # Re-exports from modular components
-│   └── memory.py            # Re-exports from memory/ submodule
+│   │ # 向后兼容包装器
+│   ├── pipeline.py          # 从模块化组件重新导出
+│   └── memory.py            # 从 memory/ 子模块重新导出
 │
-├── examples/                # Examples and demos
+├── examples/                # 示例和演示
 │   ├── chat_app.py
 │   ├── callcenter_app.py
 │   ├── gradio_app.py
@@ -80,116 +80,116 @@ ContextMind/
 │   ├── plugin_examples.py
 │   └── llm_client.py
 │
-├── tests/                   # Unit and integration tests
-├── docs/                    # Documentation
-└── logs/                    # Log files
+├── tests/                   # 单元和集成测试
+├── docs/                    # 文档
+└── logs/                    # 日志文件
 ```
 
-## Core Components
+## 核心组件
 
-### 1. Pipeline Components (6 Steps)
+### 1. 流水线组件（6 步）
 
-#### Step 1: InputPreprocessor (`preprocessor.py`)
-- **Purpose**: Input cleaning and normalization
-- **Methods**: Text cleaning, validation, normalization
-- **Common techniques**: Regex-based cleaning, dynamic prompt templates, semantic chunking
+#### 步骤 1：InputPreprocessor (`preprocessor.py`)
+- **目的**：输入清理和规范化
+- **方法**：文本清理、验证、规范化
+- **常用技术**：基于正则的清理、动态提示模板、语义分块
 
-#### Step 2: Context Retrieval
-- **ContextRetriever** (`retriever.py`): External knowledge retrieval (placeholder)
-- **MemoryBank** (`memory/bank.py`): Long-term memory management
-  - Uses 4 sub-modules: Extractor, Retriever, Updater, Bank
+#### 步骤 2：上下文检索
+- **ContextRetriever** (`retriever.py`)：外部知识检索（占位符）
+- **MemoryBank** (`memory/bank.py`)：长期记忆管理
+  - 使用 4 个子模块：Extractor、Retriever、Updater、Bank
 
-#### Step 3: ContextCompressor (`compressor.py`)
-- **Purpose**: Context compression to reduce token usage
-- **Uses**: ConversationSummarizer for recent dialogue summarization
-- **Techniques**: Sliding window, summarization, intelligent filtering
+#### 步骤 3：ContextCompressor (`compressor.py`)
+- **目的**：上下文压缩以减少 token 使用
+- **使用**：ConversationSummarizer 用于最近对话摘要
+- **技术**：滑动窗口、摘要、智能过滤
 
-#### Step 4: ContextReorderer (`reorderer.py`)
-- **Purpose**: Reorder context to highlight key information
-- **Techniques**: Timestamp sorting, source priority, relevance scoring
-- **Mitigates**: "Lost-in-the-Middle" problem
+#### 步骤 4：ContextReorderer (`reorderer.py`)
+- **目的**：重排序上下文以突出关键信息
+- **技术**：时间戳排序、来源优先级、相关性评分
+- **缓解**："中间丢失"问题
 
-#### Step 5: KVCacheManager (`kvcache.py`)
-- **Purpose**: Real-time KV cache management during LLM inference
-- **Strategies**: H2O, SnapKV, sliding window
-- **Integration**: vLLM, sglang hooks (placeholder)
+#### 步骤 5：KVCacheManager (`kvcache.py`)
+- **目的**：大语言模型推理期间的实时 KV 缓存管理
+- **策略**：H2O、SnapKV、滑动窗口
+- **集成**：vLLM、sglang 钩子（占位符）
 
-#### Step 6: PostProcessor (`postprocessor.py`)
-- **Purpose**: Output refinement and consistency checks
-- **Methods**: Format correction, self-refine, fact verification
+#### 步骤 6：PostProcessor (`postprocessor.py`)
+- **目的**：输出优化和一致性检查
+- **方法**：格式校正、自我优化、事实验证
 
-### 2. MemoryBank Module (`memory/`)
+### 2. MemoryBank 模块 (`memory/`)
 
-The MemoryBank implements a 4-sub-module architecture:
+MemoryBank 实现了 4 子模块架构：
 
 #### 2.1 Extractor (`memory/extractor.py`)
-- **Purpose**: Extract high-value information for long-term storage
-- **Implementations**:
-  - `RuleBasedExtractor`: Pattern matching (lightweight)
-  - `LLMBasedExtractor`: LLM-assisted extraction (high-end)
-  - `ImportancePredictorExtractor`: ML-based importance scoring
+- **目的**：提取高价值信息用于长期存储
+- **实现**：
+  - `RuleBasedExtractor`：模式匹配（轻量级）
+  - `LLMBasedExtractor`：大语言模型辅助提取（高端）
+  - `ImportancePredictorExtractor`：基于机器学习的重要性评分
 
 #### 2.2 Retriever (`memory/retriever.py`)
-- **Purpose**: Retrieve relevant memories based on query
-- **Implementations**:
-  - `SemanticSearchRetriever`: Embedding-based similarity
-  - `HybridRetriever`: Semantic + keyword matching
-  - `LocatorMechanism`: Precise localization with context weighting
+- **目的**：基于查询检索相关记忆
+- **实现**：
+  - `SemanticSearchRetriever`：基于嵌入的相似性
+  - `HybridRetriever`：语义 + 关键词匹配
+  - `LocatorMechanism`：带上下文加权的精确定位
 
 #### 2.3 Updater (`memory/updater.py`)
-- **Purpose**: Intelligent memory updates (Add/Delete/Update)
-- **Operations**:
-  - **Add**: Insert new high-value memories
-  - **Delete**: Remove outdated/low-value memories
-  - **Update**: Handle conflicts and information evolution
-- **Implementations**:
-  - `SimpleUpdater`: Basic add/update/dedup logic
-  - `ConflictResolver`: LLM-based conflict detection
-  - `AdaptiveEviction`: Predictive pruning
+- **目的**：智能记忆更新（添加/删除/更新）
+- **操作**：
+  - **添加**：插入新的高价值记忆
+  - **删除**：删除过时/低价值记忆
+  - **更新**：处理冲突和信息演化
+- **实现**：
+  - `SimpleUpdater`：基本添加/更新/去重逻辑
+  - `ConflictResolver`：基于大语言模型的冲突检测
+  - `AdaptiveEviction`：预测性修剪
 
 #### 2.4 Bank (`memory/bank.py`)
-- **Purpose**: Main MemoryBank class coordinating all sub-modules
-- **Features**:
-  - Persistent user/dialogue memory storage
-  - Structured memory notes (preferences, facts, events)
-  - Memory lifecycle management
-  - Cross-session continuity
+- **目的**：协调所有子模块的主 MemoryBank 类
+- **功能**：
+  - 持久化用户/对话记忆存储
+  - 结构化记忆笔记（偏好、事实、事件）
+  - 记忆生命周期管理
+  - 跨会话连续性
 
-### 3. Supporting Components
+### 3. 支持组件
 
 #### SessionManager (`memory/session.py`)
-- Manages conversation sessions
-- Stores message history
-- Provides recent history access
+- 管理对话会话
+- 存储消息历史
+- 提供最近历史访问
 
 #### ConversationSummarizer (`summarizer.py`)
-- Summarizes recent dialogue
-- Used by ContextCompressor
-- Reduces token usage while preserving context
+- 摘要最近对话
+- 由 ContextCompressor 使用
+- 在保留上下文的同时减少 token 使用
 
 #### ContextEngine (`engine.py`)
-- Main orchestration engine
-- Coordinates all pipeline components
-- Provides high-level API: `optimize()`, `update()`, `extract_knowledge()`
+- 主编排引擎
+- 协调所有流水线组件
+- 提供高级 API：`optimize()`、`update()`、`extract_knowledge()`
 
 #### ContextMind (`config.py`)
-- Easy integration API
-- Simplified configuration
-- Plugin registry integration
+- 易集成 API
+- 简化配置
+- 插件注册表集成
 
-## Import Patterns
+## 导入模式
 
-### Recommended (New Code)
+### 推荐（新代码）
 
 ```python
-# Pipeline components
+# 流水线组件
 from contextmind.preprocessor import InputPreprocessor
 from contextmind.compressor import ContextCompressor
 from contextmind.reorderer import ContextReorderer
 from contextmind.postprocessor import PostProcessor
 from contextmind.kvcache import KVCacheManager
 
-# Memory components
+# 记忆组件
 from contextmind.memory import (
     MemoryBank,
     SessionManager,
@@ -202,14 +202,14 @@ from contextmind.memory import (
     SimpleUpdater,
 )
 
-# High-level API
+# 高级 API
 from contextmind import ContextMind, ContextEngine
 ```
 
-### Backward Compatible (Legacy Code)
+### 向后兼容（遗留代码）
 
 ```python
-# Old pipeline imports still work
+# 旧流水线导入仍然有效
 from contextmind.pipeline import (
     InputPreprocessor,
     ContextCompressor,
@@ -217,61 +217,61 @@ from contextmind.pipeline import (
     PostProcessor,
 )
 
-# Old memory imports still work
+# 旧记忆导入仍然有效
 from contextmind.memory import MemoryBank, SessionManager, KVCacheManager
 
-# Old strategy imports redirected to memory
+# 旧策略导入重定向到 memory
 from contextmind.strategies import extractors, retrievers, updaters
 ```
 
-## Migration Guide
+## 迁移指南
 
-### From v7.1 to v7.2+
+### 从 v7.1 迁移到 v7.2+
 
-1. **Pipeline imports**: Change from `contextmind.pipeline.X` to `contextmind.X`
+1. **流水线导入**：从 `contextmind.pipeline.X` 改为 `contextmind.X`
    ```python
-   # Old
+   # 旧
    from contextmind.pipeline.compressor import ContextCompressor
-   # New
+   # 新
    from contextmind.compressor import ContextCompressor
    ```
 
-2. **Memory imports**: Use `contextmind.memory` submodule
+2. **记忆导入**：使用 `contextmind.memory` 子模块
    ```python
-   # Old
+   # 旧
    from contextmind.strategies.extractors import RuleBasedExtractor
-   # New
+   # 新
    from contextmind.memory import RuleBasedExtractor
    ```
 
-3. **Strategy imports**: Import from `strategies.defaults`
+3. **策略导入**：从 `strategies.defaults` 导入
    ```python
-   # Old
+   # 旧
    from contextmind.strategies.optimization import CompressionStrategy
-   # New
+   # 新
    from contextmind.strategies.defaults import CompressionStrategy
    ```
 
-## Design Principles
+## 设计原则
 
-1. **Modularity**: Each step in the pipeline is a separate module
-2. **Plugin Architecture**: All components are pluggable and swappable
-3. **Backward Compatibility**: Old imports still work via wrapper modules
-4. **Clear Separation**: Pipeline, Memory, Strategies, and Utils are distinct
-5. **Type Safety**: Strong typing with dataclasses
-6. **Async-First**: All I/O operations use async/await
+1. **模块化**：流水线中的每一步都是独立模块
+2. **插件架构**：所有组件都是可插拔和可替换的
+3. **向后兼容**：旧导入仍通过包装模块工作
+4. **清晰分离**：Pipeline、Memory、Strategies 和 Utils 是独立的
+5. **类型安全**：使用 dataclass 进行强类型检查
+6. **异步优先**：所有 I/O 操作使用 async/await
 
-## Architecture Benefits
+## 架构优势
 
-1. **Clear Structure**: Easy to understand the flow from input to output
-2. **Easy Testing**: Each component can be tested independently
-3. **Flexible**: Components can be swapped or extended
-4. **Maintainable**: Related code is grouped together
-5. **Scalable**: New components can be added without breaking existing code
+1. **清晰的结构**：易于理解从输入到输出的流程
+2. **易于测试**：每个组件都可以独立测试
+3. **灵活性**：组件可以被替换或扩展
+4. **可维护性**：相关代码组织在一起
+5. **可扩展性**：可以添加新组件而不破坏现有代码
 
-## Next Steps
+## 后续步骤
 
-- Implement full ContextRetriever for external knowledge bases
-- Add more Extractor/Retriever/Updater strategies
-- Integrate with real inference frameworks (vLLM, sglang) for KVCache
-- Enhance PostProcessor with advanced refinement strategies
+- 为外部知识库实现完整的 ContextRetriever
+- 添加更多 Extractor/Retriever/Updater 策略
+- 为 KVCache 集成真实的推理框架（vLLM、sglang）
+- 使用高级优化策略增强 PostProcessor
