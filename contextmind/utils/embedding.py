@@ -129,6 +129,7 @@ class EmbeddingClient:
             logger.warning("[EmbeddingClient] OpenAI 未安装，embedding 功能不可用")
             self.client = None
             self.config = None
+            self.embedding_supported = False
             return
         
         # 从环境变量或参数加载配置
@@ -138,6 +139,7 @@ class EmbeddingClient:
             logger.warning(f"[EmbeddingClient] 配置加载失败: {e}")
             self.client = None
             self.config = None
+            self.embedding_supported = False
             return
         
         # 构造 headers，如果需要 Access Key
@@ -153,9 +155,12 @@ class EmbeddingClient:
                 default_headers=headers if headers else None,
             )
             logger.info(f"[EmbeddingClient] 初始化成功 - 使用 LLM 模型: {self.config.model}")
+            # 标记为支持，但在首次调用时会验证
+            self.embedding_supported = True
         except Exception as e:
             logger.error(f"[EmbeddingClient] 初始化失败: {e}")
             self.client = None
+            self.embedding_supported = False
     
     def generate_embedding(self, text: str) -> Optional[EmbeddingInfo]:
         """
@@ -168,6 +173,10 @@ class EmbeddingClient:
             EmbeddingInfo 对象，如果失败则返回 None
         """
         if not self.client or not self.config:
+            return None
+        
+        # 如果已知不支持 embedding，直接返回 None
+        if not self.embedding_supported:
             return None
         
         if not text or not text.strip():
@@ -217,8 +226,15 @@ class EmbeddingClient:
             logger.error(f"[EmbeddingClient] API 响应格式错误: {e}")
             return None
         except Exception as e:
-            logger.error(f"[EmbeddingClient] 生成 embedding 失败: {e}")
-            logger.info(f"[EmbeddingClient] 提示：请确保 {self.config.model} 模型支持 embedding 生成")
+            error_str = str(e)
+            # 检查是否是模型不支持 embedding 的错误
+            if "does not appear to be an embedding model" in error_str or "BadRequestError" in error_str:
+                logger.warning(f"[EmbeddingClient] 模型 {self.config.model} 不支持 embedding 生成")
+                logger.info("[EmbeddingClient] 将禁用 embedding 功能，框架将使用字符级相似度作为替代方案")
+                # 标记为不支持，避免后续重复尝试
+                self.embedding_supported = False
+            else:
+                logger.error(f"[EmbeddingClient] 生成 embedding 失败: {e}")
             return None
 
 
