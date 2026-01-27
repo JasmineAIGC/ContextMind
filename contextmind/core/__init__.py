@@ -1,4 +1,4 @@
-"""Core framework components."""
+"""核心框架组件"""
 
 from ..engine import ContextEngine as ContextMindEngine
 from .registry import PluginRegistry, registry

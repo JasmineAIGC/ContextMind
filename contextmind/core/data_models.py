@@ -1,8 +1,8 @@
 """
-Core Data Models (v7.3)
+核心数据模型 (v7.3)
 
-Dataclass models for messages, context items, knowledge, and other core data structures.
-Extracted from models.py during v7.3 modular refactoring for better organization.
+用于消息、上下文项、知识和其他核心数据结构的数据类模型。
+在v7.3模块化重构期间从models.py中提取，以实现更好的组织结构。
 """
 
 from __future__ import annotations
@@ -14,17 +14,17 @@ from .types import KnowledgeType, MessageRole, ContextSource
 
 
 # ============================================================================
-# Embedding and Scoring Models
+# 嵌入和评分模型
 # ============================================================================
 
 @dataclass
 class EmbeddingInfo:
     """
-    Embedding向量信息
+    向量嵌入信息
     
-    支持多种embedding模型，便于跨模型检索和模型升级
+    支持多种嵌入模型，便于跨模型检索和模型升级
     """
-    model: str  # embedding模型名称
+    model: str  # 嵌入模型名称
     vector: List[float]  # 向量数据
     dimension: int  # 向量维度
     created_at: datetime = field(default_factory=datetime.now)
@@ -59,7 +59,7 @@ class VersionRecord:
 
 
 # ============================================================================
-# Message and Context Types
+# 消息和上下文类型
 # ============================================================================
 
 @dataclass
@@ -82,7 +82,7 @@ class Message:
 @dataclass
 class ContextItem:
     """
-    用于 Prompt 构建的 Context 项
+    用于 Prompt 构建的上下文项
     
     Attributes:
         content: 项内容
@@ -103,10 +103,10 @@ class ContextItem:
 @dataclass
 class ContextResult:
     """
-    Context 检索/处理结果
+    上下文检索/处理结果
     
     Attributes:
-        items: Context 项列表
+        items: 上下文项列表
         total_tokens: 总 Token 数
         compressed: 是否经过压缩
         metadata: 处理元数据
@@ -120,10 +120,10 @@ class ContextResult:
 @dataclass
 class ProcessedContext:
     """
-    已处理和优化的 Context
+    已处理和优化的上下文
     
     Attributes:
-        items: Context 项列表
+        items: 上下文项列表
         metadata: 处理元数据 (压缩比等)
     """
     items: List[ContextItem] = field(default_factory=list)
@@ -133,7 +133,7 @@ class ProcessedContext:
 @dataclass
 class MemoryNote:
     """
-    存储在 Memory Bank 中的记忆笔记
+    存储在记忆库中的记忆笔记
     
     Attributes:
         content: 笔记内容
@@ -163,7 +163,7 @@ class Chunk:
 @dataclass
 class ContextState:
     """
-    Context 处理状态
+    上下文处理状态
     
     Attributes:
         current_tokens: 当前 Token 数
@@ -176,7 +176,7 @@ class ContextState:
 
 
 # ============================================================================
-# Knowledge Storage Model
+# 知识存储模型
 # ============================================================================
 
 @dataclass
@@ -199,7 +199,7 @@ class Knowledge:
         content: 核心文本内容
         summary: 简短摘要（可选）
         
-        embeddings: 多embedding向量字典 {name: EmbeddingInfo}
+        embeddings: 多嵌入向量字典 {name: EmbeddingInfo}
         scores: 四维评分信息
         version_history: 版本历史记录
         
@@ -245,7 +245,7 @@ class Knowledge:
     version_history: List[VersionRecord] = field(default_factory=list)
     
     # 提取信息
-    extraction_method: str = "rule"  # 'rule' or 'llm'
+    extraction_method: str = "rule"  # 'rule' 或 'llm'
     source_message_ids: List[str] = field(default_factory=list)
     
     # 时间戳

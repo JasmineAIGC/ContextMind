@@ -1,5 +1,5 @@
 """
-ContextMind Configuration API - 简单的框架配置
+ContextMind 配置 API - 简单的框架配置
 
 提供一个简单、统一的 API 来配置整个 ContextMind 框架。
 通过合理的默认值和最少的样板代码使集成变得简单。
@@ -16,7 +16,7 @@ ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
     # 设置
     cm = ContextMind()
     
-    # 步骤 1-4: ContextMind 构建优化后的 Context
+    # 步骤 1-4: ContextMind 构建优化后的上下文
     context = await cm.prepare_context("Hello", session_id="user123")
     
     # 步骤 5: 用户调用外部 LLM (vLLM, OpenAI 等)
@@ -57,14 +57,14 @@ class ContextMind:
     
     功能特性:
     - 自动插件选择，合理的默认配置
-    - prepare_context() 用于步骤 1-4 (返回优化后的 Context)
+    - prepare_context() 用于步骤 1-4 (返回优化后的上下文)
     - post_process() 用于步骤 6 (处理 LLM 输出)
-    - 内置 Session 管理
+    - 内置会话管理
     - 简单的插件切换
     
     属性:
         engine: 底层的 ContextEngine 实例
-        session_id: 当前 Session ID (如果已设置)
+        session_id: 当前会话 ID (如果已设置)
     """
     
     def __init__(
@@ -105,14 +105,14 @@ class ContextMind:
             # 提取器已在 engine 初始化时设置
             # 不需要额外配置
             
-            # 为 Memory Bank 设置检索器和更新器
+            # 为记忆库设置检索器和更新器
             retriever_plugin = registry.get_retriever(retriever)
             updater_plugin = registry.get_updater(updater)
             if self.engine.memory and retriever_plugin and updater_plugin:
                 self.engine.memory.set_retriever(retriever_plugin)
                 self.engine.memory.set_updater(updater_plugin)
         
-        # 配置 Pipeline 组件
+        # 配置流水线组件
         if not enable_compression and hasattr(self.engine, 'compressor'):
             self.engine.compressor = None
         
@@ -137,12 +137,12 @@ class ContextMind:
         system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        步骤 1-4: 为 LLM 调用构建优化的 Context
+        步骤 1-4: 为 LLM 调用构建优化的上下文
         
-        此方法运行上下文工程 Pipeline:
+        此方法运行上下文工程流水线:
         1. InputPreprocessor - 清理和规范化输入
-        2. ContextRetriever + MemoryBank - 检索相关 Context
-        3. ContextCompressor - 压缩以适应 Context 窗口
+        2. ContextRetriever + MemoryBank - 检索相关上下文
+        3. ContextCompressor - 压缩以适应上下文窗口
         4. ContextReorderer - 重排序以获得最佳注意力
         
         之后，用户应调用他们的 LLM (步骤 5)，然后对 LLM 输出调用
@@ -150,12 +150,12 @@ class ContextMind:
         
         Args:
             user_input: 用户消息
-            session_id: 用于对话跟踪的 Session ID
+            session_id: 用于对话跟踪的会话 ID
             system_prompt: 可选的系统提示词覆盖
             
         Returns:
             包含以下内容的字典:
-                - 'optimized_context': List - 准备好供 LLM 使用的 Context 项
+                - 'optimized_context': List - 准备好供 LLM 使用的上下文项
                 - 'system_prompt': str - 系统指令
                 - 'user_input': str - 处理后的用户输入
                 - 'messages': List - 完整的消息历史
@@ -164,7 +164,7 @@ class ContextMind:
         使用示例:
             ```python
             cm = ContextMind()
-            # 步骤 1-4: ContextMind 构建优化的 Context
+            # 步骤 1-4: ContextMind 构建优化的上下文
             context = await cm.prepare_context("Hello", session_id="user123")
             
             # 步骤 5: 用户调用外部 LLM
@@ -194,7 +194,7 @@ class ContextMind:
         # 添加当前消息
         messages.append(user_msg)
         
-        # 步骤 1-4: 优化 Context (核心上下文工程)
+        # 步骤 1-4: 优化上下文 (核心上下文工程)
         optimized = await self.engine.optimize_context(
             messages=messages,
             query=user_input,
@@ -203,10 +203,10 @@ class ContextMind:
         )
         
         logger.info(
-            f"[ContextMind] ✓ Context 已优化: {len(optimized.context)} 项准备供 LLM 使用"
+            f"[ContextMind] ✓ 上下文已优化: {len(optimized.context)} 项准备供 LLM 使用"
         )
         
-        # 返回结构化的 Context 用于外部 LLM 调用
+        # 返回结构化的上下文用于外部 LLM 调用
         return {
             'optimized_context': optimized.context,
             'system_prompt': system_prompt or "",
@@ -234,11 +234,11 @@ class ContextMind:
         - 生成引用 (如适用)
         - 一致性检查
         
-        还处理知识提取和 Session 更新。
+        还处理知识提取和会话更新。
         
         Args:
             llm_output: LLM 的原始输出
-            session_id: 用于对话跟踪的 Session ID
+            session_id: 用于对话跟踪的会话 ID
             extract_knowledge: 是否从对话中提取知识
             
         Returns:
@@ -265,15 +265,15 @@ class ContextMind:
         # 使用提供的 session_id 或存储的
         sid = session_id or self.session_id
         
-        # 创建助手消息用于 Session 存储
+        # 创建助手消息用于会话存储
         if sid and self.engine.session:
             assistant_msg = Message(role=MessageRole.ASSISTANT, content=processed_output)
             await self.engine.session.add_message(sid, assistant_msg)
-            logger.debug(f"[ContextMind] 回复已保存到 Session: {sid}")
+            logger.debug(f"[ContextMind] 回复已保存到会话: {sid}")
         
         # 如果启用则提取知识
         if extract_knowledge and self.engine.extractor and self.engine.memory:
-            # 从 Session 获取最后一条用户消息
+            # 从会话获取最后一条用户消息
             if sid and self.engine.session:
                 recent_messages = await self.engine.session.get_messages(sid, limit=2)
                 if len(recent_messages) >= 2:

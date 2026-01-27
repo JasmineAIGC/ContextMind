@@ -1,14 +1,13 @@
 """
-Core Data Models Module (v7.3 Compatibility Layer)
+核心数据模型模块 (v7.3 兼容层)
 
-Backward compatibility module - imports from split modules.
-For new code, import directly from types, data_models, configs, or utils.logger
+向后兼容性模块 - 从拆分的模块导入。
+对于新代码，请直接从 types、data_models、configs 或 utils.logger 导入。
 
-This module maintains backward compatibility by re-exporting all components
-from the new modular structure introduced in v7.3.
+此模块通过重新导出v7.3中引入的新模块化结构的所有组件来保持向后兼容性。
 """
 
-# Import from new modular structure
+# 从新的模块化结构导入
 from .types import (
     KnowledgeType,
     MemoryType,
@@ -50,14 +49,14 @@ from ..utils.logger import (
     DEBUG,
 )
 
-# Re-export all for backward compatibility
+# 重新导出所有内容以保持向后兼容性
 __all__ = [
-    # Types
+    # 类型
     "KnowledgeType",
     "MemoryType",
     "MessageRole",
     "ContextSource",
-    # Data Models
+    # 数据模型
     "EmbeddingInfo",
     "ScoreInfo",
     "VersionRecord",
@@ -69,14 +68,14 @@ __all__ = [
     "Chunk",
     "ContextState",
     "Knowledge",
-    # Configs
+    # 配置
     "RetrievalConfig",
     "ExtractionConfig",
     "CompressionConfig",
     "SummarizationConfig",
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
-    # Logger
+    # 日志
     "LogLevel",
     "ContextMindLogger",
     "get_logger",

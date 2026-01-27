@@ -1,8 +1,8 @@
 """
-Configuration Data Models (v7.3)
+配置数据模型 (v7.3)
 
-Configuration dataclasses for retrieval, extraction, compression, and memory systems.
-Extracted from models.py during v7.3 modular refactoring for better organization.
+用于检索、提取、压缩和记忆系统的配置数据类。
+在v7.3模块化重构期间从models.py中提取，以实现更好的组织结构。
 """
 
 from dataclasses import dataclass, field
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class RetrievalConfig:
-    """Context 检索配置"""
+    """上下文检索配置"""
     top_k: int = 5
     min_score: float = 0.5
     use_semantic: bool = True
@@ -36,7 +36,7 @@ class RetrievalConfig:
 class ExtractionConfig:
     """知识提取配置"""
     # 提取方式: 'rule' (规则提取) 或 'llm' (LLM 自动提取)
-    extraction_method: str = "rule"  # 'rule' or 'llm'
+    extraction_method: str = "rule"  # 'rule' 或 'llm'
     
     # 通用配置
     min_confidence: float = 0.5  # 降低阈值，允许提取更多潜在有价值的信息
@@ -64,7 +64,7 @@ class ExtractionConfig:
 
 @dataclass
 class CompressionConfig:
-    """Context 压缩配置"""
+    """上下文压缩配置"""
     max_tokens: int = 2000
     strategy: str = "simple"
 

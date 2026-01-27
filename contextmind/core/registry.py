@@ -1,5 +1,5 @@
 """
-ContextMind Plugin Registry - 集中式插件发现和管理
+ContextMind 插件注册中心 - 集中式插件发现和管理
 
 本模块为所有 ContextMind 插件提供统一的注册中心，便于发现、替换和配置不同的算法实现。
 

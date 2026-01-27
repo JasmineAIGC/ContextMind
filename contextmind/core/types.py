@@ -1,8 +1,8 @@
 """
-Core Type Definitions (v7.3)
+核心类型定义 (v7.3)
 
-Enumerations used throughout ContextMind for knowledge types, memory types, and message roles.
-Extracted from models.py during v7.3 modular refactoring for better organization.
+ContextMind 中使用的枚举类型，用于知识类型、记忆类型和消息角色。
+在v7.3模块化重构期间从models.py中提取，以实现更好的组织结构。
 """
 
 from enum import Enum
@@ -92,7 +92,7 @@ class MessageRole(str, Enum):
 
 
 class ContextSource(str, Enum):
-    """Context 项来源"""
+    """上下文项来源"""
     MEMORY = "memory"
     RAG = "rag"
     HISTORY = "history"

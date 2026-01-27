@@ -1,5 +1,5 @@
 """
-Strategy Base Classes - 策略基类
+策略基类 - 策略基类
 
 定义了所有策略的抽象基类接口和默认实现
 """
@@ -69,10 +69,10 @@ class OptimizationStrategy(ABC):
     - 输出: 可以是 ProcessedContext (中间步骤) 或 ContextResult (最终步骤)
     
     优化策略分为两类:
-    1. **中间优化** (如 RerankingStrategy): 返回 ProcessedContext, 用于 Pipeline 中间步骤
+    1. **中间优化** (如 RerankingStrategy): 返回 ProcessedContext, 用于流水线中间步骤
     2. **最终优化** (如 CompressionStrategy): 返回 ContextResult, 调用 context.to_context_result() 转换
     
-    这样可以确保类型安全, 同时保持 Pipeline 的灵活性
+    这样可以确保类型安全, 同时保持流水线的灵活性
     """
     
     @abstractmethod
@@ -158,14 +158,14 @@ class SummarizerStrategy(ABC):
         pass
 
 
-# Alias for backwards compatibility
+# 向后兼容性别名
 BaseStrategy = ExtractionStrategy
 BaseExtractor = ExtractionStrategy
 BaseRetriever = RetrievalStrategy
 BaseUpdater = UpdateStrategy
 
 
-# Default Implementations
+# 默认实现
 
 class CompressionStrategy(OptimizationStrategy):
     """
@@ -232,19 +232,19 @@ class RerankingStrategy(OptimizationStrategy):
 
 
 __all__ = [
-    # Base strategy interfaces
+    # 基础策略接口
     'ExtractionStrategy',
     'RetrievalStrategy',
     'IntegrationStrategy',
     'OptimizationStrategy',
     'UpdateStrategy',
     'SummarizerStrategy',
-    # Backward compatibility aliases
+    # 向后兼容性别名
     'BaseStrategy',
     'BaseExtractor',
     'BaseRetriever',
     'BaseUpdater',
-    # Default strategies
+    # 默认策略
     'CompressionStrategy',
     'RerankingStrategy',
 ]

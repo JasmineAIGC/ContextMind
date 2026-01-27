@@ -1,33 +1,31 @@
 """
 ContextMind - 专业的上下文优化框架 v7.3
-ContextMind - Professional Context Optimization Framework v7.3
 
 完全通用化的上下文工程框架，支持任意对话场景
-Fully generalized context engineering framework supporting any dialogue scenario
 
-核心模块 Core Modules：
-- InputPreprocessor: 输入预处理 / Input preprocessing
-- MemoryBank: 长期记忆管理 / Long-term memory management
-- ContextCompressor: 上下文压缩 / Context compression
-- ContextReorderer: 上下文重排序 / Context reordering
-- PostProcessor: 输出后处理 / Output post-processing  
-- ConversationSummarizer: 对话摘要 / Conversation summarization
-- KVCacheManager: KV缓存管理 / KV cache management
+核心模块：
+- InputPreprocessor: 输入预处理
+- MemoryBank: 长期记忆管理
+- ContextCompressor: 上下文压缩
+- ContextReorderer: 上下文重排序
+- PostProcessor: 输出后处理
+- ConversationSummarizer: 对话摘要
+- KVCacheManager: KV缓存管理
 
-NEW in v7.3 - Modular Structure & Code Quality:
+v7.3 新增功能 - 模块化结构与代码质量：
 {
     from contextmind import ContextMind, registry
     
-    # Easy integration API
+    # 简易集成API
     cm = ContextMind()
     context = await cm.prepare_context(user_input, session_id)
     
-    # Plugin registry
+    # 插件注册中心
     print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
     print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
 }
 
-架构设计 (v7.0 - Pure Context Engineering):
+架构设计 (v7.0 - 纯上下文工程):
 ┌─────────────────────────────────────────┐
 │  应用层 (Application Layer)              │  ← demos/
 │  - 基于框架构建的具体应用                 │
@@ -49,15 +47,15 @@ NEW in v7.3 - Modular Structure & Code Quality:
 └─────────────────────────────────────────┘
 
 v7.3 核心改进：
-- ✨ Modular Structure: Split models.py into types, data_models, configs, logger
-- ✨ Engine Reorganization: Moved engine.py to top level for better access
-- ✨ Code Quality: Improved organization and maintainability
-- ✨ Logger Utilities: Dedicated logger module in utils/
-- ✨ Clean Imports: Better import organization with backward compatibility
-- ✨ Enhanced Observability: Improved logging structure
+- ✨ 模块化结构：将 models.py 拆分为 types、data_models、configs、logger
+- ✨ 引擎重组：将 engine.py 移至顶层以便更好访问
+- ✨ 代码质量：改进组织结构和可维护性
+- ✨ 日志工具：在 utils/ 中提供专用日志模块
+- ✨ 清晰导入：改进导入组织结构并保持向后兼容性
+- ✨ 增强可观测性：改进日志结构
 """
 
-# Core Framework Components
+# 核心框架组件
 from .core import (
     ContextMindEngine,
     PluginRegistry,
@@ -85,7 +83,7 @@ from .core import (
     OptimizationStrategy,
     CompressionStrategy,
     RerankingStrategy,
-    # Logging
+    # 日志
     ContextMindLogger,
     LogLevel,
     get_logger,
@@ -96,7 +94,7 @@ from .core import (
     DEBUG,
 )
 
-# Pipeline Components (6-Step Processing)
+# 流水线组件 (6步处理流程)
 from .pipeline import (
     Preprocessor,
     ContextRetriever,
@@ -109,7 +107,7 @@ from .pipeline import (
     RuleBasedSummarizer,
 )
 
-# Memory Bank Module
+# 记忆库模块
 from .memory import (
     MemoryBank,
     SessionManager,
@@ -121,7 +119,7 @@ from .memory import (
     BaseUpdater,
 )
 
-# Backward compatibility aliases
+# 向后兼容性别名
 registry = PluginRegistry()
 ContextMind = ContextMindConfig
 ContextEngine = ContextMindEngine
@@ -129,19 +127,19 @@ InputPreprocessor = Preprocessor
 ConversationSummarizer = LLMBasedSummarizer
 
 __all__ = [
-    # Easy Integration API
+    # 简易集成API
     "ContextMind",
     "ContextMindConfig",
     
-    # Plugin System
+    # 插件系统
     "registry",
     "PluginRegistry",
     
-    # Core Engine
+    # 核心引擎
     "ContextEngine",
     "ContextMindEngine",
     
-    # Data Models
+    # 数据模型
     "Message",
     "MessageRole",
     "ContextItem",
@@ -154,7 +152,7 @@ __all__ = [
     "ContextState",
     "EmbeddingInfo",
     
-    # Configurations
+    # 配置
     "ExtractionConfig",
     "RetrievalConfig",
     "SummarizationConfig",
@@ -162,7 +160,7 @@ __all__ = [
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
     
-    # Logging System
+    # 日志系统
     "ContextMindLogger",
     "LogLevel",
     "get_logger",
@@ -172,29 +170,29 @@ __all__ = [
     "INFO",
     "DEBUG",
     
-    # Pipeline (6 Steps)
-    "InputPreprocessor",      # Backward compatibility
-    "Preprocessor",           # Step 1
-    "ContextRetriever",       # Step 2
-    "ContextCompressor",      # Step 3
-    "ContextReorderer",       # Step 4
-    "KVCacheManager",         # Step 5
-    "PostProcessor",          # Step 6
+    # 流水线 (6步处理流程)
+    "InputPreprocessor",      # 向后兼容性
+    "Preprocessor",           # 步骤 1
+    "ContextRetriever",       # 步骤 2
+    "ContextCompressor",      # 步骤 3
+    "ContextReorderer",       # 步骤 4
+    "KVCacheManager",         # 步骤 5
+    "PostProcessor",          # 步骤 6
     
-    # Supporting Components
+    # 支持组件
     "BaseSummarizer",
     "LLMBasedSummarizer",
     "RuleBasedSummarizer",
-    "ConversationSummarizer",  # Backward compatibility
+    "ConversationSummarizer",  # 向后兼容性
     
-    # Memory Bank
+    # 记忆库
     "MemoryBank",
     "SessionManager",
     "LLMBasedExtractor",
     "SemanticSearchRetriever",
     "SimpleUpdater",
     
-    # Strategy Base Classes
+    # 策略基类
     "BaseExtractor",
     "BaseRetriever",
     "BaseUpdater",
@@ -206,4 +204,4 @@ __all__ = [
     "RerankingStrategy",
 ]
 
-__version__ = "7.3.0"  # 当前版本 Current version - Modular Structure & Code Quality
+__version__ = "7.3.0"  # 当前版本 - 模块化结构与代码质量
