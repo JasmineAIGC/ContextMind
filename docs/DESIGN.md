@@ -224,7 +224,7 @@ class KnowledgeType(Enum):
 ### Configuration
 
 ```python
-from contextmind.core import ExtractionConfig
+from contextmind import ExtractionConfig
 
 config = ExtractionConfig(
     extraction_method="llm",  # or "rule"

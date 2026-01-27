@@ -120,11 +120,11 @@ class ContextMind:
             self.engine.reorderer = None
         
         if enable_postprocessing:
-            from .postprocessor import PostProcessor
+            from ..pipeline.postprocessor import PostProcessor
             self.engine.postprocessor = PostProcessor()
         
         if enable_summarization:
-            from .summarizer import ConversationSummarizer
+            from ..pipeline.summarizer import ConversationSummarizer
             self.engine.summarizer = ConversationSummarizer()
         
         self.session_id: Optional[str] = None

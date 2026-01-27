@@ -1,6 +1,6 @@
 # ContextMind
 
-A **universal, extensible, and easy-to-integrate context engineering framework** for LLM-powered dialogue systems.
+A **universal, extensible, and easy-to-integrate context engineering framework** for LLM-powered dialogue systems..
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
