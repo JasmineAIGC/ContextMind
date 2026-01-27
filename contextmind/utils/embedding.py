@@ -268,8 +268,8 @@ class EmbeddingClient:
         # 方式 1：本地模型
         if self.config.use_local and self.local_model:
             try:
-                # 使用 sentence-transformers 生成向量
-                vector = self.local_model.encode(text, convert_to_tensor=False).tolist()
+                # 使用 sentence-transformers 生成向量（禁用进度条）
+                vector = self.local_model.encode(text, convert_to_tensor=False, show_progress_bar=False).tolist()
                 dimension = len(vector)
                 
                 logger.debug(f"[EmbeddingClient] 成功生成 embedding (本地) - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")

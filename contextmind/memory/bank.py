@@ -461,6 +461,7 @@ class MemoryBank:
                     content=formatted_content,
                     source=ContextSource.MEMORY,
                     score=k.confidence,
+                    embeddings=k.embeddings,  # 保留嵌入向量
                     metadata=item_metadata
                 ))
                 logger.debug(f"[MemoryBank] ✓ 已存储: {formatted_content[:80]}...")
