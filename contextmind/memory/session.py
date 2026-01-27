@@ -1,7 +1,7 @@
 """
-SessionManager - Session Management
+SessionManager - 会话管理
 
-Manages conversation sessions and message history.
+管理对话会话和消息历史。
 """
 
 import uuid

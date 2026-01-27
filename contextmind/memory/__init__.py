@@ -1,13 +1,13 @@
 """
-Memory Submodule - MemoryBank Architecture
+记忆子模块 - MemoryBank 架构
 
-Implements the MemoryBank component from the pipeline architecture with 4 sub-modules:
-- Extractor: Extract high-value information
-- Retriever: Retrieve relevant memories  
-- Updater: Intelligent updates (Add/Delete/Update)
-- Bank: Main MemoryBank class
+从管道架构实现 MemoryBank 组件，包含 4 个子模块：
+- Extractor: 提取高价值信息
+- Retriever: 检索相关记忆
+- Updater: 智能更新 (添加/删除/更新)
+- Bank: 主 MemoryBank 类
 
-Also includes SessionManager for session management.
+同时包含用于会话管理的 SessionManager。
 """
 
 from .bank import MemoryBank, STOPWORDS
@@ -28,22 +28,22 @@ from .updater import (
 )
 
 __all__ = [
-    # Main MemoryBank
+    # 主 MemoryBank
     "MemoryBank",
     "STOPWORDS",
     "SessionManager",
     
-    # Extractors (Step 1: Extract high-value info)
+    # 提取器 (步骤 1: 提取高价值信息)
     "BaseExtractor",
     "RuleBasedExtractor",
     "LLMBasedExtractor",
     "ImportancePredictorExtractor",
     
-    # Retrievers (Step 2: Retrieve relevant memories)
+    # 检索器 (步骤 2: 检索相关记忆)
     "BaseRetriever",
     "SemanticSearchRetriever",
     
-    # Updaters (Step 3: Update memory bank)
+    # 更新器 (步骤 3: 更新记忆库)
     "BaseUpdater",
     "SimpleUpdater",
 ]

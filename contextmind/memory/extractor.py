@@ -1,7 +1,7 @@
 """
-Memory Extractors - Unified Knowledge Extraction
+记忆提取器 - 统一知识提取
 
-Merged from:
+合并自：
 - extractors/base.py (BaseExtractor)
 - extractors/rule.py (RuleBasedExtractor)
 - extractors/llm.py (LLMBasedExtractor)
@@ -24,7 +24,7 @@ from ..utils.embedding import get_embedding_client
 logger = get_logger(__name__)
 
 # ============================================================================
-# RuleBasedExtractor - Rule-based Extraction
+# RuleBasedExtractor - 基于规则的提取
 # ============================================================================
 
 class RuleBasedExtractor(BaseExtractor):
@@ -82,17 +82,17 @@ class RuleBasedExtractor(BaseExtractor):
         
         knowledge = []
         
-        # Extract preferences
+        # 提取偏好
         preferences = self._extract_preferences(messages)
         knowledge.extend(preferences)
         logger.debug(f"[Extractor] 提取偏好: {len(preferences)} 条")
         
-        # Extract facts
+        # 提取事实
         facts = self._extract_facts(messages)
         knowledge.extend(facts)
         logger.debug(f"[Extractor] 提取事实: {len(facts)} 条")
         
-        # Extract events
+        # 提取事件
         events = self._extract_events(messages)
         knowledge.extend(events)
         logger.debug(f"[Extractor] 提取事件: {len(events)} 条")
@@ -128,20 +128,20 @@ class RuleBasedExtractor(BaseExtractor):
             if len(content) < 2:
                 continue
             
-            # Intent patterns
+            # 意图模式
             intent_patterns = [
                 (r'想(买|要|购买|入手|做|学|了解|知道)(.+?)(?=[。！？,.!?；：]|$)', 'intent'),
                 (r'需要(.+?)(?=[。！？,.!?；：]|$)', 'need'),
                 (r'希望(.+?)(?=[。！？,.!?；：]|$)', 'hope'),
             ]
             
-            # Positive preference patterns
+            # 正向偏好模式
             positive_patterns = [
                 (r'我(喜欢|想要|希望|需要|偏好|想|要|爱|倾向于)(.+?)(?=[。！？,.!?；：]|$)', 'preference'),
                 (r'比较(喜欢|想要|倾向|偏向)(.+?)(?=[。！？,.!?；：]|$)', 'comparative_preference'),
             ]
             
-            # Process intent patterns
+            # 处理意图模式
             for pattern, category in intent_patterns:
                 matches = re.findall(pattern, content, re.IGNORECASE)
                 for match in matches:
@@ -167,7 +167,7 @@ class RuleBasedExtractor(BaseExtractor):
                             metadata={'category': category, 'action': action, 'target': target, 'context': content[:100]}
                         ))
             
-            # Process positive preferences
+            # 处理正向偏好
             for pattern, category in positive_patterns:
                 matches = re.findall(pattern, content)
                 for match in matches:
@@ -207,7 +207,7 @@ class RuleBasedExtractor(BaseExtractor):
             if len(content) < 3:
                 continue
             
-            # Identity patterns
+            # 身份模式
             identity_patterns = [
                 (r'(我|他|她)是(.+?)(?=[。！？,.!?；：]|$)', 'identity'),
                 (r'(我|他|她)叫(.+?)(?=[。！？,.!?；：]|$)', 'name'),
@@ -276,7 +276,7 @@ class RuleBasedExtractor(BaseExtractor):
 
 
 # ============================================================================
-# LLMBasedExtractor - LLM-based Extraction
+# LLMBasedExtractor - 基于 LLM 的提取
 # ============================================================================
 
 class LLMBasedExtractor(BaseExtractor):
@@ -320,7 +320,7 @@ class LLMBasedExtractor(BaseExtractor):
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """使用LLM提取知识"""
-        # Fallback to rule-based if no LLM client
+        # 如果没有 LLM 客户端，回退到基于规则的提取
         if not self.llm_client:
             logger.debug("[LLMBasedExtractor] 回退到规则提取 (无LLM客户端)")
             fallback = RuleBasedExtractor(self.config)
@@ -337,7 +337,7 @@ class LLMBasedExtractor(BaseExtractor):
             extracted_data = await self._extract_with_llm(conversation_text)
             knowledge_list = self._parse_llm_response(extracted_data, messages)
             
-            # Filter low-confidence knowledge
+            # 过滤低置信度知识
             before_filter = len(knowledge_list)
             knowledge_list = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
             filtered_count = before_filter - len(knowledge_list)
@@ -416,7 +416,7 @@ class LLMBasedExtractor(BaseExtractor):
         knowledge_list = []
         
         try:
-            # Extract JSON from markdown code block if present
+            # 如果存在，从 markdown 代码块中提取 JSON
             json_match = re.search(r'```json\s*(\{.*?\})\s*```', llm_response, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
@@ -432,7 +432,7 @@ class LLMBasedExtractor(BaseExtractor):
                         type_str = item.get('type', '').lower()
                         confidence = float(item.get('confidence', 0.8))
                         
-                        # Validation checks
+                        # 验证检查
                         if not type_str or type_str in ['unknown', 'none', '']:
                             logger.debug(f"[LLMBasedExtractor] 跳过无效类型: type={type_str}")
                             continue
@@ -462,7 +462,7 @@ class LLMBasedExtractor(BaseExtractor):
                             }
                         )
                         
-                        # Generate embedding
+                        # 生成嵌入向量
                         embedding_client = get_embedding_client()
                         if embedding_client:
                             embedding_info = embedding_client.generate_embedding(content)
@@ -486,7 +486,7 @@ class LLMBasedExtractor(BaseExtractor):
 
 
 # ============================================================================
-# ImportancePredictorExtractor - Importance-Aware Extraction
+# ImportancePredictorExtractor - 重要性感知提取
 # ============================================================================
 
 class ImportancePredictorExtractor(BaseExtractor):
@@ -524,7 +524,7 @@ class ImportancePredictorExtractor(BaseExtractor):
         fallback = RuleBasedExtractor(self.config)
         knowledge = await fallback.extract(messages)
         
-        # Future: Add importance prediction scoring here
+        # 未来: 在此添加重要性预测评分
         
         return knowledge
     

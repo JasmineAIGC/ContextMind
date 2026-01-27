@@ -1,5 +1,5 @@
 """
-MemoryBank - Long-term Memory Storage and Retrieval
+MemoryBank - 长期记忆存储和检索
 """
 
 from typing import List, Optional, Dict, Any
@@ -18,7 +18,7 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Import plugin interfaces (optional)
+# 导入插件接口（可选）
 try:
     from .retriever import (
         BaseRetriever,
@@ -33,7 +33,7 @@ except ImportError:
     PLUGINS_AVAILABLE = False
     logger.debug("[MemoryBank] Plugin 架构不可用, 使用内部实现")
 
-# 停用词列表 (可配置, 支持国际化扩展)
+# 停用词列表（可配置，支持国际化扩展）
 STOPWORDS = {
     # 中文常用停用词
     '的', '了', '是', '在', '有', '和', '与', '或', '我', '你', '他', '她', '它', '们',
@@ -74,7 +74,7 @@ class MemoryBank:
         config: 检索配置
     """
     
-    # 存储阈值 (用于与 Updater 向后兼容)
+    # 存储阈值（用于与更新器向后兼容）
     STORAGE_THRESHOLD_PREFERENCE = 0.75
     STORAGE_THRESHOLD_FACT = 0.70
     STORAGE_THRESHOLD_EVENT = 0.70
@@ -93,17 +93,17 @@ class MemoryBank:
         """
         初始化记忆管理器
         
-        v3.4 Plugin 架构:
-        现在支持可插拔的 Retriever 和 Updater 策略
+        v3.4 插件架构:
+        现在支持可插拔的检索器和更新器策略
         
         Args:
-            memory_service: Memory Service 实例 (可选), 如果为 None 则仅使用本地缓存
-            session_service: Session Service 实例 (可选)
+            memory_service: 记忆服务实例（可选），如果为 None 则仅使用本地缓存
+            session_service: 会话服务实例（可选）
             app_name: 应用名称
             user_id: 用户 ID
-            retrieval_config: 检索配置, 如果为 None 则使用默认配置
-            retriever: 自定义 Retriever Plugin (可选), 默认使用 SemanticSearchRetriever
-            updater: 自定义 Updater Plugin (可选), 默认使用 SimpleUpdater
+            retrieval_config: 检索配置，如果为 None 则使用默认配置
+            retriever: 自定义检索器插件（可选），默认使用语义搜索检索器
+            updater: 自定义更新器插件（可选），默认使用简单更新器
         """
         self.memory_service = memory_service
         self.session_service = session_service
@@ -111,7 +111,7 @@ class MemoryBank:
         self.user_id = user_id
         self.config = retrieval_config or DEFAULT_MEMORY_CONFIG.retrieval
         
-        # v3.4 Plugin 架构: 初始化 Plugin
+        # v3.4 插件架构: 初始化插件
         if PLUGINS_AVAILABLE:
             self._retriever = retriever or SemanticSearchRetriever(self.config)
             self._updater = updater or SimpleUpdater()
@@ -145,10 +145,10 @@ class MemoryBank:
         logger.info(f"[MemoryBank] 开始检索记忆 - 查询: '{query[:50]}{'...' if len(query) > 50 else ''}'")
         logger.debug(f"[MemoryBank] 记忆库状态 - Memory Service: {'已配置' if self.memory_service else '未配置'}, 本地缓存大小: {len(self._local_cache)}")
         
-        # Log current memory bank contents
+        # 记录当前记忆库内容
         if self._local_cache:
             logger.debug(f"[MemoryBank] 当前记忆库内容 ({len(self._local_cache)} 条):")
-            for i, item in enumerate(self._local_cache[:5], 1):  # Show first 5
+            for i, item in enumerate(self._local_cache[:5], 1):  # 显示前 5 条
                 logger.debug(f"  {i}. {item.content[:80]}...")
             if len(self._local_cache) > 5:
                 logger.debug(f"  ... 以及其他 {len(self._local_cache) - 5} 条记忆")
@@ -160,7 +160,7 @@ class MemoryBank:
             return await self._retrieve_from_cache(query, limit)
         
         try:
-            # 调用 Memory Service 搜索
+            # 调用记忆服务搜索
             response = await self.memory_service.search_memory(
                 app_name=self.app_name,
                 user_id=self.user_id,
@@ -168,7 +168,7 @@ class MemoryBank:
             )
             
             if response and response.memories:
-                # 转换为 ContextItem
+                # 转换为上下文项
                 items = []
                 for memory in response.memories[:limit]:
                     content = self._content_to_text(memory.content)
@@ -178,7 +178,7 @@ class MemoryBank:
                     items.append(ContextItem(
                         content=content,
                         source=ContextSource.MEMORY,
-                        score=1.0,  # ADK不提供分数，默认为1.0
+                        score=1.0,  # ADK 不提供分数，默认为 1.0
                         timestamp=memory.timestamp if hasattr(memory, 'timestamp') else None,
                         metadata={}
                     ))
@@ -187,7 +187,7 @@ class MemoryBank:
                     logger.info(f"✓ Retrieved {len(items)} memories from Memory Service")
                     return items
             
-            # Memory Service 未返回结果，使用本地缓存备用
+            # 记忆服务未返回结果，使用本地缓存备用
             logger.debug(f"No memories from Memory Service, falling back to local cache (size={len(self._local_cache)})")
             return await self._retrieve_from_cache(query, limit)
             
@@ -199,10 +199,10 @@ class MemoryBank:
         """
         从本地缓存检索相关记忆
         
-        v3.4 Plugin Architecture:
-        Uses pluggable retriever if available, otherwise falls back to internal implementation.
+        v3.4 插件架构:
+        如果可用，使用可插拔检索器，否则回退到内部实现。
         
-        v3.3改进：
+        v3.3 改进：
         - 相关性过滤：只返回达到阈值的记忆
         - 去重：合并高度相似的记忆
         - 时效性加权：最近的记忆获得分数提升
@@ -223,7 +223,7 @@ class MemoryBank:
             logger.warning("[MemoryBank] ✗ 本地缓存为空 - 无法检索记忆")
             return []
         
-        # Use plugin retriever if available
+        # 如果可用，使用插件检索器
         if self._retriever:
             return await self._retriever.retrieve(query, self._local_cache, limit)
         
@@ -231,7 +231,7 @@ class MemoryBank:
         return self._retrieve_from_cache_internal(query, limit)
     
     def _retrieve_from_cache_internal(self, query: str, limit: int = 5) -> List[ContextItem]:
-        """Internal implementation of cache retrieval (fallback when plugins not available)"""
+        """当插件不可用时，缓存检索的内部实现（回退方案）"""
         
         query_lower = query.lower()
         
@@ -250,9 +250,9 @@ class MemoryBank:
                 content_chars = set(content_lower)
                 overlap = len(query_chars & content_chars)
                 
-                # 至少有minimum overlap才考虑
+                # 至少有最小重叠才考虑
                 if overlap >= self.config.min_overlap_chars:
-                    # 计算Jaccard相似度
+                    # 计算 Jaccard 相似度
                     union = len(query_chars | content_chars)
                     similarity = overlap / union if union > 0 else 0
                     score = self.config.base_score + similarity * (0.9 - self.config.base_score)
@@ -381,13 +381,13 @@ class MemoryBank:
         """
         存储知识到长期记忆
         
-        v3.4 Plugin Architecture:
-        Uses pluggable updater if available, otherwise falls back to internal implementation.
+        v3.4 插件架构:
+        如果可用，使用可插拔更新器，否则回退到内部实现。
         
         实现知识存储策略：
         1. 过滤低质量知识
         2. 去重（避免存储重复知识）
-        3. 存储到本地缓存和Memory Service（如果配置）
+        3. 存储到本地缓存和记忆服务（如果配置）
         
         存储标准 (Issue 6):
         - 偏好(PREFERENCE): 置信度 >= 0.75
@@ -406,7 +406,7 @@ class MemoryBank:
         logger.info(f"[MemoryBank] 开始存储知识 - 收到 {len(knowledge)} 条知识项")
         logger.info("")
         
-        # Use plugin updater if available
+        # 如果可用，使用插件更新器
         if self._updater:
             self._local_cache = await self._updater.update(self._local_cache, knowledge)
             logger.info("")
@@ -416,7 +416,7 @@ class MemoryBank:
         await self._store_internal(knowledge)
     
     async def _store_internal(self, knowledge: List[Knowledge]) -> None:
-        """Internal implementation of knowledge storage (fallback when plugins not available)"""
+        """当插件不可用时，知识存储的内部实现（回退方案）"""
         
         # 应用存储策略 (Issue 6)
         filtered_knowledge = []
@@ -455,7 +455,7 @@ class MemoryBank:
             
             if not is_duplicate:
                 new_knowledge.append(k)
-                # 添加类型信息到metadata以便debug模式使用
+                # 添加类型信息到元数据以便调试模式使用
                 item_metadata = {**k.metadata, 'type': k.type.value}
                 self._local_cache.append(ContextItem(
                     content=formatted_content,
@@ -475,7 +475,7 @@ class MemoryBank:
         logger.info(f"[MemoryBank] 当前记忆库总计: {len(self._local_cache)} 条记忆")
         logger.info("")
         
-        # 注意：Memory Service 存储功能已禁用（需要外部服务支持）
+        # 注意：记忆服务存储功能已禁用（需要外部服务支持）
         # 当前所有知识仅存储在本地缓存中
         if self.memory_service:
             logger.debug("[MemoryBank] Memory Service 可用但外部存储未实现 - 仅使用本地缓存")
@@ -515,13 +515,13 @@ class MemoryBank:
         if not chars1 or not chars2:
             return False
         
-        # 计算Jaccard相似度
+        # 计算 Jaccard 相似度
         intersection = len(chars1 & chars2)
         union = len(chars1 | chars2)
         
         similarity = intersection / union if union > 0 else 0
         
-        # 如果相似度超过70%，认为是重复（提高阈值，减少误判）
+        # 如果相似度超过 70%，认为是重复（提高阈值，减少误判）
         return similarity > 0.7
     
     async def seed(self, facts: List[str]) -> None:
@@ -558,20 +558,20 @@ class MemoryBank:
         
         logger.info(f"✓ Added {len(valid_facts)} seed facts to local cache (total cache size: {len(self._local_cache)})")
         
-        # 然后尝试添加到 Memory Service
+        # 然后尝试添加到记忆服务
         if not self.memory_service:
             logger.debug("Memory service is not configured, seeds stored in local cache only")
             logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache")
             return
         
-        # 注意：Memory Service 存储功能已禁用（需要外部服务支持）
+        # 注意：记忆服务存储功能已禁用（需要外部服务支持）
         logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache (external storage not available)")
     
     def get_memory_cache(self) -> List[ContextItem]:
         """
         获取本地记忆缓存的完整内容
         
-        用于debug模式下查看所有已存储的长期记忆。
+        用于调试模式下查看所有已存储的长期记忆。
         
         Returns:
             本地缓存中所有的上下文条目列表
@@ -579,7 +579,7 @@ class MemoryBank:
         return list(self._local_cache)
     
     # =========================================================================
-    # v3.2 Agent Memory System - 结构化记忆管理
+    # v3.2 智能记忆系统 - 结构化记忆管理
     # =========================================================================
     
     def create_memory_note(
@@ -591,7 +591,7 @@ class MemoryBank:
         importance: float = 0.5,
     ) -> MemoryNote:
         """
-        创建结构化记忆笔记（A-MEM风格）
+        创建结构化记忆笔记（A-MEM 风格）
         
         自动提取关键词、生成描述、建立关联。
         
@@ -651,7 +651,7 @@ class MemoryBank:
         """
         从内容中提取关键词
         
-        使用简单的规则提取（可扩展为NLP方法）
+        使用简单的规则提取（可扩展为 NLP 方法）
         """
         # 移除标点
         cleaned = re.sub(r'[^\w\s]', ' ', content)
@@ -660,7 +660,7 @@ class MemoryBank:
         # 过滤停用词和短词（可配置）
         keywords = [w for w in words if len(w) >= 2 and w not in STOPWORDS]
         
-        # 去重并取前5个
+        # 去重并取前 5 个
         seen = set()
         unique = []
         for w in keywords:
@@ -700,7 +700,7 @@ class MemoryBank:
             existing_keywords = set(existing.metadata.get('keywords', []))
             overlap = len(note_keywords & existing_keywords)
             
-            # 需要至少2个关键词重叠才建立关联（避免过度链接）
+            # 需要至少 2 个关键词重叠才建立关联（避免过度链接）
             if overlap >= 2:
                 linked_memories.append(existing_id)
                 # 更新现有记忆的链接
@@ -804,7 +804,7 @@ class MemoryBank:
             current_importance = note.metadata.get('importance_score', 0.5)
             note.metadata['importance_score'] = current_importance * decay_factor
         
-        # 淘汰低价值记忆（保留最少10条）
+        # 淘汰低价值记忆（保留最少 10 条）
         removed = 0
         if len(self._memory_notes) > 10:
             # 找出重要性最低的记忆
@@ -822,10 +822,10 @@ class MemoryBank:
                 if importance < threshold and len(self._memory_notes) - len(to_remove) > 10:
                     to_remove.append(note_id)
             
-            # 执行淘汰（同时从_local_cache中移除）
+            # 执行淘汰（同时从本地缓存中移除）
             for note_id in to_remove:
                 removed_note = self._memory_notes.pop(note_id)
-                # 同步移除_local_cache中的对应条目
+                # 同步移除本地缓存中的对应条目
                 self._local_cache = [
                     item for item in self._local_cache
                     if item.metadata.get('id') != note_id
@@ -841,10 +841,10 @@ class MemoryBank:
         """
         获取所有结构化记忆笔记
         
-        用于debug模式下查看完整记忆库。
+        用于调试模式下查看完整记忆库。
         
         Returns:
-            所有MemoryNote列表
+            所有记忆笔记列表
         """
         return list(self._memory_notes.values())
     
@@ -906,5 +906,5 @@ class MemoryBank:
     
     @staticmethod
     def _new_invocation_id() -> str:
-        """生成新的调用ID"""
+        """生成新的调用 ID"""
         return str(uuid.uuid4())

@@ -1,7 +1,7 @@
 """
-Memory Retrievers - 内存检索的插件实现
+记忆检索器 - 内存检索的插件实现
 
-该模块提供各种策略用于根据当前查询/Context 检索相关记忆。
+该模块提供各种策略用于根据当前查询/上下文检索相关记忆。
 """
 
 from typing import List, Optional
@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 class SemanticSearchRetriever(BaseRetriever):
     """
-    Semantic Search Retriever（现有实现）
+    语义搜索检索器（现有实现）
     
     使用字符级别的重叠度和相似性指标来查找相关记忆。
     支持新近性加权和去重。
@@ -27,10 +27,10 @@ class SemanticSearchRetriever(BaseRetriever):
     
     def __init__(self, config: Optional[RetrievalConfig] = None):
         """
-        初始化 Semantic Search Retriever
+        初始化语义搜索检索器
         
         Args:
-            config: Retrieval 配置，若为 None 则使用默认配置
+            config: 检索配置，若为 None 则使用默认配置
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
     
@@ -41,13 +41,13 @@ class SemanticSearchRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        使用 Embedding + Semantic Similarity 检索记忆
+        使用嵌入向量 + 语义相似度检索记忆
         
-        优先使用 embedding 向量相似度，如果不可用则回退到字符级相似度
+        优先使用嵌入向量相似度，如果不可用则回退到字符级相似度
         
         Args:
             query: 查询字符串
-            memory_cache: 待搜索的 Memory Cache
+            memory_cache: 待搜索的记忆缓存
             limit: 返回结果的最大数量
             
         Returns:
@@ -59,16 +59,16 @@ class SemanticSearchRetriever(BaseRetriever):
             logger.warning("[SemanticRetriever] 缓存为空 - 无法检索记忆")
             return []
         
-        # 尝试生成查询的 embedding
+        # 尝试生成查询的嵌入向量
         embedding_client = get_embedding_client()
         query_embedding = None
         if embedding_client:
             query_embedding = embedding_client.generate_embedding(query)
         
-        # 检查是否可以使用 embedding 检索
+        # 检查是否可以使用嵌入向量检索
         use_embedding = query_embedding is not None
         if use_embedding:
-            # 检查缓存中有多少项有 embedding
+            # 检查缓存中有多少项有嵌入向量
             items_with_embedding = sum(1 for item in memory_cache if item.embeddings)
             if items_with_embedding == 0:
                 use_embedding = False
@@ -81,7 +81,7 @@ class SemanticSearchRetriever(BaseRetriever):
             content_lower = item.content.lower()
             
             if use_embedding and item.embeddings:
-                # 使用 embedding 相似度
+                # 使用嵌入向量相似度
                 item_embedding = item.embeddings.get('default')
                 if item_embedding:
                     similarity, success = calculate_embedding_similarity(query_embedding, item_embedding)
@@ -152,7 +152,7 @@ class SemanticSearchRetriever(BaseRetriever):
     
     def _calculate_char_similarity(self, query_lower: str, content_lower: str) -> float:
         """
-        计算字符级相似度（Jaccard similarity）- 回退方案
+        计算字符级相似度（Jaccard 相似度）- 回退方案
         
         Args:
             query_lower: 小写查询字符串
@@ -171,7 +171,7 @@ class SemanticSearchRetriever(BaseRetriever):
         overlap = len(query_chars & content_chars)
         
         if overlap >= self.config.min_overlap_chars:
-            # Jaccard Similarity（Jaccard 相似度）
+            # Jaccard 相似度
             union = len(query_chars | content_chars)
             similarity = overlap / union if union > 0 else 0
             score = self.config.base_score + similarity * (0.9 - self.config.base_score)
@@ -206,7 +206,7 @@ class SemanticSearchRetriever(BaseRetriever):
         return deduplicated
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """计算两个文本之间的 Jaccard Similarity"""
+        """计算两个文本之间的 Jaccard 相似度"""
         chars1 = set(text1)
         chars2 = set(text2)
         
@@ -221,16 +221,16 @@ class SemanticSearchRetriever(BaseRetriever):
 
 class HybridRetriever(BaseRetriever):
     """
-    混合 Retriever（未来实现的占位符）
+    混合检索器（未来实现的占位符）
     
-    结合 Semantic Search 和关键词匹配以提高检索精度。
+    结合语义搜索和关键词匹配以提高检索精度。
     支持基于类型的过滤。
     
     未来增强功能：
     - BM25 关键词评分
-    - Semantic 和关键词的加权组合
-    - Memory 类型过滤
-    - Query 扩展
+    - 语义和关键词的加权组合
+    - 记忆类型过滤
+    - 查询扩展
     """
     
     def __init__(
@@ -240,11 +240,11 @@ class HybridRetriever(BaseRetriever):
         keyword_weight: float = 0.3
     ):
         """
-        初始化混合 Retriever
+        初始化混合检索器
         
         Args:
-            config: Retrieval 配置
-            semantic_weight: Semantic Similarity 的权重（0-1）
+            config: 检索配置
+            semantic_weight: 语义相似度的权重（0-1）
             keyword_weight: 关键词匹配的权重（0-1）
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
@@ -260,18 +260,18 @@ class HybridRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        使用混合 Semantic + 关键词方法进行检索
+        使用混合语义 + 关键词方法进行检索
         
-        当前实现是一个占位符，会回退到 Semantic Search。
+        当前实现是一个占位符，会回退到语义搜索。
         
         未来待做事项：
         - 实现 BM25 关键词评分
-        - 使用权重组合 Semantic 和关键词分数
-        - 添加 Query 扩展
+        - 使用权重组合语义和关键词分数
+        - 添加查询扩展
         
         Args:
             query: 查询字符串
-            memory_cache: Memory Cache
+            memory_cache: 记忆缓存
             limit: 最大结果数
             
         Returns:
@@ -289,17 +289,17 @@ class HybridRetriever(BaseRetriever):
 
 class LocatorRetriever(BaseRetriever):
     """
-    基于 Locator 的 Retriever（未来实现的占位符）
+    基于定位器的检索器（未来实现的占位符）
     
-    使用精确位置机制基于 Context 位置和元数据查找记忆。
-    特别适用于长 Context 场景。
+    使用精确位置机制基于上下文位置和元数据查找记忆。
+    特别适用于长上下文场景。
     
-    基于 Locator 机制研究（2025 SOTA）。
+    基于定位器机制研究（2025 SOTA）。
     
     未来增强功能：
-    - Context 感知定位
+    - 上下文感知定位
     - 基于元数据的过滤
-    - 多跳 Memory 检索
+    - 多跳记忆检索
     - 为频繁访问的记忆提升置信度
     """
     
@@ -309,10 +309,10 @@ class LocatorRetriever(BaseRetriever):
         use_metadata: bool = True
     ):
         """
-        初始化 Locator Retriever
+        初始化定位器检索器
         
         Args:
-            config: Retrieval 配置
+            config: 检索配置
             use_metadata: 是否使用元数据进行定位
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
@@ -327,18 +327,18 @@ class LocatorRetriever(BaseRetriever):
         limit: int = 5
     ) -> List[ContextItem]:
         """
-        使用 Locator 机制进行检索
+        使用定位器机制进行检索
         
-        当前实现是一个占位符，会回退到 Semantic Search。
+        当前实现是一个占位符，会回退到语义搜索。
         
         未来待做事项：
-        - 实现 Context 感知定位
+        - 实现上下文感知定位
         - 添加基于元数据的过滤
         - 支持多跳检索
         
         Args:
             query: 查询字符串
-            memory_cache: Memory Cache
+            memory_cache: 记忆缓存
             limit: 最大结果数
             
         Returns:

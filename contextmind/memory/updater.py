@@ -1,7 +1,7 @@
 """
-Memory Updaters - Memory 更新的插件实现
+记忆更新器 - 记忆更新的插件实现
 
-该模块提供各种策略用于更新和维护 Memory Bank（增加、更新、删除操作）。
+该模块提供各种策略用于更新和维护记忆库（增加、更新、删除操作）。
 """
 
 from typing import List, Optional
@@ -19,10 +19,10 @@ logger = get_logger(__name__)
 
 class SimpleUpdater(BaseUpdater):
     """
-    简单 Memory Updater（现有实现）
+    简单记忆更新器（现有实现）
     
     基本的增加/更新/去重逻辑，具有可配置的阈值。
-    按置信度过滤、去重并限制 Cache 大小。
+    按置信度过滤、去重并限制缓存大小。
     
     v3.5: 新增记忆合并功能
     - 检测相似记忆并合并/更新
@@ -93,7 +93,7 @@ class SimpleUpdater(BaseUpdater):
             logger.info(f"[SimpleUpdater] 质量过滤: {len(new_knowledge)} → {len(filtered_knowledge)} 条知识")
         
         # **新增**: 记忆合并逻辑
-        # 复制当前cache用于更新
+        # 复制当前缓存用于更新
         updated_cache = list(memory_cache)
         new_items = []
         merged_count = 0
@@ -106,7 +106,7 @@ class SimpleUpdater(BaseUpdater):
             max_similarity = 0.0
             
             for idx, existing in enumerate(updated_cache):
-                # 优先使用 embedding 相似度，如果不可用则回退到字符级
+                # 优先使用嵌入向量相似度，如果不可用则回退到字符级
                 similarity = self._calculate_similarity_with_embedding(k, existing)
                 
                 # 如果相似度极高（完全重复），跳过
@@ -139,7 +139,7 @@ class SimpleUpdater(BaseUpdater):
                         source=ContextSource.MEMORY,
                         score=k.confidence,
                         timestamp=datetime.now(),  # 更新时间戳
-                        embeddings=k.embeddings,  # 保留 embeddings
+                        embeddings=k.embeddings,  # 保留嵌入向量
                         metadata={**k.metadata, 'updated': True, 'previous_score': existing_item.score}
                     )
                     merged_count += 1
@@ -153,7 +153,7 @@ class SimpleUpdater(BaseUpdater):
                     source=ContextSource.MEMORY,
                     score=k.confidence,
                     timestamp=datetime.now(),
-                    embeddings=k.embeddings,  # 添加 embeddings
+                    embeddings=k.embeddings,  # 添加嵌入向量
                     metadata=k.metadata
                 ))
                 logger.debug(f"[SimpleUpdater] 已存储: {formatted_content[:80]}...")
@@ -162,7 +162,7 @@ class SimpleUpdater(BaseUpdater):
             logger.info("[SimpleUpdater] 所有知识项均为重复或低质量，未存储新内容")
             return updated_cache
         
-        # 添加新项到cache
+        # 添加新项到缓存
         if new_items:
             updated_cache.extend(new_items)
         
@@ -173,7 +173,7 @@ class SimpleUpdater(BaseUpdater):
     
     def _calculate_similarity_with_embedding(self, knowledge: Knowledge, existing: ContextItem) -> float:
         """
-        计算知识与现有记忆的相似度，优先使用 embedding
+        计算知识与现有记忆的相似度，优先使用嵌入向量
         
         Args:
             knowledge: 新知识对象
@@ -182,7 +182,7 @@ class SimpleUpdater(BaseUpdater):
         Returns:
             相似度分数（0-1）
         """
-        # 尝试使用 embedding 相似度
+        # 尝试使用嵌入向量相似度
         if knowledge.embeddings and existing.embeddings:
             knowledge_emb = knowledge.embeddings.get('default')
             existing_emb = existing.embeddings.get('default')
@@ -198,7 +198,7 @@ class SimpleUpdater(BaseUpdater):
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """
-        计算两个文本的Jaccard相似度
+        计算两个文本的 Jaccard 相似度
         
         Args:
             text1: 文本1
@@ -225,7 +225,7 @@ class SimpleUpdater(BaseUpdater):
         if not chars1 or not chars2:
             return 0.0
         
-        # 计算Jaccard相似度
+        # 计算 Jaccard 相似度
         intersection = len(chars1 & chars2)
         union = len(chars1 | chars2)
         
@@ -244,7 +244,7 @@ class SimpleUpdater(BaseUpdater):
         if clean1 in clean2 or clean2 in clean1:
             return True
         
-        # 中文的字符级 Jaccard Similarity
+        # 中文的字符级 Jaccard 相似度
         chars1 = set(clean1.lower())
         chars2 = set(clean2.lower())
         
@@ -255,7 +255,7 @@ class SimpleUpdater(BaseUpdater):
         if not chars1 or not chars2:
             return False
         
-        # Jaccard Similarity（Jaccard 相似度）
+        # Jaccard 相似度
         intersection = len(chars1 & chars2)
         union = len(chars1 | chars2)
         similarity = intersection / union if union > 0 else 0
@@ -266,7 +266,7 @@ class SimpleUpdater(BaseUpdater):
 
 class ConflictResolverUpdater(BaseUpdater):
     """
-    冲突感知 Updater（未来实现的占位符）
+    冲突感知更新器（未来实现的占位符）
     
     检测并解决新信息与现有记忆相冲突的情况。
     支持版本控制和合并策略。
@@ -325,10 +325,10 @@ class ConflictResolverUpdater(BaseUpdater):
 
 class AdaptiveEvictionUpdater(BaseUpdater):
     """
-    自适应驱逐 Updater（未来实现的占位符）
+    自适应驱逐更新器（未来实现的占位符）
     
     基于重要性、访问模式和容量限制智能移除低价值记忆。
-    防止 Cache 膨胀。
+    防止缓存膨胀。
     
     未来增强功能：
     - 基于重要性的驱逐（LRU + 分数）
@@ -343,7 +343,7 @@ class AdaptiveEvictionUpdater(BaseUpdater):
         min_importance_threshold: float = 0.1
     ):
         """
-        初始化自适应驱逐 Updater
+        初始化自适应驱逐更新器
         
         Args:
             max_cache_size: 缓存的最大记忆数
@@ -381,7 +381,7 @@ class AdaptiveEvictionUpdater(BaseUpdater):
         fallback = SimpleUpdater()
         updated_cache = await fallback.update(memory_cache, new_knowledge)
         
-        # 未来：当 Cache 超过 max_cache_size 时添加驱逐逻辑
+        # 未来：当缓存超过 max_cache_size 时添加驱逐逻辑
         # 这涉及：
         # 1. 为所有缓存项计算重要性分数
         # 2. 按重要性排序（结合新近性、访问频率和分数）
@@ -394,16 +394,16 @@ class AdaptiveEvictionUpdater(BaseUpdater):
     
     def _evict_low_value_memories(self, cache: List[ContextItem]) -> List[ContextItem]:
         """
-        驱逐低价值记忆以维持 Cache 大小（占位符）
+        驱逐低价值记忆以维持缓存大小（占位符）
         
         该方法会智能地移除重要性分数低的记忆，
         同时保留高价值和最近的项目。
         
         Args:
-            cache: 当前 Memory Cache
+            cache: 当前记忆缓存
             
         Returns:
-            驱逐后的 Cache
+            驱逐后的缓存
         """
         # TODO: 当重要性评分可用时实现
         # 当前实现只是截断为 max_cache_size
