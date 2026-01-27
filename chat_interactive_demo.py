@@ -77,7 +77,6 @@ async def main():
         # 注意: 在 v7.3 中，LLM 客户端由外部处理
         system_prompt=CHAT_SYSTEM_PROMPT,
         history_turns=args.history_turns,
-        auto_extract_knowledge=not args.no_memory,  # 根据参数决定是否提取知识
     )
     print("✅ 应用初始化完成")
     print()
