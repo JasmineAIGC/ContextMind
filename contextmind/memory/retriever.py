@@ -53,10 +53,17 @@ class SemanticSearchRetriever(BaseRetriever):
         Returns:
             按相关性排序的记忆列表
         """
+        logger.debug(f"[SemanticRetriever] === 开始记忆检索 ===")
+        logger.debug(f"[SemanticRetriever] 查询: '{query}'")
+        logger.debug(f"[SemanticRetriever] 缓存大小: {len(memory_cache)} 条记忆")
+        logger.debug(f"[SemanticRetriever] Limit: {limit}")
+        
         logger.info(f"[SemanticRetriever] 从缓存检索 - 查询: '{query[:50]}', 缓存大小: {len(memory_cache)}")
         
         if not memory_cache:
             logger.warning("[SemanticRetriever] 缓存为空 - 无法检索记忆")
+            logger.debug(f"[SemanticRetriever] 输出: 0 条记忆")
+            logger.debug(f"[SemanticRetriever] === 记忆检索完成 ===")
             return []
         
         # 尝试生成查询的嵌入向量
@@ -70,8 +77,11 @@ class SemanticSearchRetriever(BaseRetriever):
         if use_embedding:
             # 检查缓存中有多少项有嵌入向量
             items_with_embedding = sum(1 for item in memory_cache if item.embeddings)
+            logger.debug(f"[SemanticRetriever] 缓存中有嵌入向量的项: {items_with_embedding}/{len(memory_cache)}")
             if items_with_embedding == 0:
                 use_embedding = False
+        
+        logger.debug(f"[SemanticRetriever] 使用嵌入向量检索: {use_embedding}")
         
         query_lower = query.lower()
         
@@ -145,8 +155,14 @@ class SemanticSearchRetriever(BaseRetriever):
         
         if result:
             logger.info(f"[SemanticRetriever] ✓ 检索成功 - 找到 {len(result)} 条相关记忆 (最高分: {filtered_items[0][1]:.2f})")
+            logger.debug(f"[SemanticRetriever] 输出: {len(result)} 条记忆")
+            for idx, (item, score) in enumerate(filtered_items[:limit], 1):
+                logger.debug(f"[SemanticRetriever]   [{idx}] 分数={score:.3f}: {item.content[:60]}...")
         else:
             logger.info("[SemanticRetriever] ✗ 未找到相关记忆")
+            logger.debug(f"[SemanticRetriever] 输出: 0 条记忆")
+        
+        logger.debug(f"[SemanticRetriever] === 记忆检索完成 ===")
         
         return result
     

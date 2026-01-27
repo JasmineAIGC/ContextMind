@@ -444,6 +444,11 @@ class ConversationSummarizer:
             logger.warning("[Summarizer] 消息列表为空")
             return "暂无对话历史"
         
+        # 检查策略是否可用
+        if self.strategy is None:
+            logger.warning("[Summarizer] ⚠️ 摘要策略未初始化（可能缺少LLM客户端），无法生成摘要")
+            return f"对话包含 {len(messages)} 条消息（摘要功能需要LLM客户端）"
+        
         logger.info("")
         logger.info("=" * 100)
         logger.info("[Summarizer] ========== 开始生成对话摘要 ==========")

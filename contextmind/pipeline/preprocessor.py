@@ -48,6 +48,10 @@ class InputPreprocessor:
         Raises:
             ValueError: 输入无效
         """
+        logger.debug(f"[InputPreprocessor] === 开始预处理 ===")
+        logger.debug(f"[InputPreprocessor] 输入: '{user_input}'")
+        logger.debug(f"[InputPreprocessor] 输入长度: {len(user_input)} 字符")
+        
         # 去除首尾空白
         processed = user_input.strip()
         
@@ -61,6 +65,8 @@ class InputPreprocessor:
         # 移除多余空白
         processed = re.sub(r'\s+', ' ', processed)
         
-        logger.debug(f"预处理输入: '{processed[:50]}...'")
+        logger.debug(f"[InputPreprocessor] 输出: '{processed}'")
+        logger.debug(f"[InputPreprocessor] 处理后长度: {len(processed)} 字符")
+        logger.debug(f"[InputPreprocessor] === 预处理完成 ===")
         
         return processed

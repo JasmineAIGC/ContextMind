@@ -37,8 +37,8 @@ class SimpleUpdater(BaseUpdater):
     STORAGE_MIN_LENGTH = 5  # 3 → 5 最小字符数
     
     # 相似度阈值（用于检测需要合并的记忆）
-    SIMILARITY_THRESHOLD_FOR_MERGE = 0.65  # 降低到65%以捕获更多相似记忆
-    EXACT_DUPLICATE_THRESHOLD = 0.85  # 从0.90降至0.85，捕获更多重复项
+    SIMILARITY_THRESHOLD_FOR_MERGE = 0.80  # 提高到80%，避免误判不同事实为相似（修复记忆库不增长问题）
+    EXACT_DUPLICATE_THRESHOLD = 0.92  # 提高到92%，更精确地识别完全重复项
     
     async def update(
         self,

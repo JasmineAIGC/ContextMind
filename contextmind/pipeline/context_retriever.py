@@ -42,12 +42,22 @@ class ContextRetriever:
         Returns:
             相关的上下文项列表
         """
+        logger.debug(f"[ContextRetriever] === 开始外部知识检索 ===")
+        logger.debug(f"[ContextRetriever] 查询: '{query}'")
+        logger.debug(f"[ContextRetriever] Top-K: {top_k}")
+        
         if not self.knowledge_base:
-            logger.debug("[ContextRetriever] 无外部知识库，返回空列表")
+            logger.debug("[ContextRetriever] 无外部知识库配置")
+            logger.debug(f"[ContextRetriever] 输出: 0 个外部知识项")
+            logger.debug(f"[ContextRetriever] === 外部知识检索完成 ===")
             return []
         
         # 这里可以实现外部知识库检索逻辑
         # 例如：调用向量数据库、搜索引擎等
-        logger.debug(f"[ContextRetriever] 检索查询: {query} (top_k={top_k})")
+        logger.debug(f"[ContextRetriever] 知识库: {self.knowledge_base}")
+        result = []
         
-        return []
+        logger.debug(f"[ContextRetriever] 输出: {len(result)} 个外部知识项")
+        logger.debug(f"[ContextRetriever] === 外部知识检索完成 ===")
+        
+        return result
