@@ -25,7 +25,7 @@ except ImportError:
     OpenAI = None  # type: ignore
 
 
-DEFAULT_LLM_MODEL = "Qwen3-32B"
+DEFAULT_EMBEDDING_MODEL = "bge-large-zh-v1.5"
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
@@ -41,16 +41,46 @@ def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[s
 
 @dataclass
 class EmbeddingConfig:
-    """Embedding 配置 - 使用 LLM 模型提取 embedding"""
+    """Embedding 配置 - 使用专门的 embedding 模型提取向量"""
     
     api_key: str
-    model: str = DEFAULT_LLM_MODEL
+    model: str = DEFAULT_EMBEDDING_MODEL
     base_url: Optional[str] = None
     access_key: Optional[str] = None
     
     @classmethod
     def from_env(cls) -> "EmbeddingConfig":
-        """从环境变量加载配置 - 使用 .env 中定义的 LLM 配置。"""
+        """从环境变量加载配置 - 优先使用专门的 embedding 模型配置。"""
+        # 优先读取专门的 embedding 模型配置
+        embedding_model = os.getenv("EMBEDDING_MODEL")
+        embedding_base_url = os.getenv("EMBEDDING_BASE_URL")
+        embedding_api_key = os.getenv("EMBEDDING_API_KEY")
+        
+        # 如果配置了专门的 embedding 模型，使用它
+        if embedding_model and embedding_base_url:
+            logger.info(f"[EmbeddingConfig] 使用专门的 embedding 模型: {embedding_model}")
+            api_key = embedding_api_key or "EMPTY"  # vLLM 本地部署可能不需要真实 key
+            
+            # 读取 Access Key（可选）
+            access_key = os.getenv("EMBEDDING_ACCESS_KEY") or _first_env(
+                [
+                    "QWEN3_ACCESS_KEY",
+                    "CONTEXTMIND_ACCESS_KEY",
+                    "LLM_ACCESS_KEY",
+                    "ACCESS_KEY",
+                ]
+            )
+            
+            return cls(
+                api_key=api_key,
+                model=embedding_model,
+                base_url=embedding_base_url,
+                access_key=access_key,
+            )
+        
+        # 否则回退到使用 LLM 模型（向后兼容）
+        logger.info("[EmbeddingConfig] 未配置专门的 embedding 模型，将尝试使用 LLM 模型")
+        
         # 读取 API Key（必需）
         api_key = _first_env(
             [
@@ -64,8 +94,9 @@ class EmbeddingConfig:
         )
         if not api_key:
             raise ValueError(
-                "缺少 API key。请在 .env 文件中设置以下变量之一: QWEN3_API_KEY, "
-                "CONTEXTMIND_API_KEY, LLM_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, QWEN_API_KEY"
+                "缺少 API key。请在 .env 文件中设置以下变量之一: "
+                "EMBEDDING_API_KEY (用于 embedding 模型) 或 "
+                "QWEN3_API_KEY, CONTEXTMIND_API_KEY, LLM_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, QWEN_API_KEY"
             )
         
         # 读取 Base URL（可选）
@@ -90,7 +121,7 @@ class EmbeddingConfig:
                 "DEEPSEEK_MODEL",
                 "QWEN_MODEL",
             ],
-            default=DEFAULT_LLM_MODEL,
+            default=DEFAULT_EMBEDDING_MODEL,
         )
         
         # 读取 Access Key（可选，某些网关需要）
@@ -115,7 +146,8 @@ class EmbeddingClient:
     """
     Embedding 客户端
     
-    使用 .env 中配置的 LLM 模型通过 chat completion 生成文本嵌入向量。
+    优先使用专门的 embedding 模型（如 bge-large-zh-v1.5），
+    若未配置则回退到使用 LLM 模型生成文本嵌入向量。
     """
     
     def __init__(self, config: Optional[EmbeddingConfig] = None):
@@ -123,7 +155,7 @@ class EmbeddingClient:
         初始化 Embedding 客户端
         
         Args:
-            config: Embedding 配置，若为 None 则从环境变量加载（使用 LLM 配置）
+            config: Embedding 配置，若为 None 则从环境变量加载
         """
         if not OPENAI_AVAILABLE:
             logger.warning("[EmbeddingClient] OpenAI 未安装，embedding 功能不可用")
@@ -154,7 +186,7 @@ class EmbeddingClient:
                 base_url=self.config.base_url,
                 default_headers=headers if headers else None,
             )
-            logger.info(f"[EmbeddingClient] 初始化成功 - 使用 LLM 模型: {self.config.model}")
+            logger.info(f"[EmbeddingClient] 初始化成功 - 使用模型: {self.config.model}")
             # 标记为支持，但在首次调用时会验证
             self.embedding_supported = True
         except Exception as e:
@@ -164,7 +196,9 @@ class EmbeddingClient:
     
     def generate_embedding(self, text: str) -> Optional[EmbeddingInfo]:
         """
-        使用 .env 中的 LLM 模型生成文本的 embedding 向量
+        生成文本的 embedding 向量
+        
+        优先使用专门的 embedding 模型，若未配置则使用 LLM 模型。
         
         Args:
             text: 输入文本
@@ -184,8 +218,8 @@ class EmbeddingClient:
             return None
         
         try:
-            # 使用 LLM 的 embeddings API（OpenAI 兼容）
-            # 注意：使用 .env 中配置的 LLM 模型而非专门的 embedding 模型
+            # 使用 embeddings API（OpenAI 兼容）
+            # 支持专门的 embedding 模型（如 bge-large-zh-v1.5）或 LLM 模型
             response = self.client.embeddings.create(
                 model=self.config.model,
                 input=text
@@ -214,7 +248,7 @@ class EmbeddingClient:
             
             dimension = len(vector)
             
-            logger.debug(f"[EmbeddingClient] 使用 LLM 模型生成 embedding - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
+            logger.debug(f"[EmbeddingClient] 成功生成 embedding - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
             
             return EmbeddingInfo(
                 model=self.config.model,
@@ -229,8 +263,11 @@ class EmbeddingClient:
             error_str = str(e)
             # 检查是否是模型不支持 embedding 的错误
             if "does not appear to be an embedding model" in error_str or "BadRequestError" in error_str:
-                logger.warning(f"[EmbeddingClient] 模型 {self.config.model} 不支持 embedding 生成")
-                logger.info("[EmbeddingClient] 将禁用 embedding 功能，框架将使用字符级相似度作为替代方案")
+                logger.error(f"[EmbeddingClient] 模型 {self.config.model} 不支持 embedding 生成")
+                logger.error("[EmbeddingClient] 请配置专门的 embedding 模型（如 bge-large-zh-v1.5）")
+                logger.info("[EmbeddingClient] 配置示例：")
+                logger.info("  EMBEDDING_MODEL=bge-large-zh-v1.5")
+                logger.info("  EMBEDDING_BASE_URL=http://localhost:8001/v1")
                 # 标记为不支持，避免后续重复尝试
                 self.embedding_supported = False
             else:
