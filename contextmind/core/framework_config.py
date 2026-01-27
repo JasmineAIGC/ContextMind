@@ -293,8 +293,8 @@ class ContextMind:
         """切换提取器插件"""
         extractor = registry.get_extractor(extractor_name)
         if extractor:
-            # Extractor is set via engine initialization
-            # This method is deprecated
+            # 提取器通过引擎初始化设置
+            # 此方法已弃用
             logger.warning(f"[ContextMind] set_extractor is deprecated. Use engine initialization parameters instead.")
             logger.info(f"[ContextMind] 提取器: {extractor_name}")
     

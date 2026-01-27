@@ -120,7 +120,7 @@ class MemoryBank:
             self._retriever = None
             self._updater = None
         
-        # v3.2 Agent Memory System: 结构化记忆笔记存储
+        # v3.2 智能体记忆系统：结构化记忆笔记存储
         self._memory_notes: Dict[str, MemoryNote] = {}
         
         # 本地缓存：存储所有已存储的知识，用于备用检索（兼容旧接口）
@@ -227,7 +227,7 @@ class MemoryBank:
         if self._retriever:
             return await self._retriever.retrieve(query, self._local_cache, limit)
         
-        # Fallback to internal implementation
+        # 回退到内部实现
         return self._retrieve_from_cache_internal(query, limit)
     
     def _retrieve_from_cache_internal(self, query: str, limit: int = 5) -> List[ContextItem]:
@@ -412,7 +412,7 @@ class MemoryBank:
             logger.info("")
             return
         
-        # Fallback to internal implementation
+        # 回退到内部实现
         await self._store_internal(knowledge)
     
     async def _store_internal(self, knowledge: List[Knowledge]) -> None:

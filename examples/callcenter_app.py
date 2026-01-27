@@ -259,7 +259,7 @@ class CallCenterApplication:
         if debug:
             debug_info['prompt'] = prompt
         
-        # 3. 调用 LLM（v7.1: LLM invocation is external）
+        # 3. 调用 LLM（v7.1: LLM 调用是外部的）
         if self.use_real_llm and self.llm_client:
             try:
                 # 调用真实 LLM

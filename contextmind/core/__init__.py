@@ -65,7 +65,7 @@ __all__ = [
     "MemoryType",
     "MessageRole",
     "ContextSource",
-    # Data Models
+    # 数据模型
     "Message",
     "ContextItem",
     "ContextResult",

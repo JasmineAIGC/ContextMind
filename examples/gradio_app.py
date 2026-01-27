@@ -164,7 +164,7 @@ class GradioDemo:
     
     def _get_base_prompt(self) -> str:
         """获取系统提示词"""
-        # System prompt 已直接定义（v7.1 中移除了 examples.prompts）
+        # 系统提示词已直接定义（v7.1 中移除了 examples.prompts）
         return """你是一个专业的客服助手，代表马上消费/优逸花与客户沟通。
 
 ## 角色定位：

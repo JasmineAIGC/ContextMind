@@ -80,21 +80,21 @@ async def example_optional_components():
 
 
 # ============================================================================
-# 示例 3: 自定义 Retriever Plugin
+# 示例 3: 自定义检索器插件
 # ============================================================================
 
 async def example_custom_retriever():
     """
-    演示使用自定义 retriever plugin。
+    演示使用自定义检索器插件。
     """
     print("=" * 80)
-    print("示例 3: 自定义 Retriever Plugin")
+    print("示例 3: 自定义检索器插件")
     print("=" * 80)
     
     from contextmind.memory import HybridRetriever
     from contextmind.memory import MemoryBank
     
-    # 使用 HybridRetriever 创建自定义 memory bank
+    # 使用 HybridRetriever 创建自定义记忆库
     memory_bank = MemoryBank(
         app_name="plugin-demo",
         user_id="demo-user",
@@ -132,7 +132,7 @@ async def example_custom_retriever():
 
 
 # ============================================================================
-# 示例 4: 自定义 Extractor Plugin
+# 示例 4: 自定义提取器插件
 # ============================================================================
 
 async def example_custom_extractor():

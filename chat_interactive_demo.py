@@ -231,13 +231,13 @@ async def main():
                         summary_part = summary_part.split("## 最近对话")[0] if "## 最近对话" in summary_part else summary_part
                         print("   " + summary_part.replace("\n", "\n   ").strip())
                     
-                    # 查找最近对话部分 - 完整显示不省略
+                    # 查找最近对话部分，完整显示不省略
                     if "## 最近对话" in prompt_text or "## 对话历史" in prompt_text:
                         history_marker = "## 最近对话" if "## 最近对话" in prompt_text else "## 对话历史"
                         parts = prompt_text.split(history_marker)
                         if len(parts) > 1:
                             print(f"\n   {history_marker}")
-                            # 提取对话部分（到当前问题）
+                            # 提取对话部分，直到当前问题
                             history_part = parts[1].split("## 当前问题")[0] if "## 当前问题" in parts[1] else parts[1]
                             history_part = history_part.split("## 已知信息")[0] if "## 已知信息" in history_part else history_part
                             print("   " + history_part.replace("\n", "\n   ").strip())

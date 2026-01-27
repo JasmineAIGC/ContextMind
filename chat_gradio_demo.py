@@ -65,7 +65,7 @@ class ChatGradioDemo:
     def __init__(self):
         """初始化闲聊 Gradio 演示"""
         self.engine = None
-        self.app = None  # ChatApplication instance
+        self.app = None  # ChatApplication 实例
         self.turn_counter = 0
         # 上下文控制参数
         self.use_session = True
@@ -309,7 +309,7 @@ def create_gradio_interface():
             
             result = await demo_instance.chat(message)
             
-            # Gradio 6.x chatbot 格式：每条消息是带有 'role' 和 'content' 的字典
+            # Gradio 6.x 聊天机器人格式：每条消息是带有 'role' 和 'content' 的字典
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": result.response})
             

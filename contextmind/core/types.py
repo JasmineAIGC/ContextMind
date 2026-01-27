@@ -25,7 +25,7 @@ class KnowledgeType(str, Enum):
     CONSTRAINT = "constraint"  # 约束条件（如预算、时间限制）
     INTEREST = "interest"      # 用户兴趣
     
-    # 1. 用户画像类 (User Profile) - 4种
+    # 1. 用户画像类 (User Profile) - 4 种
     USER_INFO = "user_info"            # 基本信息（年龄、职业、位置、姓名等）
     PERSONALITY = "personality"        # 性格特征
     VALUES = "values"                  # 价值观

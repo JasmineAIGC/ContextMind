@@ -97,7 +97,7 @@ class RuleBasedExtractor(BaseExtractor):
         knowledge.extend(events)
         logger.debug(f"[Extractor] 提取事件: {len(events)} 条")
         
-        # Filter low-confidence knowledge
+        # 过滤低置信度知识
         before_filter = len(knowledge)
         knowledge = [k for k in knowledge if k.confidence >= self.CONFIDENCE_FILTER_MIN]
         filtered_count = before_filter - len(knowledge)
