@@ -179,12 +179,27 @@ class EmbeddingClient:
                 input=text
             )
             
-            if not response.data:
+            # 检查响应数据
+            if not response or not hasattr(response, 'data'):
+                logger.warning("[EmbeddingClient] API 响应格式错误：缺少 data 字段")
+                return None
+            
+            if not response.data or len(response.data) == 0:
                 logger.warning("[EmbeddingClient] API 返回空数据")
                 return None
             
+            # 检查第一个数据项
+            first_data = response.data[0]
+            if not hasattr(first_data, 'embedding'):
+                logger.warning("[EmbeddingClient] API 数据缺少 embedding 字段")
+                return None
+            
             # 提取向量
-            vector = response.data[0].embedding
+            vector = first_data.embedding
+            if not vector or len(vector) == 0:
+                logger.warning("[EmbeddingClient] embedding 向量为空")
+                return None
+            
             dimension = len(vector)
             
             logger.debug(f"[EmbeddingClient] 生成 embedding - dim: {dimension}, text: {text[:50]}...")
@@ -195,6 +210,9 @@ class EmbeddingClient:
                 dimension=dimension
             )
             
+        except AttributeError as e:
+            logger.error(f"[EmbeddingClient] API 响应格式错误: {e}")
+            return None
         except Exception as e:
             logger.error(f"[EmbeddingClient] 生成 embedding 失败: {e}")
             return None
