@@ -24,6 +24,14 @@ except ImportError:
     OPENAI_AVAILABLE = False
     OpenAI = None  # type: ignore
 
+# 尝试导入 sentence-transformers，用于本地模型加载
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    SentenceTransformer = None  # type: ignore
+
 
 DEFAULT_EMBEDDING_MODEL = "bge-large-zh-v1.5"
 
@@ -47,18 +55,33 @@ class EmbeddingConfig:
     model: str = DEFAULT_EMBEDDING_MODEL
     base_url: Optional[str] = None
     access_key: Optional[str] = None
+    model_path: Optional[str] = None  # 本地模型路径（用于直接加载）
+    use_local: bool = False  # 是否使用本地加载模式
     
     @classmethod
     def from_env(cls) -> "EmbeddingConfig":
-        """从环境变量加载配置 - 优先使用专门的 embedding 模型配置。"""
+        """从环境变量加载配置 - 支持本地加载和 API 两种方式。"""
         # 优先读取专门的 embedding 模型配置
         embedding_model = os.getenv("EMBEDDING_MODEL")
-        embedding_base_url = os.getenv("EMBEDDING_BASE_URL")
+        embedding_model_path = os.getenv("EMBEDDING_MODEL_PATH")  # 本地路径
+        embedding_base_url = os.getenv("EMBEDDING_BASE_URL")  # API URL
         embedding_api_key = os.getenv("EMBEDDING_API_KEY")
         
-        # 如果配置了专门的 embedding 模型，使用它
+        # 方式 1：本地模型路径（优先级最高）
+        if embedding_model_path:
+            logger.info(f"[EmbeddingConfig] 使用本地 embedding 模型: {embedding_model_path}")
+            # 从路径提取模型名称
+            model_name = embedding_model or os.path.basename(embedding_model_path)
+            return cls(
+                api_key="",  # 本地模型不需要 API key
+                model=model_name,
+                model_path=embedding_model_path,
+                use_local=True,
+            )
+        
+        # 方式 2：通过 API（vLLM 等）使用 embedding 模型
         if embedding_model and embedding_base_url:
-            logger.info(f"[EmbeddingConfig] 使用专门的 embedding 模型: {embedding_model}")
+            logger.info(f"[EmbeddingConfig] 使用 API embedding 模型: {embedding_model}")
             api_key = embedding_api_key or "EMPTY"  # vLLM 本地部署可能不需要真实 key
             
             # 读取 Access Key（可选）
@@ -76,6 +99,7 @@ class EmbeddingConfig:
                 model=embedding_model,
                 base_url=embedding_base_url,
                 access_key=access_key,
+                use_local=False,
             )
         
         # 否则回退到使用 LLM 模型（向后兼容）
@@ -146,8 +170,9 @@ class EmbeddingClient:
     """
     Embedding 客户端
     
-    优先使用专门的 embedding 模型（如 bge-large-zh-v1.5），
-    若未配置则回退到使用 LLM 模型生成文本嵌入向量。
+    支持两种方式：
+    1. 本地加载模型（使用 sentence-transformers）
+    2. 通过 API 调用（如 vLLM 部署的模型）
     """
     
     def __init__(self, config: Optional[EmbeddingConfig] = None):
@@ -157,20 +182,42 @@ class EmbeddingClient:
         Args:
             config: Embedding 配置，若为 None 则从环境变量加载
         """
-        if not OPENAI_AVAILABLE:
-            logger.warning("[EmbeddingClient] OpenAI 未安装，embedding 功能不可用")
-            self.client = None
-            self.config = None
-            self.embedding_supported = False
-            return
-        
         # 从环境变量或参数加载配置
         try:
             self.config = config or EmbeddingConfig.from_env()
         except ValueError as e:
             logger.warning(f"[EmbeddingClient] 配置加载失败: {e}")
             self.client = None
+            self.local_model = None
             self.config = None
+            self.embedding_supported = False
+            return
+        
+        self.client = None
+        self.local_model = None
+        self.embedding_supported = False
+        
+        # 方式 1：本地加载模型
+        if self.config.use_local:
+            if not SENTENCE_TRANSFORMERS_AVAILABLE:
+                logger.error("[EmbeddingClient] sentence-transformers 未安装，无法加载本地模型")
+                logger.info("[EmbeddingClient] 请安装: pip install sentence-transformers")
+                self.embedding_supported = False
+                return
+            
+            try:
+                logger.info(f"[EmbeddingClient] 正在加载本地模型: {self.config.model_path}")
+                self.local_model = SentenceTransformer(self.config.model_path)
+                logger.info(f"[EmbeddingClient] 本地模型加载成功 - {self.config.model}")
+                self.embedding_supported = True
+            except Exception as e:
+                logger.error(f"[EmbeddingClient] 本地模型加载失败: {e}")
+                self.embedding_supported = False
+            return
+        
+        # 方式 2：API 调用
+        if not OPENAI_AVAILABLE:
+            logger.warning("[EmbeddingClient] OpenAI 未安装，embedding 功能不可用")
             self.embedding_supported = False
             return
         
@@ -186,19 +233,20 @@ class EmbeddingClient:
                 base_url=self.config.base_url,
                 default_headers=headers if headers else None,
             )
-            logger.info(f"[EmbeddingClient] 初始化成功 - 使用模型: {self.config.model}")
+            logger.info(f"[EmbeddingClient] API 客户端初始化成功 - 使用模型: {self.config.model}")
             # 标记为支持，但在首次调用时会验证
             self.embedding_supported = True
         except Exception as e:
-            logger.error(f"[EmbeddingClient] 初始化失败: {e}")
-            self.client = None
+            logger.error(f"[EmbeddingClient] API 客户端初始化失败: {e}")
             self.embedding_supported = False
     
     def generate_embedding(self, text: str) -> Optional[EmbeddingInfo]:
         """
         生成文本的 embedding 向量
         
-        优先使用专门的 embedding 模型，若未配置则使用 LLM 模型。
+        支持两种方式：
+        1. 本地模型加载（sentence-transformers）
+        2. API 调用（vLLM 等）
         
         Args:
             text: 输入文本
@@ -206,7 +254,7 @@ class EmbeddingClient:
         Returns:
             EmbeddingInfo 对象，如果失败则返回 None
         """
-        if not self.client or not self.config:
+        if not self.config:
             return None
         
         # 如果已知不支持 embedding，直接返回 None
@@ -217,9 +265,30 @@ class EmbeddingClient:
             logger.warning("[EmbeddingClient] 输入文本为空，跳过 embedding 生成")
             return None
         
+        # 方式 1：本地模型
+        if self.config.use_local and self.local_model:
+            try:
+                # 使用 sentence-transformers 生成向量
+                vector = self.local_model.encode(text, convert_to_tensor=False).tolist()
+                dimension = len(vector)
+                
+                logger.debug(f"[EmbeddingClient] 成功生成 embedding (本地) - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
+                
+                return EmbeddingInfo(
+                    model=self.config.model,
+                    vector=vector,
+                    dimension=dimension
+                )
+            except Exception as e:
+                logger.error(f"[EmbeddingClient] 本地模型生成 embedding 失败: {e}")
+                return None
+        
+        # 方式 2：API 调用
+        if not self.client:
+            return None
+        
         try:
             # 使用 embeddings API（OpenAI 兼容）
-            # 支持专门的 embedding 模型（如 bge-large-zh-v1.5）或 LLM 模型
             response = self.client.embeddings.create(
                 model=self.config.model,
                 input=text
@@ -248,7 +317,7 @@ class EmbeddingClient:
             
             dimension = len(vector)
             
-            logger.debug(f"[EmbeddingClient] 成功生成 embedding - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
+            logger.debug(f"[EmbeddingClient] 成功生成 embedding (API) - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
             
             return EmbeddingInfo(
                 model=self.config.model,
@@ -266,8 +335,8 @@ class EmbeddingClient:
                 logger.error(f"[EmbeddingClient] 模型 {self.config.model} 不支持 embedding 生成")
                 logger.error("[EmbeddingClient] 请配置专门的 embedding 模型（如 bge-large-zh-v1.5）")
                 logger.info("[EmbeddingClient] 配置示例：")
-                logger.info("  EMBEDDING_MODEL=bge-large-zh-v1.5")
-                logger.info("  EMBEDDING_BASE_URL=http://localhost:8001/v1")
+                logger.info("  方式1 - 本地加载: EMBEDDING_MODEL_PATH=/path/to/model")
+                logger.info("  方式2 - API调用: EMBEDDING_MODEL=bge-large-zh-v1.5, EMBEDDING_BASE_URL=http://localhost:8001/v1")
                 # 标记为不支持，避免后续重复尝试
                 self.embedding_supported = False
             else:
