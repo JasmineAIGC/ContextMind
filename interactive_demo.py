@@ -1,7 +1,7 @@
 """
-ContextMind v7.1 交互式演示
+ContextMind v7.3 交互式演示
 
-五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
+模块化架构 + 基于嵌入向量的智能记忆系统
 提供命令行交互式演示
 """
 
@@ -24,7 +24,7 @@ from contextmind import (
     LogLevel,
 )
 
-from demos.callcenter_app import CallCenterApplication
+from examples.callcenter_app import CallCenterApplication
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,7 @@ async def main():
     """主函数"""
     
     # 解析参数
-    parser = argparse.ArgumentParser(description='ContextMind v7.1 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v7.3 Interactive Demo')
     parser.add_argument('--no-session', action='store_true', help='禁用会话历史')
     parser.add_argument('--use-memory', action='store_true', help='启用长期记忆')
     parser.add_argument('--max-events', type=int, default=9999, help='最大历史轮数')
@@ -57,13 +57,13 @@ async def main():
     parser.add_argument('--debug', action='store_true', help='调试模式 (详细日志)')
     args = parser.parse_args()
     
-    # 设置日志级别: DEBUG (详细信息) 或 BASIC (重要信息)
-    log_level = LogLevel.DEBUG if args.debug else LogLevel.BASIC
+    # 设置日志级别: DEBUG (详细信息) 或 INFO (重要信息)
+    log_level = LogLevel.DEBUG if args.debug else LogLevel.INFO
     setup_logging(level=log_level)
     
     print("=" * 60)
-    print("ContextMind v7.1 Interactive Demo")
-    print("五层架构 (core/pipeline/strategies/adapters/utils)")
+    print("ContextMind v7.3 Interactive Demo")
+    print("模块化架构 + 基于嵌入向量的记忆系统")
     print("=" * 60)
     print()
     
@@ -76,14 +76,14 @@ async def main():
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
-    # 初始化引擎 (v7.1: LLM 调用在外部，不需要客户端)
+    # 初始化引擎 (v7.3: LLM 调用在外部，不需要客户端)
     print("🔧 初始化引擎...")
     context_engine = ContextEngine(
         app_name="demo-app",
         user_id="demo-user",
         max_recent_events=args.max_events,
     )
-    print("✅ 引擎初始化完成 (v7.1 - 纯上下文工程)")
+    print("✅ 引擎初始化完成 (v7.3 - 纯上下文工程)")
     print()
     
     # 不再植入预设记忆，让对话更自然流畅
@@ -238,7 +238,7 @@ async def main():
             import traceback
             traceback.print_exc()
     
-    print("\n感谢使用 ContextMind v7.1!")
+    print("\n感谢使用 ContextMind v7.3!")
 
 
 if __name__ == "__main__":

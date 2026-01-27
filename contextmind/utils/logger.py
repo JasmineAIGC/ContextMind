@@ -12,9 +12,8 @@ from pathlib import Path
 
 class LogLevel(PyEnum):
     """ContextMind 日志级别"""
-    BASIC = "BASIC"      # 基础模式：Pipeline 级别日志
-    DETAILED = "DETAILED"  # 详细模式：步骤级别日志
-    DEBUG = "DEBUG"      # 调试模式：所有日志包括内部细节
+    INFO = "INFO"      # 信息模式：记录关键信息和流程
+    DEBUG = "DEBUG"    # 调试模式：记录所有详细日志
 
 
 class ContextMindLogger:
@@ -22,27 +21,25 @@ class ContextMindLogger:
     ContextMind v7.3 统一日志系统
     
     功能特性：
-    - 基础模式：记录 Pipeline 级别的输入、输出和关键信息
-    - 详细模式：记录步骤级别的输入、输出和中间信息
-    - 调试模式：记录所有内部细节
+    - 信息模式：记录关键信息、Pipeline 输入输出和重要事件
+    - 调试模式：记录所有内部细节和调试信息
     
     使用示例：
-        logger = ContextMindLogger("MyModule", level=LogLevel.BASIC)
-        logger.pipeline("Starting context optimization")
-        logger.step("Step 1: Preprocessing")
-        logger.detail("Detailed information")
+        logger = ContextMindLogger("MyModule", level=LogLevel.INFO)
+        logger.info("关键信息")
+        logger.debug("调试信息")
     """
     
     # 类级别变量：追踪全局日志级别
-    _global_level: LogLevel = LogLevel.BASIC
+    _global_level: LogLevel = LogLevel.INFO
     
-    def __init__(self, name: str, level: LogLevel = LogLevel.BASIC):
+    def __init__(self, name: str, level: LogLevel = LogLevel.INFO):
         """
         初始化 Logger
         
         Args:
             name: 模块名称
-            level: 日志级别 (BASIC, DETAILED 或 DEBUG)
+            level: 日志级别 (INFO 或 DEBUG)
         """
         self.name = name
         self.level = level
@@ -72,35 +69,20 @@ class ContextMindLogger:
         """
         cls._global_level = level
     
-    def pipeline(self, message: str):
+    def info(self, message: str):
         """
-        Pipeline 级别日志（在 BASIC、DETAILED 和 DEBUG 模式下显示）
-        用于主要的 Pipeline 事件：开始、结束、输入、输出
+        信息日志（在 INFO 和 DEBUG 模式下显示）
+        用于关键信息、Pipeline 事件、输入输出
         """
         self._logger.info(f"[{self.name}] {message}")
     
-    def step(self, message: str):
+    def debug(self, message: str):
         """
-        步骤级别日志（在 DETAILED 和 DEBUG 模式下显示）
-        用于 Pipeline 中的各个步骤事件
-        """
-        if self.level in [LogLevel.DETAILED, LogLevel.DEBUG]:
-            self._logger.info(f"[{self.name}] {message}")
-    
-    def detail(self, message: str):
-        """
-        详细日志（仅在 DEBUG 模式下显示）
+        调试日志（仅在 DEBUG 模式下显示）
         用于内部细节和调试信息
         """
         if self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
-    
-    def debug(self, message: str):
-        """
-        调试日志 - detail() 的向后兼容别名
-        仅在 DEBUG 模式下显示
-        """
-        self.detail(message)
     
     def separator(self, char="=", length=100):
         """打印分隔线（在所有模式下显示）"""
@@ -121,10 +103,6 @@ class ContextMindLogger:
         else:
             self.separator("-")
     
-    def info(self, message: str):
-        """常规信息日志（在所有模式下显示）"""
-        self._logger.info(f"[{self.name}] {message}")
-    
     def warning(self, message: str):
         """警告日志（在所有模式下显示）"""
         self._logger.warning(f"[{self.name}] {message}")
@@ -135,7 +113,7 @@ class ContextMindLogger:
 
 
 # 全局日志级别
-_GLOBAL_LOG_LEVEL = LogLevel.BASIC
+_GLOBAL_LOG_LEVEL = LogLevel.INFO
 
 
 def set_global_log_level(level: LogLevel):
@@ -143,7 +121,7 @@ def set_global_log_level(level: LogLevel):
     为所有 ContextMind Logger 设置全局日志级别
     
     Args:
-        level: LogLevel.BASIC, LogLevel.DETAILED 或 LogLevel.DEBUG
+        level: LogLevel.INFO 或 LogLevel.DEBUG
     """
     global _GLOBAL_LOG_LEVEL
     _GLOBAL_LOG_LEVEL = level
@@ -172,12 +150,12 @@ def get_logger(name: str, level: LogLevel = None) -> ContextMindLogger:
     return ContextMindLogger(name, level)
 
 
-def setup_logging(level: LogLevel = LogLevel.BASIC, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
+def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
     """
     设置 ContextMind 日志配置
     
     Args:
-        level: ContextMind 日志级别（BASIC, DETAILED 或 DEBUG）
+        level: ContextMind 日志级别（INFO 或 DEBUG）
         python_log_level: Python 日志级别（默认基于 ContextMind 级别）
         save_to_file: 是否自动保存日志到文件（默认：True）
         log_dir: 日志文件保存目录（默认："logs"）

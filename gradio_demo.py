@@ -1,5 +1,5 @@
 """
-ContextMind v7.1 Gradio Demo
+ContextMind v7.3 Gradio Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 生产级记忆系统
 提供可视化界面，展示智能上下文优化能力。
@@ -29,7 +29,7 @@ from pathlib import Path
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
 from contextmind.core.models import ContextSource
-from demos.llm_client import SimpleLLMClient
+from examples.llm_client import SimpleLLMClient
 
 # 设置日志级别为 INFO (使用 BASIC)
 setup_logging(level=LogLevel.BASIC)
@@ -106,7 +106,7 @@ class GradioDemo:
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建引擎 (v7.1: LLM 调用在外部，不需要客户端)
+            # 创建引擎 (v7.3: LLM 调用在外部，不需要客户端)
             self.engine = self._create_engine()
             
             # 初始化 LLM 客户端
@@ -122,7 +122,7 @@ class GradioDemo:
             if use_memory:
                 await self._seed_long_term_memory()
 
-            logger.info("✅ [Gradio] 引擎初始化成功 (v7.1 - 纯上下文工程)")
+            logger.info("✅ [Gradio] 引擎初始化成功 (v7.3 - 纯上下文工程)")
             
             # 首次启动时添加开场白
             await self.start_new_conversation(is_initial_start=True)
@@ -164,7 +164,7 @@ class GradioDemo:
     
     def _get_base_prompt(self) -> str:
         """获取系统提示词"""
-        # 系统提示词已直接定义（v7.1 中移除了 examples.prompts）
+        # 系统提示词已直接定义（v7.3 中移除了 examples.prompts）
         return """你是一个专业的客服助手，代表马上消费/优逸花与客户沟通。
 
 ## 角色定位：
@@ -527,7 +527,7 @@ class GradioDemo:
             if is_debug:
                 debug_info['prompt'] = prompt
             
-            # 调用 LLM (v7.1: LLM 调用在外部)
+            # 调用 LLM (v7.3: LLM 调用在外部)
             if self.llm_client:
                 try:
                     _, response = self.llm_client.generate(prompt)
@@ -646,8 +646,8 @@ class GradioDemo:
         
     def create_interface(self):
         """创建界面"""
-        with gr.Blocks(title="ContextMind v7.1 - 优逸花客服演示") as demo:
-            gr.Markdown("# 🤖 Context Mind v7.1 - 优逸花客服演示")
+        with gr.Blocks(title="ContextMind v7.3 - 优逸花客服演示") as demo:
+            gr.Markdown("# 🤖 Context Mind v7.3 - 优逸花客服演示")
             gr.Markdown("五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统")
             
             initial_history = self._get_initial_history()
