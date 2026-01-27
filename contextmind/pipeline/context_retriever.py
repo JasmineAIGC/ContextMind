@@ -1,8 +1,8 @@
 """
-ContextRetriever - Step 2 of Pipeline Architecture
+ContextRetriever - 管道架构步骤2
 
-External context retrieval. This is a placeholder as retrieval
-is currently handled by MemoryBank.
+外部上下文检索。这是一个占位符，因为检索
+当前由 MemoryBank 处理。
 """
 
 from typing import List, Optional, Any

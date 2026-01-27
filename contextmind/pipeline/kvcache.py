@@ -1,7 +1,7 @@
 """
-KVCacheManager - Step 5 of Pipeline Architecture
+KVCacheManager - 管道架构步骤5
 
-KV cache management during LLM inference.
+LLM 推理期间的 KV 缓存管理。
 """
 
 from typing import Dict, Any, List, Optional

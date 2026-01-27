@@ -1,4 +1,4 @@
-"""Pipeline processing components."""
+"""管道处理组件。"""
 
 from .preprocessor import InputPreprocessor as Preprocessor
 from .context_retriever import ContextRetriever
@@ -12,7 +12,7 @@ from .summarizer import (
     RuleBasedSummarizer,
 )
 
-# Backward compatibility
+# 向后兼容
 InputPreprocessor = Preprocessor
 
 __all__ = [

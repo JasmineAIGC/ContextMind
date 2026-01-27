@@ -1,7 +1,7 @@
 """
-Summarizer Module - Unified Conversation Summarization
+Summarizer 模块 - 统一的对话摘要
 
-Merged from:
+合并自:
 - processing/summarizer/base.py (SummarizerStrategy, ConversationSummarizer)
 - processing/summarizer/rule.py (RuleBasedSummarizer)
 - processing/summarizer/llm.py (LLMBasedSummarizer)
@@ -14,12 +14,12 @@ from dataclasses import dataclass
 from ..core.data_models import Message, ContextItem
 from ..core.types import MessageRole
 from ..utils.logger import get_logger
-from ..core.strategies import SummarizerStrategy  # Use core base class
+from ..core.strategies import SummarizerStrategy  # 使用核心基类
 
 logger = get_logger(__name__)
 
 # ============================================================================
-# Configuration
+# 配置
 # ============================================================================
 
 @dataclass
@@ -46,7 +46,7 @@ class SummarizationConfig:
 
 
 # ============================================================================
-# RuleBasedSummarizer - Rule-based Summarization
+# RuleBasedSummarizer - 基于规则的摘要
 # ============================================================================
 
 class RuleBasedSummarizer(SummarizerStrategy):
@@ -174,7 +174,7 @@ class RuleBasedSummarizer(SummarizerStrategy):
 
 
 # ============================================================================
-# LLMBasedSummarizer - LLM-based Summarization
+# LLMBasedSummarizer - 基于LLM的摘要
 # ============================================================================
 
 class LLMBasedSummarizer(SummarizerStrategy):
@@ -336,7 +336,7 @@ class LLMBasedSummarizer(SummarizerStrategy):
 
 
 # ============================================================================
-# ConversationSummarizer - Main Summarizer Class
+# ConversationSummarizer - 主摘要器类
 # ============================================================================
 
 class ConversationSummarizer:

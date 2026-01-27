@@ -1,7 +1,7 @@
 """
-PostProcessor - Step 6 of Pipeline Architecture
+PostProcessor - 管道架构步骤6
 
-Output post-processing and refinement.
+输出后处理和精炼。
 """
 
 import re

@@ -1,7 +1,7 @@
 """
-InputPreprocessor - Step 1 of Pipeline Architecture
+InputPreprocessor - 管道架构步骤1
 
-Input preprocessing and normalization.
+输入预处理和标准化。
 """
 
 import re

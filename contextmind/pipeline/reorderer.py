@@ -1,7 +1,7 @@
 """
-ContextReorderer - Step 4 of Pipeline Architecture
+ContextReorderer - 管道架构步骤4
 
-Context reordering and prioritization.
+上下文重排序和优先级处理。
 """
 
 from typing import Optional

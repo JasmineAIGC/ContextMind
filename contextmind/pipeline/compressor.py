@@ -1,7 +1,7 @@
 """
-ContextCompressor - Step 3 of Pipeline Architecture
+ContextCompressor - 管道架构步骤3
 
-Context compression and optimization.
+上下文压缩和优化。
 """
 
 from typing import Optional
