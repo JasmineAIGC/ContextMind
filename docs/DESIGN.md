@@ -294,12 +294,10 @@ ContextMind 提供了一个针对上下文工程工作流优化的三级日志�
 from contextmind import setup_logging, LogLevel
 
 # 基本模式（默认）
-setup_logging(LogLevel.BASIC)
-
-# 详细模式
-setup_logging(LogLevel.DETAILED)
+setup_logging(LogLevel.INFO)
 
 # 调试模式
+setup_logging(LogLevel.DEBUG)
 setup_logging(LogLevel.DEBUG)
 ```
 

@@ -31,8 +31,8 @@ from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, Cont
 from contextmind.core.models import ContextSource
 from examples.llm_client import SimpleLLMClient
 
-# 设置日志级别为 INFO (使用 BASIC)
-setup_logging(level=LogLevel.BASIC)
+# 设置日志级别为 INFO
+setup_logging(level=LogLevel.INFO)
 logger = get_logger(__name__)
 
 # 自动加载 .env 文件
@@ -749,7 +749,7 @@ class GradioDemo:
             def apply_config(use_session, max_events, use_memory, debug_mode):
                 """应用配置"""
                 from contextmind import DEBUG, INFO, ContextMindLogger, set_global_log_level, LogLevel
-                new_level = LogLevel.DEBUG if debug_mode else LogLevel.BASIC
+                new_level = LogLevel.DEBUG if debug_mode else LogLevel.INFO
                 set_global_log_level(new_level)
                 
                 try:

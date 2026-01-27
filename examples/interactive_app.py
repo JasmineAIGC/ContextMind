@@ -57,8 +57,8 @@ async def main():
     parser.add_argument('--debug', action='store_true', help='调试模式 (详细日志)')
     args = parser.parse_args()
     
-    # 设置日志级别: DEBUG (详细信息) 或 BASIC (重要信息)
-    log_level = LogLevel.DEBUG if args.debug else LogLevel.BASIC
+    # 设置日志级别: DEBUG (详细信息) 或 INFO (重要信息)
+    log_level = LogLevel.DEBUG if args.debug else LogLevel.INFO
     setup_logging(level=log_level)
     
     print("=" * 60)
