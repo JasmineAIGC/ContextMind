@@ -406,7 +406,7 @@ class ConversationSummarizer:
         Returns:
             是否需要摘要
         """
-        return history_length > self.config.summarize_threshold
+        return history_length >= self.config.summarize_threshold
     
     def should_create_incremental_summary(self, current_turn: int) -> bool:
         """判断是否需要生成增量摘要
