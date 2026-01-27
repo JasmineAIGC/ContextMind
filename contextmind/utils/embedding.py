@@ -16,7 +16,7 @@ from .logger import get_logger
 
 logger = get_logger(__name__)
 
-# 尝试导入 OpenAI，用于生成 embeddings
+# 尝试导入 OpenAI，用于生成嵌入向量
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True

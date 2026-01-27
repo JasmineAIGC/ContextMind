@@ -1,4 +1,4 @@
-"""Utility modules for ContextMind."""
+"""ContextMind 的工具模块。"""
 
 from .logger import (
     LogLevel,
