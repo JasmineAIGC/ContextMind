@@ -106,17 +106,9 @@ class CustomerServiceGradioDemo:
             
             # 创建LLM客户端用于知识提取
             from examples.llm_client import SimpleLLMClient, LLMConfig
-            from contextmind.core.configs import RetrievalConfig, ExtractionConfig
+            from contextmind.core.configs import ExtractionConfig
             
             llm_client_for_extraction = SimpleLLMClient(LLMConfig.from_env())
-            
-            # 配置记忆检索 - 设置上限(需求4)和综合性(需求3)
-            retrieval_config = RetrievalConfig(
-                top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
-                min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
-                use_semantic=True,
-                enable_recency_boost=True,  # 启用新近性加权
-            )
             
             # 配置知识提取 - 确保全面捕获(需求3)
             extraction_config = ExtractionConfig(
@@ -136,11 +128,24 @@ class CustomerServiceGradioDemo:
                 max_recent_events=max_recent_events,
                 llm_client=llm_client_for_extraction,  # 用于知识提取的 LLM 客户端
                 extraction_method="llm",  # 使用 LLM 提取（语义理解，40 种类型）
-                retrieval_config=retrieval_config,  # 应用检索配置
                 extraction_config=extraction_config,  # 应用提取配置
             )
             
+            # 配置记忆库检索 - 设置上限(需求4)和综合性(需求3)
+            # 需要在引擎初始化后配置MemoryBank
+            from contextmind.core.configs import RetrievalConfig
+            retrieval_config = RetrievalConfig(
+                top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
+                min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
+                use_semantic=True,
+                enable_recency_boost=True,  # 启用新近性加权
+            )
+            # 更新内存银行的配置
+            self.engine.memory_bank.config = retrieval_config
+            
             logger.info("✅ [客服Demo] 引擎初始化成功 (v7.3 - Pure Context Engineering)")
+            logger.info(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
+            logger.info(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
             
             # 初始化 CallCenterApplication
             try:

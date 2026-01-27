@@ -79,16 +79,8 @@ async def main():
     # 初始化引擎 (v7.3: LLM 调用在外部，不需要客户端)
     print("🔧 初始化引擎...")
     
-    # 配置记忆检索和提取 - 优化客服场景的记忆管理
+    # 配置知识提取和检索 - 优化客服场景的记忆管理
     from contextmind.core.configs import RetrievalConfig, ExtractionConfig
-    
-    # 配置记忆检索 - 设置上限(需求4)和综合性(需求3)
-    retrieval_config = RetrievalConfig(
-        top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
-        min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
-        use_semantic=True,
-        enable_recency_boost=True,  # 启用新近性加权
-    )
     
     # 配置知识提取 - 确保全面捕获(需求3)
     extraction_config = ExtractionConfig(
@@ -105,10 +97,23 @@ async def main():
         app_name="customer-service-demo",
         user_id="customer-user",
         max_recent_events=args.max_events,
-        retrieval_config=retrieval_config,
         extraction_config=extraction_config,
     )
+    
+    # 配置记忆库检索 - 设置上限(需求4)和综合性(需求3)
+    # 需要在引擎初始化后配置MemoryBank
+    retrieval_config = RetrievalConfig(
+        top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
+        min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
+        use_semantic=True,
+        enable_recency_boost=True,  # 启用新近性加权
+    )
+    # 更新内存银行的配置
+    context_engine.memory_bank.config = retrieval_config
+    
     print("✅ 引擎初始化完成 (v7.3 - 纯上下文工程)")
+    print(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
+    print(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
     print()
     
     # 初始化应用
