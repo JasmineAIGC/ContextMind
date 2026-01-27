@@ -103,7 +103,6 @@ from .pipeline import (
     ResponseHandler,
     BaseSummarizer,
     LLMBasedSummarizer,
-    RuleBasedSummarizer,
 )
 
 # 记忆库模块
@@ -180,7 +179,6 @@ __all__ = [
     # 支持组件
     "BaseSummarizer",
     "LLMBasedSummarizer",
-    "RuleBasedSummarizer",
     "ConversationSummarizer",  # 向后兼容性
     
     # 记忆库

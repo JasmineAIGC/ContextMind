@@ -85,25 +85,25 @@ class ContextEngine:
         max_recent_events: int = 9999,
         use_postprocessor: bool = False,
         use_summarizer: bool = False,
-        extraction_method: str = "rule",  # 'rule' 或 'llm'
+        extraction_method: str = "llm",  # 默认使用 'llm' 基于大语言模型的提取
         extraction_config: Optional[Any] = None,
     ):
         """
         初始化上下文引擎
         
-        v7.1 知识提取架构:
-        支持规则提取和LLM自动提取两种方式
+        v7.3 知识提取架构:
+        默认使用基于大语言模型的知识提取，确保最佳效果
         
         Args:
             app_name: 应用名称
             user_id: 用户 ID
-            llm_client: LLM 客户端实例 (可选, LLM提取时必需)
+            llm_client: LLM 客户端实例 (可选，但强烈推荐用于知识提取)
             session_service: Session 服务实例 (可选)
             memory_service: Memory 服务实例 (可选)
             max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
             use_postprocessor: (已废弃) 使用 handle_response 代替
             use_summarizer: 是否使用对话摘要器 (默认 False)
-            extraction_method: 知识提取方式 ('rule' 规则提取 或 'llm' LLM自动提取)
+            extraction_method: 知识提取方式 (默认 'llm' 使用大语言模型)
             extraction_config: 提取配置对象 (可选)
         """
         self.app_name = app_name
@@ -134,8 +134,8 @@ class ContextEngine:
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
         
-        # 初始化知识提取器 (v7.1 - 支持规则和LLM两种方式)
-        from .memory import RuleBasedExtractor, LLMBasedExtractor
+        # 初始化知识提取器 (v7.3 - 默认使用 LLM，确保最佳效果)
+        from .memory import LLMBasedExtractor
         from .core.configs import DEFAULT_MEMORY_CONFIG
         
         # 使用提供的配置或默认配置
@@ -145,18 +145,23 @@ class ContextEngine:
         
         if extraction_method == "llm":
             if not llm_client:
-                logger.warning(
-                    "[ContextEngine] LLM提取模式需要llm_client参数，"
-                    "回退到规则提取"
+                logger.error(
+                    "[ContextEngine] ⚠️ LLM提取模式需要llm_client参数！"
+                    "知识提取功能将被禁用。请提供llm_client以启用自动知识提取。"
                 )
-                self.extractor = RuleBasedExtractor(config)
-                self.extraction_method = "rule"
+                self.extractor = None
+                self.extraction_method = "disabled"
             else:
                 self.extractor = LLMBasedExtractor(llm_client, config)
-                logger.info("[ContextEngine] LLMBasedExtractor 已初始化用于知识提取")
+                logger.info("[ContextEngine] ✅ LLMBasedExtractor 已初始化用于知识提取")
         else:
-            self.extractor = RuleBasedExtractor(config)
-            logger.info("[ContextEngine] RuleBasedExtractor 已初始化用于知识提取")
+            # 不再支持基于规则的提取
+            logger.warning(
+                f"[ContextEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
+                "v7.3+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
+            )
+            self.extractor = None
+            self.extraction_method = "disabled"
         
         # 初始化响应处理器 (v7.3 - 替代 PostProcessor)
         self.response_handler = ResponseHandler(
@@ -418,6 +423,13 @@ class ContextEngine:
         logger.info("")
         logger.info("=" * 100)
         logger.info("[ContextEngine] ========== 🧠 开始知识提取 ==========")
+        
+        # 检查提取器是否可用
+        if not self.extractor:
+            logger.warning("[ContextEngine] ⚠️  知识提取器未初始化（需要llm_client）")
+            logger.info("=" * 100)
+            logger.info("")
+            return []
         
         # 获取最近的对话历史
         messages = await self.session_manager.get_recent_history()

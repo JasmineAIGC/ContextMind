@@ -52,18 +52,16 @@ class PluginRegistry:
             return
         
         try:
-            # 导入并注册提取器
-            from .memory.extractor import (
-                RuleBasedExtractor,
+            # 导入并注册提取器 (v7.3: 仅支持基于大语言模型的提取)
+            from ..memory.extractor import (
                 LLMBasedExtractor,
                 ImportancePredictorExtractor,
             )
             self.register('extractors', 'llm_based', LLMBasedExtractor)  # 推荐使用
-            self.register('extractors', 'rule_based', RuleBasedExtractor)  # 已弃用，仅作fallback
             self.register('extractors', 'importance', ImportancePredictorExtractor)
             
             # 导入并注册检索器
-            from .memory.retriever import (
+            from ..memory.retriever import (
                 SemanticSearchRetriever,
                 HybridRetriever,
                 LocatorRetriever,
@@ -73,7 +71,7 @@ class PluginRegistry:
             self.register('retrievers', 'locator', LocatorRetriever)
             
             # 导入并注册更新器
-            from .memory.updater import (
+            from ..memory.updater import (
                 SimpleUpdater,
                 ConflictResolverUpdater,
                 AdaptiveEvictionUpdater,
@@ -82,20 +80,18 @@ class PluginRegistry:
             self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
             self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
-            # 导入并注册其他 Pipeline 组件
-            from .compressor import ContextCompressor
-            from .reorderer import ContextReorderer
-            from .preprocessor import InputPreprocessor
-            from .postprocessor import PostProcessor
-            from .summarizer import ConversationSummarizer
-            from .kvcache import KVCacheManager
+            # 导入并注册其他 Pipeline 组件 (v7.3: 移除已废弃组件)
+            from ..pipeline.compressor import ContextCompressor
+            from ..pipeline.reorderer import ContextReorderer
+            from ..pipeline.preprocessor import InputPreprocessor
+            from ..pipeline.response_handler import ResponseHandler
+            from ..pipeline.summarizer import LLMBasedSummarizer
             
             self.register('compressors', 'default', ContextCompressor)
             self.register('reorderers', 'default', ContextReorderer)
             self.register('preprocessors', 'default', InputPreprocessor)
-            self.register('postprocessors', 'default', PostProcessor)
-            self.register('summarizers', 'default', ConversationSummarizer)
-            self.register('kvcache_managers', 'default', KVCacheManager)
+            self.register('response_handlers', 'default', ResponseHandler)
+            self.register('summarizers', 'llm_based', LLMBasedSummarizer)
             
             self._initialized = True
             logger.info("[PluginRegistry] ✓ 默认插件初始化完成")

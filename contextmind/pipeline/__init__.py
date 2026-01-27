@@ -8,7 +8,6 @@ from .response_handler import ResponseHandler
 from .summarizer import (
     SummarizerStrategy as BaseSummarizer,
     LLMBasedSummarizer,
-    RuleBasedSummarizer,
 )
 
 # 向后兼容
@@ -23,5 +22,4 @@ __all__ = [
     "ResponseHandler",
     "BaseSummarizer",
     "LLMBasedSummarizer",
-    "RuleBasedSummarizer",
 ]

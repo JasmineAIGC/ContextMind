@@ -237,11 +237,10 @@ class LLMBasedSummarizer(SummarizerStrategy):
         Returns:
             摘要文本
         """
-        # 如果没有LLM客户端，回退到规则摘要
+        # 如果没有LLM客户端，返回简单的统计信息
         if not self.llm_client:
-            logger.debug("[LLMBasedSummarizer] 回退到规则摘要 (无LLM客户端)")
-            fallback = RuleBasedSummarizer(self.config)
-            return await fallback.summarize(messages, existing_summary)
+            logger.warning("[LLMBasedSummarizer] ⚠️ 无LLM客户端，无法生成摘要")
+            return f"对话包含 {len(messages)} 条消息（摘要功能需要LLM客户端）"
         
         if not messages:
             return "暂无对话历史"
@@ -320,11 +319,9 @@ class LLMBasedSummarizer(SummarizerStrategy):
             return summary
             
         except Exception as e:
-            logger.error(f"[LLMBasedSummarizer] LLM调用失败: {e}")
-            # 回退到规则摘要
-            logger.info("[LLMBasedSummarizer] 回退到规则摘要")
-            fallback = RuleBasedSummarizer(self.config)
-            return await fallback.summarize(messages, existing_summary)
+            logger.error(f"[LLMBasedSummarizer] ⚠️ LLM调用失败: {e}")
+            # 返回错误信息而不是回退到规则摘要
+            return f"摘要生成失败（包含 {len(messages)} 条消息）: {str(e)[:100]}"
     
     def _build_conversation_text(self, messages: List[Message]) -> str:
         """构建对话文本用于LLM摘要"""
@@ -358,10 +355,10 @@ class ConversationSummarizer:
         初始化摘要器
         
         Args:
-            strategy: 摘要策略, 默认使用 RuleBasedSummarizer
+            strategy: 摘要策略（已废弃，使用 config.method 代替）
             config: 摘要配置（SummarizationConfig），优先级高于 strategy
             window_size: 摘要窗口大小 (消息条数)
-            llm_client: LLM客户端（仅当使用LLM摘要时需要）
+            llm_client: LLM客户端（强烈推荐，用于高质量摘要）
         """
         self.config = config or SummarizationConfig()
         self.llm_client = llm_client
@@ -369,14 +366,22 @@ class ConversationSummarizer:
         # 如果提供了config，根据method选择strategy
         if config:
             if config.method == "llm" and llm_client:
-                logger.info("[Summarizer] 使用LLM摘要策略")
+                logger.info("[Summarizer] ✅ 使用基于大语言模型的摘要策略")
                 self.strategy = LLMBasedSummarizer(llm_client, config)
             else:
                 if config.method == "llm" and not llm_client:
-                    logger.warning("[Summarizer] LLM摘要需要llm_client，回退到规则摘要")
-                self.strategy = RuleBasedSummarizer(config)
+                    logger.error("[Summarizer] ⚠️ LLM摘要需要llm_client，摘要功能将被禁用")
+                    self.strategy = None
+                else:
+                    logger.warning("[Summarizer] ⚠️ 不支持的摘要方法，摘要功能将被禁用")
+                    self.strategy = None
         else:
-            self.strategy = strategy or RuleBasedSummarizer()
+            if llm_client:
+                logger.info("[Summarizer] ✅ 默认使用基于大语言模型的摘要策略")
+                self.strategy = LLMBasedSummarizer(llm_client, self.config)
+            else:
+                logger.warning("[Summarizer] ⚠️ 未提供llm_client，摘要功能将被禁用")
+                self.strategy = strategy  # 可能是 None
         
         self.window_size = window_size
         
