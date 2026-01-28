@@ -15,10 +15,9 @@ import asyncio
 from datetime import datetime, timedelta
 from contextmind.memory import (
     EvolutionaryMemoryUpdater,
-    FitnessCalculator,
-    MemoryFitness
+    FitnessCalculator
 )
-from contextmind.core.data_models import ContextItem, Knowledge
+from contextmind.core.data_models import ContextItem, Knowledge, ScoreInfo
 from contextmind.core.types import ContextSource, KnowledgeType
 
 
