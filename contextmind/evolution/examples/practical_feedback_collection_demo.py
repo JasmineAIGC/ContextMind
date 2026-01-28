@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from contextmind.core.data_models import ContextItem, ContextSource
 from contextmind.memory.memory_fitness import FitnessCalculator
-from contextmind.evolution.feedback import (
+from contextmind.evolution import (
     ObservationCollector,
     FeedbackCollector,
     ImplicitFeedbackAnalyzer,
