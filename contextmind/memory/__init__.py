@@ -26,6 +26,10 @@ from .updater import (
     BaseUpdater,
     SimpleUpdater,
 )
+from .feedback_updater import (
+    FeedbackBasedUpdater,
+    FeedbackSignal,
+)
 
 __all__ = [
     # 主 MemoryBank
@@ -46,4 +50,6 @@ __all__ = [
     # 更新器 (步骤 3: 更新记忆库)
     "BaseUpdater",
     "SimpleUpdater",
+    "FeedbackBasedUpdater",
+    "FeedbackSignal",
 ]
