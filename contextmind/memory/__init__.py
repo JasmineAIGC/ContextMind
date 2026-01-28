@@ -30,6 +30,18 @@ from .feedback_updater import (
     FeedbackBasedUpdater,
     FeedbackSignal,
 )
+from .modern_feedback import (
+    ModernFeedbackUpdater,
+    FeedbackContext,
+    FeedbackType,
+    MemoryScore,
+    UpdaterConfig,
+    ExponentialDecay,
+    HyperbolicDecay,
+    PowerLawDecay,
+    TDRewardCalculator,
+    ThompsonSamplingRewardCalculator,
+)
 
 __all__ = [
     # 主 MemoryBank
@@ -50,6 +62,20 @@ __all__ = [
     # 更新器 (步骤 3: 更新记忆库)
     "BaseUpdater",
     "SimpleUpdater",
+    
+    # 反馈更新器 (Legacy - 保持向后兼容)
     "FeedbackBasedUpdater",
     "FeedbackSignal",
+    
+    # 现代化反馈系统 (推荐使用)
+    "ModernFeedbackUpdater",
+    "FeedbackContext",
+    "FeedbackType",
+    "MemoryScore",
+    "UpdaterConfig",
+    "ExponentialDecay",
+    "HyperbolicDecay",
+    "PowerLawDecay",
+    "TDRewardCalculator",
+    "ThompsonSamplingRewardCalculator",
 ]

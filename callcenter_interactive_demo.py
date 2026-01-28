@@ -102,7 +102,7 @@ async def main():
     
     # 配置记忆库检索 - 设置上限(需求4)和综合性(需求3)
     # 需要在引擎初始化后配置MemoryBank
-    from contextmind.memory import FeedbackBasedUpdater
+    from contextmind.memory import ModernFeedbackUpdater, UpdaterConfig
     
     retrieval_config = RetrievalConfig(
         top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
@@ -113,14 +113,22 @@ async def main():
     # 更新内存银行的配置
     context_engine.memory_bank.config = retrieval_config
     
-    # 使用基于反馈信号的记忆更新器（需求：基于反馈信号更新记忆库）
-    feedback_updater = FeedbackBasedUpdater()
+    # 使用现代化反馈信号记忆更新器
+    # 采用TD学习、Thompson采样和多臂老虎机等现代方法
+    updater_config = UpdaterConfig(
+        max_memory_size=100,
+        min_confidence=0.3,
+        td_learning_rate=0.1,
+        td_discount_factor=0.9,
+        decay_type="hyperbolic",  # 使用双曲衰减
+    )
+    feedback_updater = ModernFeedbackUpdater(updater_config)
     context_engine.memory_bank._updater = feedback_updater
     
     print("✅ 引擎初始化完成 (v7.3 - 纯上下文工程)")
     print(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
     print(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
-    print(f"   - 记忆更新策略: FeedbackBasedUpdater (基于反馈信号)")
+    print(f"   - 记忆更新策略: ModernFeedbackUpdater (TD学习+Thompson采样+UCB)")
     print()
     
     # 初始化应用
