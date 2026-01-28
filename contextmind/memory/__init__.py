@@ -26,6 +26,13 @@ from .updater import (
     BaseUpdater,
     SimpleUpdater,
 )
+from .memory_fitness import (
+    MemoryFitness,
+    FitnessCalculator,
+)
+from .evolutionary_updater import (
+    EvolutionaryMemoryUpdater,
+)
 
 __all__ = [
     # 主 MemoryBank
@@ -46,4 +53,9 @@ __all__ = [
     # 更新器 (步骤 3: 更新记忆库)
     "BaseUpdater",
     "SimpleUpdater",
+    "EvolutionaryMemoryUpdater",
+    
+    # 适应度评估 (进化式更新支持)
+    "MemoryFitness",
+    "FitnessCalculator",
 ]
