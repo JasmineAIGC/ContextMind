@@ -134,7 +134,6 @@ class CustomerServiceGradioDemo:
             # 配置记忆库检索 - 设置上限(需求4)和综合性(需求3)
             # 需要在引擎初始化后配置MemoryBank
             from contextmind.core.configs import RetrievalConfig
-            from contextmind.memory import ModernFeedbackUpdater, UpdaterConfig
             
             retrieval_config = RetrievalConfig(
                 top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
@@ -145,22 +144,9 @@ class CustomerServiceGradioDemo:
             # 更新内存银行的配置
             self.engine.memory_bank.config = retrieval_config
             
-            # 使用现代化反馈信号记忆更新器
-            # 采用TD学习、Thompson采样和多臂老虎机等现代方法
-            updater_config = UpdaterConfig(
-                max_memory_size=100,
-                min_confidence=0.3,
-                td_learning_rate=0.1,
-                td_discount_factor=0.9,
-                decay_type="hyperbolic",  # 使用双曲衰减，更符合长期记忆
-            )
-            self.feedback_updater = ModernFeedbackUpdater(updater_config)
-            self.engine.memory_bank._updater = self.feedback_updater
-            
             logger.info("✅ [客服Demo] 引擎初始化成功 (v7.3 - Pure Context Engineering)")
             logger.info(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
             logger.info(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
-            logger.info(f"   - 记忆更新策略: ModernFeedbackUpdater (TD学习+Thompson采样+UCB)")
             
             # 初始化 CallCenterApplication
             try:
