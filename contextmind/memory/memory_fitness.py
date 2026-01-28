@@ -4,17 +4,20 @@
 借鉴 AlphaEvolve/ThetaEvolve 的进化思想，为记忆库中的每条记忆计算适应度分数。
 适应度分数用于指导记忆的选择、更新和淘汰。
 
-该模块实现了多维度的记忆评估机制：
-- 使用频率：记忆被使用的次数
+该模块实现了多维度的记忆评估机制，包含观测和反馈循环：
+- 使用频率：记忆被实际使用的次数
+- 检索统计：观测检索和使用的关系
 - 时间新鲜度：最近使用的时间
-- 准确性：基于反馈的准确性评分
+- 准确性：基于真实反馈的准确性评分
 - 相关性：与当前对话的相关程度
+- 贡献度：记忆对回复质量的实际贡献
 """
 
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 from datetime import datetime
+from enum import Enum
 
 from ..core.data_models import ContextItem
 from ..utils.logger import get_logger
@@ -22,28 +25,124 @@ from ..utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+class ObservationType(Enum):
+    """观测事件类型"""
+    RETRIEVED = "retrieved"        # 记忆被检索
+    USED = "used"                  # 记忆被实际使用
+    IGNORED = "ignored"            # 记忆被检索但未使用
+    CONTRIBUTED = "contributed"    # 记忆对回复有贡献
+    CONTRADICTED = "contradicted"  # 记忆导致矛盾或错误
+
+
+class FeedbackType(Enum):
+    """反馈类型"""
+    POSITIVE = "positive"          # 正面反馈（用户满意）
+    NEGATIVE = "negative"          # 负面反馈（用户不满）
+    CORRECTION = "correction"      # 用户纠正
+    NEUTRAL = "neutral"            # 中性反馈
+
+
+@dataclass
+class MemoryObservation:
+    """
+    记忆观测记录
+    
+    记录记忆在实际使用中的表现，用于反馈学习和适应度调整。
+    """
+    memory_id: str
+    observation_type: ObservationType
+    timestamp: float = field(default_factory=time.time)
+    context: Dict[str, any] = field(default_factory=dict)
+    feedback: Optional[FeedbackType] = None
+    score: Optional[float] = None  # 具体评分（如贡献度）
+
+
 @dataclass
 class MemoryFitness:
     """
-    记忆适应度评分
+    记忆适应度评分（支持观测和反馈）
     
-    借鉴进化算法的适应度概念，评估记忆条目的价值。
-    多维度评分确保记忆库保持高质量和相关性。
+    借鉴进化算法的适应度概念，通过观测实际使用情况和收集反馈来评估记忆价值。
     
     Attributes:
-        usage_count: 记忆被使用的总次数（越多越好）
-        last_used: 最后一次使用的时间戳（越新越好）
-        accuracy: 准确性评分 0-1（基于用户反馈）
-        relevance: 当前相关性评分 0-1
-        recency: 新鲜度评分 0-1（基于创建时间）
+        # 基础统计
+        usage_count: 记忆被实际使用的次数
+        last_used: 最后一次使用的时间戳
         creation_time: 记忆创建时间戳
+        
+        # 观测数据（新增）
+        retrieval_count: 记忆被检索的次数（可能未被使用）
+        actual_usage_count: 实际被使用的次数（用于生成回复）
+        ignored_count: 被检索但未使用的次数
+        
+        # 评分维度
+        accuracy: 准确性评分 0-1（基于真实反馈）
+        relevance: 当前相关性评分 0-1
+        contribution_score: 实际贡献度评分 0-1（基于观测）
+        
+        # 反馈统计（新增）
+        positive_feedback_count: 正面反馈次数
+        negative_feedback_count: 负面反馈次数
+        correction_count: 被纠正次数
+        
+        # 计算属性
+        usage_rate: 使用率 = actual_usage / retrieval（自动计算）
+        feedback_score: 反馈综合评分（自动计算）
     """
+    # 基础统计
     usage_count: int = 0
     last_used: float = field(default_factory=time.time)
-    accuracy: float = 1.0  # 默认为完全准确
-    relevance: float = 1.0  # 默认为高度相关
-    recency: float = 1.0
     creation_time: float = field(default_factory=time.time)
+    
+    # 观测数据（新增）
+    retrieval_count: int = 0       # 被检索次数
+    actual_usage_count: int = 0    # 实际使用次数
+    ignored_count: int = 0         # 被忽略次数
+    
+    # 评分维度
+    accuracy: float = 1.0          # 默认为完全准确
+    relevance: float = 1.0         # 默认为高度相关
+    contribution_score: float = 0.5  # 默认中等贡献
+    
+    # 反馈统计（新增）
+    positive_feedback_count: int = 0
+    negative_feedback_count: int = 0
+    correction_count: int = 0
+    
+    # 遗留字段（为了兼容性）
+    recency: float = 1.0
+    
+    @property
+    def usage_rate(self) -> float:
+        """使用率 = 实际使用次数 / 检索次数"""
+        if self.retrieval_count == 0:
+            return 0.0
+        return min(1.0, self.actual_usage_count / self.retrieval_count)
+    
+    @property
+    def feedback_score(self) -> float:
+        """
+        反馈综合评分
+        
+        基于正负反馈的比例计算，范围 0-1
+        """
+        total_feedback = (
+            self.positive_feedback_count + 
+            self.negative_feedback_count + 
+            self.correction_count
+        )
+        if total_feedback == 0:
+            return 0.5  # 无反馈时返回中性分数
+        
+        # 正面权重1.0，负面权重-1.0，纠正权重-0.5
+        score = (
+            self.positive_feedback_count * 1.0 -
+            self.negative_feedback_count * 1.0 -
+            self.correction_count * 0.5
+        ) / total_feedback
+        
+        # 归一化到 [0, 1]
+        return (score + 1.0) / 2.0
     
     def calculate_score(
         self,
@@ -51,9 +150,9 @@ class MemoryFitness:
         current_time: Optional[float] = None
     ) -> float:
         """
-        计算综合适应度分数
+        计算综合适应度分数（支持观测和反馈）
         
-        使用加权和的方式组合多个维度的评分。
+        整合多个维度的评分，其中包括基于真实观测和反馈的数据。
         
         Args:
             weights: 各维度权重配置，默认为均衡权重
@@ -62,37 +161,98 @@ class MemoryFitness:
         Returns:
             综合适应度分数（0-1之间）
         """
+        import math
+        
         if weights is None:
-            # 默认权重：平衡各维度重要性
+            # 新的默认权重：更注重实际表现和反馈
             weights = {
-                'usage': 0.3,      # 使用频率权重
-                'recency': 0.25,   # 新鲜度权重
-                'accuracy': 0.25,  # 准确性权重
-                'relevance': 0.2   # 相关性权重
+                'usage': 0.20,           # 使用频率（降低权重，因为有使用率）
+                'usage_rate': 0.15,      # 使用率（新增：检索后实际使用的比例）
+                'recency': 0.15,         # 时间新鲜度
+                'accuracy': 0.25,        # 准确性（基于真实反馈）
+                'feedback': 0.15,        # 反馈得分（新增）
+                'contribution': 0.10     # 贡献度（新增：对回复的实际贡献）
             }
         
         if current_time is None:
             current_time = time.time()
         
-        # 使用频率得分（归一化，使用对数缩放避免过大差异）
-        import math
-        usage_score = min(1.0, math.log(self.usage_count + 1) / math.log(100))
+        # 1. 使用频率得分（归一化，使用对数缩放）
+        usage_score = min(1.0, math.log(self.actual_usage_count + 1) / math.log(100))
         
-        # 时间衰减得分（最近使用的记忆得分更高）
+        # 2. 使用率得分（观测数据：实际使用/检索）
+        usage_rate_score = self.usage_rate
+        
+        # 3. 时间衰减得分（最近使用的记忆得分更高）
         time_since_use = current_time - self.last_used
-        # 使用指数衰减，半衰期为7天
-        half_life_seconds = 7 * 24 * 3600
+        half_life_seconds = 7 * 24 * 3600  # 7天半衰期
         recency_score = math.exp(-time_since_use / half_life_seconds)
         
-        # 综合计算
+        # 4. 准确性得分（基于真实反馈更新的值）
+        accuracy_score = self.accuracy
+        
+        # 5. 反馈得分（基于正负反馈统计）
+        feedback_score_value = self.feedback_score
+        
+        # 6. 贡献度得分（观测到的实际贡献）
+        contribution_value = self.contribution_score
+        
+        # 综合计算（加权和）
         score = (
-            weights.get('usage', 0.3) * usage_score +
-            weights.get('recency', 0.25) * recency_score +
-            weights.get('accuracy', 0.25) * self.accuracy +
-            weights.get('relevance', 0.2) * self.relevance
+            weights.get('usage', 0.20) * usage_score +
+            weights.get('usage_rate', 0.15) * usage_rate_score +
+            weights.get('recency', 0.15) * recency_score +
+            weights.get('accuracy', 0.25) * accuracy_score +
+            weights.get('feedback', 0.15) * feedback_score_value +
+            weights.get('contribution', 0.10) * contribution_value
         )
         
         return max(0.0, min(1.0, score))  # 确保在 [0, 1] 范围内
+    
+    def observe_retrieval(self):
+        """观测：记忆被检索"""
+        self.retrieval_count += 1
+    
+    def observe_usage(self):
+        """观测：记忆被实际使用"""
+        self.actual_usage_count += 1
+        self.usage_count += 1  # 向后兼容
+        self.last_used = time.time()
+    
+    def observe_ignored(self):
+        """观测：记忆被检索但未使用"""
+        self.ignored_count += 1
+    
+    def record_positive_feedback(self):
+        """记录正面反馈"""
+        self.positive_feedback_count += 1
+        # 提升准确性（逐步学习）
+        self.accuracy = min(1.0, self.accuracy + 0.05)
+    
+    def record_negative_feedback(self):
+        """记录负面反馈"""
+        self.negative_feedback_count += 1
+        # 降低准确性（逐步学习）
+        self.accuracy = max(0.0, self.accuracy - 0.1)
+    
+    def record_correction(self):
+        """记录纠正（用户纠正了记忆内容）"""
+        self.correction_count += 1
+        # 较大幅度降低准确性
+        self.accuracy = max(0.0, self.accuracy - 0.15)
+    
+    def update_contribution(self, score: float):
+        """
+        更新贡献度评分
+        
+        Args:
+            score: 贡献度评分 0-1
+        """
+        # 使用指数移动平均更新
+        alpha = 0.3  # 学习率
+        self.contribution_score = (
+            alpha * score + (1 - alpha) * self.contribution_score
+        )
 
 
 class FitnessCalculator:
@@ -116,101 +276,198 @@ class FitnessCalculator:
             usage_decay_rate: 使用次数的衰减率（防止旧记忆过度累积）
         """
         self.weights = weights or {
-            'usage': 0.3,
-            'recency': 0.25,
+            'usage': 0.20,
+            'usage_rate': 0.15,
+            'recency': 0.15,
             'accuracy': 0.25,
-            'relevance': 0.2
+            'feedback': 0.15,
+            'contribution': 0.10
         }
         self.usage_decay_rate = usage_decay_rate
         logger.info(f"[FitnessCalculator] 初始化 - 权重={self.weights}")
     
     def get_fitness(self, memory: ContextItem) -> MemoryFitness:
         """
-        从记忆项中提取或创建适应度评分
+        从记忆项中提取或创建适应度评分（支持观测和反馈）
         
         Args:
             memory: 记忆项
             
         Returns:
-            记忆适应度对象
+            记忆适应度对象（包含观测和反馈数据）
         """
         # 尝试从 metadata 中获取已有的适应度信息
         metadata = memory.metadata or {}
         
         fitness = MemoryFitness(
+            # 基础统计
             usage_count=metadata.get('usage_count', 0),
             last_used=metadata.get('last_used', memory.timestamp.timestamp() if memory.timestamp else time.time()),
+            creation_time=memory.timestamp.timestamp() if memory.timestamp else time.time(),
+            
+            # 观测数据
+            retrieval_count=metadata.get('retrieval_count', 0),
+            actual_usage_count=metadata.get('actual_usage_count', 0),
+            ignored_count=metadata.get('ignored_count', 0),
+            
+            # 评分维度
             accuracy=metadata.get('accuracy', 1.0),
-            relevance=metadata.get('relevance', memory.score),  # 使用记忆分数作为初始相关性
+            relevance=metadata.get('relevance', memory.score),
+            contribution_score=metadata.get('contribution_score', 0.5),
+            
+            # 反馈统计
+            positive_feedback_count=metadata.get('positive_feedback_count', 0),
+            negative_feedback_count=metadata.get('negative_feedback_count', 0),
+            correction_count=metadata.get('correction_count', 0),
+            
             recency=1.0,  # 新记忆默认新鲜度为1
-            creation_time=memory.timestamp.timestamp() if memory.timestamp else time.time()
         )
         
         return fitness
     
-    def update_fitness(
-        self,
-        memory: ContextItem,
-        used: bool = False,
-        accuracy_feedback: Optional[float] = None,
-        relevance_feedback: Optional[float] = None
-    ) -> ContextItem:
+    def save_fitness(self, memory: ContextItem, fitness: MemoryFitness) -> ContextItem:
         """
-        更新记忆的适应度信息
+        将适应度信息保存回记忆项的metadata（支持观测和反馈数据）
         
         Args:
-            memory: 要更新的记忆项
-            used: 记忆是否被使用
-            accuracy_feedback: 准确性反馈 (0-1)
-            relevance_feedback: 相关性反馈 (0-1)
+            memory: 记忆项
+            fitness: 适应度对象
+            
+        Returns:
+            更新后的记忆项
+        """
+        updated_metadata = {
+            **(memory.metadata or {}),
+            # 基础统计
+            'usage_count': fitness.usage_count,
+            'last_used': fitness.last_used,
+            'creation_time': fitness.creation_time,
+            
+            # 观测数据
+            'retrieval_count': fitness.retrieval_count,
+            'actual_usage_count': fitness.actual_usage_count,
+            'ignored_count': fitness.ignored_count,
+            
+            # 评分维度
+            'accuracy': fitness.accuracy,
+            'relevance': fitness.relevance,
+            'contribution_score': fitness.contribution_score,
+            
+            # 反馈统计
+            'positive_feedback_count': fitness.positive_feedback_count,
+            'negative_feedback_count': fitness.negative_feedback_count,
+            'correction_count': fitness.correction_count,
+        }
+        
+        memory.metadata = updated_metadata
+        return memory
+    
+    def observe_retrieval(self, memory: ContextItem) -> ContextItem:
+        """
+        观测：记忆被检索
+        
+        Args:
+            memory: 被检索的记忆项
             
         Returns:
             更新后的记忆项
         """
         fitness = self.get_fitness(memory)
+        fitness.observe_retrieval()
+        return self.save_fitness(memory, fitness)
+    
+    def observe_usage(self, memory: ContextItem) -> ContextItem:
+        """
+        观测：记忆被实际使用
         
-        # 更新使用次数和时间
-        if used:
-            fitness.usage_count += 1
-            fitness.last_used = time.time()
+        Args:
+            memory: 被使用的记忆项
+            
+        Returns:
+            更新后的记忆项
+        """
+        fitness = self.get_fitness(memory)
+        fitness.observe_usage()
+        return self.save_fitness(memory, fitness)
+    
+    def observe_ignored(self, memory: ContextItem) -> ContextItem:
+        """
+        观测：记忆被检索但未使用
         
-        # 更新准确性（如果有反馈）
-        if accuracy_feedback is not None:
-            # 使用移动平均
-            alpha = 0.3  # 新反馈的权重
-            fitness.accuracy = alpha * accuracy_feedback + (1 - alpha) * fitness.accuracy
+        Args:
+            memory: 被忽略的记忆项
+            
+        Returns:
+            更新后的记忆项
+        """
+        fitness = self.get_fitness(memory)
+        fitness.observe_ignored()
+        return self.save_fitness(memory, fitness)
+    
+    def record_positive_feedback(self, memory: ContextItem) -> ContextItem:
+        """
+        记录正面反馈
         
-        # 更新相关性（如果有反馈）
-        if relevance_feedback is not None:
-            fitness.relevance = relevance_feedback
+        Args:
+            memory: 收到正面反馈的记忆项
+            
+        Returns:
+            更新后的记忆项
+        """
+        fitness = self.get_fitness(memory)
+        fitness.record_positive_feedback()
+        logger.info(f"[FitnessCalculator] 正面反馈 - 准确性提升至 {fitness.accuracy:.2f}")
+        return self.save_fitness(memory, fitness)
+    
+    def record_negative_feedback(self, memory: ContextItem) -> ContextItem:
+        """
+        记录负面反馈
         
-        # 将适应度信息保存到 metadata
-        updated_metadata = {
-            **(memory.metadata or {}),
-            'usage_count': fitness.usage_count,
-            'last_used': fitness.last_used,
-            'accuracy': fitness.accuracy,
-            'relevance': fitness.relevance,
-            'creation_time': fitness.creation_time,
-            'fitness_score': fitness.calculate_score(self.weights)
-        }
+        Args:
+            memory: 收到负面反馈的记忆项
+            
+        Returns:
+            更新后的记忆项
+        """
+        fitness = self.get_fitness(memory)
+        fitness.record_negative_feedback()
+        logger.info(f"[FitnessCalculator] 负面反馈 - 准确性降至 {fitness.accuracy:.2f}")
+        return self.save_fitness(memory, fitness)
+    
+    def record_correction(self, memory: ContextItem) -> ContextItem:
+        """
+        记录纠正
         
-        # 创建更新后的记忆项
-        from ..core.data_models import ContextItem
-        updated_memory = ContextItem(
-            content=memory.content,
-            source=memory.source,
-            score=memory.score,
-            timestamp=memory.timestamp,
-            embeddings=memory.embeddings,
-            metadata=updated_metadata
-        )
+        Args:
+            memory: 被纠正的记忆项
+            
+        Returns:
+            更新后的记忆项
+        """
+        fitness = self.get_fitness(memory)
+        fitness.record_correction()
+        logger.info(f"[FitnessCalculator] 纠正反馈 - 准确性降至 {fitness.accuracy:.2f}")
+        return self.save_fitness(memory, fitness)
+    
+    def update_contribution(self, memory: ContextItem, score: float) -> ContextItem:
+        """
+        更新贡献度评分
         
-        return updated_memory
+        Args:
+            memory: 记忆项
+            score: 贡献度评分 0-1
+            
+        Returns:
+            更新后的记忆项
+        """
+        fitness = self.get_fitness(memory)
+        fitness.update_contribution(score)
+        logger.debug(f"[FitnessCalculator] 更新贡献度 - {fitness.contribution_score:.2f}")
+        return self.save_fitness(memory, fitness)
     
     def calculate_fitness_score(self, memory: ContextItem) -> float:
         """
-        计算记忆的当前适应度分数
+        计算记忆的当前适应度分数（使用观测和反馈数据）
         
         Args:
             memory: 记忆项
