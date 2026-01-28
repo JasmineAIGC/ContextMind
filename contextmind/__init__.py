@@ -115,6 +115,16 @@ from .memory import (
     BaseExtractor,
     BaseRetriever,
     BaseUpdater,
+    MemoryFitness,
+    FitnessCalculator,
+)
+
+# 进化模块 (基于 AlphaEvolve/ThetaEvolve 思想)
+from .evolution import (
+    EvolutionaryMemoryUpdater,
+    ObservationCollector,
+    FeedbackCollector,
+    ImplicitFeedbackAnalyzer,
 )
 
 # 向后兼容性别名
@@ -187,6 +197,14 @@ __all__ = [
     "LLMBasedExtractor",
     "SemanticSearchRetriever",
     "SimpleUpdater",
+    "MemoryFitness",
+    "FitnessCalculator",
+    
+    # 进化模块
+    "EvolutionaryMemoryUpdater",
+    "ObservationCollector",
+    "FeedbackCollector",
+    "ImplicitFeedbackAnalyzer",
     
     # 策略基类
     "BaseExtractor",

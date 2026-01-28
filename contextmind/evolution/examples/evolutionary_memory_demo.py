@@ -13,7 +13,7 @@
 
 import asyncio
 from datetime import datetime, timedelta
-from evolution.updaters import EvolutionaryMemoryUpdater
+from contextmind.evolution.updaters import EvolutionaryMemoryUpdater
 from contextmind.memory import FitnessCalculator
 from contextmind.core.data_models import ContextItem, Knowledge, ScoreInfo
 from contextmind.core.types import ContextSource, KnowledgeType
@@ -130,10 +130,10 @@ async def demo_evolutionary_updater():
         ]
         
         # 模拟记忆使用（提升某些记忆的使用次数）
-        for memory in updated_memories:
+        for i, memory in enumerate(updated_memories):
             if "喜欢" in memory.content and turn % 2 == 0:
                 # 模拟使用
-                memory = fitness_calc.update_fitness(memory, used=True)
+                updated_memories[i] = fitness_calc.observe_usage(memory)
         
         # 更新记忆库
         updated_memories = await updater.update(updated_memories, new_knowledge)
