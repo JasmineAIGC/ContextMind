@@ -11,7 +11,7 @@
 - 应用选择、变异、交叉等进化操作优化记忆库
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import time
 from datetime import datetime
 
@@ -269,7 +269,7 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
         self,
         existing_memories: List[ContextItem],
         new_knowledge: List[Knowledge]
-    ) -> tuple[List[ContextItem], List[ContextItem]]:
+    ) -> Tuple[List[ContextItem], List[ContextItem]]:
         """
         合并相似记忆（类似遗传算法的交叉操作）
         
