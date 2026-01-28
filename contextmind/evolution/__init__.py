@@ -1,25 +1,24 @@
 """
-Evolution Module - AlphaEvolve/ThetaEvolve 启发的进化式记忆优化
+Evolution Module - 进化式记忆优化
 
-这是 ContextMind 的一个内部模块，实现了借鉴 AlphaEvolve 和 ThetaEvolve 思想的进化式记忆管理。
-用于对话任务中记忆库的智能优化。
+借鉴 AlphaEvolve/ThetaEvolve 思想的进化式记忆管理模块。
+通过观测-反馈-学习循环，持续优化对话记忆质量。
 
-主要组件:
-- updaters: 进化式记忆更新器
-- feedback: 观测和反馈收集系统
+核心组件:
+- EvolutionaryMemoryUpdater: 进化式记忆更新器
+- FeedbackCollector: 反馈收集系统
+- ObservationCollector: 观测收集系统
 
 使用方式:
-    from contextmind import EvolutionaryMemoryUpdater, FeedbackCollector
-    
-    # 或直接从 evolution 子模块导入
     from contextmind.evolution import EvolutionaryMemoryUpdater
+    from contextmind.evolution import FeedbackCollector
 """
 
 __version__ = "0.1.0"
 
-# 从子模块导出主要类
-from .updaters import EvolutionaryMemoryUpdater
-from .feedback import (
+# 从模块文件导入主要类
+from .evolutionary_updater import EvolutionaryMemoryUpdater
+from .feedback_system import (
     ObservationCollector,
     FeedbackCollector,
     ImplicitFeedbackAnalyzer,

@@ -206,6 +206,28 @@ async def simple_usage():
 4. **重排序器（Reorderer）** - 上下文重排序以对抗注意力稀释
 5. **响应处理器（ResponseHandler）** - 响应解析、知识提取和记忆更新
 
+### Evolution - 进化式记忆优化（高级功能）
+借鉴 AlphaEvolve/ThetaEvolve 思想的进化式记忆管理系统。
+
+**核心能力：**
+- **观测-反馈-学习循环** - 持续优化记忆质量
+- **多维度适应度评估** - 使用频率、时间新鲜度、准确性、相关性
+- **智能进化操作** - 精英选择、记忆合并、自动淘汰
+- **反馈收集** - 显式反馈（用户评价）+ 隐式反馈（行为分析）
+
+**使用示例：**
+```python
+from contextmind import MemoryBank, EvolutionaryMemoryUpdater
+
+# 使用进化式更新器
+updater = EvolutionaryMemoryUpdater(
+    max_memory_size=100,
+    elite_ratio=0.7,  # 保留70%高质量记忆
+)
+
+memory_bank = MemoryBank(updater=updater)
+```
+
 ---
 
 ## 📚 项目结构
@@ -234,7 +256,13 @@ ContextMind/
 │   │   ├── session.py              # 会话管理
 │   │   ├── extractor.py            # 知识提取（基于大语言模型）
 │   │   ├── retriever.py            # 记忆检索（语义搜索）
-│   │   └── updater.py              # 记忆更新（基于嵌入向量去重）
+│   │   ├── updater.py              # 记忆更新（基于嵌入向量去重）
+│   │   └── memory_fitness.py       # 适应度评估
+│   ├── evolution/                  # 进化式记忆优化（高级功能）
+│   │   ├── evolutionary_updater.py # 进化式更新器
+│   │   ├── feedback_system.py      # 观测和反馈收集
+│   │   ├── examples/               # 演示程序
+│   │   └── docs/                   # 详细文档
 │   └── utils/                      # 工具（日志、嵌入等）
 │
 ├── examples/                       # 应用示例
@@ -247,12 +275,14 @@ ContextMind/
 ├── docs/                           # 文档
 │   ├── ARCHITECTURE.md             # 详细架构
 │   ├── MIGRATION.md                # 迁移指南
-│   └── arch_by_me.md               # 原始架构参考
+│   └── MODULE_REORGANIZATION.md    # 模块重组说明
 │
 ├── interactive_demo.py             # 命令行交互演示
 ├── gradio_demo.py                  # Web UI 演示（Gradio）
 ├── chat_interactive_demo.py        # 聊天命令行演示
 ├── chat_gradio_demo.py             # 聊天 Web 演示
+├── callcenter_interactive_demo.py  # 客服命令行演示
+├── callcenter_gradio_demo.py       # 客服 Web 演示
 ├── requirements.txt                # 依赖
 └── README.md                       # 本文件
 ```
