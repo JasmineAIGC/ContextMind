@@ -47,4 +47,4 @@ __all__ = [
     "EmbeddingInfo",
 ]
 
-__version__ = "7.4.0"  # 独立工具模块，完全不依赖contextmind/baseline
+__version__ = "0.4.0"  # 独立工具模块，完全不依赖contextmind/baseline

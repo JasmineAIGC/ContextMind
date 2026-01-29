@@ -1,10 +1,10 @@
-# ContextMind v7.4.0
+# ContextMind v0.4.0
 
 一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-7.4.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 
 ---
 

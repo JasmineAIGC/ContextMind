@@ -14,7 +14,7 @@ Evolution Module - 进化式记忆优化
     from contextmind.evolution import FeedbackCollector
 """
 
-__version__ = "7.4.0"
+__version__ = "0.4.0"
 
 # 从模块文件导入主要类
 from .evolutionary_updater import EvolutionaryMemoryUpdater

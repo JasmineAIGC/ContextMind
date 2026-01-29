@@ -2,7 +2,7 @@
 
 ## 当前架构
 
-ContextMind v7.4.0 使用 **SimpleLLMClient** 作为统一的 LLM 客户端。
+ContextMind v0.4.0 使用 **SimpleLLMClient** 作为统一的 LLM 客户端。
 
 ### SimpleLLMClient 特点
 
@@ -64,7 +64,7 @@ ContextMind v7.4.0 使用 **SimpleLLMClient** 作为统一的 LLM 客户端。
 
 ### PromptManager 通用化方案
 
-v7.4.0 通过 **PromptManager 通用化** 实现了对不同 LLM 的支持：
+v0.4.0 通过 **PromptManager 通用化** 实现了对不同 LLM 的支持：
 
 ```python
 from baseline import PromptManager, Language, LLMFormat
@@ -169,7 +169,7 @@ class GoogleADKClient(LLMClient):
 
 ## 总结
 
-**ContextMind v7.4.0 的 LLM 架构：**
+**ContextMind v0.4.0 的 LLM 架构：**
 
 ✅ **SimpleLLMClient** - 统一的 LLM 客户端  
 ✅ **PromptManager** - 通用的提示词管理（支持多LLM格式）  

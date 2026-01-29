@@ -3,7 +3,7 @@ Baseline DST Module - 基础版本（基于 ACL 2023 DST）
 
 基于 ACL 2023 论文《ChatGPT for Zero-shot Dialogue State Tracking》的增强实现。
 
-v7.4.0 新特性：
+v0.4.0 新特性：
 1. 模块化架构 - 拆分为4个独立模块，便于维护
 2. 动态槽位提取 - LLM自由提取任何相关信息，不限制槽位类型
 3. 智能历史管理 - 自动摘要长对话，保持上下文简洁
@@ -45,4 +45,4 @@ __all__ = [
     'LLMFormat',
 ]
 
-__version__ = '7.4.0'
+__version__ = '0.4.0'

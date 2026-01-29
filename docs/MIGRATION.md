@@ -4,11 +4,11 @@
 
 ---
 
-## 📋 v7.3 → v7.4.0 迁移指南
+## 📋 v7.3 → v0.4.0 迁移指南
 
 ### 概述
 
-v7.4.0 是一个重要的功能增强版本，包含以下主要变更：
+v0.4.0 是一个重要的功能增强版本，包含以下主要变更：
 - **Utils 模块独立化** (Breaking Change)
 - **知识提取能力** (New Feature)
 - **增强的 DST 实现** (Enhancement)
@@ -338,8 +338,8 @@ from utils.llm_client import SimpleLLMClient
 
 ### 📚 参考资料
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) - v7.4.0 架构文档
-- [CHANGELOG.md](CHANGELOG.md) - v7.4.0 完整变更日志
+- [ARCHITECTURE.md](ARCHITECTURE.md) - v0.4.0 架构文档
+- [CHANGELOG.md](CHANGELOG.md) - v0.4.0 完整变更日志
 - [test_knowledge_extraction.py](../test_knowledge_extraction.py) - 知识提取示例
 
 ---

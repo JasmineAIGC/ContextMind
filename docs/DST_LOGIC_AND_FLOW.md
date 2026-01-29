@@ -1,6 +1,6 @@
 # DST 实现逻辑与运行流程文档
 
-**版本**: v7.4.0  
+**版本**: v0.4.0  
 **基于**: ACL 2023 论文 "ChatGPT for Zero-shot Dialogue State Tracking"  
 **实现方式**: 完全基于LLM，无规则方法
 
@@ -627,6 +627,6 @@ for i, turn in enumerate(tracker.get_dialogue_history(), 1):
 
 ---
 
-**文档版本**: v7.4.0  
+**文档版本**: v0.4.0  
 **最后更新**: 2026-01-29  
 **联系**: 查看项目README

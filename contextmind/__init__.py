@@ -218,4 +218,4 @@ __all__ = [
     "RerankingStrategy",
 ]
 
-__version__ = "7.4.0"  # 当前版本 - Utils模块移至根目录，完全独立化
+__version__ = "0.4.0"  # 当前版本 - Utils模块移至根目录，完全独立化

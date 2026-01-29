@@ -1,10 +1,10 @@
-# ContextMind 架构 (v7.4.0)
+# ContextMind 架构 (v0.4.0)
 
-本文档描述 ContextMind v7.4.0 的架构设计和实现细节。
+本文档描述 ContextMind v0.4.0 的架构设计和实现细节。
 
 ## 版本信息
 
-- **当前版本**: v7.4.0
+- **当前版本**: v0.4.0
 - **发布日期**: 2026-01-29
 - **主要更新**: Utils独立化、知识提取能力、DST增强
 
@@ -31,7 +31,7 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 最终结果 + 记忆已更新
 ```
 
-**架构变更（v7.4.0）：**
+**架构变更（v0.4.0）：**
 - ✅ **Utils独立化** - utils模块移至根目录，完全不依赖contextmind/baseline
 - ✅ **知识提取增强** - 新增LLM驱动的知识提取能力
 - ✅ **DST完整实现** - 完整的ACL 2023论文合规性实现
@@ -104,10 +104,10 @@ ContextMind/
 │   └── plugin_examples.py
 │
 ├── docs/                    # 文档
-│   ├── ARCHITECTURE.md      # 本文档 (v7.4.0)
+│   ├── ARCHITECTURE.md      # 本文档 (v0.4.0)
 │   ├── BASIC_DST_DOCUMENTATION.md  # DST文档
-│   ├── CHANGELOG.md         # 变更日志 (v7.4.0)
-│   ├── MIGRATION.md         # 迁移指南 (v7.4.0)
+│   ├── CHANGELOG.md         # 变更日志 (v0.4.0)
+│   ├── MIGRATION.md         # 迁移指南 (v0.4.0)
 │   └── DST_*.md            # DST 增强文档
 │
 ├── test_knowledge_extraction.py  # 知识提取测试 (v7.4新增)
@@ -221,7 +221,7 @@ MemoryBank 实现了 4 子模块架构：
 - 简化配置
 - 插件注册表集成
 
-## v7.4.0 核心特性
+## v0.4.0 核心特性
 
 ### 1. 独立的 Utils 模块
 
@@ -409,7 +409,7 @@ from contextmind.strategies import extractors, retrievers, updaters
 
 ## 迁移指南
 
-### 从 v7.3 迁移到 v7.4.0
+### 从 v7.3 迁移到 v0.4.0
 
 **重要变更：**
 
