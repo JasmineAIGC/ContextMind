@@ -270,6 +270,13 @@ ContextMind/
 │   │   └── docs/                   # 详细文档
 │   └── utils/                      # 工具（日志、嵌入等）
 │
+├── slot_template/                  # 槽位模板上下文优化（Baseline）
+│   ├── __init__.py                 # 模块入口
+│   ├── engine.py                   # SlotTemplateEngine - 核心引擎
+│   ├── intent_extractor.py         # IntentExtractor - 意图提取器
+│   ├── template_manager.py         # TemplateManager - 模板管理器
+│   └── README.md                   # 槽位模板文档
+│
 ├── examples/                       # 应用示例
 │   ├── chat_app.py                 # 聊天应用示例
 │   ├── callcenter_app.py           # 客户服务示例
@@ -280,14 +287,18 @@ ContextMind/
 ├── docs/                           # 文档
 │   ├── ARCHITECTURE.md             # 详细架构
 │   ├── MIGRATION.md                # 迁移指南
-│   └── MODULE_REORGANIZATION.md    # 模块重组说明
+│   ├── MODULE_REORGANIZATION.md    # 模块重组说明
+│   └── SLOT_TEMPLATE_IMPLEMENTATION.md  # 槽位模板实现文档
 │
+├── prompts.py                      # 统一系统提示词管理
 ├── interactive_demo.py             # 命令行交互演示
 ├── gradio_demo.py                  # Web UI 演示（Gradio）
 ├── chat_interactive_demo.py        # 聊天命令行演示
 ├── chat_gradio_demo.py             # 聊天 Web 演示
 ├── callcenter_interactive_demo.py  # 客服命令行演示
 ├── callcenter_gradio_demo.py       # 客服 Web 演示
+├── slot_template_demo.py           # 槽位模板演示
+├── comparison_experiment.py        # 对比实验脚本
 ├── requirements.txt                # 依赖
 └── README.md                       # 本文件
 ```
@@ -342,6 +353,62 @@ cm = ContextMind(
     compression_config=compression_config
 )
 ```
+
+---
+
+## 🔬 槽位模板 Baseline
+
+ContextMind 项目还包含一个**槽位模板上下文优化方案**作为对比实验的基线（baseline）。
+
+### 什么是槽位模板？
+
+槽位模板是一个**简单的上下文优化方法**，通过预定义的槽位从对话历史中提取关键信息：
+
+```python
+from slot_template import SlotTemplateEngine
+
+# 初始化引擎
+engine = SlotTemplateEngine()
+
+# 添加对话历史
+engine.add_message("user", "我叫张三")
+engine.add_message("assistant", "很高兴认识你！")
+
+# 处理当前输入
+result = await engine.process("你还记得我叫什么吗？")
+
+# 获取槽位值
+print(result['slot_values'])
+# {
+#   "user_intent": "用户意图：咨询",
+#   "conversation_context": "已进行 1 轮对话...",
+#   "key_info": "提到实体: 张三"
+# }
+```
+
+### 槽位模板 vs ContextMind
+
+| 特性 | 槽位模板 | ContextMind |
+|------|---------|------------|
+| 复杂度 | ⭐ 简单 | ⭐⭐⭐⭐ 复杂 |
+| 记忆库 | ❌ 无 | ✅ 有 |
+| 上下文检索 | ❌ 无 | ✅ 语义检索 |
+| 上下文压缩 | ❌ 无 | ✅ 智能压缩 |
+| 适用场景 | Baseline/简单对话 | 生产环境/复杂应用 |
+
+### 运行对比实验
+
+```bash
+# 运行槽位模板演示
+python slot_template_demo.py
+
+# 运行对比实验
+python comparison_experiment.py
+```
+
+详细文档：
+- [槽位模板实现文档](docs/SLOT_TEMPLATE_IMPLEMENTATION.md)
+- [槽位模板模块文档](slot_template/README.md)
 
 ---
 
