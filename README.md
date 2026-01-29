@@ -386,6 +386,35 @@ print(result['slot_values'])
 # }
 ```
 
+### 🆕 对话状态追踪 (DST)
+
+**新增功能**：基于 **ACL 2023 论文** 的 Zero-shot 对话状态追踪实现。
+
+```python
+from slot_template import DialogueStateTracker, PromptManager
+
+# 创建追踪器
+pm = PromptManager(domain="restaurant")
+pm.add_slot("food_type", "菜系", ["中餐", "西餐", "日料"])
+
+tracker = DialogueStateTracker(prompt_manager=pm)
+tracker.reset_dialogue()
+
+# 处理对话
+state = await tracker.process_turn(
+    "您好，要预订吗？",
+    "是的，订一家中餐厅"
+)
+print(state)  # {"food_type": "中餐", "intent": "预订"}
+```
+
+**DST 特性：**
+- ✅ Zero-shot（无需微调）
+- ✅ 累积式状态更新
+- ✅ 共指消解支持
+- ✅ 幻觉过滤
+- ✅ 值归一化
+
 ### 槽位模板 vs ContextMind
 
 | 特性 | 槽位模板 | ContextMind |
@@ -402,11 +431,15 @@ print(result['slot_values'])
 # 运行槽位模板演示
 python slot_template_demo.py
 
+# 运行 DST 演示
+python dst_demo.py
+
 # 运行对比实验
 python comparison_experiment.py
 ```
 
 详细文档：
+- [对话状态追踪文档](docs/DST_DOCUMENTATION.md) 🆕
 - [槽位模板实现文档](docs/SLOT_TEMPLATE_IMPLEMENTATION.md)
 - [槽位模板模块文档](slot_template/README.md)
 

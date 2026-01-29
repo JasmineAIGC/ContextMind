@@ -4,6 +4,19 @@
 
 槽位模板方案是一个**简单的上下文优化基础版本**，作为与 ContextMind 框架对比实验的 baseline。
 
+### 🆕 新增：对话状态追踪 (DST)
+
+基于 **ACL 2023 论文** 《ChatGPT for Zero-shot Dialogue State Tracking》，我们新增了完整的对话状态追踪实现。
+
+**两种方式对比：**
+
+| 方式 | 特点 | 适用场景 |
+|------|------|---------|
+| **基础槽位模板** | 简单、快速、3个固定槽位 | 简单对话、快速原型 |
+| **对话状态追踪 (DST)** | 完整、可扩展、论文级实现 | 复杂多轮对话、精确状态追踪 |
+
+详细文档请参考：[DST 文档](../docs/DST_DOCUMENTATION.md)
+
 ### 核心思路
 
 通过预定义的槽位模板，从对话历史中提取关键信息填充槽位，生成指导当前回复的提示词。
@@ -363,3 +376,87 @@ IntentExtractor(llm_client: Optional[Any] = None)
 在实际应用中，应根据具体需求选择合适的方案：
 - 简单场景 → 槽位模板
 - 复杂场景 → ContextMind 上下文工程
+
+---
+
+## 🆕 对话状态追踪 (DST)
+
+### 概述
+
+基于 **ACL 2023 论文** 《ChatGPT for Zero-shot Dialogue State Tracking》的完整实现。
+
+采用 Zero-shot 方式，通过精心设计的 Prompt 实现对话状态追踪。
+
+### 快速开始
+
+```python
+from slot_template import DialogueStateTracker, PromptManager
+import asyncio
+
+async def main():
+    # 1. 创建提示词管理器
+    pm = PromptManager(domain="restaurant")
+    pm.add_slot("restaurant_name", "餐厅名称")
+    pm.add_slot("food_type", "菜系", ["中餐", "西餐", "日料"])
+    
+    # 2. 初始化追踪器
+    tracker = DialogueStateTracker(
+        llm_client=None,  # 可选 LLM 客户端
+        prompt_manager=pm
+    )
+    tracker.reset_dialogue()
+    
+    # 3. 处理对话
+    state = await tracker.process_turn(
+        "您好，要预订吗？",
+        "是的，订一家中餐厅"
+    )
+    print(state)  # {"food_type": "中餐", "intent": "预订"}
+    
+    state = await tracker.process_turn(
+        "几位？",
+        "4个人"
+    )
+    print(state)  # {"food_type": "中餐", "intent": "预订", "quantity": "4"}
+
+asyncio.run(main())
+```
+
+### 运行演示
+
+```bash
+# 运行完整的 DST 演示
+python dst_demo.py
+
+# 选择演示模式：
+# 1 - 基础对话状态追踪
+# 2 - Prompt 设计展示
+# 3 - 响应解析演示
+# 4 - 对比演示
+```
+
+### 核心特性
+
+✅ **Zero-shot**: 无需微调，即插即用  
+✅ **可扩展**: 支持自定义槽位和领域  
+✅ **累积更新**: DS_t = update(DS_{t-1}, updates)  
+✅ **共指消解**: 通过上下文历史  
+✅ **鲁棒解析**: 处理各种 JSON 格式  
+✅ **幻觉过滤**: 只保留有效槽位  
+
+### 详细文档
+
+完整的 DST 文档请参考：[DST 文档](../docs/DST_DOCUMENTATION.md)
+
+### DST vs 基础槽位模板
+
+| 特性 | 基础槽位模板 | DST |
+|------|------------|-----|
+| 槽位定义 | 3个固定槽位 | 可扩展本体 |
+| 状态管理 | 无状态累积 | 累积式更新 |
+| 共指消解 | ❌ | ✅ |
+| 值归一化 | ❌ | ✅ |
+| 幻觉过滤 | ❌ | ✅ |
+| 分类约束 | ❌ | ✅ |
+| 适用场景 | 简单对话 | 复杂多轮对话 |
+
