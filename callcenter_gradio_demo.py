@@ -36,6 +36,7 @@ import traceback
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger, MessageRole
 from examples.callcenter_app import CallCenterApplication
 from prompts import CALLCENTER_SYSTEM_PROMPT
+from slot_template import DialogueStateTracker, PromptManager
 
 # 设置日志级别为 INFO
 setup_logging(level=LogLevel.INFO)
@@ -76,6 +77,7 @@ class ChatResult:
     history_count: int = 0
     memory_count: int = 0
     processing_time: float = 0.0
+    dialogue_state: dict = None
 
 
 class CustomerServiceGradioDemo:
@@ -89,69 +91,114 @@ class CustomerServiceGradioDemo:
         self.use_session = True
         self.use_memory = True  # 客服场景启用长期记忆以满足需求2-5
         self.max_recent_events = 10  # 客服场景通常对话较短
+        # 模式控制
+        self.mode = "contextmind"  # "contextmind" 或 "basic_dst"
+        self.dst_tracker = None  # DialogueStateTracker 实例（基础模式）
+        self.llm_client = None  # LLM 客户端
+        self.last_assistant_response = ""  # 记录上一次助手回复（用于 DST）
         
-    async def initialize_engine(self, use_session=True, use_memory=True, max_recent_events=10):
+    async def initialize_engine(self, mode="contextmind", use_session=True, use_memory=True, max_recent_events=10):
         """初始化引擎"""
         try:
             logger.info("=" * 80)
-            logger.info("🚀 [客服Demo] 开始初始化引擎...")
+            logger.info(f"🚀 [客服Demo] 开始初始化引擎...")
+            logger.info(f"   - 模式: {mode}")
             logger.info(f"   - 会话历史: {'✅' if use_session else '❌'}")
             logger.info(f"   - 长期记忆: {'✅' if use_memory else '❌'}")
             logger.info(f"   - 最大历史: {max_recent_events}轮")
             logger.info("=" * 80)
             
             # 保存配置
+            self.mode = mode
             self.use_session = use_session
             self.use_memory = use_memory
             self.max_recent_events = max_recent_events
             
-            # 创建LLM客户端用于知识提取
+            # 创建LLM客户端
             from examples.llm_client import SimpleLLMClient, LLMConfig
-            from contextmind.core.configs import ExtractionConfig
+            self.llm_client = SimpleLLMClient(LLMConfig.from_env())
             
-            llm_client_for_extraction = SimpleLLMClient(LLMConfig.from_env())
-            
-            # 配置知识提取 - 确保全面捕获(需求3)
-            extraction_config = ExtractionConfig(
-                extraction_method="llm",  # 使用LLM提取，更全面
-                min_confidence=0.5,  # 适当降低置信度阈值，捕获更多潜在有价值的知识
-                extract_preferences=True,
-                extract_facts=True,
-                extract_events=True,
-                extract_entities=True,
-                extract_relationships=True,
-            )
-            
-            # 创建引擎 (v7.3: 使用 LLM 提取知识，基于嵌入向量的语义理解)
-            self.engine = ContextEngine(
-                app_name="customer-service-demo",
-                user_id="customer-user",
-                max_recent_events=max_recent_events,
-                llm_client=llm_client_for_extraction,  # 用于知识提取的 LLM 客户端
-                extraction_method="llm",  # 使用 LLM 提取（语义理解，40 种类型）
-                extraction_config=extraction_config,  # 应用提取配置
-            )
-            
-            # 配置记忆库检索 - 设置上限(需求4)和综合性(需求3)
-            # 需要在引擎初始化后配置MemoryBank
-            from contextmind.core.configs import RetrievalConfig
-            
-            retrieval_config = RetrievalConfig(
-                top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
-                min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
-                use_semantic=True,
-                enable_recency_boost=True,  # 启用新近性加权
-            )
-            # 更新内存银行的配置
-            self.engine.memory_bank.config = retrieval_config
-            
-            logger.info("✅ [客服Demo] 引擎初始化成功 (v7.3 - Pure Context Engineering)")
-            logger.info(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
-            logger.info(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
-            
-            # 初始化 CallCenterApplication
-            try:
-                business_info = """
+            if mode == "basic_dst":
+                # 基础 DST 模式
+                logger.info("📋 初始化基础 DST 模式...")
+                
+                # 创建 PromptManager，定义客服领域的槽位
+                prompt_manager = PromptManager(domain="callcenter")
+                
+                # 添加客服领域特定槽位
+                prompt_manager.add_slot("issue_type", "问题类型", None)
+                prompt_manager.add_slot("customer_name", "客户姓名", None)
+                prompt_manager.add_slot("product", "产品名称", None)
+                prompt_manager.add_slot("resolution_status", "解决状态", None)
+                
+                # 创建 DialogueStateTracker
+                self.dst_tracker = DialogueStateTracker(
+                    llm_client=self.llm_client,
+                    prompt_manager=prompt_manager,
+                    domain="callcenter"
+                )
+                
+                # 重置对话
+                self.dst_tracker.reset_dialogue()
+                
+                # 机器人主动发起对话
+                opening_message = random.choice(OPENING_SCRIPTS)
+                self.last_assistant_response = opening_message
+                
+                logger.info("✅ 基础 DST 模式初始化成功")
+                self.engine = None
+                self.app = None
+                
+                logger.info("✅ 引擎初始化完成")
+                return f"✅ 基础 DST 模式初始化成功！\n\n📞 客服: {opening_message}"
+                
+            else:
+                # ContextMind 完整模式
+                logger.info("🧠 初始化 ContextMind 完整模式...")
+                
+                from contextmind.core.configs import ExtractionConfig
+                
+                # 配置知识提取 - 确保全面捕获(需求3)
+                extraction_config = ExtractionConfig(
+                    extraction_method="llm",  # 使用LLM提取，更全面
+                    min_confidence=0.5,  # 适当降低置信度阈值，捕获更多潜在有价值的知识
+                    extract_preferences=True,
+                    extract_facts=True,
+                    extract_events=True,
+                    extract_entities=True,
+                    extract_relationships=True,
+                )
+                
+                # 创建引擎 (v7.3: 使用 LLM 提取知识，基于嵌入向量的语义理解)
+                self.engine = ContextEngine(
+                    app_name="customer-service-demo",
+                    user_id="customer-user",
+                    max_recent_events=max_recent_events,
+                    llm_client=self.llm_client,  # 用于知识提取的 LLM 客户端
+                    extraction_method="llm",  # 使用 LLM 提取（语义理解，40 种类型）
+                    extraction_config=extraction_config,  # 应用提取配置
+                )
+                
+                # 配置记忆库检索 - 设置上限(需求4)和综合性(需求3)
+                # 需要在引擎初始化后配置MemoryBank
+                from contextmind.core.configs import RetrievalConfig
+                
+                retrieval_config = RetrievalConfig(
+                    top_k=3,  # 限制检索出的记忆数量上限为3条(需求4)
+                    min_score=0.3,  # 降低阈值，确保不遗漏重要信息(需求3)
+                    use_semantic=True,
+                    enable_recency_boost=True,  # 启用新近性加权
+                )
+                # 更新内存银行的配置
+                self.engine.memory_bank.config = retrieval_config
+                
+                logger.info("✅ [客服Demo] 引擎初始化成功 (v7.3 - Pure Context Engineering)")
+                logger.info(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
+                logger.info(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
+                
+                # 初始化 CallCenterApplication
+                try:
+                    business_info = """
 产品介绍：
 - 安逸花/马上消费智能金融服务
 - 支持额度提升、资金周转、优惠福利
@@ -160,36 +207,38 @@ class CustomerServiceGradioDemo:
 - 7x24小时在线
 - 响应快速、专业友好
 """
-                self.app = CallCenterApplication(
-                    context_engine=self.engine,
-                    business_info=business_info.strip(),
-                    system_prompt=CALLCENTER_SYSTEM_PROMPT,
-                    history_turns=10,  # Prompt 中显示的历史轮数
-                    use_real_llm=True,  # 使用真实 LLM
+                    self.app = CallCenterApplication(
+                        context_engine=self.engine,
+                        business_info=business_info.strip(),
+                        system_prompt=CALLCENTER_SYSTEM_PROMPT,
+                        history_turns=10,  # Prompt 中显示的历史轮数
+                        use_real_llm=True,  # 使用真实 LLM
+                    )
+                    logger.info("✅ CallCenterApplication 初始化成功")
+                except Exception as app_err:
+                    logger.error(f"❌ CallCenterApplication 初始化失败: {str(app_err)}")
+                    raise
+                
+                # 机器人主动发起对话 - 随机选择一条开场白
+                opening_message = random.choice(OPENING_SCRIPTS)
+                logger.info(f"客服开场: {opening_message}")
+                
+                # 将开场白添加到会话历史
+                await self.engine.session_manager.add_message(
+                    role=MessageRole.ASSISTANT,
+                    content=opening_message
                 )
-                logger.info("✅ CallCenterApplication 初始化成功")
-            except Exception as app_err:
-                logger.error(f"❌ CallCenterApplication 初始化失败: {str(app_err)}")
-                raise
-            
-            # 机器人主动发起对话 - 随机选择一条开场白
-            opening_message = random.choice(OPENING_SCRIPTS)
-            logger.info(f"客服开场: {opening_message}")
-            
-            # 将开场白添加到会话历史
-            await self.engine.session_manager.add_message(
-                role=MessageRole.ASSISTANT,
-                content=opening_message
-            )
-            
-            # 保存开场白以便在UI中显示
-            self.opening_message = opening_message
-            
-            # 重置计数器
-            self.turn_counter = 0
-            
-            logger.info("✅ 引擎初始化完成")
-            return f"✅ 引擎初始化成功！\n\n📞 客服: {opening_message}"
+                
+                # 保存开场白以便在UI中显示
+                self.opening_message = opening_message
+                
+                self.dst_tracker = None
+                
+                # 重置计数器
+                self.turn_counter = 0
+                
+                logger.info("✅ 引擎初始化完成")
+                return f"✅ 引擎初始化成功！\n\n📞 客服: {opening_message}"
             
         except Exception as e:
             error_details = traceback.format_exc()
@@ -199,7 +248,77 @@ class CustomerServiceGradioDemo:
             return error_msg
     
     async def chat(self, user_message: str) -> ChatResult:
-        """处理客服对话消息 - 使用 CallCenterApplication.process_turn()"""
+        """处理客服对话消息 - 支持 ContextMind 和基础 DST 模式"""
+        if self.mode == "basic_dst":
+            return await self._chat_basic_dst(user_message)
+        else:
+            return await self._chat_contextmind(user_message)
+    
+    async def _chat_basic_dst(self, user_message: str) -> ChatResult:
+        """基础 DST 模式的聊天处理"""
+        if not self.dst_tracker:
+            raise ValueError("DST追踪器未初始化，请先点击'初始化引擎'按钮")
+        
+        start_time = time.time()
+        self.turn_counter += 1
+        
+        logger.info(f"\n{'='*80}")
+        logger.info(f"💬 [轮次 {self.turn_counter}] 用户输入: {user_message}")
+        logger.info(f"{'='*80}")
+        
+        try:
+            # 1. 更新对话状态
+            dialogue_state = await self.dst_tracker.process_turn(
+                system_utterance=self.last_assistant_response,
+                user_utterance=user_message
+            )
+            
+            # 2. 构建简单的 prompt（基于状态）
+            state_str = "\n".join([f"- {k}: {v}" for k, v in dialogue_state.items()])
+            
+            prompt = f"""你是一个专业的客服助手。
+
+当前对话状态:
+{state_str if state_str else "- 暂无状态信息"}
+
+用户说: {user_message}
+
+请专业、友好地回复用户。"""
+            
+            # 3. 调用 LLM 生成回复
+            messages = [
+                {"role": "system", "content": "你是一个专业的客服助手。"},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = await self.llm_client.chat_async(messages=messages)
+            
+            # 4. 保存助手回复以供下一轮使用
+            self.last_assistant_response = response
+            
+            processing_time = time.time() - start_time
+            
+            logger.info(f"🤖 助手回复: {response}")
+            logger.info(f"⏱️  处理耗时: {processing_time:.2f}秒")
+            logger.info(f"📊 对话状态: {dialogue_state}")
+            
+            return ChatResult(
+                response=response,
+                history_count=len(self.dst_tracker.turns),
+                memory_count=len(dialogue_state),
+                processing_time=processing_time,
+                dialogue_state=dialogue_state
+            )
+            
+        except Exception as e:
+            error_details = traceback.format_exc()
+            error_msg = f"处理失败: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            logger.error(f"错误详情:\n{error_details}")
+            raise
+    
+    async def _chat_contextmind(self, user_message: str) -> ChatResult:
+        """ContextMind 模式的聊天处理 - 使用 CallCenterApplication.process_turn()"""
         if not self.app:
             raise ValueError("应用未初始化，请先点击'初始化引擎'按钮")
         
@@ -351,10 +470,36 @@ class CustomerServiceGradioDemo:
     async def reset_conversation_async(self):
         """重置对话（异步版本）"""
         self.turn_counter = 0
-        if self.engine:
+        if self.mode == "basic_dst" and self.dst_tracker:
+            self.dst_tracker.reset_dialogue()
+            opening_message = random.choice(OPENING_SCRIPTS)
+            self.last_assistant_response = opening_message
+            logger.info("🔄 基础 DST 对话已重置")
+            return f"✅ 对话已重置！\n\n📞 客服: {opening_message}"
+        elif self.engine:
             await self.engine.clear_session()
-        logger.info("🔄 对话已重置")
+            # 重新生成开场白
+            opening_message = random.choice(OPENING_SCRIPTS)
+            await self.engine.session_manager.add_message(
+                role=MessageRole.ASSISTANT,
+                content=opening_message
+            )
+            self.opening_message = opening_message
+            logger.info("🔄 ContextMind 对话已重置")
+            return f"✅ 对话已重置！\n\n📞 客服: {opening_message}"
         return "✅ 对话已重置，可以开始新的聊天了！"
+    
+    def get_dialogue_state(self):
+        """获取当前对话状态（仅基础 DST 模式）"""
+        if self.mode == "basic_dst" and self.dst_tracker:
+            state = self.dst_tracker.get_current_state()
+            if state:
+                import json
+                return f"📋 当前对话状态:\n{json.dumps(state, ensure_ascii=False, indent=2)}"
+            else:
+                return "📋 对话状态: 空"
+        else:
+            return "⚠️ 此功能仅在基础 DST 模式下可用"
     
     def reset_conversation(self):
         """重置对话（同步包装）"""
@@ -366,8 +511,8 @@ def create_gradio_interface():
     """创建 Gradio 界面"""
     demo_instance = CustomerServiceGradioDemo()
     
-    async def init_engine_async(use_session, use_memory, max_events):
-        return await demo_instance.initialize_engine(use_session, use_memory, max_events)
+    async def init_engine_async(mode, use_session, use_memory, max_events):
+        return await demo_instance.initialize_engine(mode, use_session, use_memory, max_events)
     
     async def chat_async(message, history):
         try:
@@ -383,8 +528,11 @@ def create_gradio_interface():
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": result.response})
             
-            # 构建状态信息
-            status = f"⏱️ {result.processing_time:.2f}s | 📝 上下文: {result.history_count}项"
+            # 构建状态信息 - 根据模式不同显示不同内容
+            if demo_instance.mode == "basic_dst":
+                status = f"⏱️ {result.processing_time:.2f}s | 📝 状态槽位: {result.memory_count}个 | 轮次: {result.history_count}"
+            else:
+                status = f"⏱️ {result.processing_time:.2f}s | 📝 上下文: {result.history_count}项"
             
             logger.info(f"[Gradio] 消息处理完成，新历史长度: {len(history)}")
             
@@ -403,10 +551,24 @@ def create_gradio_interface():
         try:
             # 使用异步版本避免 asyncio.run 嵌套问题
             result = await demo_instance.reset_conversation_async()
+            # 如果结果包含开场白，添加到聊天历史
+            if "📞 客服:" in result:
+                opening = result.split("📞 客服:")[-1].strip()
+                return result, [{"role": "assistant", "content": opening}], ""
             return result, [], ""
         except Exception as e:
             logger.error(f"[Gradio] 重置失败: {str(e)}")
             return f"❌ 重置失败: {str(e)}", [], ""
+    
+    def update_mode_visibility(mode):
+        """根据模式更新组件可见性"""
+        is_contextmind = (mode == "ContextMind 完整模式")
+        # 返回: session_visible, memory_visible, state_btn_visible
+        return (
+            gr.update(visible=is_contextmind),  # use_session_check
+            gr.update(visible=is_contextmind),  # use_memory_check
+            gr.update(visible=not is_contextmind),  # state_btn
+        )
     
     # 创建界面
     with gr.Blocks(title="ContextMind 客服对话Demo v7.3") as app:
@@ -445,6 +607,14 @@ def create_gradio_interface():
             with gr.Column(scale=1):
                 gr.Markdown("### ⚙️ 配置")
                 
+                # 模式选择器
+                mode_radio = gr.Radio(
+                    choices=["ContextMind 完整模式", "基础 DST 模式"],
+                    value="ContextMind 完整模式",
+                    label="运行模式",
+                    info="选择对话处理模式"
+                )
+                
                 init_btn = gr.Button("🚀 初始化引擎", variant="primary", size="lg")
                 init_status = gr.Textbox(
                     label="",
@@ -458,13 +628,15 @@ def create_gradio_interface():
                 use_session_check = gr.Checkbox(
                     label="会话历史",
                     value=True,
-                    info="记住对话上下文"
+                    info="记住对话上下文",
+                    visible=True
                 )
                 
                 use_memory_check = gr.Checkbox(
                     label="长期记忆",
                     value=True,
-                    info="智能管理客户知识库"
+                    info="智能管理客户知识库",
+                    visible=True
                 )
                 
                 max_events_slider = gr.Slider(
@@ -476,25 +648,55 @@ def create_gradio_interface():
                     info="保留的对话轮数"
                 )
                 
+                # 对话状态按钮（仅在基础 DST 模式显示）
+                state_btn = gr.Button("📋 查看对话状态", visible=False, size="sm")
+                state_output = gr.Textbox(
+                    label="对话状态",
+                    interactive=False,
+                    lines=6,
+                    visible=False
+                )
+                
                 gr.Markdown("---")
                 gr.Markdown("### 💡 使用提示")
-                gr.Markdown("""
-                1. 点击 **初始化引擎**
-                2. 输入消息，按 **Enter** 发送
-                3. 客服会专业解答您的问题
+                mode_tips = gr.Markdown("""
+                **ContextMind 完整模式:**
+                - 完整的上下文工程
+                - 智能记忆库
+                - 语义检索和压缩
+                
+                **基础 DST 模式:**
+                - 对话状态追踪
+                - 槽位填充
+                - 轻量级处理
+                
+                **使用步骤:**
+                1. 选择运行模式
+                2. 点击 **初始化引擎**
+                3. 开始对话
                 
                 **常见咨询：**
                 - 业务办理
                 - 额度查询
                 - 优惠活动
-                - 账户问题
-                - 服务咨询
                 """)
         
+        # 模式切换事件
+        mode_radio.change(
+            fn=update_mode_visibility,
+            inputs=[mode_radio],
+            outputs=[use_session_check, use_memory_check, state_btn]
+        )
+        
         # 事件绑定
+        def init_wrapper(mode, use_session, use_memory, max_events):
+            # 将模式转换为内部格式
+            mode_internal = "basic_dst" if mode == "基础 DST 模式" else "contextmind"
+            return asyncio.run(init_engine_async(mode_internal, use_session, use_memory, int(max_events)))
+        
         init_btn.click(
-            fn=lambda s, m, e: asyncio.run(init_engine_async(s, m, int(e))),
-            inputs=[use_session_check, use_memory_check, max_events_slider],
+            fn=init_wrapper,
+            inputs=[mode_radio, use_session_check, use_memory_check, max_events_slider],
             outputs=[init_status]
         )
         
@@ -521,6 +723,12 @@ def create_gradio_interface():
         clear_btn.click(
             fn=reset_async,
             outputs=[init_status, chatbot, status_text]
+        )
+        
+        # 查看对话状态按钮
+        state_btn.click(
+            fn=lambda: (demo_instance.get_dialogue_state(), gr.update(visible=True)),
+            outputs=[state_output, state_output]
         )
     
     return app
