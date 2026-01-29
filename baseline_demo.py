@@ -1,8 +1,8 @@
 """
-槽位模板方式演示 (Slot Template Baseline Demo)
+基础 DST 演示 (Basic Dialogue State Tracking Demo)
 
-展示如何使用槽位模板方式进行上下文优化。
-这是一个简单的 baseline 版本，用于与 ContextMind 框架进行对比。
+基于 ACL 2023 论文的 Zero-shot DST 实现演示
+展示如何使用 DialogueStateTracker 进行对话状态追踪
 """
 
 import asyncio
@@ -12,240 +12,244 @@ import os
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from baseline import SlotTemplateEngine
-from prompts import SLOT_TEMPLATE_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT
+from baseline import DialogueStateTracker, PromptManager
+import json
 
 
-async def demo_basic_usage():
-    """基础使用演示"""
+async def demo_basic_dst():
+    """基础对话状态追踪演示"""
     print("=" * 80)
-    print("槽位模板方式 - 基础使用演示")
+    print("对话状态追踪演示 - 基础用法")
     print("=" * 80)
     print()
     
-    # 1. 初始化引擎（使用规则提取，不需要 LLM）
-    print("🔧 初始化槽位模板引擎...")
-    engine = SlotTemplateEngine(
-        llm_client=None,  # 不使用 LLM 进行意图提取
-        use_llm_extraction=False  # 使用规则提取
+    # 1. 初始化提示词管理器（可以添加自定义槽位）
+    print("🔧 初始化提示词管理器...")
+    prompt_manager = PromptManager(domain="general")
+    
+    # 添加一些自定义槽位
+    prompt_manager.add_slot(
+        "product_name",
+        "用户感兴趣的产品名称",
+        None
     )
-    print("✅ 引擎初始化完成")
+    prompt_manager.add_slot(
+        "budget",
+        "用户的预算范围",
+        ["低", "中", "高"]
+    )
+    
+    print(f"✅ 已定义 {len(prompt_manager.ontology_slots)} 个槽位")
     print()
     
-    # 2. 模拟多轮对话
-    print("💬 模拟多轮对话场景：")
+    # 2. 初始化对话状态追踪器（不使用 LLM 客户端，使用规则提取）
+    print("🔧 初始化对话状态追踪器...")
+    tracker = DialogueStateTracker(
+        llm_client=None,  # 不使用 LLM，演示规则提取
+        prompt_manager=prompt_manager
+    )
+    print("✅ 追踪器初始化完成")
+    print()
+    
+    # 3. 开始对话
+    print("💬 模拟对话场景：")
     print("-" * 80)
     
-    conversations = [
-        ("你好", "您好！我是智能助手，有什么可以帮助您的吗？"),
-        ("我叫张三", "很高兴认识你，张三！"),
-        ("我喜欢打篮球", "不错的爱好！运动对身体很有好处。"),
-        ("你还记得我叫什么吗？", None)  # 当前轮，需要生成回复
+    # 重置对话
+    tracker.reset_dialogue()
+    
+    # 对话轮次 1
+    print("\n【轮次 1】")
+    system_utt_1 = "您好，有什么可以帮助您的吗？"
+    user_utt_1 = "我想要订一个酒店"
+    print(f"系统: {system_utt_1}")
+    print(f"用户: {user_utt_1}")
+    
+    state_1 = await tracker.process_turn(system_utt_1, user_utt_1)
+    print(f"状态更新: {json.dumps(state_1, ensure_ascii=False, indent=2)}")
+    
+    # 对话轮次 2
+    print("\n【轮次 2】")
+    system_utt_2 = "好的，请问您想去哪个城市呢？"
+    user_utt_2 = "我想去北京"
+    print(f"系统: {system_utt_2}")
+    print(f"用户: {user_utt_2}")
+    
+    state_2 = await tracker.process_turn(system_utt_2, user_utt_2)
+    print(f"状态更新: {json.dumps(state_2, ensure_ascii=False, indent=2)}")
+    
+    # 对话轮次 3
+    print("\n【轮次 3】")
+    system_utt_3 = "北京有很多酒店，您有什么偏好吗？"
+    user_utt_3 = "我想要一个不贵的，在市中心的"
+    print(f"系统: {system_utt_3}")
+    print(f"用户: {user_utt_3}")
+    
+    state_3 = await tracker.process_turn(system_utt_3, user_utt_3)
+    print(f"状态更新: {json.dumps(state_3, ensure_ascii=False, indent=2)}")
+    
+    print()
+    print("-" * 80)
+    print("\n📊 最终对话状态：")
+    final_state = tracker.get_current_state()
+    print(json.dumps(final_state, ensure_ascii=False, indent=2))
+    
+    print()
+    print("✅ 演示完成！")
+    print()
+
+
+async def demo_dst_with_prompt():
+    """展示 Prompt 设计"""
+    print("=" * 80)
+    print("对话状态追踪 - Prompt 设计展示")
+    print("=" * 80)
+    print()
+    
+    # 创建提示词管理器
+    prompt_manager = PromptManager(domain="restaurant")
+    
+    # 添加餐厅相关槽位
+    prompt_manager.add_slot("restaurant_name", "餐厅名称")
+    prompt_manager.add_slot("food_type", "菜系类型", ["中餐", "西餐", "日料", "韩餐", "其他"])
+    prompt_manager.add_slot("party_size", "用餐人数")
+    prompt_manager.add_slot("booking_time", "预订时间")
+    
+    # 显示系统指令
+    print("📝 生成的系统指令 Prompt：")
+    print("=" * 80)
+    instruction = prompt_manager.get_system_instruction()
+    print(instruction)
+    print("=" * 80)
+    print()
+    
+    print("💡 说明：")
+    print("1. 这个 Prompt 遵循 ACL 2023 论文 Figure 2 的设计")
+    print("2. 包含完整的槽位定义（ontology_slots）")
+    print("3. 包含分类约束（categorical_constraints）")
+    print("4. 指导 ChatGPT 如何提取和返回槽位更新")
+    print()
+
+
+async def demo_response_parsing():
+    """展示响应解析功能"""
+    print("=" * 80)
+    print("对话状态追踪 - 响应解析演示")
+    print("=" * 80)
+    print()
+    
+    from baseline import ResponseParser
+    
+    # 创建解析器
+    prompt_manager = PromptManager()
+    parser = ResponseParser(prompt_manager)
+    
+    # 测试不同格式的响应
+    test_responses = [
+        # 标准 JSON
+        '''{"intent": "预订", "location": "北京"}''',
+        
+        # 带文本的 JSON
+        '''根据对话，用户更新了以下槽位：
+        {"intent": "询问", "topic": "价格"}
+        以上是提取的槽位信息。''',
+        
+        # 不完整的 JSON
+        '''{
+            "destination": "上海",
+            "time": "明天"
+        }''',
+        
+        # 列表格式
+        '''[{"intent": "预订"}, {"location": "广州"}]''',
     ]
     
-    # 添加历史对话
-    for i, (user_msg, assistant_msg) in enumerate(conversations[:-1], 1):
-        print(f"第 {i} 轮：")
-        print(f"  用户: {user_msg}")
-        print(f"  助手: {assistant_msg}")
-        
-        engine.add_message("user", user_msg)
-        engine.add_message("assistant", assistant_msg)
-    
-    print()
-    print("-" * 80)
-    
-    # 3. 处理当前输入
-    current_input = conversations[-1][0]
-    print(f"\n📝 当前用户输入: {current_input}")
+    print("🔍 测试不同格式的响应解析：")
     print()
     
-    print("🔍 提取槽位信息...")
-    result = await engine.process(
-        user_input=current_input,
-        system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
-    )
+    for i, response in enumerate(test_responses, 1):
+        print(f"【测试 {i}】")
+        print(f"原始响应:")
+        print(f"  {response[:60]}{'...' if len(response) > 60 else ''}")
+        
+        extracted = parser.extract_json(response)
+        print(f"提取结果:")
+        print(f"  {json.dumps(extracted, ensure_ascii=False)}")
+        
+        filtered = parser.filter_hallucinations(extracted)
+        print(f"过滤后 (仅保留有效槽位):")
+        print(f"  {json.dumps(filtered, ensure_ascii=False)}")
+        print()
     
-    # 4. 显示槽位值
-    print("\n📊 提取的槽位值：")
-    print("-" * 80)
-    for slot_name, value in result['slot_values'].items():
-        print(f"  {slot_name}:")
-        print(f"    {value}")
-    print("-" * 80)
-    
-    # 5. 显示填充后的提示词
-    print("\n📄 填充后的系统提示词：")
-    print("-" * 80)
-    print(result['filled_prompt'])
-    print("-" * 80)
-    
-    # 6. 生成完整提示词
-    print("\n📝 生成完整提示词（用于 LLM 调用）：")
-    print("-" * 80)
-    full_prompt = await engine.generate_prompt(
-        user_input=current_input,
-        system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
-    )
-    print(full_prompt)
-    print("-" * 80)
-    
-    print("\n✅ 演示完成！")
+    print("✅ 响应解析测试完成！")
     print()
-
-
-async def demo_interactive():
-    """交互式演示"""
-    print("=" * 80)
-    print("槽位模板方式 - 交互式演示")
-    print("=" * 80)
-    print()
-    
-    print("💡 使用说明：")
-    print("  - 直接输入消息开始对话")
-    print("  - 输入 'quit' 或 'exit' 退出")
-    print("  - 输入 'reset' 重置对话")
-    print("  - 输入 'slots' 查看当前槽位值")
-    print()
-    
-    # 初始化引擎
-    engine = SlotTemplateEngine(
-        llm_client=None,
-        use_llm_extraction=False
-    )
-    
-    turn_count = 0
-    
-    while True:
-        # 获取用户输入
-        try:
-            user_input = input("\n你: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\n\n👋 再见！")
-            break
-        
-        if not user_input:
-            continue
-        
-        # 处理特殊命令
-        if user_input.lower() in ['quit', 'exit', 'q']:
-            print("\n👋 再见！")
-            break
-        
-        if user_input.lower() == 'reset':
-            engine.clear_history()
-            turn_count = 0
-            print("✅ 对话已重置")
-            continue
-        
-        if user_input.lower() == 'slots':
-            slots = engine.get_all_slots()
-            print("\n📊 当前槽位值：")
-            for slot_name, value in slots.items():
-                print(f"  {slot_name}: {value}")
-            continue
-        
-        # 处理对话
-        turn_count += 1
-        print(f"\n[第 {turn_count} 轮]")
-        
-        # 提取槽位信息
-        result = await engine.process(
-            user_input=user_input,
-            system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
-        )
-        
-        # 显示槽位值（简化版）
-        print(f"  意图: {result['slot_values']['user_intent']}")
-        
-        # 生成模拟回复
-        # 注意：实际应用中需要集成 LLM 客户端
-        # 示例：response = await your_llm.chat(result['filled_prompt'])
-        assistant_response = f"[模拟回复 - 需集成 LLM] 已理解您的意图"
-        
-        print(f"助手: {assistant_response}")
-        print("  💡 提示: 此为模拟回复。实际使用时请集成 LLM 客户端。")
-        
-        # 添加到历史
-        engine.add_message("user", user_input)
-        engine.add_message("assistant", assistant_response)
 
 
 async def demo_comparison():
-    """对比演示：槽位模板 vs ContextMind"""
+    """对比展示：槽位模板 vs DST"""
     print("=" * 80)
-    print("对比演示：槽位模板方式 vs ContextMind 上下文工程")
+    print("对比演示：基础槽位模板 vs 对话状态追踪")
     print("=" * 80)
     print()
     
-    print("场景：用户在多轮对话中提到自己的名字和爱好，然后询问系统是否记得")
+    print("场景：用户预订酒店的多轮对话")
     print()
     
-    # 准备对话历史
-    conversations = [
-        ("你好", "您好！"),
-        ("我叫李明", "很高兴认识你，李明！"),
-        ("我喜欢编程", "编程是个很棒的爱好！"),
-        ("你还记得我叫什么吗？", None)
+    # 对话示例
+    dialogue = [
+        ("您好，有什么可以帮您？", "我想订酒店"),
+        ("好的，去哪个城市？", "北京"),
+        ("您对价格有要求吗？", "不要太贵就行"),
+        ("明白了，几号入住？", "下周五"),
     ]
     
     print("=" * 80)
-    print("方式 1: 槽位模板（Baseline）")
+    print("方式 1: 对话状态追踪（DST）")
     print("=" * 80)
-    
-    # 槽位模板方式
-    slot_engine = SlotTemplateEngine(llm_client=None, use_llm_extraction=False)
-    
-    for user_msg, assistant_msg in conversations[:-1]:
-        slot_engine.add_message("user", user_msg)
-        if assistant_msg:
-            slot_engine.add_message("assistant", assistant_msg)
-    
-    current_input = conversations[-1][0]
-    slot_result = await slot_engine.process(
-        user_input=current_input,
-        system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
-    )
-    
-    print(f"\n提取的槽位信息：")
-    print(f"  意图: {slot_result['slot_values']['user_intent']}")
-    print(f"  上下文: {slot_result['slot_values']['conversation_context']}")
-    print(f"  关键信息: {slot_result['slot_values']['key_info']}")
-    
-    print("\n特点：")
-    print("  ✅ 简单直接，易于理解")
-    print("  ✅ 无需外部依赖（向量数据库等）")
-    print("  ❌ 信息提取能力有限（基于简单规则）")
-    print("  ❌ 无长期记忆（仅限当前会话）")
-    
     print()
-    print("=" * 80)
-    print("方式 2: ContextMind（上下文工程）")
-    print("=" * 80)
     
-    print("\nContextMind 的处理流程：")
-    print("  1. 预处理：清理和规范化输入")
-    print("  2. 检索：从记忆库召回相关知识（语义检索）")
-    print("  3. 压缩：智能压缩上下文，减少 token 使用")
-    print("  4. 重排序：优化上下文顺序，提升效果")
-    print("  5. 响应处理：自动提取知识，更新长期记忆")
+    # DST 方式
+    tracker = DialogueStateTracker(llm_client=None)
+    tracker.reset_dialogue()
     
-    print("\n特点：")
-    print("  ✅ 功能完整，适合生产环境")
-    print("  ✅ 长期记忆，跨会话记住信息")
-    print("  ✅ 智能检索，基于语义相似度")
-    print("  ✅ 上下文优化，压缩和重排序")
-    print("  ❌ 复杂度较高，需要更多资源")
-    print("  ❌ 需要向量数据库等外部依赖")
-    
+    print("特点：")
+    print("  ✅ 累积式状态更新")
+    print("  ✅ 完整的对话历史管理")
+    print("  ✅ 结构化状态表示")
+    print("  ✅ 支持共指消解（通过上下文）")
     print()
+    
+    for i, (sys_utt, user_utt) in enumerate(dialogue, 1):
+        print(f"轮次 {i}:")
+        print(f"  系统: {sys_utt}")
+        print(f"  用户: {user_utt}")
+        state = await tracker.process_turn(sys_utt, user_utt)
+        print(f"  状态: {json.dumps(state, ensure_ascii=False)}")
+        print()
+    
+    print("-" * 80)
+    print(f"最终状态: {json.dumps(tracker.get_current_state(), ensure_ascii=False)}")
+    print()
+    
+    print("=" * 80)
+    print("方式 2: 基础槽位模板")
+    print("=" * 80)
+    print()
+    
+    print("特点：")
+    print("  ✅ 简单直接")
+    print("  ✅ 快速实现")
+    print("  ❌ 无状态累积")
+    print("  ❌ 槽位定义不够丰富")
+    print()
+    
     print("=" * 80)
     print("总结")
     print("=" * 80)
     print()
     print("选择建议：")
-    print("  - 简单对话、快速原型、baseline 实验 → 槽位模板")
-    print("  - 生产环境、复杂应用、长期记忆需求 → ContextMind")
+    print("  - 需要精确的状态追踪、多轮对话 → DST")
+    print("  - 简单的意图识别、单轮对话 → 基础槽位模板")
     print()
 
 
@@ -253,20 +257,22 @@ async def main():
     """主函数"""
     print("\n")
     print("╔════════════════════════════════════════════════════════════════════════════╗")
-    print("║          槽位模板上下文优化方案演示 (Slot Template Baseline)              ║")
+    print("║                    基础版本演示 (Baseline Demo)                           ║")
+    print("║              基于 ACL 2023 论文的对话状态追踪（DST）实现                   ║")
     print("╚════════════════════════════════════════════════════════════════════════════╝")
     print()
     
     # 选择演示模式
     print("请选择演示模式：")
-    print("  1. 基础使用演示")
-    print("  2. 交互式演示")
-    print("  3. 对比演示（槽位模板 vs ContextMind）")
-    print("  4. 运行所有演示")
+    print("  1. 基础对话状态追踪演示")
+    print("  2. Prompt 设计展示")
+    print("  3. 响应解析演示")
+    print("  4. 对比演示（槽位模板 vs DST）")
+    print("  5. 运行所有演示")
     print()
     
     try:
-        choice = input("请输入选项 (1-4, 默认 1): ").strip() or "1"
+        choice = input("请输入选项 (1-5, 默认 1): ").strip() or "1"
     except (EOFError, KeyboardInterrupt):
         print("\n\n👋 再见！")
         return
@@ -274,20 +280,24 @@ async def main():
     print()
     
     if choice == "1":
-        await demo_basic_usage()
+        await demo_basic_dst()
     elif choice == "2":
-        await demo_interactive()
+        await demo_dst_with_prompt()
     elif choice == "3":
-        await demo_comparison()
+        await demo_response_parsing()
     elif choice == "4":
-        await demo_basic_usage()
+        await demo_comparison()
+    elif choice == "5":
+        await demo_basic_dst()
+        print("\n" * 2)
+        await demo_dst_with_prompt()
+        print("\n" * 2)
+        await demo_response_parsing()
         print("\n" * 2)
         await demo_comparison()
-        print("\n" * 2)
-        print("交互式演示已跳过（需要手动运行）")
     else:
         print("❌ 无效选项，运行基础演示")
-        await demo_basic_usage()
+        await demo_basic_dst()
     
     print("\n✨ 演示结束！")
     print()
