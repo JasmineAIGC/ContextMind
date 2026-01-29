@@ -150,7 +150,8 @@ class CallCenterApplication:
             total_turns = len(history_items)
             
             # 使用摘要器判断是否需要摘要
-            summary, recent_history = self.summarizer.get_summary_and_recent(history_items)
+            # 注意：get_summary_and_recent 是 async 方法
+            summary, recent_history = await self.summarizer.get_summary_and_recent(history_items)
             
             if summary:
                 # 有摘要：添加摘要 + 最近对话

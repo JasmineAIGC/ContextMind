@@ -562,6 +562,16 @@ class DialogueStateTracker:
         """
         return self.current_state.copy()
     
+    @property
+    def turns(self) -> List[DialogueTurn]:
+        """
+        获取对话历史（别名属性，用于向后兼容）
+        
+        返回:
+            对话历史列表
+        """
+        return self.dialogue_history
+    
     def get_slot_value(self, slot_name: str) -> Optional[str]:
         """
         获取特定槽位的值
