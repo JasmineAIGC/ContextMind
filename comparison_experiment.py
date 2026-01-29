@@ -13,7 +13,7 @@ from typing import List, Tuple, Dict, Any
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from slot_template import SlotTemplateEngine
+from baseline import SlotTemplateEngine
 from contextmind import ContextEngine
 from prompts import SLOT_TEMPLATE_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT
 

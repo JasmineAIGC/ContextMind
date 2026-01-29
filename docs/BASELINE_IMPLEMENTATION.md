@@ -83,7 +83,7 @@
 ### 模块结构
 
 ```
-slot_template/
+baseline/
 ├── __init__.py              # 模块入口
 ├── engine.py                # SlotTemplateEngine - 核心引擎
 ├── intent_extractor.py      # IntentExtractor - 意图提取器
@@ -272,8 +272,8 @@ fill_template(template)              # 填充模板
 ### 基本使用
 
 ```python
-from slot_template import SlotTemplateEngine
-from prompts import SLOT_TEMPLATE_SYSTEM_PROMPT
+from baseline import SlotTemplateEngine
+from prompts import BASELINE_SYSTEM_PROMPT
 
 # 1. 初始化引擎
 engine = SlotTemplateEngine(
@@ -288,7 +288,7 @@ engine.add_message("assistant", "很高兴认识你，张三！")
 # 3. 处理当前输入
 result = await engine.process(
     user_input="你还记得我叫什么吗？",
-    system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
+    system_prompt_template=BASELINE_SYSTEM_PROMPT
 )
 
 # 4. 获取槽位值
@@ -313,19 +313,19 @@ engine.add_message("assistant", response)
 
 **基础演示**：
 ```bash
-python slot_template_demo.py
+python baseline_demo.py
 # 选择: 1 - 基础使用演示
 ```
 
 **交互式演示**：
 ```bash
-python slot_template_demo.py
+python baseline_demo.py
 # 选择: 2 - 交互式演示
 ```
 
 **对比演示**：
 ```bash
-python slot_template_demo.py
+python baseline_demo.py
 # 选择: 3 - 对比演示
 ```
 
@@ -431,8 +431,8 @@ python comparison_experiment.py
 
 ## 参考资源
 
-- [槽位模板模块文档](slot_template/README.md)
+- [槽位模板模块文档](docs/BASELINE_README.md)
 - [ContextMind 架构文档](docs/ARCHITECTURE.md)
 - [系统提示词文档](prompts.py)
 - [对比实验脚本](comparison_experiment.py)
-- [槽位模板演示](slot_template_demo.py)
+- [槽位模板演示](baseline_demo.py)

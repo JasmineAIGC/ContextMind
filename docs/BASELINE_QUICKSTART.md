@@ -6,8 +6,8 @@
 
 ```python
 import asyncio
-from slot_template import SlotTemplateEngine
-from prompts import SLOT_TEMPLATE_SYSTEM_PROMPT
+from baseline import SlotTemplateEngine
+from prompts import BASELINE_SYSTEM_PROMPT
 
 async def basic_example():
     # 创建引擎
@@ -20,7 +20,7 @@ async def basic_example():
     # 处理当前输入
     result = await engine.process(
         user_input="你还记得我叫什么吗？",
-        system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
+        system_prompt_template=BASELINE_SYSTEM_PROMPT
     )
     
     # 查看结果
@@ -34,11 +34,11 @@ asyncio.run(basic_example())
 
 ```bash
 # 基础演示
-python slot_template_demo.py
+python baseline_demo.py
 # 选择: 1
 
 # 对比演示  
-python slot_template_demo.py
+python baseline_demo.py
 # 选择: 3
 
 # 完整对比实验
@@ -61,7 +61,7 @@ python comparison_experiment.py
 
 ```python
 # 槽位模板 - 简单
-from slot_template import SlotTemplateEngine
+from baseline import SlotTemplateEngine
 
 engine = SlotTemplateEngine()
 result = await engine.process("你好")
@@ -93,6 +93,6 @@ context = await engine.optimize("你好")
 
 ## 详细文档
 
-- [槽位模板实现文档](SLOT_TEMPLATE_IMPLEMENTATION.md)
-- [槽位模板模块文档](../slot_template/README.md)
+- [槽位模板实现文档](BASELINE_IMPLEMENTATION.md)
+- [槽位模板模块文档](BASELINE_README.md)
 - [主项目文档](../README.md)

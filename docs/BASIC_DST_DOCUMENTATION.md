@@ -21,7 +21,7 @@
 **示例：**
 
 ```python
-from slot_template import PromptManager
+from baseline import PromptManager
 
 # 创建提示词管理器
 pm = PromptManager(domain="restaurant")
@@ -87,7 +87,7 @@ instruction = pm.get_system_instruction()
 **示例：**
 
 ```python
-from slot_template import ResponseParser, PromptManager
+from baseline import ResponseParser, PromptManager
 
 pm = PromptManager()
 parser = ResponseParser(pm)
@@ -129,7 +129,7 @@ filtered = parser.filter_hallucinations(result1)
 **示例：**
 
 ```python
-from slot_template import DialogueStateTracker
+from baseline import DialogueStateTracker
 import asyncio
 
 async def track_dialogue():
@@ -316,7 +316,7 @@ def _update_state(self, updates: Dict[str, str]):
 
 ```python
 import asyncio
-from slot_template import DialogueStateTracker, PromptManager
+from baseline import DialogueStateTracker, PromptManager
 
 async def restaurant_booking_example():
     # 1. 创建自定义提示词管理器

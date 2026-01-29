@@ -8,7 +8,7 @@
 
 ### 1. 核心模块
 
-**slot_template/dialogue_state_tracker.py** (450+ 行)
+**baseline/dialogue_state_tracker.py** (450+ 行)
 
 包含以下类：
 
@@ -58,8 +58,8 @@
 
 ### 4. 更新的文件
 
-- `slot_template/__init__.py` - 导出 DST 相关类
-- `slot_template/README.md` - 添加 DST 章节
+- `baseline/__init__.py` - 导出 DST 相关类
+- `docs/BASELINE_README.md` - 添加 DST 章节
 - `README.md` - 主文档更新，介绍 DST 功能
 
 ## 核心特性
@@ -175,7 +175,7 @@ python basic_basic_dst_demo.py
 ### 快速开始
 
 ```python
-from slot_template import DialogueStateTracker, PromptManager
+from baseline import DialogueStateTracker, PromptManager
 import asyncio
 
 async def main():

@@ -5,7 +5,7 @@
 ### ✅ 已完成的所有任务
 
 1. **独立槽位模板模块** ✅
-   - 创建 `slot_template/` 目录，与 `contextmind/` 同级
+   - 创建 `baseline/` 目录，与 `contextmind/` 同级
    - 实现 `SlotTemplateEngine` 核心引擎
    - 实现 `IntentExtractor` 意图提取器（支持规则和 LLM 提取）
    - 实现 `TemplateManager` 模板管理器
@@ -17,14 +17,14 @@
    - 保持向后兼容性（通过 `__all__` 重新导出）
 
 3. **演示和对比工具** ✅
-   - `slot_template_demo.py` - 完整的槽位模板演示
+   - `baseline_demo.py` - 完整的槽位模板演示
    - `comparison_experiment.py` - 对比实验脚本
    - 4 个预设测试场景
 
 4. **完整文档** ✅
-   - `docs/SLOT_TEMPLATE_IMPLEMENTATION.md` - 详细实现文档
-   - `docs/SLOT_TEMPLATE_QUICKSTART.md` - 快速入门指南
-   - `slot_template/README.md` - 模块使用文档
+   - `docs/BASELINE_IMPLEMENTATION.md` - 详细实现文档
+   - `docs/BASELINE_QUICKSTART.md` - 快速入门指南
+   - `docs/BASELINE_README.md` - 模块使用文档
    - `README.md` - 主项目文档更新
 
 5. **测试和验证** ✅
@@ -37,7 +37,7 @@
 
 ```
 新增文件：
-├── slot_template/              # 槽位模板模块
+├── baseline/              # 槽位模板模块
 │   ├── __init__.py            # 模块入口
 │   ├── engine.py              # SlotTemplateEngine (150+ 行)
 │   ├── intent_extractor.py    # IntentExtractor (280+ 行)
@@ -45,12 +45,12 @@
 │   └── README.md              # 模块文档 (400+ 行)
 │
 ├── prompts.py                 # 统一系统提示词
-├── slot_template_demo.py      # 槽位模板演示 (350+ 行)
+├── baseline_demo.py      # 槽位模板演示 (350+ 行)
 ├── comparison_experiment.py   # 对比实验脚本 (450+ 行)
 │
 └── docs/
-    ├── SLOT_TEMPLATE_IMPLEMENTATION.md  # 实现文档 (500+ 行)
-    └── SLOT_TEMPLATE_QUICKSTART.md      # 快速入门 (100+ 行)
+    ├── BASELINE_IMPLEMENTATION.md  # 实现文档 (500+ 行)
+    └── BASELINE_QUICKSTART.md      # 快速入门 (100+ 行)
 
 修改文件：
 ├── examples/
@@ -111,8 +111,8 @@
 
 ### 基础使用
 ```python
-from slot_template import SlotTemplateEngine
-from prompts import SLOT_TEMPLATE_SYSTEM_PROMPT
+from baseline import SlotTemplateEngine
+from prompts import BASELINE_SYSTEM_PROMPT
 
 engine = SlotTemplateEngine()
 engine.add_message("user", "我叫张三")
@@ -120,7 +120,7 @@ engine.add_message("assistant", "你好")
 
 result = await engine.process(
     user_input="你还记得我叫什么吗？",
-    system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
+    system_prompt_template=BASELINE_SYSTEM_PROMPT
 )
 
 print(result['slot_values'])
@@ -134,7 +134,7 @@ print(result['slot_values'])
 ### 运行演示
 ```bash
 # 基础演示
-python slot_template_demo.py
+python baseline_demo.py
 
 # 对比实验
 python comparison_experiment.py
@@ -153,9 +153,9 @@ python comparison_experiment.py
 
 ## 📚 文档链接
 
-- [详细实现文档](docs/SLOT_TEMPLATE_IMPLEMENTATION.md)
-- [快速入门指南](docs/SLOT_TEMPLATE_QUICKSTART.md)
-- [模块使用文档](slot_template/README.md)
+- [详细实现文档](docs/BASELINE_IMPLEMENTATION.md)
+- [快速入门指南](docs/BASELINE_QUICKSTART.md)
+- [模块使用文档](docs/BASELINE_README.md)
 - [主项目文档](README.md)
 
 ## 🎉 总结

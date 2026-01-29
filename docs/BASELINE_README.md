@@ -44,7 +44,7 @@
 核心引擎，提供简洁的 API。
 
 ```python
-from slot_template import SlotTemplateEngine
+from baseline import SlotTemplateEngine
 
 # 初始化引擎
 engine = SlotTemplateEngine(
@@ -72,7 +72,7 @@ prompt = result['filled_prompt']
 - **LLM 提取**：使用 LLM 智能分析（准确，但需要 API 调用）
 
 ```python
-from slot_template import IntentExtractor
+from baseline import IntentExtractor
 
 extractor = IntentExtractor(llm_client=None)  # None = 规则提取
 
@@ -102,7 +102,7 @@ slot_values = await extractor.extract_from_history(
 | `key_info` | 关键信息（实体、偏好等） | "暂无关键信息" |
 
 ```python
-from slot_template import TemplateManager, SlotTemplate
+from baseline import TemplateManager, SlotTemplate
 
 manager = TemplateManager()
 
@@ -212,8 +212,8 @@ filled = manager.fill_template(template)
 
 ```python
 import asyncio
-from slot_template import SlotTemplateEngine
-from prompts import SLOT_TEMPLATE_SYSTEM_PROMPT
+from baseline import SlotTemplateEngine
+from prompts import BASELINE_SYSTEM_PROMPT
 
 async def main():
     # 1. 初始化引擎
@@ -239,7 +239,7 @@ async def main():
     current_input = turns[-1][0]
     result = await engine.process(
         user_input=current_input,
-        system_prompt_template=SLOT_TEMPLATE_SYSTEM_PROMPT
+        system_prompt_template=BASELINE_SYSTEM_PROMPT
     )
     
     # 5. 查看槽位值
@@ -266,7 +266,7 @@ if __name__ == "__main__":
 
 **槽位模板方式：**
 ```python
-from slot_template import SlotTemplateEngine
+from baseline import SlotTemplateEngine
 
 engine = SlotTemplateEngine()
 result = await engine.process("你好")
@@ -390,7 +390,7 @@ IntentExtractor(llm_client: Optional[Any] = None)
 ### 快速开始
 
 ```python
-from slot_template import DialogueStateTracker, PromptManager
+from baseline import DialogueStateTracker, PromptManager
 import asyncio
 
 async def main():

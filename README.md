@@ -270,12 +270,12 @@ ContextMind/
 │   │   └── docs/                   # 详细文档
 │   └── utils/                      # 工具（日志、嵌入等）
 │
-├── slot_template/                  # 槽位模板上下文优化（Baseline）
+├── baseline/                       # 基础上下文优化（Baseline）
 │   ├── __init__.py                 # 模块入口
 │   ├── engine.py                   # SlotTemplateEngine - 核心引擎
 │   ├── intent_extractor.py         # IntentExtractor - 意图提取器
 │   ├── template_manager.py         # TemplateManager - 模板管理器
-│   └── README.md                   # 槽位模板文档
+│   └── dialogue_state_tracker.py   # DialogueStateTracker - 对话状态追踪
 │
 ├── examples/                       # 应用示例
 │   ├── chat_app.py                 # 聊天应用示例
@@ -286,18 +286,21 @@ ContextMind/
 ├── tests/                          # 单元和集成测试
 ├── docs/                           # 文档
 │   ├── ARCHITECTURE.md             # 详细架构
-│   ├── MIGRATION.md                # 迁移指南
-│   ├── MODULE_REORGANIZATION.md    # 模块重组说明
-│   └── SLOT_TEMPLATE_IMPLEMENTATION.md  # 槽位模板实现文档
+│   ├── BASELINE_README.md          # 基础模块使用文档
+│   ├── BASELINE_IMPLEMENTATION.md  # 基础模块实现文档
+│   ├── BASELINE_QUICKSTART.md      # 基础模块快速开始
+│   ├── BASIC_DST_DOCUMENTATION.md  # 对话状态追踪文档
+│   ├── BASIC_DST_SUMMARY.md        # 对话状态追踪总结
+│   ├── IMPLEMENTATION_SUMMARY.md   # 实现总结
+│   └── RENAME_AND_MODE_SUMMARY.md  # 重命名和模式总结
 │
 ├── prompts.py                      # 统一系统提示词管理
-├── interactive_demo.py             # 命令行交互演示
-├── gradio_demo.py                  # Web UI 演示（Gradio）
 ├── chat_interactive_demo.py        # 聊天命令行演示
 ├── chat_gradio_demo.py             # 聊天 Web 演示
 ├── callcenter_interactive_demo.py  # 客服命令行演示
 ├── callcenter_gradio_demo.py       # 客服 Web 演示
-├── slot_template_demo.py           # 槽位模板演示
+├── baseline_demo.py                # 基础模块演示
+├── basic_dst_demo.py               # 对话状态追踪演示
 ├── comparison_experiment.py        # 对比实验脚本
 ├── requirements.txt                # 依赖
 └── README.md                       # 本文件
@@ -356,16 +359,16 @@ cm = ContextMind(
 
 ---
 
-## 🔬 槽位模板 Baseline
+## 🔬 基础模块 (Baseline)
 
-ContextMind 项目还包含一个**槽位模板上下文优化方案**作为对比实验的基线（baseline）。
+ContextMind 项目还包含一个**基础上下文优化方案**作为对比实验的基线（baseline）。
 
-### 什么是槽位模板？
+### 什么是基础模块？
 
-槽位模板是一个**简单的上下文优化方法**，通过预定义的槽位从对话历史中提取关键信息：
+基础模块是一个**简单的上下文优化方法**，通过预定义的槽位从对话历史中提取关键信息：
 
 ```python
-from slot_template import SlotTemplateEngine
+from baseline import SlotTemplateEngine
 
 # 初始化引擎
 engine = SlotTemplateEngine()
@@ -391,7 +394,7 @@ print(result['slot_values'])
 **新增功能**：基于 **ACL 2023 论文** 的 Zero-shot 对话状态追踪实现。
 
 ```python
-from slot_template import DialogueStateTracker, PromptManager
+from baseline import DialogueStateTracker, PromptManager
 
 # 创建追踪器
 pm = PromptManager(domain="restaurant")
@@ -415,9 +418,9 @@ print(state)  # {"food_type": "中餐", "intent": "预订"}
 - ✅ 幻觉过滤
 - ✅ 值归一化
 
-### 槽位模板 vs ContextMind
+### 基础模块 vs ContextMind
 
-| 特性 | 槽位模板 | ContextMind |
+| 特性 | 基础模块 | ContextMind |
 |------|---------|------------|
 | 复杂度 | ⭐ 简单 | ⭐⭐⭐⭐ 复杂 |
 | 记忆库 | ❌ 无 | ✅ 有 |
@@ -428,8 +431,8 @@ print(state)  # {"food_type": "中餐", "intent": "预订"}
 ### 运行对比实验
 
 ```bash
-# 运行槽位模板演示
-python slot_template_demo.py
+# 运行基础模块演示
+python baseline_demo.py
 
 # 运行 DST 演示
 python basic_dst_demo.py
@@ -440,8 +443,8 @@ python comparison_experiment.py
 
 详细文档：
 - [基础 DST 文档](docs/BASIC_DST_DOCUMENTATION.md) 🆕
-- [槽位模板实现文档](docs/SLOT_TEMPLATE_IMPLEMENTATION.md)
-- [槽位模板模块文档](slot_template/README.md)
+- [基础模块实现文档](docs/BASELINE_IMPLEMENTATION.md)
+- [基础模块使用文档](docs/BASELINE_README.md)
 
 ---
 

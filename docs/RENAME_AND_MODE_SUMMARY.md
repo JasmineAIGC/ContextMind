@@ -103,7 +103,7 @@ python callcenter_gradio_demo.py
 更新了所有相关文档中的引用：
 
 - ✅ `README.md` - 主文档
-- ✅ `slot_template/README.md` - 模块文档
+- ✅ `docs/BASELINE_README.md` - 模块文档
 - ✅ `BASIC_DST_SUMMARY.md` - 实现总结
 
 所有文档中的链接和引用都已更新为新的文件名。
