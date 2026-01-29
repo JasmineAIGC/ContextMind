@@ -54,7 +54,6 @@ async def main():
     parser.add_argument('--history-turns', type=int, default=10, help='Prompt 中的历史轮数')
     parser.add_argument('--enable-memory-thinking', action='store_true', help='启用记忆思考')
     parser.add_argument('--no-llm', action='store_true', help='禁用真实 LLM, 使用模拟回复')
-    parser.add_argument('--use-template', action='store_true', help='启用槽位模板优化')
     parser.add_argument('--debug', action='store_true', help='调试模式 (详细日志)')
     args = parser.parse_args()
     
@@ -74,7 +73,6 @@ async def main():
     print(f"   - 长期记忆: {'✅ 启用' if args.use_memory else '❌ 禁用'}")
     print(f"   - 最大轮数: {args.max_events}")
     print(f"   - Prompt 历史: {args.history_turns}")
-    print(f"   - 槽位模板优化: {'✅ 启用' if args.use_template else '❌ 禁用'}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
@@ -108,7 +106,6 @@ async def main():
         business_info=business_info.strip(),
         history_turns=args.history_turns,
         use_real_llm=not args.no_llm,  # 默认启用真实 LLM
-        use_template_optimization=args.use_template,  # 使用槽位模板优化
     )
     print("✅ 应用初始化完成")
     print()

@@ -55,12 +55,6 @@ from .strategies import (
     RerankingStrategy,
 )
 
-from .prompt_template import (
-    PromptTemplate,
-    TemplateSlot,
-    DEFAULT_CHAT_TEMPLATE,
-)
-
 __all__ = [
     "ContextMindEngine",
     "PluginRegistry",
@@ -106,9 +100,5 @@ __all__ = [
     "OptimizationStrategy",
     "CompressionStrategy",
     "RerankingStrategy",
-    # Prompt Template
-    "PromptTemplate",
-    "TemplateSlot",
-    "DEFAULT_CHAT_TEMPLATE",
 ]
 
