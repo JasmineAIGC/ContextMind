@@ -1,4 +1,4 @@
-# ContextMind 架构 (v7.3+)
+# ContextMind 架构 (v7.4+)
 
 本文档描述基于 `docs/arch_by_me.md` 架构设计文档的优化项目结构。
 
@@ -25,7 +25,10 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 最终结果 + 记忆已更新
 ```
 
-**架构变更（v7.3）：**
+**架构变更（v7.4）：**
+- ✅ **Utils独立化** - utils模块移至根目录，完全不依赖contextmind/baseline
+- ✅ **增强DST** - 完整的ACL 2023论文合规性实现
+- ✅ **知识提取** - 新增LLM驱动的知识提取能力
 - ❌ **移除** KVCacheManager - KV缓存管理属于LLM推理框架职责
 - ✅ **新增** ResponseHandler - 处理响应并更新记忆库
 
@@ -45,7 +48,7 @@ ContextMind/
 │   ├── retriever.py         # 步骤 2：ContextRetriever（占位符）
 │   ├── compressor.py        # 步骤 3：ContextCompressor
 │   ├── reorderer.py         # 步骤 4：ContextReorderer
-│   ├── response_handler.py  # 步骤 5：ResponseHandler (v7.3新增)
+│   ├── response_handler.py  # 步骤 5：ResponseHandler (v7.4新增)
 │   │
 │   ├── summarizer.py        # ConversationSummarizer（由压缩器使用）
 │   │
@@ -108,7 +111,7 @@ ContextMind/
 - **技术**：时间戳排序、来源优先级、相关性评分
 - **缓解**："中间丢失"问题
 
-#### 步骤 5：ResponseHandler (`response_handler.py`) - v7.3 新增
+#### 步骤 5：ResponseHandler (`response_handler.py`) - v7.4 新增
 - **目的**：处理 LLM 响应并更新记忆库
 - **职责**：
   1. 解析 LLM 响应
@@ -222,11 +225,24 @@ from contextmind.memory import MemoryBank, SessionManager
 from contextmind.strategies import extractors, retrievers, updaters
 ```
 
-**注意：** `KVCacheManager` 和 `PostProcessor` 已在 v7.3 中移除。
+**注意：** `KVCacheManager` 和 `PostProcessor` 已在 v7.4 中移除。
 
 ## 迁移指南
 
-### 从 v7.2 迁移到 v7.3
+### 从 v7.3 迁移到 v7.4
+
+**重要变更：**
+
+1. **Utils模块独立化**
+   - utils模块已移至根目录
+   - 完全不依赖contextmind或baseline模块
+   - 导入路径保持不变，向后兼容
+
+2. **增强的DST实现**
+   - baseline模块现在完整支持ACL 2023规范
+   - 新增知识提取能力
+
+### 从 v7.2 迁移到 v7.4
 
 **重要变更：**
 
@@ -239,7 +255,7 @@ from contextmind.strategies import extractors, retrievers, updaters
    # 旧代码 (v7.2)
    await engine.update(user_input, assistant_response)
    
-   # 新代码 (v7.3) - 推荐
+   # 新代码 (v7.4) - 推荐
    result = await engine.handle_response(
        user_input=user_input,
        llm_response=assistant_response,

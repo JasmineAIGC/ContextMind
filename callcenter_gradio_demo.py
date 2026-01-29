@@ -1,14 +1,15 @@
 """
-ContextMind v7.3 客服对话 Gradio Demo
+ContextMind v7.4 客服对话 Gradio Demo
 
 模块化架构 + 基于嵌入向量的智能记忆系统
 适用于客服对话场景，支持上下文理解和业务知识管理。
 
-v7.3 新特性：
+v7.4 新特性：
+- Utils模块移至根目录，完全独立
+- 增强的DST实现，完整ACL 2023合规
+- 新增知识提取能力
 - 基于嵌入向量的语义检索和去重
 - 流水线优化：移除KVCache，新增ResponseHandler
-- 全面使用大语言模型处理，移除规则方法
-- 完整的记忆生命周期：提取 → 存储 → 检索
 """
 
 try:
@@ -169,7 +170,7 @@ class CustomerServiceGradioDemo:
                     extract_relationships=True,
                 )
                 
-                # 创建引擎 (v7.3: 使用 LLM 提取知识，基于嵌入向量的语义理解)
+                # 创建引擎 (v7.4: 使用 LLM 提取知识，基于嵌入向量的语义理解)
                 self.engine = ContextEngine(
                     app_name="customer-service-demo",
                     user_id="customer-user",
@@ -192,7 +193,7 @@ class CustomerServiceGradioDemo:
                 # 更新内存银行的配置
                 self.engine.memory_bank.config = retrieval_config
                 
-                logger.info("✅ [客服Demo] 引擎初始化成功 (v7.3 - Pure Context Engineering)")
+                logger.info("✅ [客服Demo] 引擎初始化成功 (v7.4 - Pure Context Engineering)")
                 logger.info(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
                 logger.info(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
                 
@@ -571,8 +572,8 @@ def create_gradio_interface():
         )
     
     # 创建界面
-    with gr.Blocks(title="ContextMind 客服对话Demo v7.3") as app:
-        gr.Markdown("# 📞 ContextMind v7.3 客服对话演示")
+    with gr.Blocks(title="ContextMind 客服对话Demo v7.4") as app:
+        gr.Markdown("# 📞 ContextMind v7.4 客服对话演示")
         gr.Markdown("基于五层架构的智能对话系统，专业客服场景应用")
         
         with gr.Row():
@@ -736,7 +737,7 @@ def create_gradio_interface():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("📞 ContextMind v7.3 客服对话 Gradio Demo")
+    print("📞 ContextMind v7.4 客服对话 Gradio Demo")
     print("=" * 60)
     print()
     

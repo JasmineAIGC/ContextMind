@@ -36,4 +36,4 @@ __all__ = [
     'DialogueTurn',
 ]
 
-__version__ = '1.0.0'  # DST 基础版本
+__version__ = '7.4.0'  # 与ContextMind保持一致，完整ACL 2023合规

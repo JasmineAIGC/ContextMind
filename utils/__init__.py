@@ -46,3 +46,5 @@ __all__ = [
     # Data Models
     "EmbeddingInfo",
 ]
+
+__version__ = "7.4.0"  # 独立工具模块，完全不依赖contextmind/baseline
