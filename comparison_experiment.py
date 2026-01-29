@@ -73,7 +73,7 @@ class ComparisonExperiment:
             }
         ]
     
-    async def run_slot_template(
+    async def run_baseline(
         self,
         conversation: List[Tuple[str, str]]
     ) -> Dict[str, Any]:
@@ -105,7 +105,7 @@ class ComparisonExperiment:
         elapsed_time = time.time() - start_time
         
         return {
-            "method": "slot_template",
+            "method": "baseline",
             "elapsed_time": elapsed_time,
             "slot_values": result['slot_values'],
             "prompt_preview": result.get('filled_prompt', '')[:200]
@@ -197,7 +197,7 @@ class ComparisonExperiment:
             print("方式 1: 槽位模板 (Baseline)")
             print("-" * 100)
             
-            slot_result = await self.run_slot_template(scenario['turns'])
+            slot_result = await self.run_baseline(scenario['turns'])
             
             print(f"\n⏱️  耗时: {slot_result['elapsed_time']:.4f}s")
             print(f"\n📊 槽位信息:")

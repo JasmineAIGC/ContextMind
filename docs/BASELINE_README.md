@@ -15,7 +15,7 @@
 | **基础槽位模板** | 简单、快速、3个固定槽位 | 简单对话、快速原型 |
 | **基础 DST (Baseline)** | 完整、可扩展、论文级实现 | 复杂多轮对话、精确状态追踪 |
 
-详细文档请参考：[基础 DST 文档](../docs/BASIC_DST_DOCUMENTATION.md)
+详细文档请参考：[基础 DST 文档](./BASIC_DST_DOCUMENTATION.md)
 
 ### 核心思路
 
@@ -446,7 +446,7 @@ python basic_dst_demo.py
 
 ### 详细文档
 
-完整的基础 DST 文档请参考：[基础 DST 文档](../docs/BASIC_DST_DOCUMENTATION.md)
+完整的基础 DST 文档请参考：[基础 DST 文档](./BASIC_DST_DOCUMENTATION.md)
 
 ### 基础 DST vs 基础槽位模板
 

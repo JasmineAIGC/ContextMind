@@ -77,7 +77,7 @@ async def main():
     
     if args.mode == 'basic':
         # 基础 DST 模式
-        from slot_template import DialogueStateTracker, PromptManager
+        from baseline import DialogueStateTracker, PromptManager
         
         print("⚙️  当前配置:")
         print(f"   - 运行模式: 🔹 基础 DST")
