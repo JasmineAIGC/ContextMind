@@ -1,5 +1,78 @@
 # ContextMind 变更日志
 
+## [2026-01-29] - Utils 模块重组和统一工具使用 🔧
+
+### 重大变更 (Major Changes)
+
+**将 utils 移动到根目录作为通用工具模块：**
+- 移动 `contextmind/utils/` → `utils/` (根目录)
+- 移动 `examples/llm_client.py` → `utils/llm_client.py`
+- 所有模式（DST 和 ContextMind）现在使用相同的工具
+
+**新的 utils 模块结构：**
+```
+utils/  (根目录)
+├── __init__.py       # 导出所有工具
+├── logger.py         # 统一的日志系统
+├── llm_client.py     # 统一的 LLM 客户端
+└── embedding.py      # 嵌入向量工具
+```
+
+### 改进 (Changed)
+
+**统一导入模式：**
+```python
+# Before
+from contextmind.utils.logger import get_logger
+from examples.llm_client import SimpleLLMClient
+
+# After
+from utils.logger import get_logger
+from utils.llm_client import SimpleLLMClient
+```
+
+**更新的文件（26 个）：**
+- Demo 文件（5 个）
+- Examples（2 个）
+- contextmind/core/（5 个）
+- contextmind/memory/（6 个）
+- contextmind/pipeline/（6 个）
+- contextmind/evolution/（2 个）
+
+### 新增 (Added)
+
+**utils/__init__.py 导出：**
+- Logger: get_logger, setup_logging, LogLevel, ContextMindLogger
+- LLM Client: SimpleLLMClient, LLMConfig
+- Embedding: (通过内部导入)
+
+### 删除 (Removed)
+
+- `contextmind/utils/` 目录（已移到根目录）
+- `examples/llm_client.py`（已移到 utils/）
+
+### 影响 (Impact)
+
+- ✅ DST 基础模式和 ContextMind 完整模式使用相同的 logger
+- ✅ 所有模式从 .env 读取 LLM 配置
+- ✅ 统一的工具模块，便于维护
+- ✅ 更简洁的导入路径
+
+### 迁移指南 (Migration Guide)
+
+如果你的代码使用了旧的导入路径，请更新：
+```python
+# 更新 logger 导入
+from contextmind.utils.logger import get_logger
+→ from utils.logger import get_logger
+
+# 更新 LLM 客户端导入
+from examples.llm_client import SimpleLLMClient
+→ from utils.llm_client import SimpleLLMClient
+```
+
+---
+
 ## [2026-01-29] - DST 模式错误修复 🔧
 
 ### 修复 (Fixed)
