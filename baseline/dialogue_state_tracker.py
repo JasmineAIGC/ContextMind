@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 
-# Configure logging
+# 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -101,44 +101,44 @@ class PromptManager:
         """
         self.domain = domain
         
-        # Slot ontology - maps slot names to their semantic descriptions
-        # This corresponds to "slots" in paper Figure 2
+        # 槽位本体 - 将槽位名称映射到语义描述
+        # 对应论文图2中的 "slots"
         self.ontology_slots: Dict[str, str] = {
-            # General intent and topic slots
+            # 通用意图和话题槽位
             "intent": "用户的主要意图 (User's primary intent)",
             "topic": "当前讨论的话题 (Current discussion topic)",
             "entity": "提到的实体或对象 (Mentioned entity or object)",
             
-            # Temporal slots
+            # 时间相关槽位
             "time": "时间信息 (Time information)",
             "date": "日期信息 (Date information)",
             "duration": "持续时间 (Duration)",
             
-            # Location slots
+            # 位置相关槽位
             "location": "地点或位置 (Location or place)",
             "departure": "出发地 (Departure location)",
             "destination": "目的地 (Destination)",
             
-            # Preference slots
+            # 偏好相关槽位
             "preference": "用户偏好 (User preference)",
             "requirement": "特殊要求 (Special requirements)",
             
-            # Numeric slots
+            # 数值相关槽位
             "price": "价格或费用 (Price or cost)",
             "quantity": "数量 (Quantity)",
             "rating": "评分或等级 (Rating or level)",
         }
         
-        # Categorical constraints - slots with predefined value sets
-        # This corresponds to "categorical" in paper Figure 2
+        # 分类约束 - 具有预定义值集的槽位
+        # 对应论文图2中的 "categorical"
         self.categorical_constraints: Dict[str, List[str]] = {
             "intent": ["询问", "预订", "修改", "取消", "确认", "投诉", "其他"],
             "rating": ["1星", "2星", "3星", "4星", "5星"],
             "price": ["便宜", "中等", "昂贵"],
         }
         
-        # Value normalization mapping for consistent representation
-        # Addresses the paper's discussion on value normalization (Section 4.2)
+        # 值归一化映射，用于一致性表示
+        # 对应论文4.2节关于值归一化的讨论
         self.value_normalization: Dict[str, str] = {
             "便宜的": "便宜",
             "贵的": "昂贵",
@@ -280,20 +280,20 @@ class PromptManager:
             >>> pm.normalize_value("很贵")
             "昂贵"
         """
-        # Strip whitespace
+        # 去除空白字符
         value = value.strip()
         
-        # Apply normalization mapping
+        # 应用归一化映射
         if value in self.value_normalization:
             normalized = self.value_normalization[value]
             logger.debug(f"Normalized '{value}' to '{normalized}'")
             return normalized
         
-        # Note: Additional normalization strategies could be added:
+        # 注意：可以添加额外的归一化策略：
         # - Lowercase conversion for English (e.g., "Beijing" -> "beijing")
         # - Removing punctuation (e.g., "5-star" -> "5star")
         # - Standardizing date/time formats (e.g., "2024/01/15" -> "2024-01-15")
-        # These are domain and language-specific, so implement as needed
+        # 这些是领域和语言特定的，根据需要实现
         
         return value
     
@@ -309,7 +309,7 @@ class PromptManager:
             True if value is valid for this slot, False otherwise
         """
         if slot not in self.categorical_constraints:
-            return True  # Non-categorical slots accept any value
+            return True  # 非分类槽位接受任何值
         
         allowed_values = self.categorical_constraints[slot]
         is_valid = value in allowed_values
@@ -384,31 +384,31 @@ class ResponseParser:
             return {}
         
         try:
-            # Strategy 1: Direct JSON parsing (fastest, works for clean outputs)
+            # 策略1：直接JSON解析（最快，适用于干净的输出）
             try:
                 result = json.loads(text.strip())
                 if isinstance(result, dict):
                     logger.debug("JSON extracted via direct parsing")
                     return result
                 elif isinstance(result, list):
-                    # Handle list of dicts: merge them
+                    # 处理字典列表：合并它们
                     return self._merge_dict_list(result)
             except json.JSONDecodeError:
                 pass
             
-            # Strategy 2: Regex-based JSON extraction (handles embedded JSON)
+            # 策略2：基于正则的JSON提取（处理嵌入的JSON）
             json_result = self._extract_json_with_regex(text)
             if json_result:
                 logger.debug("JSON extracted via regex")
                 return json_result
             
-            # Strategy 3: Key-value pair extraction (fallback for malformed JSON)
+            # 策略3：键值对提取（用于格式错误的JSON的后备方案）
             kv_result = self._extract_key_value_pairs(text)
             if kv_result:
                 logger.debug("JSON extracted via key-value pattern matching")
                 return kv_result
             
-            # All strategies failed
+            # 所有策略都失败了
             logger.warning(f"Failed to extract JSON from response: {text[:100]}...")
             return {}
             
@@ -422,13 +422,13 @@ class ResponseParser:
         
         Tries multiple regex patterns to handle various JSON embedding styles.
         """
-        # Patterns ordered by specificity
+        # 按特异性排序的模式
         json_patterns = [
-            # Nested braces (handles complex nested structures)
+            # 嵌套花括号（处理复杂的嵌套结构）
             r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',
-            # Simple braces (single-level objects)
+            # 简单花括号（单层对象）
             r'\{.*?\}',
-            # Square brackets (array format)
+            # 方括号（数组格式）
             r'\[.*?\]',
         ]
         
@@ -453,7 +453,7 @@ class ResponseParser:
         
         Matches patterns like: "key": "value" or 'key': 'value'
         """
-        # Pattern: "key": "value" or 'key': 'value'
+        # 模式："key": "value" 或 'key': 'value'
         kv_pattern = r'["\']([^"\']+)["\']\s*:\s*["\']([^"\']*)["\']'
         matches = re.findall(kv_pattern, text)
         
@@ -502,7 +502,7 @@ class ResponseParser:
         valid_slots = self.prompt_manager.get_slot_names()
         
         for slot, value in updates.items():
-            # Filter 1: Only keep slots defined in ontology
+            # 过滤1：只保留本体中定义的槽位
             if slot not in valid_slots:
                 logger.warning(
                     f"Hallucinated slot '{slot}' not in ontology. "
@@ -510,10 +510,10 @@ class ResponseParser:
                 )
                 continue
             
-            # Filter 2: Apply value normalization
+            # 过滤2：应用值归一化
             normalized_value = self.prompt_manager.normalize_value(value)
             
-            # Filter 3: Validate categorical constraints (if strict mode)
+            # 过滤3：验证分类约束（如果是严格模式）
             if self.strict_categorical:
                 if not self.prompt_manager.validate_categorical_value(slot, normalized_value):
                     logger.warning(
