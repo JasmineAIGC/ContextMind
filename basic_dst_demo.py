@@ -1,5 +1,5 @@
 """
-对话状态追踪演示 (Dialogue State Tracking Demo)
+基础 DST 演示 (Basic Dialogue State Tracking Demo)
 
 基于 ACL 2023 论文的 Zero-shot DST 实现演示
 展示如何使用 DialogueStateTracker 进行对话状态追踪
