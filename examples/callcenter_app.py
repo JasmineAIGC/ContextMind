@@ -47,6 +47,7 @@ class CallCenterApplication:
         llm_config: Optional[LLMConfig] = None,
         use_real_llm: bool = True,
         extraction_method: str = None,  # 知识提取方式 ('rule' 或 'llm')
+        use_template_optimization: bool = False,  # 是否使用模板优化
         **config
     ):
         """初始化客服应用
@@ -60,6 +61,7 @@ class CallCenterApplication:
             use_real_llm: 是否使用真实 LLM（True=调用API，False=模拟回复）
             extraction_method: 知识提取方式 ('rule' 规则提取, 'llm' LLM自动提取)
                 如未指定，使用引擎的extraction_method
+            use_template_optimization: 是否使用槽位模板优化
         """
         self.context_engine = context_engine
         self.business_info = business_info
@@ -67,6 +69,7 @@ class CallCenterApplication:
         self.system_prompt = system_prompt
         self.config = config
         self.use_real_llm = use_real_llm
+        self.use_template_optimization = use_template_optimization
         
         # 记录提取方式
         if extraction_method:
@@ -80,7 +83,8 @@ class CallCenterApplication:
                 self.llm_client = SimpleLLMClient(llm_config)
                 logger.info(
                     f"[CallCenterApplication] ✓ 初始化完成 "
-                    f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
+                    f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method}, "
+                    f"模板优化: {use_template_optimization})"
                 )
             except Exception as e:
                 logger.warning(f"[CallCenterApplication] ⚠ LLM 客户端初始化失败: {e}")
@@ -91,8 +95,20 @@ class CallCenterApplication:
             self.llm_client = None
             logger.info(
                 f"[CallCenterApplication] ✓ 初始化完成 "
-                f"(模拟回复, 知识提取: {self.extraction_method})"
+                f"(模拟回复, 知识提取: {self.extraction_method}, "
+                f"模板优化: {use_template_optimization})"
             )
+        
+        # 初始化模板优化器（如果启用）
+        if use_template_optimization:
+            from contextmind.pipeline import TemplateBasedOptimization
+            self.template_optimizer = TemplateBasedOptimization(
+                llm_client=self.llm_client if use_real_llm else None,
+                use_llm_extraction=False  # 使用规则提取以保持速度
+            )
+            logger.info("[CallCenterApplication] ✓ 槽位模板优化器已初始化")
+        else:
+            self.template_optimizer = None
         
         # 初始化对话摘要器
         summarization_config = SummarizationConfig(
@@ -236,6 +252,14 @@ class CallCenterApplication:
             include_session=True,
             include_memory=True,
         )
+        
+        # 可选：使用模板优化
+        if self.template_optimizer:
+            from contextmind.core import ProcessedContext
+            logger.info("[CallCenterApplication] 📋 应用槽位模板优化...")
+            processed = ProcessedContext(items=context_result.items)
+            context_result = await self.template_optimizer.optimize(processed)
+            logger.info("[CallCenterApplication] ✓ 模板优化完成")
         
         if debug:
             # 保存召回结果

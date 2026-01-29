@@ -79,15 +79,18 @@ class PromptTemplate:
         pattern = r'\{(\w+)\}'
         matches = re.findall(pattern, self.template_text)
         
-        slots = []
-        for slot_name in set(matches):  # 去重
-            slots.append(TemplateSlot(
-                name=slot_name,
-                description=f"Auto-extracted slot: {slot_name}",
-                default_value="",
-                required=True
-            ))
+        # 使用dict保持顺序并去重（Python 3.7+字典保持插入顺序）
+        seen = {}
+        for slot_name in matches:
+            if slot_name not in seen:
+                seen[slot_name] = TemplateSlot(
+                    name=slot_name,
+                    description=f"Auto-extracted slot: {slot_name}",
+                    default_value="",
+                    required=True
+                )
         
+        slots = list(seen.values())
         logger.debug(f"[PromptTemplate] 从模板中提取到 {len(slots)} 个槽位: {[s.name for s in slots]}")
         return slots
     
@@ -118,15 +121,18 @@ class PromptTemplate:
         final_values = {}
         for slot in self.slots:
             if slot.name in slot_values:
-                final_values[slot.name] = slot_values[slot.name]
+                value = slot_values[slot.name]
+                # 确保值是字符串类型
+                final_values[slot.name] = str(value) if value is not None else slot.default_value
             else:
                 final_values[slot.name] = slot.default_value
         
-        # 填充模板
+        # 填充模板 - 使用更安全的方式
         filled_text = self.template_text
         for slot_name, value in final_values.items():
             placeholder = f"{{{slot_name}}}"
-            filled_text = filled_text.replace(placeholder, value)
+            if placeholder in filled_text:
+                filled_text = filled_text.replace(placeholder, value)
         
         logger.debug(f"[PromptTemplate] 已填充 {len(final_values)} 个槽位")
         return filled_text

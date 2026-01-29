@@ -38,6 +38,7 @@ async def main():
     parser.add_argument('--no-memory', action='store_true', help='禁用长期记忆')
     parser.add_argument('--max-events', type=int, default=20, help='最大历史轮数')
     parser.add_argument('--history-turns', type=int, default=10, help='Prompt中的历史轮数')
+    parser.add_argument('--use-template', action='store_true', help='启用槽位模板优化')
     parser.add_argument('--debug', action='store_true', help='调试模式 (详细日志)')
     args = parser.parse_args()
     
@@ -57,6 +58,7 @@ async def main():
     print(f"   - 长期记忆: {'❌ 禁用' if args.no_memory else '✅ 启用'}")
     print(f"   - 最大轮数: {args.max_events}")
     print(f"   - Prompt历史: {args.history_turns}")
+    print(f"   - 槽位模板优化: {'✅ 启用' if args.use_template else '❌ 禁用'}")
     print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
     print()
     
@@ -78,6 +80,7 @@ async def main():
         system_prompt=CHAT_SYSTEM_PROMPT,
         history_turns=args.history_turns,
         auto_extract_knowledge=not args.no_memory,  # 根据参数决定是否提取知识
+        use_template_optimization=args.use_template,  # 使用槽位模板优化
     )
     print("✅ 应用初始化完成")
     print()
