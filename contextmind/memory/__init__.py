@@ -29,9 +29,9 @@ from .updater import (
 from .memory_fitness import (
     MemoryFitness,
     FitnessCalculator,
-    ObservationType,
+    DialogueObservationType,
     FeedbackType,
-    MemoryObservation,
+    DialogueObservation,
 )
 
 __all__ = [
@@ -57,9 +57,9 @@ __all__ = [
     # 适应度评估 (观测和反馈核心能力)
     "MemoryFitness",
     "FitnessCalculator",
-    "ObservationType",
+    "DialogueObservationType",
     "FeedbackType",
-    "MemoryObservation",
+    "DialogueObservation",
 ]
 
 # 注意：EvolutionaryMemoryUpdater 已移至 evolution 模块

@@ -61,20 +61,41 @@ class FeedbackEvent:
 @dataclass
 class ObservationEvent:
     """
-    观测事件
+    对话观测事件
     
-    记录对话过程中的观测信息，如检索、使用等。
+    观测对话层面的信息：
+    - 对话历史演化（话题变化、轮次）
+    - 用户意图识别和变化
+    - 上下文扩展和相关性
+    - 对话质量和理解程度
+    
+    这些观测用于评估记忆在对话中的实际价值。
     """
-    memory_id: str                           # 记忆ID
-    event_type: str                          # 事件类型: retrieved, used, ignored
+    turn_id: str                             # 对话轮次ID
+    event_type: str                          # 事件类型: dialogue, intent, context, quality
     timestamp: float = field(default_factory=time.time)
     
-    # 上下文信息
-    query: Optional[str] = None              # 触发的查询
-    relevance_score: Optional[float] = None  # 相关性分数
-    position: Optional[int] = None           # 在检索结果中的位置
-    used_in_prompt: bool = False             # 是否被用于prompt
-    contributed_to_response: bool = False    # 是否对回复有贡献
+    # 对话历史相关
+    dialogue_history_length: int = 0         # 对话历史长度
+    current_topic: Optional[str] = None      # 当前话题
+    topic_changed: bool = False              # 话题是否改变
+    
+    # 意图相关
+    identified_intent: Optional[str] = None  # 识别到的意图
+    intent_confidence: float = 0.0           # 意图置信度
+    intent_changed: bool = False             # 意图是否变化
+    
+    # 上下文相关
+    context_items_count: int = 0             # 上下文项数量
+    context_relevance: float = 0.0           # 上下文相关性
+    referenced_history: bool = False         # 是否引用历史
+    
+    # 对话质量相关
+    coherence_score: float = 0.0             # 连贯性评分
+    understanding_level: float = 0.0         # 理解程度
+    
+    # 关联的记忆（记录哪些记忆参与了这次对话）
+    related_memory_ids: List[str] = field(default_factory=list)
     
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -84,24 +105,37 @@ class ConversationTurn:
     """
     对话轮次
     
-    记录单次对话交互的完整信息，用于后续分析。
+    记录单次对话交互的完整信息，聚焦于对话本身而非记忆检索。
+    
+    包含：
+    - 对话内容（用户输入、系统回复）
+    - 对话理解（意图、主题）
+    - 对话质量（连贯性、理解程度）
+    - 关联的记忆（哪些记忆参与了对话）
     """
     turn_id: str
     user_query: str
     system_response: str
     timestamp: float = field(default_factory=time.time)
     
-    # 记忆相关
-    retrieved_memory_ids: List[str] = field(default_factory=list)
-    used_memory_ids: List[str] = field(default_factory=list)
-    ignored_memory_ids: List[str] = field(default_factory=list)
+    # 对话理解
+    identified_intent: Optional[str] = None      # 识别到的意图
+    intent_confidence: float = 0.0               # 意图置信度
+    current_topic: Optional[str] = None          # 当前话题
+    topic_changed: bool = False                  # 话题是否改变
+    
+    # 对话质量
+    coherence_score: float = 0.0                 # 连贯性评分
+    understanding_level: float = 0.0             # 理解程度
+    
+    # 关联的记忆（记录哪些记忆对这次对话有贡献）
+    relevant_memory_ids: List[str] = field(default_factory=list)
     
     # 元数据
-    response_time: Optional[float] = None    # 生成回复耗时
-    user_response_time: Optional[float] = None  # 用户回复耗时
-    topic: Optional[str] = None
+    response_time: Optional[float] = None        # 生成回复耗时
+    user_response_time: Optional[float] = None   # 用户回复耗时
     
-    # 反馈
+    # 反馈和观测
     feedbacks: List[FeedbackEvent] = field(default_factory=list)
     observations: List[ObservationEvent] = field(default_factory=list)
 

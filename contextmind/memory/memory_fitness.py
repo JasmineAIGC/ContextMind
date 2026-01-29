@@ -5,12 +5,19 @@
 适应度分数用于指导记忆的选择、更新和淘汰。
 
 该模块实现了多维度的记忆评估机制，包含观测和反馈循环：
+
+观测对象（对话层面）：
+- 对话历史：话题变化、轮次数、历史引用
+- 用户意图：意图识别、意图变化、多重意图
+- 上下文：上下文扩展、相关性、演化过程
+- 对话质量：连贯性、理解程度、话题偏离
+
+评估维度：
 - 使用频率：记忆被实际使用的次数
-- 检索统计：观测检索和使用的关系
 - 时间新鲜度：最近使用的时间
 - 准确性：基于真实反馈的准确性评分
 - 相关性：与当前对话的相关程度
-- 贡献度：记忆对回复质量的实际贡献
+- 贡献度：记忆对对话质量的实际贡献
 """
 
 import time
@@ -25,13 +32,36 @@ from ..utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-class ObservationType(Enum):
-    """观测事件类型"""
-    RETRIEVED = "retrieved"        # 记忆被检索
-    USED = "used"                  # 记忆被实际使用
-    IGNORED = "ignored"            # 记忆被检索但未使用
-    CONTRIBUTED = "contributed"    # 记忆对回复有贡献
-    CONTRADICTED = "contradicted"  # 记忆导致矛盾或错误
+class DialogueObservationType(Enum):
+    """
+    对话观测类型
+    
+    观测对象：对话历史、用户意图、上下文变化、对话质量
+    用于理解对话的演化过程，而非单纯的记忆检索统计
+    """
+    # 对话历史观测
+    NEW_TURN = "new_turn"                      # 新的对话轮次
+    TOPIC_CHANGED = "topic_changed"            # 话题改变
+    CONTEXT_EXPANDED = "context_expanded"      # 上下文扩展
+    HISTORY_REFERENCED = "history_referenced"  # 引用历史对话
+    
+    # 意图观测
+    INTENT_IDENTIFIED = "intent_identified"    # 意图识别成功
+    INTENT_UNCLEAR = "intent_unclear"          # 意图不明确
+    INTENT_CHANGED = "intent_changed"          # 意图变化
+    MULTI_INTENT = "multi_intent"              # 多重意图
+    
+    # 理解程度观测
+    UNDERSTOOD_WELL = "understood_well"        # 理解良好
+    MISUNDERSTOOD = "misunderstood"            # 理解错误
+    CLARIFICATION_NEEDED = "clarification_needed"  # 需要澄清
+    AMBIGUOUS = "ambiguous"                    # 存在歧义
+    
+    # 对话质量观测
+    COHERENT_DIALOGUE = "coherent_dialogue"    # 对话连贯
+    BROKEN_DIALOGUE = "broken_dialogue"        # 对话中断
+    REPETITIVE = "repetitive"                  # 重复问题
+    OFF_TOPIC = "off_topic"                    # 偏离主题
 
 
 class FeedbackType(Enum):
@@ -43,18 +73,43 @@ class FeedbackType(Enum):
 
 
 @dataclass
-class MemoryObservation:
+class DialogueObservation:
     """
-    记忆观测记录
+    对话观测记录
     
-    记录记忆在实际使用中的表现，用于反馈学习和适应度调整。
+    观测对话本身的演化，包括：
+    - 对话历史的变化（话题、轮次）
+    - 用户意图的识别和变化
+    - 上下文的扩展和演化
+    - 对话质量和理解程度
+    
+    这些观测用于评估记忆在对话中的实际价值。
     """
-    memory_id: str
-    observation_type: ObservationType
+    turn_id: str                                      # 对话轮次ID
+    observation_type: DialogueObservationType
     timestamp: float = field(default_factory=time.time)
-    context: Dict[str, any] = field(default_factory=dict)
-    feedback: Optional[FeedbackType] = None
-    score: Optional[float] = None  # 具体评分（如贡献度）
+    
+    # 对话历史信息
+    dialogue_history_length: int = 0                  # 对话历史长度
+    current_topic: Optional[str] = None               # 当前话题
+    previous_topic: Optional[str] = None              # 前一个话题
+    
+    # 意图信息
+    identified_intent: Optional[str] = None           # 识别到的意图
+    intent_confidence: float = 0.0                    # 意图置信度
+    intent_category: Optional[str] = None             # 意图类别
+    
+    # 上下文信息
+    context_items_count: int = 0                      # 上下文项数量
+    context_relevance: float = 0.0                    # 上下文相关性
+    referenced_history_turns: list = field(default_factory=list)  # 引用的历史轮次
+    
+    # 对话质量
+    coherence_score: float = 0.0                      # 连贯性评分
+    understanding_level: float = 0.0                  # 理解程度
+    
+    # 关联的记忆（可选）
+    related_memory_ids: list = field(default_factory=list)  # 相关记忆ID
 
 
 @dataclass
