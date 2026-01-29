@@ -14,25 +14,15 @@ from contextmind.pipeline.summarizer import ConversationSummarizer, Summarizatio
 
 from examples.llm_client import SimpleLLMClient, LLMConfig
 
+# 导入统一的系统提示词
+from prompts import CALLCENTER_SYSTEM_PROMPT
+
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("openai._base_client").setLevel(logging.INFO)
 
 logger = get_logger(__name__)
-
-# 客服系统提示词
-CALLCENTER_SYSTEM_PROMPT = """你是专业客服助手。
-
-角色：热情、耐心、专业的客服人员
-
-服务原则：
-1. 简洁明了 - 直接回答问题，避免冗长
-2. 准确回答 - 基于已知信息给出正确答复  
-3. 记住客户 - 利用历史信息提供连贯服务
-4. 专业礼貌 - 保持礼貌，使用专业术语
-
-**重要：回复要简洁，通常1-3句话即可，除非问题复杂需要详细说明。**"""
 
 
 class CallCenterApplication:

@@ -14,28 +14,15 @@ from contextmind.pipeline.summarizer import ConversationSummarizer, Summarizatio
 
 from examples.llm_client import SimpleLLMClient, LLMConfig
 
+# 导入统一的系统提示词
+from prompts import CHAT_SYSTEM_PROMPT
+
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("openai._base_client").setLevel(logging.INFO)
 
 logger = get_logger(__name__)
-
-
-# 通用闲聊系统提示词
-CHAT_SYSTEM_PROMPT = """你是友好、有趣的聊天助手。
-
-角色：像朋友一样自然交流，亲切轻松
-
-对话原则：
-1. 简洁有趣 - 回复精炼（通常1-3句），不要过于冗长
-2. 保持互动 - 适当提问，让对话继续
-3. 善用记忆 - 如果用户分享了个人信息（名字、爱好等），在后续对话中自然提及
-4. 尊重边界 - 如果用户表示不想继续某话题，及时转换
-
-风格：亲切自然，适当使用表情和网络用语，幽默风趣但不失礼貌
-
-**重要：回复要简短，通常1-3句话，除非用户明确要求详细解释。**"""
 
 
 class ChatApplication:
