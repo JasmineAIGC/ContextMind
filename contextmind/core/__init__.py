@@ -35,7 +35,7 @@ from .configs import (
     DEFAULT_MEMORY_CONFIG,
 )
 
-from ..utils.logger import (
+from utils.logger import (
     ContextMindLogger,
     LogLevel,
     get_logger,

@@ -99,7 +99,7 @@ class ChatGradioDemo:
             self.max_recent_events = max_recent_events
             
             # 创建LLM客户端
-            from examples.llm_client import SimpleLLMClient, LLMConfig
+            from utils.llm_client import SimpleLLMClient, LLMConfig
             self.llm_client = SimpleLLMClient(LLMConfig.from_env())
             
             if mode == "basic_dst":

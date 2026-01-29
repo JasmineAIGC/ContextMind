@@ -7,7 +7,7 @@ ContextCompressor - 管道架构步骤3
 from typing import Optional
 
 from ..core.data_models import ProcessedContext, ContextResult
-from ..utils.logger import get_logger
+from utils.logger import get_logger
 from ..core.strategies import CompressionStrategy
 
 logger = get_logger(__name__)

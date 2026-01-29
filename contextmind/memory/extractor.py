@@ -17,9 +17,9 @@ import json
 from ..core.data_models import Message, Knowledge, ScoreInfo
 from ..core.types import KnowledgeType
 from ..core.configs import ExtractionConfig, DEFAULT_MEMORY_CONFIG
-from ..utils.logger import get_logger
+from utils.logger import get_logger
 from ..core.strategies import ExtractionStrategy as BaseExtractor  # Use core base class
-from ..utils.embedding import get_embedding_client
+from utils.embedding import get_embedding_client
 
 logger = get_logger(__name__)
 

@@ -14,7 +14,7 @@ def test_llm_client_methods():
     print("=" * 60)
     
     try:
-        from examples.llm_client import SimpleLLMClient
+        from utils.llm_client import SimpleLLMClient
         
         # 检查必需的方法
         required_methods = ['chat', 'chat_async', 'generate', 'generate_async']

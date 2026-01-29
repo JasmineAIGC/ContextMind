@@ -12,7 +12,7 @@ from contextmind import ContextEngine
 from contextmind.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from contextmind.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
-from examples.llm_client import SimpleLLMClient, LLMConfig
+from utils.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
 from prompts import CHAT_SYSTEM_PROMPT

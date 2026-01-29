@@ -62,7 +62,7 @@ async def main():
     if args.mode == 'basic':
         # 基础 DST 模式
         from baseline import DialogueStateTracker, PromptManager
-        from examples.llm_client import SimpleLLMClient
+        from utils.llm_client import SimpleLLMClient
         
         print("⚙️  当前配置:")
         print(f"   - 运行模式: 🔹 基础 DST")
