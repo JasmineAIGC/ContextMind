@@ -574,14 +574,14 @@ def create_gradio_interface():
     # 创建界面
     with gr.Blocks(title="ContextMind 客服对话Demo v7.4") as app:
         gr.Markdown("# 📞 ContextMind v7.4 客服对话演示")
-        gr.Markdown("基于五层架构的智能对话系统，专业客服场景应用")
+        gr.Markdown("智能客服 · 上下文工程 · 专业对话")
         
         with gr.Row():
             with gr.Column(scale=4):
                 # 聊天界面 - 主要区域
                 chatbot = gr.Chatbot(
                     label="对话窗口",
-                    height=600,
+                    height=450,
                     show_label=False,
                 )
                 
@@ -641,10 +641,10 @@ def create_gradio_interface():
                 )
                 
                 max_events_slider = gr.Slider(
-                    minimum=5,
+                    minimum=1,
                     maximum=50,
                     value=10,
-                    step=5,
+                    step=1,
                     label="历史轮数",
                     info="保留的对话轮数"
                 )
@@ -659,28 +659,6 @@ def create_gradio_interface():
                 )
                 
                 gr.Markdown("---")
-                gr.Markdown("### 💡 使用提示")
-                mode_tips = gr.Markdown("""
-                **ContextMind 完整模式:**
-                - 完整的上下文工程
-                - 智能记忆库
-                - 语义检索和压缩
-                
-                **基础 DST 模式:**
-                - 对话状态追踪
-                - 槽位填充
-                - 轻量级处理
-                
-                **使用步骤:**
-                1. 选择运行模式
-                2. 点击 **初始化引擎**
-                3. 开始对话
-                
-                **常见咨询：**
-                - 业务办理
-                - 额度查询
-                - 优惠活动
-                """)
         
         # 模式切换事件
         mode_radio.change(
@@ -731,6 +709,27 @@ def create_gradio_interface():
             fn=lambda: (demo_instance.get_dialogue_state(), gr.update(visible=True)),
             outputs=[state_output, state_output]
         )
+        
+        # 使用提示（放在底部，横向排列）
+        gr.Markdown("---")
+        gr.Markdown("### 💡 使用提示")
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("""
+                **ContextMind 完整模式：** 完整上下文工程 · 智能记忆库 · 语义检索
+                """)
+            with gr.Column():
+                gr.Markdown("""
+                **基础 DST 模式：** 对话状态追踪 · 槽位填充 · 轻量级处理
+                """)
+            with gr.Column():
+                gr.Markdown("""
+                **使用步骤：** 1. 选择模式 → 2. 初始化引擎 → 3. 开始对话
+                """)
+            with gr.Column():
+                gr.Markdown("""
+                **常见咨询：** 业务办理 · 额度查询 · 优惠活动
+                """)
     
     return app
 
