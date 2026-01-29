@@ -295,10 +295,11 @@ class PromptManager:
             logger.debug(f"Normalized '{value}' to '{normalized}'")
             return normalized
         
-        # Additional normalization could be added here:
-        # - Lowercase conversion for English
-        # - Removing punctuation
-        # - Standardizing date/time formats
+        # Note: Additional normalization strategies could be added:
+        # - Lowercase conversion for English (e.g., "Beijing" -> "beijing")
+        # - Removing punctuation (e.g., "5-star" -> "5star")
+        # - Standardizing date/time formats (e.g., "2024/01/15" -> "2024-01-15")
+        # These are domain and language-specific, so implement as needed
         
         return value
     
