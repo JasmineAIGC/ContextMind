@@ -1,22 +1,23 @@
 """
 对话状态追踪器 (Dialogue State Tracker)
 
-基于 ACL 2023 论文实现：
+基于 ACL 2023 论文实现（全LLM方法）：
 "ChatGPT for Zero-shot Dialogue State Tracking: A Solution or an Opportunity?"
 
-完整实现零样本对话状态追踪系统，符合论文的8项核心要求：
+完整实现零样本对话状态追踪系统，符合论文的8项核心要求，完全基于LLM：
 1. 零样本方法（无需微调）
 2. 基于提示词工程和槽位本体定义
 3. 维护完整对话历史进行上下文管理
 4. 累积式状态更新: DS_t = update(DS_{t-1}, updates)
 5. 处理特殊值 (?, dontcare)
-6. 过滤幻觉（非本体槽位）
-7. 值归一化处理
+6. 过滤幻觉（非本体槽位）- 由LLM理解
+7. 值归一化处理 - 由LLM理解
 8. 鲁棒的 JSON 响应解析
 
-核心组件:
+核心特点：
+    - 所有步骤完全基于LLM，不使用规则方法
     - PromptManager: 管理本体、约束和提示词生成
-    - ResponseParser: 鲁棒的 JSON 提取和幻觉过滤
+    - ResponseParser: 鲁棒的 JSON 提取
     - DialogueStateTracker: 多轮 DST 主控制器
 
 版本: v7.4.0
@@ -67,37 +68,38 @@ class DialogueTurn:
 
 class PromptManager:
     """
-    Prompt Manager for Zero-shot Dialogue State Tracking.
+    提示词管理器（零样本对话状态追踪）
     
-    Manages the ontology (slot definitions), categorical constraints, and prompt
-    generation according to ACL 2023 paper Figure 2 specifications.
+    管理本体（槽位定义）、分类约束和提示词生成，
+    符合 ACL 2023 论文图2的规范。
     
-    The prompt structure follows the paper's design:
-    1. Slot ontology definitions (describing what each slot represents)
-    2. Categorical constraints (predefined value lists for certain slots)
-    3. Dialogue formatting instructions
-    4. Special value handling rules (?, dontcare)
-    5. JSON output format specification
+    提示词结构遵循论文设计：
+    1. 槽位本体定义（描述每个槽位代表什么）
+    2. 分类约束（某些槽位的预定义值列表）
+    3. 对话格式说明
+    4. 特殊值处理规则 (?, dontcare)
+    5. JSON输出格式规范
     
-    Attributes:
-        domain: The dialogue domain (e.g., "general", "hotel", "restaurant")
-        ontology_slots: Dictionary mapping slot names to their descriptions
-        categorical_constraints: Dictionary mapping slot names to allowed values
-        value_normalization: Dictionary for normalizing different value representations
+    注意：所有验证和归一化都由LLM理解，不使用规则方法
+    
+    属性:
+        domain: 对话领域（如 "general", "hotel", "restaurant"）
+        ontology_slots: 槽位名称到描述的映射字典
+        categorical_constraints: 槽位名称到允许值的映射字典（用于LLM理解）
         
-    Example:
+    示例:
         >>> pm = PromptManager(domain="restaurant")
-        >>> pm.add_slot("food_type", "Type of cuisine", ["Chinese", "Italian", "Japanese"])
+        >>> pm.add_slot("food_type", "菜系类型", ["中餐", "意大利菜", "日料"])
         >>> instruction = pm.get_system_instruction()
     """
     
     def __init__(self, domain: str = "general"):
         """
-        Initialize the Prompt Manager.
+        初始化提示词管理器
         
-        Args:
-            domain: Dialogue domain for context-specific slot definitions.
-                   Supported domains: "general", "hotel", "restaurant", "taxi", "train"
+        参数:
+            domain: 对话领域，用于上下文相关的槽位定义
+                   支持的领域: "general", "hotel", "restaurant", "taxi", "train"
         """
         self.domain = domain
         
@@ -105,84 +107,73 @@ class PromptManager:
         # 对应论文图2中的 "slots"
         self.ontology_slots: Dict[str, str] = {
             # 通用意图和话题槽位
-            "intent": "用户的主要意图 (User's primary intent)",
-            "topic": "当前讨论的话题 (Current discussion topic)",
-            "entity": "提到的实体或对象 (Mentioned entity or object)",
+            "intent": "用户的主要意图",
+            "topic": "当前讨论的话题",
+            "entity": "提到的实体或对象",
             
             # 时间相关槽位
-            "time": "时间信息 (Time information)",
-            "date": "日期信息 (Date information)",
-            "duration": "持续时间 (Duration)",
+            "time": "时间信息",
+            "date": "日期信息",
+            "duration": "持续时间",
             
             # 位置相关槽位
-            "location": "地点或位置 (Location or place)",
-            "departure": "出发地 (Departure location)",
-            "destination": "目的地 (Destination)",
+            "location": "地点或位置",
+            "departure": "出发地",
+            "destination": "目的地",
             
             # 偏好相关槽位
-            "preference": "用户偏好 (User preference)",
-            "requirement": "特殊要求 (Special requirements)",
+            "preference": "用户偏好",
+            "requirement": "特殊要求",
             
             # 数值相关槽位
-            "price": "价格或费用 (Price or cost)",
-            "quantity": "数量 (Quantity)",
-            "rating": "评分或等级 (Rating or level)",
+            "price": "价格或费用",
+            "quantity": "数量",
+            "rating": "评分或等级",
         }
         
         # 分类约束 - 具有预定义值集的槽位
         # 对应论文图2中的 "categorical"
+        # 注意：这些约束用于LLM理解，不用于规则验证
         self.categorical_constraints: Dict[str, List[str]] = {
             "intent": ["询问", "预订", "修改", "取消", "确认", "投诉", "其他"],
             "rating": ["1星", "2星", "3星", "4星", "5星"],
             "price": ["便宜", "中等", "昂贵"],
         }
-        
-        # 值归一化映射，用于一致性表示
-        # 对应论文4.2节关于值归一化的讨论
-        self.value_normalization: Dict[str, str] = {
-            "便宜的": "便宜",
-            "贵的": "昂贵",
-            "很贵": "昂贵",
-            "不贵": "中等",
-            "一般": "中等",
-            "普通": "中等",
-        }
     
     def add_slot(self, slot_name: str, description: str, 
                  categorical_values: Optional[List[str]] = None) -> None:
         """
-        Add a custom slot to the ontology.
+        向本体添加自定义槽位
         
-        Allows domain-specific customization of the slot schema.
+        允许领域特定的槽位模式自定义
         
-        Args:
-            slot_name: Name of the slot (e.g., "food_type", "hotel_stars")
-            description: Semantic description of what this slot represents
-            categorical_values: Optional list of allowed values if this is a
-                              categorical slot. If provided, only these values
-                              will be considered valid.
-                              
-        Example:
+        参数:
+            slot_name: 槽位名称（如 "food_type", "hotel_stars"）
+            description: 该槽位代表什么的语义描述
+            categorical_values: 可选的允许值列表（如果这是分类槽位）
+                               提供后，LLM会优先从这些值中选择
+                               
+        示例:
             >>> pm = PromptManager()
-            >>> pm.add_slot("food_type", "Type of cuisine", 
-            ...            ["Chinese", "Italian", "Japanese"])
+            >>> pm.add_slot("food_type", "菜系类型", 
+            ...            ["中餐", "意大利菜", "日料"])
         """
         self.ontology_slots[slot_name] = description
         if categorical_values:
             self.categorical_constraints[slot_name] = categorical_values
-            logger.debug(f"Added categorical slot '{slot_name}' with {len(categorical_values)} values")
+            logger.debug(f"添加了分类槽位 '{slot_name}'，有 {len(categorical_values)} 个值")
         else:
-            logger.debug(f"Added free-form slot '{slot_name}'")
+            logger.debug(f"添加了自由形式槽位 '{slot_name}'")
     
     def remove_slot(self, slot_name: str) -> bool:
         """
-        Remove a slot from the ontology.
+        从本体中移除槽位
         
-        Args:
-            slot_name: Name of the slot to remove
+        参数:
+            slot_name: 要移除的槽位名称
             
-        Returns:
-            True if slot was removed, False if it didn't exist
+        返回:
+            如果槽位被移除返回 True，如果不存在返回 False
         """
         removed = False
         if slot_name in self.ontology_slots:
@@ -195,253 +186,180 @@ class PromptManager:
     
     def get_slot_names(self) -> Set[str]:
         """
-        Get all defined slot names.
+        获取所有定义的槽位名称
         
-        Returns:
-            Set of slot names in the ontology
+        返回:
+            槽位名称的集合
         """
         return set(self.ontology_slots.keys())
     
     def get_system_instruction(self) -> str:
         """
-        Build the system instruction prompt according to ACL 2023 paper Figure 2.
+        生成系统指令提示词（符合论文图2格式）
         
-        The prompt structure includes:
-        1. Slot ontology definitions with descriptions
-        2. Categorical constraints for applicable slots
-        3. Dialogue format specification (system/user)
-        4. Update extraction instructions
-        5. Special value handling rules (?, dontcare)
-        6. Output format requirements (JSON)
+        构建完整的零样本DST提示词，包含：
+        - 槽位本体定义
+        - 分类约束（用于LLM理解）
+        - 特殊值规则
+        - 输出格式要求
         
-        Returns:
-            Complete system instruction string ready for LLM input
-            
-        Note:
-            This is the core prompt engineering component. The quality of
-            DST predictions heavily depends on this prompt design.
+        返回:
+            完整的系统指令字符串
         """
-        instruction = f"""请考虑以下槽位（"slots"）列表，以 JSON 格式提供：
+        instruction = f"""你是一个智能的对话状态追踪助手。请从对话中提取结构化信息。
 
-"slots": {json.dumps(self.ontology_slots, indent=2, ensure_ascii=False)}
+## 槽位定义（Slots）
+以下是需要追踪的槽位及其含义：
 
-某些槽位只能从预定义列表中取值（"categorical"约束）：
+{json.dumps(self.ontology_slots, ensure_ascii=False, indent=2)}
 
-"categorical": {json.dumps(self.categorical_constraints, indent=2, ensure_ascii=False)}
+## 分类约束（Categorical）
+某些槽位只能取特定的值（请优先使用这些值）：
 
-现在考虑以下系统（"system"）和用户（"user"）之间的对话。
+{json.dumps(self.categorical_constraints, ensure_ascii=False, indent=2)}
 
-请告诉我用户在最新回复中更新了哪些槽位？
-以 JSON 格式呈现更新内容。如果没有槽位被更新，返回空的 JSON 对象 {{}}.
+## 特殊值规则
+- 如果用户**询问**某个槽位的信息但没有提供值，请填入 "?"
+- 如果用户明确表示**不关心**某个槽位，请填入 "dontcare"
 
-特殊规则（Special Value Handling）：
-1. 如果用户请求某个槽位信息（但未提供具体值），用 "?" 填充
-   示例：用户："酒店价格多少？" → {{"price": "?"}}
-   
-2. 如果用户表示不关心某个槽位，用 "dontcare" 填充
-   示例：用户："什么价格都行" → {{"price": "dontcare"}}
-   
-3. 只更新明确提到或可从上下文推断的槽位
-   - 不要臆测未提及的信息
-   - 利用对话历史进行共指消解
-   
-4. 保持与之前对话的一致性
-   - 注意代词指代（"它"、"那里"、"也一样"等）
-   - 从完整对话历史中推断含义
+## 输出格式
+请以JSON格式输出本轮对话中**用户更新的槽位**：
 
-5. 对于categorical槽位，只能从预定义列表中选择值
+```json
+{{
+  "slot_name": "value",
+  "another_slot": "value"
+}}
+```
 
-输出要求：
-- 直接返回 JSON 格式的槽位更新
-- 不要包含任何额外的解释或文本
-- 格式：{{"slot_name": "value", ...}}
-- 如果无更新，返回：{{}}
+## 重要说明
+1. **只输出用户在本轮对话中提到或更新的槽位**
+2. **值归一化**：请将不同表述统一为标准形式（如"很便宜"→"便宜"，"挺贵的"→"昂贵"）
+3. **分类值**：对于有分类约束的槽位，请尽量使用预定义的值
+4. **理解语义**：请理解用户的真实意图，而不是机械匹配关键词
+5. **如果本轮没有更新任何槽位，返回空对象 {{}}**
+
+现在请分析以下对话：
 """
-        
         return instruction
     
-    def normalize_value(self, value: str) -> str:
+    def format_dialogue_turn(self, system_utterance: str, user_utterance: str) -> str:
         """
-        Normalize slot values for consistency.
+        格式化单轮对话（符合论文格式）
         
-        Addresses value variation issues discussed in paper Section 4.2.
-        Different surface forms are mapped to canonical representations.
-        
-        Args:
-            value: Original value string from LLM output
+        参数:
+            system_utterance: 系统的话语
+            user_utterance: 用户的话语
             
-        Returns:
-            Normalized value string
-            
-        Example:
-            >>> pm = PromptManager()
-            >>> pm.normalize_value("便宜的")
-            "便宜"
-            >>> pm.normalize_value("很贵")
-            "昂贵"
+        返回:
+            格式化的对话轮次字符串
         """
-        # 去除空白字符
-        value = value.strip()
-        
-        # 应用归一化映射
-        if value in self.value_normalization:
-            normalized = self.value_normalization[value]
-            logger.debug(f"Normalized '{value}' to '{normalized}'")
-            return normalized
-        
-        # 注意：可以添加额外的归一化策略：
-        # - Lowercase conversion for English (e.g., "Beijing" -> "beijing")
-        # - Removing punctuation (e.g., "5-star" -> "5star")
-        # - Standardizing date/time formats (e.g., "2024/01/15" -> "2024-01-15")
-        # 这些是领域和语言特定的，根据需要实现
-        
-        return value
-    
-    def validate_categorical_value(self, slot: str, value: str) -> bool:
-        """
-        Validate if a value is allowed for a categorical slot.
-        
-        Args:
-            slot: Slot name
-            value: Proposed value
-            
-        Returns:
-            True if value is valid for this slot, False otherwise
-        """
-        if slot not in self.categorical_constraints:
-            return True  # 非分类槽位接受任何值
-        
-        allowed_values = self.categorical_constraints[slot]
-        is_valid = value in allowed_values
-        
-        if not is_valid:
-            logger.warning(
-                f"Invalid categorical value '{value}' for slot '{slot}'. "
-                f"Allowed values: {allowed_values}"
-            )
-        
-        return is_valid
+        return f'system: "{system_utterance}"\nuser: "{user_utterance}"'
 
 
 class ResponseParser:
     """
-    Response Parser for robust JSON extraction from LLM outputs.
+    响应解析器（完全基于LLM输出）
     
-    Handles the instability issue mentioned in the ACL 2023 paper where
-    ChatGPT doesn't always return pure JSON. Implements multiple parsing
-    strategies with fallback mechanisms.
+    从LLM的自然语言响应中提取JSON格式的槽位更新。
+    使用多策略解析以处理各种输出格式，但不进行规则验证。
     
-    Key Features:
-    1. Multiple JSON extraction strategies (direct parse, regex, key-value pairs)
-    2. Hallucination filtering (only keeps ontology-defined slots)
-    3. Value normalization
-    4. Categorical constraint validation
+    解析策略（按优先级）：
+    1. 直接JSON解析 - 适用于干净的输出
+    2. 正则提取JSON - 处理嵌入式JSON
+    3. 键值对提取 - 后备方案
     
-    The paper reports ~90.4% valid predictions and ~9.6% hallucinations,
-    which this parser aims to filter.
+    注意：所有过滤和验证都由LLM理解，解析器只负责提取结构
     
-    Attributes:
-        prompt_manager: PromptManager instance for ontology access
-        strict_categorical: If True, reject invalid categorical values
+    方法:
+        extract_json: 从文本中提取JSON对象
+        filter_hallucinations: 基于LLM理解过滤（保留本体槽位）
     """
     
-    def __init__(self, prompt_manager: PromptManager, strict_categorical: bool = False):
+    def __init__(self, ontology_slots: Set[str]):
         """
-        Initialize the Response Parser.
+        初始化响应解析器
         
-        Args:
-            prompt_manager: PromptManager instance containing slot ontology
-            strict_categorical: Whether to strictly enforce categorical constraints
-                              (default: False, will log warnings but accept values)
+        参数:
+            ontology_slots: 本体中定义的有效槽位名称集合
         """
-        self.prompt_manager = prompt_manager
-        self.strict_categorical = strict_categorical
+        self.ontology_slots = ontology_slots
     
     def extract_json(self, text: str) -> Dict[str, str]:
         """
-        Extract JSON from LLM response text using robust multi-strategy approach.
+        从LLM响应文本中提取JSON对象（多策略）
         
-        Addresses the parsing instability issue discussed in the paper (Section 4).
-        Tries multiple extraction methods in order of preference:
-        1. Direct JSON parsing (if response is pure JSON)
-        2. Regex-based JSON block extraction (handles embedded JSON)
-        3. Key-value pair extraction (fallback for malformed JSON)
+        尝试多种解析策略以处理不同格式的LLM输出。
         
-        Args:
-            text: Raw LLM response text (may contain JSON embedded in prose)
+        参数:
+            text: LLM的原始响应文本
             
-        Returns:
-            Dictionary of extracted slot updates. Returns empty dict on failure.
-            
-        Example:
-            >>> parser = ResponseParser(pm)
-            >>> parser.extract_json('{"intent": "book", "location": "Beijing"}')
-            {"intent": "book", "location": "Beijing"}
-            >>> parser.extract_json('The updates are: {"intent": "book"}')
-            {"intent": "book"}
+        返回:
+            提取的槽位更新字典，如果解析失败则返回空字典
         """
         if not text or not text.strip():
             return {}
         
+        # 策略1：直接JSON解析（最快，适用于干净的输出）
         try:
-            # 策略1：直接JSON解析（最快，适用于干净的输出）
-            try:
-                result = json.loads(text.strip())
-                if isinstance(result, dict):
-                    logger.debug("JSON extracted via direct parsing")
-                    return result
-                elif isinstance(result, list):
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+            elif isinstance(parsed, list) and len(parsed) > 0:
+                if isinstance(parsed[0], dict):
                     # 处理字典列表：合并它们
-                    return self._merge_dict_list(result)
-            except json.JSONDecodeError:
-                pass
-            
-            # 策略2：基于正则的JSON提取（处理嵌入的JSON）
-            json_result = self._extract_json_with_regex(text)
-            if json_result:
-                logger.debug("JSON extracted via regex")
-                return json_result
-            
-            # 策略3：键值对提取（用于格式错误的JSON的后备方案）
-            kv_result = self._extract_key_value_pairs(text)
-            if kv_result:
-                logger.debug("JSON extracted via key-value pattern matching")
-                return kv_result
-            
-            # 所有策略都失败了
-            logger.warning(f"Failed to extract JSON from response: {text[:100]}...")
-            return {}
-            
-        except Exception as e:
-            logger.error(f"Exception during JSON extraction: {e}")
-            return {}
+                    result = {}
+                    for item in parsed:
+                        if isinstance(item, dict):
+                            result.update(item)
+                    return result
+        except json.JSONDecodeError:
+            pass
+        
+        # 策略2：基于正则的JSON提取（处理嵌入的JSON）
+        extracted = self._extract_json_with_regex(text)
+        if extracted:
+            return extracted
+        
+        # 策略3：键值对提取（用于格式错误的JSON的后备方案）
+        extracted = self._extract_key_value_pairs(text)
+        if extracted:
+            return extracted
+        
+        # 所有策略都失败了
+        logger.warning(f"无法从响应中提取JSON: {text[:100]}...")
+        return {}
     
     def _extract_json_with_regex(self, text: str) -> Optional[Dict[str, str]]:
         """
-        Extract JSON using regex patterns.
+        使用正则表达式从文本中提取JSON
         
-        Tries multiple regex patterns to handle various JSON embedding styles.
+        参数:
+            text: 包含JSON的文本
+            
+        返回:
+            提取的字典，如果失败则返回 None
         """
         # 按特异性排序的模式
-        json_patterns = [
+        patterns = [
             # 嵌套花括号（处理复杂的嵌套结构）
             r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',
             # 简单花括号（单层对象）
-            r'\{.*?\}',
+            r'\{[^{}]+\}',
             # 方括号（数组格式）
-            r'\[.*?\]',
+            r'\[[^\[\]]+\]',
         ]
         
-        for pattern in json_patterns:
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
-                json_str = match.group(0)
+        for pattern in patterns:
+            matches = re.findall(pattern, text, re.DOTALL)
+            for match in matches:
                 try:
-                    parsed = json.loads(json_str)
+                    parsed = json.loads(match)
                     if isinstance(parsed, dict):
                         return parsed
-                    elif isinstance(parsed, list):
-                        return self._merge_dict_list(parsed)
+                    elif isinstance(parsed, list) and len(parsed) > 0:
+                        if isinstance(parsed[0], dict):
+                            return parsed[0]
                 except json.JSONDecodeError:
                     continue
         
@@ -449,521 +367,270 @@ class ResponseParser:
     
     def _extract_key_value_pairs(self, text: str) -> Dict[str, str]:
         """
-        Extract key-value pairs using regex (fallback strategy).
+        从文本中提取键值对（后备解析方法）
         
-        Matches patterns like: "key": "value" or 'key': 'value'
-        """
-        # 模式："key": "value" 或 'key': 'value'
-        kv_pattern = r'["\']([^"\']+)["\']\s*:\s*["\']([^"\']*)["\']'
-        matches = re.findall(kv_pattern, text)
-        
-        if matches:
-            return dict(matches)
-        return {}
-    
-    def _merge_dict_list(self, dict_list: List) -> Dict[str, str]:
-        """
-        Merge a list of dictionaries into a single dictionary.
-        
-        Used when LLM returns an array of slot updates.
+        参数:
+            text: 包含键值对的文本
+            
+        返回:
+            提取的槽位字典
         """
         result = {}
-        for item in dict_list:
-            if isinstance(item, dict):
-                result.update(item)
+        # 模式："key": "value" 或 'key': 'value'
+        pattern = r'["\'](\w+)["\']\s*:\s*["\']([^"\']+)["\']'
+        matches = re.findall(pattern, text)
+        for key, value in matches:
+            result[key] = value
         return result
     
     def filter_hallucinations(self, updates: Dict[str, str]) -> Dict[str, str]:
         """
-        Filter hallucinated slots that are not in the ontology.
+        过滤幻觉（只保留本体中定义的槽位）
         
-        Implements hallucination filtering as discussed in the paper.
-        The paper reports ~9.6% hallucination rate where ChatGPT predicts
-        slots not defined in the ontology.
+        虽然我们依赖LLM理解，但仍需基本的本体检查以过滤明显错误。
         
-        Also applies:
-        - Value normalization
-        - Categorical constraint validation (if strict mode enabled)
-        
-        Args:
-            updates: Raw slot updates extracted from LLM response
+        参数:
+            updates: 从LLM响应中提取的槽位更新
             
-        Returns:
-            Filtered dictionary containing only valid ontology slots with
-            normalized values
-            
-        Example:
-            >>> updates = {"intent": "book", "fake_slot": "value", "price": "便宜的"}
-            >>> filtered = parser.filter_hallucinations(updates)
-            >>> filtered
-            {"intent": "book", "price": "便宜"}  # fake_slot removed, price normalized
+        返回:
+            过滤后的槽位更新（只包含本体中定义的槽位）
         """
         filtered = {}
-        valid_slots = self.prompt_manager.get_slot_names()
-        
         for slot, value in updates.items():
             # 过滤1：只保留本体中定义的槽位
-            if slot not in valid_slots:
-                logger.warning(
-                    f"Hallucinated slot '{slot}' not in ontology. "
-                    f"This is likely a prediction error."
-                )
-                continue
-            
-            # 过滤2：应用值归一化
-            normalized_value = self.prompt_manager.normalize_value(value)
-            
-            # 过滤3：验证分类约束（如果是严格模式）
-            if self.strict_categorical:
-                if not self.prompt_manager.validate_categorical_value(slot, normalized_value):
-                    logger.warning(
-                        f"Skipping invalid categorical value '{normalized_value}' "
-                        f"for slot '{slot}'"
-                    )
-                    continue
-            
-            filtered[slot] = normalized_value
-        
-        # Log statistics
-        if len(updates) > len(filtered):
-            logger.info(
-                f"Filtered {len(updates) - len(filtered)} hallucinated/invalid slots "
-                f"out of {len(updates)} predictions"
-            )
+            if slot in self.ontology_slots:
+                # 保留值（不进行规则归一化或验证，信任LLM理解）
+                filtered[slot] = value
+            else:
+                logger.debug(f"过滤幻觉槽位: {slot}")
         
         return filtered
-    
-    def parse_and_filter(self, text: str) -> Dict[str, str]:
-        """
-        Complete parsing pipeline: extract JSON and filter hallucinations.
-        
-        Convenience method that combines extraction and filtering.
-        
-        Args:
-            text: Raw LLM response
-            
-        Returns:
-            Filtered, validated slot updates
-        """
-        raw_updates = self.extract_json(text)
-        filtered_updates = self.filter_hallucinations(raw_updates)
-        return filtered_updates
 
 
 class DialogueStateTracker:
     """
-    Zero-shot Dialogue State Tracker (DST) based on ACL 2023 paper.
+    对话状态追踪器（完全基于LLM）
     
-    Implements the complete DST pipeline:
-    1. Maintains full dialogue history for context (addresses "中间丢失" issue)
-    2. Constructs prompts with ontology and constraints
-    3. Calls LLM to predict slot updates
-    4. Parses JSON responses robustly
-    5. Filters hallucinations
-    6. Performs cumulative state updates: DS_t = update(DS_{t-1}, updates_t)
-    7. Handles special values (?, dontcare)
+    实现完整的零样本对话状态追踪系统，符合ACL 2023论文规范。
+    所有步骤（槽位提取、值归一化、分类验证）都由LLM理解，不使用规则方法。
     
-    The tracker is completely zero-shot - no fine-tuning required.
-    All intelligence comes from prompt engineering and LLM capabilities.
+    核心特性：
+    - 完全零样本（无需训练或微调）
+    - 基于提示词工程
+    - 维护完整对话历史
+    - 累积式状态更新
+    - LLM理解所有语义（包括值归一化和分类）
     
-    Attributes:
-        llm_client: Optional LLM client for inference (if None, uses rule-based fallback)
-        prompt_manager: Manages ontology and prompt generation
-        response_parser: Parses and validates LLM outputs
-        messages: Full dialogue history in chat format
-        current_state: Cumulative dialogue state (DS_t)
-        turns: History of all dialogue turns with predictions
+    属性:
+        prompt_manager: 提示词管理器
+        llm_client: LLM客户端（用于所有推理）
+        messages: 完整的对话历史
+        current_state: 当前累积的对话状态
+        dialogue_history: 所有轮次的对话历史
         
-    Example:
-        >>> tracker = DialogueStateTracker(llm_client=my_llm)
+    示例:
+        >>> from utils.llm_client import SimpleLLMClient
+        >>> llm = SimpleLLMClient()
+        >>> pm = PromptManager(domain="restaurant")
+        >>> tracker = DialogueStateTracker(llm_client=llm, prompt_manager=pm)
         >>> tracker.reset_dialogue()
-        >>> state = await tracker.process_turn(
-        ...     system_utterance="你好，需要帮助吗？",
-        ...     user_utterance="我想订酒店"
-        ... )
-        >>> print(state)  # {"intent": "预订"}
+        >>> state = await tracker.process_turn("你好", "我想订一家中餐厅")
     """
     
     def __init__(self, 
-                 llm_client: Optional[Any] = None,
+                 llm_client=None,
                  prompt_manager: Optional[PromptManager] = None,
-                 domain: str = "general",
-                 strict_categorical: bool = False,
-                 temperature: float = 0.0):
+                 domain: str = "general"):
         """
-        Initialize the Dialogue State Tracker.
+        初始化对话状态追踪器
         
-        Args:
-            llm_client: LLM client for inference. Can be any object with a chat
-                       method. If None, falls back to rule-based extraction.
-            prompt_manager: Custom PromptManager. If None, creates default one.
-            domain: Dialogue domain for default prompt manager
-            strict_categorical: Whether to strictly enforce categorical constraints
-            temperature: LLM temperature (default 0.0 for deterministic outputs)
+        参数:
+            llm_client: LLM客户端实例（用于所有推理和理解）
+            prompt_manager: 可选的提示词管理器。如果未提供，将创建默认实例
+            domain: 对话领域（如果未提供prompt_manager）
         """
         self.llm_client = llm_client
-        self.prompt_manager = prompt_manager or PromptManager(domain)
+        self.prompt_manager = prompt_manager or PromptManager(domain=domain)
         self.response_parser = ResponseParser(
-            self.prompt_manager, 
-            strict_categorical=strict_categorical
+            ontology_slots=self.prompt_manager.get_slot_names()
         )
-        self.temperature = temperature
         
-        # Dialogue history for LLM context (crucial for coreference resolution)
+        # 对话状态
         self.messages: List[Dict[str, str]] = []
-        
-        # Current cumulative dialogue state (DS_t in paper notation)
         self.current_state: Dict[str, str] = {}
+        self.dialogue_history: List[DialogueTurn] = []
         
-        # Turn-by-turn history with predictions
-        self.turns: List[DialogueTurn] = []
-        
-        logger.info(
-            f"Initialized DialogueStateTracker with {len(self.prompt_manager.ontology_slots)} "
-            f"slots in domain '{domain}'"
-        )
+        logger.info(f"初始化DialogueStateTracker (领域={domain}, 槽位数={len(self.prompt_manager.ontology_slots)})")
     
     def reset_dialogue(self) -> None:
         """
-        Reset state for a new dialogue.
+        重置对话状态（开始新对话）
         
-        Clears:
-        - Message history
-        - Current dialogue state  
-        - Turn history
-        
-        Initializes message history with system instruction prompt.
-        Call this before starting each new conversation.
+        清空所有历史记录和状态，准备开始新的对话会话。
         """
         self.messages = [
-            {
-                "role": "system",
-                "content": self.prompt_manager.get_system_instruction()
-            }
+            {"role": "system", "content": self.prompt_manager.get_system_instruction()}
         ]
         self.current_state = {}
-        self.turns = []
-        logger.info("Dialogue reset - ready for new conversation")
+        self.dialogue_history = []
+        logger.info("对话状态已重置")
     
     async def process_turn(self, 
                           system_utterance: str, 
                           user_utterance: str) -> Dict[str, str]:
         """
-        Process a single dialogue turn and update cumulative state.
+        处理单轮对话（完全基于LLM）
         
-        This is the core DST pipeline implementing the paper's approach:
-        1. Format current turn as "system: ... \\n user: ..."
-        2. Add to message history (for context and coreference)
-        3. Call LLM to predict slot updates
-        4. Parse LLM response to extract JSON
-        5. Filter hallucinations
-        6. Update cumulative state: DS_t = update(DS_{t-1}, updates_t)
-        7. Record turn in history
+        这是DST的核心方法，执行以下步骤（全部由LLM处理）：
+        1. 格式化对话轮次
+        2. 调用LLM提取槽位更新（LLM理解值归一化和分类）
+        3. 解析LLM响应
+        4. 基本幻觉过滤（只保留本体槽位）
+        5. 更新累积状态
         
-        Args:
-            system_utterance: What the system/assistant said
-            user_utterance: What the user said
+        参数:
+            system_utterance: 系统的话语
+            user_utterance: 用户的话语
             
-        Returns:
-            Current cumulative dialogue state (DS_t) after processing this turn
+        返回:
+            更新后的累积对话状态
             
-        Example:
-            >>> # Turn 1
-            >>> state = await tracker.process_turn("你好", "我想订酒店")
-            >>> # state: {"intent": "预订"}
-            >>> 
-            >>> # Turn 2 - context is maintained for coreference
-            >>> state = await tracker.process_turn("去哪里？", "北京")
-            >>> # state: {"intent": "预订", "destination": "北京"}
+        示例:
+            >>> state = await tracker.process_turn(
+            ...     "请问需要什么帮助？",
+            ...     "我想订一家价格不贵的中餐厅"
+            ... )
+            >>> print(state)
+            {'intent': '预订', 'food_type': '中餐', 'price': '中等'}
         """
-        # Step 1: Format turn according to paper's convention
-        turn_prompt = f'system: "{system_utterance}"\nuser: "{user_utterance}"'
-        logger.debug(f"Processing turn: {turn_prompt}")
+        # 格式化本轮对话
+        turn_prompt = self.prompt_manager.format_dialogue_turn(
+            system_utterance, user_utterance
+        )
         
-        # Step 2: Add to message history for context (crucial for coreference resolution)
-        self.messages.append({
-            "role": "user",
-            "content": turn_prompt
-        })
+        # 添加到消息历史
+        self.messages.append({"role": "user", "content": turn_prompt})
         
-        # Step 3: Get LLM prediction or use fallback
-        turn_update = {}
-        raw_output = ""
-        
+        # 调用LLM提取槽位（LLM处理所有语义理解）
         if self.llm_client:
             try:
-                # Call LLM to predict slot updates
-                raw_output = await self._call_llm()
-                
-                # Step 4: Add LLM response to history for continuity
-                # This enables multi-turn reasoning and coreference resolution
-                self.messages.append({
-                    "role": "assistant",
-                    "content": raw_output
-                })
-                
-                # Step 5: Parse and filter response
-                turn_update = self.response_parser.parse_and_filter(raw_output)
-                
+                response = await self.llm_client.chat_async(
+                    messages=self.messages,
+                    temperature=0.0  # 确保输出确定性
+                )
             except Exception as e:
-                logger.error(f"Error during LLM call or parsing: {e}")
-                turn_update = {}
+                logger.error(f"LLM调用失败: {e}")
+                response = "{}"
         else:
-            # Fallback to rule-based extraction (for demo/testing without LLM)
-            turn_update = self._extract_with_rules(user_utterance)
-            raw_output = json.dumps(turn_update, ensure_ascii=False)
+            logger.warning("未提供LLM客户端，使用空响应")
+            response = "{}"
         
-        # Step 6: Cumulative state update (DS_t = update(DS_{t-1}, updates_t))
-        self._update_state(turn_update)
+        # 解析LLM响应
+        turn_updates = self.response_parser.extract_json(response)
         
-        # Step 7: Record this turn in history
-        turn = DialogueTurn(
+        # 基本幻觉过滤（只保留本体槽位）
+        turn_updates = self.response_parser.filter_hallucinations(turn_updates)
+        
+        # 累积更新状态（DS_t = update(DS_{t-1}, updates)）
+        self.current_state.update(turn_updates)
+        
+        # 将助手响应添加到历史
+        self.messages.append({"role": "assistant", "content": response})
+        
+        # 记录对话轮次
+        dialogue_turn = DialogueTurn(
             system_utterance=system_utterance,
             user_utterance=user_utterance,
             predicted_state=self.current_state.copy(),
-            turn_updates=turn_update.copy(),
-            raw_llm_response=raw_output
+            turn_updates=turn_updates,
+            raw_llm_response=response
         )
-        self.turns.append(turn)
+        self.dialogue_history.append(dialogue_turn)
         
-        logger.info(
-            f"Turn {len(self.turns)}: extracted {len(turn_update)} updates, "
-            f"total state has {len(self.current_state)} slots"
-        )
+        logger.info(f"轮次 {len(self.dialogue_history)}: 更新了 {len(turn_updates)} 个槽位")
+        logger.debug(f"本轮更新: {turn_updates}")
+        logger.debug(f"当前状态: {self.current_state}")
         
         return self.current_state.copy()
-    
-    async def _call_llm(self) -> str:
-        """
-        Call LLM API with current message history.
-        
-        Handles different LLM client interfaces:
-        - chat_async/chat methods
-        - Direct callable
-        - Various response formats (string, object with content, choices, etc.)
-        
-        Returns:
-            Raw LLM response text
-            
-        Raises:
-            Exception: If LLM call fails (caught and logged by caller)
-        """
-        try:
-            # Try different common LLM client interfaces
-            if hasattr(self.llm_client, 'chat_async'):
-                response = await self.llm_client.chat_async(
-                    messages=self.messages,
-                    temperature=self.temperature
-                )
-            elif hasattr(self.llm_client, 'chat'):
-                response = self.llm_client.chat(
-                    messages=self.messages,
-                    temperature=self.temperature
-                )
-            else:
-                # Try direct call
-                response = await self.llm_client(
-                    messages=self.messages,
-                    temperature=self.temperature
-                )
-            
-            # Extract text from various response formats
-            if isinstance(response, str):
-                return response
-            elif hasattr(response, 'content'):
-                return response.content
-            elif hasattr(response, 'choices') and len(response.choices) > 0:
-                return response.choices[0].message.content
-            else:
-                return str(response)
-                
-        except Exception as e:
-            logger.error(f"LLM call failed: {e}")
-            raise
-    
-    def _extract_with_rules(self, user_utterance: str) -> Dict[str, str]:
-        """
-        Rule-based slot extraction fallback (when no LLM available).
-        
-        This is a simple keyword-based extractor for demo/testing purposes.
-        Not as powerful as LLM-based extraction, but allows the system to
-        function without an API key.
-        
-        Args:
-            user_utterance: User's input text
-            
-        Returns:
-            Extracted slot updates based on simple rules
-            
-        Note:
-            This is NOT part of the paper's approach. It's just a fallback
-            for running demos without LLM access.
-        """
-        updates = {}
-        
-        # Intent detection via keywords
-        intent_keywords = {
-            "预订": ["想要", "需要", "预订", "订", "预定"],
-            "询问": ["什么", "哪", "怎么", "如何", "是否", "吗", "多少"],
-            "取消": ["取消", "不要", "退订"],
-            "修改": ["修改", "改", "换"],
-        }
-        
-        for intent, keywords in intent_keywords.items():
-            if any(kw in user_utterance for kw in keywords):
-                updates["intent"] = intent
-                break
-        
-        # Location extraction
-        location_indicators = {
-            "destination": ["去", "到"],
-            "departure": ["从"],
-            "location": ["在"],
-        }
-        
-        for slot, indicators in location_indicators.items():
-            for indicator in indicators:
-                if indicator in user_utterance:
-                    # Simple extraction: get text after indicator
-                    parts = user_utterance.split(indicator)
-                    if len(parts) > 1:
-                        # Extract until punctuation
-                        location = parts[1].split("，")[0].split("。")[0].split("、")[0].strip()[:20]
-                        if len(location) > 0:
-                            updates[slot] = location
-                            break
-        
-        # Price preference detection
-        price_keywords = {
-            "便宜": ["便宜", "实惠", "不贵"],
-            "昂贵": ["贵", "高档", "豪华"],
-        }
-        
-        for price_level, keywords in price_keywords.items():
-            if any(kw in user_utterance for kw in keywords):
-                updates["price"] = price_level
-                break
-        
-        logger.debug(f"Rule-based extraction: {updates}")
-        return updates
-    
-    def _update_state(self, updates: Dict[str, str]) -> None:
-        """
-        Update cumulative dialogue state with new slot values.
-        
-        Implements the cumulative update formula from the paper:
-        DS_t = update(DS_{t-1}, predicted_updates)
-        
-        Handles special values according to paper specification:
-        - "?": User is asking about this slot (don't update state)
-        - "dontcare": User doesn't care about this slot (record this preference)
-        - Normal values: Update the slot
-        
-        Args:
-            updates: Slot updates from current turn
-            
-        Note:
-            This implements slot-filling semantics: newer values overwrite
-            older ones for the same slot. Some DST systems use more complex
-            update strategies, but this aligns with the paper's approach.
-        """
-        for slot, value in updates.items():
-            # Handle special values as per paper specification
-            if value == SpecialValue.UNKNOWN.value:
-                # User is asking about this slot - don't update state
-                # Example: "What's the price?" -> {"price": "?"}
-                logger.debug(f"User asking about slot '{slot}', not updating state")
-                continue
-                
-            elif value == SpecialValue.DONTCARE.value:
-                # User doesn't care about this slot - record this preference
-                # Example: "Any price is fine" -> {"price": "dontcare"}
-                logger.debug(f"User doesn't care about slot '{slot}'")
-                self.current_state[slot] = SpecialValue.DONTCARE.value
-                
-            elif value and value.strip():
-                # Normal value - update the slot
-                self.current_state[slot] = value
-                logger.debug(f"Updated slot '{slot}' = '{value}'")
-            else:
-                # Empty value - ignore
-                logger.debug(f"Ignoring empty value for slot '{slot}'")
     
     def get_current_state(self) -> Dict[str, str]:
         """
-        Get the current cumulative dialogue state.
+        获取当前对话状态
         
-        Returns:
-            Copy of current state dictionary (DS_t)
+        返回:
+            当前累积的对话状态（副本）
         """
         return self.current_state.copy()
     
-    def get_turn_history(self) -> List[DialogueTurn]:
-        """
-        Get complete turn-by-turn dialogue history.
-        
-        Returns:
-            Copy of turn history list
-        """
-        return self.turns.copy()
-    
     def get_slot_value(self, slot_name: str) -> Optional[str]:
         """
-        Get value of a specific slot in current state.
+        获取特定槽位的值
         
-        Args:
-            slot_name: Name of the slot to retrieve
+        参数:
+            slot_name: 槽位名称
             
-        Returns:
-            Slot value if present, None otherwise
+        返回:
+            槽位值，如果未设置则返回 None
         """
         return self.current_state.get(slot_name)
     
     def has_slot(self, slot_name: str) -> bool:
         """
-        Check if a slot has been filled in current state.
+        检查槽位是否已设置
         
-        Args:
-            slot_name: Name of the slot to check
+        参数:
+            slot_name: 槽位名称
             
-        Returns:
-            True if slot is present in state, False otherwise
+        返回:
+            如果槽位已设置返回 True
         """
         return slot_name in self.current_state
     
     def clear_slot(self, slot_name: str) -> bool:
         """
-        Clear a specific slot from current state.
+        清除特定槽位
         
-        Useful for handling user corrections or resets.
-        
-        Args:
-            slot_name: Name of the slot to clear
+        参数:
+            slot_name: 槽位名称
             
-        Returns:
-            True if slot was removed, False if it didn't exist
+        返回:
+            如果槽位被清除返回 True
         """
         if slot_name in self.current_state:
             del self.current_state[slot_name]
-            logger.info(f"Cleared slot '{slot_name}'")
             return True
         return False
     
+    def get_dialogue_history(self) -> List[DialogueTurn]:
+        """
+        获取完整对话历史
+        
+        返回:
+            所有对话轮次的列表
+        """
+        return self.dialogue_history.copy()
+    
     def get_statistics(self) -> Dict[str, Any]:
         """
-        Get tracking statistics for analysis.
+        获取追踪统计信息
         
-        Returns:
-            Dictionary with statistics:
-            - num_turns: Number of dialogue turns processed
-            - num_slots_filled: Number of slots in current state
-            - num_messages: Total messages in history
-            - filled_slots: List of currently filled slot names
+        返回:
+            包含统计数据的字典
         """
         return {
-            "num_turns": len(self.turns),
-            "num_slots_filled": len(self.current_state),
-            "num_messages": len(self.messages),
-            "filled_slots": list(self.current_state.keys()),
+            "total_turns": len(self.dialogue_history),
+            "total_slots_filled": len(self.current_state),
+            "ontology_size": len(self.prompt_manager.ontology_slots),
             "domain": self.prompt_manager.domain,
         }
+
+
+# 版本信息
+__version__ = "7.4.0"
+__all__ = [
+    "DialogueStateTracker",
+    "PromptManager",
+    "ResponseParser",
+    "DialogueTurn",
+    "SpecialValue",
+]
