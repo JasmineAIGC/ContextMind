@@ -158,10 +158,13 @@ async def demo_interactive():
         # 显示槽位值（简化版）
         print(f"  意图: {result['slot_values']['user_intent']}")
         
-        # 生成模拟回复（实际应用中这里调用 LLM）
-        assistant_response = f"[模拟回复] 已理解您的意图，正在处理..."
+        # 生成模拟回复
+        # 注意：实际应用中需要集成 LLM 客户端
+        # 示例：response = await your_llm.chat(result['filled_prompt'])
+        assistant_response = f"[模拟回复 - 需集成 LLM] 已理解您的意图"
         
         print(f"助手: {assistant_response}")
+        print("  💡 提示: 此为模拟回复。实际使用时请集成 LLM 客户端。")
         
         # 添加到历史
         engine.add_message("user", user_input)

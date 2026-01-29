@@ -34,7 +34,7 @@ class TemplateManager:
         self.slots = {
             "user_intent": SlotTemplate(
                 name="user_intent",
-                description="用户当前意图（从对话历史中提取）",
+                description="用户当前意图（从对话历史和当前输入中提取）",
                 default_value="用户正在进行日常对话",
                 required=True
             ),

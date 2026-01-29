@@ -111,7 +111,9 @@ class IntentExtractor:
             
         except Exception as e:
             # LLM 调用失败，降级到规则提取
-            print(f"LLM 提取失败，使用规则提取: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"LLM 提取失败，使用规则提取: {e}")
             return self._extract_with_rules(messages, current_input)
     
     def _extract_with_rules(
@@ -161,7 +163,7 @@ class IntentExtractor:
         if not messages:
             return "这是对话的开始"
         
-        # 获取最近 3 轮对话
+        # 获取最近 3 轮对话（6条消息）
         recent = messages[-6:] if len(messages) >= 6 else messages
         
         if len(recent) == 0:
@@ -172,7 +174,9 @@ class IntentExtractor:
         
         if user_msgs:
             summary_parts = []
-            summary_parts.append(f"已进行 {len(messages) // 2} 轮对话。")
+            # 统计实际的用户消息数量
+            total_user_msgs = len([m for m in messages if m.role == "user"])
+            summary_parts.append(f"已进行 {total_user_msgs} 轮对话。")
             
             if len(user_msgs) > 0:
                 summary_parts.append(f"用户最近提到：{user_msgs[-1][:50]}...")
@@ -202,12 +206,14 @@ class IntentExtractor:
         # 这里可以扩展更复杂的实体识别
         entities = []
         
-        # 提取人名（简单规则）
-        name_patterns = [r'([张王李赵刘陈杨黄周吴徐孙马朱胡郭何高林罗郑梁宋谢唐韩曹许邓萧冯曾程蔡彭潘袁于董余苏叶吕魏蒋田杜丁沈姜范江傅钟卢汪戴崔任陆廖姚方金邱夏谭韦贾邹石熊孟秦阎薛侯雷白龙段郝孔邵史毛常万顾赖武康贺严尹钱施牛洪龚]\w{1,2})']
+        # 提取中文人名（改进的正则表达式，只匹配中文字符）
+        # 匹配常见姓氏 + 1-2个中文字符的名字
+        common_surnames = '张王李赵刘陈杨黄周吴徐孙马朱胡郭何高林罗郑梁宋谢唐韩曹许邓萧冯曾程蔡彭潘袁于董余苏叶吕魏蒋田杜丁沈姜范江傅钟卢汪戴崔任陆廖姚方金邱夏谭韦贾邹石熊孟秦阎薛侯雷白龙段郝孔邵史毛常万顾赖武康贺严尹钱施牛洪龚'
+        # 只匹配中文字符，避免数字和符号
+        name_pattern = f'([{common_surnames}][\u4e00-\u9fa5]{{1,2}})'
         
-        for pattern in name_patterns:
-            matches = re.findall(pattern, all_text)
-            entities.extend(matches[:2])  # 最多2个
+        matches = re.findall(name_pattern, all_text)
+        entities.extend(matches[:2])  # 最多2个
         
         if entities:
             key_items.append(f"提到实体: {', '.join(entities)}")
@@ -224,7 +230,8 @@ class IntentExtractor:
             return "（无对话历史）"
         
         formatted = []
-        for msg in messages[-10:]:  # 最多显示最近10条
+        # 显示最近10条消息
+        for msg in messages[-10:]:
             role_name = "用户" if msg.role == "user" else "助手"
             formatted.append(f"{role_name}: {msg.content}")
         

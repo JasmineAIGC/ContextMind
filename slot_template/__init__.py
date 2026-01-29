@@ -31,4 +31,4 @@ __all__ = [
     'SlotTemplate',
 ]
 
-__version__ = '1.0.0'
+__version__ = '0.1.0'  # 实验性 baseline 版本

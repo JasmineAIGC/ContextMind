@@ -229,8 +229,11 @@ class ComparisonExperiment:
             print(f"  槽位模板耗时: {slot_result['elapsed_time']:.4f}s")
             print(f"  ContextMind耗时: {cm_result['elapsed_time']:.4f}s")
             
-            speed_ratio = cm_result['elapsed_time'] / slot_result['elapsed_time'] if slot_result['elapsed_time'] > 0 else 0
-            print(f"  速度比: ContextMind 是槽位模板的 {speed_ratio:.2f}x")
+            if slot_result['elapsed_time'] > 0.0001:  # 避免除零和极小值
+                speed_ratio = cm_result['elapsed_time'] / slot_result['elapsed_time']
+                print(f"  速度比: ContextMind 是槽位模板的 {speed_ratio:.2f}x")
+            else:
+                print(f"  速度比: 两者都非常快，差异可忽略")
             
             print(f"\n功能对比:")
             print(f"  槽位模板:")
@@ -277,10 +280,13 @@ class ComparisonExperiment:
                 break
             
             if user_input.lower() == 'reset':
-                self.slot_engine.clear_history()
-                await self.context_engine.clear_session()
-                turn_count = 0
-                print("✅ 对话已重置")
+                try:
+                    self.slot_engine.clear_history()
+                    await self.context_engine.clear_session()
+                    turn_count = 0
+                    print("✅ 对话已重置")
+                except Exception as e:
+                    print(f"⚠️  重置失败: {e}")
                 continue
             
             turn_count += 1
