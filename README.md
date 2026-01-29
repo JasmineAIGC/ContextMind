@@ -126,6 +126,7 @@ response = await cm.chat("你好，今天天气怎么样？")
 
 - **ContextEngine** - 主编排器，协调整个流水线
 - **MemoryBank** - 长期记忆管理（存储、检索、更新）
+- **ResponseHandler** - 响应处理和知识提取 (v7.4 新增)
 - **Plugin Registry** - 可扩展的策略注册系统
 - **Evolution Module** - 进化式记忆优化（高级功能）
 
@@ -195,19 +196,34 @@ ContextMind/
 │   ├── engine.py             # ContextEngine 主编排器
 │   ├── core/                 # 核心组件（配置、注册、数据模型）
 │   ├── pipeline/             # 五步流水线
+│   │   ├── preprocessor.py   # 输入预处理
+│   │   ├── compressor.py     # 上下文压缩
+│   │   ├── reorderer.py      # 上下文重排序
+│   │   └── response_handler.py  # 响应处理和知识提取 (v7.4)
 │   ├── memory/               # MemoryBank 记忆管理
-│   ├── evolution/            # 进化式优化（高级）
-│   └── utils/                # 工具函数
+│   │   ├── bank.py           # 主记忆库
+│   │   ├── extractor.py      # 知识提取器 (v7.4 增强)
+│   │   ├── retriever.py      # 记忆检索器
+│   │   └── updater.py        # 记忆更新器
+│   └── evolution/            # 进化式优化（高级）
 │
-├── baseline/                 # 基础 DST 实现（对比基准）
-│   └── dialogue_state_tracker.py  # ACL 2023 DST 实现
+├── utils/                    # 独立工具模块 (v7.4 移至根目录)
+│   ├── logger.py             # 统一日志系统
+│   ├── llm_client.py         # 统一 LLM 客户端
+│   ├── embedding.py          # 嵌入向量工具
+│   └── data_models.py        # 数据模型
+│
+├── baseline/                 # 增强的 DST 实现 (v7.4 完整 ACL 2023 合规)
+│   └── dialogue_state_tracker.py  # 对话状态追踪
 │
 ├── examples/                 # 应用示例
 ├── docs/                     # 文档
 │   ├── ARCHITECTURE.md       # 详细架构
 │   ├── BASIC_DST_DOCUMENTATION.md  # DST 文档
+│   ├── CHANGELOG.md          # 变更日志
 │   └── MIGRATION.md          # 迁移指南
 │
+├── test_knowledge_extraction.py  # 知识提取测试 (v7.4 新增)
 ├── baseline_demo.py          # 基础版本演示（ACL 2023 DST）
 ├── chat_interactive_demo.py  # 聊天命令行演示
 ├── chat_gradio_demo.py       # 聊天 Web 演示
@@ -218,9 +234,10 @@ ContextMind/
 
 ## 📖 文档
 
-- [架构文档](docs/ARCHITECTURE.md) - 详细的架构说明
-- [DST 文档](docs/BASIC_DST_DOCUMENTATION.md) - 基础 DST 实现文档
-- [迁移指南](docs/MIGRATION.md) - 版本迁移说明
+- [架构文档](docs/ARCHITECTURE.md) - 详细的架构说明 (v7.4 更新)
+- [DST 文档](docs/BASIC_DST_DOCUMENTATION.md) - 增强的 DST 实现文档
+- [变更日志](docs/CHANGELOG.md) - 版本变更历史
+- [迁移指南](docs/MIGRATION.md) - 版本迁移说明 (含 v7.3 → v7.4)
 
 ---
 

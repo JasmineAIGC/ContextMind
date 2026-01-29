@@ -1,6 +1,12 @@
-# ContextMind 架构 (v7.4+)
+# ContextMind 架构 (v7.4.0)
 
-本文档描述基于 `docs/arch_by_me.md` 架构设计文档的优化项目结构。
+本文档描述 ContextMind v7.4.0 的架构设计和实现细节。
+
+## 版本信息
+
+- **当前版本**: v7.4.0
+- **发布日期**: 2026-01-29
+- **主要更新**: Utils独立化、知识提取能力、DST增强
 
 ## 概述
 
@@ -25,12 +31,12 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 最终结果 + 记忆已更新
 ```
 
-**架构变更（v7.4）：**
+**架构变更（v7.4.0）：**
 - ✅ **Utils独立化** - utils模块移至根目录，完全不依赖contextmind/baseline
-- ✅ **增强DST** - 完整的ACL 2023论文合规性实现
-- ✅ **知识提取** - 新增LLM驱动的知识提取能力
+- ✅ **知识提取增强** - 新增LLM驱动的知识提取能力
+- ✅ **DST完整实现** - 完整的ACL 2023论文合规性实现
+- ✅ **ResponseHandler增强** - 完整的响应处理和知识提取流程
 - ❌ **移除** KVCacheManager - KV缓存管理属于LLM推理框架职责
-- ✅ **新增** ResponseHandler - 处理响应并更新记忆库
 
 ## 项目结构
 
@@ -44,20 +50,20 @@ ContextMind/
 │   ├── registry.py          # 组件注册表
 │   │
 │   │ # 流水线架构 - 5 步
-│   ├── preprocessor.py      # 步骤 1：InputPreprocessor
-│   ├── retriever.py         # 步骤 2：ContextRetriever（占位符）
-│   ├── compressor.py        # 步骤 3：ContextCompressor
-│   ├── reorderer.py         # 步骤 4：ContextReorderer
-│   ├── response_handler.py  # 步骤 5：ResponseHandler (v7.4新增)
-│   │
-│   ├── summarizer.py        # ConversationSummarizer（由压缩器使用）
+│   ├── pipeline/
+│   │   ├── preprocessor.py      # 步骤 1：InputPreprocessor
+│   │   ├── context_retriever.py # 步骤 2：ContextRetriever（占位符）
+│   │   ├── compressor.py        # 步骤 3：ContextCompressor
+│   │   ├── reorderer.py         # 步骤 4：ContextReorderer
+│   │   ├── response_handler.py  # 步骤 5：ResponseHandler (v7.4增强)
+│   │   └── summarizer.py        # ConversationSummarizer（由压缩器使用）
 │   │
 │   │ # MemoryBank 模块 - 4 个子模块
 │   ├── memory/
 │   │   ├── __init__.py      # 导出所有记忆组件
 │   │   ├── bank.py          # 主 MemoryBank 类
 │   │   ├── session.py       # SessionManager
-│   │   ├── extractor.py     # 提取高价值信息
+│   │   ├── extractor.py     # 知识提取器 (v7.4增强)
 │   │   ├── retriever.py     # 检索相关记忆
 │   │   └── updater.py       # 记忆更新（添加/删除/更新）
 │   │
@@ -66,24 +72,50 @@ ContextMind/
 │   │   ├── base.py          # 基础策略接口
 │   │   └── defaults.py      # 默认实现
 │   │
-│   ├── utils/
+│   ├── core/                # 核心系统组件
 │   │   ├── __init__.py
-│   │   └── embedding.py
+│   │   ├── configs.py       # 配置类
+│   │   ├── data_models.py   # 数据模型
+│   │   ├── models.py        # 领域模型
+│   │   ├── registry.py      # 注册系统
+│   │   └── types.py         # 类型定义
 │   │
-│   │ # 向后兼容包装器
-│   ├── pipeline.py          # 从模块化组件重新导出
-│   └── memory.py            # 从 memory/ 子模块重新导出
+│   └── evolution/           # 进化式优化（高级功能）
+│       ├── __init__.py
+│       ├── evolutionary_updater.py
+│       └── feedback_system.py
+│
+├── utils/                   # 独立工具模块 (v7.4 移至根目录)
+│   ├── __init__.py          # 导出所有工具
+│   ├── logger.py            # 统一日志系统
+│   ├── llm_client.py        # 统一 LLM 客户端 (v7.4增强)
+│   ├── embedding.py         # 嵌入向量工具
+│   └── data_models.py       # 数据模型
+│
+├── baseline/                # 增强的 DST 实现 (v7.4)
+│   ├── __init__.py
+│   └── dialogue_state_tracker.py  # 完整 ACL 2023 实现
 │
 ├── examples/                # 示例和演示
 │   ├── chat_app.py
 │   ├── callcenter_app.py
 │   ├── gradio_app.py
 │   ├── interactive_app.py
-│   ├── plugin_examples.py
-│   └── llm_client.py
+│   └── plugin_examples.py
 │
-├── tests/                   # 单元和集成测试
 ├── docs/                    # 文档
+│   ├── ARCHITECTURE.md      # 本文档 (v7.4.0)
+│   ├── BASIC_DST_DOCUMENTATION.md  # DST文档
+│   ├── CHANGELOG.md         # 变更日志 (v7.4.0)
+│   ├── MIGRATION.md         # 迁移指南 (v7.4.0)
+│   └── DST_*.md            # DST 增强文档
+│
+├── test_knowledge_extraction.py  # 知识提取测试 (v7.4新增)
+├── baseline_demo.py         # 基础版本演示
+├── chat_interactive_demo.py # 聊天命令行演示
+├── chat_gradio_demo.py      # 聊天 Web 演示
+├── callcenter_*_demo.py     # 客服场景演示
+├── tests/                   # 单元和集成测试
 └── logs/                    # 日志文件
 ```
 
@@ -111,25 +143,35 @@ ContextMind/
 - **技术**：时间戳排序、来源优先级、相关性评分
 - **缓解**："中间丢失"问题
 
-#### 步骤 5：ResponseHandler (`response_handler.py`) - v7.4 新增
+#### 步骤 5：ResponseHandler (`response_handler.py`) - v7.4 增强
 - **目的**：处理 LLM 响应并更新记忆库
 - **职责**：
   1. 解析 LLM 响应
-  2. 从响应中提取知识
+  2. 从响应中提取知识（新增）
   3. 自动更新记忆库
   4. 记录完整对话轮次
 - **特点**：形成完整的记忆更新闭环
+- **v7.4 新特性**：
+  - 支持自动知识提取 (`auto_extract=True`)
+  - 集成 LLM 驱动的知识提取器
+  - 提取用户偏好、事实、模式、策略和经验
+  - 可选的自动存储到记忆库
 
 ### 2. MemoryBank 模块 (`memory/`)
 
 MemoryBank 实现了 4 子模块架构：
 
-#### 2.1 Extractor (`memory/extractor.py`)
+#### 2.1 Extractor (`memory/extractor.py`) - v7.4 增强
 - **目的**：提取高价值信息用于长期存储
 - **实现**：
   - `RuleBasedExtractor`：模式匹配（轻量级）
-  - `LLMBasedExtractor`：大语言模型辅助提取（高端）
+  - `LLMBasedExtractor`：大语言模型辅助提取（高端，v7.4增强）
   - `ImportancePredictorExtractor`：基于机器学习的重要性评分
+- **v7.4 新特性**：
+  - 增强的 LLM 驱动知识提取
+  - 支持从多轮对话中提取结构化知识
+  - 提取用户偏好、事实、对话模式、策略和经验
+  - 可自定义提取策略和模板
 
 #### 2.2 Retriever (`memory/retriever.py`)
 - **目的**：基于查询检索相关记忆
@@ -179,16 +221,143 @@ MemoryBank 实现了 4 子模块架构：
 - 简化配置
 - 插件注册表集成
 
+## v7.4.0 核心特性
+
+### 1. 独立的 Utils 模块
+
+**变更说明：**
+- utils 模块从 `contextmind/utils/` 移至根目录 `utils/`
+- 完全独立，不依赖 contextmind 或 baseline 模块
+- 统一的工具供所有模式使用（DST 和 ContextMind）
+
+**新结构：**
+```python
+utils/
+├── __init__.py       # 导出所有工具
+├── logger.py         # 统一日志系统
+├── llm_client.py     # 统一 LLM 客户端
+├── embedding.py      # 嵌入向量工具
+└── data_models.py    # 数据模型
+```
+
+**导入示例：**
+```python
+# v7.4 新导入方式
+from utils import get_logger, SimpleLLMClient, LLMConfig
+from utils.embedding import get_embedding
+
+# 旧方式不再支持
+# from contextmind.utils.logger import get_logger  ❌
+```
+
+### 2. 知识提取能力
+
+**新增功能：**
+- 从多轮对话中自动提取结构化知识
+- LLM 驱动的智能提取
+- 支持多种知识类型
+
+**知识类型：**
+1. **user_preferences**: 用户偏好和需求
+2. **facts**: 事实性知识和信息
+3. **patterns**: 对话模式和流程
+4. **strategies**: 有效的策略和方法
+5. **experiences**: 经验总结和教训
+
+**使用示例：**
+```python
+from utils import SimpleLLMClient
+
+class KnowledgeExtractor:
+    async def extract_knowledge(self, dialogue):
+        # 从对话中提取结构化知识
+        return {
+            "user_preferences": ["偏好1", "偏好2"],
+            "facts": ["事实1", "事实2"],
+            "patterns": ["模式1", "模式2"],
+            "strategies": ["策略1", "策略2"],
+            "experiences": ["经验1", "经验2"]
+        }
+```
+
+**测试文件：**
+- `test_knowledge_extraction.py` - 包含3个实际场景测试：
+  - 客服对话知识提取
+  - 技术支持知识提取
+  - 咨询对话知识提取
+
+### 3. 增强的 DST 实现
+
+**完整的 ACL 2023 论文合规性：**
+- ✅ 100% 文档覆盖率（完整的 docstrings）
+- ✅ 100% 类型提示覆盖率
+- ✅ 生产级代码质量
+- ✅ 增强的数据结构
+
+**改进组件：**
+1. **PromptManager** - 槽位管理和约束验证
+2. **ResponseParser** - 鲁棒的 JSON 解析和幻觉过滤
+3. **DialogueStateTracker** - 完整的状态追踪实现
+
+**新增数据结构：**
+```python
+from enum import Enum
+from dataclasses import dataclass
+
+class SpecialValue(Enum):
+    """Special slot values (ACL 2023 paper)."""
+    UNKNOWN = "?"        # 用户在询问
+    DONTCARE = "dontcare"  # 用户不关心
+
+@dataclass
+class DialogueTurn:
+    """单个对话轮次的完整记录."""
+    system_utterance: str
+    user_utterance: str
+    predicted_updates: Dict[str, str]
+    dialogue_state: Dict[str, str]
+    timestamp: float
+```
+
+### 4. ResponseHandler 增强
+
+**新的 API：**
+```python
+# v7.4 推荐方式 - 自动知识提取
+result = await engine.handle_response(
+    user_input=user_input,
+    llm_response=assistant_response,
+    auto_extract=True,   # 自动提取知识
+    auto_store=True      # 自动存储到记忆库
+)
+
+# 兼容方式 - 仅记录对话
+await engine.update(user_input, assistant_response)
+```
+
+**功能增强：**
+- 自动知识提取开关
+- 自动存储到记忆库
+- 完整的对话轮次记录
+- 提取结果返回
+
 ## 导入模式
 
-### 推荐（新代码）
+### 推荐（v7.4+）
 
 ```python
+# Utils 模块 - 从根目录导入
+from utils import get_logger, SimpleLLMClient, LLMConfig
+from utils.embedding import get_embedding
+from utils.data_models import Message, KnowledgeItem
+
 # 流水线组件
-from contextmind.preprocessor import InputPreprocessor
-from contextmind.compressor import ContextCompressor
-from contextmind.reorderer import ContextReorderer
-from contextmind.response_handler import ResponseHandler
+from contextmind.pipeline import (
+    InputPreprocessor,
+    ContextCompressor,
+    ContextReorderer,
+    ResponseHandler,
+)
 
 # 记忆组件
 from contextmind.memory import (
@@ -205,6 +374,15 @@ from contextmind.memory import (
 
 # 高级 API
 from contextmind import ContextMind, ContextEngine
+
+# DST 组件（增强实现）
+from baseline import (
+    DialogueStateTracker,
+    PromptManager,
+    ResponseParser,
+    SpecialValue,
+    DialogueTurn,
+)
 ```
 
 ### 向后兼容（遗留代码）
@@ -215,7 +393,7 @@ from contextmind.pipeline import (
     InputPreprocessor,
     ContextCompressor,
     ContextReorderer,
-    ResponseHandler,  # 替代 PostProcessor
+    ResponseHandler,
 )
 
 # 旧记忆导入仍然有效
@@ -225,22 +403,60 @@ from contextmind.memory import MemoryBank, SessionManager
 from contextmind.strategies import extractors, retrievers, updaters
 ```
 
-**注意：** `KVCacheManager` 和 `PostProcessor` 已在 v7.4 中移除。
+**注意：** 
+- `KVCacheManager` 和 `PostProcessor` 已在 v7.4 中移除
+- Utils 的旧导入路径 (`contextmind.utils.*`, `examples.llm_client`) 不再支持
 
 ## 迁移指南
 
-### 从 v7.3 迁移到 v7.4
+### 从 v7.3 迁移到 v7.4.0
 
 **重要变更：**
 
-1. **Utils模块独立化**
+1. **Utils模块独立化** (Breaking Change)
    - utils模块已移至根目录
    - 完全不依赖contextmind或baseline模块
-   - 导入路径保持不变，向后兼容
+   - 必须更新所有导入路径
+   
+   ```python
+   # ❌ 旧代码 (v7.3)
+   from contextmind.utils.logger import get_logger
+   from examples.llm_client import SimpleLLMClient
+   
+   # ✅ 新代码 (v7.4)
+   from utils.logger import get_logger
+   from utils.llm_client import SimpleLLMClient
+   ```
 
-2. **增强的DST实现**
+2. **知识提取能力** (New Feature)
+   - 新增 LLM 驱动的知识提取
+   - 可选功能，不影响现有代码
+   - 参考 `test_knowledge_extraction.py` 了解用法
+
+3. **增强的DST实现** (Enhancement)
    - baseline模块现在完整支持ACL 2023规范
-   - 新增知识提取能力
+   - 100% 文档和类型提示覆盖
+   - 向后兼容，无需修改代码
+
+4. **ResponseHandler 增强** (Enhancement)
+   ```python
+   # 旧代码 (v7.3) - 仍然支持
+   await engine.update(user_input, assistant_response)
+   
+   # 新代码 (v7.4) - 推荐
+   result = await engine.handle_response(
+       user_input=user_input,
+       llm_response=assistant_response,
+       auto_extract=True,   # 自动提取知识
+       auto_store=True      # 自动存储到记忆库
+   )
+   ```
+
+5. **SimpleLLMClient 新方法** (Enhancement)
+   - 新增 `chat(messages, temperature)` 同步方法
+   - 新增 `chat_async(messages, temperature)` 异步方法
+   - 支持标准消息列表格式
+   - 自动兼容，无需修改现有代码
 
 ### 从 v7.2 迁移到 v7.4
 
