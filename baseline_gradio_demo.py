@@ -33,7 +33,7 @@ class BaselineGradioApp:
     
     def _initialize_engine(self):
         """初始化模板引擎"""
-        self.engine = SimpleTemplateEngine(system_prompt=self.system_prompt)
+        self.engine = TemplateEngine(system_prompt=self.system_prompt)
     
     def clear_history(self) -> Tuple[List, str]:
         """清空对话历史"""
