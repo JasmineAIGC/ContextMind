@@ -62,11 +62,17 @@ async def main():
     if args.mode == 'basic':
         # 基础 DST 模式
         from baseline import DialogueStateTracker, PromptManager
+        from examples.llm_client import SimpleLLMClient
         
         print("⚙️  当前配置:")
         print(f"   - 运行模式: 🔹 基础 DST")
         print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
         print()
+        
+        # 初始化 LLM 客户端
+        print("🔧 初始化 LLM 客户端...")
+        llm_client = SimpleLLMClient()
+        print("✅ LLM 客户端初始化完成")
         
         # 初始化基础 DST
         print("🔧 初始化基础 DST 引擎...")
@@ -76,7 +82,7 @@ async def main():
         pm.add_slot("user_preference", "用户偏好")
         
         tracker = DialogueStateTracker(
-            llm_client=None,
+            llm_client=llm_client,
             prompt_manager=pm
         )
         tracker.reset_dialogue()
@@ -133,19 +139,45 @@ async def main():
             
             turn_counter += 1
             
-            # 处理消息 (基础模式 - 模拟回复)
+            # 处理消息 (基础模式)
             try:
                 print()
                 print(f"[轮次 {turn_counter}] 处理中...")
                 
-                # 更新状态
+                # 更新对话状态
                 state = await tracker.process_turn(
                     system_utterance="",
                     user_utterance=user_input
                 )
                 
-                # 生成简单回复（实际应用中应调用LLM）
-                response = f"[基础模式模拟回复] 收到您的消息"
+                # 使用 LLM 生成回复（基于对话历史和状态）
+                # 构建包含状态信息的提示词
+                state_info = ""
+                if state:
+                    state_info = "\n当前对话状态: " + ", ".join([f"{k}={v}" for k, v in state.items()])
+                
+                # 获取对话历史
+                history_context = ""
+                if len(tracker.turns) > 1:
+                    # 包含最近几轮对话
+                    recent_turns = tracker.turns[-3:]  # 最近3轮
+                    history_context = "\n对话历史:\n"
+                    for t in recent_turns[:-1]:  # 不包括当前轮
+                        if t.user_utterance:
+                            history_context += f"用户: {t.user_utterance}\n"
+                
+                prompt = f"""你是一个友好的聊天助手。{history_context}{state_info}
+
+用户: {user_input}
+
+请自然地回复用户。"""
+                
+                # 调用 LLM
+                messages = [
+                    {"role": "system", "content": "你是一个友好的聊天助手。"},
+                    {"role": "user", "content": prompt}
+                ]
+                response = await llm_client.chat_async(messages=messages)
                 
                 # 显示回复
                 print(f"\n助手: {response}")

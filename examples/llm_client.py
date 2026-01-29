@@ -250,3 +250,83 @@ class SimpleLLMClient:
         注意: 实际生产环境应使用 AsyncOpenAI
         """
         return self.generate(prompt)
+    
+    def chat(self, messages: list, temperature: float = None) -> str:
+        """基于消息列表调用 LLM（同步版本）。
+        
+        Args:
+            messages: 消息列表，格式为 [{"role": "system/user/assistant", "content": "..."}]
+            temperature: 温度参数（可选，默认使用配置值）
+            
+        Returns:
+            助手的回复内容
+        """
+        try:
+            # 使用配置的温度或传入的温度
+            temp = temperature if temperature is not None else self.config.temperature
+            
+            # 构造 extra_body 参数
+            extra_body = {
+                "top_k": self.config.top_k,
+            }
+            
+            # 关闭思考过程显示
+            extra_body["chat_template_kwargs"] = {"enable_thinking": False}
+
+            # 调用 OpenAI Chat Completions API
+            response = self._client.chat.completions.create(
+                model=self.config.model,
+                messages=messages,
+                temperature=temp,
+                max_tokens=self.config.max_tokens,
+                extra_body=extra_body,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"调用 LLM API 失败 (model: {self.config.model}): {str(e)}"
+            ) from e
+
+        # 检查响应是否有效
+        if not response.choices:
+            raise ValueError(
+                f"API 返回空的 choices (model: {self.config.model})"
+            )
+
+        # 提取消息内容
+        choice = response.choices[0].message
+        
+        if not choice:
+            raise ValueError(
+                f"API 返回无效的 message (model: {self.config.model})"
+            )
+
+        # 提取回复内容
+        content = choice.content
+
+        # 处理可能的列表格式
+        if isinstance(content, list):
+            content = "".join(
+                part.get("text", "") for part in content if isinstance(part, dict)
+            )
+
+        # 确保返回字符串
+        if content is None:
+            return ""
+        elif isinstance(content, str):
+            return content
+        else:
+            return str(content)
+    
+    async def chat_async(self, messages: list, temperature: float = None) -> str:
+        """基于消息列表调用 LLM（异步版本）。
+        
+        Args:
+            messages: 消息列表，格式为 [{"role": "system/user/assistant", "content": "..."}]
+            temperature: 温度参数（可选，默认使用配置值）
+            
+        Returns:
+            助手的回复内容
+            
+        注意: 当前简单封装同步版本，实际生产环境应使用 AsyncOpenAI
+        """
+        return self.chat(messages, temperature)
