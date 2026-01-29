@@ -4,7 +4,7 @@
 
 槽位模板方案是一个**简单的上下文优化基础版本**，作为与 ContextMind 框架对比实验的 baseline。
 
-### 🆕 新增：对话状态追踪 (DST)
+### 🆕 新增：基础对话状态追踪 (Basic DST)
 
 基于 **ACL 2023 论文** 《ChatGPT for Zero-shot Dialogue State Tracking》，我们新增了完整的对话状态追踪实现。
 
@@ -13,9 +13,9 @@
 | 方式 | 特点 | 适用场景 |
 |------|------|---------|
 | **基础槽位模板** | 简单、快速、3个固定槽位 | 简单对话、快速原型 |
-| **对话状态追踪 (DST)** | 完整、可扩展、论文级实现 | 复杂多轮对话、精确状态追踪 |
+| **基础 DST (Baseline)** | 完整、可扩展、论文级实现 | 复杂多轮对话、精确状态追踪 |
 
-详细文档请参考：[DST 文档](../docs/DST_DOCUMENTATION.md)
+详细文档请参考：[基础 DST 文档](../docs/BASIC_DST_DOCUMENTATION.md)
 
 ### 核心思路
 
@@ -425,8 +425,8 @@ asyncio.run(main())
 ### 运行演示
 
 ```bash
-# 运行完整的 DST 演示
-python dst_demo.py
+# 运行完整的基础 DST 演示
+python basic_dst_demo.py
 
 # 选择演示模式：
 # 1 - 基础对话状态追踪
@@ -446,11 +446,11 @@ python dst_demo.py
 
 ### 详细文档
 
-完整的 DST 文档请参考：[DST 文档](../docs/DST_DOCUMENTATION.md)
+完整的基础 DST 文档请参考：[基础 DST 文档](../docs/BASIC_DST_DOCUMENTATION.md)
 
-### DST vs 基础槽位模板
+### 基础 DST vs 基础槽位模板
 
-| 特性 | 基础槽位模板 | DST |
+| 特性 | 基础槽位模板 | 基础 DST |
 |------|------------|-----|
 | 槽位定义 | 3个固定槽位 | 可扩展本体 |
 | 状态管理 | 无状态累积 | 累积式更新 |

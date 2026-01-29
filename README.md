@@ -432,14 +432,14 @@ print(state)  # {"food_type": "中餐", "intent": "预订"}
 python slot_template_demo.py
 
 # 运行 DST 演示
-python dst_demo.py
+python basic_dst_demo.py
 
 # 运行对比实验
 python comparison_experiment.py
 ```
 
 详细文档：
-- [对话状态追踪文档](docs/DST_DOCUMENTATION.md) 🆕
+- [基础 DST 文档](docs/BASIC_DST_DOCUMENTATION.md) 🆕
 - [槽位模板实现文档](docs/SLOT_TEMPLATE_IMPLEMENTATION.md)
 - [槽位模板模块文档](slot_template/README.md)
 

@@ -1,4 +1,4 @@
-# DST 实现总结
+# 基础 DST 实现总结
 
 ## 完成情况
 
@@ -33,7 +33,7 @@
 
 ### 2. 演示程序
 
-**dst_demo.py** (300+ 行)
+**basic_basic_dst_demo.py** (300+ 行)
 
 包含 5 个演示模式：
 
@@ -45,7 +45,7 @@
 
 ### 3. 文档
 
-**docs/DST_DOCUMENTATION.md** (400+ 行)
+**docs/BASIC_BASIC_DST_DOCUMENTATION.md** (400+ 行)
 
 完整的技术文档，包括：
 
@@ -149,7 +149,7 @@ final_state = tracker.get_current_state()
 
 ```bash
 # 运行完整演示
-python dst_demo.py
+python basic_basic_dst_demo.py
 
 # 选择不同模式测试
 # 1 - 基础功能
@@ -238,8 +238,8 @@ asyncio.run(main())
 ### 文件统计
 
 - dialogue_state_tracker.py: 450+ 行
-- dst_demo.py: 300+ 行
-- DST_DOCUMENTATION.md: 400+ 行
+- basic_dst_demo.py: 300+ 行
+- BASIC_DST_DOCUMENTATION.md: 400+ 行
 - README 更新: ~100 行
 
 ## 版本历史
