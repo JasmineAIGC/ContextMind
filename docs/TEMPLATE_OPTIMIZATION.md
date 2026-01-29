@@ -201,8 +201,8 @@ async def chat_with_template_optimization():
 我们提供了完整的演示程序：
 
 ```bash
-cd /home/runner/work/ContextMind/ContextMind
-PYTHONPATH=$PWD python examples/template_optimization_demo.py
+# From the repository root
+python examples/template_optimization_demo.py
 ```
 
 演示包含：

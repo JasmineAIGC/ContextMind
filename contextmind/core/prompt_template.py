@@ -5,6 +5,8 @@ Prompt Template System - 基于槽位的提示词模板
 这是上下文优化的基础版本实现。
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from datetime import datetime

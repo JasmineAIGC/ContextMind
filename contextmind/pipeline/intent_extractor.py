@@ -4,11 +4,13 @@ Intent Extractor - 意图提取器
 从对话历史中提取用户意图，用于填充提示词模板的槽位。
 """
 
+from __future__ import annotations
+
 from typing import List, Dict, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..core.data_models import Message
-from ..core.types import MessageRole, KnowledgeType
+from ..core.types import MessageRole
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -29,14 +31,8 @@ class ExtractedIntent:
     intent_type: str
     description: str
     confidence: float = 1.0
-    source_messages: List[int] = None
-    metadata: Dict = None
-    
-    def __post_init__(self):
-        if self.source_messages is None:
-            self.source_messages = []
-        if self.metadata is None:
-            self.metadata = {}
+    source_messages: List[int] = field(default_factory=list)
+    metadata: Dict = field(default_factory=dict)
 
 
 class IntentExtractor:
@@ -129,8 +125,6 @@ class IntentExtractor:
         Returns:
             (intent_type, description, confidence)
         """
-        text_lower = text.lower()
-        
         # 1. 问候
         if any(keyword in text for keyword in self.greeting_keywords):
             return "greeting", "用户打招呼", 0.9
@@ -301,7 +295,7 @@ class LLMIntentExtractor(IntentExtractor):
                 intent_type="llm_extracted",
                 description=description,
                 confidence=0.95,
-                source_messages=list(range(len(messages) - focus_recent, len(messages))),
+                source_messages=list(range(max(0, len(messages) - focus_recent), len(messages))),
                 metadata={
                     'method': 'llm',
                     'model': getattr(self.llm_client, 'model', 'unknown')
