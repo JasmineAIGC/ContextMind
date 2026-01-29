@@ -1,5 +1,43 @@
 # ContextMind 变更日志
 
+## [2026-01-29] - DST 模式错误修复 🔧
+
+### 修复 (Fixed)
+
+**问题 1: Gradio Demo DST 模式报错**
+- **错误**: `'SimpleLLMClient' object has no attribute 'chat_async'`
+- **位置**: chat_gradio_demo.py, callcenter_gradio_demo.py
+- **原因**: SimpleLLMClient 缺少 chat_async 方法
+- **修复**: 
+  - 为 SimpleLLMClient 添加 `chat(messages, temperature)` 方法
+  - 为 SimpleLLMClient 添加 `chat_async(messages, temperature)` 方法
+  - 支持标准的消息列表格式调用
+
+**问题 2: Interactive Demo DST 模式无真实回复**
+- **错误**: 只显示 "[基础模式模拟回复] 收到您的消息"
+- **位置**: chat_interactive_demo.py, callcenter_interactive_demo.py
+- **原因**: 未初始化 LLM 客户端，使用硬编码模拟回复
+- **修复**:
+  - 初始化 SimpleLLMClient 并传递给 DialogueStateTracker
+  - 使用真实 LLM 生成回复而非模拟回复
+  - 构建包含对话历史和状态的提示词
+
+### 新增 (Added)
+- 新增 test_dst_fixes.py 测试文件，验证 DST 修复
+
+### 改进 (Changed)
+- SimpleLLMClient 现在完全兼容 DialogueStateTracker
+- 所有 demo 的基础 DST 模式现在都能正常工作
+
+### 影响
+- ✅ 所有 DST 模式错误已修复
+- ✅ Interactive 和 Gradio demos 都能正常工作
+- ✅ 基础 DST 模式可以生成真实的 LLM 回复
+
+---
+
+# ContextMind 变更日志
+
 ## 2026-01-29 - 移除槽位模板代码
 
 ### 重大变更
