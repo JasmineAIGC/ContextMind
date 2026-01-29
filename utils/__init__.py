@@ -4,8 +4,10 @@
 - Logger: 统一的日志系统
 - LLM Client: 统一的 LLM 客户端
 - Embedding: 嵌入向量工具
+- Data Models: 工具模块的数据模型
 
 所有模式都使用这些通用工具，确保一致性。
+utils 模块是完全独立的，不依赖 baseline 或 contextmind 模块。
 """
 
 from .logger import (
@@ -24,6 +26,10 @@ from .llm_client import (
     LLMConfig,
 )
 
+from .data_models import (
+    EmbeddingInfo,
+)
+
 __all__ = [
     # Logger
     "LogLevel",
@@ -37,4 +43,6 @@ __all__ = [
     # LLM Client
     "SimpleLLMClient",
     "LLMConfig",
+    # Data Models
+    "EmbeddingInfo",
 ]

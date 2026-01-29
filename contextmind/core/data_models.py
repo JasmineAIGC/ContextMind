@@ -1,8 +1,9 @@
 """
-核心数据模型 (v7.3)
+核心数据模型 (v7.4)
 
 用于消息、上下文项、知识和其他核心数据结构的数据类模型。
 在v7.3模块化重构期间从models.py中提取，以实现更好的组织结构。
+在v7.4中，EmbeddingInfo移到utils模块以保持utils的独立性。
 """
 
 from __future__ import annotations
@@ -11,23 +12,13 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from .types import KnowledgeType, MessageRole, ContextSource
+# EmbeddingInfo 现在从 utils 导入，保持 utils 模块独立性
+from utils.data_models import EmbeddingInfo
 
 
 # ============================================================================
-# 嵌入和评分模型
+# 评分和版本模型
 # ============================================================================
-
-@dataclass
-class EmbeddingInfo:
-    """
-    向量嵌入信息
-    
-    支持多种嵌入模型，便于跨模型检索和模型升级
-    """
-    model: str  # 嵌入模型名称
-    vector: List[float]  # 向量数据
-    dimension: int  # 向量维度
-    created_at: datetime = field(default_factory=datetime.now)
 
 
 @dataclass
