@@ -150,10 +150,10 @@ python chat_gradio_demo.py
 项目包含一个基于 **ACL 2023 论文**的对话状态追踪（DST）基础实现，作为对比基准：
 
 ```bash
-# 运行 DST 演示
-python basic_dst_demo.py
+# 运行 DST 演示（基础版本）
+python baseline_demo.py
 
-# 对比实验（ContextMind vs DST）
+# 对比实验（ContextMind vs 基础版本）
 python comparison_experiment.py
 ```
 
@@ -199,8 +199,10 @@ ContextMind/
 │   └── utils/                # 工具函数
 │
 ├── baseline/                 # 基础 DST 实现（对比基准）
-│   ├── engine.py
-│   └── dialogue_state_tracker.py  # ACL 2023 DST
+│   ├── engine.py             # SlotTemplateEngine
+│   ├── intent_extractor.py
+│   ├── template_manager.py
+│   └── dialogue_state_tracker.py  # ACL 2023 DST 实现
 │
 ├── examples/                 # 应用示例
 ├── docs/                     # 文档
@@ -208,7 +210,11 @@ ContextMind/
 │   ├── BASIC_DST_DOCUMENTATION.md  # DST 文档
 │   └── MIGRATION.md          # 迁移指南
 │
-└── *_demo.py                 # 各种演示程序
+├── baseline_demo.py          # 基础版本演示（ACL 2023 DST）
+├── slot_template_demo.py     # 槽位模板演示
+├── chat_interactive_demo.py  # 聊天命令行演示
+├── chat_gradio_demo.py       # 聊天 Web 演示
+└── comparison_experiment.py  # 对比实验
 ```
 
 ---
