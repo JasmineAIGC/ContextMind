@@ -18,17 +18,28 @@ Slot Template Context Optimization Module
 - SlotTemplateEngine: 槽位模板引擎
 - IntentExtractor: 意图提取器
 - TemplateManager: 模板管理器
+- DialogueStateTracker: 对话状态追踪器（基于 ACL 2023 DST 论文）
 """
 
 from .engine import SlotTemplateEngine
 from .intent_extractor import IntentExtractor
 from .template_manager import TemplateManager, SlotTemplate
+from .dialogue_state_tracker import (
+    DialogueStateTracker,
+    PromptManager,
+    ResponseParser,
+    DialogueTurn
+)
 
 __all__ = [
     'SlotTemplateEngine',
     'IntentExtractor', 
     'TemplateManager',
     'SlotTemplate',
+    'DialogueStateTracker',
+    'PromptManager',
+    'ResponseParser',
+    'DialogueTurn',
 ]
 
-__version__ = '0.1.0'  # 实验性 baseline 版本
+__version__ = '0.2.0'  # 添加 DST 功能
