@@ -185,10 +185,10 @@ async def demo_response_parsing():
     print()
 
 
-async def demo_comparison():
-    """对比展示：槽位模板 vs DST"""
+async def demo_dst_features():
+    """DST 特性展示"""
     print("=" * 80)
-    print("对比演示：基础槽位模板 vs 对话状态追踪")
+    print("对话状态追踪（DST）核心特性展示")
     print("=" * 80)
     print()
     
@@ -204,7 +204,7 @@ async def demo_comparison():
     ]
     
     print("=" * 80)
-    print("方式 1: 对话状态追踪（DST）")
+    print("对话状态追踪（DST）演示")
     print("=" * 80)
     print()
     
@@ -212,11 +212,12 @@ async def demo_comparison():
     tracker = DialogueStateTracker(llm_client=None)
     tracker.reset_dialogue()
     
-    print("特点：")
-    print("  ✅ 累积式状态更新")
+    print("核心特性：")
+    print("  ✅ 累积式状态更新（基于 ACL 2023 论文）")
     print("  ✅ 完整的对话历史管理")
     print("  ✅ 结构化状态表示")
     print("  ✅ 支持共指消解（通过上下文）")
+    print("  ✅ Zero-shot（无需微调）")
     print()
     
     for i, (sys_utt, user_utt) in enumerate(dialogue, 1):
@@ -228,29 +229,20 @@ async def demo_comparison():
         print()
     
     print("-" * 80)
-    print(f"最终状态: {json.dumps(tracker.get_current_state(), ensure_ascii=False)}")
-    print()
-    
-    print("=" * 80)
-    print("方式 2: 基础槽位模板")
-    print("=" * 80)
-    print()
-    
-    print("特点：")
-    print("  ✅ 简单直接")
-    print("  ✅ 快速实现")
-    print("  ❌ 无状态累积")
-    print("  ❌ 槽位定义不够丰富")
+    print(f"最终累积状态: {json.dumps(tracker.get_current_state(), ensure_ascii=False)}")
     print()
     
     print("=" * 80)
     print("总结")
     print("=" * 80)
     print()
-    print("选择建议：")
-    print("  - 需要精确的状态追踪、多轮对话 → DST")
-    print("  - 简单的意图识别、单轮对话 → 基础槽位模板")
+    print("DST 作为基础版本的优势：")
+    print("  ✅ 完全基于论文实现，可复现")
+    print("  ✅ 状态追踪精确，支持多轮对话")
+    print("  ✅ Zero-shot，无需训练数据")
+    print("  ✅ 适合作为 ContextMind 的对比基准")
     print()
+
 
 
 async def main():
@@ -267,7 +259,7 @@ async def main():
     print("  1. 基础对话状态追踪演示")
     print("  2. Prompt 设计展示")
     print("  3. 响应解析演示")
-    print("  4. 对比演示（槽位模板 vs DST）")
+    print("  4. DST 核心特性展示")
     print("  5. 运行所有演示")
     print()
     
@@ -286,7 +278,7 @@ async def main():
     elif choice == "3":
         await demo_response_parsing()
     elif choice == "4":
-        await demo_comparison()
+        await demo_dst_features()
     elif choice == "5":
         await demo_basic_dst()
         print("\n" * 2)
@@ -294,7 +286,7 @@ async def main():
         print("\n" * 2)
         await demo_response_parsing()
         print("\n" * 2)
-        await demo_comparison()
+        await demo_dst_features()
     else:
         print("❌ 无效选项，运行基础演示")
         await demo_basic_dst()

@@ -153,8 +153,9 @@ python chat_gradio_demo.py
 # 运行 DST 演示（基础版本）
 python baseline_demo.py
 
-# 对比实验（ContextMind vs 基础版本）
-python comparison_experiment.py
+# 在交互或 Gradio 演示中切换到基础模式
+python chat_interactive_demo.py --mode basic
+python chat_gradio_demo.py  # 在 UI 中选择"基础 DST 模式"
 ```
 
 **基础版本特性：**
@@ -199,9 +200,6 @@ ContextMind/
 │   └── utils/                # 工具函数
 │
 ├── baseline/                 # 基础 DST 实现（对比基准）
-│   ├── engine.py             # SlotTemplateEngine
-│   ├── intent_extractor.py
-│   ├── template_manager.py
 │   └── dialogue_state_tracker.py  # ACL 2023 DST 实现
 │
 ├── examples/                 # 应用示例
@@ -211,10 +209,9 @@ ContextMind/
 │   └── MIGRATION.md          # 迁移指南
 │
 ├── baseline_demo.py          # 基础版本演示（ACL 2023 DST）
-├── slot_template_demo.py     # 槽位模板演示
 ├── chat_interactive_demo.py  # 聊天命令行演示
 ├── chat_gradio_demo.py       # 聊天 Web 演示
-└── comparison_experiment.py  # 对比实验
+└── callcenter_*_demo.py      # 客服场景演示
 ```
 
 ---

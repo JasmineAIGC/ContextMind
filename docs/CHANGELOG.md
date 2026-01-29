@@ -1,5 +1,60 @@
 # ContextMind 变更日志
 
+## 2026-01-29 - 移除槽位模板代码
+
+### 重大变更
+
+**简化项目结构，现在只有两个版本：**
+1. **基于 DST 的基础版本**（baseline） - ACL 2023 论文实现
+2. **基于 ContextMind 的完整版本** - 五层架构上下文工程
+
+#### 删除的文件
+- `slot_template_demo.py` - 槽位模板演示
+- `comparison_experiment.py` - 对比实验（使用了槽位模板）
+- `baseline/engine.py` - SlotTemplateEngine
+- `baseline/template_manager.py` - TemplateManager
+- `baseline/intent_extractor.py` - IntentExtractor
+
+#### 保留的文件
+- `baseline/dialogue_state_tracker.py` - 基础 DST 实现（这是基础版本）
+- `baseline_demo.py` - 基础版本演示
+
+#### 更新的文件
+- `baseline/__init__.py` - 只导出 DST 相关类
+- `prompts.py` - 删除 SLOT_TEMPLATE_SYSTEM_PROMPT
+- `README.md` - 更新项目结构和说明
+
+### 说明
+
+**现在只有两个版本：**
+- **基础版本（Baseline）** - 基于 ACL 2023 DST 论文的 Zero-shot 对话状态追踪
+- **完整版本（ContextMind）** - 五层架构的上下文工程框架
+
+槽位模板是一个中间实验方案，已经不再需要。基础版本指的就是基于 DST 的实现。
+
+### 如何更新你的代码
+
+如果你之前使用了这些文件：
+
+```bash
+# 不再可用
+python slot_template_demo.py
+python comparison_experiment.py
+
+# 请使用
+python baseline_demo.py  # 基础 DST 版本
+python chat_interactive_demo.py --mode basic  # 在演示中使用基础模式
+```
+
+### 影响评估
+
+- ✅ 项目结构更清晰
+- ✅ 只有两个明确的版本对比
+- ✅ 减少代码维护负担
+- ⚠️ 删除了槽位模板相关代码（已不再需要）
+
+---
+
 ## 2026-01-29 - 文档清理和简化
 
 ### 重大变更
