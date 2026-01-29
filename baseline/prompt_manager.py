@@ -119,11 +119,11 @@ class PromptManager:
         
         # structured 风格（默认，详细指导）
         # 基础指令
-        instruction = """你是一个智能对话状态追踪系统。你的任务是从用户与系统的对话中提取关键信息。
+        instruction = """你是一个通用的对话信息提取系统。你的任务是理解对话内容，提取关键信息。
 
 ## 核心任务
 
-从用户的**最新回复**中提取所有相关信息，以JSON格式返回。
+从用户的**最新回复**中智能提取所有相关信息，以JSON格式返回。
 
 """
         
@@ -131,28 +131,30 @@ class PromptManager:
         if self.enable_dynamic_slots:
             instruction += """## 信息提取指南
 
-**重要：不限制提取的信息类型，LLM自主判断提取什么信息。**
+**核心原则：完全开放式提取，不限制任何信息类型或领域。**
 
-请提取所有对话相关的关键信息，包括但不限于：
+请根据对话内容，灵活提取所有关键信息：
 
-1. **意图识别**（必须包含）：
-   - 准确识别用户的具体意图类型
-   - 常见意图：作业帮助、餐饮推荐、技术支持、闲聊交流、咨询建议、告别暂停、信息查询、购物咨询等
+1. **意图理解**（必须包含）：
+   - 识别用户在当前对话中的真实意图
+   - 不限于特定类型，可以是：请求帮助、获取信息、表达观点、情感交流、执行操作等
    - 必须在返回的JSON中包含 "intent" 字段
-   - 如果有多个意图，可以用列表或分别列出
+   - 支持识别多个并行或顺序的意图
 
-2. **具体信息**（根据对话内容灵活提取）：
-   - 话题/主题（如：数学、披萨、Python编程等）
-   - 实体和对象（如：学科、菜品、产品名称等）
-   - 用户需求（如：解题思路、口味推荐、价格查询等）
-   - 时间地点（如果提到）
-   - 情绪状态（如：焦虑、开心、生气等）
-   - 偏好设置（如：价格范围、风格偏好等）
-   - 任何其他相关信息
+2. **信息实体**（根据对话内容灵活提取）：
+   - **核心概念**：对话中涉及的主题、对象、实体
+   - **属性特征**：描述、限定条件、偏好、要求
+   - **上下文要素**：时间、地点、方式、原因、目标
+   - **状态信息**：进展、结果、决策、变化
+   - **关系信息**：比较、关联、依赖
+   - **情感态度**：情绪、评价、倾向
+   - **元信息**：优先级、确定性、重要性
 
-3. **多意图处理**：
-   - 如果对话涉及多个意图，都要识别出来
-   - 例如："我要先吃饭，然后做作业" → 包含"餐饮"和"作业"两个意图
+3. **处理复杂情况**：
+   - **多意图**：识别所有并存的意图
+   - **隐含信息**：推断未明说但重要的信息
+   - **关系结构**：信息之间的层次和关联
+   - **动态变化**：新增、修改、删除的信息
 
 """
         else:
@@ -191,39 +193,54 @@ class PromptManager:
         # 输出格式
         instruction += """## 输出格式
 
-返回JSON对象，必须包含：
-1. "intent" 字段（必需）- 用户的具体意图
-2. 其他提取的信息字段（根据对话内容灵活添加）
+返回JSON对象，结构要求：
+1. **必须包含** "intent" 字段 - 描述用户的核心意图
+2. **灵活添加**其他字段 - 根据实际提取的信息自由命名和组织
 
-**示例1：作业帮助**
+**通用模式示例**：
+
 ```json
 {
-  "intent": "作业帮助",
-  "学科": "数学",
-  "难度": "有几道题不会",
-  "需求": "解题思路"
+  "intent": "<意图描述>",
+  "<信息类型1>": "<提取的值>",
+  "<信息类型2>": "<提取的值>",
+  ...
 }
 ```
 
-**示例2：餐饮推荐**
+**具体场景参考**（适用于任何领域）：
+
+**场景A：请求帮助**
 ```json
 {
-  "intent": "餐饮推荐",
-  "food_type": "披萨",
-  "需求": "口味推荐"
+  "intent": "寻求帮助",
+  "问题类型": "技术问题",
+  "具体内容": "配置环境",
+  "期望结果": "详细步骤"
 }
 ```
 
-**示例3：多意图**
+**场景B：信息查询**
 ```json
 {
-  "intent": "告别+作业提醒",
-  "next_action": "吃饭",
-  "未完成事项": "数学作业"
+  "intent": "查询信息",
+  "目标对象": "产品",
+  "查询维度": ["价格", "功能"],
+  "限定条件": {"预算": "中等"}
 }
 ```
 
-只返回JSON，不要其他解释文字！
+**场景C：多步骤任务**
+```json
+{
+  "intent": "计划+执行",
+  "阶段1": "准备材料",
+  "阶段2": "开始制作",
+  "当前状态": "待开始"
+}
+```
+
+**输出要求**：只返回JSON，不要任何解释文字！
 """
         
         return instruction
@@ -302,15 +319,15 @@ class PromptManager:
             简洁的系统指令
         """
         if self.language == Language.EN_US:
-            return """Extract key information from user's latest reply in JSON format.
-Must include: "intent" field.
-Other fields: flexibly extract relevant information.
-Return JSON only, no explanations."""
+            return """Extract all relevant information from the user's latest message as JSON.
+Required: "intent" field describing user's purpose.
+Optional: any other key information fields.
+Output: JSON only, no explanations."""
         
-        return """从用户最新回复中提取关键信息，返回JSON。
-必须包含：intent字段。
-其他字段：灵活提取相关信息。
-只返回JSON，不要解释！"""
+        return """从用户最新消息中提取所有相关信息，返回JSON格式。
+必需：intent字段（描述用户意图）。
+可选：任何其他关键信息字段。
+输出：仅JSON，无解释。"""
     
     def get_conversational_instruction(self) -> str:
         """
@@ -320,14 +337,16 @@ Return JSON only, no explanations."""
             对话式系统指令
         """
         if self.language == Language.EN_US:
-            return """Please analyze this conversation and help me understand what the user wants.
-Tell me:
-- User's intent
-- Key information mentioned
-Reply in JSON format."""
+            return """Please analyze this conversation and extract meaningful information.
+Focus on:
+- What is the user trying to achieve? (intent)
+- What specific information did they provide?
+- What context or constraints are relevant?
+Provide your analysis as a JSON object."""
         
-        return """请帮我分析这段对话，理解用户想要什么。
-告诉我：
-- 用户的意图
-- 提到的关键信息
-以JSON格式回复。"""
+        return """请分析这段对话并提取有意义的信息。
+关注：
+- 用户想达成什么目的？（意图）
+- 他们提供了哪些具体信息？
+- 有哪些相关的上下文或限制？
+以JSON对象形式提供分析。"""
