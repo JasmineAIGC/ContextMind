@@ -26,7 +26,8 @@ from contextmind import (
     MessageRole,
 )
 
-from examples.callcenter_app import CallCenterApplication, CALLCENTER_SYSTEM_PROMPT
+from examples.callcenter_app import CallCenterApplication
+from prompts import CALLCENTER_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 

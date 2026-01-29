@@ -34,7 +34,8 @@ from pathlib import Path
 import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger, MessageRole
-from examples.callcenter_app import CallCenterApplication, CALLCENTER_SYSTEM_PROMPT
+from examples.callcenter_app import CallCenterApplication
+from prompts import CALLCENTER_SYSTEM_PROMPT
 
 # 设置日志级别为 INFO
 setup_logging(level=LogLevel.INFO)

@@ -339,3 +339,6 @@ class ChatApplication:
             return response, debug_info
         
         return response
+
+# 向后兼容：重新导出系统提示词
+__all__ = ['ChatApplication', 'CHAT_SYSTEM_PROMPT']

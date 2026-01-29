@@ -33,7 +33,8 @@ from pathlib import Path
 import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
-from examples.chat_app import ChatApplication, CHAT_SYSTEM_PROMPT
+from examples.chat_app import ChatApplication
+from prompts import CHAT_SYSTEM_PROMPT
 
 # 设置日志级别为 INFO
 setup_logging(level=LogLevel.INFO)
