@@ -1,31 +1,25 @@
 """
-Dialogue State Tracker - 对话状态追踪器
+对话状态追踪器 (Dialogue State Tracker)
 
-Implementation based on ACL 2023 paper:
+基于 ACL 2023 论文实现：
 "ChatGPT for Zero-shot Dialogue State Tracking: A Solution or an Opportunity?"
 
-This module implements a complete zero-shot dialogue state tracking system that:
-1. Uses no fine-tuning (pure zero-shot approach)
-2. Relies on prompt engineering with slot ontology definitions
-3. Maintains full dialogue history for context management
-4. Performs cumulative state updates: DS_t = update(DS_{t-1}, updates)
-5. Handles special values (?, dontcare) as per paper specification
-6. Filters hallucinations (non-ontology slots)
-7. Normalizes values for consistency
-8. Parses JSON responses robustly from LLM outputs
+完整实现零样本对话状态追踪系统，符合论文的8项核心要求：
+1. 零样本方法（无需微调）
+2. 基于提示词工程和槽位本体定义
+3. 维护完整对话历史进行上下文管理
+4. 累积式状态更新: DS_t = update(DS_{t-1}, updates)
+5. 处理特殊值 (?, dontcare)
+6. 过滤幻觉（非本体槽位）
+7. 值归一化处理
+8. 鲁棒的 JSON 响应解析
 
-Paper Reference:
-    Hu, Y., Lee, H., Xing, B., Yao, W., Xiong, Y., Radev, D., & Ren, X. (2023).
-    ChatGPT for Zero-shot Dialogue State Tracking: A Solution or an Opportunity?
-    In Proceedings of ACL 2023.
+核心组件:
+    - PromptManager: 管理本体、约束和提示词生成
+    - ResponseParser: 鲁棒的 JSON 提取和幻觉过滤
+    - DialogueStateTracker: 多轮 DST 主控制器
 
-Key Components:
-    - PromptManager: Manages ontology, constraints, and prompt generation
-    - ResponseParser: Robust JSON extraction and hallucination filtering
-    - DialogueStateTracker: Main orchestrator for multi-turn DST
-
-Author: ContextMind Project
-License: MIT
+版本: v7.4.0
 """
 
 import json
@@ -42,11 +36,11 @@ logger = logging.getLogger(__name__)
 
 class SpecialValue(Enum):
     """
-    Special slot values as defined in the ACL 2023 paper.
+    特殊槽位值（符合 ACL 2023 论文定义）
     
-    Attributes:
-        UNKNOWN: "?" - User is asking about this slot (no value provided)
-        DONTCARE: "dontcare" - User doesn't care about this slot's value
+    属性:
+        UNKNOWN: "?" - 用户正在询问该槽位（未提供值）
+        DONTCARE: "dontcare" - 用户不关心该槽位的值
     """
     UNKNOWN = "?"
     DONTCARE = "dontcare"
@@ -55,14 +49,14 @@ class SpecialValue(Enum):
 @dataclass
 class DialogueTurn:
     """
-    Represents a single dialogue turn with system and user utterances.
+    单轮对话数据结构
     
-    Attributes:
-        system_utterance: The system/assistant's response
-        user_utterance: The user's input
-        predicted_state: The cumulative dialogue state after this turn
-        turn_updates: Slot updates extracted from this turn only
-        raw_llm_response: Original LLM response before parsing (optional)
+    属性:
+        system_utterance: 系统/助手的回复
+        user_utterance: 用户的输入
+        predicted_state: 本轮之后的累积对话状态
+        turn_updates: 仅从本轮提取的槽位更新
+        raw_llm_response: 解析前的原始 LLM 响应（可选）
     """
     system_utterance: str
     user_utterance: str

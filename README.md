@@ -1,6 +1,6 @@
-# ContextMind
+# ContextMind v7.4.0
 
-一个**通用、可扩展、易集成的上下文工程框架**，专为基于大语言模型的对话系统设计。
+一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -8,251 +8,123 @@
 
 ---
 
-## 🎯 什么是 ContextMind？
+## 核心特性
 
-**ContextMind 是一个纯粹的上下文工程框架**，位于你的应用程序和大语言模型之间，解决对话系统的核心挑战：**如何智能地管理和优化上下文**。
-
-### 核心问题
-
-现代大语言模型面临三大挑战：
-1. **有限的上下文窗口** - token 限制在长对话中很快耗尽
-2. **信息过载** - 无关上下文会降低响应质量
-3. **多源整合** - 会话历史、长期记忆和外部知识需要统一管理
-
-### 解决方案
-
-```
-用户输入 → [ContextMind 上下文工程] → 优化后的上下文 → 大语言模型 → 高质量响应
-```
-
-ContextMind 通过**五步流水线架构**优化上下文：
-1. **预处理** - 清理和规范化输入
-2. **检索** - 召回相关记忆和上下文
-3. **压缩** - 智能减少 token 使用
-4. **重排序** - 优化上下文顺序
-5. **响应处理** - 更新记忆库
+- **模型无关** - 适配任何 LLM 提供商
+- **五步流水线** - 预处理、检索、压缩、重排序、响应处理
+- **智能记忆** - 自动知识提取和语义检索
+- **两种模式** - ContextMind 完整模式 / DST 基础模式
 
 ---
 
-## ✨ 核心特性
-
-- **模型无关** - 适配 OpenAI、Anthropic、本地模型或任何 LLM 提供商
-- **可插拔策略** - 无需修改代码即可切换提取器、检索器、压缩器
-- **三行代码集成** - 最少样板代码，最大功能
-- **智能记忆管理** - 自动提取知识的长期记忆，语义检索
-- **上下文优化** - 压缩、重排序，缓解"中间丢失"问题
-
----
-
-## 🚀 快速开始
+## 快速开始
 
 ### 安装
 
 ```bash
-git clone https://github.com/Jasmine66Bloom/ContextMind.git
-cd ContextMind
 pip install -r requirements.txt
 ```
 
-### 基本用法
+### 配置
+
+创建 `.env` 文件：
+
+```bash
+QWEN3_API_KEY=your_api_key
+QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN3_MODEL=qwen-plus
+```
+
+### 使用
+
+#### ContextMind 完整模式
 
 ```python
-import asyncio
 from contextmind import ContextEngine
+from utils import SimpleLLMClient
 
-async def main():
-    # 初始化上下文引擎
-    engine = ContextEngine(
-        app_name="my-app",
-        user_id="user-123",
-        llm_client=your_llm_client,  # 可选：用于知识提取
-    )
-    
-    # 步骤 1-4：准备优化后的上下文
-    context = await engine.optimize("今天天气怎么样？")
-    
-    # 步骤 5：调用外部 LLM
-    llm_response = await your_llm_client.chat(
-        messages=context.to_messages()
-    )
-    
-    # 步骤 6：更新记忆
-    await engine.update_memory(llm_response)
-    
-asyncio.run(main())
+# 初始化
+llm_client = SimpleLLMClient()
+engine = ContextEngine(llm_client=llm_client)
+
+# 对话
+response = await engine.chat("你好")
+print(response)
 ```
 
-### 高级 API（更简单）
+#### DST 基础模式
 
 ```python
-from contextmind import ContextMind
+from baseline import DialogueStateTracker, PromptManager
+from utils import SimpleLLMClient
 
-# 使用高级 API（推荐）
-cm = ContextMind(
-    app_name="my-app",
-    user_id="user-123",
-    llm_client=your_llm,
-    enable_memory=True,      # 启用长期记忆
-    enable_compression=True  # 启用上下文压缩
-)
+# 初始化
+llm_client = SimpleLLMClient()
+pm = PromptManager(domain="restaurant")
+tracker = DialogueStateTracker(llm_client=llm_client, prompt_manager=pm)
 
-# 一次调用完成所有操作
-response = await cm.chat("你好，今天天气怎么样？")
+# 对话
+state = await tracker.process_turn("你好", "我想订餐")
+print(state)
 ```
 
 ---
 
-## 📐 架构
-
-### 五步流水线
-
-```
-用户输入 
-  ↓
-[1] 预处理器 - 清理、验证输入
-  ↓
-[2] 记忆检索 - 召回相关记忆
-  ↓
-[3] 压缩器 - 减少 token 使用
-  ↓
-[4] 重排序器 - 优化上下文顺序
-  ↓
-优化后的上下文 → [你的 LLM] → 响应
-  ↓
-[5] 响应处理 - 提取知识，更新记忆
-```
-
-### 核心组件
-
-- **ContextEngine** - 主编排器，协调整个流水线
-- **MemoryBank** - 长期记忆管理（存储、检索、更新）
-- **ResponseHandler** - 响应处理和知识提取 (v7.4 新增)
-- **Plugin Registry** - 可扩展的策略注册系统
-- **Evolution Module** - 进化式记忆优化（高级功能）
-
-详细架构请参考：[ARCHITECTURE.md](docs/ARCHITECTURE.md)
-
----
-
-## 🎮 运行演示
-
-### ContextMind 完整演示
+## 演示程序
 
 ```bash
-# 命令行交互演示
-python chat_interactive_demo.py --mode contextmind
+# 闲聊演示
+python chat_interactive_demo.py --mode contextmind  # 完整模式
+python chat_interactive_demo.py --mode basic        # DST 模式
 
-# Web 界面演示（需要 gradio）
+# 客服演示
+python callcenter_interactive_demo.py --mode contextmind
+python callcenter_interactive_demo.py --mode basic
+
+# Web UI
 python chat_gradio_demo.py
-```
+python callcenter_gradio_demo.py
 
-### 基础版本演示（ACL 2023 DST）
-
-项目包含一个基于 **ACL 2023 论文**的对话状态追踪（DST）基础实现，作为对比基准：
-
-```bash
-# 运行 DST 演示（基础版本）
+# DST 基础演示
 python baseline_demo.py
-
-# 在交互或 Gradio 演示中切换到基础模式
-python chat_interactive_demo.py --mode basic
-python chat_gradio_demo.py  # 在 UI 中选择"基础 DST 模式"
-```
-
-**基础版本特性：**
-- ✅ Zero-shot（无需微调）
-- ✅ 累积式状态更新
-- ✅ 共指消解支持
-
-详细文档：[BASIC_DST_DOCUMENTATION.md](docs/BASIC_DST_DOCUMENTATION.md)
-
----
-
-## 🔌 自定义插件
-
-### 注册自定义策略
-
-```python
-from contextmind import registry
-from contextmind.strategies.base import BaseExtractor
-
-class CustomExtractor(BaseExtractor):
-    async def extract(self, messages):
-        # 你的提取逻辑
-        return knowledge_items
-
-# 注册并使用
-registry.register_extractor('custom', CustomExtractor)
-cm = ContextMind(llm_client=your_llm, extractor='custom')
 ```
 
 ---
 
-## 📚 项目结构
+## 项目结构
 
 ```
 ContextMind/
-├── contextmind/              # 核心框架
-│   ├── engine.py             # ContextEngine 主编排器
-│   ├── core/                 # 核心组件（配置、注册、数据模型）
-│   ├── pipeline/             # 五步流水线
-│   │   ├── preprocessor.py   # 输入预处理
-│   │   ├── compressor.py     # 上下文压缩
-│   │   ├── reorderer.py      # 上下文重排序
-│   │   └── response_handler.py  # 响应处理和知识提取 (v7.4)
-│   ├── memory/               # MemoryBank 记忆管理
-│   │   ├── bank.py           # 主记忆库
-│   │   ├── extractor.py      # 知识提取器 (v7.4 增强)
-│   │   ├── retriever.py      # 记忆检索器
-│   │   └── updater.py        # 记忆更新器
-│   └── evolution/            # 进化式优化（高级）
-│
-├── utils/                    # 独立工具模块 (v7.4 移至根目录)
-│   ├── logger.py             # 统一日志系统
-│   ├── llm_client.py         # 统一 LLM 客户端
-│   ├── embedding.py          # 嵌入向量工具
-│   └── data_models.py        # 数据模型
-│
-├── baseline/                 # 增强的 DST 实现 (v7.4 完整 ACL 2023 合规)
-│   └── dialogue_state_tracker.py  # 对话状态追踪
-│
-├── examples/                 # 应用示例
-├── docs/                     # 文档
-│   ├── ARCHITECTURE.md       # 详细架构
-│   ├── BASIC_DST_DOCUMENTATION.md  # DST 文档
-│   ├── CHANGELOG.md          # 变更日志
-│   └── MIGRATION.md          # 迁移指南
-│
-├── test_knowledge_extraction.py  # 知识提取测试 (v7.4 新增)
-├── baseline_demo.py          # 基础版本演示（ACL 2023 DST）
-├── chat_interactive_demo.py  # 聊天命令行演示
-├── chat_gradio_demo.py       # 聊天 Web 演示
-└── callcenter_*_demo.py      # 客服场景演示
+├── contextmind/           # 完整框架（五层架构）
+├── baseline/              # DST 基础实现（ACL 2023）
+├── utils/                 # 通用工具（logger, LLM client）
+├── examples/              # 应用示例
+├── docs/                  # 文档
+└── *_demo.py              # 演示程序
 ```
 
 ---
 
-## 📖 文档
+## 两种模式对比
 
-- [架构文档](docs/ARCHITECTURE.md) - 详细的架构说明 (v7.4 更新)
-- [DST 文档](docs/BASIC_DST_DOCUMENTATION.md) - 增强的 DST 实现文档
-- [变更日志](docs/CHANGELOG.md) - 版本变更历史
-- [迁移指南](docs/MIGRATION.md) - 版本迁移说明 (含 v7.3 → v7.4)
-
----
-
-## 🤝 贡献
-
-欢迎贡献！请查看 issues 或提交 PR。
+| 特性 | DST 基础模式 | ContextMind 完整模式 |
+|------|------------|-------------------|
+| 技术 | ACL 2023 论文 | 五层架构上下文工程 |
+| 复杂度 | ⭐ 简单 | ⭐⭐⭐⭐ 复杂 |
+| 记忆 | ❌ 无 | ✅ 语义检索 |
+| 适用 | Baseline 实验 | 生产环境 |
 
 ---
 
-## 📄 许可证
+## 文档
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+- [架构说明](docs/ARCHITECTURE.md)
+- [DST 文档](docs/BASIC_DST_DOCUMENTATION.md)
+- [迁移指南](docs/MIGRATION.md)
+- [更新日志](docs/CHANGELOG.md)
 
 ---
 
-## ⭐ Star History
+## 开源协议
 
-如果这个项目对你有帮助，请给个 star ⭐
+MIT License
