@@ -9,8 +9,25 @@
 
 import logging
 from typing import Dict, List, Set, Optional
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+class Language(Enum):
+    """支持的语言"""
+    ZH_CN = "zh-CN"  # 简体中文
+    EN_US = "en-US"  # 英语
+    JA_JP = "ja-JP"  # 日语
+
+
+class LLMFormat(Enum):
+    """LLM平台格式"""
+    OPENAI = "openai"          # OpenAI GPT系列
+    ANTHROPIC = "anthropic"    # Claude系列
+    GOOGLE = "google"          # Gemini系列
+    QWEN = "qwen"             # 通义千问
+    GENERAL = "general"        # 通用格式（默认）
 
 
 class PromptManager:
@@ -34,16 +51,33 @@ class PromptManager:
     
     def __init__(self, 
                  domain: str = "general",
-                 enable_dynamic_slots: bool = True):
+                 enable_dynamic_slots: bool = True,
+                 language: Language = Language.ZH_CN,
+                 llm_format: LLMFormat = LLMFormat.GENERAL,
+                 template_style: str = "structured",
+                 max_context_length: Optional[int] = None):
         """
         初始化提示词管理器
         
         参数:
             domain: 对话领域
             enable_dynamic_slots: 启用动态槽位提取（推荐）
+            language: 提示词语言（默认中文）
+            llm_format: LLM平台格式（默认通用）
+            template_style: 模板风格 - "structured"(详细), "concise"(简洁), "conversational"(对话式)
+            max_context_length: 最大上下文长度（自动根据LLM格式设置）
         """
         self.domain = domain
         self.enable_dynamic_slots = enable_dynamic_slots
+        self.language = language
+        self.llm_format = llm_format
+        self.template_style = template_style
+        
+        # 根据LLM格式设置默认上下文长度
+        if max_context_length is None:
+            self.max_context_length = self._get_default_context_length()
+        else:
+            self.max_context_length = max_context_length
         
         # 可选的槽位本体（仅用于指导，不强制）
         self.ontology_slots: Dict[str, str] = {}
@@ -77,6 +111,13 @@ class PromptManager:
         返回:
             格式化的系统指令
         """
+        # 根据模板风格选择不同的指令
+        if self.template_style == "concise":
+            return self.get_concise_instruction()
+        elif self.template_style == "conversational":
+            return self.get_conversational_instruction()
+        
+        # structured 风格（默认，详细指导）
         # 基础指令
         instruction = """你是一个智能对话状态追踪系统。你的任务是从用户与系统的对话中提取关键信息。
 
@@ -198,3 +239,95 @@ class PromptManager:
             # 动态模式下不限制槽位
             return set()
         return set(self.ontology_slots.keys())
+    
+    def _get_default_context_length(self) -> int:
+        """
+        根据LLM格式获取默认上下文长度
+        
+        返回:
+            默认上下文长度（tokens）
+        """
+        context_limits = {
+            LLMFormat.OPENAI: 8000,
+            LLMFormat.ANTHROPIC: 100000,
+            LLMFormat.GOOGLE: 32000,
+            LLMFormat.QWEN: 8000,
+            LLMFormat.GENERAL: 4000,
+        }
+        return context_limits.get(self.llm_format, 4000)
+    
+    def _translate_term(self, term: str, context: str = "") -> str:
+        """
+        翻译术语到目标语言
+        
+        参数:
+            term: 要翻译的术语
+            context: 上下文（可选）
+            
+        返回:
+            翻译后的术语
+        """
+        if self.language == Language.ZH_CN:
+            return term  # 已经是中文
+        
+        # 简单的术语映射（可以扩展为更复杂的翻译系统）
+        translations = {
+            Language.EN_US: {
+                "意图": "intent",
+                "槽位": "slot",
+                "提取": "extract",
+                "对话": "dialogue",
+                "信息": "information",
+                "学科": "subject",
+                "难度": "difficulty",
+                "需求": "requirement",
+            },
+            Language.JA_JP: {
+                "意图": "意図",
+                "槽位": "スロット",
+                "提取": "抽出",
+                "对话": "対話",
+                "信息": "情報",
+            }
+        }
+        
+        lang_dict = translations.get(self.language, {})
+        return lang_dict.get(term, term)
+    
+    def get_concise_instruction(self) -> str:
+        """
+        获取简洁版系统指令（节省tokens）
+        
+        返回:
+            简洁的系统指令
+        """
+        if self.language == Language.EN_US:
+            return """Extract key information from user's latest reply in JSON format.
+Must include: "intent" field.
+Other fields: flexibly extract relevant information.
+Return JSON only, no explanations."""
+        
+        return """从用户最新回复中提取关键信息，返回JSON。
+必须包含：intent字段。
+其他字段：灵活提取相关信息。
+只返回JSON，不要解释！"""
+    
+    def get_conversational_instruction(self) -> str:
+        """
+        获取对话式系统指令（更自然）
+        
+        返回:
+            对话式系统指令
+        """
+        if self.language == Language.EN_US:
+            return """Please analyze this conversation and help me understand what the user wants.
+Tell me:
+- User's intent
+- Key information mentioned
+Reply in JSON format."""
+        
+        return """请帮我分析这段对话，理解用户想要什么。
+告诉我：
+- 用户的意图
+- 提到的关键信息
+以JSON格式回复。"""

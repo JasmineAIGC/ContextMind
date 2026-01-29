@@ -31,7 +31,7 @@ v7.4.0 新特性：
 from baseline.data_models import DialogueTurn, SpecialValue
 
 # 核心组件
-from baseline.prompt_manager import PromptManager
+from baseline.prompt_manager import PromptManager, Language, LLMFormat
 from baseline.response_parser import ResponseParser
 from baseline.dialogue_state_tracker import DialogueStateTracker
 
@@ -41,6 +41,8 @@ __all__ = [
     'ResponseParser',
     'DialogueTurn',
     'SpecialValue',
+    'Language',
+    'LLMFormat',
 ]
 
 __version__ = '7.4.0'
