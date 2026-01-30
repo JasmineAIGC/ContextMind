@@ -251,7 +251,16 @@ def main():
         raise
     
     # 创建UI
-    app, components = create_gradio_ui()
+    try:
+        app, components = create_gradio_ui()
+        logger.info("✅ UI创建成功")
+    except Exception as e:
+        logger.error(f"❌ UI创建失败: {e}", exc_info=True)
+        print(f"\n{'='*60}")
+        print(f"❌ UI创建错误: {e}")
+        print(f"请检查是否安装了gradio包: pip install gradio")
+        print(f"{'='*60}\n")
+        raise
     
     # 绑定事件
     # 发送消息
@@ -308,4 +317,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.error(f"程序启动失败: {e}", exc_info=True)
+        print(f"\n{'='*60}")
+        print(f"❌ 程序启动失败")
+        print(f"错误信息: {e}")
+        print(f"\n常见问题排查:")
+        print(f"1. 检查是否安装gradio: pip install gradio")
+        print(f"2. 检查是否配置.env文件")
+        print(f"3. 检查日志文件获取详细信息")
+        print(f"{'='*60}\n")
+        raise
