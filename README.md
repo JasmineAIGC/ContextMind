@@ -118,11 +118,6 @@ python insurance_interactive_demo.py --mode basic   # 使用预定义意图和�
 python insurance_gradio_demo.py                     # Web UI
 ```
 
-### DST 基础演示
-```bash
-python dst_demo.py
-```
-
 ---
 
 ## 场景配置系统

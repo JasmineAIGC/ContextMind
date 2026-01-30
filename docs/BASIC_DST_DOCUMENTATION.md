@@ -438,16 +438,16 @@ asyncio.run(restaurant_booking_example())
 
 ### 运行演示
 
-```bash
-# 运行 DST 演示
-python dst_demo.py
+使用统一的Interactive Demo或Gradio Demo体验DST模式：
 
-# 选择演示模式
-# 1 - 基础对话状态追踪
-# 2 - Prompt 设计展示
-# 3 - 响应解析演示
-# 4 - 对比演示
-# 5 - 运行所有演示
+```bash
+# Interactive Demo - DST模式
+python interactive_demo.py --scenario chat --mode basic
+python interactive_demo.py --scenario callcenter --mode basic
+python interactive_demo.py --scenario insurance --mode basic
+
+# Gradio Demo - 在界面中选择DST模式
+python gradio_demo.py
 ```
 
 ## 与基础槽位模板的对比
