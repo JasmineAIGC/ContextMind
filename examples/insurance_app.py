@@ -97,7 +97,7 @@ class InsuranceApplication:
         logger.debug(f"[InsuranceApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
 
     
-    def build_prompt(self, user_input: str, context: ContextResult) -> str:
+    async def build_prompt(self, user_input: str, context: ContextResult) -> str:
         """构建保险场景 Prompt"""
         logger.info("")
         logger.info("=" * 100)
@@ -245,7 +245,7 @@ class InsuranceApplication:
             }
         
         # 2. 构建 Prompt
-        prompt = self.build_prompt(user_input, context_result)
+        prompt = await self.build_prompt(user_input, context_result)
         
         if debug:
             debug_info['prompt'] = prompt

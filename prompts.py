@@ -239,9 +239,3 @@ __all__ = [
     "DEFAULT_PROMPT",
     "get_prompt",
 ]
-
-    "TECH_SUPPORT_PROMPT",
-    "EDUCATION_PROMPT",
-    "PROMPT_MAP",
-    "get_prompt",
-]
