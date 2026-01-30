@@ -3,9 +3,9 @@
 
 基于 ACL 2023 论文的增强实现，支持：
 - 动态槽位提取
-- 智能历史管理和摘要
+- 智能历史管理（模板摘要或LLM摘要）
 - 多意图追踪
-- 完全LLM驱动
+- 优化的LLM使用（默认仅在槽位提取时调用）
 
 版本: v0.4.0
 """
@@ -22,20 +22,20 @@ logger = logging.getLogger(__name__)
 
 class DialogueStateTracker:
     """
-    对话状态追踪器（增强版 - 全LLM + 智能历史管理）
+    对话状态追踪器（优化版 - 减少LLM调用）
     
-    实现完整的零样本对话状态追踪系统，符合ACL 2023论文规范，并增强：
+    实现完整的零样本对话状态追踪系统，符合ACL 2023论文规范，并优化：
     1. 动态槽位提取 - LLM自由提取任何相关信息
-    2. 智能历史管理 - 自动摘要长对话
+    2. 智能历史管理 - 模板摘要（默认）或LLM摘要（可选）
     3. 多意图追踪 - 追踪意图切换和演变
-    4. 改进的意图识别 - 更准确的意图分类
+    4. 优化LLM使用 - 默认仅在槽位提取时调用LLM
     
     核心特性：
     - 完全零样本（无需训练或微调）
     - 基于提示词工程
-    - 智能历史管理（摘要+完整最近历史）
+    - 智能历史管理（模板摘要 + 完整最近历史）
     - 支持多意图场景
-    - 完全LLM驱动（无规则方法）
+    - 优化LLM调用次数（默认每轮仅1次）
     
     属性:
         prompt_manager: 提示词管理器
@@ -48,6 +48,7 @@ class DialogueStateTracker:
         history_summary: 旧对话的摘要
         max_history_turns: 完整保留的最近对话轮数
         enable_history_summary: 是否启用历史摘要
+        use_llm_summary: 是否使用LLM生成摘要（默认False）
     """
     
     def __init__(self, 
@@ -56,7 +57,8 @@ class DialogueStateTracker:
                  domain: str = "general",
                  max_history_turns: int = 10,
                  enable_history_summary: bool = True,
-                 enable_dynamic_slots: bool = True):
+                 enable_dynamic_slots: bool = True,
+                 use_llm_summary: bool = False):
         """
         初始化对话状态追踪器
         
@@ -67,6 +69,7 @@ class DialogueStateTracker:
             max_history_turns: 完整保留的最近对话轮数（默认10）
             enable_history_summary: 是否启用历史摘要（默认True）
             enable_dynamic_slots: 是否启用动态槽位（默认True）
+            use_llm_summary: 是否使用LLM生成摘要（默认False，使用模板摘要）
         """
         self.llm_client = llm_client
         self.prompt_manager = prompt_manager or PromptManager(
@@ -90,12 +93,14 @@ class DialogueStateTracker:
         # 历史管理（新增）
         self.max_history_turns = max_history_turns
         self.enable_history_summary = enable_history_summary
+        self.use_llm_summary = use_llm_summary  # 新增：控制是否用LLM摘要
         self.history_summary: Optional[str] = None
         
         logger.info(
             f"初始化DialogueStateTracker "
             f"(领域={domain}, 动态槽位={enable_dynamic_slots}, "
-            f"历史轮数={max_history_turns}, 摘要={enable_history_summary})"
+            f"历史轮数={max_history_turns}, 摘要={enable_history_summary}, "
+            f"LLM摘要={use_llm_summary})"
         )
     
     @property
@@ -246,6 +251,7 @@ class DialogueStateTracker:
         管理对话历史（必要时触发摘要）
         
         当对话历史超过阈值时，自动摘要旧对话。
+        根据use_llm_summary设置选择使用LLM或模板方式。
         """
         if not self.enable_history_summary:
             return
@@ -259,19 +265,28 @@ class DialogueStateTracker:
              total_turns % (self.max_history_turns * 2) == 0)  # 每2倍阈值重新摘要
         )
         
-        if should_summarize and self.llm_client:
+        if should_summarize:
             # 摘要旧的对话轮次
             old_turns = self.dialogue_history[:-self.max_history_turns]
             if old_turns:
-                self.history_summary = await self._summarize_old_turns(old_turns)
-                logger.info(
-                    f"生成历史摘要（轮次1-{len(old_turns)}），"
-                    f"保留完整历史（轮次{len(old_turns)+1}-{total_turns}）"
-                )
+                if self.use_llm_summary and self.llm_client:
+                    # 使用LLM生成智能摘要（更详细但消耗资源）
+                    self.history_summary = await self._summarize_old_turns(old_turns)
+                    logger.info(
+                        f"生成LLM历史摘要（轮次1-{len(old_turns)}），"
+                        f"保留完整历史（轮次{len(old_turns)+1}-{total_turns}）"
+                    )
+                else:
+                    # 使用模板方式生成摘要（快速且不消耗LLM）
+                    self.history_summary = self._template_based_summary(old_turns)
+                    logger.info(
+                        f"生成模板历史摘要（轮次1-{len(old_turns)}），"
+                        f"保留完整历史（轮次{len(old_turns)+1}-{total_turns}）"
+                    )
     
     async def _summarize_old_turns(self, turns: List[DialogueTurn]) -> str:
         """
-        使用LLM摘要旧的对话轮次
+        使用LLM摘要旧的对话轮次（可选功能，默认不使用）
         
         提取：
         - 主要意图演变
@@ -317,6 +332,60 @@ class DialogueStateTracker:
         except Exception as e:
             logger.error(f"摘要生成失败: {e}")
             return f"（轮次1-{len(turns)}的对话历史）"
+    
+    def _template_based_summary(self, turns: List[DialogueTurn]) -> str:
+        """
+        使用模板方式生成摘要（不使用LLM，快速且节省资源）
+        
+        提取：
+        - 意图演变序列
+        - 关键槽位值
+        - 对话轮数
+        
+        参数:
+            turns: 需要摘要的对话轮次列表
+            
+        返回:
+            摘要文本
+        """
+        # 提取意图演变
+        intents = []
+        for turn in turns:
+            if turn.turn_updates and "intent" in turn.turn_updates:
+                intent = turn.turn_updates["intent"]
+                if intent and intent not in ["其他", "未知"]:
+                    intents.append(intent)
+        
+        # 提取关键槽位
+        key_slots = {}
+        for turn in turns:
+            if turn.turn_updates:
+                for slot, value in turn.turn_updates.items():
+                    if slot != "intent" and value and value.strip():
+                        # 保留最新值
+                        key_slots[slot] = value
+        
+        # 构建摘要
+        summary_parts = [f"历史对话（共{len(turns)}轮）"]
+        
+        if intents:
+            # 去重并保持顺序
+            unique_intents = []
+            seen = set()
+            for intent in intents:
+                if intent not in seen:
+                    unique_intents.append(intent)
+                    seen.add(intent)
+            summary_parts.append(f"主要意图：{' → '.join(unique_intents)}")
+        
+        if key_slots:
+            # 只显示最重要的几个槽位
+            important_slots = list(key_slots.items())[:5]
+            slot_str = ", ".join([f"{k}={v}" for k, v in important_slots])
+            summary_parts.append(f"关键信息：{slot_str}")
+        
+        return "；".join(summary_parts) + "。"
+
     
     def _update_state(self, updates: Dict[str, str]) -> None:
         """
