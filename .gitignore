@@ -42,7 +42,7 @@ log.txt
 .env.local
 
 # Data
-data/
+# data/
 *.db
 *.sqlite
 
