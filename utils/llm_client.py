@@ -200,10 +200,12 @@ class SimpleLLMClient:
                 messages=[{"role": "user", "content": prompt}],
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens,
+                stream=False,  # 显式禁用流式传输
                 extra_body=extra_body,
             )
         except Exception as e:
             # 包装异常，提供更清晰的错误信息
+            logger.error(f"LLM API调用失败: {str(e)}", exc_info=True)
             raise RuntimeError(
                 f"调用 LLM API 失败 (model: {self.config.model}): {str(e)}"
             ) from e
@@ -279,9 +281,11 @@ class SimpleLLMClient:
                 messages=messages,
                 temperature=temp,
                 max_tokens=self.config.max_tokens,
+                stream=False,  # 显式禁用流式传输
                 extra_body=extra_body,
             )
         except Exception as e:
+            logger.error(f"LLM API调用失败: {str(e)}", exc_info=True)
             raise RuntimeError(
                 f"调用 LLM API 失败 (model: {self.config.model}): {str(e)}"
             ) from e
