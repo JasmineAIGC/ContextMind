@@ -247,7 +247,6 @@ def create_gradio_ui():
             height=500,
             label="💬 对话窗口",
             avatar_images=(None, "🤖"),
-            bubble_full_width=False,
             elem_classes=["chatbot"]
         )
         
