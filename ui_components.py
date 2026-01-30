@@ -242,6 +242,33 @@ def create_gradio_ui():
             
             config_status = gr.Markdown("📌 当前配置: 场景=闲聊对话, 模式=contextmind", elem_classes=["config-status"])
         
+        # 高级设置区域
+        with gr.Accordion("⚙️ 高级设置", open=False):
+            with gr.Row():
+                max_history_slider = gr.Slider(
+                    minimum=5,
+                    maximum=50,
+                    value=10,
+                    step=1,
+                    label="最大历史轮数 (DST模式)",
+                    info="DST模式保存的对话轮数"
+                )
+                
+            with gr.Row():
+                enable_summary_check = gr.Checkbox(
+                    value=True,
+                    label="启用历史摘要",
+                    info="长对话时自动摘要历史"
+                )
+                use_llm_summary_check = gr.Checkbox(
+                    value=False,
+                    label="使用LLM生成摘要",
+                    info="使用LLM生成摘要（更智能但慢）"
+                )
+            
+            apply_settings_btn = gr.Button("💾 应用设置", elem_classes=["primary-button"])
+            settings_status = gr.Markdown("⚙️ 设置: 历史轮数=10, 摘要=启用", elem_classes=["config-status"])
+        
         # 对话区域
         chatbot = gr.Chatbot(
             height=500,
@@ -312,6 +339,11 @@ def create_gradio_ui():
             "mode_selector": mode_selector,
             "apply_btn": apply_btn,
             "config_status": config_status,
+            "max_history_slider": max_history_slider,
+            "enable_summary_check": enable_summary_check,
+            "use_llm_summary_check": use_llm_summary_check,
+            "apply_settings_btn": apply_settings_btn,
+            "settings_status": settings_status,
             "chatbot": chatbot,
             "msg": msg,
             "send_btn": send_btn,

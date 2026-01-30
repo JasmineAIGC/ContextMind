@@ -3,12 +3,12 @@
 ContextMind 统一交互式Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：basic（DST）、contextmind（完整模式）
+支持两种模式：dst（对话状态追踪）、contextmind（完整模式）
 
 使用方式:
     python interactive_demo.py --scenario chat --mode contextmind
-    python interactive_demo.py --scenario callcenter --mode basic
-    python interactive_demo.py --scenario insurance --mode contextmind
+    python interactive_demo.py --scenario callcenter --mode dst
+    python interactive_demo.py --scenario insurance --mode contextmind --log-level DEBUG
 """
 
 import asyncio
@@ -33,23 +33,36 @@ logger = get_logger(__name__)
 class UnifiedInteractiveDemo:
     """统一的交互式Demo类"""
     
-    def __init__(self, scenario: str = "chat", mode: str = "contextmind"):
+    def __init__(
+        self, 
+        scenario: str = "chat", 
+        mode: str = "contextmind",
+        max_history_turns: int = 10,
+        enable_summary: bool = True,
+        use_llm_summary: bool = False
+    ):
         """
         初始化Demo
         
         Args:
             scenario: 场景类型 (chat/callcenter/insurance)
-            mode: 对话模式 (basic/contextmind)
+            mode: 对话模式 (dst/contextmind)
+            max_history_turns: DST模式的最大历史轮数
+            enable_summary: 是否启用历史摘要
+            use_llm_summary: 是否使用LLM生成摘要
         """
         self.scenario = scenario
         self.mode = mode
+        self.max_history_turns = max_history_turns
+        self.enable_summary = enable_summary
+        self.use_llm_summary = use_llm_summary
         self.config = self._load_scenario_config()
         
         # 延迟初始化LLM客户端（只在需要时创建）
         self.llm_client = None
         
         # 初始化对应模式
-        if mode == "basic":
+        if mode == "dst":
             self._init_dst_mode()
         else:
             self._init_contextmind_mode()
@@ -99,8 +112,9 @@ class UnifiedInteractiveDemo:
         self.dst_tracker = DialogueStateTracker(
             llm_client=self.llm_client,
             prompt_manager=pm,
-            use_llm_summary=False,  # 使用模板摘要
-            max_history_turns=10
+            use_llm_summary=self.use_llm_summary,  # 使用参数配置
+            max_history_turns=self.max_history_turns,  # 使用参数配置
+            enable_history_summary=self.enable_summary  # 使用参数配置
         )
         
         self.app = None  # DST模式不使用app
@@ -143,13 +157,17 @@ class UnifiedInteractiveDemo:
         print(f"📱 ContextMind 统一交互式Demo v0.4.0")
         print("="*60)
         print(f"场景: {self.config.name}")
-        print(f"模式: {'DST基础模式' if self.mode == 'basic' else 'ContextMind完整模式'}")
+        print(f"模式: {'DST模式' if self.mode == 'dst' else 'ContextMind完整模式'}")
+        print(f"日志级别: {logging.getLevelName(logger.level)}")
+        print(f"最大历史轮数: {self.max_history_turns}")
         print("="*60)
         
-        if self.mode == "basic":
+        if self.mode == "dst":
             print(f"✓ 已加载 {len(self.config.dst_slots)} 个槽位")
             if self.config.dst_intents:
                 print(f"✓ 已加载 {len(self.config.dst_intents)} 个意图类别")
+            print(f"✓ 历史摘要: {'启用' if self.enable_summary else '禁用'}")
+            print(f"✓ 摘要方式: {'LLM生成' if self.use_llm_summary else '模板生成'}")
         else:
             print("✓ 五层架构: 感知层、记忆层、上下文层、生成层、进化层")
             print(f"✓ 记忆功能: {'启用' if self.config.enable_memory else '禁用'}")
@@ -158,11 +176,11 @@ class UnifiedInteractiveDemo:
         print("\n💡 使用提示:")
         print("  - 输入 /quit 或 /exit 退出程序")
         print("  - 输入 /reset 重置对话")
-        if self.mode == "basic":
+        if self.mode == "dst":
             print("  - 输入 /state 查看当前对话状态")
         print("="*60 + "\n")
     
-    async def chat_basic_mode(self, user_message: str) -> str:
+    async def chat_dst_mode(self, user_message: str) -> str:
         """DST模式对话"""
         try:
             # 处理对话轮次
@@ -196,14 +214,14 @@ class UnifiedInteractiveDemo:
     
     async def chat(self, user_message: str) -> str:
         """统一的对话接口"""
-        if self.mode == "basic":
-            return await self.chat_basic_mode(user_message)
+        if self.mode == "dst":
+            return await self.chat_dst_mode(user_message)
         else:
             return await self.chat_contextmind_mode(user_message)
     
     def show_state(self):
         """显示当前状态（仅DST模式）"""
-        if self.mode != "basic":
+        if self.mode != "dst":
             print("⚠️  状态查看功能仅在DST模式下可用")
             return
         
@@ -217,7 +235,7 @@ class UnifiedInteractiveDemo:
     
     def reset(self):
         """重置对话"""
-        if self.mode == "basic":
+        if self.mode == "dst":
             self.dst_tracker.reset_dialogue()
         else:
             # ContextMind模式重新初始化
@@ -273,8 +291,9 @@ def parse_args():
         epilog="""
 使用示例:
   python interactive_demo.py --scenario chat --mode contextmind
-  python interactive_demo.py --scenario callcenter --mode basic
-  python interactive_demo.py --scenario insurance --mode contextmind
+  python interactive_demo.py --scenario callcenter --mode dst
+  python interactive_demo.py --scenario insurance --mode contextmind --log-level DEBUG
+  python interactive_demo.py --scenario insurance --mode dst --max-history-turns 20
         """
     )
     
@@ -287,9 +306,46 @@ def parse_args():
     
     parser.add_argument(
         '--mode',
-        choices=['basic', 'contextmind'],
+        choices=['dst', 'contextmind'],
         default='contextmind',
-        help='选择模式: basic(DST) / contextmind(完整模式)'
+        help='选择模式: dst(对话状态追踪) / contextmind(完整模式)'
+    )
+    
+    parser.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default='INFO',
+        help='日志级别 (默认: INFO)'
+    )
+    
+    parser.add_argument(
+        '--max-history-turns',
+        type=int,
+        default=10,
+        metavar='N',
+        help='DST模式的最大历史轮数 (默认: 10)'
+    )
+    
+    parser.add_argument(
+        '--enable-summary',
+        dest='enable_summary',
+        action='store_true',
+        default=True,
+        help='启用历史摘要 (默认: 启用)'
+    )
+    
+    parser.add_argument(
+        '--no-summary',
+        dest='enable_summary',
+        action='store_false',
+        help='禁用历史摘要'
+    )
+    
+    parser.add_argument(
+        '--use-llm-summary',
+        action='store_true',
+        default=False,
+        help='使用LLM生成摘要而非模板 (默认: False, 使用模板更快)'
     )
     
     return parser.parse_args()
@@ -299,9 +355,18 @@ async def main():
     """主函数"""
     args = parse_args()
     
+    # 设置日志级别
+    logger.setLevel(getattr(logging, args.log_level))
+    
+    # 显示配置信息
+    logger.info(f"启动参数: scenario={args.scenario}, mode={args.mode}, log_level={args.log_level}, max_history_turns={args.max_history_turns}")
+    
     demo = UnifiedInteractiveDemo(
         scenario=args.scenario,
-        mode=args.mode
+        mode=args.mode,
+        max_history_turns=args.max_history_turns,
+        enable_summary=args.enable_summary,
+        use_llm_summary=args.use_llm_summary
     )
     
     await demo.run()

@@ -243,6 +243,21 @@ class UnifiedGradioDemo:
         status = f"📌 当前配置: 场景={scenario_names.get(scenario, scenario)}, 模式={mode}"
         logger.info(f"配置已更新: {scenario}, {mode}")
         return [], status
+    
+    def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool):
+        """更新设置"""
+        self.max_history_turns = max_history_turns
+        
+        # 如果当前是DST模式且已初始化，更新追踪器设置
+        if self.current_mode == "dst" and self.tracker:
+            self.tracker.max_history_turns = max_history_turns
+            self.tracker.enable_history_summary = enable_summary
+            self.tracker.use_llm_summary = use_llm_summary
+            logger.info(f"设置已更新: max_history_turns={max_history_turns}, enable_summary={enable_summary}, use_llm_summary={use_llm_summary}")
+        
+        summary_status = "启用" if enable_summary else "禁用"
+        llm_summary_status = "LLM生成" if use_llm_summary else "模板生成"
+        return f"⚙️ 设置已更新: 历史轮数={max_history_turns}, 摘要={summary_status}, 摘要方式={llm_summary_status}"
 
 
 def parse_args():
@@ -366,6 +381,17 @@ def main():
         fn=demo_instance.change_scenario_or_mode,
         inputs=[components["scenario_selector"], components["mode_selector"]],
         outputs=[components["chatbot"], components["config_status"]]
+    )
+    
+    # 应用设置
+    components["apply_settings_btn"].click(
+        fn=demo_instance.update_settings,
+        inputs=[
+            components["max_history_slider"],
+            components["enable_summary_check"],
+            components["use_llm_summary_check"]
+        ],
+        outputs=[components["settings_status"]]
     )
     
     # 启动应用（CSS参数移到这里，兼容Gradio 6.0）
