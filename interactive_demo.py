@@ -44,7 +44,14 @@ class UnifiedInteractiveDemo:
         self.scenario = scenario
         self.mode = mode
         self.config = self._load_scenario_config()
-        self.llm_client = SimpleLLMClient()
+        
+        # 延迟初始化LLM客户端，避免启动时就报错
+        try:
+            self.llm_client = SimpleLLMClient()
+        except RuntimeError as e:
+            logger.error(f"LLM客户端初始化失败: {e}")
+            logger.error("请确保已安装 OpenAI 包: pip install openai")
+            raise
         
         # 初始化对应模式
         if mode == "basic":

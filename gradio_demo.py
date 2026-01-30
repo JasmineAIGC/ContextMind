@@ -32,16 +32,14 @@ class UnifiedGradioDemo:
     """统一的Gradio Demo类"""
     
     def __init__(self):
-        """初始化Demo"""
-        self.current_scenario = "chat"
-        self.current_mode = "ContextMind完整模式"
-        self.llm_client = SimpleLLMClient()
+        """初始化Demo（延迟模式）"""
+        self.current_scenario = None
+        self.current_mode = None
+        self.llm_client = None
         self.config = None
         self.dst_tracker = None
         self.app = None
-        
-        # 初始化默认场景
-        self.initialize_scenario("chat", "ContextMind完整模式")
+        self.initialized = False
     
     def initialize_scenario(self, scenario: str, mode: str):
         """初始化场景和模式"""
@@ -66,6 +64,14 @@ class UnifiedGradioDemo:
     
     def _init_dst_mode(self):
         """初始化DST模式"""
+        # 创建LLM客户端（如果还没有）
+        if self.llm_client is None:
+            try:
+                self.llm_client = SimpleLLMClient()
+            except RuntimeError as e:
+                logger.error(f"LLM客户端初始化失败: {e}")
+                raise
+        
         # 创建PromptManager
         pm = PromptManager(
             domain=self.config.scenario_name,
@@ -92,6 +98,14 @@ class UnifiedGradioDemo:
     
     def _init_contextmind_mode(self):
         """初始化ContextMind模式"""
+        # 创建LLM客户端（如果还没有）
+        if self.llm_client is None:
+            try:
+                self.llm_client = SimpleLLMClient()
+            except RuntimeError as e:
+                logger.error(f"LLM客户端初始化失败: {e}")
+                raise
+        
         engine = ContextEngine(
             system_prompt=self.config.system_prompt,
             enable_memory=self.config.enable_memory,
@@ -110,6 +124,11 @@ class UnifiedGradioDemo:
     async def chat(self, message: str, history: List[Tuple[str, str]]) -> Tuple[str, List[Tuple[str, str]]]:
         """处理对话"""
         try:
+            # 首次使用时初始化
+            if not self.initialized:
+                self.initialize_scenario("chat", "ContextMind完整模式")
+                self.initialized = True
+            
             if not message or not message.strip():
                 return "", history
             
@@ -184,6 +203,7 @@ class UnifiedGradioDemo:
         """切换场景或模式"""
         if scenario != self.current_scenario or mode != self.current_mode:
             self.initialize_scenario(scenario, mode)
+            self.initialized = True
             return [], f"✅ 已切换到: {scenario} - {mode}"
         return [], f"当前已是: {scenario} - {mode}"
 
