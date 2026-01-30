@@ -1,2 +1,0 @@
-[2026-01-30 08:58:45] ERROR - [gradio_demo] LLM客户端初始化失败: 未安装 OpenAI 包。请使用以下命令安装: pip install openai
-或使用 --no-llm 标志运行而不需要真实的 LLM 调用。
