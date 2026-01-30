@@ -27,6 +27,242 @@ from apps.insurance_app import InsuranceApplication
 setup_logging()
 logger = get_logger(__name__)
 
+# 自定义CSS样式
+CUSTOM_CSS = """
+/* 全局样式优化 */
+.gradio-container {
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+}
+
+/* 美化标题 */
+.main-title {
+    text-align: center !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    font-size: 2.2em !important;
+    font-weight: 700 !important;
+    margin-bottom: 0.3em !important;
+}
+
+/* 配置区域美化 */
+.config-section {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+    padding: 20px !important;
+    border-radius: 15px !important;
+    margin: 15px 0 !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
+}
+
+/* 输入框美化 */
+textarea {
+    border-radius: 10px !important;
+    border: 2px solid #e1e8ed !important;
+    font-size: 15px !important;
+    padding: 12px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+textarea:focus {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* 主按钮美化 */
+.primary-button button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 600 !important;
+    border-radius: 10px !important;
+    padding: 12px 28px !important;
+    font-size: 15px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35) !important;
+}
+
+.primary-button button:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.45) !important;
+}
+
+.primary-button button:active {
+    transform: translateY(-1px) !important;
+}
+
+/* 次要按钮美化 */
+.secondary-button button {
+    background: white !important;
+    border: 2px solid #667eea !important;
+    color: #667eea !important;
+    font-weight: 600 !important;
+    border-radius: 10px !important;
+    padding: 10px 24px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.secondary-button button:hover {
+    background: #667eea !important;
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* 对话框美化 */
+.chatbot {
+    border-radius: 15px !important;
+    border: 2px solid #e1e8ed !important;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    background: white !important;
+}
+
+/* 消息气泡样式 */
+.message {
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+    margin: 8px 0 !important;
+}
+
+.message.user {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+}
+
+.message.bot {
+    background: #f5f7fa !important;
+    border: 1px solid #e1e8ed !important;
+}
+
+/* Radio按钮组美化 */
+.radio-group label {
+    padding: 10px 20px !important;
+    border-radius: 10px !important;
+    border: 2px solid #e1e8ed !important;
+    margin: 5px !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+}
+
+.radio-group label:hover {
+    border-color: #667eea !important;
+    background: #f5f7fa !important;
+}
+
+.radio-group input:checked + label {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    border-color: transparent !important;
+}
+
+/* 下拉框美化 */
+select, .dropdown {
+    border-radius: 10px !important;
+    border: 2px solid #e1e8ed !important;
+    padding: 10px 15px !important;
+    font-size: 15px !important;
+    transition: all 0.3s ease !important;
+    background: white !important;
+}
+
+select:focus, .dropdown:focus {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15) !important;
+}
+
+/* Accordion美化 */
+.accordion {
+    border-radius: 12px !important;
+    border: 2px solid #e1e8ed !important;
+    overflow: hidden !important;
+    margin: 15px 0 !important;
+}
+
+.accordion summary {
+    background: linear-gradient(to right, #f5f7fa, #e1e8ed) !important;
+    padding: 12px 18px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+}
+
+.accordion summary:hover {
+    background: linear-gradient(to right, #e1e8ed, #d3dce6) !important;
+}
+
+/* JSON显示区域美化 */
+.json-display {
+    background: #2d3748 !important;
+    color: #e2e8f0 !important;
+    border-radius: 10px !important;
+    padding: 16px !important;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    max-height: 350px !important;
+    overflow-y: auto !important;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1 !important;
+    border-radius: 10px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-radius: 10px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+}
+
+/* 加载动画 */
+.loading {
+    animation: pulse 1.5s ease-in-out infinite !important;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .gradio-container {
+        padding: 15px !important;
+    }
+    
+    .main-title {
+        font-size: 1.6em !important;
+    }
+    
+    textarea, button, select {
+        font-size: 14px !important;
+    }
+}
+
+/* 添加过渡动画 */
+* {
+    transition: all 0.2s ease !important;
+}
+
+/* 禁用某些元素的过渡 */
+.chatbot *, .json-display * {
+    transition: none !important;
+}
+"""
+
 
 class UnifiedGradioDemo:
     """统一的Gradio Demo类"""
@@ -233,72 +469,112 @@ def change_scenario_wrapper(scenario, mode):
 
 
 # 创建Gradio界面
-with gr.Blocks(title="ContextMind 统一Demo v0.4.0", theme=gr.themes.Soft()) as app:
-    gr.Markdown("# 🤖 ContextMind 统一对话系统 v0.4.0")
-    gr.Markdown("支持三个场景（闲聊、客服、保险）和两种模式（DST、ContextMind）")
+with gr.Blocks(title="ContextMind 统一Demo v0.4.0", css=CUSTOM_CSS) as app:
+    # 主标题
+    gr.Markdown("# 🤖 ContextMind 统一对话系统", elem_classes=["main-title"])
+    gr.Markdown("### 智能对话 · 场景灵活 · 模式可选", elem_classes=["subtitle"])
     
-    with gr.Row():
-        with gr.Column(scale=2):
+    # 配置区域
+    with gr.Group(elem_classes=["config-section"]):
+        gr.Markdown("#### ⚙️ 场景与模式配置")
+        with gr.Row():
             # 场景选择
-            scenario_selector = gr.Radio(
-                choices=["chat", "callcenter", "insurance"],
+            scenario_selector = gr.Dropdown(
+                choices=[
+                    ("💬 闲聊对话", "chat"),
+                    ("📞 智能客服", "callcenter"),
+                    ("🏥 保险咨询", "insurance")
+                ],
                 value="chat",
-                label="📋 选择场景",
-                info="chat=闲聊 | callcenter=客服 | insurance=保险"
+                label="选择场景",
+                info="不同场景有不同的提示词和配置",
+                scale=2
             )
             
             # 模式选择
             mode_selector = gr.Radio(
-                choices=["ContextMind完整模式", "DST基础模式"],
-                value="ContextMind完整模式",
-                label="⚙️ 选择模式"
+                choices=["contextmind", "dst"],
+                value="contextmind",
+                label="选择模式",
+                info="contextmind=完整模式 | dst=基础状态追踪",
+                scale=2
             )
             
             # 应用按钮
-            apply_btn = gr.Button("🔄 应用设置", variant="primary")
-            status_output = gr.Textbox(label="状态", interactive=False)
+            apply_btn = gr.Button("✨ 应用配置", variant="primary", scale=1, elem_classes=["primary-button"])
         
-        with gr.Column(scale=3):
-            # 聊天界面
-            chatbot = gr.Chatbot(
-                label="对话窗口",
-                height=400,
-                show_label=True
-            )
-            
-            with gr.Row():
-                msg_input = gr.Textbox(
-                    label="输入消息",
-                    placeholder="在这里输入您的消息...",
-                    scale=4
-                )
-                send_btn = gr.Button("发送", variant="primary", scale=1)
-            
-            with gr.Row():
-                reset_btn = gr.Button("🔄 重置对话")
-                state_btn = gr.Button("📊 查看状态")
-            
-            state_display = gr.Markdown("", label="对话状态")
+        status_output = gr.Textbox(label="📌 配置状态", interactive=False, show_label=True)
+    
+    # 对话区域
+    chatbot = gr.Chatbot(
+        label="💬 对话窗口",
+        height=500,
+        show_label=True,
+        avatar_images=(None, "🤖"),
+        bubble_full_width=False,
+        elem_classes=["chatbot"]
+    )
+    
+    # 输入区域
+    with gr.Row(elem_classes=["input-row"]):
+        msg_input = gr.Textbox(
+            label="",
+            placeholder="💭 在这里输入您的消息...",
+            scale=5,
+            show_label=False,
+            container=False
+        )
+        send_btn = gr.Button("📤 发送", variant="primary", scale=1, elem_classes=["primary-button"])
+    
+    # 状态和操作区域
+    with gr.Accordion("📊 对话状态与操作", open=False, elem_classes=["accordion"]):
+        state_display = gr.JSON(label="当前状态", elem_classes=["json-display"])
+        
+        with gr.Row():
+            state_btn = gr.Button("🔍 查看状态", elem_classes=["secondary-button"])
+            reset_btn = gr.Button("🔄 重置对话", elem_classes=["secondary-button"])
+            clear_btn = gr.Button("🗑️ 清空历史", elem_classes=["secondary-button"])
     
     # 使用提示
-    with gr.Accordion("💡 使用提示", open=False):
+    with gr.Accordion("💡 使用指南", open=False, elem_classes=["accordion"]):
         gr.Markdown("""
-        ### 场景说明
-        - **chat（闲聊）**: 日常闲聊对话，动态槽位提取
-        - **callcenter（客服）**: 智能客服场景，问题追踪和解决
-        - **insurance（保险）**: 共荣保险客服，癌症保险咨询
+        ### 📋 场景说明
         
-        ### 模式说明
-        - **ContextMind完整模式**: 五层架构（感知、记忆、上下文、生成、进化）
-        - **DST基础模式**: 对话状态追踪，基于预定义意图和槽位
+        | 场景 | 说明 | 特点 |
+        |------|------|------|
+        | 💬 **闲聊对话** | 日常聊天场景 | 动态槽位，开放意图 |
+        | 📞 **智能客服** | 专业客服系统 | 问题追踪，工单管理 |
+        | 🏥 **保险咨询** | 共荣保险客服 | 双层意图，预定义槽位 |
         
-        ### 使用步骤
-        1. 选择场景和模式
-        2. 点击"应用设置"
-        3. 在输入框中输入消息
-        4. 点击"发送"开始对话
-        5. 可随时切换场景和模式
+        ### ⚙️ 模式说明
+        
+        - **contextmind**: 完整的五层架构（感知→记忆→上下文→生成→进化）
+        - **dst**: 基础对话状态追踪（意图识别 + 槽位提取）
+        
+        ### 🎯 使用技巧
+        
+        1. **选择场景**: 根据对话目的选择合适的场景
+        2. **选择模式**: contextmind功能更强，dst更轻量快速
+        3. **点击应用**: 修改配置后记得点击"应用配置"按钮
+        4. **开始对话**: 在输入框输入消息，点击发送或按Enter
+        5. **查看状态**: DST模式下可查看提取的意图和槽位
+        6. **重置对话**: 清空对话历史，重新开始
+        
+        ### ⚠️ 注意事项
+        
+        - 首次使用需要配置API密钥（.env文件）
+        - 支持的API: QWEN3_API_KEY, LLM_API_KEY, OPENAI_API_KEY
+        - 状态查看功能仅在DST模式下可用
         """)
+    
+    # 底部信息
+    gr.Markdown("""
+    ---
+    <div style="text-align: center; color: #666; font-size: 14px;">
+        <p>ContextMind v0.4.0 | 基于五层对话架构 | 支持多场景多模式</p>
+        <p>💡 Powered by LLM | 🚀 Built with Gradio</p>
+    </div>
+    """)
     
     # 事件绑定
     apply_btn.click(
@@ -328,12 +604,20 @@ with gr.Blocks(title="ContextMind 统一Demo v0.4.0", theme=gr.themes.Soft()) as
         fn=get_state_wrapper,
         outputs=state_display
     )
+    
+    clear_btn.click(
+        lambda: ([], "✅ 历史已清空"),
+        outputs=[chatbot, status_output]
+    )
 
 
 if __name__ == "__main__":
-    logger.info("启动ContextMind统一Gradio Demo")
+    logger.info("🚀 启动ContextMind统一Gradio Demo")
+    logger.info("📍 访问地址: http://0.0.0.0:7860")
     app.queue().launch(
         server_name="0.0.0.0",
         server_port=7860,
-        share=False
+        share=False,
+        show_error=True,
+        quiet=False
     )
