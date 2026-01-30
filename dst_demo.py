@@ -12,7 +12,7 @@ import os
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 import json
 
 
@@ -138,7 +138,7 @@ async def demo_response_parsing():
     print("=" * 80)
     print()
     
-    from baseline import ResponseParser
+    from dst import ResponseParser
     
     # 创建解析器
     prompt_manager = PromptManager()

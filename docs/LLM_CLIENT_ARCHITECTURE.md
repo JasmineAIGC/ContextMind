@@ -67,7 +67,7 @@ ContextMind v0.4.0 使用 **SimpleLLMClient** 作为统一的 LLM 客户端。
 v0.4.0 通过 **PromptManager 通用化** 实现了对不同 LLM 的支持：
 
 ```python
-from baseline import PromptManager, Language, LLMFormat
+from dst import PromptManager, Language, LLMFormat
 
 # OpenAI 格式
 pm_openai = PromptManager(

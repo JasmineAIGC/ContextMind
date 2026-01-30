@@ -139,7 +139,7 @@ print(result.extracted_knowledge)
 #### 3. 增强的 DST 实现 (自动兼容)
 
 **改进说明：**
-- baseline 模块完整支持 ACL 2023 论文规范
+- dst 模块完整支持 ACL 2023 论文规范
 - 100% 文档覆盖率（完整 docstrings）
 - 100% 类型提示覆盖率
 - 生产级代码质量
@@ -147,7 +147,7 @@ print(result.extracted_knowledge)
 **新增数据结构：**
 
 ```python
-from baseline import DialogueStateTracker, SpecialValue, DialogueTurn
+from dst import DialogueStateTracker, SpecialValue, DialogueTurn
 from enum import Enum
 from dataclasses import dataclass
 

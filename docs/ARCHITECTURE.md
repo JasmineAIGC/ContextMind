@@ -92,7 +92,7 @@ ContextMind/
 │   ├── embedding.py         # 嵌入向量工具
 │   └── data_models.py       # 数据模型
 │
-├── baseline/                # 增强的 DST 实现 (v7.4)
+├── dst/                # 增强的 DST 实现 (v7.4)
 │   ├── __init__.py
 │   └── dialogue_state_tracker.py  # 完整 ACL 2023 实现
 │
@@ -227,7 +227,7 @@ MemoryBank 实现了 4 子模块架构：
 
 **变更说明：**
 - utils 模块从 `contextmind/utils/` 移至根目录 `utils/`
-- 完全独立，不依赖 contextmind 或 baseline 模块
+- 完全独立，不依赖 contextmind 或 dst 模块
 - 统一的工具供所有模式使用（DST 和 ContextMind）
 
 **新结构：**
@@ -376,7 +376,7 @@ from contextmind.memory import (
 from contextmind import ContextMind, ContextEngine
 
 # DST 组件（增强实现）
-from baseline import (
+from dst import (
     DialogueStateTracker,
     PromptManager,
     ResponseParser,

@@ -13,9 +13,9 @@
 import logging
 from typing import Dict, List, Optional
 
-from baseline.data_models import DialogueTurn
-from baseline.prompt_manager import PromptManager
-from baseline.response_parser import ResponseParser
+from dst.data_models import DialogueTurn
+from dst.prompt_manager import PromptManager
+from dst.response_parser import ResponseParser
 
 logger = logging.getLogger(__name__)
 

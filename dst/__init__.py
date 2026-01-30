@@ -28,12 +28,12 @@ v0.4.0 新特性：
 """
 
 # 数据模型
-from baseline.data_models import DialogueTurn, SpecialValue
+from dst.data_models import DialogueTurn, SpecialValue
 
 # 核心组件
-from baseline.prompt_manager import PromptManager, Language, LLMFormat
-from baseline.response_parser import ResponseParser
-from baseline.dialogue_state_tracker import DialogueStateTracker
+from dst.prompt_manager import PromptManager, Language, LLMFormat
+from dst.response_parser import ResponseParser
+from dst.dialogue_state_tracker import DialogueStateTracker
 
 __all__ = [
     'DialogueStateTracker',

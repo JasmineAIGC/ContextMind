@@ -359,16 +359,16 @@ from examples.llm_client import SimpleLLMClient
 #### 删除的文件
 - `slot_template_demo.py` - 槽位模板演示
 - `comparison_experiment.py` - 对比实验（使用了槽位模板）
-- `baseline/engine.py` - SlotTemplateEngine
-- `baseline/template_manager.py` - TemplateManager
-- `baseline/intent_extractor.py` - IntentExtractor
+- `dst/engine.py` - SlotTemplateEngine
+- `dst/template_manager.py` - TemplateManager
+- `dst/intent_extractor.py` - IntentExtractor
 
 #### 保留的文件
-- `baseline/dialogue_state_tracker.py` - 基础 DST 实现（这是基础版本）
+- `dst/dialogue_state_tracker.py` - 基础 DST 实现（这是基础版本）
 - `baseline_demo.py` - 基础版本演示
 
 #### 更新的文件
-- `baseline/__init__.py` - 只导出 DST 相关类
+- `dst/__init__.py` - 只导出 DST 相关类
 - `prompts.py` - 删除 SLOT_TEMPLATE_SYSTEM_PROMPT
 - `README.md` - 更新项目结构和说明
 

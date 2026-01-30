@@ -55,7 +55,7 @@ print(response)
 #### DST 基础模式
 
 ```python
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 from utils import SimpleLLMClient
 
 # 初始化
@@ -96,7 +96,7 @@ python baseline_demo.py
 ```
 ContextMind/
 ├── contextmind/           # 完整框架（五层架构）
-├── baseline/              # DST 基础实现（ACL 2023）
+├── dst/              # DST 基础实现（ACL 2023）
 ├── utils/                 # 通用工具（logger, LLM client）
 ├── examples/              # 应用示例
 ├── docs/                  # 文档

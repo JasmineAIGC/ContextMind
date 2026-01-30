@@ -178,7 +178,7 @@ result = parser.extract_json(response)  # 尽力提取
 
 ```python
 from utils.llm_client import SimpleLLMClient
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 
 # 1. 创建LLM客户端（所有理解由LLM完成）
 llm = SimpleLLMClient()
@@ -303,7 +303,7 @@ LLM输出:
 ```python
 import asyncio
 from utils.llm_client import SimpleLLMClient
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 
 async def main():
     # 初始化
@@ -467,7 +467,7 @@ LLM输出: {
 
 ```python
 from utils.llm_client import SimpleLLMClient
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 
 # 1. 初始化
 llm = SimpleLLMClient()

@@ -36,7 +36,7 @@ import traceback
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
 from examples.chat_app import ChatApplication
 from prompts import CHAT_SYSTEM_PROMPT
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 
 # 设置日志级别为 INFO
 setup_logging(level=LogLevel.INFO)

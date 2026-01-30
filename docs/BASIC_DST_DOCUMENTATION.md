@@ -47,7 +47,7 @@
 **示例：**
 
 ```python
-from baseline import PromptManager
+from dst import PromptManager
 
 # 创建提示词管理器
 pm = PromptManager(domain="restaurant")
@@ -119,7 +119,7 @@ instruction = pm.get_system_instruction()
 **示例：**
 
 ```python
-from baseline import ResponseParser, PromptManager
+from dst import ResponseParser, PromptManager
 
 pm = PromptManager()
 parser = ResponseParser(pm)
@@ -168,7 +168,7 @@ filtered = parser.filter_hallucinations(result1)
 **新增数据结构：**
 
 ```python
-from baseline import DialogueStateTracker, SpecialValue, DialogueTurn
+from dst import DialogueStateTracker, SpecialValue, DialogueTurn
 from enum import Enum
 from dataclasses import dataclass
 
@@ -192,7 +192,7 @@ class DialogueTurn:
 **示例：**
 
 ```python
-from baseline import DialogueStateTracker
+from dst import DialogueStateTracker
 from utils import SimpleLLMClient  # v7.4 新导入路径
 import asyncio
 
@@ -383,7 +383,7 @@ def _update_state(self, updates: Dict[str, str]):
 
 ```python
 import asyncio
-from baseline import DialogueStateTracker, PromptManager
+from dst import DialogueStateTracker, PromptManager
 
 async def restaurant_booking_example():
     # 1. 创建自定义提示词管理器
