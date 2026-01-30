@@ -7,9 +7,13 @@ ContextMind 统一Gradio Web Demo
 
 使用方式:
     python gradio_demo.py
+    python gradio_demo.py --log-level DEBUG --port 8080
+    python gradio_demo.py --max-history-turns 20 --share
 """
 
+import argparse
 import asyncio
+import logging
 from typing import List, Tuple, Optional
 from datetime import datetime
 
@@ -23,7 +27,7 @@ from apps.callcenter_app import CallCenterApplication
 from apps.insurance_app import InsuranceApplication
 from ui_components import create_gradio_ui, CUSTOM_CSS
 
-# 设置日志
+# 初始设置日志（稍后会根据参数调整）
 setup_logging()
 logger = get_logger(__name__)
 
@@ -31,13 +35,19 @@ logger = get_logger(__name__)
 class UnifiedGradioDemo:
     """统一的Gradio Demo类"""
     
-    def __init__(self):
-        """初始化Demo"""
+    def __init__(self, max_history_turns: int = 10):
+        """
+        初始化Demo
+        
+        Args:
+            max_history_turns: DST模式的最大历史轮数
+        """
         self.current_scenario = None
         self.current_mode = None
         self.config = None
         self.llm_client = None
         self.tracker = None
+        self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
         self.history = []
@@ -235,13 +245,64 @@ class UnifiedGradioDemo:
         return [], status
 
 
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(
+        description="ContextMind Gradio Web Demo",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  python gradio_demo.py
+  python gradio_demo.py --log-level DEBUG
+  python gradio_demo.py --port 8080 --share
+  python gradio_demo.py --max-history-turns 20 --log-level INFO
+        """
+    )
+    
+    parser.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default='INFO',
+        help='日志级别 (默认: INFO)'
+    )
+    
+    parser.add_argument(
+        '--max-history-turns',
+        type=int,
+        default=10,
+        help='DST模式的最大历史轮数 (默认: 10)'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=7860,
+        help='Web服务器端口 (默认: 7860)'
+    )
+    
+    parser.add_argument(
+        '--share',
+        action='store_true',
+        help='创建公共分享链接'
+    )
+    
+    return parser.parse_args()
+
+
 def main():
     """主函数"""
+    # 解析命令行参数
+    args = parse_args()
+    
+    # 设置日志级别
+    logger.setLevel(getattr(logging, args.log_level))
+    
     logger.info("[__main__] 启动ContextMind统一Gradio Demo")
+    logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")
     
     # 创建Demo实例
     try:
-        demo_instance = UnifiedGradioDemo()
+        demo_instance = UnifiedGradioDemo(max_history_turns=args.max_history_turns)
         logger.info("✅ Demo实例创建成功")
     except Exception as e:
         logger.error(f"❌ Demo初始化失败: {e}")
@@ -308,10 +369,12 @@ def main():
     )
     
     # 启动应用（CSS参数移到这里，兼容Gradio 6.0）
+    # 启动应用
+    logger.info(f"启动Gradio应用... (端口: {args.port}, 分享: {args.share})")
     app.launch(
         server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
+        server_port=args.port,
+        share=args.share,
         css=CUSTOM_CSS
     )
 
