@@ -45,13 +45,8 @@ class UnifiedInteractiveDemo:
         self.mode = mode
         self.config = self._load_scenario_config()
         
-        # 延迟初始化LLM客户端，避免启动时就报错
-        try:
-            self.llm_client = SimpleLLMClient()
-        except RuntimeError as e:
-            logger.error(f"LLM客户端初始化失败: {e}")
-            logger.error("请确保已安装 OpenAI 包: pip install openai")
-            raise
+        # 延迟初始化LLM客户端（只在需要时创建）
+        self.llm_client = None
         
         # 初始化对应模式
         if mode == "basic":
@@ -72,11 +67,22 @@ class UnifiedInteractiveDemo:
     
     def _init_dst_mode(self):
         """初始化DST模式"""
-        logger.info(f"初始化DST模式 - {self.config.scenario_name}")
+        logger.info(f"初始化DST模式 - {self.config.name}")
+        
+        # 创建LLM客户端（如果还未创建）
+        if self.llm_client is None:
+            try:
+                self.llm_client = SimpleLLMClient()
+            except RuntimeError as e:
+                logger.error(f"LLM客户端初始化失败: {e}")
+                print(f"\n❌ 错误: {e}")
+                print("\n请安装OpenAI包后重试：")
+                print("  pip install openai")
+                raise
         
         # 创建PromptManager
         pm = PromptManager(
-            domain=self.config.scenario_name,
+            domain=self.config.name,
             enable_dynamic_slots=(self.scenario == "chat")  # 闲聊使用动态槽位
         )
         
@@ -101,7 +107,18 @@ class UnifiedInteractiveDemo:
     
     def _init_contextmind_mode(self):
         """初始化ContextMind模式"""
-        logger.info(f"初始化ContextMind模式 - {self.config.scenario_name}")
+        logger.info(f"初始化ContextMind模式 - {self.config.name}")
+        
+        # 创建LLM客户端（如果还未创建）
+        if self.llm_client is None:
+            try:
+                self.llm_client = SimpleLLMClient()
+            except RuntimeError as e:
+                logger.error(f"LLM客户端初始化失败: {e}")
+                print(f"\n❌ 错误: {e}")
+                print("\n请安装OpenAI包后重试：")
+                print("  pip install openai")
+                raise
         
         # 创建引擎
         engine = ContextEngine(
@@ -125,7 +142,7 @@ class UnifiedInteractiveDemo:
         print("\n" + "="*60)
         print(f"📱 ContextMind 统一交互式Demo v0.4.0")
         print("="*60)
-        print(f"场景: {self.config.scenario_name}")
+        print(f"场景: {self.config.name}")
         print(f"模式: {'DST基础模式' if self.mode == 'basic' else 'ContextMind完整模式'}")
         print("="*60)
         

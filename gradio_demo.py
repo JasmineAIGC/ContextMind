@@ -74,7 +74,7 @@ class UnifiedGradioDemo:
         
         # 创建PromptManager
         pm = PromptManager(
-            domain=self.config.scenario_name,
+            domain=self.config.name,
             enable_dynamic_slots=(self.current_scenario == "chat")
         )
         

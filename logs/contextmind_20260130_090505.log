@@ -1,0 +1,3 @@
+[2026-01-30 09:05:05] INFO - [interactive_demo] 初始化DST模式 - 闲聊
+[2026-01-30 09:05:05] ERROR - [interactive_demo] LLM客户端初始化失败: 未安装 OpenAI 包。请使用以下命令安装: pip install openai
+或使用 --no-llm 标志运行而不需要真实的 LLM 调用。
