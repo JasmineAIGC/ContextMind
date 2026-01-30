@@ -66,37 +66,62 @@ async def main():
     setup_logging(level=log_level)
     
     print("=" * 60)
+    print("📞 共荣保险客服系统 - 团体癌症保险咨询")
     if args.mode == 'basic':
-        print("📞 基础 DST 保险对话 Interactive Demo")
-        print("基于 ACL 2023 论文的 Zero-shot DST")
+        print("模式：基础 DST（预定义意图和槽位）")
     else:
-        print("📞 ContextMind v7.4 保险对话 Interactive Demo")
-        print("五层架构 (core/pipeline/strategies/adapters/utils)")
+        print("模式：ContextMind 完整版（智能上下文理解）")
     print("=" * 60)
+    print()
+    
+    print("👋 你好！我是共荣保险的客服代表，很高兴为您服务。")
+    print("   我们专注于团体癌症保险产品，为您和家人提供全面保障。")
     print()
     
     if args.mode == 'basic':
         # 基础 DST 模式
         from dst import DialogueStateTracker, PromptManager
         from utils.llm_client import SimpleLLMClient
+        from scenarios import get_insurance_scenario
         
         print("⚙️  当前配置:")
-        print(f"   - 运行模式: 🔹 基础 DST")
+        print(f"   - 运行模式: 🔹 基础 DST（预定义意图和槽位）")
         print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
         print()
+        
+        print("💡 DST模式说明：")
+        print("   ✓ 使用预定义的意图体系（7个一级 + 34个二级）")
+        print("   ✓ 使用预定义的槽位（18个固定槽位）")
+        print("   ✓ 不使用LLM动态提取意图和槽位")
+        print("   ✓ 所有识别基于预定义规则，确保一致性")
+        print()
+        
+        # 获取保险场景配置
+        config = get_insurance_scenario()
         
         # 初始化 LLM 客户端
         print("🔧 初始化 LLM 客户端...")
         llm_client = SimpleLLMClient()
         print("✅ LLM 客户端初始化完成")
         
-        # 初始化基础 DST
-        print("🔧 初始化基础 DST 引擎...")
-        pm = PromptManager(domain="insurance")
-        pm.add_slot("issue_type", "客户问题类型（如：额度提升、资金周转、优惠福利、账户问题等）")
-        pm.add_slot("customer_name", "客户姓名")
-        pm.add_slot("product", "相关产品（如：安逸花、马上消费、优逸花等）")
-        pm.add_slot("resolution_status", "问题解决状态（如：待处理、处理中、已解决等）")
+        # 初始化基础 DST（使用预定义配置）
+        print("🔧 初始化基础 DST 引擎（加载预定义意图和槽位）...")
+        pm = PromptManager(
+            domain=config.scenario_name,
+            enable_dynamic_slots=False  # 禁用动态槽位，使用预定义
+        )
+        
+        # 添加预定义槽位（不从LLM提取）
+        for slot_name, slot_desc in config.dst_slots.items():
+            pm.add_slot(slot_name, slot_desc)
+        
+        # 添加分类约束
+        for slot_name, categories in config.dst_categorical_slots.items():
+            pm.add_categorical_slot(slot_name, categories)
+        
+        print(f"✅ 已加载 {len(config.dst_slots)} 个预定义槽位")
+        print(f"✅ 已加载 {len(config.dst_intents)} 个一级意图分类")
+        print(f"✅ 已加载 {len(config.dst_categorical_slots)} 个分类槽位")
         
         tracker = DialogueStateTracker(
             llm_client=llm_client,

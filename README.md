@@ -72,35 +72,105 @@ print(state)
 
 ## 演示程序
 
+### 闲聊场景
 ```bash
-# 闲聊演示
 python chat_interactive_demo.py --mode contextmind  # 完整模式
 python chat_interactive_demo.py --mode basic        # DST 模式
+python chat_gradio_demo.py                          # Web UI
+```
 
-# 客服演示
+### 客服场景
+```bash
 python callcenter_interactive_demo.py --mode contextmind
 python callcenter_interactive_demo.py --mode basic
-
-# Web UI
-python chat_gradio_demo.py
-python callcenter_gradio_demo.py
-
-# DST 基础演示
-python baseline_demo.py
+python callcenter_gradio_demo.py                    # Web UI
 ```
+
+### 保险场景（共荣保险）
+```bash
+python insurance_interactive_demo.py --mode contextmind
+python insurance_interactive_demo.py --mode basic   # 使用预定义意图和槽位
+python insurance_gradio_demo.py                     # Web UI
+```
+
+### DST 基础演示
+```bash
+python dst_demo.py
+```
+
+---
+
+## 场景配置系统
+
+ContextMind v0.4.0 支持通过配置文件轻松切换不同的对话任务：
+
+### 支持的场景
+
+| 场景 | 配置文件 | 说明 |
+|------|---------|------|
+| 闲聊 | `scenarios/chat_scenario.py` | 动态槽位，开放意图 |
+| 客服 | `scenarios/callcenter_scenario.py` | 问题追踪，工单管理 |
+| 保险 | `scenarios/insurance_scenario.py` | 共荣保险，预定义意图和槽位 |
+
+### 使用配置
+
+```python
+from scenarios import get_insurance_scenario, get_chat_scenario, get_callcenter_scenario
+
+# 获取场景配置
+config = get_insurance_scenario()
+
+# DST 模式（使用预定义意图和槽位）
+from dst import DialogueStateTracker, PromptManager
+
+pm = PromptManager(
+    domain=config.scenario_name,
+    enable_dynamic_slots=False  # 使用预定义槽位
+)
+
+# 添加预定义槽位
+for slot_name, slot_desc in config.dst_slots.items():
+    pm.add_slot(slot_name, slot_desc)
+
+# ContextMind 模式
+from contextmind import ContextEngine
+
+engine = ContextEngine(
+    system_prompt=config.system_prompt,
+    enable_memory=config.enable_memory
+)
+```
+
+### 添加新场景
+
+1. 在 `scenarios/` 创建新配置文件
+2. 在 `prompts.py` 添加系统提示词
+3. 创建对应的 demo 文件
+4. 在 `scenarios/__init__.py` 导出
+
+详见：[场景配置文档](docs/SCENARIO_CONFIGURATION.md)
 
 ---
 
 ## 项目结构
 
 ```
-ContextMind/
-├── contextmind/           # 完整框架（五层架构）
-├── dst/              # DST 基础实现（ACL 2023）
-├── utils/                 # 通用工具（logger, LLM client）
-├── examples/              # 应用示例
-├── docs/                  # 文档
-└── *_demo.py              # 演示程序
+ContextMind/ v0.4.0
+├── contextmind/              # ContextMind 完整框架（五层架构）
+├── dst/                      # DST 基础实现（ACL 2023 论文）
+├── scenarios/                # 场景配置系统 ✨
+│   ├── config.py            # 配置基类
+│   ├── chat_scenario.py     # 闲聊场景
+│   ├── callcenter_scenario.py  # 客服场景
+│   └── insurance_scenario.py   # 保险场景（共荣保险）
+├── utils/                    # 通用工具（logger, LLM client）
+├── examples/                 # 应用示例
+│   ├── chat_app.py
+│   ├── callcenter_app.py
+│   └── insurance_app.py
+├── docs/                     # 文档
+├── prompts.py                # 系统提示词（3个主要场景）
+└── *_demo.py                 # 演示程序
 ```
 
 ---

@@ -120,23 +120,35 @@ class CustomerServiceGradioDemo:
             self.llm_client = SimpleLLMClient(LLMConfig.from_env())
             
             if mode == "basic_dst":
-                # 基础 DST 模式
-                logger.info("📋 初始化基础 DST 模式...")
+                # 基础 DST 模式（使用预定义意图和槽位）
+                logger.info("📋 初始化基础 DST 模式（加载预定义配置）...")
                 
-                # 创建 PromptManager，定义保险领域的槽位
-                prompt_manager = PromptManager(domain="insurance")
+                # 获取保险场景配置
+                from scenarios import get_insurance_scenario
+                config = get_insurance_scenario()
                 
-                # 添加保险领域特定槽位
-                prompt_manager.add_slot("issue_type", "问题类型", None)
-                prompt_manager.add_slot("customer_name", "客户姓名", None)
-                prompt_manager.add_slot("product", "产品名称", None)
-                prompt_manager.add_slot("resolution_status", "解决状态", None)
+                # 创建 PromptManager，使用预定义槽位（不使用LLM动态提取）
+                prompt_manager = PromptManager(
+                    domain=config.scenario_name,
+                    enable_dynamic_slots=False  # 禁用动态槽位
+                )
+                
+                # 添加预定义槽位（基于保险场景配置）
+                for slot_name, slot_desc in config.dst_slots.items():
+                    prompt_manager.add_slot(slot_name, slot_desc)
+                
+                # 添加分类约束
+                for slot_name, categories in config.dst_categorical_slots.items():
+                    prompt_manager.add_categorical_slot(slot_name, categories)
+                
+                logger.info(f"✅ 已加载 {len(config.dst_slots)} 个预定义槽位")
+                logger.info(f"✅ 已加载 {len(config.dst_intents)} 个一级意图分类")
                 
                 # 创建 DialogueStateTracker
                 self.dst_tracker = DialogueStateTracker(
                     llm_client=self.llm_client,
                     prompt_manager=prompt_manager,
-                    domain="insurance"
+                    domain=config.scenario_name
                 )
                 
                 # 重置对话
@@ -572,9 +584,9 @@ def create_gradio_interface():
         )
     
     # 创建界面
-    with gr.Blocks(title="ContextMind 保险对话Demo v7.4") as app:
-        gr.Markdown("# 📞 ContextMind v7.4 保险对话演示")
-        gr.Markdown("智能保险 · 上下文工程 · 专业对话")
+    with gr.Blocks(title="共荣保险客服系统 v0.4.0") as app:
+        gr.Markdown("# 📞 共荣保险客服系统 · 癌症保险咨询")
+        gr.Markdown("共荣保险专业客服 · 团体癌症保险 · 智能咨询")
         
         with gr.Row():
             with gr.Column(scale=4):

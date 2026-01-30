@@ -2,6 +2,12 @@
 保险挽回场景配置
 
 基于data/huashu.md中的保险挽回话术设计
+
+重要说明：
+- 本场景的意图和槽位是预定义的，基于data/huashu.md梳理
+- DST模式不使用LLM动态提取意图和槽位
+- 所有意图和槽位都是固定的，确保识别的一致性和准确性
+- 共荣保险公司的团体癌症保险产品
 """
 
 from scenarios.config import ScenarioConfig, ScenarioType
@@ -11,11 +17,18 @@ def get_insurance_scenario() -> ScenarioConfig:
     """
     获取保险挽回场景配置
     
+    关键特性：
+    1. 预定义意图：7个一级意图 + 34个二级意图
+    2. 预定义槽位：18个固定槽位
+    3. 分类约束：8个槽位有预定义的分类值
+    4. 不使用LLM：所有意图和槽位都是预先定义的
+    5. 公司身份：共荣保险公司
+    
     返回:
         ScenarioConfig: 保险场景配置对象
     """
     
-    # 定义一级意图和二级意图（基于huashu.md分析）
+    # 定义一级意图和二级意图（基于huashu.md分析，预定义不从LLM提取）
     dst_intents = {
         "拒绝": [
             "明确拒绝",
