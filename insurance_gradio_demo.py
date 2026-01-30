@@ -35,7 +35,7 @@ from pathlib import Path
 import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger, MessageRole
-from examples.insurance_app import InsuranceApplication
+from apps.insurance_app import InsuranceApplication
 from prompts import INSURANCE_SYSTEM_PROMPT
 from dst import DialogueStateTracker, PromptManager
 

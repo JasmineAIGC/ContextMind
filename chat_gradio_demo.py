@@ -34,7 +34,7 @@ from pathlib import Path
 import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger
-from examples.chat_app import ChatApplication
+from apps.chat_app import ChatApplication
 from prompts import CHAT_SYSTEM_PROMPT
 from dst import DialogueStateTracker, PromptManager
 

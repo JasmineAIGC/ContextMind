@@ -35,7 +35,7 @@ from pathlib import Path
 import traceback
 
 from contextmind import ContextEngine, setup_logging, get_logger, LogLevel, ContextMindLogger, MessageRole
-from examples.callcenter_app import CallCenterApplication
+from apps.callcenter_app import CallCenterApplication
 from prompts import CALLCENTER_SYSTEM_PROMPT
 from dst import DialogueStateTracker, PromptManager
 
