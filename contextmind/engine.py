@@ -1,5 +1,5 @@
 """
-ContextEngine - 上下文引擎核心模块 v7.4
+ContextEngine - 上下文引擎核心模块 v0.4.0
 
 清晰的模块化架构设计:
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
@@ -91,7 +91,7 @@ class ContextEngine:
         """
         初始化上下文引擎
         
-        v7.4 知识提取架构:
+        v0.4.0 知识提取架构:
         默认使用基于大语言模型的知识提取，确保最佳效果
         
         Args:
@@ -134,7 +134,7 @@ class ContextEngine:
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
         
-        # 初始化知识提取器 (v7.4 - 默认使用 LLM，确保最佳效果)
+        # 初始化知识提取器 (v0.4.0 - 默认使用 LLM，确保最佳效果)
         from .memory import LLMBasedExtractor
         from .core.configs import DEFAULT_MEMORY_CONFIG
         
@@ -158,12 +158,12 @@ class ContextEngine:
             # 不再支持基于规则的提取
             logger.warning(
                 f"[ContextEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
-                "v7.4+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
+                "v0.4.0+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
             )
             self.extractor = None
             self.extraction_method = "disabled"
         
-        # 初始化响应处理器 (v7.4 - 替代 PostProcessor)
+        # 初始化响应处理器 (v0.4.0 - 替代 PostProcessor)
         self.response_handler = ResponseHandler(
             session_manager=self.session_manager,
             memory_bank=self.memory_bank,

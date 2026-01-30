@@ -28,7 +28,7 @@
 
 ## 核心组件
 
-### 1. PromptManager (提示词管理器) - v7.4 增强
+### 1. PromptManager (提示词管理器) - v0.4.0 增强
 
 负责构建论文附录中定义的复杂 Prompt。
 
@@ -38,7 +38,7 @@
 - 构建系统指令 Prompt
 - 值归一化处理
 
-**v7.4 增强：**
+**v0.4.0 增强：**
 - 完整的类型提示
 - 详细的 docstrings
 - 更鲁棒的错误处理
@@ -101,7 +101,7 @@ instruction = pm.get_system_instruction()
 请直接返回 JSON 格式的槽位更新，不要包含其他解释。
 ```
 
-### 2. ResponseParser (响应解析器) - v7.4 增强
+### 2. ResponseParser (响应解析器) - v0.4.0 增强
 
 从 ChatGPT 的自然语言回复中提取 JSON 格式的状态更新。
 
@@ -110,7 +110,7 @@ instruction = pm.get_system_instruction()
 - 幻觉过滤（只保留有效槽位）
 - 多种 JSON 格式支持
 
-**v7.4 增强：**
+**v0.4.0 增强：**
 - 完整的类型提示和文档
 - 更多的 JSON 解析模式
 - 增强的错误恢复
@@ -148,7 +148,7 @@ filtered = parser.filter_hallucinations(result1)
    - 过滤未在本体中定义的槽位
    - 保持状态一致性
 
-### 3. DialogueStateTracker (对话状态追踪器) - v7.4 增强
+### 3. DialogueStateTracker (对话状态追踪器) - v0.4.0 增强
 
 实现完整的 Zero-shot 对话状态追踪流程。
 
@@ -158,7 +158,7 @@ filtered = parser.filter_hallucinations(result1)
 - 完整的上下文管理
 - 支持共指消解
 
-**v7.4 增强：**
+**v0.4.0 增强：**
 - 100% 类型提示覆盖
 - 完整的英文 docstrings
 - 增强的数据结构（SpecialValue、DialogueTurn）
@@ -172,13 +172,13 @@ from dst import DialogueStateTracker, SpecialValue, DialogueTurn
 from enum import Enum
 from dataclasses import dataclass
 
-# v7.4 新增特殊值枚举
+# v0.4.0 新增特殊值枚举
 class SpecialValue(Enum):
     """ACL 2023 论文定义的特殊槽位值."""
     UNKNOWN = "?"        # 用户在询问
     DONTCARE = "dontcare"  # 用户不关心
 
-# v7.4 新增对话轮次数据类
+# v0.4.0 新增对话轮次数据类
 @dataclass
 class DialogueTurn:
     """单个对话轮次的完整记录."""
@@ -193,13 +193,13 @@ class DialogueTurn:
 
 ```python
 from dst import DialogueStateTracker
-from utils import SimpleLLMClient  # v7.4 新导入路径
+from utils import SimpleLLMClient  # v0.4.0 新导入路径
 import asyncio
 
 async def track_dialogue():
     # 初始化追踪器
     tracker = DialogueStateTracker(
-        llm_client=SimpleLLMClient(),  # v7.4: 使用真实 LLM
+        llm_client=SimpleLLMClient(),  # v0.4.0: 使用真实 LLM
         domain="general"
     )
     
@@ -222,7 +222,7 @@ async def track_dialogue():
     # 获取最终状态
     final_state = tracker.get_current_state()
     
-    # v7.4 新增：获取对话历史
+    # v0.4.0 新增：获取对话历史
     dialogue_history = tracker.get_dialogue_history()
     
     return final_state
@@ -528,7 +528,7 @@ DST 模块提供了一个完整的、基于论文的对话状态追踪实现：
 ✅ **可扩展**: 支持自定义槽位和领域  
 ✅ **鲁棒**: 处理各种边界情况  
 ✅ **文档完整**: 详细的使用说明和示例  
-✅ **v7.4 增强**: 生产级代码质量、100% 文档和类型提示覆盖
+✅ **v0.4.0 增强**: 生产级代码质量、100% 文档和类型提示覆盖
 
 适用于需要精确对话状态追踪的多轮对话系统。
 

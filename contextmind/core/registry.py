@@ -52,7 +52,7 @@ class PluginRegistry:
             return
         
         try:
-            # 导入并注册提取器 (v7.4: 仅支持基于大语言模型的提取)
+            # 导入并注册提取器 (v0.4.0: 仅支持基于大语言模型的提取)
             from ..memory.extractor import (
                 LLMBasedExtractor,
                 ImportancePredictorExtractor,
@@ -80,7 +80,7 @@ class PluginRegistry:
             self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
             self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
-            # 导入并注册其他 Pipeline 组件 (v7.4: 移除已废弃组件)
+            # 导入并注册其他 Pipeline 组件 (v0.4.0: 移除已废弃组件)
             from ..pipeline.compressor import ContextCompressor
             from ..pipeline.reorderer import ContextReorderer
             from ..pipeline.preprocessor import InputPreprocessor

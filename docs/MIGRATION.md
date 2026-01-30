@@ -33,7 +33,7 @@ from contextmind.utils.logger import get_logger, setup_logging, LogLevel
 from contextmind.utils.embedding import get_embedding
 from examples.llm_client import SimpleLLMClient, LLMConfig
 
-# ✅ 新代码 (v7.4)
+# ✅ 新代码 (v0.4.0)
 from utils.logger import get_logger, setup_logging, LogLevel
 from utils.embedding import get_embedding
 from utils.llm_client import SimpleLLMClient, LLMConfig
@@ -183,7 +183,7 @@ class DialogueTurn:
 # ✅ 旧代码 (v7.3) - 仍然支持
 await engine.update(user_input, assistant_response)
 
-# ✅ 新代码 (v7.4) - 推荐使用
+# ✅ 新代码 (v0.4.0) - 推荐使用
 result = await engine.handle_response(
     user_input=user_input,
     llm_response=assistant_response,
@@ -198,7 +198,7 @@ print(f"更新的记忆数: {result.memories_updated}")
 
 **功能对比：**
 
-| 方法 | 功能 | v7.3 | v7.4 |
+| 方法 | 功能 | v7.3 | v0.4.0 |
 |------|------|------|------|
 | `update()` | 记录对话 | ✅ | ✅ |
 | `update()` | 提取知识 | ❌ | ❌ |

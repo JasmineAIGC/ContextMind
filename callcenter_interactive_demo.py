@@ -1,5 +1,5 @@
 """
-ContextMind v7.4 客服对话 Interactive Demo
+ContextMind v0.4.0 客服对话 Interactive Demo
 
 五层架构 (core/pipeline/strategies/adapters/utils) + 智能记忆系统
 命令行交互式客服对话演示。
@@ -50,7 +50,7 @@ async def main():
     """主函数"""
     
     # 解析参数
-    parser = argparse.ArgumentParser(description='ContextMind v7.4 客服对话 Interactive Demo')
+    parser = argparse.ArgumentParser(description='ContextMind v0.4.0 客服对话 Interactive Demo')
     parser.add_argument('--mode', type=str, default='contextmind', 
                        choices=['contextmind', 'basic'],
                        help='运行模式: contextmind (完整上下文工程) 或 basic (基础DST)')
@@ -70,7 +70,7 @@ async def main():
         print("📞 基础 DST 客服对话 Interactive Demo")
         print("基于 ACL 2023 论文的 Zero-shot DST")
     else:
-        print("📞 ContextMind v7.4 客服对话 Interactive Demo")
+        print("📞 ContextMind v0.4.0 客服对话 Interactive Demo")
         print("五层架构 (core/pipeline/strategies/adapters/utils)")
     print("=" * 60)
     print()
@@ -228,7 +228,7 @@ async def main():
         print(f"   - 调试模式: {'✅ 启用' if args.debug else '❌ 禁用'}")
         print()
         
-        # 初始化引擎 (v7.4: LLM 调用在外部，不需要客户端)
+        # 初始化引擎 (v0.4.0: LLM 调用在外部，不需要客户端)
         print("🔧 初始化引擎...")
         
         # 配置知识提取和检索 - 优化客服场景的记忆管理
@@ -264,7 +264,7 @@ async def main():
         # 更新内存银行的配置
         context_engine.memory_bank.config = retrieval_config
         
-        print("✅ 引擎初始化完成 (v7.4 - 纯上下文工程)")
+        print("✅ 引擎初始化完成 (v0.4.0 - 纯上下文工程)")
         print(f"   - 记忆检索限制: top_k={retrieval_config.top_k}")
         print(f"   - 知识提取阈值: min_confidence={extraction_config.min_confidence}")
         print()
@@ -282,7 +282,7 @@ async def main():
 """
         app = CallCenterApplication(
             context_engine=context_engine,
-            # 注意: 在 v7.4 中，LLM 客户端由外部处理
+            # 注意: 在 v0.4.0 中，LLM 客户端由外部处理
             business_info=business_info.strip(),
             system_prompt=CALLCENTER_SYSTEM_PROMPT,
             history_turns=args.history_turns,
