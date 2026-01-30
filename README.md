@@ -35,7 +35,32 @@ QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN3_MODEL=qwen-plus
 ```
 
-### 使用
+### 运行Demo
+
+#### Interactive Demo（命令行）
+
+```bash
+# 闲聊场景 + ContextMind模式
+python interactive_demo.py --scenario chat --mode contextmind
+
+# 客服场景 + DST模式
+python interactive_demo.py --scenario callcenter --mode basic
+
+# 保险场景 + ContextMind模式
+python interactive_demo.py --scenario insurance --mode contextmind
+```
+
+#### Gradio Demo（Web界面）
+
+```bash
+# 启动Web界面
+python gradio_demo.py
+
+# 在浏览器中访问 http://localhost:7860
+# 可在界面中选择场景（chat/callcenter/insurance）和模式（ContextMind/DST）
+```
+
+### API使用
 
 #### ContextMind 完整模式
 
