@@ -230,10 +230,10 @@ class UnifiedInteractiveDemo:
     async def chat_dst_mode(self, user_message: str) -> str:
         """DST模式对话"""
         try:
-            # 处理对话轮次
+            # 处理对话轮次 - 使用正确的参数名
             state = await self.dst_tracker.process_turn(
-                agent_message="",
-                user_message=user_message
+                system_utterance="你好",  # 系统话语（可以从历史中获取）
+                user_utterance=user_message
             )
             
             # 构建回复prompt

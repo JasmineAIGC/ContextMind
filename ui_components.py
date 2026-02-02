@@ -307,13 +307,13 @@ def create_gradio_ui(demo_instance=None):
                         enable_summary_check = gr.Checkbox(
                             value=True,
                             label="启用历史摘要",
-                            info="长对话时自动摘要"
+                            info="自动摘要历史对话（减少token消耗）"
                         )
                         
                         use_llm_summary_check = gr.Checkbox(
                             value=False,
-                            label="LLM生成摘要",
-                            info="更智能但较慢"
+                            label="使用LLM生成摘要",
+                            info="用LLM生成摘要(更智能但慢)，否则使用模板摘要(快速)"
                         )
                     
                     # ContextMind模式设置
