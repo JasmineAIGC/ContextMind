@@ -221,8 +221,12 @@ class DialogueStateTracker:
         turn_updates = self.response_parser.extract_json(raw_response)
         logger.debug(f"解析结果: {turn_updates}")
         
-        # 归一化槽位值（优化）
-        turn_updates = self.response_parser.normalize_extracted(turn_updates)
+        # 归一化槽位值（优化）- 应用严格分类约束
+        turn_updates = self.response_parser.normalize_extracted(
+            turn_updates,
+            self.prompt_manager.get_all_slots(),
+            self.prompt_manager.categorical_slots or {}
+        )
         logger.debug(f"归一化后: {turn_updates}")
         
         # 更新累积状态
