@@ -60,12 +60,15 @@ class ResponseParser:
             提取的槽位更新字典
         """
         if not text or not text.strip():
+            logger.debug("响应为空")
             return {}
         
         # 策略1：直接JSON解析（最快，适用于干净的输出）
+        logger.debug("尝试策略1: 直接JSON解析")
         try:
             parsed = json.loads(text)
             if isinstance(parsed, dict):
+                logger.debug(f"策略1成功: 提取到 {len(parsed)} 个字段")
                 return self._filter_if_needed(parsed)
             elif isinstance(parsed, list) and len(parsed) > 0:
                 if isinstance(parsed[0], dict):
@@ -74,22 +77,32 @@ class ResponseParser:
                     for item in parsed:
                         if isinstance(item, dict):
                             result.update(item)
+                    logger.debug(f"策略1成功（列表合并）: 提取到 {len(result)} 个字段")
                     return self._filter_if_needed(result)
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            logger.debug(f"策略1失败: {e}")
         
         # 策略2：基于正则的JSON提取（处理嵌入的JSON）
+        logger.debug("尝试策略2: 正则表达式提取JSON")
         extracted = self._extract_json_with_regex(text)
         if extracted:
+            logger.debug(f"策略2成功: 提取到 {len(extracted)} 个字段")
             return self._filter_if_needed(extracted)
+        else:
+            logger.debug("策略2失败: 未找到有效的JSON结构")
         
         # 策略3：键值对提取（用于格式错误的JSON的后备方案）
+        logger.debug("尝试策略3: 键值对提取")
         extracted = self._extract_key_value_pairs(text)
         if extracted:
+            logger.debug(f"策略3成功: 提取到 {len(extracted)} 个字段")
             return self._filter_if_needed(extracted)
+        else:
+            logger.debug("策略3失败: 未找到键值对")
         
         # 所有策略都失败了
         logger.warning(f"无法从响应中提取JSON: {text[:100]}...")
+        logger.debug(f"完整失败响应:\n{text}")
         return {}
     
     def _extract_json_with_regex(self, text: str) -> Optional[Dict[str, str]]:

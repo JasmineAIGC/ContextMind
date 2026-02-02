@@ -173,10 +173,23 @@ class DialogueStateTracker:
         # 调用LLM（所有理解由LLM完成）
         if self.llm_client:
             try:
+                # DEBUG: 记录发送给LLM的完整消息
+                logger.debug("=" * 60)
+                logger.debug("发送给LLM的消息:")
+                for i, msg in enumerate(self.messages):
+                    logger.debug(f"  [{i}] {msg['role']}: {msg['content'][:200]}...")
+                logger.debug("=" * 60)
+                
                 raw_response = await self.llm_client.chat_async(
                     messages=self.messages,
                     temperature=0.0
                 )
+                
+                # DEBUG: 记录LLM的完整响应
+                logger.debug("=" * 60)
+                logger.debug(f"LLM完整响应:\n{raw_response}")
+                logger.debug("=" * 60)
+                
             except Exception as e:
                 logger.error(f"LLM调用失败: {e}")
                 raw_response = "{}"
@@ -188,7 +201,9 @@ class DialogueStateTracker:
         self.messages.append({"role": "assistant", "content": raw_response})
         
         # 解析响应
+        logger.debug(f"开始解析响应，长度: {len(raw_response)} 字符")
         turn_updates = self.response_parser.extract_json(raw_response)
+        logger.debug(f"解析结果: {turn_updates}")
         
         # 更新累积状态
         self._update_state(turn_updates)
