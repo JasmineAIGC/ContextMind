@@ -235,14 +235,40 @@ class UnifiedGradioDemo:
                 "💬 对话轮数": len(self.tracker.dialogue_history),
             }
             
-            # 格式化显示槽位信息
+            # 显示本轮对话提取的槽位（如果有的话）
+            if self.tracker.dialogue_history:
+                last_turn = self.tracker.dialogue_history[-1]
+                if last_turn.turn_updates:
+                    state_info["📝 本轮提取"] = "↓ 以下是本轮新提取/更新的槽位"
+                    for slot_name, slot_value in last_turn.turn_updates.items():
+                        state_info[f"  🆕 {slot_name}"] = slot_value
+                    state_info["  ✅ 本轮提取数"] = len(last_turn.turn_updates)
+                else:
+                    state_info["📝 本轮提取"] = "本轮未提取到新槽位"
+            
+            # 分隔线
             if self.tracker.current_state:
-                # 分别显示每个槽位和槽值
+                state_info["---"] = "---"
+            
+            # 显示累积的所有槽位信息
+            if self.tracker.current_state:
+                state_info["💾 累积状态"] = "↓ 以下是所有已提取的槽位"
                 for slot_name, slot_value in self.tracker.current_state.items():
-                    state_info[f"📌 {slot_name}"] = slot_value
-                state_info["✅ 已提取槽位数"] = len(self.tracker.current_state)
+                    state_info[f"  📌 {slot_name}"] = slot_value
+                state_info["  ✅ 累积槽位数"] = len(self.tracker.current_state)
+                
+                # 检查预定义槽位的丰富程度
+                predefined_slots = self.tracker.prompt_manager.ontology_slots
+                if predefined_slots:
+                    filled_count = sum(1 for slot in predefined_slots if slot in self.tracker.current_state)
+                    total_count = len(predefined_slots)
+                    completion_rate = (filled_count / total_count * 100) if total_count > 0 else 0
+                    state_info["  📊 预定义槽位填充"] = f"{filled_count}/{total_count} ({completion_rate:.1f}%)"
             else:
-                state_info["🎪 槽位状态"] = "暂无槽位信息"
+                state_info["💾 累积状态"] = "暂无槽位信息"
+            
+            # 分隔线
+            state_info["----"] = "----"
             
             # 显示意图信息
             if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents:
