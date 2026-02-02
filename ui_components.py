@@ -62,15 +62,7 @@ CUSTOM_CSS = """
     margin-bottom: 15px !important;
 }
 
-.config-status {
-    background: #ffffff !important;
-    padding: 10px 15px !important;
-    border-radius: 8px !important;
-    border-left: 4px solid #667eea !important;
-    margin-top: 10px !important;
-    font-size: 0.95em !important;
-    color: #2c3e50 !important;
-}
+/* Removed redundant .config-status styling */
 
 /* 美化输入框 */
 textarea {
@@ -115,7 +107,7 @@ textarea:focus {
     background: #f0f4ff !important;
 }
 
-/* 美化对话框 */
+/* 美化对话框 - 简化样式，移除消息背景 */
 .chatbot {
     border-radius: 8px !important;
     border: 1px solid #e5e7eb !important;
@@ -126,16 +118,7 @@ textarea:focus {
     border-radius: 8px !important;
     padding: 10px 14px !important;
     margin: 6px 0 !important;
-}
-
-.chatbot .message.user {
-    background: #667eea !important;
-    color: white !important;
-}
-
-.chatbot .message.bot {
-    background: #f3f4f6 !important;
-    color: #1f2937 !important;
+    /* 移除背景颜色，让文本内容更简洁 */
 }
 
 /* Radio按钮美化 */
@@ -251,7 +234,7 @@ def create_gradio_ui(demo_instance=None):
                 chatbot = gr.Chatbot(
                     height=650,
                     label="💬 对话窗口",
-                    avatar_images=(None, "🤖"),
+                    avatar_images=("👤", "🤖"),  # 设置用户和机器人的默认头像
                     elem_classes=["chatbot"]
                 )
                 
@@ -289,7 +272,7 @@ def create_gradio_ui(demo_instance=None):
                     )
                     
                     apply_btn = gr.Button("✨ 应用配置", elem_classes=["primary-button"])
-                    config_status = gr.Markdown("📌 当前: 闲聊对话 / contextmind", elem_classes=["config-status"])
+                    # 移除config_status，避免重复的配置状态显示框
                 
                 # 高级设置
                 with gr.Accordion("⚙️ 高级设置", open=False):
@@ -454,14 +437,14 @@ def create_gradio_ui(demo_instance=None):
                 
                 # 根据模式显示/隐藏对应的设置组
                 if mode == "dst":
-                    return history, status, gr.update(visible=True), gr.update(visible=False)
+                    return history, gr.update(visible=True), gr.update(visible=False)
                 else:  # contextmind
-                    return history, status, gr.update(visible=False), gr.update(visible=True)
+                    return history, gr.update(visible=False), gr.update(visible=True)
             
             apply_btn.click(
                 fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
-                outputs=[chatbot, config_status, dst_settings, contextmind_settings]
+                outputs=[chatbot, dst_settings, contextmind_settings]
             )
         
     return app, components
