@@ -14,6 +14,7 @@ CUSTOM_CSS = """
     font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif !important;
     max-width: 1400px !important;
     min-width: 1000px !important;
+    width: 1400px !important;
     margin: 0 auto !important;
     padding: 20px !important;
 }
@@ -331,8 +332,8 @@ def create_gradio_ui(demo_instance=None):
                             info="从对话中学习和优化"
                         )
                     
-                    apply_settings_btn = gr.Button("💾 应用设置", elem_classes=["primary-button"])
-                    settings_status = gr.Markdown("⚙️ ContextMind设置就绪", elem_classes=["config-status"])
+                    # 设置会立即生效，不需要额外的应用按钮
+                    settings_status = gr.Markdown("⚙️ 设置会自动应用", elem_classes=["config-status"])
                 
                 # 对话状态
                 with gr.Accordion("📊 对话状态", open=False):
@@ -396,7 +397,6 @@ def create_gradio_ui(demo_instance=None):
             "use_llm_summary_check": use_llm_summary_check,
             "enable_memory_check": enable_memory_check,
             "enable_evolution_check": enable_evolution_check,
-            "apply_settings_btn": apply_settings_btn,
             "settings_status": settings_status,
             "chatbot": chatbot,
             "msg": msg,
@@ -466,19 +466,6 @@ def create_gradio_ui(demo_instance=None):
                 fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
                 outputs=[chatbot, config_status, dst_settings, contextmind_settings]
-            )
-            
-            # 应用设置
-            apply_settings_btn.click(
-                fn=demo_instance.update_settings,
-                inputs=[
-                    max_history_slider,
-                    enable_summary_check,
-                    use_llm_summary_check,
-                    enable_memory_check,
-                    enable_evolution_check
-                ],
-                outputs=[settings_status]
             )
         
     return app, components
