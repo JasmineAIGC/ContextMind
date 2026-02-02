@@ -290,7 +290,7 @@ class UnifiedGradioDemo:
             
             return state_info
         elif self.current_mode == "contextmind" and self.app:
-            # ContextMind模式：显示引擎状态
+            # ContextMind模式：显示引擎状态和记忆库信息
             engine = self.app.context_engine
             state_info = {
                 "🎯 模式": "ContextMind (完整架构)",
@@ -301,27 +301,44 @@ class UnifiedGradioDemo:
                 "👤 用户ID": engine.user_id if hasattr(engine, 'user_id') else "N/A",
             }
             
-            # 尝试获取记忆库信息（修复AttributeError）
+            # 显示记忆库详细信息
             if hasattr(engine, 'memory_bank'):
                 memory_cache = engine.memory_bank.get_memory_cache()
-                state_info["🧠 记忆数量"] = len(memory_cache)
+                total_memories = len(memory_cache)
+                state_info["🧠 记忆总数"] = total_memories
                 
-                # 显示最近的记忆（最多5条）
-                # Fix: memory_cache is a List[ContextItem], not a dict
+                # 显示本轮对话后的记忆库内容
                 if memory_cache:
-                    recent_memories = memory_cache[-5:] if len(memory_cache) > 0 else []
-                    formatted_memories = []
-                    for mem in recent_memories:
+                    state_info["---"] = "---"
+                    state_info["📚 记忆库内容"] = "↓ 以下是记忆库中的所有记忆"
+                    
+                    # 显示最近的记忆（最多10条，完整显示）
+                    recent_count = min(10, total_memories)
+                    recent_memories = memory_cache[-recent_count:] if total_memories > 0 else []
+                    
+                    for i, mem in enumerate(recent_memories, 1):
                         # ContextItem has a 'content' attribute
                         content = mem.content if hasattr(mem, 'content') else str(mem)
-                        if len(str(content)) > 50:
-                            formatted_memories.append(str(content)[:50] + '...')
+                        
+                        # 尝试获取记忆类型
+                        mem_type = getattr(mem, 'type', 'unknown')
+                        
+                        # 格式化显示记忆内容（限制长度以保持可读性）
+                        if len(str(content)) > 100:
+                            display_content = str(content)[:100] + '...'
                         else:
-                            formatted_memories.append(str(content))
-                    state_info["📚 最近记忆"] = formatted_memories
+                            display_content = str(content)
+                        
+                        # 显示记忆编号、类型和内容
+                        state_info[f"  📝 记忆{i} [{mem_type}]"] = display_content
+                    
+                    # 如果记忆超过10条，显示省略提示
+                    if total_memories > 10:
+                        state_info["  ⚠️ 提示"] = f"共{total_memories}条记忆，仅显示最近10条"
             
             # 显示会话信息
             if hasattr(engine, 'session_manager'):
+                state_info["----"] = "----"
                 state_info["📊 会话ID"] = getattr(engine.session_manager, 'session_id', 'N/A')
             
             return state_info
