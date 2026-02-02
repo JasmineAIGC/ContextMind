@@ -318,7 +318,7 @@ def create_gradio_ui(demo_instance=None):
                         )
                     
                     # ContextMind模式设置
-                    with gr.Group(visible=True) as contextmind_settings:
+                    with gr.Group(visible=False) as contextmind_settings:
                         gr.Markdown("**ContextMind模式设置**")
                         enable_memory_check = gr.Checkbox(
                             value=True,
@@ -331,9 +331,6 @@ def create_gradio_ui(demo_instance=None):
                             label="启用进化学习",
                             info="从对话中学习和优化"
                         )
-                    
-                    # 设置会立即生效，不需要额外的应用按钮
-                    settings_status = gr.Markdown("⚙️ 设置会自动应用", elem_classes=["config-status"])
                 
                 # 对话状态
                 with gr.Accordion("📊 对话状态", open=False):
@@ -397,7 +394,6 @@ def create_gradio_ui(demo_instance=None):
             "use_llm_summary_check": use_llm_summary_check,
             "enable_memory_check": enable_memory_check,
             "enable_evolution_check": enable_evolution_check,
-            "settings_status": settings_status,
             "chatbot": chatbot,
             "msg": msg,
             "send_btn": send_btn,
