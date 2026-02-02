@@ -158,9 +158,13 @@ class UnifiedGradioDemo:
             # 处理对话
             if self.current_mode == "dst":
                 # DST模式
+                # 获取上一轮系统回复
+                system_utterance = history[-1][1] if history else "你好！"
+                
+                # 调用process_turn处理对话状态
                 state = await self.tracker.process_turn(
-                    agent_message=history[-1][1] if history else "你好！",
-                    user_message=message
+                    system_utterance=system_utterance,
+                    user_utterance=message
                 )
                 
                 # 生成回复
@@ -178,8 +182,11 @@ class UnifiedGradioDemo:
                 result = await self.app.process_turn(message)
                 reply = result.get("reply", "抱歉，处理出错了。")
             
-            # 更新历史
-            return history + [[message, reply]]
+            # 更新历史 - 使用Gradio 6.0格式
+            return history + [[
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": reply}
+            ]]
             
         except ValueError as e:
             # API密钥错误
@@ -191,12 +198,21 @@ class UnifiedGradioDemo:
                            "- LLM_API_KEY\n" + \
                            "- OPENAI_API_KEY\n\n" + \
                            f"详细错误: {str(e)}"
-                return history + [[message, error_msg]]
+                return history + [[
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": error_msg}
+                ]]
             else:
-                return history + [[message, f"❌ 错误: {str(e)}"]]
+                return history + [[
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": f"❌ 错误: {str(e)}"}
+                ]]
         except Exception as e:
             logger.error(f"对话处理错误: {e}", exc_info=True)
-            return history + [[message, f"❌ 系统错误: {str(e)}"]]
+            return history + [[
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": f"❌ 系统错误: {str(e)}"}
+            ]]
     
     def get_state(self) -> dict:
         """获取当前状态"""
