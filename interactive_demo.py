@@ -14,7 +14,6 @@ ContextMind 统一交互式Demo
 import asyncio
 import argparse
 import sys
-import logging
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
@@ -26,9 +25,10 @@ from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
 from apps.insurance_app import InsuranceApplication
+from utils.logger import get_logger, setup_logging, LogLevel
 
-# 使用标准Python logging
-logger = logging.getLogger(__name__)
+# 使用统一的logger from utils/logger.py
+logger = get_logger(__name__)
 
 
 class UnifiedInteractiveDemo:
@@ -356,40 +356,9 @@ async def main():
     """主函数"""
     args = parse_args()
     
-    # 设置日志系统
-    # 创建日志目录
-    log_dir = Path("logs")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 生成日志文件名
-    log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    log_filepath = log_dir / log_filename
-    
-    # 配置日志处理器
-    log_level = getattr(logging, args.log_level)
-    
-    # 控制台处理器
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
-    console_formatter = logging.Formatter(
-        '[%(asctime)s] %(levelname)s - [%(name)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    console_handler.setFormatter(console_formatter)
-    
-    # 文件处理器
-    file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
-    file_handler.setLevel(log_level)
-    file_handler.setFormatter(console_formatter)
-    
-    # 配置根logger
-    logging.basicConfig(
-        level=log_level,
-        handlers=[console_handler, file_handler],
-        force=True
-    )
-    
-    print(f"📝 日志将自动保存到: {log_filepath}")
+    # 使用setup_logging配置日志系统
+    log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
+    setup_logging(level=log_level, save_to_file=True, log_dir="logs")
     
     # 显示配置信息
     logger.info(f"启动参数: scenario={args.scenario}, mode={args.mode}, log_level={args.log_level}, max_history_turns={args.max_history_turns}")
