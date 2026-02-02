@@ -21,14 +21,13 @@
 - ✅ 识别和追踪用户意图的演变
 - ✅ 智能管理对话历史
 
-## 分析发现的问题
+## 场景配置说明
 
-### 问题1：保险场景配置槽位提取策略
+### 配置1：保险场景槽位提取策略
 
-**现象**：
+**配置方式**：
 - 保险场景的槽位从huashu.md文档中提取（作为参考）
-- 但代码中可能使用动态槽位模式
-- 导致槽位提取不一致
+- 使用预定义槽位模式（enable_dynamic_slots=False）
 
 **说明**：
 - huashu.md是**参考文档**，提供槽位和意图的指导性建议
@@ -36,17 +35,17 @@
 - 使用预定义模式的目的是提供结构化指导，而非硬性约束
 - 意图和槽位参考huashu.md，但不必完全遵循每一个细节
 
-### 问题2：缺少enable_dynamic_slots配置项
+### 配置2：enable_dynamic_slots配置项
 
 **现象**：
 - ScenarioConfig没有`enable_dynamic_slots`字段
 - 无法让场景指定使用预定义还是动态槽位
 
-**影响**：
-- 场景配置不完整
-- 无法区分不同场景的槽位策略
+**功能**：
+- ScenarioConfig有`enable_dynamic_slots`字段
+- 场景可以指定使用预定义还是动态槽位
 
-### 问题3：interactive_demo.py硬编码逻辑
+### 历史问题3：interactive_demo.py硬编码逻辑（已修复）
 
 **代码**：
 ```python
@@ -62,22 +61,14 @@ pm = PromptManager(
 - 假设只有chat场景用动态槽位
 - 不从场景配置读取，不易维护
 
-### 问题4：gradio_demo.py配置缺失
+### 历史问题4：gradio_demo.py配置缺失（已修复）
 
-**代码**：
-```python
-# Line 99
-pm = PromptManager(domain=self.config.name)  # 缺少enable_dynamic_slots参数
-
-# Lines 102-103
-for slot_name, slot_desc in self.config.dst_slots.items():
-    pm.add_slot(slot_name, slot_desc)  # 缺少categorical_values参数
-```
-
-**问题**：
+**曾经的问题**：
 - 使用默认值（True），所有场景都用动态模式
 - 没有传递分类槽位的约束值
 - 保险场景无法使用预定义槽位和分类约束
+
+**现已修复**：参见下方实施的修复章节
 
 ## 实施的修复
 
