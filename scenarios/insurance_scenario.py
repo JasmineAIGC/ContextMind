@@ -289,7 +289,7 @@ def get_insurance_scenario() -> ScenarioConfig:
 返回JSON格式，包含：
 1. intent_level1: 一级意图（必须从上述7个中选择）
 2. intent_level2: 二级意图（必须精确匹配上述定义）
-3. intent_level3: 三级意图（可选，用于补充详细信息，从25个值中选择）
+3. intent_level3: 三级意图（可选，用于补充详细信息，必须从上述39个预定义值中选择）
 4. 其他相关槽位信息
 
 ## 示例
