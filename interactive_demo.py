@@ -87,11 +87,30 @@ class UnifiedInteractiveDemo:
         if self.llm_client is None:
             try:
                 self.llm_client = SimpleLLMClient()
-            except RuntimeError as e:
+            except (ValueError, RuntimeError) as e:
                 logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n❌ 错误: {e}")
-                print("\n请安装OpenAI包后重试：")
-                print("  pip install openai")
+                print(f"\n{'='*60}")
+                print(f"❌ 错误: {e}")
+                print(f"{'='*60}")
+                
+                # 根据错误类型提供具体帮助
+                error_str = str(e)
+                if "API key" in error_str or "API_KEY" in error_str:
+                    print("\n📝 请配置.env文件，添加以下内容：")
+                    print("=" * 60)
+                    print("# 选择一个配置即可")
+                    print("QWEN3_API_KEY=sk-your-api-key-here")
+                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
+                    print("QWEN3_MODEL=Qwen3-32B")
+                    print("=" * 60)
+                    print("\n支持的环境变量名：")
+                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
+                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
+                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
+                elif "OpenAI" in error_str:
+                    print("\n请安装OpenAI包：")
+                    print("  pip install openai")
+                print()
                 raise
         
         # 创建PromptManager
@@ -128,11 +147,30 @@ class UnifiedInteractiveDemo:
         if self.llm_client is None:
             try:
                 self.llm_client = SimpleLLMClient()
-            except RuntimeError as e:
+            except (ValueError, RuntimeError) as e:
                 logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n❌ 错误: {e}")
-                print("\n请安装OpenAI包后重试：")
-                print("  pip install openai")
+                print(f"\n{'='*60}")
+                print(f"❌ 错误: {e}")
+                print(f"{'='*60}")
+                
+                # 根据错误类型提供具体帮助
+                error_str = str(e)
+                if "API key" in error_str or "API_KEY" in error_str:
+                    print("\n📝 请配置.env文件，添加以下内容：")
+                    print("=" * 60)
+                    print("# 选择一个配置即可")
+                    print("QWEN3_API_KEY=sk-your-api-key-here")
+                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
+                    print("QWEN3_MODEL=Qwen3-32B")
+                    print("=" * 60)
+                    print("\n支持的环境变量名：")
+                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
+                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
+                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
+                elif "OpenAI" in error_str:
+                    print("\n请安装OpenAI包：")
+                    print("  pip install openai")
+                print()
                 raise
         
         # 创建引擎
