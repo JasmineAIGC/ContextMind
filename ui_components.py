@@ -35,8 +35,8 @@ CUSTOM_CSS = """
     margin-bottom: 1.5em !important;
 }
 
-/* 强制左右布局，防止换行 */
-.gradio-container .row {
+/* 强制主内容区左右布局，防止换行 */
+.main-content-row {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
@@ -236,7 +236,7 @@ def create_gradio_ui(demo_instance=None):
         gr.Markdown("智能对话 · 场景灵活 · 模式可选", elem_classes=["subtitle"])
         
         # 主内容区 - 左右分栏
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=True, elem_classes=["main-content-row"]):
             # 左侧列 - 对话区域
             with gr.Column(scale=7, elem_classes=["left-panel"]):
                 # 对话框
