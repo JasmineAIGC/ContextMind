@@ -10,14 +10,14 @@
 版本: v0.4.0
 """
 
-import logging
 from typing import Dict, List, Optional
 
 from dst.data_models import DialogueTurn
 from dst.prompt_manager import PromptManager
 from dst.response_parser import ResponseParser
+from utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DialogueStateTracker:

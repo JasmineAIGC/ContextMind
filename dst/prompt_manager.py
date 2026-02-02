@@ -7,11 +7,11 @@
 版本: v0.4.0
 """
 
-import logging
 from typing import Dict, List, Set, Optional
 from enum import Enum
+from utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Language(Enum):
