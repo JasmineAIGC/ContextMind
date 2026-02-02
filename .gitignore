@@ -33,9 +33,9 @@ env/
 *~
 
 # Logs
-#*.log
+*.log
 log.txt
-#logs/
+logs/
 
 # Environment
 .env

@@ -112,7 +112,7 @@ class UnifiedInteractiveDemo:
                     print("\n请安装OpenAI包：")
                     print("  pip install openai")
                 print()
-                raise
+                sys.exit(1)
         
         # 创建PromptManager
         pm = PromptManager(
@@ -172,7 +172,7 @@ class UnifiedInteractiveDemo:
                     print("\n请安装OpenAI包：")
                     print("  pip install openai")
                 print()
-                raise
+                sys.exit(1)
         
         # 创建引擎
         engine = ContextEngine(
