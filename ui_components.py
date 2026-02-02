@@ -257,7 +257,8 @@ def create_gradio_ui(demo_instance=None):
                     height=650,
                     label="💬 对话窗口",
                     avatar_images=(None, "🤖"),
-                    elem_classes=["chatbot"]
+                    elem_classes=["chatbot"],
+                    type="messages"  # Gradio 6.0+ messages format
                 )
                 
                 # 输入区域

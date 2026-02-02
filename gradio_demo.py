@@ -158,11 +158,15 @@ class UnifiedGradioDemo:
             if self.current_mode == "dst":
                 # DST模式
                 # 获取上一轮系统回复
-                # history格式: [[{user_msg}, {assistant_msg}], ...]
+                # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
                 # 安全地获取上一轮的assistant回复内容
-                system_utterance = (history[-1][1]["content"] 
-                                  if history and len(history[-1]) > 1 
-                                  else "你好！")
+                system_utterance = "你好！"
+                if history:
+                    # 从后往前找最后一个assistant消息
+                    for msg in reversed(history):
+                        if msg.get("role") == "assistant":
+                            system_utterance = msg.get("content", "你好！")
+                            break
                 
                 # 调用process_turn处理对话状态
                 state = await self.tracker.process_turn(
@@ -185,11 +189,11 @@ class UnifiedGradioDemo:
                 # process_turn returns a string directly, not a dict
                 reply = await self.app.process_turn(message)
             
-            # 更新历史 - 使用Gradio 6.0格式
-            return history + [[
+            # 更新历史 - 使用Gradio 6.0格式 (flat list)
+            return history + [
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": reply}
-            ]]
+            ]
             
         except ValueError as e:
             # API密钥错误
@@ -201,21 +205,21 @@ class UnifiedGradioDemo:
                            "- LLM_API_KEY\n" + \
                            "- OPENAI_API_KEY\n\n" + \
                            f"详细错误: {str(e)}"
-                return history + [[
+                return history + [
                     {"role": "user", "content": message},
                     {"role": "assistant", "content": error_msg}
-                ]]
+                ]
             else:
-                return history + [[
+                return history + [
                     {"role": "user", "content": message},
                     {"role": "assistant", "content": f"❌ 错误: {str(e)}"}
-                ]]
+                ]
         except Exception as e:
             logger.error(f"对话处理错误: {e}", exc_info=True)
-            return history + [[
+            return history + [
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": f"❌ 系统错误: {str(e)}"}
-            ]]
+            ]
     
     def get_state(self) -> dict:
         """获取当前状态"""
