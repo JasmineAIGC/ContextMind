@@ -10,7 +10,7 @@
 版本: v0.4.0
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from dst.data_models import DialogueTurn
 from dst.prompt_manager import PromptManager
