@@ -238,6 +238,15 @@ class PromptManager:
             return set()
         return set(self.ontology_slots.keys())
     
+    def get_all_slots(self) -> Dict[str, str]:
+        """
+        获取所有已定义的槽位
+        
+        返回:
+            Dict[str, str]: 槽位名称到描述的映射
+        """
+        return self.slots
+    
     def _get_default_context_length(self) -> int:
         """
         根据LLM格式获取默认上下文长度
