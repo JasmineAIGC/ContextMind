@@ -203,9 +203,12 @@ textarea:focus {
 """
 
 
-def create_gradio_ui():
+def create_gradio_ui(demo_instance=None):
     """
     创建Gradio UI界面
+    
+    Args:
+        demo_instance: UnifiedGradioDemo实例，用于绑定事件
     
     Returns:
         tuple: (app, components_dict) - Gradio应用和组件字典
@@ -352,5 +355,62 @@ def create_gradio_ui():
             "reset_btn": reset_btn,
             "clear_btn": clear_btn
         }
+        
+        # 如果提供了demo_instance，则绑定事件
+        if demo_instance:
+            # 发送消息
+            send_btn.click(
+                fn=demo_instance.chat,
+                inputs=[msg, chatbot],
+                outputs=[chatbot]
+            ).then(
+                fn=lambda: "",
+                outputs=[msg]
+            )
+            
+            msg.submit(
+                fn=demo_instance.chat,
+                inputs=[msg, chatbot],
+                outputs=[chatbot]
+            ).then(
+                fn=lambda: "",
+                outputs=[msg]
+            )
+            
+            # 查看状态
+            view_state_btn.click(
+                fn=demo_instance.get_state,
+                outputs=[state_display]
+            )
+            
+            # 重置对话
+            reset_btn.click(
+                fn=demo_instance.reset_conversation,
+                outputs=[chatbot]
+            )
+            
+            # 清空历史
+            clear_btn.click(
+                fn=lambda: [],
+                outputs=[chatbot]
+            )
+            
+            # 应用配置
+            apply_btn.click(
+                fn=demo_instance.change_scenario_or_mode,
+                inputs=[scenario_selector, mode_selector],
+                outputs=[chatbot, config_status]
+            )
+            
+            # 应用设置
+            apply_settings_btn.click(
+                fn=demo_instance.update_settings,
+                inputs=[
+                    max_history_slider,
+                    enable_summary_check,
+                    use_llm_summary_check
+                ],
+                outputs=[settings_status]
+            )
         
     return app, components

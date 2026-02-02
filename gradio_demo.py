@@ -16,8 +16,8 @@ import asyncio
 import logging
 from typing import List, Tuple, Optional
 from datetime import datetime
+from pathlib import Path
 
-from utils.logger import get_logger, setup_logging
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
@@ -27,9 +27,8 @@ from apps.callcenter_app import CallCenterApplication
 from apps.insurance_app import InsuranceApplication
 from ui_components import create_gradio_ui, CUSTOM_CSS
 
-# 初始设置日志（稍后会根据参数调整）
-setup_logging()
-logger = get_logger(__name__)
+# 使用标准Python logging以支持完整的logging API
+logger = logging.getLogger(__name__)
 
 
 class UnifiedGradioDemo:
@@ -309,8 +308,40 @@ def main():
     # 解析命令行参数
     args = parse_args()
     
-    # 设置日志级别
-    logger.setLevel(getattr(logging, args.log_level))
+    # 设置日志系统
+    # 创建日志目录
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 生成日志文件名
+    log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    log_filepath = log_dir / log_filename
+    
+    # 配置日志处理器
+    log_level = getattr(logging, args.log_level)
+    
+    # 控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s - [%(name)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(console_formatter)
+    
+    # 文件处理器
+    file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
+    file_handler.setLevel(log_level)
+    file_handler.setFormatter(console_formatter)
+    
+    # 配置根logger
+    logging.basicConfig(
+        level=log_level,
+        handlers=[console_handler, file_handler],
+        force=True
+    )
+    
+    print(f"📝 日志将自动保存到: {log_filepath}")
     
     logger.info("[__main__] 启动ContextMind统一Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")
@@ -326,9 +357,9 @@ def main():
         print(f"{'='*60}\n")
         raise
     
-    # 创建UI
+    # 创建UI（传入demo_instance以绑定事件）
     try:
-        app, components = create_gradio_ui()
+        app, components = create_gradio_ui(demo_instance)
         logger.info("✅ UI创建成功")
     except Exception as e:
         logger.error(f"❌ UI创建失败: {e}", exc_info=True)
@@ -338,64 +369,7 @@ def main():
         print(f"{'='*60}\n")
         raise
     
-    # 绑定事件
-    # 发送消息
-    components["send_btn"].click(
-        fn=demo_instance.chat,
-        inputs=[components["msg"], components["chatbot"]],
-        outputs=[components["chatbot"]]
-    ).then(
-        fn=lambda: "",
-        outputs=[components["msg"]]
-    )
-    
-    components["msg"].submit(
-        fn=demo_instance.chat,
-        inputs=[components["msg"], components["chatbot"]],
-        outputs=[components["chatbot"]]
-    ).then(
-        fn=lambda: "",
-        outputs=[components["msg"]]
-    )
-    
-    # 查看状态
-    components["view_state_btn"].click(
-        fn=demo_instance.get_state,
-        outputs=[components["state_display"]]
-    )
-    
-    # 重置对话
-    components["reset_btn"].click(
-        fn=demo_instance.reset_conversation,
-        outputs=[components["chatbot"]]
-    )
-    
-    # 清空历史
-    components["clear_btn"].click(
-        fn=lambda: [],
-        outputs=[components["chatbot"]]
-    )
-    
-    # 应用配置
-    components["apply_btn"].click(
-        fn=demo_instance.change_scenario_or_mode,
-        inputs=[components["scenario_selector"], components["mode_selector"]],
-        outputs=[components["chatbot"], components["config_status"]]
-    )
-    
-    # 应用设置
-    components["apply_settings_btn"].click(
-        fn=demo_instance.update_settings,
-        inputs=[
-            components["max_history_slider"],
-            components["enable_summary_check"],
-            components["use_llm_summary_check"]
-        ],
-        outputs=[components["settings_status"]]
-    )
-    
     # 启动应用（CSS参数移到这里，兼容Gradio 6.0）
-    # 启动应用
     logger.info(f"启动Gradio应用... (端口: {args.port}, 分享: {args.share})")
     app.launch(
         server_name="0.0.0.0",

@@ -14,9 +14,11 @@ ContextMind 统一交互式Demo
 import asyncio
 import argparse
 import sys
+import logging
 from typing import Optional
+from datetime import datetime
+from pathlib import Path
 
-from utils.logger import get_logger, setup_logging
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
@@ -25,9 +27,8 @@ from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
 from apps.insurance_app import InsuranceApplication
 
-# 设置日志
-setup_logging()
-logger = get_logger(__name__)
+# 使用标准Python logging
+logger = logging.getLogger(__name__)
 
 
 class UnifiedInteractiveDemo:
@@ -355,8 +356,40 @@ async def main():
     """主函数"""
     args = parse_args()
     
-    # 设置日志级别
-    logger.setLevel(getattr(logging, args.log_level))
+    # 设置日志系统
+    # 创建日志目录
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 生成日志文件名
+    log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    log_filepath = log_dir / log_filename
+    
+    # 配置日志处理器
+    log_level = getattr(logging, args.log_level)
+    
+    # 控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s - [%(name)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(console_formatter)
+    
+    # 文件处理器
+    file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
+    file_handler.setLevel(log_level)
+    file_handler.setFormatter(console_formatter)
+    
+    # 配置根logger
+    logging.basicConfig(
+        level=log_level,
+        handlers=[console_handler, file_handler],
+        force=True
+    )
+    
+    print(f"📝 日志将自动保存到: {log_filepath}")
     
     # 显示配置信息
     logger.info(f"启动参数: scenario={args.scenario}, mode={args.mode}, log_level={args.log_level}, max_history_turns={args.max_history_turns}")
