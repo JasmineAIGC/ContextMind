@@ -114,10 +114,11 @@ class UnifiedInteractiveDemo:
                 print()
                 sys.exit(1)
         
-        # 创建PromptManager
+        # 创建PromptManager，使用自定义模板（如果提供）
         pm = PromptManager(
             domain=self.config.name,
-            enable_dynamic_slots=self.config.enable_dynamic_slots  # 使用场景配置
+            enable_dynamic_slots=self.config.enable_dynamic_slots,  # 使用场景配置
+            custom_template=getattr(self.config, 'dst_prompt_template', None)  # 使用自定义模板
         )
         
         # 添加预定义槽位

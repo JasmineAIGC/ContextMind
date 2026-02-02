@@ -55,7 +55,8 @@ class PromptManager:
                  language: Language = Language.ZH_CN,
                  llm_format: LLMFormat = LLMFormat.GENERAL,
                  template_style: str = "structured",
-                 max_context_length: Optional[int] = None):
+                 max_context_length: Optional[int] = None,
+                 custom_template: Optional[str] = None):
         """
         初始化提示词管理器
         
@@ -66,12 +67,14 @@ class PromptManager:
             llm_format: LLM平台格式（默认通用）
             template_style: 模板风格 - "structured"(详细), "concise"(简洁), "conversational"(对话式)
             max_context_length: 最大上下文长度（自动根据LLM格式设置）
+            custom_template: 自定义提示词模板（如果提供，将替代默认生成的模板）
         """
         self.domain = domain
         self.enable_dynamic_slots = enable_dynamic_slots
         self.language = language
         self.llm_format = llm_format
         self.template_style = template_style
+        self.custom_template = custom_template
         
         # 根据LLM格式设置默认上下文长度
         if max_context_length is None:
@@ -111,7 +114,11 @@ class PromptManager:
         返回:
             格式化的系统指令
         """
-        # 根据模板风格选择不同的指令
+        # 如果提供了自定义模板，直接使用
+        if self.custom_template:
+            return self.custom_template
+        
+        # 否则根据模板风格选择不同的指令
         if self.template_style == "concise":
             return self.get_concise_instruction()
         elif self.template_style == "conversational":
