@@ -76,9 +76,16 @@ class DialogueStateTracker:
             domain=domain, 
             enable_dynamic_slots=enable_dynamic_slots
         )
+        
+        # 获取分类槽位用于归一化（优化）
+        categorical_slots = {}
+        if hasattr(self.prompt_manager, 'categorical_slots'):
+            categorical_slots = self.prompt_manager.categorical_slots
+        
         self.response_parser = ResponseParser(
             ontology_slots=self.prompt_manager.get_slot_names(),
-            enable_filtering=not enable_dynamic_slots  # 动态模式不过滤
+            enable_filtering=not enable_dynamic_slots,  # 动态模式不过滤
+            categorical_slots=categorical_slots  # 传递分类槽位
         )
         
         # 对话状态
@@ -88,6 +95,10 @@ class DialogueStateTracker:
         # 意图追踪（新增）
         self.intent_history: List[str] = []
         self.current_intents: List[str] = []
+        
+        # 多意图槽位存储（优化）- 支持按意图分离槽位
+        self.intent_states: Dict[str, Dict[str, str]] = {}  # intent -> slots
+        self.enable_intent_namespacing: bool = False  # 向后兼容，默认关闭
         
         # 历史管理（新增）
         self.max_history_turns = max_history_turns
@@ -128,6 +139,7 @@ class DialogueStateTracker:
         self.dialogue_history = []
         self.intent_history = []
         self.current_intents = []
+        self.intent_states = {}  # 重置意图状态
         self.history_summary = None
         logger.info("对话状态已重置")
     
@@ -208,6 +220,10 @@ class DialogueStateTracker:
         logger.debug(f"开始解析响应，长度: {len(raw_response)} 字符")
         turn_updates = self.response_parser.extract_json(raw_response)
         logger.debug(f"解析结果: {turn_updates}")
+        
+        # 归一化槽位值（优化）
+        turn_updates = self.response_parser.normalize_extracted(turn_updates)
+        logger.debug(f"归一化后: {turn_updates}")
         
         # 更新累积状态
         self._update_state(turn_updates)
@@ -411,13 +427,33 @@ class DialogueStateTracker:
         更新累积对话状态
         
         实现 DS_t = update(DS_{t-1}, updates)
+        支持两种模式：
+        1. 全局命名空间（默认）：所有槽位共享一个字典
+        2. 意图命名空间（可选）：按意图分离槽位存储
         
         参数:
             updates: 从当前轮次提取的槽位更新
         """
+        # 提取当前意图
+        current_intent = updates.get("intent")
+        
+        # 更新全局状态（保持向后兼容）
         for slot, value in updates.items():
             if value and value.strip():  # 只更新非空值
                 self.current_state[slot] = value
+        
+        # 如果启用意图命名空间，同时维护按意图分离的状态
+        if self.enable_intent_namespacing and current_intent:
+            # 初始化该意图的状态字典
+            if current_intent not in self.intent_states:
+                self.intent_states[current_intent] = {}
+            
+            # 存储非intent字段到对应意图下
+            for slot, value in updates.items():
+                if slot != "intent" and value and value.strip():
+                    self.intent_states[current_intent][slot] = value
+            
+            logger.debug(f"意图状态更新: {current_intent} -> {self.intent_states[current_intent]}")
     
     def _track_intents(self, updates: Dict[str, str]) -> None:
         """
@@ -480,5 +516,87 @@ class DialogueStateTracker:
             "intent_switches": len(set(self.intent_history)),
             "current_intents": len(self.current_intents),
             "has_summary": self.history_summary is not None,
-            "messages_count": len(self.messages)
+            "messages_count": len(self.messages),
+            "intent_states_count": len(self.intent_states)  # 新增
         }
+    
+    # 新增：意图特定状态查询方法
+    
+    def get_intent_state(self, intent: str) -> Dict[str, str]:
+        """
+        获取特定意图的槽位状态（优化功能）
+        
+        仅在启用intent_namespacing时返回有意义的结果
+        
+        参数:
+            intent: 意图名称
+            
+        返回:
+            该意图关联的槽位字典（副本）
+        """
+        if not self.enable_intent_namespacing:
+            logger.warning("未启用意图命名空间，返回空字典")
+            return {}
+        
+        return self.intent_states.get(intent, {}).copy()
+    
+    def get_all_intent_states(self) -> Dict[str, Dict[str, str]]:
+        """
+        获取所有意图的槽位状态（优化功能）
+        
+        返回:
+            意图到槽位字典的映射（副本）
+        """
+        if not self.enable_intent_namespacing:
+            logger.warning("未启用意图命名空间，返回空字典")
+            return {}
+        
+        # 返回深拷贝
+        return {
+            intent: slots.copy()
+            for intent, slots in self.intent_states.items()
+        }
+    
+    def get_state_at_turn(self, turn_num: int) -> Dict[str, str]:
+        """
+        获取特定轮次的累积状态（优化功能）
+        
+        通过重放历史得到该轮次后的状态
+        
+        参数:
+            turn_num: 轮次编号（从1开始）
+            
+        返回:
+            该轮次后的累积状态
+        """
+        if turn_num < 1 or turn_num > len(self.dialogue_history):
+            logger.warning(f"无效轮次号: {turn_num}, 总轮次: {len(self.dialogue_history)}")
+            return {}
+        
+        # 重放历史到指定轮次
+        state = {}
+        for i, turn in enumerate(self.dialogue_history[:turn_num], 1):
+            for slot, value in turn.turn_updates.items():
+                if value and value.strip():
+                    state[slot] = value
+        
+        return state
+    
+    def get_slot_history(self, slot: str) -> List[Tuple[int, str]]:
+        """
+        获取特定槽位的所有历史值（优化功能）
+        
+        参数:
+            slot: 槽位名称
+            
+        返回:
+            (轮次号, 值) 的列表
+        """
+        history = []
+        for i, turn in enumerate(self.dialogue_history, 1):
+            if slot in turn.turn_updates:
+                value = turn.turn_updates[slot]
+                if value and value.strip():
+                    history.append((i, value))
+        
+        return history

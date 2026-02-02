@@ -33,16 +33,19 @@ class ResponseParser:
     
     def __init__(self, 
                  ontology_slots: Optional[Set[str]] = None,
-                 enable_filtering: bool = False):
+                 enable_filtering: bool = False,
+                 categorical_slots: Optional[Dict[str, list]] = None):
         """
         初始化响应解析器
         
         参数:
             ontology_slots: 本体中定义的槽位名称集合（可选）
             enable_filtering: 是否启用槽位过滤（默认False，支持动态槽位）
+            categorical_slots: 分类槽位及其候选值（用于归一化）
         """
         self.ontology_slots = ontology_slots or set()
         self.enable_filtering = enable_filtering
+        self.categorical_slots = categorical_slots or {}  # 新增
     
     def extract_json(self, text: str) -> Dict[str, str]:
         """
@@ -181,3 +184,57 @@ class ResponseParser:
                 logger.debug(f"过滤未知槽位: {slot}")
         
         return filtered
+    
+    def normalize_value(self, slot: str, value: str) -> str:
+        """
+        归一化槽位值（优化功能）
+        
+        对于分类槽位，尝试匹配到预定义的候选值。
+        实现ACL 2023论文中的手工归一化步骤。
+        
+        参数:
+            slot: 槽位名称
+            value: 原始值
+            
+        返回:
+            归一化后的值
+        """
+        if not value or not value.strip():
+            return value
+        
+        # 基础归一化：去除首尾空格
+        normalized = value.strip()
+        
+        # 如果是分类槽位，尝试匹配候选值
+        if slot in self.categorical_slots:
+            candidates = self.categorical_slots[slot]
+            value_lower = normalized.lower()
+            
+            # 1. 精确匹配（忽略大小写）
+            for candidate in candidates:
+                if value_lower == candidate.lower():
+                    return candidate
+            
+            # 2. 包含匹配
+            for candidate in candidates:
+                if value_lower in candidate.lower() or candidate.lower() in value_lower:
+                    logger.debug(f"归一化: {slot}='{value}' -> '{candidate}'")
+                    return candidate
+        
+        return normalized
+    
+    def normalize_extracted(self, extracted: Dict[str, str]) -> Dict[str, str]:
+        """
+        归一化所有提取的槽位值（优化功能）
+        
+        参数:
+            extracted: 提取的槽位字典
+            
+        返回:
+            归一化后的槽位字典
+        """
+        normalized = {}
+        for slot, value in extracted.items():
+            normalized[slot] = self.normalize_value(slot, value)
+        
+        return normalized
