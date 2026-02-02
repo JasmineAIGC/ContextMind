@@ -245,7 +245,17 @@ class PromptManager:
         返回:
             Dict[str, str]: 槽位名称到描述的映射
         """
-        return self.slots
+        return self.ontology_slots
+    
+    @property
+    def categorical_slots(self) -> Dict[str, List[str]]:
+        """
+        获取分类槽位约束
+        
+        返回:
+            Dict[str, List[str]]: 槽位名称到允许值列表的映射
+        """
+        return self.categorical_constraints
     
     def _get_default_context_length(self) -> int:
         """
