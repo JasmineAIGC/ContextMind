@@ -102,37 +102,52 @@ def get_insurance_scenario() -> ScenarioConfig:
     }
     
     # 定义槽位
+    # 意图层级：一级意图（固定）→ 二级意图（固定）→ 三级意图（可扩展）
     dst_slots = {
-        "intent_level1": "一级意图",
-        "intent_level2": "二级意图",
-        "customer_age_range": "客户年龄段（30-40岁、40-50岁、50岁以上等）",
+        "intent_level1": "一级意图（主意图，来自huashu.md）",
+        "intent_level2": "二级意图（子意图，来自huashu.md）",
+        "intent_level3": "三级意图（详细分类，用于补充一二级意图的具体情况）",
+        
+        # 以下为事实性信息槽位（非意图层级）
+        "customer_age_range": "客户年龄段",
         "customer_gender": "客户性别",
         "has_insurance": "是否已有保险",
         "has_cancer_insurance": "是否已有癌症保险",
-        "concern_type": "主要关注点（价格、保障范围、理赔等）",
-        "objection_reason": "反对原因",
         "callback_needed": "是否需要回访",
         "decision_maker": "决策者（本人/配偶/家人）",
         "conversation_stage": "对话阶段（初次接触、了解产品、处理异议、促成签约）",
-        "customer_emotion": "客户情绪状态（友好、中立、抗拒、生气）",
         "insurance_type_interested": "感兴趣的保险类型",
         "budget_range": "预算范围",
         "health_status": "健康状况提及",
-        "family_situation": "家庭情况（有子女、单身、已婚等）",
+        "family_situation": "家庭情况",
         "competitor_mention": "提及竞争对手",
-        "next_action": "下一步行动（发送资料、安排回访、转人工等）"
+        "next_action": "下一步行动"
     }
     
     # 定义分类槽位（只允许特定值）
     dst_categorical_slots = {
+        # 三级意图分类（5大类，每类5个值）
+        "intent_level3": [
+            # 1. 特殊情况类（客户的个人情况）
+            "健康状况", "家庭情况", "经济状况", "工作性质", "地理位置",
+            # 2. 原因类（客户持某种态度的原因）
+            "过往经历", "他人影响", "知识不足", "时机不当", "比较结果",
+            # 3. 关注点类（客户重点关注的方面）
+            "价格因素", "保障范围", "理赔流程", "公司信誉", "条款细节",
+            # 4. 行动意向类（客户的下一步打算）
+            "立即决定", "需要时间", "需要咨询", "需要比较", "暂不考虑",
+            # 5. 情绪状态类（客户的情绪反应）
+            "积极开放", "谨慎保守", "抗拒防御", "困惑迷茫", "不满抱怨"
+        ],
+        
+        # 事实性信息的分类槽位
         "customer_age_range": ["30岁以下", "30-40岁", "40-50岁", "50岁以上"],
         "customer_gender": ["男", "女", "未知"],
         "has_insurance": ["是", "否", "未知"],
         "has_cancer_insurance": ["是", "否", "未知"],
         "callback_needed": ["是", "否", "待定"],
         "decision_maker": ["本人", "配偶", "家人", "需商量"],
-        "conversation_stage": ["初次接触", "了解产品", "处理异议", "促成签约", "客户拒绝"],
-        "customer_emotion": ["友好", "中立", "犹豫", "抗拒", "生气"]
+        "conversation_stage": ["初次接触", "了解产品", "处理异议", "促成签约", "客户拒绝"]
     }
     
     # DST提示词模板
@@ -141,9 +156,9 @@ def get_insurance_scenario() -> ScenarioConfig:
 ## 核心任务
 从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
 
-## 意图体系（双层结构 - 严格按照 data/huashu.md 定义）
+## 意图体系（三层结构 - 基于 data/huashu.md）
 
-### 一级意图（7个固定类别）:
+### 一级意图（7个固定类别，来自huashu.md）:
 1. 拒绝 - 明确表示不需要
 2. 无意向 - 有各种顾虑和理由
 3. 用户忙 - 当前不方便
@@ -152,7 +167,7 @@ def get_insurance_scenario() -> ScenarioConfig:
 6. 接受 - 愿意了解或购买
 7. 咨询 - 主动询问信息
 
-### 二级意图（必须精确匹配以下定义）:
+### 二级意图（必须精确匹配以下定义，来自huashu.md）:
 
 **拒绝**:
 - 明确、强硬拒绝
@@ -196,12 +211,29 @@ def get_insurance_scenario() -> ScenarioConfig:
 - 询问理赔流程
 - 询问投保条件
 
+### 三级意图（可选，用于补充一二级意图的详细分类）:
+
+**5大类别，每类5个值**：
+
+1. **特殊情况类**（客户的个人情况）：
+   - 健康状况、家庭情况、经济状况、工作性质、地理位置
+
+2. **原因类**（客户持某种态度的原因）：
+   - 过往经历、他人影响、知识不足、时机不当、比较结果
+
+3. **关注点类**（客户重点关注的方面）：
+   - 价格因素、保障范围、理赔流程、公司信誉、条款细节
+
+4. **行动意向类**（客户的下一步打算）：
+   - 立即决定、需要时间、需要咨询、需要比较、暂不考虑
+
+5. **情绪状态类**（客户的情绪反应）：
+   - 积极开放、谨慎保守、抗拒防御、困惑迷茫、不满抱怨
+
 ## 关键信息提取
 必须提取以下信息（如果对话中有提及）：
 - 客户年龄段和性别
 - 是否已有保险/癌症保险
-- 主要关注点和顾虑
-- 情绪状态
 - 家庭和决策情况
 - 对话所处阶段
 - 建议的下一步行动
@@ -210,7 +242,8 @@ def get_insurance_scenario() -> ScenarioConfig:
 返回JSON格式，包含：
 1. intent_level1: 一级意图（必须从上述7个中选择）
 2. intent_level2: 二级意图（必须精确匹配上述定义）
-3. 其他相关槽位信息
+3. intent_level3: 三级意图（可选，用于补充详细信息，从25个值中选择）
+4. 其他相关槽位信息
 
 ## 示例
 用户："我已经买过癌症保险了，不需要了"
@@ -218,10 +251,20 @@ def get_insurance_scenario() -> ScenarioConfig:
 {
   "intent_level1": "无意向",
   "intent_level2": "已有癌症保险",
+  "intent_level3": "过往经历",
   "has_cancer_insurance": "是",
-  "customer_emotion": "中立",
   "conversation_stage": "处理异议",
   "next_action": "提供叠加保险的优势说明"
+}
+
+用户："保费太贵了，我负担不起"
+输出:
+{
+  "intent_level1": "无意向",
+  "intent_level2": "保费贵",
+  "intent_level3": "价格因素",
+  "budget_range": "不确定",
+  "conversation_stage": "处理异议"
 }
 
 只返回JSON，不要其他解释。
