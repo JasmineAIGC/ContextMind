@@ -292,26 +292,44 @@ def create_gradio_ui(demo_instance=None):
                 
                 # 高级设置
                 with gr.Accordion("⚙️ 高级设置", open=False):
-                    max_history_slider = gr.Slider(
-                        minimum=5,
-                        maximum=50,
-                        value=10,
-                        step=1,
-                        label="历史轮数",
-                        info="DST模式保存的对话轮数"
-                    )
+                    # DST模式设置
+                    with gr.Group(visible=True) as dst_settings:
+                        gr.Markdown("**DST模式设置**")
+                        max_history_slider = gr.Slider(
+                            minimum=5,
+                            maximum=50,
+                            value=10,
+                            step=1,
+                            label="历史轮数",
+                            info="DST模式保存的对话轮数"
+                        )
+                        
+                        enable_summary_check = gr.Checkbox(
+                            value=True,
+                            label="启用历史摘要",
+                            info="长对话时自动摘要"
+                        )
+                        
+                        use_llm_summary_check = gr.Checkbox(
+                            value=False,
+                            label="LLM生成摘要",
+                            info="更智能但较慢"
+                        )
                     
-                    enable_summary_check = gr.Checkbox(
-                        value=True,
-                        label="启用历史摘要",
-                        info="长对话时自动摘要"
-                    )
-                    
-                    use_llm_summary_check = gr.Checkbox(
-                        value=False,
-                        label="LLM生成摘要",
-                        info="更智能但慢"
-                    )
+                    # ContextMind模式设置
+                    with gr.Group(visible=False) as contextmind_settings:
+                        gr.Markdown("**ContextMind模式设置**")
+                        enable_memory_check = gr.Checkbox(
+                            value=True,
+                            label="启用记忆功能",
+                            info="启用长期记忆存储"
+                        )
+                        
+                        enable_evolution_check = gr.Checkbox(
+                            value=True,
+                            label="启用进化学习",
+                            info="从对话中学习和优化"
+                        )
                     
                     apply_settings_btn = gr.Button("💾 应用设置", elem_classes=["primary-button"])
                     settings_status = gr.Markdown("⚙️ 轮数=10, 摘要=启用", elem_classes=["config-status"])
@@ -371,9 +389,13 @@ def create_gradio_ui(demo_instance=None):
             "mode_selector": mode_selector,
             "apply_btn": apply_btn,
             "config_status": config_status,
+            "dst_settings": dst_settings,
+            "contextmind_settings": contextmind_settings,
             "max_history_slider": max_history_slider,
             "enable_summary_check": enable_summary_check,
             "use_llm_summary_check": use_llm_summary_check,
+            "enable_memory_check": enable_memory_check,
+            "enable_evolution_check": enable_evolution_check,
             "apply_settings_btn": apply_settings_btn,
             "settings_status": settings_status,
             "chatbot": chatbot,
@@ -387,20 +409,28 @@ def create_gradio_ui(demo_instance=None):
         
         # 如果提供了demo_instance，则绑定事件
         if demo_instance:
-            # 发送消息
+            # 发送消息 - 并自动更新状态显示
+            def send_and_update_state(msg, history):
+                import asyncio
+                # 发送消息
+                new_history = asyncio.run(demo_instance.chat(msg, history))
+                # 获取更新后的状态
+                state = demo_instance.get_state()
+                return new_history, state
+            
             send_btn.click(
-                fn=demo_instance.chat,
+                fn=send_and_update_state,
                 inputs=[msg, chatbot],
-                outputs=[chatbot]
+                outputs=[chatbot, state_display]
             ).then(
                 fn=lambda: "",
                 outputs=[msg]
             )
             
             msg.submit(
-                fn=demo_instance.chat,
+                fn=send_and_update_state,
                 inputs=[msg, chatbot],
-                outputs=[chatbot]
+                outputs=[chatbot, state_display]
             ).then(
                 fn=lambda: "",
                 outputs=[msg]
@@ -424,11 +454,21 @@ def create_gradio_ui(demo_instance=None):
                 outputs=[chatbot]
             )
             
-            # 应用配置
+            # 应用配置 - 同时更新设置显示
+            def apply_config_and_update_ui(scenario, mode):
+                import gradio as gr
+                history, status = demo_instance.change_scenario_or_mode(scenario, mode)
+                
+                # 根据模式显示/隐藏对应的设置组
+                if mode == "dst":
+                    return history, status, gr.update(visible=True), gr.update(visible=False)
+                else:  # contextmind
+                    return history, status, gr.update(visible=False), gr.update(visible=True)
+            
             apply_btn.click(
-                fn=demo_instance.change_scenario_or_mode,
+                fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
-                outputs=[chatbot, config_status]
+                outputs=[chatbot, config_status, dst_settings, contextmind_settings]
             )
             
             # 应用设置
@@ -437,7 +477,9 @@ def create_gradio_ui(demo_instance=None):
                 inputs=[
                     max_history_slider,
                     enable_summary_check,
-                    use_llm_summary_check
+                    use_llm_summary_check,
+                    enable_memory_check,
+                    enable_evolution_check
                 ],
                 outputs=[settings_status]
             )

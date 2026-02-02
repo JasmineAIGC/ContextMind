@@ -221,20 +221,47 @@ class UnifiedGradioDemo:
     def get_state(self) -> dict:
         """获取当前状态"""
         if self.current_mode == "dst" and self.tracker:
-            return {
-                "模式": "DST",
-                "场景": self.current_scenario,
-                "当前状态": self.tracker.current_state,
-                "对话轮数": len(self.tracker.dialogue_history)
+            # DST模式：显示详细的对话状态信息
+            state_info = {
+                "🎯 模式": "DST (对话状态追踪)",
+                "📋 场景": self._get_scenario_name(self.current_scenario),
+                "💬 对话轮数": len(self.tracker.dialogue_history),
+                "🎪 槽位状态": self.tracker.current_state if self.tracker.current_state else "暂无槽位信息",
+                "🎭 当前意图": self.tracker.current_intents if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents else "未识别",
+                "📊 历史摘要": "已启用" if self.tracker.enable_history_summary else "未启用",
+                "⚙️ 最大历史轮数": self.tracker.max_history_turns,
+                "🤖 LLM摘要": "启用" if self.tracker.use_llm_summary else "禁用(使用模板)"
             }
+            return state_info
         elif self.current_mode == "contextmind" and self.app:
-            return {
-                "模式": "ContextMind",
-                "场景": self.current_scenario,
-                "状态": "运行中"
+            # ContextMind模式：显示引擎状态
+            engine = self.app.context_engine
+            state_info = {
+                "🎯 模式": "ContextMind (完整架构)",
+                "📋 场景": self._get_scenario_name(self.current_scenario),
+                "💾 记忆功能": "已启用",
+                "🔄 进化学习": "已启用",
+                "📝 应用ID": engine.app_name if hasattr(engine, 'app_name') else "N/A",
+                "👤 用户ID": engine.user_id if hasattr(engine, 'user_id') else "N/A",
             }
+            
+            # 尝试获取记忆库信息
+            if hasattr(engine, 'memory_bank'):
+                memory_cache = engine.memory_bank.get_memory_cache()
+                state_info["🧠 记忆数量"] = len(memory_cache)
+            
+            return state_info
         else:
-            return {"状态": "未初始化"}
+            return {"⚠️ 状态": "未初始化", "提示": "请先应用场景配置"}
+    
+    def _get_scenario_name(self, scenario: str) -> str:
+        """获取场景中文名称"""
+        scenario_names = {
+            "chat": "💬 闲聊对话",
+            "callcenter": "📞 智能客服",
+            "insurance": "🏥 保险咨询"
+        }
+        return scenario_names.get(scenario, scenario)
     
     def reset_conversation(self):
         """重置对话"""
@@ -263,7 +290,31 @@ class UnifiedGradioDemo:
         logger.info(f"配置已更新: {scenario}, {mode}")
         return [], status
     
-    def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool):
+    def get_settings_visibility(self, mode: str):
+        """根据模式返回设置组件的可见性配置"""
+        import gradio as gr
+        
+        if mode == "dst":
+            # DST模式：显示历史轮数、摘要设置
+            return {
+                "max_history": gr.update(visible=True, label="历史轮数", info="DST模式保存的对话轮数"),
+                "enable_summary": gr.update(visible=True),
+                "use_llm_summary": gr.update(visible=True),
+                "enable_memory": gr.update(visible=False),
+                "enable_evolution": gr.update(visible=False),
+            }
+        else:  # contextmind模式
+            # ContextMind模式：显示记忆和进化设置
+            return {
+                "max_history": gr.update(visible=True, label="最大近期事件", info="ContextMind保留的最近事件数量"),
+                "enable_summary": gr.update(visible=False),
+                "use_llm_summary": gr.update(visible=False),
+                "enable_memory": gr.update(visible=True),
+                "enable_evolution": gr.update(visible=True),
+            }
+    
+    def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool,
+                        enable_memory: bool, enable_evolution: bool):
         """更新设置"""
         self.max_history_turns = max_history_turns
         
@@ -272,11 +323,21 @@ class UnifiedGradioDemo:
             self.tracker.max_history_turns = max_history_turns
             self.tracker.enable_history_summary = enable_summary
             self.tracker.use_llm_summary = use_llm_summary
-            logger.info(f"设置已更新: max_history_turns={max_history_turns}, enable_summary={enable_summary}, use_llm_summary={use_llm_summary}")
+            logger.info(f"DST设置已更新: max_history_turns={max_history_turns}, enable_summary={enable_summary}, use_llm_summary={use_llm_summary}")
+            
+            summary_status = "启用" if enable_summary else "禁用"
+            llm_summary_status = "LLM" if use_llm_summary else "模板"
+            return f"⚙️ DST设置: 历史={max_history_turns}轮, 摘要={summary_status}, 方式={llm_summary_status}"
         
-        summary_status = "启用" if enable_summary else "禁用"
-        llm_summary_status = "LLM生成" if use_llm_summary else "模板生成"
-        return f"⚙️ 设置已更新: 历史轮数={max_history_turns}, 摘要={summary_status}, 摘要方式={llm_summary_status}"
+        elif self.current_mode == "contextmind" and self.app:
+            # ContextMind模式的设置（记忆和进化是在初始化时设置的）
+            logger.info(f"ContextMind设置: 记忆={enable_memory}, 进化={enable_evolution}")
+            
+            memory_status = "启用" if enable_memory else "禁用"
+            evolution_status = "启用" if enable_evolution else "禁用"
+            return f"⚙️ ContextMind设置: 记忆={memory_status}, 进化={evolution_status}, 最大事件={max_history_turns}"
+        
+        return "⚙️ 请先应用场景配置"
 
 
 def parse_args():
