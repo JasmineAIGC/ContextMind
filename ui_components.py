@@ -293,7 +293,7 @@ def create_gradio_ui(demo_instance=None):
                 # 高级设置
                 with gr.Accordion("⚙️ 高级设置", open=False):
                     # DST模式设置
-                    with gr.Group(visible=True) as dst_settings:
+                    with gr.Group(visible=False) as dst_settings:
                         gr.Markdown("**DST模式设置**")
                         max_history_slider = gr.Slider(
                             minimum=5,
@@ -317,7 +317,7 @@ def create_gradio_ui(demo_instance=None):
                         )
                     
                     # ContextMind模式设置
-                    with gr.Group(visible=False) as contextmind_settings:
+                    with gr.Group(visible=True) as contextmind_settings:
                         gr.Markdown("**ContextMind模式设置**")
                         enable_memory_check = gr.Checkbox(
                             value=True,
@@ -332,7 +332,7 @@ def create_gradio_ui(demo_instance=None):
                         )
                     
                     apply_settings_btn = gr.Button("💾 应用设置", elem_classes=["primary-button"])
-                    settings_status = gr.Markdown("⚙️ 轮数=10, 摘要=启用", elem_classes=["config-status"])
+                    settings_status = gr.Markdown("⚙️ ContextMind设置就绪", elem_classes=["config-status"])
                 
                 # 对话状态
                 with gr.Accordion("📊 对话状态", open=False):
