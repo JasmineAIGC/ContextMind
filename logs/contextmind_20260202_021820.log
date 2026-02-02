@@ -1,0 +1,4 @@
+[2026-02-02 02:18:20] INFO - [__main__] 启动参数: scenario=chat, mode=contextmind, log_level=INFO, max_history_turns=10
+[2026-02-02 02:18:20] INFO - [__main__] 初始化ContextMind模式 - 闲聊
+[2026-02-02 02:18:20] ERROR - [__main__] LLM客户端初始化失败: 未安装 OpenAI 包。请使用以下命令安装: pip install openai
+或使用 --no-llm 标志运行而不需要真实的 LLM 调用。
