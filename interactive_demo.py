@@ -13,6 +13,7 @@ ContextMind 统一交互式Demo
 
 import asyncio
 import argparse
+import logging
 import sys
 from typing import Optional
 from datetime import datetime
