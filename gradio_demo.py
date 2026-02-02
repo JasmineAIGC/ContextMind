@@ -126,21 +126,20 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 创建ContextEngine
+        # 创建ContextEngine - 使用正确的参数
         engine = ContextEngine(
-            llm_client=self.llm_client,
-            system_prompt=self.config.system_prompt,
-            enable_memory=self.config.enable_memory,
-            enable_evolution=self.config.enable_evolution
+            app_name=f"gradio_demo_{self.current_scenario}",
+            user_id="gradio_user",
+            llm_client=self.llm_client
         )
         
-        # 创建对应的Application
+        # 创建对应的Application - 使用正确的参数名
         if self.current_scenario == "chat":
-            self.app = ChatApplication(engine)
+            self.app = ChatApplication(context_engine=engine, system_prompt=self.config.system_prompt)
         elif self.current_scenario == "callcenter":
-            self.app = CallCenterApplication(engine)
+            self.app = CallCenterApplication(context_engine=engine, system_prompt=self.config.system_prompt)
         elif self.current_scenario == "insurance":
-            self.app = InsuranceApplication(engine)
+            self.app = InsuranceApplication(context_engine=engine, system_prompt=self.config.system_prompt)
         
         logger.info("ContextMind模式初始化完成")
     
@@ -159,7 +158,8 @@ class UnifiedGradioDemo:
             if self.current_mode == "dst":
                 # DST模式
                 # 获取上一轮系统回复
-                system_utterance = history[-1][1] if history else "你好！"
+                # history格式: [[{user_msg}, {assistant_msg}], ...]
+                system_utterance = history[-1][1]["content"] if history else "你好！"
                 
                 # 调用process_turn处理对话状态
                 state = await self.tracker.process_turn(
@@ -174,13 +174,13 @@ class UnifiedGradioDemo:
                     {"role": "user", "content": message}
                 ]
                 
-                response = await self.llm_client.chat_async(messages=messages)
-                reply = response.get("content", "抱歉，我没有理解您的意思。")
+                # chat_async returns a string directly, not a dict
+                reply = await self.llm_client.chat_async(messages=messages)
                 
             else:
                 # ContextMind模式
-                result = await self.app.process_turn(message)
-                reply = result.get("reply", "抱歉，处理出错了。")
+                # process_turn returns a string directly, not a dict
+                reply = await self.app.process_turn(message)
             
             # 更新历史 - 使用Gradio 6.0格式
             return history + [[
