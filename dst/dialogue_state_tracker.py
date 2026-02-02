@@ -82,7 +82,6 @@ class DialogueStateTracker:
         )
         
         # 对话状态
-        self.messages: List[Dict[str, str]] = []
         self.current_state: Dict[str, str] = {}
         self.dialogue_history: List[DialogueTurn] = []
         
@@ -95,6 +94,11 @@ class DialogueStateTracker:
         self.enable_history_summary = enable_history_summary
         self.use_llm_summary = use_llm_summary  # 新增：控制是否用LLM摘要
         self.history_summary: Optional[str] = None
+        
+        # 初始化消息列表，包含系统指令（关键修复：确保LLM收到JSON格式要求）
+        self.messages: List[Dict[str, str]] = [
+            {"role": "system", "content": self.prompt_manager.get_system_instruction()}
+        ]
         
         logger.info(
             f"初始化DialogueStateTracker "
