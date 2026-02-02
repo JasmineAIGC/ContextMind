@@ -230,9 +230,9 @@ class UnifiedInteractiveDemo:
     async def chat_dst_mode(self, user_message: str) -> str:
         """DST模式对话"""
         try:
-            # 处理对话轮次 - 使用正确的参数名
+            # 处理对话轮次 - 使用上一轮的系统回复
             state = await self.dst_tracker.process_turn(
-                system_utterance="你好",  # 系统话语（可以从历史中获取）
+                system_utterance=self.last_system_reply,
                 user_utterance=user_message
             )
             
@@ -244,6 +244,10 @@ class UnifiedInteractiveDemo:
             
             # 生成回复
             reply = await self.llm_client.chat_async(messages=messages)
+            
+            # 保存这轮的系统回复，供下一轮使用
+            self.last_system_reply = reply
+            
             return reply
             
         except Exception as e:

@@ -270,7 +270,14 @@ class UnifiedGradioDemo:
                 # 显示最近的记忆（最多5条）
                 if memory_cache:
                     recent_memories = list(memory_cache.values())[-5:]
-                    state_info["📚 最近记忆"] = [mem.get('content', str(mem))[:50] + '...' if len(str(mem.get('content', mem))) > 50 else str(mem.get('content', mem)) for mem in recent_memories]
+                    formatted_memories = []
+                    for mem in recent_memories:
+                        content = mem.get('content', str(mem))
+                        if len(str(content)) > 50:
+                            formatted_memories.append(str(content)[:50] + '...')
+                        else:
+                            formatted_memories.append(str(content))
+                    state_info["📚 最近记忆"] = formatted_memories
             
             # 显示会话信息
             if hasattr(engine, 'session_manager'):
