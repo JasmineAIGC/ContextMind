@@ -290,28 +290,6 @@ class UnifiedGradioDemo:
         logger.info(f"配置已更新: {scenario}, {mode}")
         return [], status
     
-    def get_settings_visibility(self, mode: str):
-        """根据模式返回设置组件的可见性配置"""
-        import gradio as gr
-        
-        if mode == "dst":
-            # DST模式：显示历史轮数、摘要设置
-            return {
-                "max_history": gr.update(visible=True, label="历史轮数", info="DST模式保存的对话轮数"),
-                "enable_summary": gr.update(visible=True),
-                "use_llm_summary": gr.update(visible=True),
-                "enable_memory": gr.update(visible=False),
-                "enable_evolution": gr.update(visible=False),
-            }
-        else:  # contextmind模式
-            # ContextMind模式：显示记忆和进化设置
-            return {
-                "max_history": gr.update(visible=True, label="最大近期事件", info="ContextMind保留的最近事件数量"),
-                "enable_summary": gr.update(visible=False),
-                "use_llm_summary": gr.update(visible=False),
-                "enable_memory": gr.update(visible=True),
-                "enable_evolution": gr.update(visible=True),
-            }
     
     def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool,
                         enable_memory: bool, enable_evolution: bool):

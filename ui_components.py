@@ -410,27 +410,25 @@ def create_gradio_ui(demo_instance=None):
         # 如果提供了demo_instance，则绑定事件
         if demo_instance:
             # 发送消息 - 并自动更新状态显示
-            def send_and_update_state(msg, history):
-                import asyncio
-                # 发送消息
-                new_history = asyncio.run(demo_instance.chat(msg, history))
-                # 获取更新后的状态
-                state = demo_instance.get_state()
-                return new_history, state
-            
             send_btn.click(
-                fn=send_and_update_state,
+                fn=demo_instance.chat,
                 inputs=[msg, chatbot],
-                outputs=[chatbot, state_display]
+                outputs=[chatbot]
+            ).then(
+                fn=demo_instance.get_state,
+                outputs=[state_display]
             ).then(
                 fn=lambda: "",
                 outputs=[msg]
             )
             
             msg.submit(
-                fn=send_and_update_state,
+                fn=demo_instance.chat,
                 inputs=[msg, chatbot],
-                outputs=[chatbot, state_display]
+                outputs=[chatbot]
+            ).then(
+                fn=demo_instance.get_state,
+                outputs=[state_display]
             ).then(
                 fn=lambda: "",
                 outputs=[msg]
@@ -456,7 +454,6 @@ def create_gradio_ui(demo_instance=None):
             
             # 应用配置 - 同时更新设置显示
             def apply_config_and_update_ui(scenario, mode):
-                import gradio as gr
                 history, status = demo_instance.change_scenario_or_mode(scenario, mode)
                 
                 # 根据模式显示/隐藏对应的设置组
