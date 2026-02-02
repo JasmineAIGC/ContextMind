@@ -8,7 +8,7 @@
 
 import json
 import re
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
