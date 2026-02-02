@@ -50,6 +50,8 @@ class UnifiedGradioDemo:
         self.app = None
         self.initialized = False
         self.history = []
+        # 存储用户输入处理后、机器人回复前的对话状态
+        self.post_user_state = None
         logger.info("Demo实例创建完成（延迟初始化）")
     
     def initialize_scenario(self, scenario: str, mode: str):
@@ -178,6 +180,10 @@ class UnifiedGradioDemo:
                     user_utterance=message
                 )
                 
+                # 关键修改：在bot回复前捕获对话状态
+                # 此时槽位和意图已经提取，但尚未生成回复
+                self._capture_post_user_state()
+                
                 # 生成回复
                 system_prompt = self.config.system_prompt
                 messages = [
@@ -192,6 +198,11 @@ class UnifiedGradioDemo:
                 # ContextMind模式
                 # process_turn returns a string directly, not a dict
                 reply = await self.app.process_turn(message)
+                
+                # 关键修改：在bot回复后立即捕获状态
+                # 注意：ContextMind的process_turn是原子操作，包含了提取和回复
+                # 所以我们在其完成后立即捕获，这个状态反映了用户输入的理解
+                self._capture_post_user_state()
             
             # 更新历史 - 使用Gradio 6.0格式 (flat list)
             return history + [
@@ -225,8 +236,21 @@ class UnifiedGradioDemo:
                 {"role": "assistant", "content": f"❌ 系统错误: {str(e)}"}
             ]
     
-    def get_state(self) -> dict:
-        """获取当前状态
+    def _capture_post_user_state(self):
+        """
+        捕获用户输入处理后的对话状态（在bot回复生成之前）
+        
+        此方法在以下时机调用：
+        - DST模式：process_turn()之后，LLM生成回复之前
+        - ContextMind模式：process_turn()之后（因为是原子操作）
+        
+        捕获的状态反映了系统对用户输入的理解，而不是完整对话轮次结束后的状态
+        """
+        # 直接构建状态字典，避免调用get_state造成循环
+        self.post_user_state = self._build_state_dict()
+    
+    def _build_state_dict(self) -> dict:
+        """构建状态字典（内部方法）
         
         累积状态说明：
         - 累积状态显示从对话开始到当前轮次，所有已提取槽位的最新值
@@ -344,6 +368,21 @@ class UnifiedGradioDemo:
             return state_info
         else:
             return {"⚠️ 状态": "未初始化", "提示": "请先应用场景配置"}
+    
+    def get_state(self) -> dict:
+        """
+        获取对话状态
+        
+        返回用户输入处理后的状态（在bot回复生成之前捕获的状态）
+        这样显示的状态反映了系统对用户输入的理解，而不是完整对话轮次结束后的状态
+        
+        如果尚未捕获状态（如第一次调用），则返回当前实时状态
+        """
+        if self.post_user_state is not None:
+            return self.post_user_state
+        else:
+            # 如果还没有捕获的状态，返回当前实时状态
+            return self._build_state_dict()
     
     def _get_scenario_name(self, scenario: str) -> str:
         """获取场景中文名称"""
