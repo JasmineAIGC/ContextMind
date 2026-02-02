@@ -160,13 +160,10 @@ class UnifiedGradioDemo:
                 # 获取上一轮系统回复
                 # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
                 # 安全地获取上一轮的assistant回复内容
-                system_utterance = "你好！"
-                if history:
-                    # 从后往前找最后一个assistant消息
-                    for msg in reversed(history):
-                        if msg.get("role") == "assistant":
-                            system_utterance = msg.get("content", "你好！")
-                            break
+                system_utterance = next(
+                    (msg.get('content', '你好！') for msg in reversed(history) if msg.get('role') == 'assistant'),
+                    '你好！'
+                )
                 
                 # 调用process_turn处理对话状态
                 state = await self.tracker.process_turn(
