@@ -13,7 +13,7 @@ CUSTOM_CSS = """
 .gradio-container {
     font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif !important;
     max-width: 1400px !important;
-    min-width: 1200px !important;
+    min-width: 1000px !important;
     margin: 0 auto !important;
     padding: 20px !important;
 }
@@ -194,7 +194,7 @@ textarea:focus {
 @media (max-width: 1200px) {
     .gradio-container {
         max-width: 95% !important;
-        min-width: 900px !important;
+        min-width: 768px !important;
         padding: 15px !important;
     }
 }
