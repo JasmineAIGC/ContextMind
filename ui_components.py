@@ -369,7 +369,6 @@ def create_gradio_ui(demo_instance=None):
             "scenario_selector": scenario_selector,
             "mode_selector": mode_selector,
             "apply_btn": apply_btn,
-            "config_status": config_status,
             "dst_settings": dst_settings,
             "contextmind_settings": contextmind_settings,
             "max_history_slider": max_history_slider,
