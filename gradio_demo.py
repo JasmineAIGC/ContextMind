@@ -226,12 +226,29 @@ class UnifiedGradioDemo:
                 "🎯 模式": "DST (对话状态追踪)",
                 "📋 场景": self._get_scenario_name(self.current_scenario),
                 "💬 对话轮数": len(self.tracker.dialogue_history),
-                "🎪 槽位状态": self.tracker.current_state if self.tracker.current_state else "暂无槽位信息",
-                "🎭 当前意图": self.tracker.current_intents if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents else "未识别",
-                "📊 历史摘要": "已启用" if self.tracker.enable_history_summary else "未启用",
-                "⚙️ 最大历史轮数": self.tracker.max_history_turns,
-                "🤖 LLM摘要": "启用" if self.tracker.use_llm_summary else "禁用(使用模板)"
             }
+            
+            # 格式化显示槽位信息
+            if self.tracker.current_state:
+                # 分别显示每个槽位和槽值
+                for slot_name, slot_value in self.tracker.current_state.items():
+                    state_info[f"📌 {slot_name}"] = slot_value
+                state_info["✅ 已提取槽位数"] = len(self.tracker.current_state)
+            else:
+                state_info["🎪 槽位状态"] = "暂无槽位信息"
+            
+            # 显示意图信息
+            if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents:
+                intents_str = ", ".join(self.tracker.current_intents)
+                state_info["🎭 当前意图"] = intents_str
+            else:
+                state_info["🎭 当前意图"] = "未识别"
+            
+            # 显示配置信息
+            state_info["📊 历史摘要"] = "已启用" if self.tracker.enable_history_summary else "未启用"
+            state_info["⚙️ 最大历史轮数"] = self.tracker.max_history_turns
+            state_info["🤖 LLM摘要"] = "启用" if self.tracker.use_llm_summary else "禁用(使用模板)"
+            
             return state_info
         elif self.current_mode == "contextmind" and self.app:
             # ContextMind模式：显示引擎状态
