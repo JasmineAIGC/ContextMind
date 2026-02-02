@@ -271,19 +271,3 @@ class ResponseParser:
                 normalized[slot] = value
         
         return normalized
-    
-    def normalize_extracted(self, extracted: Dict[str, str]) -> Dict[str, str]:
-        """
-        归一化所有提取的槽位值（优化功能）
-        
-        参数:
-            extracted: 提取的槽位字典
-            
-        返回:
-            归一化后的槽位字典
-        """
-        normalized = {}
-        for slot, value in extracted.items():
-            normalized[slot] = self.normalize_value(slot, value)
-        
-        return normalized
