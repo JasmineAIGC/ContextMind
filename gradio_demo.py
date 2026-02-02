@@ -263,23 +263,23 @@ class UnifiedGradioDemo:
         - 累积状态会随着对话进行不断更新，反映整个对话的完整信息
         """
         if self.current_mode == "dst" and self.tracker:
-            # DST模式：显示详细的对话状态信息
+            # DST模式：显示详细的对话状态信息（纯文本，无表情符号）
             state_info = {
-                "🎯 模式": "DST (对话状态追踪)",
-                "📋 场景": self._get_scenario_name(self.current_scenario),
-                "💬 对话轮数": len(self.tracker.dialogue_history),
+                "模式": "DST (对话状态追踪)",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "对话轮数": len(self.tracker.dialogue_history),
             }
             
             # 显示本轮对话提取的槽位（如果有的话）
             if self.tracker.dialogue_history:
                 last_turn = self.tracker.dialogue_history[-1]
                 if last_turn.turn_updates:
-                    state_info["📝 本轮提取"] = "↓ 以下是本轮新提取/更新的槽位"
+                    state_info["本轮提取"] = "以下是本轮新提取/更新的槽位"
                     for slot_name, slot_value in last_turn.turn_updates.items():
-                        state_info[f"  🆕 {slot_name}"] = slot_value
-                    state_info["  ✅ 本轮提取数"] = len(last_turn.turn_updates)
+                        state_info[f"  {slot_name}"] = slot_value
+                    state_info["  本轮提取数"] = len(last_turn.turn_updates)
                 else:
-                    state_info["📝 本轮提取"] = "本轮未提取到新槽位"
+                    state_info["本轮提取"] = "本轮未提取到新槽位"
             
             # 分隔线
             if self.tracker.current_state:
@@ -287,10 +287,10 @@ class UnifiedGradioDemo:
             
             # 显示累积的所有槽位信息
             if self.tracker.current_state:
-                state_info["💾 累积状态"] = "↓ 以下是所有已提取的槽位"
+                state_info["累积状态"] = "以下是所有已提取的槽位"
                 for slot_name, slot_value in self.tracker.current_state.items():
-                    state_info[f"  📌 {slot_name}"] = slot_value
-                state_info["  ✅ 累积槽位数"] = len(self.tracker.current_state)
+                    state_info[f"  {slot_name}"] = slot_value
+                state_info["  累积槽位数"] = len(self.tracker.current_state)
                 
                 # 检查预定义槽位的丰富程度
                 predefined_slots = self.tracker.prompt_manager.ontology_slots
@@ -298,9 +298,9 @@ class UnifiedGradioDemo:
                     filled_count = sum(1 for slot in predefined_slots if slot in self.tracker.current_state)
                     total_count = len(predefined_slots)
                     completion_rate = (filled_count / total_count * 100) if total_count > 0 else 0
-                    state_info["  📊 预定义槽位填充"] = f"{filled_count}/{total_count} ({completion_rate:.1f}%)"
+                    state_info["  预定义槽位填充"] = f"{filled_count}/{total_count} ({completion_rate:.1f}%)"
             else:
-                state_info["💾 累积状态"] = "暂无槽位信息"
+                state_info["累积状态"] = "暂无槽位信息"
             
             # 分隔线
             state_info["----"] = "----"
@@ -308,38 +308,38 @@ class UnifiedGradioDemo:
             # 显示意图信息
             if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents:
                 intents_str = ", ".join(str(intent) for intent in self.tracker.current_intents)
-                state_info["🎭 当前意图"] = intents_str
+                state_info["当前意图"] = intents_str
             else:
-                state_info["🎭 当前意图"] = "未识别"
+                state_info["当前意图"] = "未识别"
             
             # 显示配置信息
-            state_info["📊 历史摘要"] = "已启用" if self.tracker.enable_history_summary else "未启用"
-            state_info["⚙️ 最大历史轮数"] = self.tracker.max_history_turns
-            state_info["🤖 LLM摘要"] = "启用" if self.tracker.use_llm_summary else "禁用(使用模板)"
+            state_info["历史摘要"] = "已启用" if self.tracker.enable_history_summary else "未启用"
+            state_info["最大历史轮数"] = self.tracker.max_history_turns
+            state_info["LLM摘要"] = "启用" if self.tracker.use_llm_summary else "禁用(使用模板)"
             
             return state_info
         elif self.current_mode == "contextmind" and self.app:
-            # ContextMind模式：显示引擎状态和记忆库信息
+            # ContextMind模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
             engine = self.app.context_engine
             state_info = {
-                "🎯 模式": "ContextMind (完整架构)",
-                "📋 场景": self._get_scenario_name(self.current_scenario),
-                "💾 记忆功能": "已启用",
-                "🔄 进化学习": "已启用",
-                "📝 应用ID": engine.app_name if hasattr(engine, 'app_name') else "N/A",
-                "👤 用户ID": engine.user_id if hasattr(engine, 'user_id') else "N/A",
+                "模式": "ContextMind (完整架构)",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "记忆功能": "已启用",
+                "进化学习": "已启用",
+                "应用ID": engine.app_name if hasattr(engine, 'app_name') else "N/A",
+                "用户ID": engine.user_id if hasattr(engine, 'user_id') else "N/A",
             }
             
             # 显示记忆库详细信息
             if hasattr(engine, 'memory_bank'):
                 memory_cache = engine.memory_bank.get_memory_cache()
                 total_memories = len(memory_cache)
-                state_info["🧠 记忆总数"] = total_memories
+                state_info["记忆总数"] = total_memories
                 
                 # 显示本轮对话后的记忆库内容
                 if memory_cache:
                     state_info["---"] = "---"
-                    state_info["📚 记忆库内容"] = "↓ 以下是记忆库中的所有记忆"
+                    state_info["记忆库内容"] = "以下是记忆库中的所有记忆"
                     
                     # 显示最近的记忆（最多10条，完整显示）
                     recent_count = min(10, total_memories)
@@ -359,20 +359,20 @@ class UnifiedGradioDemo:
                             display_content = str(content)
                         
                         # 显示记忆编号、类型和内容
-                        state_info[f"  📝 记忆{i} [{mem_type}]"] = display_content
+                        state_info[f"  记忆{i} [{mem_type}]"] = display_content
                     
                     # 如果记忆超过10条，显示省略提示
                     if total_memories > 10:
-                        state_info["  ⚠️ 提示"] = f"共{total_memories}条记忆，仅显示最近10条"
+                        state_info["  提示"] = f"共{total_memories}条记忆，仅显示最近10条"
             
             # 显示会话信息
             if hasattr(engine, 'session_manager'):
                 state_info["----"] = "----"
-                state_info["📊 会话ID"] = getattr(engine.session_manager, 'session_id', 'N/A')
+                state_info["会话ID"] = getattr(engine.session_manager, 'session_id', 'N/A')
             
             return state_info
         else:
-            return {"⚠️ 状态": "未初始化", "提示": "请先应用场景配置"}
+            return {"状态": "未初始化", "提示": "请先应用场景配置"}
     
     def get_state(self) -> dict:
         """
