@@ -12,8 +12,9 @@ CUSTOM_CSS = """
 /* 全局样式优化 */
 .gradio-container {
     font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif !important;
-    max-width: 1200px !important;
+    max-width: 1400px !important;
     margin: 0 auto !important;
+    padding: 20px !important;
 }
 
 /* 美化标题 */
@@ -44,12 +45,13 @@ CUSTOM_CSS = """
 
 /* 左右布局样式 */
 .left-panel {
-    padding-right: 15px !important;
+    padding-right: 20px !important;
 }
 
 .right-panel {
-    padding-left: 15px !important;
+    padding-left: 20px !important;
     border-left: 2px solid #e1e8ed !important;
+    min-width: 350px !important;
 }
 
 /* 配置区域样式 */
@@ -197,6 +199,13 @@ textarea:focus {
 }
 
 /* 响应式设计 */
+@media (max-width: 1200px) {
+    .gradio-container {
+        max-width: 95% !important;
+        padding: 15px !important;
+    }
+}
+
 @media (max-width: 768px) {
     .main-title {
         font-size: 1.6em !important;
@@ -204,6 +213,10 @@ textarea:focus {
     
     .gradio-container {
         max-width: 100% !important;
+        padding: 10px !important;
+    }
+    
+    .left-panel, .right-panel {
         padding: 10px !important;
     }
 }
@@ -238,10 +251,10 @@ def create_gradio_ui(demo_instance=None):
         # 主内容区 - 左右分栏
         with gr.Row(equal_height=True, elem_classes=["main-content-row"]):
             # 左侧列 - 对话区域
-            with gr.Column(scale=7, elem_classes=["left-panel"]):
+            with gr.Column(scale=8, elem_classes=["left-panel"]):
                 # 对话框
                 chatbot = gr.Chatbot(
-                    height=600,
+                    height=650,
                     label="💬 对话窗口",
                     avatar_images=(None, "🤖"),
                     elem_classes=["chatbot"]
@@ -258,7 +271,7 @@ def create_gradio_ui(demo_instance=None):
                     send_btn = gr.Button("📤 发送", scale=1, elem_classes=["primary-button"])
             
             # 右侧列 - 配置面板
-            with gr.Column(scale=3, elem_classes=["right-panel"]):
+            with gr.Column(scale=4, elem_classes=["right-panel"]):
                 # 场景与模式配置
                 with gr.Group(elem_classes=["config-section"]):
                     gr.Markdown("### ⚙️ 场景配置")
