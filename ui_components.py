@@ -35,13 +35,23 @@ CUSTOM_CSS = """
     margin-bottom: 1.5em !important;
 }
 
+/* 左右布局样式 */
+.left-panel {
+    padding-right: 15px !important;
+}
+
+.right-panel {
+    padding-left: 15px !important;
+    border-left: 2px solid #e1e8ed !important;
+}
+
 /* 配置区域样式 */
 .config-section {
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
-    padding: 20px !important;
-    border-radius: 15px !important;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
-    margin-bottom: 20px !important;
+    padding: 15px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+    margin-bottom: 15px !important;
 }
 
 .config-status {
@@ -218,85 +228,90 @@ def create_gradio_ui(demo_instance=None):
         gr.Markdown("# 🤖 ContextMind 统一对话系统", elem_classes=["main-title"])
         gr.Markdown("智能对话 · 场景灵活 · 模式可选", elem_classes=["subtitle"])
         
-        # 配置区域
-        with gr.Group(elem_classes=["config-section"]):
-            gr.Markdown("### ⚙️ 场景与模式配置")
-            with gr.Row():
-                scenario_selector = gr.Dropdown(
-                    choices=[
-                        ("💬 闲聊对话", "chat"),
-                        ("📞 智能客服", "callcenter"),
-                        ("🏥 保险咨询", "insurance")
-                    ],
-                    value="chat",
-                    label="选择场景",
-                    scale=2
-                )
-                
-                mode_selector = gr.Radio(
-                    choices=["contextmind", "dst"],
-                    value="contextmind",
-                    label="选择模式",
-                    scale=2,
-                    elem_classes=["radio-group"]
-                )
-                
-                apply_btn = gr.Button("✨ 应用配置", scale=1, elem_classes=["primary-button"])
-            
-            config_status = gr.Markdown("📌 当前配置: 场景=闲聊对话, 模式=contextmind", elem_classes=["config-status"])
-        
-        # 高级设置区域
-        with gr.Accordion("⚙️ 高级设置", open=False):
-            with gr.Row():
-                max_history_slider = gr.Slider(
-                    minimum=5,
-                    maximum=50,
-                    value=10,
-                    step=1,
-                    label="最大历史轮数 (DST模式)",
-                    info="DST模式保存的对话轮数"
-                )
-                
-            with gr.Row():
-                enable_summary_check = gr.Checkbox(
-                    value=True,
-                    label="启用历史摘要",
-                    info="长对话时自动摘要历史"
-                )
-                use_llm_summary_check = gr.Checkbox(
-                    value=False,
-                    label="使用LLM生成摘要",
-                    info="使用LLM生成摘要（更智能但慢）"
-                )
-            
-            apply_settings_btn = gr.Button("💾 应用设置", elem_classes=["primary-button"])
-            settings_status = gr.Markdown("⚙️ 设置: 历史轮数=10, 摘要=启用", elem_classes=["config-status"])
-        
-        # 对话区域
-        chatbot = gr.Chatbot(
-            height=500,
-            label="💬 对话窗口",
-            avatar_images=(None, "🤖"),
-            elem_classes=["chatbot"]
-        )
-        
-        # 输入区域
+        # 主内容区 - 左右分栏
         with gr.Row():
-            msg = gr.Textbox(
-                placeholder="💭 在这里输入您的消息...",
-                show_label=False,
-                scale=5,
-                container=False
-            )
-            send_btn = gr.Button("📤 发送", scale=1, elem_classes=["primary-button"])
-        
-        # 状态和操作区域
-        with gr.Accordion("📊 对话状态与操作", open=False):
-            state_display = gr.JSON(label="当前状态", elem_classes=["json-display"])
+            # 左侧列 - 对话区域
+            with gr.Column(scale=7, elem_classes=["left-panel"]):
+                # 对话框
+                chatbot = gr.Chatbot(
+                    height=600,
+                    label="💬 对话窗口",
+                    avatar_images=(None, "🤖"),
+                    elem_classes=["chatbot"]
+                )
+                
+                # 输入区域
+                with gr.Row():
+                    msg = gr.Textbox(
+                        placeholder="💭 在这里输入您的消息...",
+                        show_label=False,
+                        scale=5,
+                        container=False
+                    )
+                    send_btn = gr.Button("📤 发送", scale=1, elem_classes=["primary-button"])
             
-            with gr.Row():
-                view_state_btn = gr.Button("🔍 查看状态", elem_classes=["secondary-button"])
-                reset_btn = gr.Button("🔄 重置对话", elem_classes=["secondary-button"])
+            # 右侧列 - 配置面板
+            with gr.Column(scale=3, elem_classes=["right-panel"]):
+                # 场景与模式配置
+                with gr.Group(elem_classes=["config-section"]):
+                    gr.Markdown("### ⚙️ 场景配置")
+                    scenario_selector = gr.Dropdown(
+                        choices=[
+                            ("💬 闲聊对话", "chat"),
+                            ("📞 智能客服", "callcenter"),
+                            ("🏥 保险咨询", "insurance")
+                        ],
+                        value="chat",
+                        label="选择场景",
+                        scale=1
+                    )
+                    
+                    mode_selector = gr.Radio(
+                        choices=["contextmind", "dst"],
+                        value="contextmind",
+                        label="选择模式",
+                        elem_classes=["radio-group"]
+                    )
+                    
+                    apply_btn = gr.Button("✨ 应用配置", elem_classes=["primary-button"])
+                    config_status = gr.Markdown("📌 当前: 闲聊对话 / contextmind", elem_classes=["config-status"])
+                
+                # 高级设置
+                with gr.Accordion("⚙️ 高级设置", open=False):
+                    max_history_slider = gr.Slider(
+                        minimum=5,
+                        maximum=50,
+                        value=10,
+                        step=1,
+                        label="历史轮数",
+                        info="DST模式保存的对话轮数"
+                    )
+                    
+                    enable_summary_check = gr.Checkbox(
+                        value=True,
+                        label="启用历史摘要",
+                        info="长对话时自动摘要"
+                    )
+                    
+                    use_llm_summary_check = gr.Checkbox(
+                        value=False,
+                        label="LLM生成摘要",
+                        info="更智能但慢"
+                    )
+                    
+                    apply_settings_btn = gr.Button("💾 应用设置", elem_classes=["primary-button"])
+                    settings_status = gr.Markdown("⚙️ 轮数=10, 摘要=启用", elem_classes=["config-status"])
+                
+                # 对话状态
+                with gr.Accordion("📊 对话状态", open=False):
+                    state_display = gr.JSON(label="当前状态", elem_classes=["json-display"])
+                
+                # 操作按钮
+                gr.Markdown("### 🎮 操作")
+                with gr.Row():
+                    view_state_btn = gr.Button("🔍 状态", scale=1, elem_classes=["secondary-button"])
+                    reset_btn = gr.Button("🔄 重置", scale=1, elem_classes=["secondary-button"])
+                
                 clear_btn = gr.Button("🗑️ 清空历史", elem_classes=["secondary-button"])
         
         # 使用指南
