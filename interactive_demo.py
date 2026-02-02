@@ -137,6 +137,9 @@ class UnifiedInteractiveDemo:
             enable_history_summary=self.enable_summary  # 使用参数配置
         )
         
+        # 初始化系统回复（第一轮对话使用）
+        self.last_system_reply = "你好！"
+        
         self.app = None  # DST模式不使用app
     
     def _init_contextmind_mode(self):

@@ -4,9 +4,10 @@
 基于data/huashu.md中的保险挽回话术设计
 
 重要说明：
-- 本场景的意图和槽位是预定义的，基于data/huashu.md梳理
-- DST模式不使用LLM动态提取意图和槽位
-- 所有意图和槽位都是固定的，确保识别的一致性和准确性
+- huashu.md是参考文档，用于指导槽位和意图的定义
+- 本场景的意图和槽位从huashu.md中提取作为参考
+- 使用预定义槽位模式（enable_dynamic_slots=False）提供结构化指导
+- 但LLM仍有灵活性，不必严格遵循每一个细节
 - 共荣保险公司的团体癌症保险产品
 """
 
@@ -18,17 +19,18 @@ def get_insurance_scenario() -> ScenarioConfig:
     获取保险挽回场景配置
     
     关键特性：
-    1. 预定义意图：7个一级意图 + 34个二级意图
-    2. 预定义槽位：18个固定槽位
-    3. 分类约束：8个槽位有预定义的分类值
-    4. 不使用LLM：所有意图和槽位都是预先定义的
-    5. 公司身份：共荣保险公司
+    1. 参考意图：基于huashu.md的意图体系（作为参考指导）
+    2. 参考槽位：从huashu.md提取的槽位定义（作为参考指导）
+    3. 分类约束：部分槽位有预定义的分类值建议
+    4. 预定义模式：使用enable_dynamic_slots=False提供结构化指导
+    5. 灵活性：LLM可以灵活理解，不必严格遵循每个细节
+    6. 公司身份：共荣保险公司
     
     返回:
         ScenarioConfig: 保险场景配置对象
     """
     
-    # 定义一级意图和二级意图（基于huashu.md分析，预定义不从LLM提取）
+    # 定义一级意图和二级意图（参考huashu.md，作为LLM的指导）
     dst_intents = {
         "拒绝": [
             "明确拒绝",
@@ -210,7 +212,7 @@ def get_insurance_scenario() -> ScenarioConfig:
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
-        enable_dynamic_slots=False,  # 保险场景使用预定义槽位，基于huashu.md
+        enable_dynamic_slots=False,  # 使用预定义槽位作为参考指导（huashu.md），不是严格强制
         dst_prompt_template=dst_prompt_template,
         system_prompt=system_prompt,
         ui_title="保险挽回 · 智能话术优化",
