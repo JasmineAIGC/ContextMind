@@ -266,6 +266,15 @@ class UnifiedGradioDemo:
             if hasattr(engine, 'memory_bank'):
                 memory_cache = engine.memory_bank.get_memory_cache()
                 state_info["🧠 记忆数量"] = len(memory_cache)
+                
+                # 显示最近的记忆（最多5条）
+                if memory_cache:
+                    recent_memories = list(memory_cache.values())[-5:]
+                    state_info["📚 最近记忆"] = [mem.get('content', str(mem))[:50] + '...' if len(str(mem.get('content', mem))) > 50 else str(mem.get('content', mem)) for mem in recent_memories]
+            
+            # 显示会话信息
+            if hasattr(engine, 'session_manager'):
+                state_info["📊 会话ID"] = getattr(engine.session_manager, 'session_id', 'N/A')
             
             return state_info
         else:
