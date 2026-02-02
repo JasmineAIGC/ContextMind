@@ -49,6 +49,30 @@ class ContextMindLogger:
         """设置日志级别"""
         self.level = level
     
+    def setLevel(self, level):
+        """
+        设置日志级别（兼容标准logging API）
+        
+        Args:
+            level: 可以是LogLevel枚举或标准logging级别（如logging.INFO）
+        """
+        # 如果是标准logging级别，转换为LogLevel
+        if isinstance(level, int):
+            if level >= logging.INFO:
+                self.level = LogLevel.INFO
+            else:
+                self.level = LogLevel.DEBUG
+            # 同时设置底层logger
+            self._logger.setLevel(level)
+        elif isinstance(level, LogLevel):
+            self.set_level(level)
+        else:
+            # 如果是字符串，尝试转换
+            if hasattr(logging, str(level).upper()):
+                self.setLevel(getattr(logging, str(level).upper()))
+            else:
+                self.level = level
+    
     @classmethod
     def get_current_level(cls) -> LogLevel:
         """
@@ -108,9 +132,18 @@ class ContextMindLogger:
         """警告日志（在所有模式下显示）"""
         self._logger.warning(f"[{self.name}] {message}")
     
-    def error(self, message: str):
-        """错误日志（在所有模式下显示）"""
-        self._logger.error(f"[{self.name}] {message}")
+    def error(self, message: str, exc_info=None):
+        """
+        错误日志（在所有模式下显示）
+        
+        Args:
+            message: 错误信息
+            exc_info: 是否包含异常堆栈信息（兼容标准logging）
+        """
+        if exc_info:
+            self._logger.error(f"[{self.name}] {message}", exc_info=exc_info)
+        else:
+            self._logger.error(f"[{self.name}] {message}")
 
 
 # 全局日志级别
