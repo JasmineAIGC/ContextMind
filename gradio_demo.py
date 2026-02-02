@@ -246,8 +246,13 @@ class UnifiedGradioDemo:
         
         捕获的状态反映了系统对用户输入的理解，而不是完整对话轮次结束后的状态
         """
-        # 直接构建状态字典，避免调用get_state造成循环
-        self.post_user_state = self._build_state_dict()
+        try:
+            # 直接构建状态字典，避免调用get_state造成循环
+            self.post_user_state = self._build_state_dict()
+        except Exception as e:
+            logger.warning(f"捕获对话状态时出错: {e}")
+            # 如果捕获失败，设置为None，get_state会使用实时状态
+            self.post_user_state = None
     
     def _build_state_dict(self) -> dict:
         """构建状态字典（内部方法）
