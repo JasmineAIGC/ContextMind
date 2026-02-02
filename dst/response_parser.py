@@ -185,7 +185,7 @@ class ResponseParser:
         
         return filtered
     
-    def normalize_value(self, slot: str, value: str) -> str:
+    def normalize_value(self, slot: str, value: str, candidates: List[str] = None, strict: bool = False) -> Optional[str]:
         """
         归一化槽位值（优化功能）
         
@@ -195,9 +195,11 @@ class ResponseParser:
         参数:
             slot: 槽位名称
             value: 原始值
+            candidates: 候选值列表（如果未提供则使用self.categorical_slots）
+            strict: 是否严格模式（只接受精确匹配，不接受模糊匹配）
             
         返回:
-            归一化后的值
+            归一化后的值，strict模式下无匹配返回None
         """
         if not value or not value.strip():
             return value
@@ -205,21 +207,68 @@ class ResponseParser:
         # 基础归一化：去除首尾空格
         normalized = value.strip()
         
-        # 如果是分类槽位，尝试匹配候选值
-        if slot in self.categorical_slots:
-            candidates = self.categorical_slots[slot]
-            value_lower = normalized.lower()
+        # 确定候选值列表
+        if candidates is None:
+            if slot in self.categorical_slots:
+                candidates = self.categorical_slots[slot]
+            else:
+                # 非分类槽位，返回归一化后的值
+                return normalized
+        
+        value_lower = normalized.lower()
+        
+        # 1. 精确匹配（忽略大小写）
+        for candidate in candidates:
+            if value_lower == candidate.lower():
+                return candidate
+        
+        # 严格模式：不允许模糊匹配
+        if strict:
+            logger.debug(f"严格模式下 {slot}='{value}' 无精确匹配，返回None")
+            return None
+        
+        # 2. 包含匹配（非严格模式）
+        for candidate in candidates:
+            if value_lower in candidate.lower() or candidate.lower() in value_lower:
+                logger.debug(f"归一化: {slot}='{value}' -> '{candidate}'")
+                return candidate
+        
+        return normalized
+    
+    def normalize_extracted(self, extracted: Dict[str, str], 
+                           allowed_slots: Dict[str, str],
+                           categorical_slots: Dict[str, List[str]]) -> Dict[str, str]:
+        """
+        严格归一化提取的槽位（仅保留预定义槽位，严格匹配分类值）
+        
+        参数:
+            extracted: 从LLM响应中提取的槽位
+            allowed_slots: 允许的槽位定义
+            categorical_slots: 分类槽位的候选值
             
-            # 1. 精确匹配（忽略大小写）
-            for candidate in candidates:
-                if value_lower == candidate.lower():
-                    return candidate
+        返回:
+            归一化后的槽位字典（只包含预定义槽位和值）
+        """
+        normalized = {}
+        
+        for slot, value in extracted.items():
+            # 过滤1：只保留预定义的槽位名称
+            if slot not in allowed_slots:
+                logger.warning(f"跳过未定义的槽位: {slot} (值: {value})")
+                continue
             
-            # 2. 包含匹配
-            for candidate in candidates:
-                if value_lower in candidate.lower() or candidate.lower() in value_lower:
-                    logger.debug(f"归一化: {slot}='{value}' -> '{candidate}'")
-                    return candidate
+            # 过滤2：对分类槽位进行严格归一化
+            if slot in categorical_slots:
+                normalized_value = self.normalize_value(
+                    slot, value, categorical_slots[slot], strict=True
+                )
+                if normalized_value:
+                    normalized[slot] = normalized_value
+                else:
+                    logger.warning(f"槽位 {slot} 的值 '{value}' 不在预定义列表中，已跳过")
+            else:
+                # 非分类槽位，直接保留
+                normalized[slot] = value
         
         return normalized
     

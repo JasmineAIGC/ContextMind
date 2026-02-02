@@ -434,6 +434,19 @@ class DialogueStateTracker:
         参数:
             updates: 从当前轮次提取的槽位更新
         """
+        # 应用严格归一化（如果有prompt_manager）
+        if hasattr(self, 'prompt_manager') and self.prompt_manager:
+            # 获取允许的槽位和分类槽位
+            allowed_slots = self.prompt_manager.get_all_slots()
+            categorical_slots = self.prompt_manager.categorical_slots or {}
+            
+            # 使用strict模式进行归一化
+            updates = self.response_parser.normalize_extracted(
+                updates,
+                allowed_slots,
+                categorical_slots
+            )
+        
         # 提取当前意图
         current_intent = updates.get("intent")
         
