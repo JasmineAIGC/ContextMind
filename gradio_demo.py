@@ -96,11 +96,18 @@ class UnifiedGradioDemo:
             raise RuntimeError(error_msg)
         
         # 创建PromptManager
-        pm = PromptManager(domain=self.config.name)
+        pm = PromptManager(
+            domain=self.config.name,
+            enable_dynamic_slots=self.config.enable_dynamic_slots  # 使用场景配置
+        )
         
         # 添加预定义槽位
         for slot_name, slot_desc in self.config.dst_slots.items():
-            pm.add_slot(slot_name, slot_desc)
+            # 检查是否有分类约束
+            categorical_values = None
+            if self.config.dst_categorical_slots and slot_name in self.config.dst_categorical_slots:
+                categorical_values = self.config.dst_categorical_slots[slot_name]
+            pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
         
         # 创建DialogueStateTracker
         self.tracker = DialogueStateTracker(

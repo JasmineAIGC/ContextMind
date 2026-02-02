@@ -54,6 +54,7 @@ def get_chat_scenario() -> ScenarioConfig:
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
+        enable_dynamic_slots=True,  # 闲聊场景使用动态槽位提取，LLM自由提取
         dst_prompt_template=dst_prompt_template,
         system_prompt=CHAT_SYSTEM_PROMPT,
         ui_title="智能对话 · 上下文理解 · 长期记忆",

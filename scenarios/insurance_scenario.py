@@ -210,6 +210,7 @@ def get_insurance_scenario() -> ScenarioConfig:
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
+        enable_dynamic_slots=False,  # 保险场景使用预定义槽位，基于huashu.md
         dst_prompt_template=dst_prompt_template,
         system_prompt=system_prompt,
         ui_title="保险挽回 · 智能话术优化",

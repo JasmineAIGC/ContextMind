@@ -117,7 +117,7 @@ class UnifiedInteractiveDemo:
         # 创建PromptManager
         pm = PromptManager(
             domain=self.config.name,
-            enable_dynamic_slots=(self.scenario == "chat")  # 闲聊使用动态槽位
+            enable_dynamic_slots=self.config.enable_dynamic_slots  # 使用场景配置
         )
         
         # 添加预定义槽位

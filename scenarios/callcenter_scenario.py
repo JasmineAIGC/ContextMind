@@ -59,6 +59,7 @@ def get_callcenter_scenario() -> ScenarioConfig:
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
+        enable_dynamic_slots=True,  # 客服场景使用动态槽位提取，灵活处理各类问题
         dst_prompt_template=dst_prompt_template,
         system_prompt=CALLCENTER_SYSTEM_PROMPT,
         ui_title="智能客服 · 上下文工程 · 专业对话",

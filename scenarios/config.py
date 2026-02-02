@@ -33,6 +33,7 @@ class ScenarioConfig:
     dst_intents: Dict[str, List[str]]  # 一级意图 -> 二级意图列表
     dst_slots: Dict[str, str]  # 槽位名 -> 槽位描述
     dst_categorical_slots: Dict[str, List[str]] = field(default_factory=dict)  # 分类槽位
+    enable_dynamic_slots: bool = True  # 是否启用动态槽位提取（False=使用预定义槽位）
     
     # 提示词配置
     system_prompt: str = ""  # 系统提示词
