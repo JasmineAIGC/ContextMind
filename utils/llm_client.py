@@ -14,6 +14,14 @@ from dataclasses import dataclass
 import os
 from typing import Optional, Sequence, Tuple
 
+# 加载.env文件中的环境变量
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # 自动从当前目录或父目录查找.env文件并加载
+except ImportError:
+    # 如果没有安装python-dotenv，继续使用系统环境变量
+    pass
+
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
