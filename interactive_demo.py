@@ -3,7 +3,7 @@
 ContextMind 统一交互式Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：dst（对话状态追踪）、contextmind（完整模式）
+支持两种模式：dst（对话状态追踪）、contextmind（基于记忆进化）
 
 使用方式:
     python interactive_demo.py --scenario chat --mode contextmind
@@ -207,7 +207,7 @@ class UnifiedInteractiveDemo:
         print(f"📱 ContextMind 统一交互式Demo v0.4.0")
         print("="*60)
         print(f"场景: {self.config.name}")
-        print(f"模式: {'DST模式' if self.mode == 'dst' else 'ContextMind完整模式'}")
+        print(f"模式: {'DST (对话状态追踪)' if self.mode == 'dst' else 'ContextMind (基于记忆进化)'}")
         print(f"日志级别: {logging.getLevelName(logger.level)}")
         print(f"最大历史轮数: {self.max_history_turns}")
         print("="*60)
@@ -362,7 +362,7 @@ def parse_args():
         '--mode',
         choices=['dst', 'contextmind'],
         default='contextmind',
-        help='选择模式: dst(对话状态追踪) / contextmind(完整模式)'
+        help='选择模式: dst(对话状态追踪) / contextmind(基于记忆进化)'
     )
     
     parser.add_argument(

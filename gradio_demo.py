@@ -3,7 +3,7 @@
 ContextMind 统一Gradio Web Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：DST基础模式、ContextMind完整模式
+支持两种模式：DST对话状态追踪模式、ContextMind记忆进化模式
 
 使用方式:
     python gradio_demo.py
@@ -322,7 +322,7 @@ class UnifiedGradioDemo:
             # ContextMind模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
             engine = self.app.context_engine
             state_info = {
-                "模式": "ContextMind (完整架构)",
+                "模式": "ContextMind (基于记忆进化)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "记忆功能": "已启用",
                 "进化学习": "已启用",

@@ -13,7 +13,7 @@
 - **模型无关** - 适配任何 LLM 提供商
 - **五步流水线** - 预处理、检索、压缩、重排序、响应处理
 - **智能记忆** - 自动知识提取和语义检索
-- **两种模式** - ContextMind 完整模式 / DST 基础模式
+- **两种模式** - ContextMind 进化模式 / DST 状态追踪模式
 
 ---
 
@@ -62,35 +62,39 @@ python gradio_demo.py
 
 ### API使用
 
-#### ContextMind 完整模式
+#### ContextMind 模式（基于记忆进化）
 
 ```python
 from contextmind import ContextEngine
 from utils import SimpleLLMClient
 
-# 初始化
+# 初始化 - 支持记忆和进化学习
 llm_client = SimpleLLMClient()
-engine = ContextEngine(llm_client=llm_client)
+engine = ContextEngine(
+    llm_client=llm_client,
+    enable_memory=True,      # 启用语义记忆
+    enable_evolution=True     # 启用进化学习
+)
 
-# 对话
+# 对话 - 系统会记住上下文并不断优化
 response = await engine.chat("你好")
 print(response)
 ```
 
-#### DST 基础模式
+#### DST 模式（对话状态追踪）
 
 ```python
 from dst import DialogueStateTracker, PromptManager
 from utils import SimpleLLMClient
 
-# 初始化
+# 初始化 - 专注于槽位提取
 llm_client = SimpleLLMClient()
 pm = PromptManager(domain="restaurant")
 tracker = DialogueStateTracker(llm_client=llm_client, prompt_manager=pm)
 
-# 对话
+# 对话 - 提取意图和槽位
 state = await tracker.process_turn("你好", "我想订餐")
-print(state)
+print(state)  # 返回提取的状态信息
 ```
 
 ---
@@ -197,12 +201,15 @@ ContextMind/ v0.4.0
 
 ## 两种模式对比
 
-| 特性 | DST 基础模式 | ContextMind 完整模式 |
-|------|------------|-------------------|
-| 技术 | ACL 2023 论文 | 五层架构上下文工程 |
-| 复杂度 | ⭐ 简单 | ⭐⭐⭐⭐ 复杂 |
-| 记忆 | ❌ 无 | ✅ 语义检索 |
-| 适用 | Baseline 实验 | 生产环境 |
+| 特性 | DST 模式 | ContextMind 模式 |
+|------|---------|-----------------|
+| 方法论 | 对话状态追踪 (Dialogue State Tracking) | 基于记忆进化的对话系统 |
+| 技术基础 | ACL 2023 论文，槽位-值提取 | 五层架构，语义记忆+进化学习 |
+| 核心能力 | 意图识别、槽位提取、状态追踪 | 上下文理解、记忆管理、自主进化 |
+| 记忆系统 | ❌ 无持久记忆 | ✅ 语义记忆库 + 进化学习 |
+| 学习能力 | ❌ 无学习 | ✅ 从对话中持续学习优化 |
+| 适用场景 | 结构化任务（订票、客服） | 开放域对话、个性化交互 |
+| 复杂度 | ⭐⭐ 轻量 | ⭐⭐⭐⭐ 完整 |
 
 ---
 
