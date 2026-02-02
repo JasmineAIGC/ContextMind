@@ -13,6 +13,7 @@ CUSTOM_CSS = """
 .gradio-container {
     font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif !important;
     max-width: 1400px !important;
+    min-width: 1200px !important;
     margin: 0 auto !important;
     padding: 20px !important;
 }
@@ -20,10 +21,7 @@ CUSTOM_CSS = """
 /* 美化标题 */
 .main-title {
     text-align: center !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
+    color: #667eea !important;
     font-size: 2.2em !important;
     font-weight: 700 !important;
     margin-bottom: 0.3em !important;
@@ -56,10 +54,10 @@ CUSTOM_CSS = """
 
 /* 配置区域样式 */
 .config-section {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+    background: #f8f9fa !important;
     padding: 15px !important;
-    border-radius: 10px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+    border-radius: 8px !important;
+    border: 1px solid #e1e8ed !important;
     margin-bottom: 15px !important;
 }
 
@@ -75,96 +73,90 @@ CUSTOM_CSS = """
 
 /* 美化输入框 */
 textarea {
-    border-radius: 10px !important;
-    border: 2px solid #e1e8ed !important;
+    border-radius: 8px !important;
+    border: 1px solid #d1d5db !important;
     padding: 12px !important;
     font-size: 1em !important;
-    transition: all 0.3s ease !important;
+    transition: border-color 0.2s ease !important;
 }
 
 textarea:focus {
     border-color: #667eea !important;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15) !important;
-    transform: translateY(-1px) !important;
+    outline: none !important;
 }
 
 /* 美化按钮 */
 .primary-button button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: #667eea !important;
     color: white !important;
     border: none !important;
-    border-radius: 10px !important;
-    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    padding: 10px 20px !important;
     font-weight: 600 !important;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: background-color 0.2s ease !important;
 }
 
 .primary-button button:hover {
-    transform: translateY(-3px) !important;
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.45) !important;
+    background: #5568d3 !important;
 }
 
 .secondary-button button {
     background: white !important;
     color: #667eea !important;
-    border: 2px solid #667eea !important;
-    border-radius: 10px !important;
+    border: 1px solid #667eea !important;
+    border-radius: 8px !important;
     padding: 10px 20px !important;
     font-weight: 600 !important;
-    transition: all 0.3s ease !important;
+    transition: all 0.2s ease !important;
 }
 
 .secondary-button button:hover {
-    background: #667eea !important;
-    color: white !important;
-    transform: translateY(-2px) !important;
+    background: #f0f4ff !important;
 }
 
 /* 美化对话框 */
 .chatbot {
-    border-radius: 15px !important;
-    border: 2px solid #e1e8ed !important;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    border-radius: 8px !important;
+    border: 1px solid #e5e7eb !important;
     background: white !important;
 }
 
 .chatbot .message {
-    border-radius: 12px !important;
-    padding: 12px 16px !important;
-    margin: 8px 0 !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    margin: 6px 0 !important;
 }
 
 .chatbot .message.user {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: #667eea !important;
     color: white !important;
 }
 
 .chatbot .message.bot {
-    background: #f7f9fc !important;
-    color: #2c3e50 !important;
+    background: #f3f4f6 !important;
+    color: #1f2937 !important;
 }
 
 /* Radio按钮美化 */
 .radio-group label {
     background: white !important;
-    border: 2px solid #e1e8ed !important;
-    border-radius: 10px !important;
-    padding: 12px 20px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    padding: 10px 16px !important;
     margin: 5px !important;
-    transition: all 0.3s ease !important;
+    transition: all 0.2s ease !important;
     cursor: pointer !important;
 }
 
 .radio-group label:hover {
     border-color: #667eea !important;
-    background: #f7f9fc !important;
+    background: #f9fafb !important;
 }
 
 .radio-group input:checked + label {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: #667eea !important;
     color: white !important;
-    border-color: transparent !important;
+    border-color: #667eea !important;
 }
 
 /* JSON显示区美化 */
@@ -180,28 +172,29 @@ textarea:focus {
 
 /* 滚动条美化 */
 ::-webkit-scrollbar {
-    width: 10px !important;
-    height: 10px !important;
+    width: 8px !important;
+    height: 8px !important;
 }
 
 ::-webkit-scrollbar-track {
     background: #f1f1f1 !important;
-    border-radius: 10px !important;
+    border-radius: 4px !important;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    border-radius: 10px !important;
+    background: #888 !important;
+    border-radius: 4px !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+    background: #555 !important;
 }
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
     .gradio-container {
         max-width: 95% !important;
+        min-width: 900px !important;
         padding: 15px !important;
     }
 }
@@ -213,6 +206,7 @@ textarea:focus {
     
     .gradio-container {
         max-width: 100% !important;
+        min-width: auto !important;
         padding: 10px !important;
     }
     
