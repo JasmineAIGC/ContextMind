@@ -239,7 +239,7 @@ class UnifiedGradioDemo:
             
             # 显示意图信息
             if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents:
-                intents_str = ", ".join(self.tracker.current_intents)
+                intents_str = ", ".join(str(intent) for intent in self.tracker.current_intents)
                 state_info["🎭 当前意图"] = intents_str
             else:
                 state_info["🎭 当前意图"] = "未识别"
