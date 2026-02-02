@@ -159,7 +159,10 @@ class UnifiedGradioDemo:
                 # DST模式
                 # 获取上一轮系统回复
                 # history格式: [[{user_msg}, {assistant_msg}], ...]
-                system_utterance = history[-1][1]["content"] if history else "你好！"
+                # 安全地获取上一轮的assistant回复内容
+                system_utterance = (history[-1][1]["content"] 
+                                  if history and len(history[-1]) > 1 
+                                  else "你好！")
                 
                 # 调用process_turn处理对话状态
                 state = await self.tracker.process_turn(
