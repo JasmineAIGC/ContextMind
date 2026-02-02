@@ -122,12 +122,11 @@ class UnifiedInteractiveDemo:
         
         # 添加预定义槽位
         for slot_name, slot_desc in self.config.dst_slots.items():
-            pm.add_slot(slot_name, slot_desc)
-        
-        # 添加分类槽位
-        if self.config.dst_categorical_slots:
-            for slot_name, categories in self.config.dst_categorical_slots.items():
-                pm.add_categorical_slot(slot_name, categories)
+            # 检查是否有分类约束
+            categorical_values = None
+            if self.config.dst_categorical_slots and slot_name in self.config.dst_categorical_slots:
+                categorical_values = self.config.dst_categorical_slots[slot_name]
+            pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
         
         # 创建DST追踪器
         self.dst_tracker = DialogueStateTracker(
@@ -174,20 +173,28 @@ class UnifiedInteractiveDemo:
                 print()
                 sys.exit(1)
         
-        # 创建引擎
-        engine = ContextEngine(
-            system_prompt=self.config.system_prompt,
-            enable_memory=self.config.enable_memory,
-            enable_evolution=self.config.enable_evolution
-        )
-        
-        # 创建对应的应用
-        if self.scenario == "chat":
-            self.app = ChatApplication(engine=engine)
-        elif self.scenario == "callcenter":
-            self.app = CallCenterApplication(engine=engine)
-        elif self.scenario == "insurance":
-            self.app = InsuranceApplication(engine=engine)
+        # 创建引擎和应用
+        try:
+            engine = ContextEngine(
+                app_name=f"interactive_demo_{self.scenario}",
+                user_id="demo_user",
+                llm_client=self.llm_client
+            )
+            
+            # 创建对应的应用
+            if self.scenario == "chat":
+                self.app = ChatApplication(context_engine=engine, system_prompt=self.config.system_prompt)
+            elif self.scenario == "callcenter":
+                self.app = CallCenterApplication(context_engine=engine, system_prompt=self.config.system_prompt)
+            elif self.scenario == "insurance":
+                self.app = InsuranceApplication(context_engine=engine, system_prompt=self.config.system_prompt)
+        except Exception as e:
+            logger.error(f"引擎或应用初始化失败: {e}", exc_info=True)
+            print(f"\n{'='*60}")
+            print(f"❌ 错误: 引擎或应用初始化失败")
+            print(f"详细信息: {e}")
+            print(f"{'='*60}\n")
+            sys.exit(1)
         
         self.dst_tracker = None  # ContextMind模式不使用DST
     
