@@ -1,221 +1,65 @@
 """
-ContextMind - 专业的上下文优化框架 v0.4.0
+ContextMind Framework - 上下文工程与记忆进化框架
 
-完全通用化的上下文工程框架，支持任意对话场景
+v0.4.1 - 直接使用 ADK，专注于上下文工程和记忆进化自研逻辑。
 
-核心模块：
-- InputPreprocessor: 输入预处理
-- MemoryBank: 长期记忆管理
-- ContextCompressor: 上下文压缩
-- ContextReorderer: 上下文重排序
-- PostProcessor: 输出后处理
-- ConversationSummarizer: 对话摘要
-- KVCacheManager: KV缓存管理
+核心特点：
+1. 五层上下文架构（感知、记忆、上下文、生成、进化）
+2. 直接使用 ADK Agent 进行 LLM 调用
+3. 记忆库和记忆进化系统（自研）
+4. Pipeline 算法（预处理、压缩、重排序等，自研）
 
-v0.4.0 新增功能 - Utils模块独立化与增强DST：
-{
-    from contextmind import ContextMind, registry
-    
-    # 简易集成API
-    cm = ContextMind()
-    context = await cm.prepare_context(user_input, session_id)
-    
-    # 插件注册中心
-    print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
-    print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
-}
+主要组件：
+- engine: ContextEngine 核心引擎
+- agent: ContextMind 专用 ADK Agent（直接使用 google.adk）
+- pipeline: 上下文处理流水线（自研算法）
+- memory: 记忆库和会话管理（自研）
+- evolution: 记忆进化系统（自研）
 
-架构设计 (v7.0 - 纯上下文工程):
-┌─────────────────────────────────────────┐
-│  应用层 (Application Layer)              │  ← demos/
-│  - 基于框架构建的具体应用                 │
-└─────────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────────┐
-│  引擎层 (Engine Layer)                   │  ← ContextEngine
-│  - 统一的高层API接口                      │
-└─────────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────────┐
-│  流水线层 (Pipeline Layer)               │  ← pipeline/
-│  - 数据流程编排和处理                     │
-└─────────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────────┐
-│  策略层 (Strategy/Plugin Layer)          │  ← strategies/
-│  - 可插拔的算法实现 (Plugin System)       │  ← registry
-└─────────────────────────────────────────┘
-
-v0.4.0 核心改进：
-- ✨ Utils独立化：将utils模块移至根目录，完全不依赖contextmind/baseline
-- ✨ 增强DST：完整的ACL 2023论文合规性实现
-- ✨ 知识提取：新增知识提取能力，支持LLM驱动的信息抽取
-- ✨ 代码优化：改进模块组织和导入结构
-- ✨ 向后兼容：保持v7.3 API完全兼容
-- ✨ 文档更新：完善架构和使用文档
+与 DST 的区别：
+- DST: 简单的状态追踪，专注于槽位提取
+- ContextMind: 复杂的上下文工程，包含记忆库、进化学习等
 """
 
-# 核心框架组件
+# 核心引擎
+from .engine import ContextEngine
+
+# ADK Agent
+from .agent import ContextMindAgent, ContextMindConfig
+
+# 核心数据模型和类型
 from .core import (
-    ContextMindEngine,
-    PluginRegistry,
-    ContextMindConfig,
     Message,
-    MessageRole,
-    ContextItem,
-    ContextSource,
     ContextResult,
+    ContextItem,
     ProcessedContext,
     Knowledge,
-    KnowledgeType,
-    Chunk,
-    ContextState,
-    EmbeddingInfo,
-    ExtractionConfig,
-    RetrievalConfig,
-    SummarizationConfig,
-    CompressionConfig,
-    MemorySystemConfig,
+    MessageRole,
+    ContextSource,
     DEFAULT_MEMORY_CONFIG,
-    ExtractionStrategy,
-    RetrievalStrategy,
-    IntegrationStrategy,
-    OptimizationStrategy,
-    CompressionStrategy,
-    RerankingStrategy,
-    # 日志
-    ContextMindLogger,
-    LogLevel,
-    get_logger,
-    setup_logging,
-    set_global_log_level,
-    get_global_log_level,
-    INFO,
-    DEBUG,
 )
-
-# 流水线组件 (5步处理流程 - v0.4.0)
-from .pipeline import (
-    Preprocessor,
-    ContextRetriever,
-    ContextCompressor,
-    ContextReorderer,
-    ResponseHandler,
-    BaseSummarizer,
-    LLMBasedSummarizer,
-)
-
-# 记忆库模块
-from .memory import (
-    MemoryBank,
-    SessionManager,
-    LLMBasedExtractor,
-    SemanticSearchRetriever,
-    SimpleUpdater,
-    BaseExtractor,
-    BaseRetriever,
-    BaseUpdater,
-    MemoryFitness,
-    FitnessCalculator,
-)
-
-# 进化模块 (基于 AlphaEvolve/ThetaEvolve 思想)
-from .evolution import (
-    EvolutionaryMemoryUpdater,
-    ObservationCollector,
-    FeedbackCollector,
-    ImplicitFeedbackAnalyzer,
-)
-
-# 向后兼容性别名
-registry = PluginRegistry()
-ContextMind = ContextMindConfig
-ContextEngine = ContextMindEngine
-InputPreprocessor = Preprocessor
-ConversationSummarizer = LLMBasedSummarizer
 
 __all__ = [
-    # 简易集成API
-    "ContextMind",
-    "ContextMindConfig",
-    
-    # 插件系统
-    "registry",
-    "PluginRegistry",
-    
     # 核心引擎
     "ContextEngine",
-    "ContextMindEngine",
+    
+    # ADK Agent
+    "ContextMindAgent",
+    "ContextMindConfig",
     
     # 数据模型
     "Message",
-    "MessageRole",
-    "ContextItem",
-    "ContextSource",
     "ContextResult",
+    "ContextItem",
     "ProcessedContext",
     "Knowledge",
-    "KnowledgeType",
-    "Chunk",
-    "ContextState",
-    "EmbeddingInfo",
+    
+    # 类型
+    "MessageRole",
+    "ContextSource",
     
     # 配置
-    "ExtractionConfig",
-    "RetrievalConfig",
-    "SummarizationConfig",
-    "CompressionConfig",
-    "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
-    
-    # 日志系统
-    "ContextMindLogger",
-    "LogLevel",
-    "get_logger",
-    "setup_logging",
-    "set_global_log_level",
-    "get_global_log_level",
-    "INFO",
-    "DEBUG",
-    
-    # 流水线 (5步处理流程 - v0.4.0)
-    "InputPreprocessor",      # 向后兼容性
-    "Preprocessor",           # 步骤 1
-    "ContextRetriever",       # 步骤 2
-    "ContextCompressor",      # 步骤 3
-    "ContextReorderer",       # 步骤 4
-    "ResponseHandler",        # 步骤 5 (v0.4.0)
-    
-    # 支持组件
-    "BaseSummarizer",
-    "LLMBasedSummarizer",
-    "ConversationSummarizer",  # 向后兼容性
-    
-    # 记忆库
-    "MemoryBank",
-    "SessionManager",
-    "LLMBasedExtractor",
-    "SemanticSearchRetriever",
-    "SimpleUpdater",
-    "MemoryFitness",
-    "FitnessCalculator",
-    
-    # 进化模块
-    "EvolutionaryMemoryUpdater",
-    "ObservationCollector",
-    "FeedbackCollector",
-    "ImplicitFeedbackAnalyzer",
-    
-    # 策略基类
-    "BaseExtractor",
-    "BaseRetriever",
-    "BaseUpdater",
-    "ExtractionStrategy",
-    "RetrievalStrategy",
-    "IntegrationStrategy",
-    "OptimizationStrategy",
-    "CompressionStrategy",
-    "RerankingStrategy",
 ]
 
-__version__ = "0.4.0"  # 当前版本 - Utils模块移至根目录，完全独立化
+__version__ = "0.4.1"

@@ -1,8 +1,8 @@
-# ContextMind v0.4.1 (ADK 优化版)
+# ContextMind v0.4.1
 
 一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
-v0.4.1 版本使用 **Google ADK-Python** 优化基础设施，专注于上下文工程核心算法。
+v0.4.1 版本**直接使用 Google ADK-Python**，两个模式各自独立使用 ADK Agent。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -10,43 +10,34 @@ v0.4.1 版本使用 **Google ADK-Python** 优化基础设施，专注于上下�
 
 ---
 
-## 🎯 v0.4.1 优化重点
+## 🎯 v0.4.1 架构
 
-### ADK 集成优化
-- ✅ **统一 LLM 接口** - 使用 Google ADK，支持多种模型（Gemini, OpenAI, Anthropic 等）
-- ✅ **简化基础设施** - 删除自研 LLM 客户端代码 (~1,800 行)
-- ✅ **专注核心价值** - 保留所有上下文工程算法和记忆进化系统
+### 两个独立模式
 
-### 核心特性保留
+#### 1. **DST 模式** (`dst/`)
+- **ADK 负责**: Agent 框架、LLM 调用
+- **自研部分**: 槽位提取、Prompt 工程、状态追踪算法
+- **特点**: 简单、高效、专注于对话状态
 
-- **上下文工程算法** - 完整保留五步流水线（预处理、检索、压缩、重排序、响应处理）
-- **记忆进化系统** - 完整保留记忆适应度计算和进化更新
-- **DST 模式** - 完整保留对话状态追踪和槽位提取逻辑
-- **两种模式** - ContextMind 进化模式 / DST 状态追踪模式
+#### 2. **ContextMind 模式** (`contextmind/`)
+- **ADK 负责**: Agent 框架、LLM 调用
+- **自研部分**: Pipeline 算法、记忆库、记忆进化系统
+- **特点**: 复杂、智能、专注于上下文工程
+
+### 核心原则
+
+**直接使用 ADK**：
+- ✅ 无中间封装层
+- ✅ 直接使用 `google.adk.agents.Agent`
+- ✅ 直接使用 `google.adk.models.lite_llm.LiteLlm`
+- ✅ 各模式独立实现专用 Agent
+
+**保留自研核心**：
+- ✅ DST 的槽位提取和状态追踪算法
+- ✅ ContextMind 的上下文工程 Pipeline
+- ✅ ContextMind 的记忆进化系统
 
 ---
-
-## 快速开始
-
-### 安装
-
-```bash
-pip install -r requirements.txt
-```
-
-主要依赖：
-- `google-adk` - Google Agent Development Kit
-- `litellm` - 多模型支持
-- `chromadb` - 向量数据库
-- `gradio` - Web UI
-
-### 配置
-
-复制 `.env.example` 为 `.env` 并配置：
-
-```bash
-cp .env.example .env
-```
 
 编辑 `.env` 文件：
 

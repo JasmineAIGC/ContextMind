@@ -2,7 +2,7 @@
 """
 ContextMind 统一交互式Demo
 
-v0.4.1 ADK 优化版本
+v0.4.1 - 直接使用 ADK Agent
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
 支持两种模式：dst（对话状态追踪）、contextmind（基于记忆进化）
@@ -21,8 +21,9 @@ from typing import Optional
 from datetime import datetime
 from pathlib import Path
 
-# 使用 ADK LLM 客户端
-from contextmind.adk_integration import ADKLLMClient as LLMClient
+# 直接使用各模式的 ADK Agent
+from dst import DSTAgent
+from contextmind import ContextMindAgent
 
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
@@ -34,16 +35,16 @@ from utils.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger
 logger = get_logger(__name__)
-logger.info("使用 ADK LLM 客户端 (v0.4.1)")
+logger.info("v0.4.1 - 直接使用 ADK Agent")
 
 
 def _handle_llm_init_error(e: Exception) -> None:
-    """统一处理 LLM 客户端初始化错误。
+    """统一处理 Agent 初始化错误。
     
     Args:
         e: 异常对象
     """
-    logger.error(f"LLM客户端初始化失败: {e}")
+    logger.error(f"Agent 初始化失败: {e}")
     print(f"\n{'='*60}")
     print(f"❌ 错误: {e}")
     print(f"{'='*60}")
@@ -120,10 +121,10 @@ class UnifiedInteractiveDemo:
         """初始化DST模式"""
         logger.info(f"初始化DST模式 - {self.config.name}")
         
-        # 创建LLM客户端（如果还未创建）- 使用 ADK UnifiedLLMClient 或 SimpleLLMClient
+        # 直接创建 DST Agent
         if self.llm_client is None:
             try:
-                self.llm_client = LLMClient()
+                self.llm_client = DSTAgent()
             except (ValueError, RuntimeError) as e:
                 _handle_llm_init_error(e)
         
@@ -160,10 +161,10 @@ class UnifiedInteractiveDemo:
         """初始化ContextMind模式"""
         logger.info(f"初始化ContextMind模式 - {self.config.name}")
         
-        # 创建LLM客户端（如果还未创建）- 使用 ADK UnifiedLLMClient 或 SimpleLLMClient
+        # 直接创建 ContextMind Agent
         if self.llm_client is None:
             try:
-                self.llm_client = LLMClient()
+                self.llm_client = ContextMindAgent()
             except (ValueError, RuntimeError) as e:
                 _handle_llm_init_error(e)
         

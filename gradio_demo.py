@@ -2,7 +2,7 @@
 """
 ContextMind 统一Gradio Web Demo
 
-v0.4.1 ADK 优化版本
+v0.4.1 - 直接使用 ADK Agent
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
 支持两种模式：DST对话状态追踪模式、ContextMind记忆进化模式
@@ -19,8 +19,9 @@ from typing import List, Tuple, Optional
 from datetime import datetime
 from pathlib import Path
 
-# 使用 ADK LLM 客户端
-from contextmind.adk_integration import ADKLLMClient as LLMClient
+# 直接使用各模式的 ADK Agent
+from dst import DSTAgent
+from contextmind import ContextMindAgent
 
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
@@ -33,7 +34,7 @@ from utils.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger
 logger = get_logger(__name__)
-logger.info("使用 ADK LLM 客户端 (v0.4.1)")
+logger.info("v0.4.1 - 直接使用 ADK Agent")
 
 
 class UnifiedGradioDemo:
@@ -86,10 +87,10 @@ class UnifiedGradioDemo:
         """初始化DST模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = LLMClient()  # 使用 ADK LLM 客户端
-                logger.info("✅ LLM客户端初始化成功")
+                self.llm_client = DSTAgent()  # 直接使用 DST Agent
+                logger.info("✅ DST Agent 初始化成功")
         except Exception as e:
-            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
+            error_msg = f"❌ DST Agent 初始化失败: {str(e)}\n\n"
             if "API" in str(e).upper() or "KEY" in str(e).upper():
                 error_msg += "📝 请检查以下配置：\n"
                 error_msg += "1. 确认.env文件存在\n"
@@ -129,10 +130,10 @@ class UnifiedGradioDemo:
         """初始化ContextMind模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = LLMClient()  # 使用 ADK LLM 客户端
-                logger.info("✅ LLM客户端初始化成功")
+                self.llm_client = ContextMindAgent()  # 直接使用 ContextMind Agent
+                logger.info("✅ ContextMind Agent 初始化成功")
         except Exception as e:
-            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
+            error_msg = f"❌ ContextMind Agent 初始化失败: {str(e)}\n\n"
             if "API" in str(e).upper() or "KEY" in str(e).upper():
                 error_msg += "📝 请配置.env文件中的 API Key (GOOGLE_API_KEY 或 OPENAI_API_KEY)\n"
             logger.error(error_msg)
