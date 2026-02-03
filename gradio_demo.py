@@ -181,19 +181,20 @@ class UnifiedGradioDemo:
                 # 获取上一轮系统回复
                 # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
                 # 安全地获取上一轮的assistant回复内容
+                # 对于第一轮对话，使用空字符串表示机器人还未说话
                 system_utterance = next(
-                    (msg.get('content', '你好！') for msg in reversed(history) if msg.get('role') == 'assistant'),
-                    '你好！'
+                    (msg.get('content', '') for msg in reversed(history) if msg.get('role') == 'assistant'),
+                    ''  # 第一轮对话，机器人还未说话
                 )
                 
                 # 确保system_utterance是字符串类型（防止list等其他类型）
                 if not isinstance(system_utterance, str):
                     if isinstance(system_utterance, list):
                         # 如果是列表，提取第一个元素或转换为字符串
-                        system_utterance = str(system_utterance[0]) if system_utterance else '你好！'
+                        system_utterance = str(system_utterance[0]) if system_utterance else ''
                     else:
                         # 其他类型转换为字符串
-                        system_utterance = str(system_utterance) if system_utterance else '你好！'
+                        system_utterance = str(system_utterance) if system_utterance else ''
                 
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
