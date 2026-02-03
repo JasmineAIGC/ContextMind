@@ -80,6 +80,10 @@ class UnifiedInteractiveDemo:
         else:
             raise ValueError(f"未知场景: {self.scenario}")
     
+    def _get_welcome_message(self) -> str:
+        """获取欢迎消息"""
+        return self.config.welcome_message if self.config.welcome_message else "你好！"
+    
     def _init_dst_mode(self):
         """初始化DST模式"""
         logger.info(f"初始化DST模式 - {self.config.name}")
@@ -139,7 +143,7 @@ class UnifiedInteractiveDemo:
         )
         
         # 初始化系统回复（第一轮对话使用）- 使用欢迎消息
-        self.last_system_reply = self.config.welcome_message if self.config.welcome_message else "你好！"
+        self.last_system_reply = self._get_welcome_message()
         
         self.app = None  # DST模式不使用app
     
@@ -298,7 +302,7 @@ class UnifiedInteractiveDemo:
         print("✓ 对话已重置\n")
         
         # 重置后，机器人主动发起对话
-        welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+        welcome_msg = self._get_welcome_message()
         print(f"\n助手: {welcome_msg}\n")
         print("-" * 60 + "\n")
     
@@ -307,7 +311,7 @@ class UnifiedInteractiveDemo:
         self.print_welcome()
         
         # 机器人主动发起对话 - 显示欢迎消息
-        welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+        welcome_msg = self._get_welcome_message()
         print(f"\n助手: {welcome_msg}\n")
         print("-" * 60 + "\n")
         

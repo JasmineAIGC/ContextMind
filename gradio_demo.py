@@ -77,6 +77,10 @@ class UnifiedGradioDemo:
         
         logger.info(f"✅ 场景初始化完成: {scenario}, 模式: {mode}")
     
+    def _get_welcome_message(self) -> str:
+        """获取欢迎消息"""
+        return self.config.welcome_message if self.config.welcome_message else "你好！"
+    
     def _init_dst_mode(self):
         """初始化DST模式"""
         try:
@@ -164,7 +168,7 @@ class UnifiedGradioDemo:
                 self.initialized = True
                 # 如果历史为空，添加欢迎消息作为第一条消息
                 if not history:
-                    welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+                    welcome_msg = self._get_welcome_message()
                     history = [{"role": "assistant", "content": welcome_msg}]
             
             if not message or not message.strip():
@@ -183,7 +187,7 @@ class UnifiedGradioDemo:
                 # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
                 # 安全地获取上一轮的assistant回复内容
                 # 如果没有历史记录，使用欢迎消息作为默认值
-                default_system_utterance = self.config.welcome_message if self.config.welcome_message else '你好！'
+                default_system_utterance = self._get_welcome_message()
                 system_utterance = next(
                     (msg.get('content', default_system_utterance) for msg in reversed(history) if msg.get('role') == 'assistant'),
                     default_system_utterance
@@ -489,7 +493,7 @@ class UnifiedGradioDemo:
         logger.info(f"配置已更新: {scenario}, {mode}")
         
         # 机器人主动发起对话 - 使用欢迎消息作为第一句话
-        welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+        welcome_msg = self._get_welcome_message()
         initial_history = [
             {"role": "assistant", "content": welcome_msg}
         ]
