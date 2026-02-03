@@ -7,11 +7,12 @@ ADK OpenAI Model Adapter
 Version: v0.4.1
 """
 
-from typing import AsyncGenerator, Optional, List, Dict
+from typing import AsyncGenerator, Optional, List, Dict, Any
 from google.adk.models import BaseLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from openai import AsyncOpenAI, OpenAI
+from pydantic import Field, PrivateAttr
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,6 +31,16 @@ class OpenAILlm(BaseLlm):
     - 支持流式输出（可选）
     - 内部使用 openai SDK
     """
+    
+    # Pydantic fields
+    api_key: str = Field(description="API 密钥")
+    base_url: str = Field(description="API 基础 URL")
+    temperature: float = Field(default=0.7, description="温度参数")
+    max_tokens: int = Field(default=8192, description="最大 token 数")
+    
+    # Private attributes (不会被 Pydantic 序列化)
+    _async_client: Any = PrivateAttr(default=None)
+    _sync_client: Any = PrivateAttr(default=None)
     
     def __init__(
         self,
@@ -51,20 +62,22 @@ class OpenAILlm(BaseLlm):
             max_tokens: 最大 token 数，默认 8192
             **kwargs: 其他参数
         """
-        super().__init__(model=model)
+        super().__init__(
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
         
-        self.api_key = api_key
-        self.base_url = base_url
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        
-        # 创建 OpenAI 客户端
-        self.async_client = AsyncOpenAI(
+        # 创建 OpenAI 客户端（使用私有属性）
+        self._async_client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url
         )
         
-        self.sync_client = OpenAI(
+        self._sync_client = OpenAI(
             api_key=api_key,
             base_url=base_url
         )
@@ -92,7 +105,7 @@ class OpenAILlm(BaseLlm):
             
             if stream:
                 # 流式输出
-                stream_response = await self.async_client.chat.completions.create(
+                stream_response = await self._async_client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
@@ -108,7 +121,7 @@ class OpenAILlm(BaseLlm):
                         )
             else:
                 # 非流式输出
-                response = await self.async_client.chat.completions.create(
+                response = await self._async_client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
@@ -144,7 +157,7 @@ class OpenAILlm(BaseLlm):
             # 转换 ADK 请求为 OpenAI 格式
             messages = self._convert_request_to_openai_messages(llm_request)
             
-            response = self.sync_client.chat.completions.create(
+            response = self._sync_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
@@ -217,7 +230,7 @@ class OpenAILlm(BaseLlm):
             LLM 响应文本
         """
         try:
-            response = await self.async_client.chat.completions.create(
+            response = await self._async_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=temperature or self.temperature,
@@ -249,7 +262,7 @@ class OpenAILlm(BaseLlm):
             LLM 响应文本
         """
         try:
-            response = self.sync_client.chat.completions.create(
+            response = self._sync_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=temperature or self.temperature,
