@@ -8,10 +8,21 @@
 - Bank: 主 MemoryBank 类
 
 同时包含用于会话管理的 SessionManager。
+
+v0.4.1: 使用 ADK Session 和 Memory
 """
 
-from .bank import MemoryBank, STOPWORDS
-from .session import SessionManager
+# 使用 ADK 版本（推荐）
+from .adk_session import ADKSessionManager
+from .adk_memory import ADKMemoryBank
+
+# 向后兼容别名
+SessionManager = ADKSessionManager
+MemoryBank = ADKMemoryBank
+
+# 也导出旧实现（如果需要）
+from ._deprecated_bank import MemoryBank as OldMemoryBank, STOPWORDS
+from ._deprecated_session import SessionManager as OldSessionManager
 from .extractor import (
     BaseExtractor,
     RuleBasedExtractor,
