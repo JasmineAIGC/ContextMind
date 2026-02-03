@@ -179,13 +179,10 @@ class UnifiedGradioDemo:
             if self.current_mode == "dst":
                 # DST模式
                 # 获取上一轮系统回复
-                # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
-                # 安全地获取上一轮的assistant回复内容
+                # history格式: [(user_msg, bot_msg), (user_msg, bot_msg), ...]
+                # 安全地获取上一轮的bot回复内容
                 # 对于第一轮对话，使用空字符串表示机器人还未说话
-                system_utterance = next(
-                    (msg.get('content', '') for msg in reversed(history) if msg.get('role') == 'assistant'),
-                    ''  # 第一轮对话，机器人还未说话
-                )
+                system_utterance = history[-1][1] if history and len(history[-1]) > 1 else ''
                 
                 # 确保system_utterance是字符串类型（防止list等其他类型）
                 if not isinstance(system_utterance, str):
@@ -278,11 +275,8 @@ class UnifiedGradioDemo:
             # 在回复中添加耗时信息（小号灰色文本）
             reply_with_timing = f"{reply}\n\n<small style='color: #888;'>{timing_display}</small>"
             
-            # 更新历史 - 使用Gradio 6.0格式 (flat list)
-            return history + [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": reply_with_timing}
-            ]
+            # 更新历史 - 使用Gradio 4.x格式 (tuple list)
+            return history + [(message, reply_with_timing)]
             
         except ValueError as e:
             # API密钥错误
@@ -294,21 +288,12 @@ class UnifiedGradioDemo:
                            "- LLM_API_KEY\n" + \
                            "- OPENAI_API_KEY\n\n" + \
                            f"详细错误: {str(e)}"
-                return history + [
-                    {"role": "user", "content": message},
-                    {"role": "assistant", "content": error_msg}
-                ]
+                return history + [(message, error_msg)]
             else:
-                return history + [
-                    {"role": "user", "content": message},
-                    {"role": "assistant", "content": f"❌ 错误: {str(e)}"}
-                ]
+                return history + [(message, f"❌ 错误: {str(e)}")]
         except Exception as e:
             logger.error(f"对话处理错误: {e}", exc_info=True)
-            return history + [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": f"❌ 系统错误: {str(e)}"}
-            ]
+            return history + [(message, f"❌ 系统错误: {str(e)}")]
     
     def _capture_post_user_state(self):
         """
@@ -486,9 +471,9 @@ class UnifiedGradioDemo:
         status = f"📌 当前配置: 场景={scenario_names.get(scenario, scenario)}, 模式={mode}"
         logger.info(f"配置已更新: {scenario}, {mode}")
         
-        # 返回欢迎消息作为初始对话历史 - 使用Gradio 6.0格式
+        # 返回欢迎消息作为初始对话历史 - 使用Gradio 4.x格式
         welcome = self.config.welcome_message or "你好！"
-        return [{"role": "assistant", "content": welcome}], status
+        return [(None, welcome)], status
     
     
     def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool,
