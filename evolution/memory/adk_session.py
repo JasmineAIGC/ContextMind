@@ -55,8 +55,8 @@ class ADKSessionManager:
         # 使用提供的或创建新的 ADK Session Service
         self.session_service = session_service or InMemorySessionService()
         
-        # 创建或获取会话
-        self.session = self.session_service.create_session(
+        # 创建或获取会话（使用同步方法，因为 __init__ 不能是 async）
+        self.session = self.session_service.create_session_sync(
             app_name=app_name,
             user_id=user_id,
             state={"messages": []}  # 初始化消息列表
@@ -64,7 +64,7 @@ class ADKSessionManager:
         
         logger.info(
             f"[ADK Session] 初始化成功 - app:{app_name}, user:{user_id}, "
-            f"session:{self.session.session_id}"
+            f"session:{self.session.id}"
         )
     
     async def add_message(self, role: MessageRole, content: str) -> None:
@@ -140,7 +140,7 @@ class ADKSessionManager:
     
     def get_session_id(self) -> str:
         """获取会话ID"""
-        return self.session.session_id
+        return self.session.id
     
     def get_session(self) -> Session:
         """获取 ADK Session 对象（用于记忆系统）"""
