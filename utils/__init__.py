@@ -2,9 +2,10 @@
 
 这个模块包含 ContextMind 框架和基础 DST 模式共用的工具：
 - Logger: 统一的日志系统
-- LLM Client: 统一的 LLM 客户端
 - Embedding: 嵌入向量工具
 - Data Models: 工具模块的数据模型
+
+v0.4.1: LLM 客户端已迁移到 contextmind.adk_integration
 
 所有模式都使用这些通用工具，确保一致性。
 utils 模块是完全独立的，不依赖 baseline 或 contextmind 模块。
@@ -21,11 +22,6 @@ from .logger import (
     DEBUG,
 )
 
-from .llm_client import (
-    SimpleLLMClient,
-    LLMConfig,
-)
-
 from .data_models import (
     EmbeddingInfo,
 )
@@ -40,11 +36,8 @@ __all__ = [
     "get_global_log_level",
     "INFO",
     "DEBUG",
-    # LLM Client
-    "SimpleLLMClient",
-    "LLMConfig",
     # Data Models
     "EmbeddingInfo",
 ]
 
-__version__ = "0.4.0"  # 独立工具模块，完全不依赖contextmind/baseline
+__version__ = "0.4.1"  # ADK 优化版本
