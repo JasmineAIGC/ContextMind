@@ -31,10 +31,10 @@
 |------|--------|------|
 | chat | `CHAT_SYSTEM_PROMPT` | 闲聊场景 |
 | callcenter | `CALLCENTER_SYSTEM_PROMPT` | 客服场景 |
-| dst | `DST_SYSTEM_PROMPT` | 对话状态追踪 |
-| tech_support | `TECH_SUPPORT_PROMPT` | 技术支持 |
-| education | `EDUCATION_PROMPT` | 教育辅导 |
 | insurance | `INSURANCE_SYSTEM_PROMPT` | 保险挽回 |
+| dst | `DST_SYSTEM_PROMPT` | 对话状态追踪（内部使用） |
+
+**注意**：DST 提示词保留供 DST 模式内部使用，不作为独立场景。
 
 ### 已完成的更新
 
