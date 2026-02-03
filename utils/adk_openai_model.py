@@ -114,7 +114,7 @@ class OpenAILlm(BaseLlm):
                 )
                 
                 async for chunk in stream_response:
-                    if chunk.choices and chunk.choices[0].delta.content:
+                    if chunk.choices and len(chunk.choices) > 0 and chunk.choices[0].delta.content:
                         yield LlmResponse(
                             text=chunk.choices[0].delta.content,
                             finish_reason=chunk.choices[0].finish_reason
@@ -128,6 +128,9 @@ class OpenAILlm(BaseLlm):
                     max_tokens=self.max_tokens,
                     stream=False
                 )
+                
+                if not response.choices or len(response.choices) == 0:
+                    raise ValueError("Empty response from LLM")
                 
                 yield LlmResponse(
                     text=response.choices[0].message.content,
@@ -164,6 +167,9 @@ class OpenAILlm(BaseLlm):
                 max_tokens=self.max_tokens,
                 **kwargs
             )
+            
+            if not response.choices or len(response.choices) == 0:
+                raise ValueError("Empty response from LLM")
             
             return LlmResponse(
                 text=response.choices[0].message.content,
@@ -238,6 +244,9 @@ class OpenAILlm(BaseLlm):
                 **kwargs
             )
             
+            if not response.choices or len(response.choices) == 0:
+                raise ValueError("Empty response from LLM")
+            
             return response.choices[0].message.content
             
         except Exception as e:
@@ -269,6 +278,9 @@ class OpenAILlm(BaseLlm):
                 max_tokens=self.max_tokens,
                 **kwargs
             )
+            
+            if not response.choices or len(response.choices) == 0:
+                raise ValueError("Empty response from LLM")
             
             return response.choices[0].message.content
             

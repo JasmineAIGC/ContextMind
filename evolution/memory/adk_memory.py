@@ -5,14 +5,24 @@ Evolution Memory Bank using google-adk
 
 版本: v0.4.1
 
-注意: 此文件需要重构以匹配当前的数据模型。
-当前作为占位符存在以保持向后兼容性。
+TODO: 此文件需要重构以匹配当前的数据模型
+当前作为占位符存在以保持向后兼容性
+
+重构需求:
+1. 定义或导入正确的 Memory 和 MemoryType 数据模型
+2. Memory 应包含的字段: content, memory_type, timestamp, metadata
+3. MemoryType 应支持的类型: KNOWLEDGE, LONG_TERM, SHORT_TERM (或使用现有的 SEMANTIC, KEYWORD, STRUCTURED)
+4. 实现 store_memory, get_memories_by_type, clear_memories 等方法
+5. 完整集成 ADK 的 InMemoryMemoryService 功能
+
+参考: evolution.core.types.MemoryType (当前值: SEMANTIC, KEYWORD, STRUCTURED)
 """
 
 from typing import List, Optional, Dict, Any
 from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import Session
 # TODO: 修复导入 - Memory 和 MemoryType 需要正确的定义
+# 当前 evolution.core.types.MemoryType 的值与此处需要的不匹配
 # from evolution.core.data_models import Memory, MemoryType
 from utils.logger import get_logger
 
