@@ -41,6 +41,10 @@ from .core.configs import DEFAULT_MEMORY_CONFIG
 # 核心引擎 (最后导入)
 from .engine import EvolutionEngine
 
+# ADK-based Session and Memory (v0.4.1 新增)
+from .memory.adk_session import ADKSessionManager
+from .memory.adk_memory import ADKMemoryBank
+
 __all__ = [
     # ADK Agent
     "EvolutionAgent",
@@ -48,6 +52,10 @@ __all__ = [
     
     # 核心引擎
     "EvolutionEngine",
+    
+    # ADK Session and Memory (v0.4.1)
+    "ADKSessionManager",
+    "ADKMemoryBank",
     
     # 数据模型
     "Message",
