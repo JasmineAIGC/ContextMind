@@ -1,11 +1,10 @@
 """
-ContextMind v0.4.0 演示用的简单 LLM 客户端
+ContextMind v0.5.0 ADK-powered LLM 客户端
 
-为演示应用提供轻量级的 OpenAI 兼容 LLM 客户端。
-基于 v6.0 客户端但为演示目的进行了简化。
+使用 Google ADK 提供统一的 LLM 接口。
+向后兼容 SimpleLLMClient 接口，同时提供新的 UnifiedLLMClient。
 
-注意: 在 v0.4.0 中，LLM 调用在 ContextMind 框架外部。
-此客户端仅用于演示应用，不是核心框架的一部分。
+注意: v0.5.0 使用 ADK-Python 进行了全面优化。
 """
 
 from __future__ import annotations
@@ -32,6 +31,14 @@ except ImportError:
     print("安装方法: pip install openai")
 
 from .logger import get_logger
+
+# 导入新的 ADK LLM 客户端
+try:
+    from .adk_llm_client import UnifiedLLMClient, LLMConfig
+    ADK_CLIENT_AVAILABLE = True
+except ImportError:
+    ADK_CLIENT_AVAILABLE = False
+    UnifiedLLMClient = None
 
 logger = get_logger(__name__)
 
@@ -342,3 +349,16 @@ class SimpleLLMClient:
         注意: 当前简单封装同步版本，实际生产环境应使用 AsyncOpenAI
         """
         return self.chat(messages, temperature)
+
+
+# 向后兼容：如果 ADK 客户端可用，优先使用
+if ADK_CLIENT_AVAILABLE:
+    # SimpleLLMClient 作为 UnifiedLLMClient 的别名
+    # 这样可以无缝迁移到新的 ADK 客户端
+    # SimpleLLMClient = UnifiedLLMClient
+    # 注意：由于接口差异，我们保留原有的 SimpleLLMClient
+    # 但建议新代码使用 UnifiedLLMClient
+    logger.info("[LLM Client] ADK UnifiedLLMClient 可用，推荐使用")
+else:
+    logger.warning("[LLM Client] ADK UnifiedLLMClient 不可用，使用传统 SimpleLLMClient")
+

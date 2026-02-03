@@ -1,5 +1,11 @@
 """
-ContextEngine - 上下文引擎核心模块 v0.4.0
+ContextEngine - 上下文引擎核心模块 v0.5.0
+
+ADK-Python 优化版本：
+- 集成 ADK LLM 客户端支持
+- 增强的错误处理和重试机制
+- 标准化工具系统
+- 改进的可观测性
 
 清晰的模块化架构设计:
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
@@ -41,7 +47,7 @@ logger = get_logger(__name__)
 
 class ContextEngine:
     """
-    上下文引擎 v7.1
+    上下文引擎 v0.5.0 (ADK-powered)
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult
@@ -53,14 +59,20 @@ class ContextEngine:
     - 模块解耦：Pipeline、Manager、Strategy各司其职
     - 易于扩展：所有策略都可插拔替换
     - 异步优先：全面使用async/await
+    - ADK 集成：使用 ADK LLM 客户端和工具系统
     
     使用示例：
         ```python
         from contextmind import ContextEngine
+        from utils.adk_llm_client import UnifiedLLMClient
+        
+        # 使用 ADK LLM 客户端
+        llm_client = UnifiedLLMClient()
         
         engine = ContextEngine(
             app_name="my-app",
-            user_id="user-123"
+            user_id="user-123",
+            llm_client=llm_client
         )
         
         # 优化上下文
@@ -91,13 +103,15 @@ class ContextEngine:
         """
         初始化上下文引擎
         
-        v0.4.0 知识提取架构:
-        默认使用基于大语言模型的知识提取，确保最佳效果
+        v0.5.0 ADK 优化架构:
+        - 支持 ADK LLM 客户端（推荐）
+        - 向后兼容传统 LLM 客户端
+        - 默认使用基于大语言模型的知识提取
         
         Args:
             app_name: 应用名称
             user_id: 用户 ID
-            llm_client: LLM 客户端实例 (可选，但强烈推荐用于知识提取)
+            llm_client: LLM 客户端实例 (支持 UnifiedLLMClient 或 SimpleLLMClient)
             session_service: Session 服务实例 (可选)
             memory_service: Memory 服务实例 (可选)
             max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
