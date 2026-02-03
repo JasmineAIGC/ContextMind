@@ -39,20 +39,28 @@ v0.4.1 版本**直接使用 Google ADK-Python**，两个模式各自独立使用
 
 ---
 
-编辑 `.env` 文件：
+## 快速开始
+
+### 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 配置
+
+编辑 `.env` 文件（当前使用 Qwen 模型）：
 
 ```ini
-# 选项 1: 使用 Google Gemini (推荐)
-GOOGLE_API_KEY=your-google-api-key-here
-MODEL=gemini-2.0-flash-exp
+# LLM 配置 (Qwen)
+QWEN3_API_KEY=your-api-key
+QWEN3_BASE_URL=http://your-endpoint/v1
+QWEN3_MODEL=Qwen2.5-7B-Instruct
+QWEN3_MAX_TOKENS=8192
 
-# 选项 2: 使用 OpenAI
-# OPENAI_API_KEY=your-openai-key
-# MODEL=openai/gpt-4
-
-# 选项 3: 使用 Anthropic Claude
-# ANTHROPIC_API_KEY=your-anthropic-key
-# MODEL=anthropic/claude-3-sonnet
+# Embedding 配置（使用专门的嵌入模型，不是 LLM）
+EMBEDDING_MODEL_PATH=/path/to/bge-large-zh-v1.5
+EMBEDDING_MODEL=bge-large-zh-v1.5
 ```
 
 ### 运行Demo
@@ -85,36 +93,37 @@ python gradio_demo.py
 #### Evolution 模式（基于记忆进化）
 
 ```python
-from evolution import EvolutionEngine
-from evolution.adk_integration import ADKLLMClient
+from evolution import EvolutionAgent, EvolutionEngine
 
-# 初始化 - 使用 ADK LLM 客户端
-llm_client = ADKLLMClient()
+# 创建 Evolution Agent（直接使用 google.adk）
+agent = EvolutionAgent()
+
+# 创建引擎
 engine = EvolutionEngine(
     app_name="my_app",
     user_id="user_123",
-    llm_client=llm_client
+    llm_client=agent
 )
 
-# 对话 - 系统会记住上下文并不断优化
-response = await engine.chat("你好")
-print(response)
+# 优化上下文
+context = await engine.optimize("你好")
+print(context)
 ```
 
 #### DST 模式（对话状态追踪）
 
 ```python
-from dst import DialogueStateTracker, PromptManager
-from utils import SimpleLLMClient
+from dst import DSTAgent, DialogueStateTracker
 
-# 初始化 - 专注于槽位提取
-llm_client = SimpleLLMClient()
-pm = PromptManager(domain="restaurant")
-tracker = DialogueStateTracker(llm_client=llm_client, prompt_manager=pm)
+# 创建 DST Agent（直接使用 google.adk）
+agent = DSTAgent()
 
-# 对话 - 提取意图和槽位
-state = await tracker.process_turn("你好", "我想订餐")
-print(state)  # 返回提取的状态信息
+# 创建追踪器
+tracker = DialogueStateTracker(llm_client=agent)
+
+# 追踪对话状态
+state = await tracker.track_turn("你好", "我想订餐")
+print(state)  # 返回提取的槽位和意图
 ```
 
 ---

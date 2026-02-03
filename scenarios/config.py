@@ -39,7 +39,7 @@ class ScenarioConfig:
     system_prompt: str = ""  # 系统提示词
     dst_prompt_template: str = ""  # DST专用提示词模板
     
-    # ContextMind模式配置
+    # Evolution模式配置
     enable_memory: bool = True  # 是否启用记忆功能
     enable_evolution: bool = True  # 是否启用演化功能
     
