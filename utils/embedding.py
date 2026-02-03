@@ -276,8 +276,7 @@ class EmbeddingClient:
                 
                 return EmbeddingInfo(
                     model=self.config.model,
-                    vector=vector,
-                    dimension=dimension
+                    vector=vector
                 )
             except Exception as e:
                 logger.error(f"[EmbeddingClient] 本地模型生成 embedding 失败: {e}")
@@ -321,8 +320,7 @@ class EmbeddingClient:
             
             return EmbeddingInfo(
                 model=self.config.model,
-                vector=vector,
-                dimension=dimension
+                vector=vector
             )
             
         except AttributeError as e:
