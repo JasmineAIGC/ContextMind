@@ -235,6 +235,7 @@ def create_gradio_ui(demo_instance=None):
                     height=650,
                     label="💬 对话窗口",
                     avatar_images=("👤", "🤖"),  # 设置用户和机器人的默认头像
+                    type="messages",  # 使用Gradio 6.0的messages格式
                     elem_classes=["chatbot"]
                 )
                 
