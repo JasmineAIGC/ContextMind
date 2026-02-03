@@ -1,6 +1,7 @@
 """核心框架组件"""
 
-from ..engine import ContextEngine as ContextMindEngine
+# 不导入 ContextEngine，避免循环依赖
+# from ..engine import ContextEngine as ContextMindEngine
 from .registry import PluginRegistry, registry
 from .framework_config import ContextMind as ContextMindConfig
 

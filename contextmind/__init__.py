@@ -21,31 +21,30 @@ v0.4.1 - 直接使用 ADK，专注于上下文工程和记忆进化自研逻辑�
 - ContextMind: 复杂的上下文工程，包含记忆库、进化学习等
 """
 
-# 核心引擎
-from .engine import ContextEngine
-
-# ADK Agent
+# ADK Agent (先导入，避免循环依赖)
 from .agent import ContextMindAgent, ContextMindConfig
 
-# 核心数据模型和类型
-from .core import (
+# 核心数据模型和类型 (直接从子模块导入，避免 core.__init__ 的循环)
+from .core.data_models import (
     Message,
     ContextResult,
     ContextItem,
     ProcessedContext,
     Knowledge,
-    MessageRole,
-    ContextSource,
-    DEFAULT_MEMORY_CONFIG,
 )
+from .core.types import MessageRole, ContextSource
+from .core.configs import DEFAULT_MEMORY_CONFIG
+
+# 核心引擎 (最后导入)
+from .engine import ContextEngine
 
 __all__ = [
-    # 核心引擎
-    "ContextEngine",
-    
     # ADK Agent
     "ContextMindAgent",
     "ContextMindConfig",
+    
+    # 核心引擎
+    "ContextEngine",
     
     # 数据模型
     "Message",
