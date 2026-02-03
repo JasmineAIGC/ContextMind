@@ -20,9 +20,8 @@ from .adk_memory import ADKMemoryBank
 SessionManager = ADKSessionManager
 MemoryBank = ADKMemoryBank
 
-# 也导出旧实现（如果需要）
-from ._deprecated_bank import MemoryBank as OldMemoryBank, STOPWORDS
-from ._deprecated_session import SessionManager as OldSessionManager
+# STOPWORDS for backward compatibility
+STOPWORDS = set()
 from .extractor import (
     BaseExtractor,
     RuleBasedExtractor,
