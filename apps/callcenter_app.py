@@ -8,9 +8,9 @@ CallCenterApplication - 客服应用示例
 import logging
 from typing import Optional
 
-from contextmind import ContextEngine
-from contextmind.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
-from contextmind.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
+from evolution import ContextEngine
+from evolution.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from evolution.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
 from utils.llm_client import SimpleLLMClient, LLMConfig
 
@@ -42,7 +42,7 @@ class CallCenterApplication:
         """初始化客服应用
         
         Args:
-            context_engine: ContextMind 引擎实例
+            context_engine: Evolution 引擎实例
             business_info: 业务信息
             history_turns: 历史轮数
             system_prompt: 系统提示

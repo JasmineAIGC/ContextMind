@@ -1,6 +1,6 @@
 # 迁移指南
 
-本指南帮助你从旧版本迁移到新版本的 ContextMind。
+本指南帮助你从旧版本迁移到新版本的 Evolution。
 
 ---
 
@@ -21,7 +21,7 @@ v0.4.0 是一个重要的功能增强版本，包含以下主要变更：
 #### 1. Utils 模块导入路径变更 (必须修改)
 
 **变更说明：**
-- utils 模块从 `contextmind/utils/` 移至根目录 `utils/`
+- utils 模块从 `evolution/utils/` 移至根目录 `utils/`
 - `examples/llm_client.py` 移至 `utils/llm_client.py`
 - 旧的导入路径不再支持
 
@@ -29,8 +29,8 @@ v0.4.0 是一个重要的功能增强版本，包含以下主要变更：
 
 ```python
 # ❌ 旧代码 (v7.3)
-from contextmind.utils.logger import get_logger, setup_logging, LogLevel
-from contextmind.utils.embedding import get_embedding
+from evolution.utils.logger import get_logger, setup_logging, LogLevel
+from evolution.utils.embedding import get_embedding
 from examples.llm_client import SimpleLLMClient, LLMConfig
 
 # ✅ 新代码 (v0.4.0)
@@ -46,10 +46,10 @@ from utils import get_logger, SimpleLLMClient, LLMConfig
 
 ```bash
 # 更新 logger 导入
-find . -name "*.py" -type f -exec sed -i 's/from contextmind\.utils\.logger import/from utils.logger import/g' {} +
+find . -name "*.py" -type f -exec sed -i 's/from evolution\.utils\.logger import/from utils.logger import/g' {} +
 
 # 更新 embedding 导入
-find . -name "*.py" -type f -exec sed -i 's/from contextmind\.utils\.embedding import/from utils.embedding import/g' {} +
+find . -name "*.py" -type f -exec sed -i 's/from evolution\.utils\.embedding import/from utils.embedding import/g' {} +
 
 # 更新 LLM 客户端导入
 find . -name "*.py" -type f -exec sed -i 's/from examples\.llm_client import/from utils.llm_client import/g' {} +
@@ -112,7 +112,7 @@ class KnowledgeExtractor:
 这是可选功能，无需修改现有代码。如需使用：
 
 ```python
-from contextmind import ContextEngine
+from evolution import ContextEngine
 
 # 启用自动知识提取
 engine = ContextEngine(
@@ -266,7 +266,7 @@ response = await client.generate_async("你好", temperature=0.7)
 
 - [ ] **步骤 4**: 验证演示程序
   ```bash
-  python chat_interactive_demo.py --mode contextmind
+  python chat_interactive_demo.py --mode evolution
   python baseline_demo.py
   ```
 
@@ -296,13 +296,13 @@ response = await client.generate_async("你好", temperature=0.7)
 
 ### 🆘 常见问题
 
-#### Q1: 导入错误 `ModuleNotFoundError: No module named 'contextmind.utils'`
+#### Q1: 导入错误 `ModuleNotFoundError: No module named 'evolution.utils'`
 
 **原因**: 使用了旧的导入路径
 
 **解决方案**:
 ```python
-# 将所有 contextmind.utils.* 改为 utils.*
+# 将所有 evolution.utils.* 改为 utils.*
 from utils.logger import get_logger
 from utils.llm_client import SimpleLLMClient
 ```
@@ -319,10 +319,10 @@ from utils.llm_client import SimpleLLMClient
 
 #### Q3: 我的代码没有使用 utils，需要修改吗？
 
-**回答**: 如果你只使用 ContextMind 的高级 API，可能不需要修改。检查你的导入语句：
-- 有 `from contextmind.utils.*` → 需要修改
+**回答**: 如果你只使用 Evolution 的高级 API，可能不需要修改。检查你的导入语句：
+- 有 `from evolution.utils.*` → 需要修改
 - 有 `from examples.llm_client` → 需要修改
-- 只有 `from contextmind import *` → 无需修改
+- 只有 `from evolution import *` → 无需修改
 
 #### Q4: 知识提取功能是强制的吗？
 
@@ -354,7 +354,7 @@ from utils.llm_client import SimpleLLMClient
 
 **之前（v7.1）**：
 ```
-contextmind/
+evolution/
 ├── pipeline.py （所有流水线组件在一个文件中）
 ├── memory.py （所有记忆组件在一个文件中）
 ├── strategies/ （extractors、retrievers、updaters）
@@ -365,7 +365,7 @@ demos/ （示例应用）
 
 **之后（v7.2+）**：
 ```
-contextmind/
+evolution/
 ├── preprocessor.py （步骤 1）
 ├── retriever.py （步骤 2）
 ├── compressor.py （步骤 3）
@@ -388,33 +388,33 @@ examples/ （从 demos/ 重命名）
 
 ```python
 # ❌ 旧（v7.1）
-from contextmind.pipeline import InputPreprocessor, ContextCompressor
+from evolution.pipeline import InputPreprocessor, ContextCompressor
 
 # ✅ 新（v7.2+）- 推荐
-from contextmind.preprocessor import InputPreprocessor
-from contextmind.compressor import ContextCompressor
+from evolution.preprocessor import InputPreprocessor
+from evolution.compressor import ContextCompressor
 
 # ✅ 兼容 - 通过向后兼容包装器仍然有效
-from contextmind.pipeline import InputPreprocessor, ContextCompressor
+from evolution.pipeline import InputPreprocessor, ContextCompressor
 ```
 
 #### 记忆组件
 
 ```python
 # ❌ 旧（v7.1）
-from contextmind.strategies.extractors import RuleBasedExtractor
-from contextmind.strategies.retrievers import SemanticSearchRetriever
-from contextmind.strategies.updaters import SimpleUpdater
+from evolution.strategies.extractors import RuleBasedExtractor
+from evolution.strategies.retrievers import SemanticSearchRetriever
+from evolution.strategies.updaters import SimpleUpdater
 
 # ✅ 新（v7.2+）- 推荐
-from contextmind.memory import (
+from evolution.memory import (
     RuleBasedExtractor,
     SemanticSearchRetriever,
     SimpleUpdater,
 )
 
 # ✅ 兼容 - 通过向后兼容仍然有效
-from contextmind.strategies import extractors, retrievers, updaters
+from evolution.strategies import extractors, retrievers, updaters
 extractor = extractors.RuleBasedExtractor()
 ```
 
@@ -422,19 +422,19 @@ extractor = extractors.RuleBasedExtractor()
 
 ```python
 # ❌ 旧（v7.1）
-from contextmind.strategies.optimization import CompressionStrategy
-from contextmind.strategies.base import CompressionStrategy  # 错误位置
+from evolution.strategies.optimization import CompressionStrategy
+from evolution.strategies.base import CompressionStrategy  # 错误位置
 
 # ✅ 新（v7.2+）
-from contextmind.strategies.defaults import CompressionStrategy, RerankingStrategy
-from contextmind.strategies.base import OptimizationStrategy  # 基础接口
+from evolution.strategies.defaults import CompressionStrategy, RerankingStrategy
+from evolution.strategies.base import OptimizationStrategy  # 基础接口
 ```
 
 ### 3. 文件重命名
 
 | 旧名称 | 新名称 | 位置 |
 |----------|----------|----------|
-| `config_api.py` | `config.py` | `contextmind/` |
+| `config_api.py` | `config.py` | `evolution/` |
 | `demos/` | `examples/` | 根目录 |
 | `gradio_demo.py` | `gradio_app.py` | `examples/` |
 | `interactive_demo.py` | `interactive_app.py` | `examples/` |
@@ -447,18 +447,18 @@ from contextmind.strategies.base import OptimizationStrategy  # 基础接口
 
 ```bash
 # 流水线导入
-find . -name "*.py" -exec sed -i 's/from contextmind.pipeline.preprocessor import/from contextmind.preprocessor import/g' {} +
-find . -name "*.py" -exec sed -i 's/from contextmind.pipeline.compressor import/from contextmind.compressor import/g' {} +
-find . -name "*.py" -exec sed -i 's/from contextmind.pipeline.reorderer import/from contextmind.reorderer import/g' {} +
-find . -name "*.py" -exec sed -i 's/from contextmind.pipeline.postprocessor import/from contextmind.postprocessor import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.pipeline.preprocessor import/from evolution.preprocessor import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.pipeline.compressor import/from evolution.compressor import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.pipeline.reorderer import/from evolution.reorderer import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.pipeline.postprocessor import/from evolution.postprocessor import/g' {} +
 
 # 记忆导入
-find . -name "*.py" -exec sed -i 's/from contextmind.strategies.extractors import/from contextmind.memory import/g' {} +
-find . -name "*.py" -exec sed -i 's/from contextmind.strategies.retrievers import/from contextmind.memory import/g' {} +
-find . -name "*.py" -exec sed -i 's/from contextmind.strategies.updaters import/from contextmind.memory import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.strategies.extractors import/from evolution.memory import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.strategies.retrievers import/from evolution.memory import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.strategies.updaters import/from evolution.memory import/g' {} +
 
 # 策略默认值
-find . -name "*.py" -exec sed -i 's/from contextmind.strategies.optimization import/from contextmind.strategies.defaults import/g' {} +
+find . -name "*.py" -exec sed -i 's/from evolution.strategies.optimization import/from evolution.strategies.defaults import/g' {} +
 ```
 
 ### 步骤 2：更新文件引用
@@ -479,8 +479,8 @@ from examples.llm_client import LLMClient
 
 ```python
 # 测试脚本
-from contextmind import (
-    ContextMind,
+from evolution import (
+    Evolution,
     ContextEngine,
     MemoryBank,
     SessionManager,
@@ -491,7 +491,7 @@ from contextmind import (
     KVCacheManager,
 )
 
-from contextmind.memory import (
+from evolution.memory import (
     RuleBasedExtractor,
     LLMBasedExtractor,
     SemanticSearchRetriever,
@@ -507,14 +507,14 @@ print("✓ 所有导入成功！")
 
 由于向后兼容包装器，以下旧导入模式**仍然有效**：
 
-✅ `from contextmind.pipeline import InputPreprocessor`  
-✅ `from contextmind.memory import MemoryBank, KVCacheManager`  
-✅ `from contextmind.strategies import extractors, retrievers, updaters`
+✅ `from evolution.pipeline import InputPreprocessor`  
+✅ `from evolution.memory import MemoryBank, KVCacheManager`  
+✅ `from evolution.strategies import extractors, retrievers, updaters`
 
 ### 什么改变了？
 
-❌ `contextmind.pipeline` 现在是包装器，而不是包  
-❌ `contextmind.strategies.optimization` 不存在（使用 `strategies.defaults`）  
+❌ `evolution.pipeline` 现在是包装器，而不是包  
+❌ `evolution.strategies.optimization` 不存在（使用 `strategies.defaults`）  
 ❌ `demos/` 目录重命名为 `examples/`
 
 ## 常见迁移问题
@@ -522,36 +522,36 @@ print("✓ 所有导入成功！")
 ### 问题 1：模块未找到
 
 ```
-ModuleNotFoundError: No module named 'contextmind.pipeline.compressor'
+ModuleNotFoundError: No module named 'evolution.pipeline.compressor'
 ```
 
 **解决方案**：改为：
 ```python
-from contextmind.compressor import ContextCompressor
+from evolution.compressor import ContextCompressor
 # 或使用向后兼容导入
-from contextmind.pipeline import ContextCompressor
+from evolution.pipeline import ContextCompressor
 ```
 
 ### 问题 2：无法导入 CompressionStrategy
 
 ```
-ImportError: cannot import name 'CompressionStrategy' from 'contextmind.strategies.base'
+ImportError: cannot import name 'CompressionStrategy' from 'evolution.strategies.base'
 ```
 
 **解决方案**：从 `defaults` 导入：
 ```python
-from contextmind.strategies.defaults import CompressionStrategy
+from evolution.strategies.defaults import CompressionStrategy
 ```
 
 ### 问题 3：提取器导入失败
 
 ```
-ModuleNotFoundError: No module named 'contextmind.strategies.extractors'
+ModuleNotFoundError: No module named 'evolution.strategies.extractors'
 ```
 
 **解决方案**：从 memory 子模块导入：
 ```python
-from contextmind.memory import RuleBasedExtractor, LLMBasedExtractor
+from evolution.memory import RuleBasedExtractor, LLMBasedExtractor
 ```
 
 ## 测试你的迁移
@@ -560,12 +560,12 @@ from contextmind.memory import RuleBasedExtractor, LLMBasedExtractor
 
 1. **导入测试**：
    ```bash
-   python3 -c "from contextmind import *; print('OK')"
+   python3 -c "from evolution import *; print('OK')"
    ```
 
 2. **向后兼容性测试**：
    ```bash
-   python3 -c "from contextmind.pipeline import InputPreprocessor; print('OK')"
+   python3 -c "from evolution.pipeline import InputPreprocessor; print('OK')"
    ```
 
 3. **运行测试**：

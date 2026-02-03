@@ -1,18 +1,18 @@
-# ContextMind 文档中心
+# Evolution 文档中心
 
-欢迎来到 ContextMind 项目的文档中心！这里包含了项目的所有技术文档和指南。
+欢迎来到 Evolution 项目的文档中心！这里包含了项目的所有技术文档和指南。
 
 ## 📚 文档目录
 
 ### 快速开始
 
-- [快速开始指南](quick-start.md) - 快速上手 ContextMind
+- [快速开始指南](quick-start.md) - 快速上手 Evolution
 - [配置指南](configuration.md) - API 密钥和场景配置
 
 ### 核心文档
 
-- [系统架构](architecture.md) - ContextMind 整体架构设计
-- [模式对比](modes.md) - DST 与 ContextMind 模式对比
+- [系统架构](architecture.md) - Evolution 整体架构设计
+- [模式对比](modes.md) - DST 与 Evolution 模式对比
 
 ### 版本管理
 
@@ -30,7 +30,7 @@
 
 - [主项目 README](../README.md)
 - [示例数据](../data/)
-- [源代码](../contextmind/)
+- [源代码](../evolution/)
 
 ## 📝 文档贡献
 

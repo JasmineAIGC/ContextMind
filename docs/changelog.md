@@ -1,10 +1,10 @@
-# ContextMind 变更日志
+# Evolution 变更日志
 
 ## [v0.4.0] - 2026-01-29 - Utils独立化、知识提取、DST增强 🚀
 
 ### 重大版本更新
 
-ContextMind v0.4.0 是一个重要的功能增强版本，带来了模块独立性改进、知识提取能力和完整的 ACL 2023 DST 实现。
+Evolution v0.4.0 是一个重要的功能增强版本，带来了模块独立性改进、知识提取能力和完整的 ACL 2023 DST 实现。
 
 ---
 
@@ -13,9 +13,9 @@ ContextMind v0.4.0 是一个重要的功能增强版本，带来了模块独立�
 #### 1. **独立的 Utils 模块** (Breaking Change)
 
 **将 utils 移至根目录，实现完全独立：**
-- `contextmind/utils/` → `utils/` (根目录)
+- `evolution/utils/` → `utils/` (根目录)
 - `examples/llm_client.py` → `utils/llm_client.py`
-- utils 模块现在完全独立，不依赖 contextmind 或 baseline
+- utils 模块现在完全独立，不依赖 evolution 或 baseline
 
 **新的 utils 模块结构：**
 ```
@@ -34,13 +34,13 @@ from utils.logger import get_logger
 from utils.llm_client import SimpleLLMClient
 
 # 旧的导入方式不再支持
-# from contextmind.utils.logger import get_logger  ❌
+# from evolution.utils.logger import get_logger  ❌
 # from examples.llm_client import SimpleLLMClient  ❌
 ```
 
 **影响范围：**
 - ✅ 26 个文件已更新
-- ✅ DST 和 ContextMind 模式使用相同工具
+- ✅ DST 和 Evolution 模式使用相同工具
 - ✅ 所有模式从 .env 读取 LLM 配置
 - ✅ 更简洁的导入路径
 
@@ -173,7 +173,7 @@ await engine.update(user_input, assistant_response)
 
 ```python
 # 旧代码 (v7.3)
-from contextmind.utils.logger import get_logger
+from evolution.utils.logger import get_logger
 from examples.llm_client import SimpleLLMClient
 
 # 新代码 (v0.4.0)
@@ -242,9 +242,9 @@ SimpleLLMClient 现在支持：
 ### 重大变更 (Major Changes)
 
 **将 utils 移动到根目录作为通用工具模块：**
-- 移动 `contextmind/utils/` → `utils/` (根目录)
+- 移动 `evolution/utils/` → `utils/` (根目录)
 - 移动 `examples/llm_client.py` → `utils/llm_client.py`
-- 所有模式（DST 和 ContextMind）现在使用相同的工具
+- 所有模式（DST 和 Evolution）现在使用相同的工具
 
 **新的 utils 模块结构：**
 ```
@@ -260,7 +260,7 @@ utils/  (根目录)
 **统一导入模式：**
 ```python
 # Before
-from contextmind.utils.logger import get_logger
+from evolution.utils.logger import get_logger
 from examples.llm_client import SimpleLLMClient
 
 # After
@@ -271,26 +271,26 @@ from utils.llm_client import SimpleLLMClient
 **更新的文件（26 个）：**
 - Demo 文件（5 个）
 - Examples（2 个）
-- contextmind/core/（5 个）
-- contextmind/memory/（6 个）
-- contextmind/pipeline/（6 个）
-- contextmind/evolution/（2 个）
+- evolution/core/（5 个）
+- evolution/memory/（6 个）
+- evolution/pipeline/（6 个）
+- evolution/evolution/（2 个）
 
 ### 新增 (Added)
 
 **utils/__init__.py 导出：**
-- Logger: get_logger, setup_logging, LogLevel, ContextMindLogger
+- Logger: get_logger, setup_logging, LogLevel, EvolutionLogger
 - LLM Client: SimpleLLMClient, LLMConfig
 - Embedding: (通过内部导入)
 
 ### 删除 (Removed)
 
-- `contextmind/utils/` 目录（已移到根目录）
+- `evolution/utils/` 目录（已移到根目录）
 - `examples/llm_client.py`（已移到 utils/）
 
 ### 影响 (Impact)
 
-- ✅ DST 基础模式和 ContextMind 完整模式使用相同的 logger
+- ✅ DST 基础模式和 Evolution 完整模式使用相同的 logger
 - ✅ 所有模式从 .env 读取 LLM 配置
 - ✅ 统一的工具模块，便于维护
 - ✅ 更简洁的导入路径
@@ -300,7 +300,7 @@ from utils.llm_client import SimpleLLMClient
 如果你的代码使用了旧的导入路径，请更新：
 ```python
 # 更新 logger 导入
-from contextmind.utils.logger import get_logger
+from evolution.utils.logger import get_logger
 → from utils.logger import get_logger
 
 # 更新 LLM 客户端导入
@@ -346,7 +346,7 @@ from examples.llm_client import SimpleLLMClient
 
 ---
 
-# ContextMind 变更日志
+# Evolution 变更日志
 
 ## 2026-01-29 - 移除槽位模板代码
 
@@ -354,7 +354,7 @@ from examples.llm_client import SimpleLLMClient
 
 **简化项目结构，现在只有两个版本：**
 1. **基于 DST 的基础版本**（baseline） - ACL 2023 论文实现
-2. **基于 ContextMind 的完整版本** - 五层架构上下文工程
+2. **基于 Evolution 的完整版本** - 五层架构上下文工程
 
 #### 删除的文件
 - `slot_template_demo.py` - 槽位模板演示
@@ -376,7 +376,7 @@ from examples.llm_client import SimpleLLMClient
 
 **现在只有两个版本：**
 - **基础版本（Baseline）** - 基于 ACL 2023 DST 论文的 Zero-shot 对话状态追踪
-- **完整版本（ContextMind）** - 五层架构的上下文工程框架
+- **完整版本（Evolution）** - 五层架构的上下文工程框架
 
 槽位模板是一个中间实验方案，已经不再需要。基础版本指的就是基于 DST 的实现。
 
@@ -423,9 +423,9 @@ python chat_interactive_demo.py --mode basic  # 在演示中使用基础模式
 
 **基础版本明确化：**
 - `basic_dst_demo.py` → `baseline_demo.py` ⭐
-  - **这是 ContextMind 项目的基础版本（baseline）**
+  - **这是 Evolution 项目的基础版本（baseline）**
   - 基于 ACL 2023 论文的对话状态追踪（DST）实现
-  - 用于与 ContextMind 完整框架进行对比
+  - 用于与 Evolution 完整框架进行对比
 
 - `baseline_demo.py` → `slot_template_demo.py`
   - 槽位模板引擎演示

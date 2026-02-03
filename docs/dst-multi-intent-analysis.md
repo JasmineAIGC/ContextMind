@@ -464,7 +464,7 @@ dst_slots = {
 
 **文档版本**: v1.0  
 **创建日期**: 2026-02-02  
-**作者**: ContextMind Team  
+**作者**: Evolution Team  
 **相关文件**: 
 - `dst/dialogue_state_tracker.py`
 - `scenarios/insurance_scenario.py`

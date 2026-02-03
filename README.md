@@ -6,7 +6,7 @@ v0.4.1 版本**直接使用 Google ADK-Python**，两个模式各自独立使用
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/Jasmine66Bloom/Evolution)
 
 ---
 
@@ -19,7 +19,7 @@ v0.4.1 版本**直接使用 Google ADK-Python**，两个模式各自独立使用
 - **自研部分**: 槽位提取、Prompt 工程、状态追踪算法
 - **特点**: 简单、高效、专注于对话状态
 
-#### 2. **ContextMind 模式** (`contextmind/`)
+#### 2. **Evolution 模式** (`evolution/`)
 - **ADK 负责**: Agent 框架、LLM 调用
 - **自研部分**: Pipeline 算法、记忆库、记忆进化系统
 - **特点**: 复杂、智能、专注于上下文工程
@@ -34,8 +34,8 @@ v0.4.1 版本**直接使用 Google ADK-Python**，两个模式各自独立使用
 
 **保留自研核心**：
 - ✅ DST 的槽位提取和状态追踪算法
-- ✅ ContextMind 的上下文工程 Pipeline
-- ✅ ContextMind 的记忆进化系统
+- ✅ Evolution 的上下文工程 Pipeline
+- ✅ Evolution 的记忆进化系统
 
 ---
 
@@ -60,14 +60,14 @@ MODEL=gemini-2.0-flash-exp
 #### Interactive Demo（命令行）
 
 ```bash
-# 闲聊场景 + ContextMind模式
-python interactive_demo.py --scenario chat --mode contextmind
+# 闲聊场景 + Evolution模式
+python interactive_demo.py --scenario chat --mode evolution
 
 # 客服场景 + DST模式
 python interactive_demo.py --scenario callcenter --mode dst
 
-# 保险场景 + ContextMind模式
-python interactive_demo.py --scenario insurance --mode contextmind
+# 保险场景 + Evolution模式
+python interactive_demo.py --scenario insurance --mode evolution
 ```
 
 #### Gradio Demo（Web界面）
@@ -77,16 +77,16 @@ python interactive_demo.py --scenario insurance --mode contextmind
 python gradio_demo.py
 
 # 在浏览器中访问 http://localhost:7860
-# 可在界面中选择场景（chat/callcenter/insurance）和模式（ContextMind/DST）
+# 可在界面中选择场景（chat/callcenter/insurance）和模式（Evolution/DST）
 ```
 
 ### API使用
 
-#### ContextMind 模式（基于记忆进化）
+#### Evolution 模式（基于记忆进化）
 
 ```python
-from contextmind import ContextEngine
-from contextmind.adk_integration import ADKLLMClient
+from evolution import ContextEngine
+from evolution.adk_integration import ADKLLMClient
 
 # 初始化 - 使用 ADK LLM 客户端
 llm_client = ADKLLMClient()
@@ -123,21 +123,21 @@ print(state)  # 返回提取的状态信息
 
 ### 闲聊场景
 ```bash
-python chat_interactive_demo.py --mode contextmind  # 完整模式
+python chat_interactive_demo.py --mode evolution  # 完整模式
 python chat_interactive_demo.py --mode basic        # DST 模式
 python chat_gradio_demo.py                          # Web UI
 ```
 
 ### 客服场景
 ```bash
-python callcenter_interactive_demo.py --mode contextmind
+python callcenter_interactive_demo.py --mode evolution
 python callcenter_interactive_demo.py --mode basic
 python callcenter_gradio_demo.py                    # Web UI
 ```
 
 ### 保险场景（共荣保险）
 ```bash
-python insurance_interactive_demo.py --mode contextmind
+python insurance_interactive_demo.py --mode evolution
 python insurance_interactive_demo.py --mode basic   # 使用预定义意图和槽位
 python insurance_gradio_demo.py                     # Web UI
 ```
@@ -146,7 +146,7 @@ python insurance_gradio_demo.py                     # Web UI
 
 ## 场景配置系统
 
-ContextMind v0.4.0 支持通过配置文件轻松切换不同的对话任务：
+Evolution v0.4.0 支持通过配置文件轻松切换不同的对话任务：
 
 ### 支持的场景
 
@@ -176,8 +176,8 @@ pm = PromptManager(
 for slot_name, slot_desc in config.dst_slots.items():
     pm.add_slot(slot_name, slot_desc)
 
-# ContextMind 模式
-from contextmind import ContextEngine
+# Evolution 模式
+from evolution import ContextEngine
 
 engine = ContextEngine(
     system_prompt=config.system_prompt,
@@ -199,8 +199,8 @@ engine = ContextEngine(
 ## 项目结构
 
 ```
-ContextMind/ v0.4.0
-├── contextmind/              # ContextMind 完整框架（五层架构）
+Evolution/ v0.4.0
+├── evolution/              # Evolution 完整框架（五层架构）
 ├── dst/                      # DST 基础实现（ACL 2023 论文）
 ├── scenarios/                # 场景配置系统 ✨
 │   ├── config.py            # 配置基类
@@ -221,7 +221,7 @@ ContextMind/ v0.4.0
 
 ## 两种模式对比
 
-| 特性 | DST 模式 | ContextMind 模式 |
+| 特性 | DST 模式 | Evolution 模式 |
 |------|---------|-----------------|
 | 方法论 | 对话状态追踪 (Dialogue State Tracking) | 基于记忆进化的对话系统 |
 | 技术基础 | ACL 2023 论文，槽位-值提取 | 五层架构，语义记忆+进化学习 |

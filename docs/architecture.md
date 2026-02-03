@@ -1,6 +1,6 @@
-# ContextMind 架构 (v0.4.0)
+# Evolution 架构 (v0.4.0)
 
-本文档描述 ContextMind v0.4.0 的架构设计和实现细节。
+本文档描述 Evolution v0.4.0 的架构设计和实现细节。
 
 ## 版本信息
 
@@ -10,7 +10,7 @@
 
 ## 概述
 
-ContextMind 遵循**五步流水线架构**进行上下文优化：
+Evolution 遵循**五步流水线架构**进行上下文优化：
 
 ```
 原始用户输入
@@ -32,7 +32,7 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 ```
 
 **架构变更（v0.4.0）：**
-- ✅ **Utils独立化** - utils模块移至根目录，完全不依赖contextmind/baseline
+- ✅ **Utils独立化** - utils模块移至根目录，完全不依赖evolution/baseline
 - ✅ **知识提取增强** - 新增LLM驱动的知识提取能力
 - ✅ **DST完整实现** - 完整的ACL 2023论文合规性实现
 - ✅ **ResponseHandler增强** - 完整的响应处理和知识提取流程
@@ -41,10 +41,10 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 ## 项目结构
 
 ```
-ContextMind/
-├── contextmind/              # 核心框架
+Evolution/
+├── evolution/              # 核心框架
 │   ├── __init__.py          # 主要导出
-│   ├── config.py            # 易集成 API（ContextMind 类）
+│   ├── config.py            # 易集成 API（Evolution 类）
 │   ├── engine.py            # 主编排引擎（ContextEngine）
 │   ├── models.py            # 数据模型
 │   ├── registry.py          # 组件注册表
@@ -216,7 +216,7 @@ MemoryBank 实现了 4 子模块架构：
 - 协调所有流水线组件
 - 提供高级 API：`optimize()`、`update()`、`extract_knowledge()`
 
-#### ContextMind (`config.py`)
+#### Evolution (`config.py`)
 - 易集成 API
 - 简化配置
 - 插件注册表集成
@@ -226,9 +226,9 @@ MemoryBank 实现了 4 子模块架构：
 ### 1. 独立的 Utils 模块
 
 **变更说明：**
-- utils 模块从 `contextmind/utils/` 移至根目录 `utils/`
-- 完全独立，不依赖 contextmind 或 dst 模块
-- 统一的工具供所有模式使用（DST 和 ContextMind）
+- utils 模块从 `evolution/utils/` 移至根目录 `utils/`
+- 完全独立，不依赖 evolution 或 dst 模块
+- 统一的工具供所有模式使用（DST 和 Evolution）
 
 **新结构：**
 ```python
@@ -247,7 +247,7 @@ from utils import get_logger, SimpleLLMClient, LLMConfig
 from utils.embedding import get_embedding
 
 # 旧方式不再支持
-# from contextmind.utils.logger import get_logger  ❌
+# from evolution.utils.logger import get_logger  ❌
 ```
 
 ### 2. 知识提取能力
@@ -352,7 +352,7 @@ from utils.embedding import get_embedding
 from utils.data_models import Message, KnowledgeItem
 
 # 流水线组件
-from contextmind.pipeline import (
+from evolution.pipeline import (
     InputPreprocessor,
     ContextCompressor,
     ContextReorderer,
@@ -360,7 +360,7 @@ from contextmind.pipeline import (
 )
 
 # 记忆组件
-from contextmind.memory import (
+from evolution.memory import (
     MemoryBank,
     SessionManager,
     BaseExtractor,
@@ -373,7 +373,7 @@ from contextmind.memory import (
 )
 
 # 高级 API
-from contextmind import ContextMind, ContextEngine
+from evolution import Evolution, ContextEngine
 
 # DST 组件（增强实现）
 from dst import (
@@ -389,7 +389,7 @@ from dst import (
 
 ```python
 # 旧流水线导入仍然有效
-from contextmind.pipeline import (
+from evolution.pipeline import (
     InputPreprocessor,
     ContextCompressor,
     ContextReorderer,
@@ -397,15 +397,15 @@ from contextmind.pipeline import (
 )
 
 # 旧记忆导入仍然有效
-from contextmind.memory import MemoryBank, SessionManager
+from evolution.memory import MemoryBank, SessionManager
 
 # 旧策略导入重定向到 memory
-from contextmind.strategies import extractors, retrievers, updaters
+from evolution.strategies import extractors, retrievers, updaters
 ```
 
 **注意：** 
 - `KVCacheManager` 和 `PostProcessor` 已在 v0.4.0 中移除
-- Utils 的旧导入路径 (`contextmind.utils.*`, `examples.llm_client`) 不再支持
+- Utils 的旧导入路径 (`evolution.utils.*`, `examples.llm_client`) 不再支持
 
 ## 迁移指南
 
@@ -415,12 +415,12 @@ from contextmind.strategies import extractors, retrievers, updaters
 
 1. **Utils模块独立化** (Breaking Change)
    - utils模块已移至根目录
-   - 完全不依赖contextmind或baseline模块
+   - 完全不依赖evolution或baseline模块
    - 必须更新所有导入路径
    
    ```python
    # ❌ 旧代码 (v7.3)
-   from contextmind.utils.logger import get_logger
+   from evolution.utils.logger import get_logger
    from examples.llm_client import SimpleLLMClient
    
    # ✅ 新代码 (v0.4.0)
@@ -489,28 +489,28 @@ from contextmind.strategies import extractors, retrievers, updaters
 
 ### 从 v7.1 迁移到 v7.2+
 
-1. **流水线导入**：从 `contextmind.pipeline.X` 改为 `contextmind.X`
+1. **流水线导入**：从 `evolution.pipeline.X` 改为 `evolution.X`
    ```python
    # 旧
-   from contextmind.pipeline.compressor import ContextCompressor
+   from evolution.pipeline.compressor import ContextCompressor
    # 新
-   from contextmind.compressor import ContextCompressor
+   from evolution.compressor import ContextCompressor
    ```
 
-2. **记忆导入**：使用 `contextmind.memory` 子模块
+2. **记忆导入**：使用 `evolution.memory` 子模块
    ```python
    # 旧
-   from contextmind.strategies.extractors import RuleBasedExtractor
+   from evolution.strategies.extractors import RuleBasedExtractor
    # 新
-   from contextmind.memory import RuleBasedExtractor
+   from evolution.memory import RuleBasedExtractor
    ```
 
 3. **策略导入**：从 `strategies.defaults` 导入
    ```python
    # 旧
-   from contextmind.strategies.optimization import CompressionStrategy
+   from evolution.strategies.optimization import CompressionStrategy
    # 新
-   from contextmind.strategies.defaults import CompressionStrategy
+   from evolution.strategies.defaults import CompressionStrategy
    ```
 
 ## 设计原则

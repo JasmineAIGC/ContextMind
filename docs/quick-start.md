@@ -1,4 +1,4 @@
-# ContextMind v0.4.0 快速开始指南
+# Evolution v0.4.0 快速开始指南
 
 ## 1. 配置API密钥
 
@@ -36,7 +36,7 @@ python interactive_demo.py \
 
 ### 所有参数
 - `--scenario`: chat | callcenter | insurance
-- `--mode`: dst | contextmind
+- `--mode`: dst | evolution
 - `--log-level`: DEBUG | INFO | WARNING | ERROR
 - `--max-history-turns`: 数字（默认10）
 - `--enable-summary` / `--no-summary`

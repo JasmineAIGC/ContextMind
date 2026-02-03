@@ -1,4 +1,4 @@
-# ContextMind v0.4.1 - ADK 完全集成总结
+# Evolution v0.4.1 - ADK 完全集成总结
 
 ## 执行完成 ✅
 
@@ -9,10 +9,10 @@
 ## 核心理解
 
 ### 用户指出的问题
-> "看起来你改的不彻底。dst 和 contextmind 是两个不同的模式，分别对应两个不同的文件夹。这两个模式相互不影响，各自使用 adk-python 作为 agent、LLM 的处理、计算框架，但是两个模式关于上下文（槽位、记忆库等）的处理是自研的。同时，不需要保留向后兼容，统一都变为 adk 的新版本。"
+> "看起来你改的不彻底。dst 和 evolution 是两个不同的模式，分别对应两个不同的文件夹。这两个模式相互不影响，各自使用 adk-python 作为 agent、LLM 的处理、计算框架，但是两个模式关于上下文（槽位、记忆库等）的处理是自研的。同时，不需要保留向后兼容，统一都变为 adk 的新版本。"
 
 ### 正确理解
-1. **DST** 和 **ContextMind** 是两个**独立的模式**
+1. **DST** 和 **Evolution** 是两个**独立的模式**
 2. 两个模式**相互不影响**
 3. 两个模式都**直接使用 adk-python**（Agent、LLM 框架）
 4. 两个模式的**上下文处理是自研的**（槽位、记忆库等）
@@ -54,7 +54,7 @@ agent = DSTAgent()  # 直接使用 ADK
 tracker = DialogueStateTracker(llm_client=agent)
 ```
 
-### 2. ContextMind 模式（`contextmind/`）
+### 2. Evolution 模式（`evolution/`）
 
 **ADK 负责**：
 - ✅ Agent 框架（`google.adk.agents.Agent`）
@@ -74,21 +74,21 @@ tracker = DialogueStateTracker(llm_client=agent)
 
 **实现**：
 ```python
-# contextmind/agent.py
+# evolution/agent.py
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-class ContextMindAgent:
+class EvolutionAgent:
     def __init__(self, config=None):
         # 直接使用 ADK Agent
-        self.agent = Agent(model=model, name="contextmind_agent")
+        self.agent = Agent(model=model, name="evolution_agent")
 ```
 
 **使用**：
 ```python
-from contextmind import ContextMindAgent, ContextEngine
+from evolution import EvolutionAgent, ContextEngine
 
-agent = ContextMindAgent()  # 直接使用 ADK
+agent = EvolutionAgent()  # 直接使用 ADK
 engine = ContextEngine(llm_client=agent)
 ```
 
@@ -97,25 +97,25 @@ engine = ContextEngine(llm_client=agent)
 ## 实施过程
 
 ### Step 1: 删除中间封装层
-- ✅ 删除 `contextmind/adk_integration.py`
+- ✅ 删除 `evolution/adk_integration.py`
 - ✅ 删除所有封装类（`ADKLLMClient` 等）
 
 ### Step 2: 为两个模式创建专用 Agent
 - ✅ `dst/adk_agent.py` - DST 专用 ADK Agent
-- ✅ `contextmind/agent.py` - ContextMind 专用 ADK Agent
+- ✅ `evolution/agent.py` - Evolution 专用 ADK Agent
 - ✅ 两者都直接使用 `google.adk.agents.Agent`
 
 ### Step 3: 更新导出
 - ✅ `dst/__init__.py` - 导出 `DSTAgent`
-- ✅ `contextmind/__init__.py` - 导出 `ContextMindAgent`
+- ✅ `evolution/__init__.py` - 导出 `EvolutionAgent`
 
 ### Step 4: 更新应用
 - ✅ `interactive_demo.py` - 直接使用各模式 Agent
 - ✅ `gradio_demo.py` - 直接使用各模式 Agent
 
 ### Step 5: 修复循环导入
-- ✅ 调整 `contextmind/__init__.py` 导入顺序
-- ✅ 修复 `contextmind/core/__init__.py` 循环依赖
+- ✅ 调整 `evolution/__init__.py` 导入顺序
+- ✅ 修复 `evolution/core/__init__.py` 循环依赖
 
 ### Step 6: 更新文档
 - ✅ `README.md` - 说明新架构
@@ -125,12 +125,12 @@ engine = ContextEngine(llm_client=agent)
 ## 验证结果
 
 ```bash
-$ python3 -c "from dst import DSTAgent; from contextmind import ContextMindAgent, ContextEngine; print('✅ All OK')"
+$ python3 -c "from dst import DSTAgent; from evolution import EvolutionAgent, ContextEngine; print('✅ All OK')"
 
 警告: 未安装 google-adk。请运行: pip install google-adk litellm
 ✅ DST Agent 导入成功
 警告: 未安装 google-adk。请运行: pip install google-adk litellm
-✅ ContextMind Agent 导入成功
+✅ Evolution Agent 导入成功
 ✅ ContextEngine 导入成功
 
 🎉 所有组件导入成功！
@@ -145,7 +145,7 @@ $ python3 -c "from dst import DSTAgent; from contextmind import ContextMindAgent
 
 ### 优化前
 ```
-├── contextmind/
+├── evolution/
 │   ├── adk_integration.py    # ❌ 中间封装层
 │   ├── engine.py
 │   ├── pipeline/             # ✅ 自研
@@ -159,7 +159,7 @@ $ python3 -c "from dst import DSTAgent; from contextmind import ContextMindAgent
 
 ### 优化后
 ```
-├── contextmind/
+├── evolution/
 │   ├── agent.py              # ✅ 直接使用 ADK
 │   ├── engine.py
 │   ├── pipeline/             # ✅ 自研
@@ -182,13 +182,13 @@ $ python3 -c "from dst import DSTAgent; from contextmind import ContextMindAgent
 - 直接使用 `google.adk.models.lite_llm.LiteLlm`
 
 ### ✅ 两模式独立
-- DST 和 ContextMind 完全独立
+- DST 和 Evolution 完全独立
 - 各有专用的 ADK Agent
 - 相互不影响
 
 ### ✅ 自研部分保留
 - DST: 槽位提取、Prompt 工程、状态追踪（100%）
-- ContextMind: Pipeline、记忆库、记忆进化（100%）
+- Evolution: Pipeline、记忆库、记忆进化（100%）
 
 ### ✅ 无向后兼容
 - 统一使用 ADK 新版本
@@ -220,16 +220,16 @@ MODEL=anthropic/claude-3-sonnet
 ## 文件变更统计
 
 **删除**：
-- `contextmind/adk_integration.py` (~200 行)
+- `evolution/adk_integration.py` (~200 行)
 
 **新增**：
 - `dst/adk_agent.py` (~120 行)
-- `contextmind/agent.py` (~140 行)
+- `evolution/agent.py` (~140 行)
 
 **修改**：
 - `dst/__init__.py` - 导出 DSTAgent
-- `contextmind/__init__.py` - 导出 ContextMindAgent，修复循环导入
-- `contextmind/core/__init__.py` - 修复循环导入
+- `evolution/__init__.py` - 导出 EvolutionAgent，修复循环导入
+- `evolution/core/__init__.py` - 修复循环导入
 - `interactive_demo.py` - 使用各模式 Agent
 - `gradio_demo.py` - 使用各模式 Agent
 - `README.md` - 更新架构说明
@@ -239,7 +239,7 @@ MODEL=anthropic/claude-3-sonnet
 ## 总结
 
 ### 核心成就
-1. ✅ **彻底理解了架构** - DST 和 ContextMind 是两个独立模式
+1. ✅ **彻底理解了架构** - DST 和 Evolution 是两个独立模式
 2. ✅ **直接使用 ADK** - 删除中间封装层
 3. ✅ **保留自研核心** - 槽位提取、Pipeline、记忆进化 100% 保留
 4. ✅ **无向后兼容** - 统一使用 ADK 新版本

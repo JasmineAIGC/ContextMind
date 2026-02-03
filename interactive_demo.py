@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-ContextMind 统一交互式Demo
+Evolution 统一交互式Demo
 
 v0.4.1 - 直接使用 ADK Agent
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：dst（对话状态追踪）、contextmind（基于记忆进化）
+支持两种模式：dst（对话状态追踪）、evolution（基于进化方法）
 
 使用方式:
-    python interactive_demo.py --scenario chat --mode contextmind
+    python interactive_demo.py --scenario chat --mode evolution
     python interactive_demo.py --scenario callcenter --mode dst
-    python interactive_demo.py --scenario insurance --mode contextmind --log-level DEBUG
+    python interactive_demo.py --scenario insurance --mode evolution --log-level DEBUG
 """
 
 import asyncio
@@ -23,10 +23,10 @@ from pathlib import Path
 
 # 直接使用各模式的 ADK Agent
 from dst import DSTAgent
-from contextmind import ContextMindAgent
+from evolution import EvolutionAgent
 
 from dst import DialogueStateTracker, PromptManager
-from contextmind import ContextEngine
+from evolution import ContextEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -75,7 +75,7 @@ class UnifiedInteractiveDemo:
     def __init__(
         self, 
         scenario: str = "chat", 
-        mode: str = "contextmind",
+        mode: str = "evolution",
         max_history_turns: int = 10,
         enable_summary: bool = True,
         use_llm_summary: bool = False
@@ -85,7 +85,7 @@ class UnifiedInteractiveDemo:
         
         Args:
             scenario: 场景类型 (chat/callcenter/insurance)
-            mode: 对话模式 (dst/contextmind)
+            mode: 对话模式 (dst/evolution)
             max_history_turns: DST模式的最大历史轮数
             enable_summary: 是否启用历史摘要
             use_llm_summary: 是否使用LLM生成摘要
@@ -104,7 +104,7 @@ class UnifiedInteractiveDemo:
         if mode == "dst":
             self._init_dst_mode()
         else:
-            self._init_contextmind_mode()
+            self._init_evolution_mode()
     
     def _load_scenario_config(self):
         """加载场景配置"""
@@ -157,14 +157,14 @@ class UnifiedInteractiveDemo:
         
         self.app = None  # DST模式不使用app
     
-    def _init_contextmind_mode(self):
-        """初始化ContextMind模式"""
-        logger.info(f"初始化ContextMind模式 - {self.config.name}")
+    def _init_evolution_mode(self):
+        """初始化Evolution模式"""
+        logger.info(f"初始化Evolution模式 - {self.config.name}")
         
-        # 直接创建 ContextMind Agent
+        # 直接创建 Evolution Agent
         if self.llm_client is None:
             try:
-                self.llm_client = ContextMindAgent()
+                self.llm_client = EvolutionAgent()
             except (ValueError, RuntimeError) as e:
                 _handle_llm_init_error(e)
         
@@ -191,15 +191,15 @@ class UnifiedInteractiveDemo:
             print(f"{'='*60}\n")
             sys.exit(1)
         
-        self.dst_tracker = None  # ContextMind模式不使用DST
+        self.dst_tracker = None  # Evolution模式不使用DST
     
     def print_welcome(self):
         """打印欢迎信息"""
         print("\n" + "="*60)
-        print(f"📱 ContextMind 统一交互式Demo v0.4.1 (ADK 优化版)")
+        print(f"📱 Evolution 统一交互式Demo v0.4.1 (ADK 优化版)")
         print("="*60)
         print(f"场景: {self.config.name}")
-        print(f"模式: {'DST (对话状态追踪)' if self.mode == 'dst' else 'ContextMind (基于记忆进化)'}")
+        print(f"模式: {'DST (对话状态追踪)' if self.mode == 'dst' else 'Evolution (基于记忆进化)'}")
         print(f"日志级别: {logging.getLevelName(logger.level)}")
         print(f"最大历史轮数: {self.max_history_turns}")
         print("="*60)
@@ -249,13 +249,13 @@ class UnifiedInteractiveDemo:
             logger.error(f"DST模式处理失败: {e}")
             return f"抱歉，处理您的消息时出现了问题：{str(e)}"
     
-    async def chat_contextmind_mode(self, user_message: str) -> str:
-        """ContextMind模式对话"""
+    async def chat_evolution_mode(self, user_message: str) -> str:
+        """Evolution模式对话"""
         try:
             result = await self.app.process_turn(user_input=user_message, debug=False)
             return result
         except Exception as e:
-            logger.error(f"ContextMind模式处理失败: {e}")
+            logger.error(f"Evolution模式处理失败: {e}")
             return f"抱歉，处理您的消息时出现了问题：{str(e)}"
     
     async def chat(self, user_message: str) -> str:
@@ -263,7 +263,7 @@ class UnifiedInteractiveDemo:
         if self.mode == "dst":
             return await self.chat_dst_mode(user_message)
         else:
-            return await self.chat_contextmind_mode(user_message)
+            return await self.chat_evolution_mode(user_message)
     
     def show_state(self):
         """显示当前状态（仅DST模式）"""
@@ -284,8 +284,8 @@ class UnifiedInteractiveDemo:
         if self.mode == "dst":
             self.dst_tracker.reset_dialogue()
         else:
-            # ContextMind模式重新初始化
-            self._init_contextmind_mode()
+            # Evolution模式重新初始化
+            self._init_evolution_mode()
         print("✓ 对话已重置\n")
     
     async def run(self):
@@ -332,13 +332,13 @@ class UnifiedInteractiveDemo:
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="ContextMind 统一交互式Demo",
+        description="Evolution 统一交互式Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python interactive_demo.py --scenario chat --mode contextmind
+  python interactive_demo.py --scenario chat --mode evolution
   python interactive_demo.py --scenario callcenter --mode dst
-  python interactive_demo.py --scenario insurance --mode contextmind --log-level DEBUG
+  python interactive_demo.py --scenario insurance --mode evolution --log-level DEBUG
   python interactive_demo.py --scenario insurance --mode dst --max-history-turns 20
         """
     )
@@ -352,9 +352,9 @@ def parse_args():
     
     parser.add_argument(
         '--mode',
-        choices=['dst', 'contextmind'],
-        default='contextmind',
-        help='选择模式: dst(对话状态追踪) / contextmind(基于记忆进化)'
+        choices=['dst', 'evolution'],
+        default='evolution',
+        help='选择模式: dst(对话状态追踪) / evolution(基于记忆进化)'
     )
     
     parser.add_argument(

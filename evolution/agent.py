@@ -1,8 +1,8 @@
 """
-ContextMind 模式的 ADK Agent 实现
+Evolution 模式的 ADK Agent 实现
 
 直接使用 google-adk，不经过封装层。
-ContextMind 模式专注于上下文工程、记忆进化等自研逻辑。
+Evolution 模式专注于基于进化的上下文工程和记忆优化。
 
 版本: v0.4.1
 """
@@ -34,14 +34,14 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class ContextMindConfig:
-    """ContextMind 模式配置"""
+class EvolutionConfig:
+    """Evolution 模式配置"""
     model: str = "gemini-2.0-flash-exp"
     temperature: float = 0.7
     max_tokens: int = 8192
     
     @classmethod
-    def from_env(cls) -> "ContextMindConfig":
+    def from_env(cls) -> "EvolutionConfig":
         """从环境变量加载配置"""
         model = os.getenv("MODEL", "gemini-2.0-flash-exp")
         temperature = float(os.getenv("TEMPERATURE", "0.7"))
@@ -50,18 +50,18 @@ class ContextMindConfig:
         return cls(model=model, temperature=temperature, max_tokens=max_tokens)
 
 
-class ContextMindAgent:
-    """ContextMind 模式专用的 ADK Agent
+class EvolutionAgent:
+    """Evolution 模式专用的 ADK Agent
     
-    直接使用 google.adk.agents.Agent，用于上下文工程和记忆进化。
+    直接使用 google.adk.agents.Agent，用于基于进化的上下文工程和记忆优化。
     """
     
-    def __init__(self, config: Optional[ContextMindConfig] = None):
-        """初始化 ContextMind Agent"""
+    def __init__(self, config: Optional[EvolutionConfig] = None):
+        """初始化 Evolution Agent"""
         if not ADK_AVAILABLE:
             raise RuntimeError("google-adk 未安装。请运行: pip install google-adk litellm")
         
-        self.config = config or ContextMindConfig.from_env()
+        self.config = config or EvolutionConfig.from_env()
         
         # 创建模型
         if self.config.model.startswith("gemini"):
@@ -72,10 +72,10 @@ class ContextMindAgent:
         # 直接创建 ADK Agent
         self.agent = Agent(
             model=model,
-            name="contextmind_agent"
+            name="evolution_agent"
         )
         
-        logger.info(f"[ContextMind Agent] 初始化成功，模型: {self.config.model}")
+        logger.info(f"[Evolution Agent] 初始化成功，模型: {self.config.model}")
     
     async def chat_async(
         self,
@@ -101,7 +101,7 @@ class ContextMindAgent:
             response = await self.agent.run(prompt)
             return response.text if hasattr(response, 'text') else str(response)
         except Exception as e:
-            logger.error(f"ContextMind Agent 调用失败: {e}")
+            logger.error(f"Evolution Agent 调用失败: {e}")
             raise
     
     def chat(

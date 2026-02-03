@@ -1,6 +1,6 @@
-# ContextMind 配置指南
+# Evolution 配置指南
 
-本指南介绍如何配置 ContextMind 系统，包括 API 密钥设置和场景配置。
+本指南介绍如何配置 Evolution 系统，包括 API 密钥设置和场景配置。
 
 ---
 
@@ -23,7 +23,7 @@
 在项目根目录创建 `.env` 文件：
 
 ```bash
-cd /path/to/ContextMind
+cd /path/to/Evolution
 touch .env
 ```
 
@@ -141,7 +141,7 @@ A: 运行 Demo，如果看到以下日志表示成功：
 
 ### 概述
 
-ContextMind 支持多种对话场景的灵活配置，每个场景都有独特的意图体系和槽位定义。
+Evolution 支持多种对话场景的灵活配置，每个场景都有独特的意图体系和槽位定义。
 
 ### 支持的场景
 
@@ -203,7 +203,7 @@ class ScenarioConfig:
     # 提示词
     system_prompt: str          # 系统提示词
     
-    # ContextMind 配置
+    # Evolution 配置
     enable_memory: bool         # 启用记忆
     enable_evolution: bool      # 启用进化
     
@@ -246,6 +246,6 @@ class ScenarioConfig:
 ## 获取帮助
 
 如果仍有问题，请：
-1. 查看日志文件：`logs/contextmind_*.log`
+1. 查看日志文件：`logs/evolution_*.log`
 2. 提供完整的错误信息
 3. 检查网络连接和 API 端点状态
