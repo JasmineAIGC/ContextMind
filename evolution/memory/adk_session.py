@@ -77,8 +77,8 @@ class ADKSessionManager:
         """
         message = Message(role=role, content=content)
         
-        # 从 session state 获取消息列表
-        messages = self.session.state.get("messages", [])
+        # 从 session state 获取消息列表（创建副本以避免直接修改）
+        messages = list(self.session.state.get("messages", []))
         
         # 将 Message 对象转换为可序列化的字典
         msg_dict = {
@@ -89,7 +89,7 @@ class ADKSessionManager:
         }
         messages.append(msg_dict)
         
-        # 限制消息数量
+        # 限制消息数量（保留最近的消息）
         if len(messages) > self.max_recent_events:
             messages = messages[-self.max_recent_events:]
         

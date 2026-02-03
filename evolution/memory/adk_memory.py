@@ -174,7 +174,7 @@ class ADKMemoryBank:
         """
         try:
             self.memory_service.add_session_to_memory(session)
-            logger.info(f"[ADK Memory] 添加会话到记忆 - session_id:{session.session_id}")
+            logger.info(f"[ADK Memory] 添加会话到记忆 - session_id:{session.id}")
         except Exception as e:
             logger.warning(f"[ADK Memory] 添加会话失败: {e}")
     
