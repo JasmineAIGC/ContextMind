@@ -63,14 +63,21 @@ class InsuranceApplication:
         else:
             self.extraction_method = getattr(context_engine, 'extraction_method', 'rule')
         
-        # 初始化 LLM 客户端（如果使用真实 LLM）
+        # 初始化 LLM 客户端（从 context_engine 获取）
         if use_real_llm:
             try:
-                self.llm_client = None  # LLM client passed via context_engine
-                logger.info(
-                    f"[InsuranceApplication] ✓ 初始化完成 "
-                    f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
-                )
+                # 从 context_engine 获取 LLM 客户端
+                self.llm_client = context_engine.llm_client
+                if self.llm_client:
+                    logger.info(
+                        f"[InsuranceApplication] ✓ 初始化完成 "
+                        f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
+                    )
+                else:
+                    logger.warning("[InsuranceApplication] ⚠ context_engine.llm_client 为 None")
+                    logger.warning("[InsuranceApplication] 将使用模拟回复")
+                    self.use_real_llm = False
+                    self.llm_client = None
             except Exception as e:
                 logger.warning(f"[InsuranceApplication] ⚠ LLM 客户端初始化失败: {e}")
                 logger.warning("[InsuranceApplication] 将使用模拟回复")

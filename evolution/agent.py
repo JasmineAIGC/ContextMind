@@ -105,7 +105,7 @@ class EvolutionAgent:
             logger.error(f"Evolution Agent 调用失败: {e}")
             raise
     
-    async def generate_async(self, prompt: str, **kwargs) -> str:
+    async def generate_async(self, prompt: str, **kwargs) -> tuple:
         """异步生成
         
         Args:
@@ -113,11 +113,12 @@ class EvolutionAgent:
             **kwargs: 其他参数
             
         Returns:
-            生成的文本
+            元组 (reasoning, response)，reasoning 为 None（ADK 不提供推理过程）
         """
-        return await self.chat_async([{"role": "user", "content": prompt}], **kwargs)
+        response = await self.chat_async([{"role": "user", "content": prompt}], **kwargs)
+        return (None, response)  # 返回元组以保持兼容性
     
-    def generate(self, prompt: str, **kwargs) -> str:
+    def generate(self, prompt: str, **kwargs) -> tuple:
         """同步生成
         
         Args:
@@ -125,9 +126,10 @@ class EvolutionAgent:
             **kwargs: 其他参数
             
         Returns:
-            生成的文本
+            元组 (reasoning, response)，reasoning 为 None（ADK 不提供推理过程）
         """
-        return self.chat([{"role": "user", "content": prompt}], **kwargs)
+        response = self.chat([{"role": "user", "content": prompt}], **kwargs)
+        return (None, response)  # 返回元组以保持兼容性
     
     def _build_prompt(self, messages: List[Dict[str, str]]) -> str:
         """将消息列表转换为 prompt
