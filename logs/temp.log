@@ -1,155 +1,196 @@
 python gradio_demo.py --port 17860 --log-level DEBUG
-📝 日志将自动保存到: logs/contextmind_20260202_194905.log
-[2026-02-02 19:49:05] INFO - [__main__] [__main__] 启动ContextMind统一Gradio Demo
-[2026-02-02 19:49:05] INFO - [__main__] 参数配置: 日志级别=DEBUG, 最大历史轮数=10, 端口=17860, 分享=False
-[2026-02-02 19:49:05] INFO - [__main__] Demo实例创建完成（延迟初始化）
-[2026-02-02 19:49:05] INFO - [__main__] ✅ Demo实例创建成功
-[2026-02-02 19:49:05] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:05] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:05] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:05] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:05] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:05] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:06] INFO - [__main__] ✅ UI创建成功
-[2026-02-02 19:49:06] INFO - [__main__] 启动Gradio应用... (端口: 17860, 分享: False)
-[2026-02-02 19:49:06] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:06] DEBUG - Using selector: EpollSelector
-[2026-02-02 19:49:06] DEBUG - Using selector: EpollSelector
+📝 日志将自动保存到: logs/contextmind_20260203_084645.log
+[2026-02-03 08:46:45] INFO - [__main__] [__main__] 启动ContextMind统一Gradio Demo
+[2026-02-03 08:46:45] INFO - [__main__] 参数配置: 日志级别=DEBUG, 最大历史轮数=10, 端口=17860, 分享=False
+[2026-02-03 08:46:45] INFO - [__main__] Demo实例创建完成（延迟初始化）
+[2026-02-03 08:46:45] INFO - [__main__] ✅ Demo实例创建成功
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] INFO - [__main__] ✅ UI创建成功
+[2026-02-03 08:46:45] INFO - [__main__] 启动Gradio应用... (端口: 17860, 分享: False)
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
+[2026-02-03 08:46:45] DEBUG - Using selector: EpollSelector
 * Running on local URL:  http://0.0.0.0:17860
 * To create a public link, set `share=True` in `launch()`.
-[2026-02-02 19:49:19] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-02 19:49:19] INFO - [utils.llm_client] [LLM Client] 初始化成功
-[2026-02-02 19:49:19] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-02 19:49:19] INFO - [dst.prompt_manager] 初始化PromptManager (领域=保险挽回, 动态槽位=False)
-[2026-02-02 19:49:19] INFO - [dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-02 19:49:19] INFO - [__main__] DST模式初始化完成
-[2026-02-02 19:49:19] INFO - [__main__] ✅ 场景初始化完成: insurance, 模式: dst
-[2026-02-02 19:49:19] INFO - [__main__] 配置已更新: insurance, dst
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的对话信息提取系统。
-
-## 重要说明
-
-**你的回复必须是纯JSON格式，不要包含任何其他文字、解释或对话内容！**
+[2026-02-03 08:47:17] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-03 08:47:17] INFO - [utils.llm_client] [LLM Client] 初始化成功
+[2026-02-03 08:47:17] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-03 08:47:17] INFO - [dst.prompt_manager] 初始化PromptManager (领域=保险挽回, 动态槽位=False)
+[2026-02-03 08:47:17] INFO - [dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-03 08:47:17] INFO - [__main__] DST模式初始化完成
+[2026-02-03 08:47:17] INFO - [__main__] ✅ 场景初始化完成: insurance, 模式: dst
+[2026-02-03 08:47:17] INFO - [__main__] 配置已更新: insurance, dst
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
 
 ## 核心任务
+从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
 
-从用户的**最新回复**中智能提取所有相关信息，以JSON格式返回。
+⚠️ 严格约束：
+1. 只能使用以下预定义的槽位名称，不能创建新槽位
+2. 对于分类槽位，只能使用列表中的值，不能使用其他值
+3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
+4. 输出必须是纯JSON格式，不包含任何解释文字
 
-
-## 槽位定义
-
-以下是可能的槽位（但不限于这些）：
-
-- **intent_level1**: 一级意图（主意图）
-- **intent_level2**: 二级意图（子意...
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
+## 预定义槽位名称（只...
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
 user: "你是谁"...
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{"intent": "询问身份", "问题类型": "身份确认"}
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 34 字符
-[2026-02-02 19:49:23] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-02 19:49:23] DEBUG - [dst.response_parser] 策略1成功: 提取到 2 个字段
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent': '询问身份', '问题类型': '身份确认'}
-[2026-02-02 19:49:23] WARNING - [dst.response_parser] 跳过未定义的槽位: intent (值: 询问身份)
-[2026-02-02 19:49:23] WARNING - [dst.response_parser] 跳过未定义的槽位: 问题类型 (值: 身份确认)
-[2026-02-02 19:49:23] DEBUG - [dst.dialogue_state_tracker] 归一化后: {}
-[2026-02-02 19:49:23] INFO - [dst.dialogue_state_tracker] 处理轮次 #1: 更新={}, 意图=未识别
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的对话信息提取系统。
-
-## 重要说明
-
-**你的回复必须是纯JSON格式，不要包含任何其他文字、解释或对话内容！**
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
+{
+  "intent_level1": "质疑类",
+  "intent_level2": "身份质疑",
+  "intent_level3": "",
+  "callback_needed": "",
+  "conversation_stage": "初步接触",
+  "next_action": "确认身份"
+}
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 160 字符
+[2026-02-03 08:47:22] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
+[2026-02-03 08:47:22] DEBUG - [dst.response_parser] 策略1成功: 提取到 6 个字段
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '质疑类', 'intent_level2': '身份质疑', 'intent_level3': '', 'callback_needed': '', 'conversation_stage': '初步接触', 'next_action': '确认身份'}
+[2026-02-03 08:47:22] WARNING - [dst.response_parser] 槽位 intent_level3 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:47:22] WARNING - [dst.response_parser] 槽位 callback_needed 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:47:22] DEBUG - [dst.response_parser] 严格模式下 conversation_stage='初步接触' 无精确匹配，返回None
+[2026-02-03 08:47:22] WARNING - [dst.response_parser] 槽位 conversation_stage 的值 '初步接触' 不在预定义列表中，已跳过
+[2026-02-03 08:47:22] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '质疑类', 'intent_level2': '身份质疑', 'next_action': '确认身份'}
+[2026-02-03 08:47:22] INFO - [dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent_level1': '质疑类', 'intent_level2': '身份质疑', 'next_action': '确认身份'}, 意图=未识别
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
 
 ## 核心任务
+从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
 
-从用户的**最新回复**中智能提取所有相关信息，以JSON格式返回。
+⚠️ 严格约束：
+1. 只能使用以下预定义的槽位名称，不能创建新槽位
+2. 对于分类槽位，只能使用列表中的值，不能使用其他值
+3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
+4. 输出必须是纯JSON格式，不包含任何解释文字
 
-
-## 槽位定义
-
-以下是可能的槽位（但不限于这些）：
-
-- **intent_level1**: 一级意图（主意图）
-- **intent_level2**: 二级意图（子意...
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
+## 预定义槽位名称（只...
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
 user: "你是谁"...
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {"intent": "询问身份", "问题类型": "身份确认"}...
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {
+  "intent_level1": "质疑类",
+  "intent_level2": "身份质疑",
+  "intent_level3": "",
+  "callback_needed": "",
+  "conversation_stage": "初步接触",
+  "next_action": "确认身份"
+}...
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
 
 system: "你好！"
 user: "你是谁"
 
-system: "[{'text': '您好！我是您的专属保险顾问，专注于为您提供专业的癌症保险咨询服务。请问您最近是否在考虑购买一份癌症保险？或者您之前有购买过相关保险但后来没有续保，现在是否有些犹豫呢？我很乐意帮助您详细了解我们的产品，并解决您可能存在的疑虑。', 'type': 'text'}]"
-user: "不敢...
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{"intent": "表达兴趣", "感兴趣程度": "不高", "问题类型": "产品咨询"}
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 49 字符
-[2026-02-02 19:49:33] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-02 19:49:33] DEBUG - [dst.response_parser] 策略1成功: 提取到 3 个字段
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent': '表达兴趣', '感兴趣程度': '不高', '问题类型': '产品咨询'}
-[2026-02-02 19:49:33] WARNING - [dst.response_parser] 跳过未定义的槽位: intent (值: 表达兴趣)
-[2026-02-02 19:49:33] WARNING - [dst.response_parser] 跳过未定义的槽位: 感兴趣程度 (值: 不高)
-[2026-02-02 19:49:33] WARNING - [dst.response_parser] 跳过未定义的槽位: 问题类型 (值: 产品咨询)
-[2026-02-02 19:49:33] DEBUG - [dst.dialogue_state_tracker] 归一化后: {}
-[2026-02-02 19:49:33] INFO - [dst.dialogue_state_tracker] 处理轮次 #2: 更新={}, 意图=未识别
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的对话信息提取系统。
-
-## 重要说明
-
-**你的回复必须是纯JSON格式，不要包含任何其他文字、解释或对话内容！**
+system: "[{'text': '您好！我是您的专属保险顾问，专注于为您提供专业的癌症保险咨询服务。请问您最近是否在考虑购买癌症保险？或者您之前有过一些顾虑，希望我们能一起探讨一下如何解决这些问题。', 'type': 'text'}]"
+user: "癌症保险，是什么"...
+[2026-02-03 08:47:42] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:43] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:43] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
+{
+  "intent_level1": "咨询",
+  "intent_level2": "询问保障内容",
+  "intent_level3": "",
+  "customer_gender": "",
+  "customer_age_range": "",
+  "has_cancer_insurance": "",
+  "conversation_stage": "介绍产品",
+  "next_action": "解释癌症保险概念"
+}
+[2026-02-03 08:47:43] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:47:43] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 223 字符
+[2026-02-03 08:47:43] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
+[2026-02-03 08:47:43] DEBUG - [dst.response_parser] 策略1成功: 提取到 8 个字段
+[2026-02-03 08:47:43] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '咨询', 'intent_level2': '询问保障内容', 'intent_level3': '', 'customer_gender': '', 'customer_age_range': '', 'has_cancer_insurance': '', 'conversation_stage': '介绍产品', 'next_action': '解释癌症保险概念'}
+[2026-02-03 08:47:43] WARNING - [dst.response_parser] 槽位 intent_level3 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:47:43] WARNING - [dst.response_parser] 槽位 customer_gender 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:47:43] WARNING - [dst.response_parser] 槽位 customer_age_range 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:47:43] WARNING - [dst.response_parser] 槽位 has_cancer_insurance 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:47:43] DEBUG - [dst.response_parser] 严格模式下 conversation_stage='介绍产品' 无精确匹配，返回None
+[2026-02-03 08:47:43] WARNING - [dst.response_parser] 槽位 conversation_stage 的值 '介绍产品' 不在预定义列表中，已跳过
+[2026-02-03 08:47:43] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '咨询', 'intent_level2': '询问保障内容', 'next_action': '解释癌症保险概念'}
+[2026-02-03 08:47:43] INFO - [dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent_level1': '咨询', 'intent_level2': '询问保障内容', 'next_action': '解释癌症保险概念'}, 意图=未识别
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
 
 ## 核心任务
+从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
 
-从用户的**最新回复**中智能提取所有相关信息，以JSON格式返回。
+⚠️ 严格约束：
+1. 只能使用以下预定义的槽位名称，不能创建新槽位
+2. 对于分类槽位，只能使用列表中的值，不能使用其他值
+3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
+4. 输出必须是纯JSON格式，不包含任何解释文字
 
-
-## 槽位定义
-
-以下是可能的槽位（但不限于这些）：
-
-- **intent_level1**: 一级意图（主意图）
-- **intent_level2**: 二级意图（子意...
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
+## 预定义槽位名称（只...
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
 user: "你是谁"...
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {"intent": "询问身份", "问题类型": "身份确认"}...
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {
+  "intent_level1": "质疑类",
+  "intent_level2": "身份质疑",
+  "intent_level3": "",
+  "callback_needed": "",
+  "conversation_stage": "初步接触",
+  "next_action": "确认身份"
+}...
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
 
 system: "你好！"
 user: "你是谁"
 
-system: "[{'text': '您好！我是您的专属保险顾问，专注于为您提供专业的癌症保险咨询服务。请问您最近是否在考虑购买一份癌症保险？或者您之前有购买过相关保险但后来没有续保，现在是否有些犹豫呢？我很乐意帮助您详细了解我们的产品，并解决您可能存在的疑虑。', 'type': 'text'}]"
-user: "不敢...
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker]   [4] assistant: {"intent": "表达兴趣", "感兴趣程度": "不高", "问题类型": "产品咨询"}...
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker]   [5] user: ## 最近对话历史
+system: "[{'text': '您好！我是您的专属保险顾问，专注于为您提供专业的癌症保险咨询服务。请问您最近是否在考虑购买癌症保险？或者您之前有过一些顾虑，希望我们能一起探讨一下如何解决这些问题。', 'type': 'text'}]"
+user: "癌症保险，是什么"...
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker]   [4] assistant: {
+  "intent_level1": "咨询",
+  "intent_level2": "询问保障内容",
+  "intent_level3": "",
+  "customer_gender": "",
+  "customer_age_range": "",
+  "has_cancer_insurance": "",
+  "conversation_stage": "介绍产品",
+  "nex...
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker]   [5] user: ## 最近对话历史
 
 system: "你好！"
 user: "你是谁"
-system: "[{'text': '您好！我是您的专属保险顾问，专注于为您提供专业的癌症保险咨询服务。请问您最近是否在考虑购买一份癌症保险？或者您之前有购买过相关保险但后来没有续保，现在是否有些犹豫呢？我很乐意帮助您详细了解我们的产品，并解决您可能存在的疑虑。', 'type': 'text'}]"
-user: "不敢兴...
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{"intent": "表达兴趣", "感兴趣程度": "不高", "已有保障": "是", "问题类型": "产品咨询"}
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 62 字符
-[2026-02-02 19:49:45] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-02 19:49:45] DEBUG - [dst.response_parser] 策略1成功: 提取到 4 个字段
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent': '表达兴趣', '感兴趣程度': '不高', '已有保障': '是', '问题类型': '产品咨询'}
-[2026-02-02 19:49:45] WARNING - [dst.response_parser] 跳过未定义的槽位: intent (值: 表达兴趣)
-[2026-02-02 19:49:45] WARNING - [dst.response_parser] 跳过未定义的槽位: 感兴趣程度 (值: 不高)
-[2026-02-02 19:49:45] WARNING - [dst.response_parser] 跳过未定义的槽位: 已有保障 (值: 是)
-[2026-02-02 19:49:45] WARNING - [dst.response_parser] 跳过未定义的槽位: 问题类型 (值: 产品咨询)
-[2026-02-02 19:49:45] DEBUG - [dst.dialogue_state_tracker] 归一化后: {}
-[2026-02-02 19:49:45] INFO - [dst.dialogue_state_tracker] 处理轮次 #3: 更新={}, 意图=未识别
+system: "[{'text': '您好！我是您的专属保险顾问，专注于为您提供专业的癌症保险咨询服务。请问您最近是否在考虑购买癌症保险？或者您之前有过一些顾虑，希望我们能一起探讨一下如何解决这些问题。', 'type': 'text'}]"
+user: "癌症保险，是什么"
+
+system: "[{'text': '您好...
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
+{
+  "intent_level1": "咨询",
+  "intent_level2": "询问保障内容",
+  "intent_level3": "",
+  "customer_gender": "",
+  "customer_age_range": "",
+  "has_cancer_insurance": "",
+  "conversation_stage": "介绍产品",
+  "next_action": "介绍非会员购买途径"
+}
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] ============================================================
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 224 字符
+[2026-02-03 08:50:38] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
+[2026-02-03 08:50:38] DEBUG - [dst.response_parser] 策略1成功: 提取到 8 个字段
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '咨询', 'intent_level2': '询问保障内容', 'intent_level3': '', 'customer_gender': '', 'customer_age_range': '', 'has_cancer_insurance': '', 'conversation_stage': '介绍产品', 'next_action': '介绍非会员购买途径'}
+[2026-02-03 08:50:38] WARNING - [dst.response_parser] 槽位 intent_level3 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:50:38] WARNING - [dst.response_parser] 槽位 customer_gender 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:50:38] WARNING - [dst.response_parser] 槽位 customer_age_range 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:50:38] WARNING - [dst.response_parser] 槽位 has_cancer_insurance 的值 '' 不在预定义列表中，已跳过
+[2026-02-03 08:50:38] DEBUG - [dst.response_parser] 严格模式下 conversation_stage='介绍产品' 无精确匹配，返回None
+[2026-02-03 08:50:38] WARNING - [dst.response_parser] 槽位 conversation_stage 的值 '介绍产品' 不在预定义列表中，已跳过
+[2026-02-03 08:50:38] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '咨询', 'intent_level2': '询问保障内容', 'next_action': '介绍非会员购买途径'}
+[2026-02-03 08:50:38] INFO - [dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent_level1': '咨询', 'intent_level2': '询问保障内容', 'next_action': '介绍非会员购买途径'}, 意图=未识别
