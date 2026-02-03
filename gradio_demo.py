@@ -180,6 +180,15 @@ class UnifiedGradioDemo:
                     '你好！'
                 )
                 
+                # 确保system_utterance是字符串类型（防止list等其他类型）
+                if not isinstance(system_utterance, str):
+                    if isinstance(system_utterance, list):
+                        # 如果是列表，提取第一个元素或转换为字符串
+                        system_utterance = str(system_utterance[0]) if system_utterance else '你好！'
+                    else:
+                        # 其他类型转换为字符串
+                        system_utterance = str(system_utterance) if system_utterance else '你好！'
+                
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
                 import re
