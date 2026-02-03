@@ -30,7 +30,11 @@ class BaseTool(ABC):
 
 
 class ContextMindTools:
-    """ContextMind 工具集合。"""
+    """ContextMind 工具集合。
+    
+    Args:
+        engine: ContextEngine 实例，需要提供 memory_bank 和 session_manager 属性
+    """
     
     def __init__(self, engine):
         """初始化工具集。
@@ -39,8 +43,14 @@ class ContextMindTools:
             engine: ContextEngine 实例
         """
         self.engine = engine
-        self.memory_bank = engine.memory_bank if hasattr(engine, 'memory_bank') else None
-        self.session_manager = engine.session_manager if hasattr(engine, 'session_manager') else None
+        # 显式检查必需的属性
+        try:
+            self.memory_bank = engine.memory_bank
+            self.session_manager = engine.session_manager
+        except AttributeError as e:
+            # 如果 engine 没有这些属性，设置为 None
+            self.memory_bank = None
+            self.session_manager = None
     
     def get_all_tools(self) -> List[BaseTool]:
         """获取所有工具。"""

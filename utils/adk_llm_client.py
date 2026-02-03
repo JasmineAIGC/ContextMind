@@ -252,18 +252,16 @@ class UnifiedLLMClient:
                 
                 if role == "system":
                     system_instruction = content
-                elif role == "user":
-                    contents.append(types.Part(text=content))
-                elif role == "assistant":
-                    # Gemini 的历史消息格式
-                    contents.append(types.Part(text=content))
+                elif role in ("user", "assistant"):
+                    # 添加用户或助手消息
+                    contents.append(content)
             
-            # 如果只有一条用户消息，直接使用
+            # 合并所有消息
             if len(contents) == 1:
-                prompt = contents[0].text
+                prompt = contents[0]
             else:
                 # 多条消息合并
-                prompt = "\n\n".join([part.text for part in contents])
+                prompt = "\n\n".join(contents)
             
             # 如果有系统指令，添加到开头
             if system_instruction:
@@ -325,17 +323,16 @@ class UnifiedLLMClient:
                 
                 if role == "system":
                     system_instruction = content
-                elif role == "user":
-                    contents.append(types.Part(text=content))
-                elif role == "assistant":
-                    contents.append(types.Part(text=content))
+                elif role in ("user", "assistant"):
+                    # 添加用户或助手消息
+                    contents.append(content)
             
-            # 如果只有一条用户消息，直接使用
+            # 合并所有消息
             if len(contents) == 1:
-                prompt = contents[0].text
+                prompt = contents[0]
             else:
                 # 多条消息合并
-                prompt = "\n\n".join([part.text for part in contents])
+                prompt = "\n\n".join(contents)
             
             # 如果有系统指令，添加到开头
             if system_instruction:

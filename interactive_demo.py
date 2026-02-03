@@ -42,6 +42,40 @@ logger = get_logger(__name__)
 logger.info(logger_msg)
 
 
+def _handle_llm_init_error(e: Exception) -> None:
+    """统一处理 LLM 客户端初始化错误。
+    
+    Args:
+        e: 异常对象
+    """
+    logger.error(f"LLM客户端初始化失败: {e}")
+    print(f"\n{'='*60}")
+    print(f"❌ 错误: {e}")
+    print(f"{'='*60}")
+    
+    # 根据错误类型提供具体帮助
+    error_str = str(e)
+    if "API key" in error_str or "API_KEY" in error_str:
+        print("\n📝 请配置.env文件，添加以下内容：")
+        print("=" * 60)
+        print("# ADK v0.5.0 - 使用 Google GenAI")
+        print("GOOGLE_API_KEY=your-google-api-key")
+        print("GOOGLE_MODEL=gemini-2.0-flash-exp")
+        print()
+        print("# 或使用传统配置")
+        print("QWEN3_API_KEY=sk-your-api-key-here")
+        print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
+        print("QWEN3_MODEL=Qwen3-32B")
+        print("=" * 60)
+    elif "OpenAI" in error_str or "google-genai" in error_str:
+        print("\n请安装依赖包：")
+        print("  pip install google-genai")
+        print("  或")
+        print("  pip install openai")
+    print()
+    sys.exit(1)
+
+
 class UnifiedInteractiveDemo:
     """统一的交互式Demo类"""
     
@@ -99,32 +133,7 @@ class UnifiedInteractiveDemo:
             try:
                 self.llm_client = LLMClient()
             except (ValueError, RuntimeError) as e:
-                logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n{'='*60}")
-                print(f"❌ 错误: {e}")
-                print(f"{'='*60}")
-                
-                # 根据错误类型提供具体帮助
-                error_str = str(e)
-                if "API key" in error_str or "API_KEY" in error_str:
-                    print("\n📝 请配置.env文件，添加以下内容：")
-                    print("=" * 60)
-                    print("# ADK v0.5.0 - 使用 Google GenAI")
-                    print("GOOGLE_API_KEY=your-google-api-key")
-                    print("GOOGLE_MODEL=gemini-2.0-flash-exp")
-                    print()
-                    print("# 或使用传统配置")
-                    print("QWEN3_API_KEY=sk-your-api-key-here")
-                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-                    print("QWEN3_MODEL=Qwen3-32B")
-                    print("=" * 60)
-                elif "OpenAI" in error_str or "google-genai" in error_str:
-                    print("\n请安装依赖包：")
-                    print("  pip install google-genai")
-                    print("  或")
-                    print("  pip install openai")
-                print()
-                sys.exit(1)
+                _handle_llm_init_error(e)
         
         # 创建PromptManager，使用自定义模板（如果提供）
         pm = PromptManager(
@@ -164,24 +173,7 @@ class UnifiedInteractiveDemo:
             try:
                 self.llm_client = LLMClient()
             except (ValueError, RuntimeError) as e:
-                logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n{'='*60}")
-                print(f"❌ 错误: {e}")
-                print(f"{'='*60}")
-                
-                # 根据错误类型提供具体帮助
-                error_str = str(e)
-                if "API key" in error_str or "API_KEY" in error_str:
-                    print("\n📝 请配置.env文件，添加以下内容：")
-                    print("=" * 60)
-                    print("# ADK v0.5.0 - 使用 Google GenAI")
-                    print("GOOGLE_API_KEY=your-google-api-key")
-                    print("=" * 60)
-                elif "OpenAI" in error_str or "google-genai" in error_str:
-                    print("\n请安装依赖包：")
-                    print("  pip install google-genai")
-                print()
-                sys.exit(1)
+                _handle_llm_init_error(e)
         
         # 创建引擎和应用
         try:
