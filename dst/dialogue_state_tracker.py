@@ -248,9 +248,11 @@ class DialogueStateTracker:
         # 智能历史管理（新增）
         await self._manage_history()
         
+        # 获取意图信息用于日志
+        intent_info = turn_updates.get('intent') or turn_updates.get('intent_level1', '未识别')
         logger.info(
             f"处理轮次 #{len(self.dialogue_history)}: "
-            f"更新={turn_updates}, 意图={turn_updates.get('intent', '未识别')}"
+            f"更新={turn_updates}, 意图={intent_info}"
         )
         
         return self.current_state.copy()

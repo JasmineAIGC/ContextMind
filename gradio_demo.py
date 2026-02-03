@@ -155,6 +155,8 @@ class UnifiedGradioDemo:
     
     async def chat(self, message: str, history: List) -> List:
         """处理对话"""
+        import time
+        
         try:
             # 首次使用时初始化
             if not self.initialized:
@@ -163,6 +165,9 @@ class UnifiedGradioDemo:
             
             if not message or not message.strip():
                 return history
+            
+            # 开始计时 - 从接收输入到生成结果
+            start_time = time.time()
             
             # 处理对话
             if self.current_mode == "dst":
@@ -205,10 +210,16 @@ class UnifiedGradioDemo:
                 # 所以我们在其完成后立即捕获，这个状态反映了用户输入的理解
                 self._capture_post_user_state()
             
+            # 计算耗时（从接收输入到生成结果）
+            elapsed_time = time.time() - start_time
+            
+            # 在回复中添加耗时信息（小号灰色文本）
+            reply_with_timing = f"{reply}\n\n<small style='color: #888;'>⏱️ 生成耗时: {elapsed_time:.2f}秒</small>"
+            
             # 更新历史 - 使用Gradio 6.0格式 (flat list)
             return history + [
                 {"role": "user", "content": message},
-                {"role": "assistant", "content": reply}
+                {"role": "assistant", "content": reply_with_timing}
             ]
             
         except ValueError as e:

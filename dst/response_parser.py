@@ -252,6 +252,10 @@ class ResponseParser:
         normalized = {}
         
         for slot, value in extracted.items():
+            # 跳过空值（空字符串或仅包含空白字符）
+            if not value or not value.strip():
+                continue
+            
             # 过滤1：只保留预定义的槽位名称
             if slot not in allowed_slots:
                 logger.warning(f"跳过未定义的槽位: {slot} (值: {value})")
@@ -267,7 +271,8 @@ class ResponseParser:
                 else:
                     logger.warning(f"槽位 {slot} 的值 '{value}' 不在预定义列表中，已跳过")
             else:
-                # 非分类槽位，直接保留
-                normalized[slot] = value
+                # 非分类槽位，直接保留（但值必须非空）
+                if value.strip():
+                    normalized[slot] = value
         
         return normalized
