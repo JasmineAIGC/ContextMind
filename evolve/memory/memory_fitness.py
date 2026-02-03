@@ -271,7 +271,7 @@ class MemoryFitness:
     def observe_usage(self):
         """观测：记忆被实际使用"""
         self.actual_usage_count += 1
-        self.usage_count += 1  # 向后兼容
+        self.usage_count += 1
         self.last_used = time.time()
     
     def observe_ignored(self):

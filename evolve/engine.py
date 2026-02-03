@@ -1,5 +1,5 @@
 """
-EvolveEngine - 进化引擎核心模块 v0.4.0
+EvolveEngine - 进化引擎核心模块 v0.4.1
 
 清晰的模块化架构设计:
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
@@ -12,7 +12,7 @@ EvolveEngine - 进化引擎核心模块 v0.4.0
 1. 上下文优化 (optimize)
 2. 响应处理 (handle_response)
 3. 知识提取 (extract_knowledge)
-4. 上下文更新 (update) - 向后兼容
+4. 上下文更新 (update)
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ class EvolveEngine:
         """
         初始化上下文引擎
         
-        v0.4.0 知识提取架构:
+        v0.4.1 知识提取架构:
         默认使用基于大语言模型的知识提取，确保最佳效果
         
         Args:
@@ -134,7 +134,7 @@ class EvolveEngine:
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
         
-        # 初始化知识提取器 (v0.4.0 - 默认使用 LLM，确保最佳效果)
+        # 初始化知识提取器 (v0.4.1 - 默认使用 LLM，确保最佳效果)
         from .memory import LLMBasedExtractor
         from .core.configs import DEFAULT_MEMORY_CONFIG
         
@@ -158,12 +158,12 @@ class EvolveEngine:
             # 不再支持基于规则的提取
             logger.warning(
                 f"[EvolveEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
-                "v0.4.0+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
+                "v0.4.1+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
             )
             self.extractor = None
             self.extraction_method = "disabled"
         
-        # 初始化响应处理器 (v0.4.0 - 替代 PostProcessor)
+        # 初始化响应处理器 (v0.4.1 - 替代 PostProcessor)
         self.response_handler = ResponseHandler(
             session_manager=self.session_manager,
             memory_bank=self.memory_bank,
@@ -178,7 +178,6 @@ class EvolveEngine:
         else:
             self.summarizer = None
         
-        # 向后兼容：use_postprocessor 参数已废弃
         if use_postprocessor:
             logger.warning(
                 "[EvolveEngine] use_postprocessor 已废弃，"
@@ -319,7 +318,7 @@ class EvolveEngine:
         assistant_response: str,
     ) -> None:
         """
-        更新上下文 (简化版本，向后兼容)
+        更新上下文 (简化版本)
         
         将用户输入和助手回复添加到会话历史中。
         

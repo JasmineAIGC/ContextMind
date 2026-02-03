@@ -158,11 +158,6 @@ class SummarizerStrategy(ABC):
         pass
 
 
-# 向后兼容性别名
-BaseStrategy = ExtractionStrategy
-BaseExtractor = ExtractionStrategy
-BaseRetriever = RetrievalStrategy
-BaseUpdater = UpdateStrategy
 
 
 # 默认实现
@@ -239,11 +234,6 @@ __all__ = [
     'OptimizationStrategy',
     'UpdateStrategy',
     'SummarizerStrategy',
-    # 向后兼容性别名
-    'BaseStrategy',
-    'BaseExtractor',
-    'BaseRetriever',
-    'BaseUpdater',
     # 默认策略
     'CompressionStrategy',
     'RerankingStrategy',

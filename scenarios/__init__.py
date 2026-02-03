@@ -17,4 +17,4 @@ __all__ = [
     'get_insurance_scenario',
 ]
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"

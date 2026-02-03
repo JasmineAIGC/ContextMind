@@ -102,7 +102,7 @@ class EmbeddingConfig:
                 use_local=False,
             )
         
-        # 否则回退到使用 LLM 模型（向后兼容）
+        # 否则回退到使用 LLM 模型
         logger.info("[EmbeddingConfig] 未配置专门的 embedding 模型，将尝试使用 LLM 模型")
         
         # 读取 API Key（必需）

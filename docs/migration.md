@@ -4,11 +4,11 @@
 
 ---
 
-## 📋 v7.3 → v0.4.0 迁移指南
+## 📋 v7.3 → v0.4.1 迁移指南
 
 ### 概述
 
-v0.4.0 是一个重要的功能增强版本，包含以下主要变更：
+v0.4.1 是一个重要的功能增强版本，包含以下主要变更：
 - **Utils 模块独立化** (Breaking Change)
 - **知识提取能力** (New Feature)
 - **增强的 DST 实现** (Enhancement)
@@ -33,7 +33,7 @@ from contextmind.utils.logger import get_logger, setup_logging, LogLevel
 from contextmind.utils.embedding import get_embedding
 from examples.llm_client import SimpleLLMClient, LLMConfig
 
-# ✅ 新代码 (v0.4.0)
+# ✅ 新代码 (v0.4.1)
 from utils.logger import get_logger, setup_logging, LogLevel
 from utils.embedding import get_embedding
 from utils.llm_client import SimpleLLMClient, LLMConfig
@@ -183,7 +183,7 @@ class DialogueTurn:
 # ✅ 旧代码 (v7.3) - 仍然支持
 await engine.update(user_input, assistant_response)
 
-# ✅ 新代码 (v0.4.0) - 推荐使用
+# ✅ 新代码 (v0.4.1) - 推荐使用
 result = await engine.handle_response(
     user_input=user_input,
     llm_response=assistant_response,
@@ -198,7 +198,7 @@ print(f"更新的记忆数: {result.memories_updated}")
 
 **功能对比：**
 
-| 方法 | 功能 | v7.3 | v0.4.0 |
+| 方法 | 功能 | v7.3 | v0.4.1 |
 |------|------|------|------|
 | `update()` | 记录对话 | ✅ | ✅ |
 | `update()` | 提取知识 | ❌ | ❌ |
@@ -338,8 +338,8 @@ from utils.llm_client import SimpleLLMClient
 
 ### 📚 参考资料
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) - v0.4.0 架构文档
-- [CHANGELOG.md](CHANGELOG.md) - v0.4.0 完整变更日志
+- [ARCHITECTURE.md](ARCHITECTURE.md) - v0.4.1 架构文档
+- [CHANGELOG.md](CHANGELOG.md) - v0.4.1 完整变更日志
 - [test_knowledge_extraction.py](../test_knowledge_extraction.py) - 知识提取示例
 
 ---

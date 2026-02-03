@@ -209,7 +209,7 @@ class UnifiedInteractiveDemo:
     def print_welcome(self):
         """打印欢迎信息"""
         print("\n" + "="*60)
-        print(f"📱 Evolve 统一交互式Demo v0.4.0")
+        print(f"📱 Evolve 统一交互式Demo v0.4.1")
         print("="*60)
         print(f"场景: {self.config.name}")
         print(f"模式: {'DST (对话状态追踪)' if self.mode == 'dst' else 'Evolve (基于记忆进化)'}")

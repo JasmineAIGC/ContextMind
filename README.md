@@ -1,10 +1,10 @@
-# ContextMind v0.4.0
+# ContextMind v0.4.1
 
 一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 
 ---
 
@@ -126,7 +126,7 @@ python insurance_gradio_demo.py                     # Web UI
 
 ## 场景配置系统
 
-ContextMind v0.4.0 支持通过配置文件轻松切换不同的对话任务：
+ContextMind v0.4.1 支持通过配置文件轻松切换不同的对话任务：
 
 ### 支持的场景
 
@@ -179,7 +179,7 @@ engine = EvolveEngine(
 ## 项目结构
 
 ```
-ContextMind/ v0.4.0
+ContextMind/ v0.4.1
 ├── evolve/                   # Evolve 完整框架（五层架构）
 ├── dst/                      # DST 基础实现（ACL 2023 论文）
 ├── scenarios/                # 场景配置系统 ✨

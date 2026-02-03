@@ -47,7 +47,7 @@ class RuleBasedExtractor(BaseExtractor):
         """
         self.config = config or DEFAULT_MEMORY_CONFIG.extraction
     
-    # 属性用于与现有代码向后兼容
+    # 属性用于访问
     @property
     def CONFIDENCE_FILTER_MIN(self) -> float:
         return self.config.min_confidence

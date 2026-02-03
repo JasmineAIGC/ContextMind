@@ -4,7 +4,7 @@
 管理槽位本体定义、分类约束和提示词生成，
 完全基于LLM理解，支持动态槽位提取。
 
-版本: v0.4.0
+版本: v0.4.1
 """
 
 from typing import Dict, List, Set, Optional

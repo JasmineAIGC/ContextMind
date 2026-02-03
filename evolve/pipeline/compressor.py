@@ -12,7 +12,7 @@ from ..core.strategies import CompressionStrategy
 
 logger = get_logger(__name__)
 
-# 默认最大 Session 项数量 (用于向后兼容)
+# 默认最大 Session 项数量
 DEFAULT_MAX_SESSION_ITEMS = 10
 
 

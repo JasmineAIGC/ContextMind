@@ -1,5 +1,5 @@
 """
-系统提示词管理模块 v0.4.0
+系统提示词管理模块 v0.4.1
 
 集中管理所有场景的系统提示词，支持：
 1. 统一维护和版本控制
@@ -227,7 +227,6 @@ def get_prompt(scenario: str = "chat") -> str:
     return PROMPT_MAP.get(scenario, DEFAULT_PROMPT)
 
 
-# 向后兼容的导出
 __all__ = [
     "CHAT_SYSTEM_PROMPT",
     "CALLCENTER_SYSTEM_PROMPT",

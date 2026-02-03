@@ -10,12 +10,10 @@ from .summarizer import (
     LLMBasedSummarizer,
 )
 
-# 向后兼容
-InputPreprocessor = Preprocessor
 
 __all__ = [
     "Preprocessor",
-    "InputPreprocessor",
+    
     "ContextRetriever",
     "ContextCompressor",
     "ContextReorderer",

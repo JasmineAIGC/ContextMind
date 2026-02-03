@@ -307,5 +307,4 @@ class InsuranceApplication:
         
         return response
 
-# 向后兼容：重新导出系统提示词
 __all__ = ['InsuranceApplication', 'INSURANCE_SYSTEM_PROMPT']

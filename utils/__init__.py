@@ -47,4 +47,4 @@ __all__ = [
     "EmbeddingInfo",
 ]
 
-__version__ = "0.4.0"  # 独立工具模块，完全不依赖evolve/baseline
+__version__ = "0.4.1"  # 独立工具模块，完全不依赖evolve/baseline

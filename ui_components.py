@@ -221,7 +221,7 @@ def create_gradio_ui(demo_instance=None):
     Returns:
         tuple: (app, components_dict) - Gradio应用和组件字典
     """
-    with gr.Blocks(title="Evolve 统一Demo v0.4.0") as app:
+    with gr.Blocks(title="Evolve 统一Demo v0.4.1") as app:
         # 标题
         gr.Markdown("# 🤖 Evolve 统一对话系统", elem_classes=["main-title"])
         gr.Markdown("智能对话 · 场景灵活 · 模式可选", elem_classes=["subtitle"])
@@ -377,7 +377,7 @@ def create_gradio_ui(demo_instance=None):
         
         # Footer
         gr.Markdown(
-            "Evolve v0.4.0 | 💡 Powered by LLM",
+            "Evolve v0.4.1 | 💡 Powered by LLM",
             elem_classes=["footer"]
         )
         

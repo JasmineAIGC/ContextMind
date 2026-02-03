@@ -7,7 +7,7 @@
 - 多意图追踪
 - 优化的LLM使用（默认仅在槽位提取时调用）
 
-版本: v0.4.0
+版本: v0.4.1
 """
 
 from typing import Dict, List, Optional, Tuple
@@ -98,7 +98,7 @@ class DialogueStateTracker:
         
         # 多意图槽位存储（优化）- 支持按意图分离槽位
         self.intent_states: Dict[str, Dict[str, str]] = {}  # intent -> slots
-        self.enable_intent_namespacing: bool = False  # 向后兼容，默认关闭
+        self.enable_intent_namespacing: bool = False  # 默认关闭
         
         # 历史管理（新增）
         self.max_history_turns = max_history_turns
@@ -121,7 +121,7 @@ class DialogueStateTracker:
     @property
     def turns(self) -> List[DialogueTurn]:
         """
-        获取对话历史（别名属性，用于向后兼容）
+        获取对话历史（别名属性）
         
         返回:
             对话历史列表
@@ -474,7 +474,7 @@ class DialogueStateTracker:
         # 提取当前意图
         current_intent = updates.get("intent")
         
-        # 更新全局状态（保持向后兼容）
+        # 更新全局状态
         for slot, value in updates.items():
             if value and value.strip():  # 只更新非空值
                 self.current_state[slot] = value

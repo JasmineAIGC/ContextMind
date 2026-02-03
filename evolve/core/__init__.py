@@ -4,10 +4,6 @@ from ..engine import EvolveEngine
 from .registry import PluginRegistry, registry
 from .framework_config import ContextMind as ContextMindConfig
 
-# 向后兼容别名
-ContextMindEngine = EvolveEngine
-ContextEngine = EvolveEngine
-
 # Import from new modular structure
 from .types import (
     KnowledgeType,
@@ -61,8 +57,6 @@ from .strategies import (
 
 __all__ = [
     "EvolveEngine",
-    "ContextMindEngine",  # 向后兼容
-    "ContextEngine",  # 向后兼容
     "PluginRegistry",
     "registry",
     "ContextMindConfig",

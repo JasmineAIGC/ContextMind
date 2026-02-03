@@ -1,10 +1,10 @@
 # ContextMind 变更日志
 
-## [v0.4.0] - 2026-01-29 - Utils独立化、知识提取、DST增强 🚀
+## [v0.4.1] - 2026-01-29 - Utils独立化、知识提取、DST增强 🚀
 
 ### 重大版本更新
 
-ContextMind v0.4.0 是一个重要的功能增强版本，带来了模块独立性改进、知识提取能力和完整的 ACL 2023 DST 实现。
+ContextMind v0.4.1 是一个重要的功能增强版本，带来了模块独立性改进、知识提取能力和完整的 ACL 2023 DST 实现。
 
 ---
 
@@ -29,7 +29,7 @@ utils/  (根目录)
 
 **统一导入模式：**
 ```python
-# 新的导入方式 (v0.4.0+)
+# 新的导入方式 (v0.4.1+)
 from utils.logger import get_logger
 from utils.llm_client import SimpleLLMClient
 
@@ -126,7 +126,7 @@ class DialogueTurn:
 
 **新的 API：**
 ```python
-# v0.4.0 推荐方式 - 自动知识提取
+# v0.4.1 推荐方式 - 自动知识提取
 result = await engine.handle_response(
     user_input=user_input,
     llm_response=assistant_response,
@@ -167,7 +167,7 @@ await engine.update(user_input, assistant_response)
 
 ### 📋 迁移指南
 
-#### 从 v7.3 迁移到 v0.4.0
+#### 从 v7.3 迁移到 v0.4.1
 
 **1. 更新 Utils 导入 (必需)**
 
@@ -176,7 +176,7 @@ await engine.update(user_input, assistant_response)
 from contextmind.utils.logger import get_logger
 from examples.llm_client import SimpleLLMClient
 
-# 新代码 (v0.4.0)
+# 新代码 (v0.4.1)
 from utils.logger import get_logger
 from utils.llm_client import SimpleLLMClient
 ```
@@ -187,7 +187,7 @@ from utils.llm_client import SimpleLLMClient
 # 旧代码 (v7.3)
 await engine.update(user_input, assistant_response)
 
-# 新代码 (v0.4.0) - 推荐
+# 新代码 (v0.4.1) - 推荐
 result = await engine.handle_response(
     user_input=user_input,
     llm_response=assistant_response,
@@ -220,8 +220,8 @@ SimpleLLMClient 现在支持：
 - `docs/DST_IMPROVEMENTS_SUMMARY.md` - DST 改进总结
 - `docs/DST_COMPLETION_SUMMARY.md` - DST 完成总结
 - `docs/DST_IMPLEMENTATION_REVIEW.md` - DST 实现评审
-- 更新 `docs/ARCHITECTURE.md` - v0.4.0 架构说明
-- 更新 `docs/MIGRATION.md` - v7.3 → v0.4.0 迁移指南
+- 更新 `docs/ARCHITECTURE.md` - v0.4.1 架构说明
+- 更新 `docs/MIGRATION.md` - v7.3 → v0.4.1 迁移指南
 
 ---
 

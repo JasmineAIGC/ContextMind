@@ -1,9 +1,9 @@
 """
-核心数据模型 (v0.4.0)
+核心数据模型 (v0.4.1)
 
 用于消息、上下文项、知识和其他核心数据结构的数据类模型。
-在v0.4.0模块化重构期间从models.py中提取，以实现更好的组织结构。
-在v0.4.0中，EmbeddingInfo移到utils模块以保持utils的独立性。
+在v0.4.1模块化重构期间从models.py中提取，以实现更好的组织结构。
+在v0.4.1中，EmbeddingInfo移到utils模块以保持utils的独立性。
 """
 
 from __future__ import annotations

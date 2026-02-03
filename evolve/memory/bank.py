@@ -74,7 +74,7 @@ class MemoryBank:
         config: 检索配置
     """
     
-    # 存储阈值（用于与更新器向后兼容）
+    # 存储阈值
     STORAGE_THRESHOLD_PREFERENCE = 0.75
     STORAGE_THRESHOLD_FACT = 0.70
     STORAGE_THRESHOLD_EVENT = 0.70

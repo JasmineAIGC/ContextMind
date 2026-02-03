@@ -307,5 +307,4 @@ class CallCenterApplication:
         
         return response
 
-# 向后兼容：重新导出系统提示词
 __all__ = ['CallCenterApplication', 'CALLCENTER_SYSTEM_PROMPT']
