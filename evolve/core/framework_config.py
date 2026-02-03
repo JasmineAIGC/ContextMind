@@ -1,13 +1,13 @@
 """
-ContextMind 配置 API - 简单的框架配置
+Evolve 配置 API - 简单的框架配置
 
-提供一个简单、统一的 API 来配置整个 ContextMind 框架。
+提供一个简单、统一的 API 来配置整个 Evolve 框架。
 通过合理的默认值和最少的样板代码使集成变得简单。
 
-ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
-- 步骤 1-4: 构建高效 Prompt (上下文工程核心) - 在 ContextMind 内部
+Evolve 专注于上下文工程 (步骤 1-4 + 步骤 6):
+- 步骤 1-4: 构建高效 Prompt (上下文工程核心) - 在 Evolve 内部
 - 步骤 5: LLM 调用 (含 KV cache) - 外部实现 (用户的 LLM)
-- 步骤 6: 输出后处理 - 在 ContextMind 内部
+- 步骤 6: 输出后处理 - 在 Evolve 内部
 
 使用示例:
     ```python
