@@ -2,6 +2,19 @@
 SessionManager - 会话管理
 
 管理对话会话和消息历史。
+
+版本: v0.4.1
+
+## 架构说明
+
+本实现提供传统的会话历史管理功能。
+
+注：未使用 google-adk.memory，因为：
+1. google-adk.memory 主要用于语义搜索，不是会话历史管理
+2. 我们需要的是简单的消息列表存储和检索
+3. 当前实现更符合需求且更简洁
+
+参见: docs/ADK_INTEGRATION_ANALYSIS.md
 """
 
 import uuid

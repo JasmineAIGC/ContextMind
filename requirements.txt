@@ -1,6 +1,10 @@
 # ContextMind v0.4.1 项目依赖
 
+# Google ADK - Agent 框架和内存管理
+google-adk>=1.23.0
+
 # LLM API 客户端（Qwen 使用 OpenAI 兼容接口）
+# 注意：ADK 主要支持 Gemini，Qwen 需要 OpenAI 兼容接口
 openai>=1.0.0
 
 # 环境变量管理

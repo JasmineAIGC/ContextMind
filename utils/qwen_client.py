@@ -5,6 +5,13 @@ Qwen LLM 客户端
 配置从 .env 文件读取：QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL
 
 版本: v0.4.1
+
+## 为什么使用 openai 包而不是 google-adk？
+
+Qwen API 提供 OpenAI 兼容接口，使用 openai Python 包是最直接的调用方式。
+google-adk 主要支持 Google Gemini 模型，不提供 OpenAI 兼容接口。
+
+参见: docs/ADK_INTEGRATION_ANALYSIS.md
 """
 
 import os
