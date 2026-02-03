@@ -138,8 +138,8 @@ class UnifiedInteractiveDemo:
             enable_history_summary=self.enable_summary  # 使用参数配置
         )
         
-        # 初始化系统回复（第一轮对话使用）
-        self.last_system_reply = "你好！"
+        # 初始化系统回复（第一轮对话使用）- 使用欢迎消息
+        self.last_system_reply = self.config.welcome_message if self.config.welcome_message else "你好！"
         
         self.app = None  # DST模式不使用app
     
@@ -296,10 +296,20 @@ class UnifiedInteractiveDemo:
             # ContextMind模式重新初始化
             self._init_contextmind_mode()
         print("✓ 对话已重置\n")
+        
+        # 重置后，机器人主动发起对话
+        welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+        print(f"\n助手: {welcome_msg}\n")
+        print("-" * 60 + "\n")
     
     async def run(self):
         """运行交互循环"""
         self.print_welcome()
+        
+        # 机器人主动发起对话 - 显示欢迎消息
+        welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+        print(f"\n助手: {welcome_msg}\n")
+        print("-" * 60 + "\n")
         
         turn = 0
         while True:

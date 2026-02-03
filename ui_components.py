@@ -462,5 +462,12 @@ def create_gradio_ui(demo_instance=None):
                 inputs=[scenario_selector, mode_selector],
                 outputs=[chatbot, dst_settings, contextmind_settings]
             )
+            
+            # 页面加载时自动应用默认配置，显示欢迎消息
+            app.load(
+                fn=apply_config_and_update_ui,
+                inputs=[scenario_selector, mode_selector],
+                outputs=[chatbot, dst_settings, contextmind_settings]
+            )
         
     return app, components

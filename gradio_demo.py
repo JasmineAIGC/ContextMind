@@ -162,6 +162,10 @@ class UnifiedGradioDemo:
             if not self.initialized:
                 self.initialize_scenario("chat", "contextmind")
                 self.initialized = True
+                # 如果历史为空，添加欢迎消息作为第一条消息
+                if not history:
+                    welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+                    history = [{"role": "assistant", "content": welcome_msg}]
             
             if not message or not message.strip():
                 return history
@@ -178,19 +182,21 @@ class UnifiedGradioDemo:
                 # 获取上一轮系统回复
                 # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
                 # 安全地获取上一轮的assistant回复内容
+                # 如果没有历史记录，使用欢迎消息作为默认值
+                default_system_utterance = self.config.welcome_message if self.config.welcome_message else '你好！'
                 system_utterance = next(
-                    (msg.get('content', '你好！') for msg in reversed(history) if msg.get('role') == 'assistant'),
-                    '你好！'
+                    (msg.get('content', default_system_utterance) for msg in reversed(history) if msg.get('role') == 'assistant'),
+                    default_system_utterance
                 )
                 
                 # 确保system_utterance是字符串类型（防止list等其他类型）
                 if not isinstance(system_utterance, str):
                     if isinstance(system_utterance, list):
                         # 如果是列表，提取第一个元素或转换为字符串
-                        system_utterance = str(system_utterance[0]) if system_utterance else '你好！'
+                        system_utterance = str(system_utterance[0]) if system_utterance else default_system_utterance
                     else:
                         # 其他类型转换为字符串
-                        system_utterance = str(system_utterance) if system_utterance else '你好！'
+                        system_utterance = str(system_utterance) if system_utterance else default_system_utterance
                 
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
@@ -481,7 +487,14 @@ class UnifiedGradioDemo:
         
         status = f"📌 当前配置: 场景={scenario_names.get(scenario, scenario)}, 模式={mode}"
         logger.info(f"配置已更新: {scenario}, {mode}")
-        return [], status
+        
+        # 机器人主动发起对话 - 使用欢迎消息作为第一句话
+        welcome_msg = self.config.welcome_message if self.config.welcome_message else "你好！"
+        initial_history = [
+            {"role": "assistant", "content": welcome_msg}
+        ]
+        
+        return initial_history, status
     
     
     def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool,
