@@ -19,7 +19,7 @@ from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
-from evolve import ContextEngine
+from evolve import EvolveEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -140,8 +140,8 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 创建ContextEngine - 使用正确的参数
-        engine = ContextEngine(
+        # 创建EvolveEngine - 使用正确的参数
+        engine = EvolveEngine(
             app_name=f"gradio_demo_{self.current_scenario}",
             user_id="gradio_user",
             llm_client=self.llm_client

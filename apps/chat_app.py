@@ -1,14 +1,14 @@
 """
 ChatApplication - 通用闲聊应用示例
 
-展示如何使用ContextEngine构建通用对话应用。
+展示如何使用EvolveEngine构建通用对话应用。
 适用于日常闲聊、知识问答、娱乐互动等场景。
 """
 
 import logging
 from typing import Optional, Dict
 
-from evolve import ContextEngine
+from evolve import EvolveEngine
 from evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
@@ -30,7 +30,7 @@ class ChatApplication:
     
     def __init__(
         self,
-        context_engine: ContextEngine,
+        context_engine: EvolveEngine,
         system_prompt: str = CHAT_SYSTEM_PROMPT,
         history_turns: int = 10,
         llm_config: Optional[LLMConfig] = None,
@@ -41,7 +41,7 @@ class ChatApplication:
         """初始化闲聊应用
         
         Args:
-            context_engine: 上下文引擎
+            context_engine: 进化引擎
             system_prompt: 系统提示词（可自定义）
             history_turns: Prompt中包含的历史轮数
             llm_config: LLM 配置（可选，从环境变量加载）

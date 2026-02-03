@@ -1,14 +1,14 @@
 """
 CallCenterApplication - 客服应用示例
 
-展示如何使用ContextEngine构建客服对话应用。
+展示如何使用EvolveEngine构建客服对话应用。
 重点展示上下文工程能力：利用历史、记忆和知识提供连贯回复。
 """
 
 import logging
 from typing import Optional
 
-from evolve import ContextEngine
+from evolve import EvolveEngine
 from evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 

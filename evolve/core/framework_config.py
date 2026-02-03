@@ -35,7 +35,7 @@ Evolve 专注于上下文工程 (步骤 1-4 + 步骤 6):
 """
 
 from typing import Optional, Dict, Any
-from ..engine import ContextEngine
+from ..engine import EvolveEngine
 from .registry import registry
 from .data_models import Message
 from .types import MessageRole
@@ -63,7 +63,7 @@ class ContextMind:
     - 简单的插件切换
     
     属性:
-        engine: 底层的 ContextEngine 实例
+        engine: 底层的 EvolveEngine 实例
         session_id: 当前会话 ID (如果已设置)
     """
     
@@ -93,12 +93,12 @@ class ContextMind:
             enable_reordering: 启用上下文重排序 (默认: True)
             enable_postprocessing: 启用输出后处理 (默认: True)
             enable_summarization: 启用对话摘要 (默认: False)
-            **engine_kwargs: ContextEngine 的额外参数
+            **engine_kwargs: EvolveEngine 的额外参数
         """
         logger.info(f"[ContextMind] 正在初始化，extractor={extractor}, retriever={retriever}")
         
         # 创建引擎
-        self.engine = ContextEngine(llm_client=llm_client, **engine_kwargs)
+        self.engine = EvolveEngine(llm_client=llm_client, **engine_kwargs)
         
         # 配置插件
         if enable_memory:

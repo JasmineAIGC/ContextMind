@@ -32,7 +32,7 @@ v0.4.0 新增功能 - Utils模块独立化与增强DST：
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│  引擎层 (Engine Layer)                   │  ← ContextEngine
+│  引擎层 (Engine Layer)                   │  ← EvolveEngine
 │  - 统一的高层API接口                      │
 └─────────────────────────────────────────┘
            ↓
@@ -57,7 +57,8 @@ v0.4.0 核心改进：
 
 # 核心框架组件
 from .core import (
-    ContextMindEngine,
+    EvolveEngine,
+    ContextMindEngine,  # 向后兼容
     PluginRegistry,
     ContextMindConfig,
     Message,
@@ -130,7 +131,7 @@ from .evolution import (
 # 向后兼容性别名
 registry = PluginRegistry()
 ContextMind = ContextMindConfig
-ContextEngine = ContextMindEngine
+ContextEngine = EvolveEngine  # 向后兼容，推荐使用 EvolveEngine
 InputPreprocessor = Preprocessor
 ConversationSummarizer = LLMBasedSummarizer
 
@@ -144,8 +145,9 @@ __all__ = [
     "PluginRegistry",
     
     # 核心引擎
-    "ContextEngine",
-    "ContextMindEngine",
+    "EvolveEngine",
+    "ContextEngine",  # 向后兼容
+    "ContextMindEngine",  # 向后兼容
     
     # 数据模型
     "Message",

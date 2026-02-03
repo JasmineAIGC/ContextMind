@@ -21,7 +21,7 @@ from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
-from evolve import ContextEngine
+from evolve import EvolveEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -183,7 +183,7 @@ class UnifiedInteractiveDemo:
         
         # 创建引擎和应用
         try:
-            engine = ContextEngine(
+            engine = EvolveEngine(
                 app_name=f"interactive_demo_{self.scenario}",
                 user_id="demo_user",
                 llm_client=self.llm_client

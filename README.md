@@ -65,7 +65,7 @@ python gradio_demo.py
 #### Evolve 模式（基于记忆进化）
 
 ```python
-from evolve import ContextEngine
+from evolve import EvolveEngine
 from utils import SimpleLLMClient
 
 # 初始化 - 支持记忆和进化学习
@@ -157,7 +157,7 @@ for slot_name, slot_desc in config.dst_slots.items():
     pm.add_slot(slot_name, slot_desc)
 
 # Evolve 模式
-from evolve import ContextEngine
+from evolve import EvolveEngine
 
 engine = ContextEngine(
     system_prompt=config.system_prompt,
