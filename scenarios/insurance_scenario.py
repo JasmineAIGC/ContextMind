@@ -408,12 +408,9 @@ def get_insurance_scenario() -> ScenarioConfig:
 - 可通过电话直接办理，无需复杂手续
 """
     
-    # 欢迎消息
-    welcome_message = """您好！我是生活协同组合的保险咨询专员。
-
-今天致电是想向您介绍我们专为会员设计的团体癌症保险方案。这是一个享受30%优惠折扣的专属福利，已经有很多会员加入并给予好评。
-
-请问您现在方便简单了解一下吗？"""
+    # 欢迎消息（保留用于文档，但不在对话中自动显示）
+    # 在实际对话中，让用户主动发起
+    welcome_message = None
     
     return ScenarioConfig(
         name="保险挽回",
