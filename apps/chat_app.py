@@ -12,7 +12,6 @@ from evolution import ContextEngine
 from evolution.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from evolution.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
-from utils.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
 from prompts import CHAT_SYSTEM_PROMPT
@@ -33,7 +32,7 @@ class ChatApplication:
         context_engine: ContextEngine,
         system_prompt: str = CHAT_SYSTEM_PROMPT,
         history_turns: int = 10,
-        llm_config: Optional[LLMConfig] = None,
+        llm_config = None,
         use_real_llm: bool = True,
         extraction_method: str = None,  # 知识提取方式 ('rule' 或 'llm')
         **config
@@ -65,7 +64,7 @@ class ChatApplication:
         # 初始化 LLM 客户端（如果使用真实 LLM）
         if use_real_llm:
             try:
-                self.llm_client = SimpleLLMClient(llm_config)
+                self.llm_client = None  # LLM client passed via context_engine
                 logger.info(
                     f"[ChatApplication] ✓ 初始化完成 "
                     f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
