@@ -1,47 +1,49 @@
 """
-Evolution 模式的 LLM Agent 实现
+Evolution 模式的 Agent 实现
 
-使用 Qwen API（OpenAI 兼容接口）。
-Evolution 模式专注于基于进化的上下文工程和记忆优化。
+基于 google-adk，使用 Qwen API（OpenAI 兼容接口）
 
-版本: v0.4.1
+Version: v0.4.1
 
-## 架构说明
+## 核心思路
 
-- **LLM 层**: 使用 openai 包调用 Qwen API（OpenAI 兼容）
-- **Agent 层**: 轻量封装，提供统一接口
-- **自研层**: Pipeline 算法（压缩、重排序）、记忆进化、适应度计算
-
-注：未使用 google-adk.agents.Agent，因为：
-1. 我们的 Agent 更简单，只是 LLM 调用的封装
-2. google-adk.agents 设计更复杂，适合多 Agent 编排
-3. 保持代码简洁可维护
-
-参见: docs/ADK_INTEGRATION_ANALYSIS.md
+Qwen API 是 OpenAI 兼容接口，可以直接配置给 google-adk 的 OpenAI 模型！
+通过设置 base_url，ADK 可以调用 Qwen API，获得 ADK 的完整功能。
 """
 
 from typing import Dict, List, Optional
-
-from utils.qwen_client import QwenClient, QwenConfig
+from google.adk import agents
+from utils.adk_config import create_qwen_model, QwenADKConfig
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class EvolutionAgent:
-    """Evolution 模式专用的 LLM Agent
+    """Evolution 模式专用的 Agent
     
-    使用 Qwen API 进行基于进化的上下文工程和记忆优化。
+    基于 google.adk.agents.Agent，使用 Qwen API
     """
     
-    def __init__(self, config: Optional[QwenConfig] = None):
+    def __init__(self, config: Optional[QwenADKConfig] = None):
         """初始化 Evolution Agent
         
         Args:
             config: Qwen 配置，默认从环境变量加载
         """
-        self.client = QwenClient(config)
-        logger.info(f"[Evolution Agent] 初始化成功")
+        self.config = config or QwenADKConfig.from_env()
+        
+        # 创建 ADK 的 OpenAI 模型（指向 Qwen API）
+        self.model = create_qwen_model(self.config)
+        
+        # 创建 ADK Agent
+        self.agent = agents.Agent(
+            model=self.model,
+            name="evolution_agent",
+            instruction="You are an AI assistant with evolutionary memory optimization. Engage in natural, context-aware conversations."
+        )
+        
+        logger.info(f"[Evolution Agent] 初始化成功（基于 google-adk），模型: {self.config.model}")
     
     async def chat_async(
         self,
@@ -60,7 +62,17 @@ class EvolutionAgent:
             LLM 响应文本
         """
         try:
-            return await self.client.chat_async(messages, temperature, **kwargs)
+            # 构建 prompt
+            prompt = self._build_prompt(messages)
+            
+            # 使用 ADK Agent
+            result = await self.agent.run_async(prompt)
+            
+            # 提取内容
+            if hasattr(result, 'content'):
+                return result.content
+            return str(result)
+            
         except Exception as e:
             logger.error(f"Evolution Agent 调用失败: {e}")
             raise
@@ -82,7 +94,13 @@ class EvolutionAgent:
             LLM 响应文本
         """
         try:
-            return self.client.chat(messages, temperature, **kwargs)
+            prompt = self._build_prompt(messages)
+            result = self.agent.run(prompt)
+            
+            if hasattr(result, 'content'):
+                return result.content
+            return str(result)
+            
         except Exception as e:
             logger.error(f"Evolution Agent 调用失败: {e}")
             raise
@@ -110,3 +128,28 @@ class EvolutionAgent:
             生成的文本
         """
         return self.chat([{"role": "user", "content": prompt}], **kwargs)
+    
+    def _build_prompt(self, messages: List[Dict[str, str]]) -> str:
+        """将消息列表转换为 prompt
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            组合后的 prompt
+        """
+        parts = []
+        for msg in messages:
+            role = msg.get('role', 'user')
+            content = msg.get('content', '')
+            if role == 'system':
+                parts.append(f"System: {content}")
+            elif role == 'user':
+                parts.append(f"User: {content}")
+            elif role == 'assistant':
+                parts.append(f"Assistant: {content}")
+        return '\n\n'.join(parts)
+
+
+# 向后兼容
+EvolutionConfig = QwenADKConfig
