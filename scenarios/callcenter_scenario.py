@@ -64,7 +64,7 @@ def get_callcenter_scenario() -> ScenarioConfig:
         system_prompt=CALLCENTER_SYSTEM_PROMPT,
         ui_title="智能客服 · 上下文工程 · 专业对话",
         ui_description="智能客服 · 上下文工程 · 专业对话",
-        welcome_message=None,  # 让用户主动发起对话
+        welcome_message="您好！我是智能客服助手，我可以帮您解决各类问题和咨询。请问有什么可以帮到您的？",  # 让用户主动发起对话
         max_history_turns=10,
         temperature=0.7,
         enable_memory=True,

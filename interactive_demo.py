@@ -221,6 +221,12 @@ class UnifiedInteractiveDemo:
         if self.mode == "dst":
             print("  - 输入 /state 查看当前对话状态")
         print("="*60 + "\n")
+        
+        # 显示欢迎消息
+        welcome_msg = self.config.welcome_message
+        if welcome_msg:
+            logger.info(f"助手: {welcome_msg}")
+            print(f"🤖 助手: {welcome_msg}\n")
     
     async def chat_dst_mode(self, user_message: str) -> str:
         """DST模式对话"""

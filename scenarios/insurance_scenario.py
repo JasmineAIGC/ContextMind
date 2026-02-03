@@ -408,9 +408,8 @@ def get_insurance_scenario() -> ScenarioConfig:
 - 可通过电话直接办理，无需复杂手续
 """
     
-    # 欢迎消息（保留用于文档，但不在对话中自动显示）
-    # 在实际对话中，让用户主动发起
-    welcome_message = None
+    # 欢迎消息
+    welcome_message = "您好！我是共荣保险的专业顾问，专注于团体癌症保险业务。我可以为您详细介绍我们的保险产品和服务，帮助您做出最适合的选择。请问您想了解哪方面的内容？"
     
     return ScenarioConfig(
         name="保险挽回",

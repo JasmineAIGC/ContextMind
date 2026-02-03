@@ -59,7 +59,7 @@ def get_chat_scenario() -> ScenarioConfig:
         system_prompt=CHAT_SYSTEM_PROMPT,
         ui_title="智能对话 · 上下文理解 · 长期记忆",
         ui_description="智能对话 · 上下文理解 · 长期记忆",
-        welcome_message=None,  # 让用户主动发起对话
+        welcome_message="你好！我是你的AI助手，很高兴和你聊天。有什么我可以帮你的吗？",
         max_history_turns=10,
         temperature=0.8,
         enable_memory=True,

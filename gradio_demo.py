@@ -485,7 +485,10 @@ class UnifiedGradioDemo:
         
         status = f"📌 当前配置: 场景={scenario_names.get(scenario, scenario)}, 模式={mode}"
         logger.info(f"配置已更新: {scenario}, {mode}")
-        return [], status
+        
+        # 返回欢迎消息作为初始对话历史
+        welcome = self.config.welcome_message or "你好！"
+        return [[None, welcome]], status
     
     
     def update_settings(self, max_history_turns: int, enable_summary: bool, use_llm_summary: bool,
