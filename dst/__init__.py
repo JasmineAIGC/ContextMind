@@ -32,7 +32,10 @@ from dst.response_parser import ResponseParser
 from dst.dialogue_state_tracker import DialogueStateTracker
 
 # ADK Agent
-from dst.adk_agent import DSTAgent, DSTConfig
+from dst.adk_agent import DSTAgent
+
+# 导入 QwenConfig 作为配置
+from utils.qwen_client import QwenConfig as DSTConfig
 
 __all__ = [
     'DialogueStateTracker',

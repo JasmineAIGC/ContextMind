@@ -1,10 +1,7 @@
-# ContextMind v0.4.1 项目依赖 - ADK 优化版
+# ContextMind v0.4.1 项目依赖
 
-# ADK 核心
-google-adk>=1.0.0
-
-# LLM 支持 (通过 ADK + LiteLLM)
-litellm>=1.0.0
+# LLM API 客户端（Qwen 使用 OpenAI 兼容接口）
+openai>=1.0.0
 
 # 环境变量管理
 python-dotenv>=1.0.0
