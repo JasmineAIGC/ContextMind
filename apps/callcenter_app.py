@@ -30,7 +30,7 @@ class CallCenterApplication:
     
     def __init__(
         self,
-        context_engine: ContextEngine,
+        context_engine: EvolveEngine,
         business_info: str = "",
         history_turns: int = 10,
         system_prompt: str = CALLCENTER_SYSTEM_PROMPT,
