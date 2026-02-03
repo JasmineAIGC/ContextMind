@@ -84,7 +84,7 @@ from .core import (
     CompressionStrategy,
     RerankingStrategy,
     # 日志
-    ContextMindLogger,
+    EvolveLogger,
     LogLevel,
     get_logger,
     setup_logging,
@@ -169,7 +169,7 @@ __all__ = [
     "DEFAULT_MEMORY_CONFIG",
     
     # 日志系统
-    "ContextMindLogger",
+    "EvolveLogger",
     "LogLevel",
     "get_logger",
     "setup_logging",

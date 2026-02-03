@@ -13,7 +13,7 @@
 - **模型无关** - 适配任何 LLM 提供商
 - **五步流水线** - 预处理、检索、压缩、重排序、响应处理
 - **智能记忆** - 自动知识提取和语义检索
-- **两种模式** - ContextMind 进化模式 / DST 状态追踪模式
+- **两种模式** - Evolve 进化模式 / DST 状态追踪模式
 
 ---
 
@@ -40,14 +40,14 @@ QWEN3_MODEL=qwen-plus
 #### Interactive Demo（命令行）
 
 ```bash
-# 闲聊场景 + ContextMind模式
-python interactive_demo.py --scenario chat --mode contextmind
+# 闲聊场景 + Evolve模式
+python interactive_demo.py --scenario chat --mode evolve
 
 # 客服场景 + DST模式
 python interactive_demo.py --scenario callcenter --mode basic
 
-# 保险场景 + ContextMind模式
-python interactive_demo.py --scenario insurance --mode contextmind
+# 保险场景 + Evolve模式
+python interactive_demo.py --scenario insurance --mode evolve
 ```
 
 #### Gradio Demo（Web界面）
@@ -57,15 +57,15 @@ python interactive_demo.py --scenario insurance --mode contextmind
 python gradio_demo.py
 
 # 在浏览器中访问 http://localhost:7860
-# 可在界面中选择场景（chat/callcenter/insurance）和模式（ContextMind/DST）
+# 可在界面中选择场景（chat/callcenter/insurance）和模式（Evolve/DST）
 ```
 
 ### API使用
 
-#### ContextMind 模式（基于记忆进化）
+#### Evolve 模式（基于记忆进化）
 
 ```python
-from contextmind import ContextEngine
+from evolve import ContextEngine
 from utils import SimpleLLMClient
 
 # 初始化 - 支持记忆和进化学习
@@ -103,21 +103,21 @@ print(state)  # 返回提取的状态信息
 
 ### 闲聊场景
 ```bash
-python chat_interactive_demo.py --mode contextmind  # 完整模式
+python chat_interactive_demo.py --mode evolve  # 完整模式
 python chat_interactive_demo.py --mode basic        # DST 模式
 python chat_gradio_demo.py                          # Web UI
 ```
 
 ### 客服场景
 ```bash
-python callcenter_interactive_demo.py --mode contextmind
+python callcenter_interactive_demo.py --mode evolve
 python callcenter_interactive_demo.py --mode basic
 python callcenter_gradio_demo.py                    # Web UI
 ```
 
 ### 保险场景（共荣保险）
 ```bash
-python insurance_interactive_demo.py --mode contextmind
+python insurance_interactive_demo.py --mode evolve
 python insurance_interactive_demo.py --mode basic   # 使用预定义意图和槽位
 python insurance_gradio_demo.py                     # Web UI
 ```
@@ -156,8 +156,8 @@ pm = PromptManager(
 for slot_name, slot_desc in config.dst_slots.items():
     pm.add_slot(slot_name, slot_desc)
 
-# ContextMind 模式
-from contextmind import ContextEngine
+# Evolve 模式
+from evolve import ContextEngine
 
 engine = ContextEngine(
     system_prompt=config.system_prompt,
@@ -180,7 +180,7 @@ engine = ContextEngine(
 
 ```
 ContextMind/ v0.4.0
-├── contextmind/              # ContextMind 完整框架（五层架构）
+├── evolve/                   # Evolve 完整框架（五层架构）
 ├── dst/                      # DST 基础实现（ACL 2023 论文）
 ├── scenarios/                # 场景配置系统 ✨
 │   ├── config.py            # 配置基类
@@ -201,7 +201,7 @@ ContextMind/ v0.4.0
 
 ## 两种模式对比
 
-| 特性 | DST 模式 | ContextMind 模式 |
+| 特性 | DST 模式 | Evolve 模式 |
 |------|---------|-----------------|
 | 方法论 | 对话状态追踪 (Dialogue State Tracking) | 基于记忆进化的对话系统 |
 | 技术基础 | ACL 2023 论文，槽位-值提取 | 五层架构，语义记忆+进化学习 |

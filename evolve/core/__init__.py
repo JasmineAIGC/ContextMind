@@ -36,7 +36,7 @@ from .configs import (
 )
 
 from utils.logger import (
-    ContextMindLogger,
+    EvolveLogger,
     LogLevel,
     get_logger,
     setup_logging,
@@ -85,7 +85,7 @@ __all__ = [
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
     # Logger
-    "ContextMindLogger",
+    "EvolveLogger",
     "LogLevel",
     "get_logger",
     "setup_logging",
