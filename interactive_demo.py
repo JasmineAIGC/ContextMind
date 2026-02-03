@@ -2,6 +2,8 @@
 """
 ContextMind 统一交互式Demo
 
+v0.5.0 ADK 优化版本 - 使用 Google GenAI SDK
+
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
 支持两种模式：dst（对话状态追踪）、contextmind（基于记忆进化）
 
@@ -19,7 +21,14 @@ from typing import Optional
 from datetime import datetime
 from pathlib import Path
 
-from utils.llm_client import SimpleLLMClient
+# 优先使用 ADK LLM 客户端
+try:
+    from utils.adk_llm_client import UnifiedLLMClient as LLMClient
+    logger_msg = "使用 ADK UnifiedLLMClient"
+except ImportError:
+    from utils.llm_client import SimpleLLMClient as LLMClient
+    logger_msg = "使用传统 SimpleLLMClient"
+
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
@@ -30,6 +39,7 @@ from utils.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)
+logger.info(logger_msg)
 
 
 class UnifiedInteractiveDemo:
@@ -84,10 +94,10 @@ class UnifiedInteractiveDemo:
         """初始化DST模式"""
         logger.info(f"初始化DST模式 - {self.config.name}")
         
-        # 创建LLM客户端（如果还未创建）
+        # 创建LLM客户端（如果还未创建）- 使用 ADK UnifiedLLMClient 或 SimpleLLMClient
         if self.llm_client is None:
             try:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = LLMClient()
             except (ValueError, RuntimeError) as e:
                 logger.error(f"LLM客户端初始化失败: {e}")
                 print(f"\n{'='*60}")
@@ -99,17 +109,19 @@ class UnifiedInteractiveDemo:
                 if "API key" in error_str or "API_KEY" in error_str:
                     print("\n📝 请配置.env文件，添加以下内容：")
                     print("=" * 60)
-                    print("# 选择一个配置即可")
+                    print("# ADK v0.5.0 - 使用 Google GenAI")
+                    print("GOOGLE_API_KEY=your-google-api-key")
+                    print("GOOGLE_MODEL=gemini-2.0-flash-exp")
+                    print()
+                    print("# 或使用传统配置")
                     print("QWEN3_API_KEY=sk-your-api-key-here")
                     print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
                     print("QWEN3_MODEL=Qwen3-32B")
                     print("=" * 60)
-                    print("\n支持的环境变量名：")
-                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
-                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
-                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
-                elif "OpenAI" in error_str:
-                    print("\n请安装OpenAI包：")
+                elif "OpenAI" in error_str or "google-genai" in error_str:
+                    print("\n请安装依赖包：")
+                    print("  pip install google-genai")
+                    print("  或")
                     print("  pip install openai")
                 print()
                 sys.exit(1)
@@ -147,10 +159,10 @@ class UnifiedInteractiveDemo:
         """初始化ContextMind模式"""
         logger.info(f"初始化ContextMind模式 - {self.config.name}")
         
-        # 创建LLM客户端（如果还未创建）
+        # 创建LLM客户端（如果还未创建）- 使用 ADK UnifiedLLMClient 或 SimpleLLMClient
         if self.llm_client is None:
             try:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = LLMClient()
             except (ValueError, RuntimeError) as e:
                 logger.error(f"LLM客户端初始化失败: {e}")
                 print(f"\n{'='*60}")
@@ -162,18 +174,12 @@ class UnifiedInteractiveDemo:
                 if "API key" in error_str or "API_KEY" in error_str:
                     print("\n📝 请配置.env文件，添加以下内容：")
                     print("=" * 60)
-                    print("# 选择一个配置即可")
-                    print("QWEN3_API_KEY=sk-your-api-key-here")
-                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-                    print("QWEN3_MODEL=Qwen3-32B")
+                    print("# ADK v0.5.0 - 使用 Google GenAI")
+                    print("GOOGLE_API_KEY=your-google-api-key")
                     print("=" * 60)
-                    print("\n支持的环境变量名：")
-                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
-                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
-                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
-                elif "OpenAI" in error_str:
-                    print("\n请安装OpenAI包：")
-                    print("  pip install openai")
+                elif "OpenAI" in error_str or "google-genai" in error_str:
+                    print("\n请安装依赖包：")
+                    print("  pip install google-genai")
                 print()
                 sys.exit(1)
         
