@@ -24,8 +24,8 @@ v0.4.1 - 直接使用 ADK，专注于进化方法和记忆优化。
 # ADK Agent (先导入，避免循环依赖)
 from .agent import EvolutionAgent
 
-# 导入 QwenConfig 作为配置
-from utils.qwen_client import QwenConfig as EvolutionConfig
+# 导入 QwenADKConfig 作为配置
+from utils.adk_config import QwenADKConfig as EvolutionConfig
 
 # 核心数据模型和类型 (直接从子模块导入，避免 core.__init__ 的循环)
 from .core.data_models import (

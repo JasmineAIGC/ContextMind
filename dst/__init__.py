@@ -34,8 +34,8 @@ from dst.dialogue_state_tracker import DialogueStateTracker
 # ADK Agent
 from dst.adk_agent import DSTAgent
 
-# 导入 QwenConfig 作为配置
-from utils.qwen_client import QwenConfig as DSTConfig
+# 导入 QwenADKConfig 作为配置
+from utils.adk_config import QwenADKConfig as DSTConfig
 
 __all__ = [
     'DialogueStateTracker',

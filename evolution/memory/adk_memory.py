@@ -2,7 +2,7 @@
 Evolution Memory Bank using google-adk
 
 使用 google-adk 的 InMemoryMemoryService 来管理记忆。
-简化了原有的 bank.py 实现，从 ~200 行减少到 ~80 行。
+提供与 EvolutionEngine 兼容的接口。
 
 版本: v0.4.1
 """
@@ -10,7 +10,9 @@ Evolution Memory Bank using google-adk
 from typing import List, Optional, Dict, Any
 from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import Session
-from evolution.core.data_models import Memory, MemoryType
+
+from evolution.core.types import ContextSource, KnowledgeType
+from evolution.core.data_models import Knowledge, ContextItem
 from utils.logger import get_logger
 
 logger = get_logger("evolution.memory.adk_memory")
@@ -26,51 +28,142 @@ class ADKMemoryBank:
     
     本类负责：
     - 提供简化的记忆管理接口
-    - 记忆的分类和组织（knowledge, long_term 等）
-    - 兼容 Evolution 的数据模型
+    - 与 EvolutionEngine 兼容的 API
+    - 记忆的分类和组织
     
     注意：进化相关的逻辑（适应度计算、进化更新）仍由
     evolution/evolution/ 模块负责
     """
     
-    def __init__(self, app_name: str, user_id: str):
+    def __init__(
+        self,
+        app_name: str,
+        user_id: str,
+        memory_service: Optional[InMemoryMemoryService] = None,
+        session_service: Optional[Any] = None,
+        **kwargs
+    ):
         """
         初始化记忆库
         
         Args:
             app_name: 应用名称
             user_id: 用户ID
+            memory_service: 可选的 ADK 内存服务（如果不提供则创建新的）
+            session_service: 可选的会话服务（用于集成）
+            **kwargs: 其他参数（向后兼容）
         """
         self.app_name = app_name
         self.user_id = user_id
         
-        # 使用 ADK 的 Memory Service
-        self.memory_service = InMemoryMemoryService()
+        # 使用提供的或创建新的 ADK Memory Service
+        self.memory_service = memory_service or InMemoryMemoryService()
+        self.session_service = session_service
         
-        # 本地缓存：按类型组织记忆
-        # ADK 的 search_memory 主要用于语义搜索
-        # 我们仍需要按类型快速访问，所以保留简单的缓存
-        self.memories: Dict[MemoryType, List[Memory]] = {
-            MemoryType.KNOWLEDGE: [],
-            MemoryType.LONG_TERM: [],
-            MemoryType.SHORT_TERM: []
-        }
+        # 本地缓存：存储 Knowledge 对象
+        # 提供快速访问和简单的内存管理
+        self._memory_cache: List[ContextItem] = []
+        self._knowledge_store: List[Knowledge] = []
         
         logger.info(f"[ADK Memory] 初始化成功 - app:{app_name}, user:{user_id}")
     
-    async def store_memory(self, memory: Memory) -> None:
+    async def store(self, knowledge_list: List[Knowledge]) -> None:
         """
-        存储记忆
+        存储知识到记忆库
         
         Args:
-            memory: 记忆对象
+            knowledge_list: 知识对象列表
         """
-        # 添加到本地缓存
-        if memory.memory_type not in self.memories:
-            self.memories[memory.memory_type] = []
-        self.memories[memory.memory_type].append(memory)
+        for knowledge in knowledge_list:
+            # 添加到知识存储
+            self._knowledge_store.append(knowledge)
+            
+            # 同时创建 ContextItem 用于检索
+            context_item = ContextItem(
+                content=knowledge.content,
+                source=ContextSource.MEMORY,
+                score=knowledge.scores.confidence,
+                metadata={
+                    "type": knowledge.knowledge_type.value,
+                    "memory_id": knowledge.memory_id,
+                }
+            )
+            self._memory_cache.append(context_item)
+            
+            logger.debug(
+                f"[ADK Memory] 存储知识 - type:{knowledge.knowledge_type.value}, "
+                f"content_len:{len(knowledge.content)}"
+            )
         
-        logger.debug(f"[ADK Memory] 存储记忆 - type:{memory.memory_type}, content_len:{len(memory.content)}")
+        logger.info(f"[ADK Memory] 存储 {len(knowledge_list)} 条知识")
+    
+    async def retrieve(
+        self,
+        query: str,
+        limit: int = 10
+    ) -> List[ContextItem]:
+        """
+        检索相关记忆
+        
+        Args:
+            query: 查询文本
+            limit: 返回的最大结果数
+            
+        Returns:
+            ContextItem 列表
+        """
+        # 简单的基于关键词的检索
+        # 未来可以使用 ADK 的语义搜索增强
+        results = []
+        
+        query_lower = query.lower()
+        for item in self._memory_cache:
+            # 简单的关键词匹配评分
+            if query_lower in item.content.lower():
+                # 匹配到的项获得较高分数
+                item.score = 0.8
+                results.append(item)
+            elif any(word in item.content.lower() for word in query_lower.split()):
+                # 部分匹配
+                item.score = 0.5
+                results.append(item)
+        
+        # 按分数排序
+        results.sort(key=lambda x: x.score, reverse=True)
+        
+        # 限制返回数量
+        results = results[:limit]
+        
+        logger.debug(f"[ADK Memory] 检索 - query:{query[:50]}, results:{len(results)}")
+        return results
+    
+    def get_memory_cache(self) -> List[ContextItem]:
+        """
+        获取记忆缓存
+        
+        Returns:
+            ContextItem 列表
+        """
+        return self._memory_cache.copy()
+    
+    async def seed(self, facts: List[str]) -> None:
+        """
+        植入初始事实
+        
+        Args:
+            facts: 事实字符串列表
+        """
+        knowledge_list = []
+        for fact in facts:
+            knowledge = Knowledge(
+                knowledge_type=KnowledgeType.FACT,
+                content=fact,
+                extraction_method="seed"
+            )
+            knowledge_list.append(knowledge)
+        
+        await self.store(knowledge_list)
+        logger.info(f"[ADK Memory] 植入 {len(facts)} 条初始事实")
     
     async def add_session_to_memory(self, session: Session) -> None:
         """
@@ -79,13 +172,15 @@ class ADKMemoryBank:
         Args:
             session: ADK Session 对象
         """
-        # 使用 ADK 的 add_session_to_memory 功能
-        self.memory_service.add_session_to_memory(session)
-        logger.info(f"[ADK Memory] 添加会话到记忆 - session_id:{session.session_id}")
+        try:
+            self.memory_service.add_session_to_memory(session)
+            logger.info(f"[ADK Memory] 添加会话到记忆 - session_id:{session.session_id}")
+        except Exception as e:
+            logger.warning(f"[ADK Memory] 添加会话失败: {e}")
     
     async def search_memory(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
-        搜索记忆（使用 ADK 的语义搜索）
+        使用 ADK 搜索记忆（语义搜索）
         
         Args:
             query: 查询文本
@@ -95,14 +190,12 @@ class ADKMemoryBank:
             搜索结果列表
         """
         try:
-            # 使用 ADK 的 search_memory 功能
             response = self.memory_service.search_memory(
                 app_name=self.app_name,
                 user_id=self.user_id,
                 query=query
             )
             
-            # 提取结果（取前 top_k 个）
             results = []
             if hasattr(response, 'memories'):
                 for mem in response.memories[:top_k]:
@@ -111,42 +204,14 @@ class ADKMemoryBank:
                         'score': mem.score if hasattr(mem, 'score') else 1.0
                     })
             
-            logger.debug(f"[ADK Memory] 搜索记忆 - query:{query[:50]}, results:{len(results)}")
+            logger.debug(f"[ADK Memory] ADK搜索 - query:{query[:50]}, results:{len(results)}")
             return results
         except Exception as e:
-            logger.warning(f"[ADK Memory] 搜索失败: {e}")
+            logger.warning(f"[ADK Memory] ADK搜索失败: {e}")
             return []
     
-    async def get_memories_by_type(self, memory_type: MemoryType) -> List[Memory]:
-        """
-        按类型获取记忆（本地缓存）
-        
-        Args:
-            memory_type: 记忆类型
-            
-        Returns:
-            记忆列表
-        """
-        return self.memories.get(memory_type, [])
-    
-    async def get_all_memories(self) -> List[Memory]:
-        """获取所有记忆"""
-        all_memories = []
-        for memories in self.memories.values():
-            all_memories.extend(memories)
-        return all_memories
-    
-    async def clear_memories(self, memory_type: Optional[MemoryType] = None) -> None:
-        """
-        清空记忆
-        
-        Args:
-            memory_type: 如果指定，只清空该类型的记忆；否则清空所有记忆
-        """
-        if memory_type:
-            self.memories[memory_type] = []
-            logger.info(f"[ADK Memory] 清空 {memory_type} 记忆")
-        else:
-            for mtype in self.memories:
-                self.memories[mtype] = []
-            logger.info("[ADK Memory] 清空所有记忆")
+    async def clear(self) -> None:
+        """清空所有记忆"""
+        self._memory_cache.clear()
+        self._knowledge_store.clear()
+        logger.info("[ADK Memory] 清空所有记忆")
