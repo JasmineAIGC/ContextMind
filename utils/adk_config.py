@@ -1,10 +1,12 @@
 """
 Google ADK 配置模块
 
-配置 Qwen API（OpenAI 兼容接口）
+配置基于 google-adk BaseLlm 的 OpenAI 兼容模型（如 Qwen API）
 
-注意：google-adk 主要支持 Gemini，不直接支持 OpenAI。
-我们使用 openai SDK 调用 Qwen API，然后在 Agent 层手动集成。
+架构说明：
+- 使用 google-adk 的 BaseLlm 作为基类
+- 通过自定义 OpenAILlm 适配器支持 OpenAI 兼容接口
+- 提供统一的 ADK 接口，易于切换模型提供商
 
 Version: v0.4.1
 """
@@ -16,7 +18,7 @@ from typing import Optional
 
 @dataclass
 class QwenADKConfig:
-    """Qwen API 配置（用于 ADK）"""
+    """Qwen API 配置（用于 ADK OpenAILlm 适配器）"""
     api_key: str
     base_url: str
     model: str = "Qwen2.5-7B-Instruct"
@@ -39,9 +41,12 @@ def create_qwen_config(config: Optional[QwenADKConfig] = None) -> QwenADKConfig:
     """
     创建 Qwen 配置
     
-    注意：由于 google-adk 不直接支持 OpenAI 兼容接口，
-    我们保持使用 openai SDK，但可以在 Agent 层使用 ADK 的其他功能
-    （如 Session, Memory）。
+    基于 google-adk 的设计理念，通过 OpenAILlm 适配器使用 OpenAI 兼容接口。
+    
+    优势：
+    - 统一的 ADK BaseLlm 接口
+    - 易于切换到其他 LLM 提供商（如 Gemini）
+    - 保持对现有 Qwen API 的兼容
     
     Args:
         config: Qwen 配置，如果为 None 则从环境变量加载

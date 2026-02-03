@@ -1,19 +1,20 @@
 """
 DST 模式的 Agent 实现
 
-使用 openai SDK 调用 Qwen API，同时使用 google-adk 的 Session 和 Memory 服务。
+基于 google-adk 的 BaseLlm，使用自定义 OpenAILlm 适配器调用 Qwen API。
 
 Version: v0.4.1
 
 ## 架构说明
 
-- LLM 调用: 使用 openai SDK（Qwen API 兼容）
+- LLM 调用: 基于 google-adk.models.BaseLlm（通过 OpenAILlm 适配器）
 - Session 管理: 可以使用 google-adk.sessions（如果需要）
+- 优势: 统一的 ADK 接口，易于切换模型
 """
 
 from typing import Dict, List, Optional
-from openai import AsyncOpenAI, OpenAI
 from utils.adk_config import create_qwen_config, QwenADKConfig
+from utils.adk_openai_model import OpenAILlm
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,7 +23,7 @@ logger = get_logger(__name__)
 class DSTAgent:
     """DST 模式专用的 Agent
     
-    LLM 层使用 openai SDK
+    基于 google-adk 的 BaseLlm，使用 OpenAILlm 适配器
     """
     
     def __init__(self, config: Optional[QwenADKConfig] = None):
@@ -33,18 +34,16 @@ class DSTAgent:
         """
         self.config = config or create_qwen_config()
         
-        # 使用 openai SDK 创建客户端（Qwen API 兼容）
-        self.async_client = AsyncOpenAI(
+        # 使用 ADK 兼容的 OpenAILlm（基于 BaseLlm）
+        self.llm = OpenAILlm(
+            model=self.config.model,
             api_key=self.config.api_key,
-            base_url=self.config.base_url
+            base_url=self.config.base_url,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens
         )
         
-        self.sync_client = OpenAI(
-            api_key=self.config.api_key,
-            base_url=self.config.base_url
-        )
-        
-        logger.info(f"[DST Agent] 初始化成功，模型: {self.config.model}")
+        logger.info(f"[DST Agent] 初始化成功（基于 ADK），模型: {self.config.model}")
     
     async def chat_async(
         self,
@@ -63,16 +62,8 @@ class DSTAgent:
             LLM 响应文本
         """
         try:
-            # 使用 openai SDK 调用 Qwen API
-            response = await self.async_client.chat.completions.create(
-                model=self.config.model,
-                messages=messages,
-                temperature=temperature or self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                **kwargs
-            )
-            
-            return response.choices[0].message.content
+            # 使用 ADK 兼容的 OpenAILlm
+            return await self.llm.chat_async(messages, temperature, **kwargs)
             
         except Exception as e:
             logger.error(f"DST Agent 调用失败: {e}")
@@ -95,16 +86,8 @@ class DSTAgent:
             LLM 响应文本
         """
         try:
-            # 使用 openai SDK 调用 Qwen API
-            response = self.sync_client.chat.completions.create(
-                model=self.config.model,
-                messages=messages,
-                temperature=temperature or self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                **kwargs
-            )
-            
-            return response.choices[0].message.content
+            # 使用 ADK 兼容的 OpenAILlm
+            return self.llm.chat(messages, temperature, **kwargs)
             
         except Exception as e:
             logger.error(f"DST Agent 调用失败: {e}")

@@ -2,6 +2,8 @@
 Embedding Utilities - 向量嵌入工具
 
 提供文本嵌入生成和相似度计算功能，用于语义检索和去重。
+
+基于 google-adk 的设计理念，同时保持对 OpenAI 兼容 API 的支持。
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 # 尝试导入 OpenAI，用于生成嵌入向量
+# 注意：这里仍然使用 OpenAI SDK，因为 google-adk 暂不支持 embedding API
+# 但我们遵循 ADK 的设计模式，为未来迁移做准备
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
