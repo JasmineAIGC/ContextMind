@@ -1,0 +1,81 @@
+{
+  "dialogue_id": "对话4",
+  "dialogue_summary": "中年客户已有保险但态度开放，表示可以接受适度增加支出",
+  "extracted_knowledge": {
+    "user_preferences": [
+      {
+        "content": "客户对增加保障持开放态度",
+        "confidence": 0.9
+      },
+      {
+        "content": "客户可以接受适度增加保险支出",
+        "confidence": 0.95
+      }
+    ],
+    "facts": [
+      {
+        "content": "客户年龄50岁以上",
+        "confidence": 0.95
+      },
+      {
+        "content": "客户已有保险，曾做过整理",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户有癌症保险或特约，保障已较充实",
+        "confidence": 0.9
+      }
+    ],
+    "patterns": [
+      {
+        "content": "对50岁以上客户推荐半额方案可降低门槛",
+        "confidence": 0.9
+      },
+      {
+        "content": "确认客户保障充实程度有助于定位需求",
+        "confidence": 0.85
+      },
+      {
+        "content": "态度开放的客户更容易接受追加方案",
+        "confidence": 0.9
+      }
+    ],
+    "strategies": [
+      {
+        "content": "对态度开放的客户，强调作为追加组合加入",
+        "confidence": 0.9
+      },
+      {
+        "content": "强调没有持有期限限制可降低客户顾虑",
+        "confidence": 0.85
+      }
+    ],
+    "experiences": [
+      {
+        "content": "态度开放的客户有转化可能，应积极跟进",
+        "confidence": 0.95
+      },
+      {
+        "content": "客户主动表示'增加一些也没关系'是积极信号",
+        "confidence": 0.9
+      }
+    ]
+  },
+  "memory_items": [
+    {
+      "content": "态度开放的客户是高优先级跟进对象",
+      "importance": 0.95,
+      "category": "strategies"
+    },
+    {
+      "content": "50岁以上客户可推荐半额方案作为补充",
+      "importance": 0.85,
+      "category": "strategies"
+    },
+    {
+      "content": "客户表示可以接受增加支出是重要的积极信号",
+      "importance": 0.9,
+      "category": "patterns"
+    }
+  ]
+}

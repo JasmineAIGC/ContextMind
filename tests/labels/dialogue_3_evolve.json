@@ -1,0 +1,76 @@
+{
+  "dialogue_id": "对话3",
+  "dialogue_summary": "年轻客户保险支出已超5万日元/月，无法再增加新保险",
+  "extracted_knowledge": {
+    "user_preferences": [
+      {
+        "content": "客户已有大量保险，月付超过5万日元",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户关注保障全面性，而非单一癌症保障",
+        "confidence": 0.8
+      }
+    ],
+    "facts": [
+      {
+        "content": "客户月付保险费超过5万日元",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户可能参加合作社已6年",
+        "confidence": 0.9
+      },
+      {
+        "content": "月保费仅1090日元但客户仍无法接受",
+        "confidence": 1.0
+      }
+    ],
+    "patterns": [
+      {
+        "content": "询问产品是否只保癌症是常见的需求确认问题",
+        "confidence": 0.85
+      },
+      {
+        "content": "强调推荐期限能增加紧迫感但效果有限",
+        "confidence": 0.7
+      }
+    ],
+    "strategies": [
+      {
+        "content": "对于保险过度客户，提及可作为单独额度领取和组合补充",
+        "confidence": 0.8
+      },
+      {
+        "content": "当客户明确表示保险已够时，应建议未来审视保险时再考虑",
+        "confidence": 0.9
+      }
+    ],
+    "experiences": [
+      {
+        "content": "保险支出过高的客户几乎无法增加新保险",
+        "confidence": 0.95
+      },
+      {
+        "content": "即使保费很低，客户也会因总支出过高而拒绝",
+        "confidence": 0.9
+      },
+      {
+        "content": "年轻客户可能已有大量保险配置",
+        "confidence": 0.75
+      }
+    ]
+  },
+  "memory_items": [
+    {
+      "content": "月付5万日元以上的客户已是保险过度配置，难以增加新保险",
+      "importance": 0.95,
+      "category": "facts"
+    },
+    {
+      "content": "保险过度客户需要不同策略，如建议审视现有配置",
+      "importance": 0.85,
+      "category": "strategies"
+    }
+  ]
+}

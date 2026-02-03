@@ -1,0 +1,81 @@
+{
+  "dialogue_id": "对话7",
+  "dialogue_summary": "年轻客户询问后因产品只保癌症不符合综合保障需求而明确拒绝",
+  "extracted_knowledge": {
+    "user_preferences": [
+      {
+        "content": "客户需要综合住院保障，不仅限于癌症",
+        "confidence": 0.95
+      },
+      {
+        "content": "客户期望保险能覆盖多种疾病住院",
+        "confidence": 0.9
+      }
+    ],
+    "facts": [
+      {
+        "content": "客户表示正忙但愿意简单听介绍",
+        "confidence": 1.0
+      },
+      {
+        "content": "产品是癌症专属保险，非综合医疗保险",
+        "confidence": 1.0
+      },
+      {
+        "content": "月保费1570日元",
+        "confidence": 1.0
+      }
+    ],
+    "patterns": [
+      {
+        "content": "客户询问'不是癌症住院也赔付吗'说明需求不匹配",
+        "confidence": 0.95
+      },
+      {
+        "content": "快速明确拒绝说明客户需求非常清晰",
+        "confidence": 0.9
+      }
+    ],
+    "strategies": [
+      {
+        "content": "当产品不符合客户需求时，应快速确认并礼貌结束",
+        "confidence": 0.9
+      },
+      {
+        "content": "需求不匹配时不应强行推销，保持良好印象",
+        "confidence": 0.85
+      }
+    ],
+    "experiences": [
+      {
+        "content": "需求不匹配的客户快速拒绝，难以转化",
+        "confidence": 0.95
+      },
+      {
+        "content": "年轻客户可能更注重综合保障而非单一疾病保障",
+        "confidence": 0.8
+      },
+      {
+        "content": "客户明确说'不用了'应立即停止推销",
+        "confidence": 0.9
+      }
+    ]
+  },
+  "memory_items": [
+    {
+      "content": "需求不匹配是无法通过销售技巧克服的硬性障碍",
+      "importance": 0.95,
+      "category": "experiences"
+    },
+    {
+      "content": "客户询问保障范围时应先确认需求再介绍产品",
+      "importance": 0.85,
+      "category": "strategies"
+    },
+    {
+      "content": "年轻客户可能更注重综合保障而非单一疾病保障",
+      "importance": 0.75,
+      "category": "patterns"
+    }
+  ]
+}

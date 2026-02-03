@@ -1,0 +1,81 @@
+{
+  "dialogue_id": "对话1",
+  "dialogue_summary": "销售员向已有保险的客户推销团体癌症保险，客户表示现有保障足够，最终委婉拒绝",
+  "extracted_knowledge": {
+    "user_preferences": [
+      {
+        "content": "客户满意现有保险配置，不希望增加额外保障",
+        "confidence": 0.9
+      },
+      {
+        "content": "客户偏好使用合作社现有保障",
+        "confidence": 0.85
+      }
+    ],
+    "facts": [
+      {
+        "content": "客户已购买癌症保险和其他医疗保险",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户认为合作社现有保障已足够",
+        "confidence": 0.95
+      },
+      {
+        "content": "月保费5140日元",
+        "confidence": 1.0
+      }
+    ],
+    "patterns": [
+      {
+        "content": "反复确认'果然还是有点难决定'容易让客户产生压力",
+        "confidence": 0.75
+      },
+      {
+        "content": "提供半额方案作为降级选择是标准销售流程",
+        "confidence": 0.9
+      },
+      {
+        "content": "客户说'嗯'表示犹豫，需要进一步引导",
+        "confidence": 0.7
+      }
+    ],
+    "strategies": [
+      {
+        "content": "对已有保险客户，强调叠加保障和单独领取优势",
+        "confidence": 0.8
+      },
+      {
+        "content": "客户犹豫时询问原因有助于了解真实想法",
+        "confidence": 0.85
+      }
+    ],
+    "experiences": [
+      {
+        "content": "客户表示'现有保障够了'时，继续推销可能适得其反",
+        "confidence": 0.9
+      },
+      {
+        "content": "即使推荐半额方案，满足现状的客户仍然难以转化",
+        "confidence": 0.85
+      }
+    ]
+  },
+  "memory_items": [
+    {
+      "content": "对已有充足保障的客户，应尊重其决定，保持良好关系以便未来机会",
+      "importance": 0.9,
+      "category": "experiences"
+    },
+    {
+      "content": "反复推销容易让客户产生抵触情绪",
+      "importance": 0.8,
+      "category": "experiences"
+    },
+    {
+      "content": "客户已购买癌症保险和其他医疗保险，满意现有配置",
+      "importance": 0.75,
+      "category": "facts"
+    }
+  ]
+}

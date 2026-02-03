@@ -1,0 +1,109 @@
+{
+  "dialogue_id": "对话6",
+  "description": "中年客户询问产品类型后因不喜欢消费型保险而拒绝",
+  "turns": [
+    {
+      "turn_id": 1,
+      "system_utterance": "我是札幌合作社团体癌症保险担当。一直以来承蒙合作社关照。冒昧请问，札幌合作社会员様在家吗？",
+      "user_utterance": "啊，是我。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解"
+      }
+    },
+    {
+      "turn_id": 2,
+      "system_utterance": "今天是为了向札幌合作社会员专属的团体癌症保险做介绍而联系。",
+      "user_utterance": "请稍等一下。",
+      "expected_state": {
+        "intent_level1": "用户忙",
+        "intent_level2": "用户忙",
+        "intent_level3": "当前很忙"
+      }
+    },
+    {
+      "turn_id": 3,
+      "system_utterance": "您现在方便吗？",
+      "user_utterance": "是的，没问题。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 4,
+      "system_utterance": "请借此机会为癌症准备更充分的保障，您觉得如何？",
+      "user_utterance": "诶，30%折扣是指五千多日元的保费已经打了折扣吗？",
+      "expected_state": {
+        "intent_level1": "咨询",
+        "intent_level2": "询问保费",
+        "intent_level3": "价格敏感"
+      }
+    },
+    {
+      "turn_id": 5,
+      "system_utterance": "哦，是的。",
+      "user_utterance": "是的，那是纯消费型的。",
+      "expected_state": {
+        "intent_level1": "咨询",
+        "intent_level2": "询问保障内容",
+        "intent_level3": "充分了解"
+      }
+    },
+    {
+      "turn_id": 6,
+      "system_utterance": "是的，是定期保险的纯消费型。因为没有持有期限限制，即使您有癌症保险或其他癌症特约，也可以根据需要组合持有。这不是满期返还型。",
+      "user_utterance": "啊，那个有点……",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "不喜欢缴费型保险",
+        "intent_level3": "不感兴趣"
+      }
+    },
+    {
+      "turn_id": 7,
+      "system_utterance": "不符合您的期望吗？",
+      "user_utterance": "是的。嗯，虽然有可能患癌，但……",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "不喜欢缴费型保险",
+        "intent_level3": "谨慎态度"
+      }
+    },
+    {
+      "turn_id": 8,
+      "system_utterance": "请问您有癌症保险或癌症特约吗？",
+      "user_utterance": "没有癌症保障，不过有住院保险之类的。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有保险",
+        "has_insurance": "是",
+        "has_cancer_insurance": "否"
+      }
+    },
+    {
+      "turn_id": 9,
+      "system_utterance": "这份癌症保险只有患癌时才赔付，对吧。",
+      "user_utterance": "这次我会把资料寄过去。",
+      "expected_state": {
+        "intent_level1": "拒绝",
+        "intent_level2": "委婉拒绝",
+        "intent_level3": "委婉态度"
+      }
+    }
+  ],
+  "final_state": {
+    "intent_level1": "拒绝",
+    "intent_level2": "委婉拒绝",
+    "intent_level3": "不感兴趣",
+    "has_insurance": "是",
+    "has_cancer_insurance": "否",
+    "conversation_stage": "客户拒绝"
+  },
+  "dialogue_metadata": {
+    "monthly_premium": "5140日元",
+    "final_result": "拒绝",
+    "main_objection": "不喜欢消费型保险，想要返还型"
+  }
+}
