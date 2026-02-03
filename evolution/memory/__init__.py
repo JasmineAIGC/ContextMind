@@ -14,11 +14,11 @@ v0.4.1: 使用 ADK Session 和 Memory
 
 # 使用 ADK 版本（推荐）
 from .adk_session import ADKSessionManager
-from .adk_memory import ADKMemoryBank
+from .adk_memory import ADKMemoryBank  # 临时占位符实现，需要重构
 
 # 向后兼容别名
 SessionManager = ADKSessionManager
-MemoryBank = ADKMemoryBank
+MemoryBank = ADKMemoryBank  # 临时占位符实现，需要重构
 
 # STOPWORDS for backward compatibility
 STOPWORDS = set()
@@ -45,10 +45,10 @@ from .memory_fitness import (
 )
 
 __all__ = [
-    # 主 MemoryBank
-    "MemoryBank",
-    "STOPWORDS",
+    # 主组件
     "SessionManager",
+    "MemoryBank",  # 临时占位符实现，需要重构
+    "STOPWORDS",
     
     # 提取器 (步骤 1: 提取高价值信息)
     "BaseExtractor",

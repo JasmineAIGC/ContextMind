@@ -2,15 +2,18 @@
 Evolution Memory Bank using google-adk
 
 使用 google-adk 的 InMemoryMemoryService 来管理记忆。
-简化了原有的 bank.py 实现，从 ~200 行减少到 ~80 行。
 
 版本: v0.4.1
+
+注意: 此文件需要重构以匹配当前的数据模型。
+当前作为占位符存在以保持向后兼容性。
 """
 
 from typing import List, Optional, Dict, Any
 from google.adk.memory import InMemoryMemoryService
 from google.adk.sessions import Session
-from evolution.core.data_models import Memory, MemoryType
+# TODO: 修复导入 - Memory 和 MemoryType 需要正确的定义
+# from evolution.core.data_models import Memory, MemoryType
 from utils.logger import get_logger
 
 logger = get_logger("evolution.memory.adk_memory")
@@ -18,19 +21,10 @@ logger = get_logger("evolution.memory.adk_memory")
 
 class ADKMemoryBank:
     """
-    基于 google-adk InMemoryMemoryService 的记忆库
+    基于 google-adk InMemoryMemoryService 的记忆库（占位符实现）
     
-    ADK 负责：
-    - 记忆的存储和检索
-    - 语义搜索
-    
-    本类负责：
-    - 提供简化的记忆管理接口
-    - 记忆的分类和组织（knowledge, long_term 等）
-    - 兼容 Evolution 的数据模型
-    
-    注意：进化相关的逻辑（适应度计算、进化更新）仍由
-    evolution/evolution/ 模块负责
+    TODO: 此类需要重构以匹配当前的数据模型
+    当前仅提供基本结构以避免导入错误
     """
     
     def __init__(self, app_name: str, user_id: str):
@@ -47,30 +41,11 @@ class ADKMemoryBank:
         # 使用 ADK 的 Memory Service
         self.memory_service = InMemoryMemoryService()
         
-        # 本地缓存：按类型组织记忆
-        # ADK 的 search_memory 主要用于语义搜索
-        # 我们仍需要按类型快速访问，所以保留简单的缓存
-        self.memories: Dict[MemoryType, List[Memory]] = {
-            MemoryType.KNOWLEDGE: [],
-            MemoryType.LONG_TERM: [],
-            MemoryType.SHORT_TERM: []
-        }
+        # TODO: 实现正确的记忆存储结构
+        self.memories: Dict[str, List[Any]] = {}
         
-        logger.info(f"[ADK Memory] 初始化成功 - app:{app_name}, user:{user_id}")
-    
-    async def store_memory(self, memory: Memory) -> None:
-        """
-        存储记忆
-        
-        Args:
-            memory: 记忆对象
-        """
-        # 添加到本地缓存
-        if memory.memory_type not in self.memories:
-            self.memories[memory.memory_type] = []
-        self.memories[memory.memory_type].append(memory)
-        
-        logger.debug(f"[ADK Memory] 存储记忆 - type:{memory.memory_type}, content_len:{len(memory.content)}")
+        logger.info(f"[ADK Memory] 初始化成功（占位符） - app:{app_name}, user:{user_id}")
+        logger.warning("[ADK Memory] 此实现需要重构以匹配当前数据模型")
     
     async def add_session_to_memory(self, session: Session) -> None:
         """
@@ -116,37 +91,4 @@ class ADKMemoryBank:
         except Exception as e:
             logger.warning(f"[ADK Memory] 搜索失败: {e}")
             return []
-    
-    async def get_memories_by_type(self, memory_type: MemoryType) -> List[Memory]:
-        """
-        按类型获取记忆（本地缓存）
-        
-        Args:
-            memory_type: 记忆类型
-            
-        Returns:
-            记忆列表
-        """
-        return self.memories.get(memory_type, [])
-    
-    async def get_all_memories(self) -> List[Memory]:
-        """获取所有记忆"""
-        all_memories = []
-        for memories in self.memories.values():
-            all_memories.extend(memories)
-        return all_memories
-    
-    async def clear_memories(self, memory_type: Optional[MemoryType] = None) -> None:
-        """
-        清空记忆
-        
-        Args:
-            memory_type: 如果指定，只清空该类型的记忆；否则清空所有记忆
-        """
-        if memory_type:
-            self.memories[memory_type] = []
-            logger.info(f"[ADK Memory] 清空 {memory_type} 记忆")
-        else:
-            for mtype in self.memories:
-                self.memories[mtype] = []
-            logger.info("[ADK Memory] 清空所有记忆")
+

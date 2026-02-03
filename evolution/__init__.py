@@ -24,8 +24,8 @@ v0.4.1 - 直接使用 ADK，专注于进化方法和记忆优化。
 # ADK Agent (先导入，避免循环依赖)
 from .agent import EvolutionAgent
 
-# 导入 QwenConfig 作为配置
-from utils.qwen_client import QwenConfig as EvolutionConfig
+# 导入配置（向后兼容）
+from utils.adk_config import QwenADKConfig as EvolutionConfig
 
 # 核心数据模型和类型 (直接从子模块导入，避免 core.__init__ 的循环)
 from .core.data_models import (
@@ -43,7 +43,7 @@ from .engine import EvolutionEngine
 
 # ADK-based Session and Memory (v0.4.1 新增)
 from .memory.adk_session import ADKSessionManager
-from .memory.adk_memory import ADKMemoryBank
+from .memory.adk_memory import ADKMemoryBank  # 临时占位符实现
 
 __all__ = [
     # ADK Agent
@@ -55,7 +55,7 @@ __all__ = [
     
     # ADK Session and Memory (v0.4.1)
     "ADKSessionManager",
-    "ADKMemoryBank",
+    "ADKMemoryBank",  # 临时占位符实现
     
     # 数据模型
     "Message",
