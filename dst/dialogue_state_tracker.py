@@ -6,6 +6,7 @@
 - 智能历史管理（模板摘要或LLM摘要）
 - 多意图追踪
 - 优化的LLM使用（默认仅在槽位提取时调用）
+- 可选的 ADK (Agent Development Kit) 集成
 
 版本: v0.4.0
 """
@@ -16,6 +17,14 @@ from dst.data_models import DialogueTurn
 from dst.prompt_manager import PromptManager
 from dst.response_parser import ResponseParser
 from utils.logger import get_logger
+
+# 尝试导入 ADK 适配器
+try:
+    from utils.adk_adapter import is_adk_available, ADKSessionManager
+    ADK_INTEGRATION = is_adk_available()
+except ImportError:
+    ADK_INTEGRATION = False
+    ADKSessionManager = None  # type: ignore
 
 logger = get_logger(__name__)
 

@@ -25,6 +25,27 @@ v0.4.0 新增功能 - Utils模块独立化与增强DST：
     print(registry.list_retrievers())  # ['semantic', 'hybrid', 'locator']
 }
 
+v0.4.0 ADK 集成 - 使用 google-adk (Agent Development Kit):
+{
+    from utils import create_agent, ADKAgentBuilder, ADKRunner
+    
+    # 快速创建 Agent
+    agent = create_agent(
+        name="assistant",
+        instruction="你是一个友好的助手",
+        model="gemini-2.0-flash",
+    )
+    
+    # 使用 Builder 模式
+    agent = (
+        ADKAgentBuilder("assistant")
+        .with_instruction("你是一个友好的助手")
+        .with_model("gemini-2.0-flash")
+        .add_tool(my_function)
+        .build()
+    )
+}
+
 架构设计 (v7.0 - 纯上下文工程):
 ┌─────────────────────────────────────────┐
 │  应用层 (Application Layer)              │  ← demos/
@@ -50,6 +71,7 @@ v0.4.0 核心改进：
 - ✨ Utils独立化：将utils模块移至根目录，完全不依赖contextmind/baseline
 - ✨ 增强DST：完整的ACL 2023论文合规性实现
 - ✨ 知识提取：新增知识提取能力，支持LLM驱动的信息抽取
+- ✨ ADK集成：支持 google-adk (Agent Development Kit) 集成
 - ✨ 代码优化：改进模块组织和导入结构
 - ✨ 向后兼容：保持v7.3 API完全兼容
 - ✨ 文档更新：完善架构和使用文档

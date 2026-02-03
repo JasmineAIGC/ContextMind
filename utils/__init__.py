@@ -5,6 +5,7 @@
 - LLM Client: 统一的 LLM 客户端
 - Embedding: 嵌入向量工具
 - Data Models: 工具模块的数据模型
+- ADK Adapter: google-adk 集成支持
 
 所有模式都使用这些通用工具，确保一致性。
 utils 模块是完全独立的，不依赖 baseline 或 contextmind 模块。
@@ -30,6 +31,18 @@ from .data_models import (
     EmbeddingInfo,
 )
 
+# ADK 适配器 - google-adk 集成支持
+from .adk_adapter import (
+    ADKConfig,
+    ADKSessionManager,
+    ADKAgentBuilder,
+    ADKRunner,
+    create_agent,
+    create_function_tool,
+    is_adk_available,
+    ADK_AVAILABLE,
+)
+
 __all__ = [
     # Logger
     "LogLevel",
@@ -45,6 +58,15 @@ __all__ = [
     "LLMConfig",
     # Data Models
     "EmbeddingInfo",
+    # ADK Adapter
+    "ADKConfig",
+    "ADKSessionManager",
+    "ADKAgentBuilder",
+    "ADKRunner",
+    "create_agent",
+    "create_function_tool",
+    "is_adk_available",
+    "ADK_AVAILABLE",
 ]
 
 __version__ = "0.4.0"  # 独立工具模块，完全不依赖contextmind/baseline

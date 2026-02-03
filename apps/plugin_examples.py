@@ -3,11 +3,25 @@ Plugin 架构示例
 
 此文件演示如何使用 ContextMind 的 plugin 架构
 来自定义 memory 提取、检索和更新策略。
+
+v0.4.0 新增：
+- ADK (Agent Development Kit) 集成示例
+- 使用 ADKAgentBuilder 创建 Agent
+- 使用 ADKRunner 运行对话
 """
 
 import asyncio
 from contextmind import ContextEngine
 from contextmind.core.models import Message, MessageRole
+
+# 导入 ADK 适配器
+from utils.adk_adapter import (
+    is_adk_available,
+    ADK_AVAILABLE,
+    ADKAgentBuilder,
+    create_agent,
+    create_function_tool,
+)
 
 
 # ============================================================================
@@ -260,6 +274,63 @@ async def example_custom_updater():
 
 
 # ============================================================================
+# 示例 6: ADK Agent 创建（v0.4.0 新增）
+# ============================================================================
+
+async def example_adk_agent():
+    """
+    演示使用 ADK 创建 Agent。
+    """
+    print("=" * 80)
+    print("示例 6: ADK Agent 创建 (v0.4.0 新增)")
+    print("=" * 80)
+    
+    if not ADK_AVAILABLE:
+        print("\n⚠️  google-adk 未安装，跳过此示例")
+        print("   安装方法: pip install google-adk")
+        print("\n" + "=" * 80 + "\n")
+        return
+    
+    # 方法 1: 使用便捷函数
+    print("\n方法 1: 使用 create_agent() 便捷函数")
+    agent1 = create_agent(
+        name="simple-agent",
+        instruction="你是一个友好的助手",
+        model="gemini-2.0-flash",
+    )
+    print(f"✓ 创建 Agent: {agent1.name}")
+    
+    # 方法 2: 使用 Builder 模式
+    print("\n方法 2: 使用 ADKAgentBuilder")
+    agent2 = (
+        ADKAgentBuilder("advanced-agent")
+        .with_instruction("你是一个专业的技术助手")
+        .with_model("gemini-2.0-flash")
+        .with_description("提供技术问题解答")
+        .build()
+    )
+    print(f"✓ 创建 Agent: {agent2.name}")
+    
+    # 方法 3: 创建带工具的 Agent
+    print("\n方法 3: 创建带工具的 Agent")
+    
+    def get_current_time() -> str:
+        """获取当前时间"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    agent3 = (
+        ADKAgentBuilder("tool-agent")
+        .with_instruction("你是一个能查询时间的助手")
+        .add_tool(get_current_time)
+        .build()
+    )
+    print(f"✓ 创建带工具的 Agent: {agent3.name}")
+    
+    print("\n" + "=" * 80 + "\n")
+
+
+# ============================================================================
 # Main: 运行所有示例
 # ============================================================================
 
@@ -274,6 +345,7 @@ async def main():
     await example_custom_retriever()
     await example_custom_extractor()
     await example_custom_updater()
+    await example_adk_agent()  # v0.4.0 新增
     
     print("=" * 80)
     print("所有示例已完成！")
