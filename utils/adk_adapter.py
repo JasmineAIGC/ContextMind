@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, AsyncGenerator
 import os
+import re
+import uuid
 
 from .logger import get_logger
 
@@ -104,8 +106,6 @@ class ADKSessionManager:
         Returns:
             Session 对象
         """
-        import uuid
-        
         session_id = session_id or str(uuid.uuid4())
         cache_key = f"{user_id}:{session_id}"
         
@@ -295,7 +295,6 @@ class ADKRunner:
         Yields:
             响应文本片段
         """
-        import uuid
         from google.genai import types
         
         session_id = session_id or str(uuid.uuid4())
@@ -370,7 +369,6 @@ def _sanitize_agent_name(name: str) -> str:
     Returns:
         清理后的名称
     """
-    import re
     # 替换连字符和空格为下划线
     sanitized = re.sub(r'[-\s]+', '_', name)
     # 移除其他非法字符

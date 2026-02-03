@@ -15,6 +15,7 @@ ADK Application - 基于 google-adk 的应用示例
 
 import asyncio
 import logging
+import uuid
 from typing import Optional, List, Dict, Any
 
 from utils.logger import get_logger
@@ -138,7 +139,6 @@ class ADKChatApplication:
             session_id = self._user_sessions.get(user_id)
         
         if session_id is None:
-            import uuid
             session_id = str(uuid.uuid4())
             self._user_sessions[user_id] = session_id
         
@@ -172,7 +172,6 @@ class ADKChatApplication:
             session_id = self._user_sessions.get(user_id)
         
         if session_id is None:
-            import uuid
             session_id = str(uuid.uuid4())
             self._user_sessions[user_id] = session_id
         
@@ -193,7 +192,6 @@ class ADKChatApplication:
         Returns:
             新的会话 ID
         """
-        import uuid
         session_id = str(uuid.uuid4())
         self._user_sessions[user_id] = session_id
         return session_id
