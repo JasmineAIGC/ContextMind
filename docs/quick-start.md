@@ -36,7 +36,7 @@ python interactive_demo.py \
 
 ### 所有参数
 - `--scenario`: chat | callcenter | insurance
-- `--mode`: dst | contextmind
+- `--mode`: dst | evolve
 - `--log-level`: DEBUG | INFO | WARNING | ERROR
 - `--max-history-turns`: 数字（默认10）
 - `--enable-summary` / `--no-summary`

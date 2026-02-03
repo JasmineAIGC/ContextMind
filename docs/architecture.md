@@ -32,7 +32,7 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 ```
 
 **架构变更（v0.4.1）：**
-- ✅ **Utils独立化** - utils模块移至根目录，完全不依赖contextmind/baseline
+- ✅ **Utils独立化** - utils模块移至根目录，完全独立
 - ✅ **知识提取增强** - 新增LLM驱动的知识提取能力
 - ✅ **DST完整实现** - 完整的ACL 2023论文合规性实现
 - ✅ **ResponseHandler增强** - 完整的响应处理和知识提取流程
@@ -42,12 +42,19 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 
 ```
 ContextMind/
-├── contextmind/              # 核心框架
+├── evolve/                   # Evolve 核心框架
 │   ├── __init__.py          # 主要导出
-│   ├── config.py            # 易集成 API（ContextMind 类）
-│   ├── engine.py            # 主编排引擎（ContextEngine）
-│   ├── models.py            # 数据模型
-│   ├── registry.py          # 组件注册表
+│   ├── engine.py            # 主编排引擎（EvolveEngine）
+│   │
+│   │ # 核心系统组件
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── configs.py       # 配置类
+│   │   ├── data_models.py   # 数据模型
+│   │   ├── models.py        # 领域模型
+│   │   ├── registry.py      # 注册系统
+│   │   ├── strategies.py    # 策略定义
+│   │   └── types.py         # 类型定义
 │   │
 │   │ # 流水线架构 - 5 步
 │   ├── pipeline/
@@ -67,23 +74,17 @@ ContextMind/
 │   │   ├── retriever.py     # 检索相关记忆
 │   │   └── updater.py       # 记忆更新（添加/删除/更新）
 │   │
-│   ├── strategies/          # 策略接口
-│   │   ├── __init__.py      # 从 memory 重新导出
-│   │   ├── base.py          # 基础策略接口
-│   │   └── defaults.py      # 默认实现
-│   │
-│   ├── core/                # 核心系统组件
-│   │   ├── __init__.py
-│   │   ├── configs.py       # 配置类
-│   │   ├── data_models.py   # 数据模型
-│   │   ├── models.py        # 领域模型
-│   │   ├── registry.py      # 注册系统
-│   │   └── types.py         # 类型定义
-│   │
 │   └── evolution/           # 进化式优化（高级功能）
 │       ├── __init__.py
 │       ├── evolutionary_updater.py
 │       └── feedback_system.py
+│
+├── dst/                     # 增强的 DST 实现 (v0.4.1)
+│   ├── __init__.py
+│   ├── data_models.py       # 数据模型
+│   ├── dialogue_state_tracker.py  # 完整 ACL 2023 实现
+│   ├── prompt_manager.py    # 提示词管理器
+│   └── response_parser.py   # 响应解析器
 │
 ├── utils/                   # 独立工具模块 (v0.4.1 移至根目录)
 │   ├── __init__.py          # 导出所有工具
@@ -92,31 +93,35 @@ ContextMind/
 │   ├── embedding.py         # 嵌入向量工具
 │   └── data_models.py       # 数据模型
 │
-├── dst/                # 增强的 DST 实现 (v0.4.1)
+├── scenarios/               # 场景配置
 │   ├── __init__.py
-│   └── dialogue_state_tracker.py  # 完整 ACL 2023 实现
+│   ├── config.py            # 配置基类
+│   ├── chat_scenario.py     # 闲聊场景
+│   ├── callcenter_scenario.py  # 客服场景
+│   └── insurance_scenario.py   # 保险场景
 │
-├── examples/                # 示例和演示
+├── apps/                    # 应用示例
 │   ├── chat_app.py
 │   ├── callcenter_app.py
-│   ├── gradio_app.py
-│   ├── interactive_app.py
+│   ├── insurance_app.py
 │   └── plugin_examples.py
 │
 ├── docs/                    # 文档
-│   ├── ARCHITECTURE.md      # 本文档 (v0.4.1)
-│   ├── BASIC_DST_DOCUMENTATION.md  # DST文档
-│   ├── CHANGELOG.md         # 变更日志 (v0.4.1)
-│   ├── MIGRATION.md         # 迁移指南 (v0.4.1)
-│   └── DST_*.md            # DST 增强文档
+│   ├── architecture.md      # 本文档 (v0.4.1)
+│   ├── modes.md             # 模式对比文档
+│   ├── quick-start.md       # 快速开始指南
+│   └── ...                  # 其他文档
 │
-├── test_knowledge_extraction.py  # 知识提取测试 (v0.4.1新增)
-├── baseline_demo.py         # 基础版本演示
-├── chat_interactive_demo.py # 聊天命令行演示
-├── chat_gradio_demo.py      # 聊天 Web 演示
-├── callcenter_*_demo.py     # 客服场景演示
-├── tests/                   # 单元和集成测试
-└── logs/                    # 日志文件
+├── data/                    # 数据目录
+│   └── duihua.md            # 对话样本数据
+│
+├── prompts.py               # 系统提示词管理
+├── interactive_demo.py      # 统一交互式演示
+├── gradio_demo.py           # Web 界面演示
+├── ui_components.py         # UI 组件
+├── requirements.txt         # 依赖包
+├── logs/                    # 日志文件
+└── .env                     # 环境配置
 ```
 
 ## 核心组件
@@ -211,24 +216,19 @@ MemoryBank 实现了 4 子模块架构：
 - 由 ContextCompressor 使用
 - 在保留上下文的同时减少 token 使用
 
-#### ContextEngine (`engine.py`)
+#### EvolveEngine (`engine.py`)
 - 主编排引擎
 - 协调所有流水线组件
 - 提供高级 API：`optimize()`、`update()`、`extract_knowledge()`
-
-#### ContextMind (`config.py`)
-- 易集成 API
-- 简化配置
-- 插件注册表集成
 
 ## v0.4.1 核心特性
 
 ### 1. 独立的 Utils 模块
 
 **变更说明：**
-- utils 模块从 `contextmind/utils/` 移至根目录 `utils/`
-- 完全独立，不依赖 contextmind 或 dst 模块
-- 统一的工具供所有模式使用（DST 和 ContextMind）
+- utils 模块移至根目录 `utils/`
+- 完全独立，不依赖 evolve 或 dst 模块
+- 统一的工具供所有模式使用（DST 和 Evolve）
 
 **新结构：**
 ```python
@@ -245,9 +245,6 @@ utils/
 # v0.4.1 新导入方式
 from utils import get_logger, SimpleLLMClient, LLMConfig
 from utils.embedding import get_embedding
-
-# 旧方式不再支持
-# from contextmind.utils.logger import get_logger  ❌
 ```
 
 ### 2. 知识提取能力
@@ -349,31 +346,26 @@ await engine.update(user_input, assistant_response)
 # Utils 模块 - 从根目录导入
 from utils import get_logger, SimpleLLMClient, LLMConfig
 from utils.embedding import get_embedding
-from utils.data_models import Message, KnowledgeItem
 
 # 流水线组件
-from contextmind.pipeline import (
-    InputPreprocessor,
+from evolve.pipeline import (
+    Preprocessor,
     ContextCompressor,
     ContextReorderer,
     ResponseHandler,
 )
 
 # 记忆组件
-from contextmind.memory import (
+from evolve.memory import (
     MemoryBank,
     SessionManager,
-    BaseExtractor,
-    RuleBasedExtractor,
     LLMBasedExtractor,
-    BaseRetriever,
     SemanticSearchRetriever,
-    BaseUpdater,
     SimpleUpdater,
 )
 
 # 高级 API
-from contextmind import ContextMind, ContextEngine
+from evolve import EvolveEngine, PluginRegistry
 
 # DST 组件（增强实现）
 from dst import (
@@ -383,29 +375,29 @@ from dst import (
     SpecialValue,
     DialogueTurn,
 )
+
+# 场景配置
+from scenarios import (
+    get_chat_scenario,
+    get_callcenter_scenario,
+    get_insurance_scenario,
+)
 ```
 
-### 向后兼容（遗留代码）
+### 向后兼容说明
 
 ```python
-# 旧流水线导入仍然有效
-from contextmind.pipeline import (
-    InputPreprocessor,
-    ContextCompressor,
-    ContextReorderer,
-    ResponseHandler,
+# evolve 模块提供别名以保持兼容
+from evolve import (
+    InputPreprocessor,  # 别名: Preprocessor
+    ConversationSummarizer,  # 别名: LLMBasedSummarizer
+    ContextMind,  # 别名: ContextMindConfig
 )
-
-# 旧记忆导入仍然有效
-from contextmind.memory import MemoryBank, SessionManager
-
-# 旧策略导入重定向到 memory
-from contextmind.strategies import extractors, retrievers, updaters
 ```
 
 **注意：** 
 - `KVCacheManager` 和 `PostProcessor` 已在 v0.4.1 中移除
-- Utils 的旧导入路径 (`contextmind.utils.*`, `examples.llm_client`) 不再支持
+- 主框架模块为 `evolve`，不是 `contextmind`
 
 ## 迁移指南
 
@@ -415,12 +407,11 @@ from contextmind.strategies import extractors, retrievers, updaters
 
 1. **Utils模块独立化** (Breaking Change)
    - utils模块已移至根目录
-   - 完全不依赖contextmind或baseline模块
+   - 完全不依赖 evolve 或 dst 模块
    - 必须更新所有导入路径
    
    ```python
    # ❌ 旧代码 (v7.3)
-   from contextmind.utils.logger import get_logger
    from examples.llm_client import SimpleLLMClient
    
    # ✅ 新代码 (v0.4.1)
@@ -434,7 +425,7 @@ from contextmind.strategies import extractors, retrievers, updaters
    - 参考 `test_knowledge_extraction.py` 了解用法
 
 3. **增强的DST实现** (Enhancement)
-   - baseline模块现在完整支持ACL 2023规范
+   - dst模块现在完整支持ACL 2023规范
    - 100% 文档和类型提示覆盖
    - 向后兼容，无需修改代码
 
@@ -487,30 +478,28 @@ from contextmind.strategies import extractors, retrievers, updaters
    - 步骤数量从 6 步减少到 5 步
    - 最后一步现在是 ResponseHandler（响应处理和记忆更新）
 
-### 从 v7.1 迁移到 v7.2+
+### 从 v7.1 迁移到 v0.4.1
 
-1. **流水线导入**：从 `contextmind.pipeline.X` 改为 `contextmind.X`
+**注意**：v0.4.1 是一次重大重构，模块结构有较大变化。
+
+1. **主框架模块**：从 `contextmind` 改为 `evolve`
    ```python
-   # 旧
-   from contextmind.pipeline.compressor import ContextCompressor
-   # 新
-   from contextmind.compressor import ContextCompressor
+   # v0.4.1 导入方式
+   from evolve import EvolveEngine
+   from evolve.pipeline import Preprocessor, ContextCompressor
+   from evolve.memory import MemoryBank, SessionManager
    ```
 
-2. **记忆导入**：使用 `contextmind.memory` 子模块
+2. **Utils 模块独立化**
    ```python
-   # 旧
-   from contextmind.strategies.extractors import RuleBasedExtractor
-   # 新
-   from contextmind.memory import RuleBasedExtractor
+   # v0.4.1 导入方式
+   from utils import get_logger, SimpleLLMClient
    ```
 
-3. **策略导入**：从 `strategies.defaults` 导入
+3. **DST 模块增强**
    ```python
-   # 旧
-   from contextmind.strategies.optimization import CompressionStrategy
-   # 新
-   from contextmind.strategies.defaults import CompressionStrategy
+   # v0.4.1 导入方式
+   from dst import DialogueStateTracker, PromptManager
    ```
 
 ## 设计原则

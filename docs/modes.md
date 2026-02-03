@@ -1,4 +1,4 @@
-# DST vs ContextMind 模式对比与高级设置说明
+# DST vs Evolve 模式对比与高级设置说明
 
 ## 概述
 
@@ -100,7 +100,7 @@ DST模式显示以下信息：
 }
 ```
 
-### ContextMind模式（完整架构）
+### Evolve模式（完整架构）
 
 #### 计算流程
 ```
@@ -150,11 +150,11 @@ DST模式显示以下信息：
 
 #### 对话状态显示
 
-ContextMind模式显示以下信息：
+Evolve模式显示以下信息：
 
 ```json
 {
-  "🎯 模式": "ContextMind (完整架构)",
+  "🎯 模式": "Evolve (完整架构)",
   "📋 场景": "💬 闲聊对话",
   "💾 记忆功能": "已启用",
   "🔄 进化学习": "已启用",
@@ -179,7 +179,7 @@ ContextMind模式显示以下信息：
 - ✅ 关注信息提取和结构化
 - ✅ 需要优化token使用（通过摘要）
 
-### 使用ContextMind模式的场景
+### 使用Evolve模式的场景
 - ✅ 开放域闲聊
 - ✅ 需要长期记忆的对话
 - ✅ 需要系统学习和进化
@@ -268,10 +268,10 @@ ContextMind模式显示以下信息：
                summary = generate_template_summary(old_history)
    ```
 
-### ContextMind模式架构
+### Evolve模式架构
 
 ```python
-class ContextEngine:
+class EvolveEngine:
     def __init__(self):
         self.perception_layer = PerceptionLayer()
         self.memory_bank = MemoryBank()  # 记忆层
@@ -303,6 +303,6 @@ class ContextEngine:
 ## 总结
 
 - **DST模式**：轻量级、任务导向、结构化信息提取
-- **ContextMind模式**：完整架构、记忆与学习、复杂对话处理
+- **Evolve模式**：完整架构、记忆与学习、复杂对话处理
 - **高级设置**：根据具体需求调整，平衡性能和效果
 - **状态显示**：两种模式都提供详细的状态信息，便于理解和调试

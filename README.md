@@ -44,7 +44,7 @@ QWEN3_MODEL=qwen-plus
 python interactive_demo.py --scenario chat --mode evolve
 
 # 客服场景 + DST模式
-python interactive_demo.py --scenario callcenter --mode basic
+python interactive_demo.py --scenario callcenter --mode dst
 
 # 保险场景 + Evolve模式
 python interactive_demo.py --scenario insurance --mode evolve
@@ -103,23 +103,23 @@ print(state)  # 返回提取的状态信息
 
 ### 闲聊场景
 ```bash
-python chat_interactive_demo.py --mode evolve  # 完整模式
-python chat_interactive_demo.py --mode basic        # DST 模式
-python chat_gradio_demo.py                          # Web UI
+python chat_interactive_demo.py --mode evolve  # Evolve模式
+python chat_interactive_demo.py --mode dst     # DST 模式
+python chat_gradio_demo.py                     # Web UI
 ```
 
 ### 客服场景
 ```bash
 python callcenter_interactive_demo.py --mode evolve
-python callcenter_interactive_demo.py --mode basic
+python callcenter_interactive_demo.py --mode dst
 python callcenter_gradio_demo.py                    # Web UI
 ```
 
 ### 保险场景（共荣保险）
 ```bash
 python insurance_interactive_demo.py --mode evolve
-python insurance_interactive_demo.py --mode basic   # 使用预定义意图和槽位
-python insurance_gradio_demo.py                     # Web UI
+python insurance_interactive_demo.py --mode dst   # 使用预定义意图和槽位
+python insurance_gradio_demo.py                   # Web UI
 ```
 
 ---
