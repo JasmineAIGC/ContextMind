@@ -14,7 +14,7 @@ v0.4.1 新特性：
 1. 完全不进行微调（Zero-shot）
 2. 完全基于LLM（无规则方法）
 3. 累积式状态追踪（DS_t = update(DS_{t-1}, updates)）
-4. 不使用记忆库（与 ContextMind 的主要区别）
+4. 不使用记忆库（与 Evolve 模式的主要区别）
 
 模块化组件：
 - data_models: 数据模型（DialogueTurn, SpecialValue）
@@ -22,9 +22,9 @@ v0.4.1 新特性：
 - response_parser: 响应解析器（鲁棒JSON提取）
 - dialogue_state_tracker: 主追踪器（智能历史管理）
 
-与 ContextMind 的区别：
-- ContextMind: 复杂的五层架构，包含记忆库、检索、压缩等
-- Baseline DST: 简单的状态追踪，但支持动态槽位和智能历史管理
+与 Evolve 模式的区别：
+- Evolve: 复杂的五层架构，包含记忆库、检索、压缩等
+- DST: 简单的状态追踪，但支持动态槽位和智能历史管理
 """
 
 # 数据模型
