@@ -70,7 +70,7 @@ from utils import SimpleLLMClient
 
 # 初始化 - 支持记忆和进化学习
 llm_client = SimpleLLMClient()
-engine = ContextEngine(
+engine = EvolveEngine(
     llm_client=llm_client,
     enable_memory=True,      # 启用语义记忆
     enable_evolution=True     # 启用进化学习
@@ -159,7 +159,7 @@ for slot_name, slot_desc in config.dst_slots.items():
 # Evolve 模式
 from evolve import EvolveEngine
 
-engine = ContextEngine(
+engine = EvolveEngine(
     system_prompt=config.system_prompt,
     enable_memory=config.enable_memory
 )
