@@ -253,9 +253,15 @@ class ChatApplication:
         Returns:
             助手回复，或 (助手回复, 调试信息字典) 当debug=True时
         """
+        import time
+        
+        # 初始化步骤计时
+        self.step_timings = {}
+        
         debug_info = {} if debug else None
         
-        # 1. 优化上下文
+        # 步骤1: 优化上下文
+        step_start = time.time()
         if debug:
             # 保存优化前的记忆库状态
             memory_cache = self.context_engine.memory_bank.get_memory_cache()
@@ -273,6 +279,7 @@ class ChatApplication:
             include_session=True,
             include_memory=True,
         )
+        self.step_timings['上下文优化'] = time.time() - step_start
         
         if debug:
             # 保存召回结果
@@ -290,13 +297,16 @@ class ChatApplication:
                 'compressed': context_result.compressed
             }
         
-        # 2. 构建 Prompt (传递debug_info以保存摘要信息)
+        # 步骤2: 构建 Prompt (传递debug_info以保存摘要信息)
+        step_start = time.time()
         prompt = await self.build_prompt(user_input, context_result, debug_info if debug else None)
+        self.step_timings['Prompt构建'] = time.time() - step_start
         
         if debug:
             debug_info['prompt'] = prompt
         
-        # 3. 调用 LLM（v7.1: LLM 调用是外部的）
+        # 步骤3: 调用 LLM（v7.1: LLM 调用是外部的）
+        step_start = time.time()
         if self.use_real_llm and self.llm_client:
             try:
                 # 调用真实 LLM
@@ -311,14 +321,18 @@ class ChatApplication:
             # 模拟回复（仅用于测试）
             response = f"[模拟回复] 收到您的消息：{user_input}。这是一个示例回复，需要配置LLM才能获得真实回复。"
             logger.warning("[Simulated] 使用模拟回复（未配置LLM）")
+        self.step_timings['LLM生成'] = time.time() - step_start
         
-        # 4. 更新上下文
+        # 步骤4: 更新上下文
+        step_start = time.time()
         await self.context_engine.update(
             user_input=user_input,
             assistant_response=response
         )
+        self.step_timings['上下文更新'] = time.time() - step_start
         
-        # 5. 提取知识（如果需要）
+        # 步骤5: 提取知识（如果需要）
+        step_start = time.time()
         extracted_knowledge = []
         try:
             knowledge_list = await self.context_engine.extract_knowledge(auto_store=True)
@@ -333,6 +347,7 @@ class ChatApplication:
                 ]
         except Exception as e:
             logger.warning(f"知识提取失败: {e}")
+        self.step_timings['知识提取'] = time.time() - step_start
         
         if debug:
             debug_info['extracted_knowledge'] = extracted_knowledge

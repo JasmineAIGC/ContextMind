@@ -197,13 +197,20 @@ class UnifiedGradioDemo:
                 import re
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
                 
-                # 步骤1: 槽位提取
+                # 步骤1: 槽位提取（包含DST内部的多个步骤）
                 step_start = time.time()
                 state = await self.tracker.process_turn(
                     system_utterance=system_utterance,
                     user_utterance=message
                 )
                 timing_breakdown['槽位提取'] = time.time() - step_start
+                
+                # 收集DST内部的详细步骤耗时
+                if hasattr(self.tracker, 'step_timings'):
+                    timing_breakdown.update(self.tracker.step_timings)
+                    # 移除重复的'槽位提取'（使用DST内部的详细步骤）
+                    if '槽位提取' in timing_breakdown and len(self.tracker.step_timings) > 0:
+                        del timing_breakdown['槽位提取']
                 
                 # 步骤2: 状态捕获
                 step_start = time.time()
@@ -228,6 +235,13 @@ class UnifiedGradioDemo:
                 reply = await self.app.process_turn(message)
                 timing_breakdown['对话处理'] = time.time() - step_start
                 
+                # 收集ContextMind内部的详细步骤耗时
+                if hasattr(self.app, 'step_timings'):
+                    timing_breakdown.update(self.app.step_timings)
+                    # 移除重复的'对话处理'（使用ContextMind内部的详细步骤）
+                    if '对话处理' in timing_breakdown and len(self.app.step_timings) > 0:
+                        del timing_breakdown['对话处理']
+                
                 # 关键修改：在bot回复后立即捕获状态
                 # 注意：ContextMind的process_turn是原子操作，包含了提取和回复
                 # 所以我们在其完成后立即捕获，这个状态反映了用户输入的理解
@@ -238,13 +252,22 @@ class UnifiedGradioDemo:
             # 计算总耗时（从接收输入到生成结果）
             elapsed_time = time.time() - start_time
             
-            # 构建详细耗时信息
+            # 添加总计到timing_breakdown
+            timing_breakdown['总计'] = elapsed_time
+            
+            # 构建一行显示的详细耗时信息
             if timing_breakdown:
-                timing_lines = ["⏱️ 耗时详情:"]
-                for step_name, step_time in timing_breakdown.items():
-                    timing_lines.append(f"  • {step_name}: {step_time:.2f}秒")
-                timing_lines.append(f"  • 总计: {elapsed_time:.2f}秒")
-                timing_display = "\n".join(timing_lines)
+                # 将所有步骤按顺序排列（总计放最后）
+                ordered_timings = []
+                for key, value in timing_breakdown.items():
+                    if key != '总计':
+                        ordered_timings.append(f"{key}{value:.2f}s")
+                # 添加总计
+                if '总计' in timing_breakdown:
+                    ordered_timings.append(f"总计{timing_breakdown['总计']:.2f}s")
+                
+                timing_display = " | ".join(ordered_timings)
+                timing_display = f"⏱️ 耗时: {timing_display}"
             else:
                 timing_display = f"⏱️ 生成耗时: {elapsed_time:.2f}秒"
             

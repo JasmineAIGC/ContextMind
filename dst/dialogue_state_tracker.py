@@ -163,12 +163,21 @@ class DialogueStateTracker:
         返回:
             更新后的累积对话状态
         """
+        import time
+        
+        # 初始化步骤计时字典
+        self.step_timings = {}
+        
         # 格式化当前轮次
         turn_prompt = f'system: "{system_utterance}"\nuser: "{user_utterance}"'
         
-        # 准备历史对话（智能管理）
+        # 步骤1: 准备历史对话（智能管理）
+        step_start = time.time()
         history_for_prompt = self._prepare_history_for_prompt()
+        self.step_timings['历史准备'] = time.time() - step_start
         
+        # 步骤2: 构建消息（包括系统指令更新和历史添加）
+        step_start = time.time()
         # 如果有历史摘要，更新系统指令
         if self.history_summary and self.enable_history_summary:
             system_instruction = self.prompt_manager.get_system_instruction(
@@ -185,8 +194,10 @@ class DialogueStateTracker:
         
         # 添加到消息历史
         self.messages.append({"role": "user", "content": full_prompt})
+        self.step_timings['消息构建'] = time.time() - step_start
         
-        # 调用LLM（所有理解由LLM完成）
+        # 步骤3: 调用LLM（所有理解由LLM完成）
+        step_start = time.time()
         if self.llm_client:
             try:
                 # DEBUG: 记录发送给LLM的完整消息
@@ -212,28 +223,35 @@ class DialogueStateTracker:
         else:
             logger.warning("未提供LLM客户端，使用空响应")
             raw_response = "{}"
+        self.step_timings['LLM提取'] = time.time() - step_start
         
         # 添加助手响应到历史
         self.messages.append({"role": "assistant", "content": raw_response})
         
-        # 解析响应
+        # 步骤4: 解析响应
+        step_start = time.time()
         logger.debug(f"开始解析响应，长度: {len(raw_response)} 字符")
         turn_updates = self.response_parser.extract_json(raw_response)
         logger.debug(f"解析结果: {turn_updates}")
+        self.step_timings['JSON解析'] = time.time() - step_start
         
-        # 归一化槽位值（优化）- 应用严格分类约束
+        # 步骤5: 归一化槽位值（优化）- 应用严格分类约束
+        step_start = time.time()
         turn_updates = self.response_parser.normalize_extracted(
             turn_updates,
             self.prompt_manager.get_all_slots(),
             self.prompt_manager.categorical_slots or {}
         )
         logger.debug(f"归一化后: {turn_updates}")
+        self.step_timings['值归一化'] = time.time() - step_start
         
-        # 更新累积状态
+        # 步骤6: 更新累积状态
+        step_start = time.time()
         self._update_state(turn_updates)
         
         # 追踪意图（新增）
         self._track_intents(turn_updates)
+        self.step_timings['状态更新'] = time.time() - step_start
         
         # 记录本轮对话
         turn = DialogueTurn(
