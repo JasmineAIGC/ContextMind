@@ -9,7 +9,7 @@ v0.4.1 - 直接使用 ADK，专注于槽位提取和状态追踪自研逻辑。
 1. 完全不进行微调（Zero-shot）
 2. 直接使用 ADK Agent 进行 LLM 调用
 3. 累积式状态追踪（DS_t = update(DS_{t-1}, updates)）
-4. 不使用记忆库（与 ContextMind 的主要区别）
+4. 不使用记忆库（与 Evolution 的主要区别）
 
 模块化组件：
 - data_models: 数据模型（DialogueTurn, SpecialValue）
@@ -18,8 +18,8 @@ v0.4.1 - 直接使用 ADK，专注于槽位提取和状态追踪自研逻辑。
 - dialogue_state_tracker: 主追踪器（智能历史管理）
 - adk_agent: DST 专用 ADK Agent（直接使用 google.adk）
 
-与 ContextMind 的区别：
-- ContextMind: 复杂的五层架构，包含记忆库、检索、压缩等
+与 Evolution 的区别：
+- Evolution: 复杂的五层架构，包含记忆库、检索、压缩等
 - DST: 简单的状态追踪，但支持动态槽位和智能历史管理
 """
 

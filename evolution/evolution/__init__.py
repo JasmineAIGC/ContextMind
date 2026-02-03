@@ -10,8 +10,8 @@ Evolution Module - 进化式记忆优化
 - ObservationCollector: 观测收集系统
 
 使用方式:
-    from contextmind.evolution import EvolutionaryMemoryUpdater
-    from contextmind.evolution import FeedbackCollector
+    from evolution.evolution import EvolutionaryMemoryUpdater
+    from evolution.evolution import FeedbackCollector
 """
 
 __version__ = "0.4.0"

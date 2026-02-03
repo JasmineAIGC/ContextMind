@@ -1,7 +1,7 @@
 """
 日志工具
 
-ContextMind v0.4.0 统一日志系统
+Evolution v0.4.1 统一日志系统
 """
 
 import logging
@@ -11,21 +11,21 @@ from pathlib import Path
 
 
 class LogLevel(PyEnum):
-    """ContextMind 日志级别"""
+    """Evolution 日志级别"""
     INFO = "INFO"      # 信息模式：记录关键信息和流程
     DEBUG = "DEBUG"    # 调试模式：记录所有详细日志
 
 
-class ContextMindLogger:
+class EvolutionLogger:
     """
-    ContextMind v0.4.0 统一日志系统
+    Evolution v0.4.1 统一日志系统
     
     功能特性：
     - 信息模式：记录关键信息、Pipeline 输入输出和重要事件
     - 调试模式：记录所有内部细节和调试信息
     
     使用示例：
-        logger = ContextMindLogger("MyModule", level=LogLevel.INFO)
+        logger = EvolutionLogger("MyModule", level=LogLevel.INFO)
         logger.info("关键信息")
         logger.debug("调试信息")
     """
@@ -152,7 +152,7 @@ _GLOBAL_LOG_LEVEL = LogLevel.INFO
 
 def set_global_log_level(level: LogLevel):
     """
-    为所有 ContextMind Logger 设置全局日志级别
+    为所有 Evolution Logger 设置全局日志级别
     
     Args:
         level: LogLevel.INFO 或 LogLevel.DEBUG
@@ -160,7 +160,7 @@ def set_global_log_level(level: LogLevel):
     global _GLOBAL_LOG_LEVEL
     _GLOBAL_LOG_LEVEL = level
     # 同时更新类级别变量
-    ContextMindLogger.set_global_level(level)
+    EvolutionLogger.set_global_level(level)
 
 
 def get_global_log_level() -> LogLevel:
@@ -168,36 +168,36 @@ def get_global_log_level() -> LogLevel:
     return _GLOBAL_LOG_LEVEL
 
 
-def get_logger(name: str, level: LogLevel = None) -> ContextMindLogger:
+def get_logger(name: str, level: LogLevel = None) -> EvolutionLogger:
     """
-    获取 ContextMind Logger 实例
+    获取 Evolution Logger 实例
     
     Args:
         name: Logger 名称（通常为模块名）
         level: 日志级别（未指定时使用全局级别）
         
     Returns:
-        ContextMindLogger 实例
+        EvolutionLogger 实例
     """
     if level is None:
         level = _GLOBAL_LOG_LEVEL
-    return ContextMindLogger(name, level)
+    return EvolutionLogger(name, level)
 
 
 def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
     """
-    设置 ContextMind 日志配置
+    设置 Evolution 日志配置
     
     Args:
-        level: ContextMind 日志级别（INFO 或 DEBUG）
-        python_log_level: Python 日志级别（默认基于 ContextMind 级别）
+        level: Evolution 日志级别（INFO 或 DEBUG）
+        python_log_level: Python 日志级别（默认基于 Evolution 级别）
         save_to_file: 是否自动保存日志到文件（默认：True）
         log_dir: 日志文件保存目录（默认："logs"）
     """
-    # 设置全局 ContextMind 日志级别
+    # 设置全局 Evolution 日志级别
     set_global_log_level(level)
     
-    # 将 ContextMind 级别映射到 Python 日志级别
+    # 将 Evolution 级别映射到 Python 日志级别
     if python_log_level is None:
         if level == LogLevel.DEBUG:
             python_log_level = logging.DEBUG
@@ -224,7 +224,7 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
         log_path.mkdir(parents=True, exist_ok=True)
         
         # 生成日志文件名（包含时间戳）
-        log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        log_filename = f"evolution_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         log_filepath = log_path / log_filename
         
         # 创建文件处理器

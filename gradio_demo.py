@@ -24,7 +24,7 @@ from dst import DSTAgent
 from evolution import EvolutionAgent
 
 from dst import DialogueStateTracker, PromptManager
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -139,8 +139,8 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 创建ContextEngine - 使用正确的参数
-        engine = ContextEngine(
+        # 创建EvolutionEngine - 使用正确的参数
+        engine = EvolutionEngine(
             app_name=f"gradio_demo_{self.current_scenario}",
             user_id="gradio_user",
             llm_client=self.llm_client
@@ -289,7 +289,7 @@ class UnifiedGradioDemo:
                 error_msg = "⚠️ 配置错误：缺少API密钥\n\n" + \
                            "请配置.env文件中的以下变量之一：\n" + \
                            "- QWEN3_API_KEY\n" + \
-                           "- CONTEXTMIND_API_KEY\n" + \
+                           "- EVOLUTION_API_KEY\n" + \
                            "- LLM_API_KEY\n" + \
                            "- OPENAI_API_KEY\n\n" + \
                            f"详细错误: {str(e)}"

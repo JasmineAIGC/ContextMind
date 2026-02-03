@@ -88,7 +88,7 @@ class EmbeddingConfig:
             access_key = os.getenv("EMBEDDING_ACCESS_KEY") or _first_env(
                 [
                     "QWEN3_ACCESS_KEY",
-                    "CONTEXTMIND_ACCESS_KEY",
+                    "EVOLUTION_ACCESS_KEY",
                     "LLM_ACCESS_KEY",
                     "ACCESS_KEY",
                 ]
@@ -109,7 +109,7 @@ class EmbeddingConfig:
         api_key = _first_env(
             [
                 "QWEN3_API_KEY",
-                "CONTEXTMIND_API_KEY",
+                "EVOLUTION_API_KEY",
                 "LLM_API_KEY",
                 "OPENAI_API_KEY",
                 "DEEPSEEK_API_KEY",
@@ -120,14 +120,14 @@ class EmbeddingConfig:
             raise ValueError(
                 "缺少 API key。请在 .env 文件中设置以下变量之一: "
                 "EMBEDDING_API_KEY (用于 embedding 模型) 或 "
-                "QWEN3_API_KEY, CONTEXTMIND_API_KEY, LLM_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, QWEN_API_KEY"
+                "QWEN3_API_KEY, EVOLUTION_API_KEY, LLM_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, QWEN_API_KEY"
             )
         
         # 读取 Base URL（可选）
         base_url = _first_env(
             [
                 "QWEN3_BASE_URL",
-                "CONTEXTMIND_BASE_URL",
+                "EVOLUTION_BASE_URL",
                 "LLM_BASE_URL",
                 "OPENAI_BASE_URL",
                 "DEEPSEEK_BASE_URL",
@@ -139,7 +139,7 @@ class EmbeddingConfig:
         model = _first_env(
             [
                 "QWEN3_MODEL",
-                "CONTEXTMIND_MODEL",
+                "EVOLUTION_MODEL",
                 "LLM_MODEL",
                 "OPENAI_MODEL",
                 "DEEPSEEK_MODEL",
@@ -152,7 +152,7 @@ class EmbeddingConfig:
         access_key = _first_env(
             [
                 "QWEN3_ACCESS_KEY",
-                "CONTEXTMIND_ACCESS_KEY",
+                "EVOLUTION_ACCESS_KEY",
                 "LLM_ACCESS_KEY",
                 "ACCESS_KEY",
             ]

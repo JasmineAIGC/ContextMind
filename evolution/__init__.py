@@ -10,7 +10,7 @@ v0.4.1 - 直接使用 ADK，专注于进化方法和记忆优化。
 4. Pipeline 算法（预处理、压缩、重排序等，自研）
 
 主要组件：
-- engine: ContextEngine 核心引擎
+- engine: EvolutionEngine 核心引擎
 - agent: Evolution 专用 ADK Agent（直接使用 google.adk）
 - pipeline: 上下文处理流水线（自研算法）
 - memory: 记忆库和会话管理（自研）
@@ -36,7 +36,7 @@ from .core.types import MessageRole, ContextSource
 from .core.configs import DEFAULT_MEMORY_CONFIG
 
 # 核心引擎 (最后导入)
-from .engine import ContextEngine
+from .engine import EvolutionEngine
 
 __all__ = [
     # ADK Agent
@@ -44,7 +44,7 @@ __all__ = [
     "EvolutionConfig",
     
     # 核心引擎
-    "ContextEngine",
+    "EvolutionEngine",
     
     # 数据模型
     "Message",

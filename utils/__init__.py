@@ -1,19 +1,19 @@
-"""通用工具模块 - ContextMind 通用工具集合
+"""通用工具模块 - Evolution 通用工具集合
 
-这个模块包含 ContextMind 框架和基础 DST 模式共用的工具：
+这个模块包含 Evolution 框架和基础 DST 模式共用的工具：
 - Logger: 统一的日志系统
 - Embedding: 嵌入向量工具
 - Data Models: 工具模块的数据模型
 
-v0.4.1: LLM 客户端已迁移到 contextmind.adk_integration
+v0.4.1: LLM 客户端已迁移到 evolution.adk_integration
 
 所有模式都使用这些通用工具，确保一致性。
-utils 模块是完全独立的，不依赖 baseline 或 contextmind 模块。
+utils 模块是完全独立的，不依赖 baseline 或 evolution 模块。
 """
 
 from .logger import (
     LogLevel,
-    ContextMindLogger,
+    EvolutionLogger,
     get_logger,
     setup_logging,
     set_global_log_level,
@@ -29,7 +29,7 @@ from .data_models import (
 __all__ = [
     # Logger
     "LogLevel",
-    "ContextMindLogger",
+    "EvolutionLogger",
     "get_logger",
     "setup_logging",
     "set_global_log_level",

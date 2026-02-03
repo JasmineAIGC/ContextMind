@@ -1,11 +1,11 @@
 """
-ContextMind 插件注册中心 - 集中式插件发现和管理
+Evolution 插件注册中心 - 集中式插件发现和管理
 
-本模块为所有 ContextMind 插件提供统一的注册中心，便于发现、替换和配置不同的算法实现。
+本模块为所有 Evolution 插件提供统一的注册中心，便于发现、替换和配置不同的算法实现。
 
 使用示例:
     ```python
-    from contextmind import registry
+    from evolution import registry
     
     # 列出可用的提取器
     print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
@@ -26,10 +26,10 @@ logger = get_logger(__name__)
 
 class PluginRegistry:
     """
-    所有 ContextMind 插件的集中注册中心
+    所有 Evolution 插件的集中注册中心
     
     提供插件的发现、注册和实例化功能。
-    使 ContextMind 真正模块化和可扩展。
+    使 Evolution 真正模块化和可扩展。
     """
     
     def __init__(self):

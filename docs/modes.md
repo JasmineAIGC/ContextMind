@@ -271,7 +271,7 @@ Evolution模式显示以下信息：
 ### Evolution模式架构
 
 ```python
-class ContextEngine:
+class EvolutionEngine:
     def __init__(self):
         self.perception_layer = PerceptionLayer()
         self.memory_bank = MemoryBank()  # 记忆层

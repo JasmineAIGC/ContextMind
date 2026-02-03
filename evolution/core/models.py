@@ -40,7 +40,7 @@ from .configs import (
 
 from utils.logger import (
     LogLevel,
-    ContextMindLogger,
+    EvolutionLogger,
     get_logger,
     setup_logging,
     set_global_log_level,
@@ -77,7 +77,7 @@ __all__ = [
     "DEFAULT_MEMORY_CONFIG",
     # 日志
     "LogLevel",
-    "ContextMindLogger",
+    "EvolutionLogger",
     "get_logger",
     "setup_logging",
     "set_global_log_level",

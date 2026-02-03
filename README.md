@@ -85,12 +85,12 @@ python gradio_demo.py
 #### Evolution 模式（基于记忆进化）
 
 ```python
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 from evolution.adk_integration import ADKLLMClient
 
 # 初始化 - 使用 ADK LLM 客户端
 llm_client = ADKLLMClient()
-engine = ContextEngine(
+engine = EvolutionEngine(
     app_name="my_app",
     user_id="user_123",
     llm_client=llm_client
@@ -177,9 +177,9 @@ for slot_name, slot_desc in config.dst_slots.items():
     pm.add_slot(slot_name, slot_desc)
 
 # Evolution 模式
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 
-engine = ContextEngine(
+engine = EvolutionEngine(
     system_prompt=config.system_prompt,
     enable_memory=config.enable_memory
 )

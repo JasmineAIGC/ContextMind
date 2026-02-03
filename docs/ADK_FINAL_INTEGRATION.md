@@ -86,10 +86,10 @@ class EvolutionAgent:
 
 **使用**：
 ```python
-from evolution import EvolutionAgent, ContextEngine
+from evolution import EvolutionAgent, EvolutionEngine
 
 agent = EvolutionAgent()  # 直接使用 ADK
-engine = ContextEngine(llm_client=agent)
+engine = EvolutionEngine(llm_client=agent)
 ```
 
 ---
@@ -125,13 +125,13 @@ engine = ContextEngine(llm_client=agent)
 ## 验证结果
 
 ```bash
-$ python3 -c "from dst import DSTAgent; from evolution import EvolutionAgent, ContextEngine; print('✅ All OK')"
+$ python3 -c "from dst import DSTAgent; from evolution import EvolutionAgent, EvolutionEngine; print('✅ All OK')"
 
 警告: 未安装 google-adk。请运行: pip install google-adk litellm
 ✅ DST Agent 导入成功
 警告: 未安装 google-adk。请运行: pip install google-adk litellm
 ✅ Evolution Agent 导入成功
-✅ ContextEngine 导入成功
+✅ EvolutionEngine 导入成功
 
 🎉 所有组件导入成功！
 ✅ 两个模式都直接使用 ADK Agent

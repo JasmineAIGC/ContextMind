@@ -112,10 +112,10 @@ class KnowledgeExtractor:
 这是可选功能，无需修改现有代码。如需使用：
 
 ```python
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 
 # 启用自动知识提取
-engine = ContextEngine(
+engine = EvolutionEngine(
     app_name="my-app",
     user_id="user-123",
     llm_client=your_llm_client,
@@ -481,7 +481,7 @@ from examples.llm_client import LLMClient
 # 测试脚本
 from evolution import (
     Evolution,
-    ContextEngine,
+    EvolutionEngine,
     MemoryBank,
     SessionManager,
     InputPreprocessor,

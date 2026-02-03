@@ -6,7 +6,7 @@ Plugin 架构示例
 """
 
 import asyncio
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 from evolution.core.models import Message, MessageRole
 
 
@@ -24,7 +24,7 @@ async def example_basic_usage():
     print("=" * 80)
     
     # 使用默认设置创建 engine
-    engine = ContextEngine(
+    engine = EvolutionEngine(
         app_name="plugin-demo",
         user_id="demo-user"
     )
@@ -59,7 +59,7 @@ async def example_optional_components():
     print("=" * 80)
     
     # 创建启用了可选组件的 engine
-    engine = ContextEngine(
+    engine = EvolutionEngine(
         app_name="plugin-demo",
         user_id="demo-user",
         use_postprocessor=True,  # 启用输出后处理

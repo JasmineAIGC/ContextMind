@@ -182,8 +182,8 @@ class ConversationSession:
 from typing import List, Dict, Optional, Any, Callable
 import time
 from utils.logger import get_logger
-from contextmind.memory.memory_fitness import FitnessCalculator
-from contextmind.core.data_models import ContextItem
+from evolution.memory.memory_fitness import FitnessCalculator
+from evolution.core.data_models import ContextItem
 
 # Types are defined in this file (merged from types.py)
 # FeedbackEvent, ObservationEvent, ConversationTurn, ConversationSession,

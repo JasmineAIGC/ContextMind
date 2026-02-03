@@ -1,22 +1,22 @@
 """
-ContextMind 配置 API - 简单的框架配置
+Evolution 配置 API - 简单的框架配置
 
-提供一个简单、统一的 API 来配置整个 ContextMind 框架。
+提供一个简单、统一的 API 来配置整个 Evolution 框架。
 通过合理的默认值和最少的样板代码使集成变得简单。
 
-ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
-- 步骤 1-4: 构建高效 Prompt (上下文工程核心) - 在 ContextMind 内部
+Evolution 专注于上下文工程 (步骤 1-4 + 步骤 6):
+- 步骤 1-4: 构建高效 Prompt (上下文工程核心) - 在 Evolution 内部
 - 步骤 5: LLM 调用 (含 KV cache) - 外部实现 (用户的 LLM)
-- 步骤 6: 输出后处理 - 在 ContextMind 内部
+- 步骤 6: 输出后处理 - 在 Evolution 内部
 
 使用示例:
     ```python
-    from contextmind import ContextMind
+    from evolution import Evolution
     
     # 设置
-    cm = ContextMind()
+    cm = Evolution()
     
-    # 步骤 1-4: ContextMind 构建优化后的上下文
+    # 步骤 1-4: Evolution 构建优化后的上下文
     context = await cm.prepare_context("Hello", session_id="user123")
     
     # 步骤 5: 用户调用外部 LLM (vLLM, OpenAI 等)
@@ -26,7 +26,7 @@ ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
         user_input=context['user_input']
     )
     
-    # 步骤 6: ContextMind 后处理
+    # 步骤 6: Evolution 后处理
     final_response = await cm.post_process(
         llm_output,
         session_id="user123"
@@ -35,7 +35,7 @@ ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
 """
 
 from typing import Optional, Dict, Any
-from ..engine import ContextEngine
+from ..engine import EvolutionEngine
 from .registry import registry
 from .data_models import Message
 from .types import MessageRole
@@ -44,16 +44,16 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-class ContextMind:
+class Evolution:
     """
-    ContextMind 上下文工程框架的统一接口
+    Evolution 上下文工程框架的统一接口
     
-    ContextMind 专注于上下文工程 (步骤 1-4 + 步骤 6):
+    Evolution 专注于上下文工程 (步骤 1-4 + 步骤 6):
     - 步骤 1-4: 构建高效 Prompt (InputPreprocessor → Retriever → Compressor → Reorderer)
     - 步骤 5: LLM 调用是外部的 (用户调用自己的 LLM)
     - 步骤 6: 后处理 LLM 输出 (PostProcessor)
     
-    这种设计使 ContextMind 保持通用性 - 适用于任何 LLM 提供商。
+    这种设计使 Evolution 保持通用性 - 适用于任何 LLM 提供商。
     
     功能特性:
     - 自动插件选择，合理的默认配置
@@ -63,7 +63,7 @@ class ContextMind:
     - 简单的插件切换
     
     属性:
-        engine: 底层的 ContextEngine 实例
+        engine: 底层的 EvolutionEngine 实例
         session_id: 当前会话 ID (如果已设置)
     """
     
@@ -81,7 +81,7 @@ class ContextMind:
         **engine_kwargs
     ):
         """
-        使用配置初始化 ContextMind
+        使用配置初始化 Evolution
         
         Args:
             llm_client: 用于生成回复的 LLM 客户端
@@ -93,12 +93,12 @@ class ContextMind:
             enable_reordering: 启用上下文重排序 (默认: True)
             enable_postprocessing: 启用输出后处理 (默认: True)
             enable_summarization: 启用对话摘要 (默认: False)
-            **engine_kwargs: ContextEngine 的额外参数
+            **engine_kwargs: EvolutionEngine 的额外参数
         """
-        logger.info(f"[ContextMind] 正在初始化，extractor={extractor}, retriever={retriever}")
+        logger.info(f"[Evolution] 正在初始化，extractor={extractor}, retriever={retriever}")
         
         # 创建引擎
-        self.engine = ContextEngine(llm_client=llm_client, **engine_kwargs)
+        self.engine = EvolutionEngine(llm_client=llm_client, **engine_kwargs)
         
         # 配置插件
         if enable_memory:
@@ -128,7 +128,7 @@ class ContextMind:
             self.engine.summarizer = ConversationSummarizer()
         
         self.session_id: Optional[str] = None
-        logger.info("[ContextMind] ✓ 初始化完成")
+        logger.info("[Evolution] ✓ 初始化完成")
     
     async def prepare_context(
         self,
@@ -163,8 +163,8 @@ class ContextMind:
         
         使用示例:
             ```python
-            cm = ContextMind()
-            # 步骤 1-4: ContextMind 构建优化的上下文
+            cm = Evolution()
+            # 步骤 1-4: Evolution 构建优化的上下文
             context = await cm.prepare_context("Hello", session_id="user123")
             
             # 步骤 5: 用户调用外部 LLM
@@ -174,7 +174,7 @@ class ContextMind:
                 user_input=context['user_input']
             )
             
-            # 步骤 6: ContextMind 后处理
+            # 步骤 6: Evolution 后处理
             final = cm.post_process(llm_output, session_id="user123")
             ```
         """
@@ -203,7 +203,7 @@ class ContextMind:
         )
         
         logger.info(
-            f"[ContextMind] ✓ 上下文已优化: {len(optimized.context)} 项准备供 LLM 使用"
+            f"[Evolution] ✓ 上下文已优化: {len(optimized.context)} 项准备供 LLM 使用"
         )
         
         # 返回结构化的上下文用于外部 LLM 调用
@@ -254,13 +254,13 @@ class ContextMind:
             )
             ```
         """
-        logger.info(f"[ContextMind] 步骤 6: 正在后处理 LLM 输出 ({len(llm_output)} 字符)...")
+        logger.info(f"[Evolution] 步骤 6: 正在后处理 LLM 输出 ({len(llm_output)} 字符)...")
         
         # 如果可用则应用 PostProcessor
         processed_output = llm_output
         if hasattr(self.engine, 'postprocessor') and self.engine.postprocessor:
             processed_output = self.engine.postprocessor.process(llm_output)
-            logger.debug(f"[ContextMind] PostProcessor 已应用")
+            logger.debug(f"[Evolution] PostProcessor 已应用")
         
         # 使用提供的 session_id 或存储的
         sid = session_id or self.session_id
@@ -269,7 +269,7 @@ class ContextMind:
         if sid and self.engine.session:
             assistant_msg = Message(role=MessageRole.ASSISTANT, content=processed_output)
             await self.engine.session.add_message(sid, assistant_msg)
-            logger.debug(f"[ContextMind] 回复已保存到会话: {sid}")
+            logger.debug(f"[Evolution] 回复已保存到会话: {sid}")
         
         # 如果启用则提取知识
         if extract_knowledge and self.engine.extractor and self.engine.memory:
@@ -284,9 +284,9 @@ class ContextMind:
                     if knowledge:
                         for k in knowledge:
                             await self.engine.memory.add(k)
-                        logger.info(f"[ContextMind] ✓ 已提取并存储 {len(knowledge)} 条知识项")
+                        logger.info(f"[Evolution] ✓ 已提取并存储 {len(knowledge)} 条知识项")
         
-        logger.info(f"[ContextMind] ✓ 后处理完成")
+        logger.info(f"[Evolution] ✓ 后处理完成")
         return processed_output
     
     def set_extractor(self, extractor_name: str):
@@ -295,22 +295,22 @@ class ContextMind:
         if extractor:
             # 提取器通过引擎初始化设置
             # 此方法已弃用
-            logger.warning(f"[ContextMind] set_extractor is deprecated. Use engine initialization parameters instead.")
-            logger.info(f"[ContextMind] 提取器: {extractor_name}")
+            logger.warning(f"[Evolution] set_extractor is deprecated. Use engine initialization parameters instead.")
+            logger.info(f"[Evolution] 提取器: {extractor_name}")
     
     def set_retriever(self, retriever_name: str):
         """切换检索器插件"""
         retriever = registry.get_retriever(retriever_name)
         if retriever and self.engine.memory:
             self.engine.memory.set_retriever(retriever)
-            logger.info(f"[ContextMind] 已切换到检索器: {retriever_name}")
+            logger.info(f"[Evolution] 已切换到检索器: {retriever_name}")
     
     def set_updater(self, updater_name: str):
         """切换更新器插件"""
         updater = registry.get_updater(updater_name)
         if updater and self.engine.memory:
             self.engine.memory.set_updater(updater)
-            logger.info(f"[ContextMind] 已切换到更新器: {updater_name}")
+            logger.info(f"[Evolution] 已切换到更新器: {updater_name}")
     
     def list_available_plugins(self) -> Dict[str, list]:
         """列出所有可用插件"""

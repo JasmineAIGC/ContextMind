@@ -1,14 +1,14 @@
 """
 InsuranceApplication - 保险应用示例
 
-展示如何使用ContextEngine构建保险对话应用。
+展示如何使用EvolutionEngine构建保险对话应用。
 重点展示上下文工程能力：利用历史、记忆和知识提供连贯回复。
 """
 
 import logging
 from typing import Optional
 
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 from evolution.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from evolution.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
@@ -29,7 +29,7 @@ class InsuranceApplication:
     
     def __init__(
         self,
-        context_engine: ContextEngine,
+        context_engine: EvolutionEngine,
         business_info: str = "",
         history_turns: int = 10,
         system_prompt: str = INSURANCE_SYSTEM_PROMPT,

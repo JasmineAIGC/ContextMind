@@ -26,7 +26,7 @@ from dst import DSTAgent
 from evolution import EvolutionAgent
 
 from dst import DialogueStateTracker, PromptManager
-from evolution import ContextEngine
+from evolution import EvolutionEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -170,7 +170,7 @@ class UnifiedInteractiveDemo:
         
         # 创建引擎和应用
         try:
-            engine = ContextEngine(
+            engine = EvolutionEngine(
                 app_name=f"interactive_demo_{self.scenario}",
                 user_id="demo_user",
                 llm_client=self.llm_client

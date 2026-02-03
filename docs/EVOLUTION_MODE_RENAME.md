@@ -14,7 +14,7 @@
 **模块更新**:
 - `evolution/__init__.py` - 导出 EvolutionAgent, EvolutionConfig
 - `evolution/agent.py` - Evolution 专用 ADK Agent
-- `evolution/engine.py` - 保持 ContextEngine 类名不变
+- `evolution/engine.py` - 保持 EvolutionEngine 类名不变
 - `evolution/core/` - 所有核心模块
 - `evolution/pipeline/` - 所有 Pipeline 算法
 - `evolution/memory/` - 所有记忆管理模块
@@ -104,11 +104,11 @@ python interactive_demo.py --scenario chat --mode dst
 
 ```python
 from dst import DSTAgent, DialogueStateTracker
-from evolution import EvolutionAgent, ContextEngine
+from evolution import EvolutionAgent, EvolutionEngine
 
 # Evolution 模式
 agent = EvolutionAgent()  # 从 .env 读取配置
-engine = ContextEngine(
+engine = EvolutionEngine(
     app_name="my_app",
     user_id="user_123",
     llm_client=agent
@@ -124,7 +124,7 @@ tracker = DialogueStateTracker(llm_client=dst_agent)
 所有导入测试通过:
 - ✅ `from dst import DSTAgent`
 - ✅ `from evolution import EvolutionAgent`
-- ✅ `from evolution import ContextEngine`
+- ✅ `from evolution import EvolutionEngine`
 - ✅ `from apps.chat_app import ChatApplication`
 - ✅ `from apps.callcenter_app import CallCenterApplication`
 - ✅ `from apps.insurance_app import InsuranceApplication`

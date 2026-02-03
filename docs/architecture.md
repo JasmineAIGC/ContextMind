@@ -45,7 +45,7 @@ Evolution/
 ├── evolution/              # 核心框架
 │   ├── __init__.py          # 主要导出
 │   ├── config.py            # 易集成 API（Evolution 类）
-│   ├── engine.py            # 主编排引擎（ContextEngine）
+│   ├── engine.py            # 主编排引擎（EvolutionEngine）
 │   ├── models.py            # 数据模型
 │   ├── registry.py          # 组件注册表
 │   │
@@ -211,7 +211,7 @@ MemoryBank 实现了 4 子模块架构：
 - 由 ContextCompressor 使用
 - 在保留上下文的同时减少 token 使用
 
-#### ContextEngine (`engine.py`)
+#### EvolutionEngine (`engine.py`)
 - 主编排引擎
 - 协调所有流水线组件
 - 提供高级 API：`optimize()`、`update()`、`extract_knowledge()`
@@ -373,7 +373,7 @@ from evolution.memory import (
 )
 
 # 高级 API
-from evolution import Evolution, ContextEngine
+from evolution import Evolution, EvolutionEngine
 
 # DST 组件（增强实现）
 from dst import (

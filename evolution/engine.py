@@ -1,5 +1,5 @@
 """
-ContextEngine - 上下文引擎核心模块 v0.4.1
+EvolutionEngine - 上下文引擎核心模块 v0.4.1
 
 ADK 优化版本：
 - 使用 ADK 作为底层 LLM 客户端
@@ -8,7 +8,7 @@ ADK 优化版本：
 
 清晰的模块化架构设计:
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
-- 引擎层: ContextEngine 统一接口
+- 引擎层: EvolutionEngine 统一接口
 - 模块层: InputPreprocessor, MemoryBank, ContextCompressor, 
   ContextReorderer, ResponseHandler, ConversationSummarizer
 - 策略层: 可插拔的策略实现
@@ -45,7 +45,7 @@ from .pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
 logger = get_logger(__name__)
 
 
-class ContextEngine:
+class EvolutionEngine:
     """
     上下文引擎 v0.4.1 (ADK 优化版)
     
@@ -63,13 +63,13 @@ class ContextEngine:
     
     使用示例：
         ```python
-        from contextmind import ContextEngine
-        from contextmind.adk_integration import ADKLLMClient
+        from evolution import EvolutionEngine
+        from evolution.adk_integration import ADKLLMClient
         
         # 使用 ADK LLM 客户端
         llm_client = ADKLLMClient()
         
-        engine = ContextEngine(
+        engine = EvolutionEngine(
             app_name="my-app",
             user_id="user-123",
             llm_client=llm_client
@@ -160,18 +160,18 @@ class ContextEngine:
         if extraction_method == "llm":
             if not llm_client:
                 logger.error(
-                    "[ContextEngine] ⚠️ LLM提取模式需要llm_client参数！"
+                    "[EvolutionEngine] ⚠️ LLM提取模式需要llm_client参数！"
                     "知识提取功能将被禁用。请提供llm_client以启用自动知识提取。"
                 )
                 self.extractor = None
                 self.extraction_method = "disabled"
             else:
                 self.extractor = LLMBasedExtractor(llm_client, config)
-                logger.info("[ContextEngine] ✅ LLMBasedExtractor 已初始化用于知识提取")
+                logger.info("[EvolutionEngine] ✅ LLMBasedExtractor 已初始化用于知识提取")
         else:
             # 不再支持基于规则的提取
             logger.warning(
-                f"[ContextEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
+                f"[EvolutionEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
                 "v0.4.0+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
             )
             self.extractor = None
@@ -183,23 +183,23 @@ class ContextEngine:
             memory_bank=self.memory_bank,
             extractor=self.extractor
         )
-        logger.info("[ContextEngine] ResponseHandler 已初始化")
+        logger.info("[EvolutionEngine] ResponseHandler 已初始化")
         
         # v7.1 可选组件
         if use_summarizer:
             self.summarizer = ConversationSummarizer()
-            logger.info("[ContextEngine] ConversationSummarizer 已启用")
+            logger.info("[EvolutionEngine] ConversationSummarizer 已启用")
         else:
             self.summarizer = None
         
         # 向后兼容：use_postprocessor 参数已废弃
         if use_postprocessor:
             logger.warning(
-                "[ContextEngine] use_postprocessor 已废弃，"
+                "[EvolutionEngine] use_postprocessor 已废弃，"
                 "请使用 handle_response() 方法代替"
             )
         
-        logger.info(f"ContextEngine 已初始化 app={app_name}, user={user_id}")
+        logger.info(f"EvolutionEngine 已初始化 app={app_name}, user={user_id}")
     
     async def optimize(
         self,
@@ -233,25 +233,25 @@ class ContextEngine:
         """
         logger.info("")
         logger.info("=" * 100)
-        logger.info(f"[ContextEngine] ========== 开始上下文优化 ==========")
-        logger.info(f"[ContextEngine] 📝 用户输入: '{user_input[:60]}{'...' if len(user_input) > 60 else ''}'")
+        logger.info(f"[EvolutionEngine] ========== 开始上下文优化 ==========")
+        logger.info(f"[EvolutionEngine] 📝 用户输入: '{user_input[:60]}{'...' if len(user_input) > 60 else ''}'")
         logger.info("=" * 100)
         logger.info("")
         
         # 1. 预处理输入
-        logger.info(f"[ContextEngine] 🔄 步骤 1/5: 预处理用户输入")
+        logger.info(f"[EvolutionEngine] 🔄 步骤 1/5: 预处理用户输入")
         processed_input = await self.preprocessor.process(user_input)
-        logger.info(f"[ContextEngine] ✓ 预处理完成")
+        logger.info(f"[EvolutionEngine] ✓ 预处理完成")
         logger.info("")
         
         # 2. 检索上下文 (召回)
-        logger.info(f"[ContextEngine] 🔍 步骤 2/5: 召回相关上下文")
+        logger.info(f"[EvolutionEngine] 🔍 步骤 2/5: 召回相关上下文")
         
         # 获取会话历史
         recent_history = []
         if include_session:
             recent_history = await self.session_manager.get_recent_history()
-            logger.info(f"[ContextEngine]   - 会话历史: {len(recent_history)} 条消息")
+            logger.info(f"[EvolutionEngine]   - 会话历史: {len(recent_history)} 条消息")
         
         # 检索长期记忆
         long_term_memory = []
@@ -260,13 +260,13 @@ class ContextEngine:
                 query=processed_input,
                 limit=10
             )
-            logger.info(f"[ContextEngine]   - 长期记忆: {len(long_term_memory)} 条知识")
+            logger.info(f"[EvolutionEngine]   - 长期记忆: {len(long_term_memory)} 条知识")
         
-        logger.info(f"[ContextEngine] ✓ 召回完成 - 共检索到 {len(recent_history) + len(long_term_memory)} 条上下文")
+        logger.info(f"[EvolutionEngine] ✓ 召回完成 - 共检索到 {len(recent_history) + len(long_term_memory)} 条上下文")
         logger.info("")
         
         # 3. 构建 ContextResult
-        logger.info(f"[ContextEngine] 📦 步骤 3/5: 构建上下文")
+        logger.info(f"[EvolutionEngine] 📦 步骤 3/5: 构建上下文")
         
         # 合并所有 Context 项
         all_items = []
@@ -283,24 +283,24 @@ class ContextEngine:
         # 添加长期记忆项 (已经是 ContextItem)
         all_items.extend(long_term_memory)
         
-        logger.info(f"[ContextEngine] ✓ 上下文构建完成 - {len(all_items)} 条上下文项")
+        logger.info(f"[EvolutionEngine] ✓ 上下文构建完成 - {len(all_items)} 条上下文项")
         logger.info("")
         
         # 4. 上下文压缩（如果需要）
-        logger.info(f"[ContextEngine] 🗜️  步骤 4/5: 上下文压缩")
+        logger.info(f"[EvolutionEngine] 🗜️  步骤 4/5: 上下文压缩")
         # 当前版本：上下文项数量较少时不需要压缩
         is_compressed = False
         if len(all_items) > 50:  # 超过50条才需要压缩
-            logger.info(f"[ContextEngine]   - 上下文项过多，需要压缩")
+            logger.info(f"[EvolutionEngine]   - 上下文项过多，需要压缩")
             # TODO: 实现压缩逻辑
             is_compressed = True
-            logger.info(f"[ContextEngine] ✓ 压缩完成")
+            logger.info(f"[EvolutionEngine] ✓ 压缩完成")
         else:
-            logger.info(f"[ContextEngine]   - 上下文项数量适中({len(all_items)}条)，无需压缩")
+            logger.info(f"[EvolutionEngine]   - 上下文项数量适中({len(all_items)}条)，无需压缩")
         logger.info("")
         
         # 5. 创建最终结果
-        logger.info(f"[ContextEngine] ✅ 步骤 5/5: 生成最终上下文结果")
+        logger.info(f"[EvolutionEngine] ✅ 步骤 5/5: 生成最终上下文结果")
         compressed_result = ContextResult(
             items=all_items,
             total_tokens=0,  # TODO: 计算实际 Token 数
@@ -315,14 +315,14 @@ class ContextEngine:
         # 记录最终结果
         logger.info("-" * 100)
         logger.info(
-            f"[ContextEngine] 🎯 上下文优化完成 - "
+            f"[EvolutionEngine] 🎯 上下文优化完成 - "
             f"共 {len(compressed_result.items)} 条上下文项 "
             f"(会话: {compressed_result.metadata.get('session_history_count', 0)}, "
             f"记忆: {compressed_result.metadata.get('long_term_memory_count', 0)})"
         )
         
         logger.info("-" * 100)
-        logger.info(f"[ContextEngine] ========== 上下文优化结束 ==========")
+        logger.info(f"[EvolutionEngine] ========== 上下文优化结束 ==========")
         logger.info("")
         
         return compressed_result
@@ -345,9 +345,9 @@ class ContextEngine:
             assistant_response: 助手回复
         """
         logger.info("")
-        logger.info(f"[ContextEngine] 💾 更新会话历史 - 添加新对话轮次")
-        logger.info(f"[ContextEngine]   - 用户消息: {len(user_input)} 字符")
-        logger.info(f"[ContextEngine]   - 助手回复: {len(assistant_response)} 字符")
+        logger.info(f"[EvolutionEngine] 💾 更新会话历史 - 添加新对话轮次")
+        logger.info(f"[EvolutionEngine]   - 用户消息: {len(user_input)} 字符")
+        logger.info(f"[EvolutionEngine]   - 助手回复: {len(assistant_response)} 字符")
         
         # 添加用户消息
         await self.session_manager.add_message(
@@ -361,7 +361,7 @@ class ContextEngine:
             content=assistant_response
         )
         
-        logger.info("[ContextEngine] ✓ 会话历史更新完成")
+        logger.info("[EvolutionEngine] ✓ 会话历史更新完成")
         logger.info("")
     
     async def handle_response(
@@ -436,11 +436,11 @@ class ContextEngine:
         """
         logger.info("")
         logger.info("=" * 100)
-        logger.info("[ContextEngine] ========== 🧠 开始知识提取 ==========")
+        logger.info("[EvolutionEngine] ========== 🧠 开始知识提取 ==========")
         
         # 检查提取器是否可用
         if not self.extractor:
-            logger.warning("[ContextEngine] ⚠️  知识提取器未初始化（需要llm_client）")
+            logger.warning("[EvolutionEngine] ⚠️  知识提取器未初始化（需要llm_client）")
             logger.info("=" * 100)
             logger.info("")
             return []
@@ -449,12 +449,12 @@ class ContextEngine:
         messages = await self.session_manager.get_recent_history()
         
         if not messages:
-            logger.info("[ContextEngine] ⚠️  没有对话历史可供提取知识")
+            logger.info("[EvolutionEngine] ⚠️  没有对话历史可供提取知识")
             logger.info("=" * 100)
             logger.info("")
             return []
         
-        logger.info(f"[ContextEngine] 📖 从 {len(messages)} 条对话中提取知识...")
+        logger.info(f"[EvolutionEngine] 📖 从 {len(messages)} 条对话中提取知识...")
         logger.info("=" * 100)
         logger.info("")
         
@@ -464,24 +464,24 @@ class ContextEngine:
         if not knowledge:
             logger.info("")
             logger.info("-" * 100)
-            logger.info("[ContextEngine] ℹ️  未提取到任何有效知识")
+            logger.info("[EvolutionEngine] ℹ️  未提取到任何有效知识")
             logger.info("-" * 100)
             logger.info("")
             return []
         
         logger.info("")
         logger.info("-" * 100)
-        logger.info(f"[ContextEngine] ✓ 知识提取完成 - 共提取 {len(knowledge)} 条知识")
+        logger.info(f"[EvolutionEngine] ✓ 知识提取完成 - 共提取 {len(knowledge)} 条知识")
         
         # 自动存储到长期记忆 (入库)
         if auto_store:
             logger.info("")
-            logger.info(f"[ContextEngine] 📥 入库: 存储知识到长期记忆...")
+            logger.info(f"[EvolutionEngine] 📥 入库: 存储知识到长期记忆...")
             await self.memory_bank.store(knowledge)
-            logger.info(f"[ContextEngine] ✓ 知识入库完成")
+            logger.info(f"[EvolutionEngine] ✓ 知识入库完成")
         
         logger.info("-" * 100)
-        logger.info(f"[ContextEngine] ========== 知识提取结束 ==========")
+        logger.info(f"[EvolutionEngine] ========== 知识提取结束 ==========")
         logger.info("")
         
         return knowledge

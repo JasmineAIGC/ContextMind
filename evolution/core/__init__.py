@@ -1,9 +1,9 @@
 """核心框架组件"""
 
-# 不导入 ContextEngine，避免循环依赖
-# from ..engine import ContextEngine as ContextMindEngine
+# 不导入 EvolutionEngine，避免循环依赖
+# from ..engine import EvolutionEngine
 from .registry import PluginRegistry, registry
-from .framework_config import ContextMind as ContextMindConfig
+from .framework_config import Evolution as EvolutionFrameworkConfig
 
 # Import from new modular structure
 from .types import (
@@ -37,7 +37,7 @@ from .configs import (
 )
 
 from utils.logger import (
-    ContextMindLogger,
+    EvolutionLogger,
     LogLevel,
     get_logger,
     setup_logging,
@@ -57,10 +57,10 @@ from .strategies import (
 )
 
 __all__ = [
-    "ContextMindEngine",
+    "EvolutionEngine",
     "PluginRegistry",
     "registry",
-    "ContextMindConfig",
+    "EvolutionConfig",
     # Types
     "KnowledgeType",
     "MemoryType",
@@ -86,7 +86,7 @@ __all__ = [
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
     # Logger
-    "ContextMindLogger",
+    "EvolutionLogger",
     "LogLevel",
     "get_logger",
     "setup_logging",
