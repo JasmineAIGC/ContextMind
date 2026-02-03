@@ -169,6 +169,9 @@ class UnifiedGradioDemo:
             # 开始计时 - 从接收输入到生成结果
             start_time = time.time()
             
+            # 用于记录各步骤耗时
+            timing_breakdown = {}
+            
             # 处理对话
             if self.current_mode == "dst":
                 # DST模式
@@ -194,17 +197,21 @@ class UnifiedGradioDemo:
                 import re
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
                 
-                # 调用process_turn处理对话状态
+                # 步骤1: 槽位提取
+                step_start = time.time()
                 state = await self.tracker.process_turn(
                     system_utterance=system_utterance,
                     user_utterance=message
                 )
+                timing_breakdown['槽位提取'] = time.time() - step_start
                 
-                # 关键修改：在bot回复前捕获对话状态
-                # 此时槽位和意图已经提取，但尚未生成回复
+                # 步骤2: 状态捕获
+                step_start = time.time()
                 self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
                 
-                # 生成回复
+                # 步骤3: 回复生成
+                step_start = time.time()
                 system_prompt = self.config.system_prompt
                 messages = [
                     {"role": "system", "content": system_prompt},
@@ -213,22 +220,36 @@ class UnifiedGradioDemo:
                 
                 # chat_async returns a string directly, not a dict
                 reply = await self.llm_client.chat_async(messages=messages)
+                timing_breakdown['回复生成'] = time.time() - step_start
                 
             else:
                 # ContextMind模式
-                # process_turn returns a string directly, not a dict
+                step_start = time.time()
                 reply = await self.app.process_turn(message)
+                timing_breakdown['对话处理'] = time.time() - step_start
                 
                 # 关键修改：在bot回复后立即捕获状态
                 # 注意：ContextMind的process_turn是原子操作，包含了提取和回复
                 # 所以我们在其完成后立即捕获，这个状态反映了用户输入的理解
+                step_start = time.time()
                 self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
             
-            # 计算耗时（从接收输入到生成结果）
+            # 计算总耗时（从接收输入到生成结果）
             elapsed_time = time.time() - start_time
             
+            # 构建详细耗时信息
+            if timing_breakdown:
+                timing_lines = ["⏱️ 耗时详情:"]
+                for step_name, step_time in timing_breakdown.items():
+                    timing_lines.append(f"  • {step_name}: {step_time:.2f}秒")
+                timing_lines.append(f"  • 总计: {elapsed_time:.2f}秒")
+                timing_display = "\n".join(timing_lines)
+            else:
+                timing_display = f"⏱️ 生成耗时: {elapsed_time:.2f}秒"
+            
             # 在回复中添加耗时信息（小号灰色文本）
-            reply_with_timing = f"{reply}\n\n<small style='color: #888;'>⏱️ 生成耗时: {elapsed_time:.2f}秒</small>"
+            reply_with_timing = f"{reply}\n\n<small style='color: #888;'>{timing_display}</small>"
             
             # 更新历史 - 使用Gradio 6.0格式 (flat list)
             return history + [
