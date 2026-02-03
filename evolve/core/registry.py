@@ -5,7 +5,7 @@ ContextMind 插件注册中心 - 集中式插件发现和管理
 
 使用示例:
     ```python
-    from contextmind import registry
+    from evolve import registry
     
     # 列出可用的提取器
     print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']

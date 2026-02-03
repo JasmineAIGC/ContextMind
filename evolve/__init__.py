@@ -14,7 +14,7 @@ ContextMind - 专业的上下文优化框架 v0.4.0
 
 v0.4.0 新增功能 - Utils模块独立化与增强DST：
 {
-    from contextmind import ContextMind, registry
+    from evolve import ContextMind, registry
     
     # 简易集成API
     cm = ContextMind()

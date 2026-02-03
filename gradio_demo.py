@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ContextMind 统一Gradio Web Demo
+Evolve 统一Gradio Web Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：DST对话状态追踪模式、ContextMind记忆进化模式
+支持两种模式：DST对话状态追踪模式、Evolve记忆进化模式
 
 使用方式:
     python gradio_demo.py
@@ -19,7 +19,7 @@ from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
-from contextmind import ContextEngine
+from evolve import ContextEngine
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -73,7 +73,7 @@ class UnifiedGradioDemo:
         if mode == "dst":
             self._init_dst_mode()
         else:
-            self._init_contextmind_mode()
+            self._init_evolve_mode()
         
         logger.info(f"✅ 场景初始化完成: {scenario}, 模式: {mode}")
     
@@ -127,8 +127,8 @@ class UnifiedGradioDemo:
         
         logger.info("DST模式初始化完成")
     
-    def _init_contextmind_mode(self):
-        """初始化ContextMind模式"""
+    def _init_evolve_mode(self):
+        """初始化Evolve模式"""
         try:
             if self.llm_client is None:
                 self.llm_client = SimpleLLMClient()
@@ -155,7 +155,7 @@ class UnifiedGradioDemo:
         elif self.current_scenario == "insurance":
             self.app = InsuranceApplication(context_engine=engine, system_prompt=self.config.system_prompt)
         
-        logger.info("ContextMind模式初始化完成")
+        logger.info("Evolve模式初始化完成")
     
     async def chat(self, message: str, history: List) -> List:
         """处理对话"""
@@ -164,7 +164,7 @@ class UnifiedGradioDemo:
         try:
             # 首次使用时初始化
             if not self.initialized:
-                self.initialize_scenario("chat", "contextmind")
+                self.initialize_scenario("chat", "evolve")
                 self.initialized = True
                 # 如果历史为空，添加欢迎消息作为第一条消息
                 if not history:
@@ -240,20 +240,20 @@ class UnifiedGradioDemo:
                 timing_breakdown['回复生成'] = time.time() - step_start
                 
             else:
-                # ContextMind模式
+                # Evolve模式
                 step_start = time.time()
                 reply = await self.app.process_turn(message)
                 timing_breakdown['对话处理'] = time.time() - step_start
                 
-                # 收集ContextMind内部的详细步骤耗时
+                # 收集Evolve内部的详细步骤耗时
                 if hasattr(self.app, 'step_timings'):
                     timing_breakdown.update(self.app.step_timings)
-                    # 移除重复的'对话处理'（使用ContextMind内部的详细步骤）
+                    # 移除重复的'对话处理'（使用Evolve内部的详细步骤）
                     if '对话处理' in timing_breakdown and len(self.app.step_timings) > 0:
                         del timing_breakdown['对话处理']
                 
                 # 关键修改：在bot回复后立即捕获状态
-                # 注意：ContextMind的process_turn是原子操作，包含了提取和回复
+                # 注意：Evolve的process_turn是原子操作，包含了提取和回复
                 # 所以我们在其完成后立即捕获，这个状态反映了用户输入的理解
                 step_start = time.time()
                 self._capture_post_user_state()
@@ -322,7 +322,7 @@ class UnifiedGradioDemo:
         
         此方法在以下时机调用：
         - DST模式：process_turn()之后，LLM生成回复之前
-        - ContextMind模式：process_turn()之后（因为是原子操作）
+        - Evolve模式：process_turn()之后（因为是原子操作）
         
         捕获的状态反映了系统对用户输入的理解，而不是完整对话轮次结束后的状态
         """
@@ -386,11 +386,11 @@ class UnifiedGradioDemo:
                 state_info["累积状态"] = "暂无槽位信息"
             
             return state_info
-        elif self.current_mode == "contextmind" and self.app:
-            # ContextMind模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
+        elif self.current_mode == "evolve" and self.app:
+            # Evolve模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
             engine = self.app.context_engine
             state_info = {
-                "模式": "ContextMind (基于记忆进化)",
+                "模式": "Evolve (基于记忆进化)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "记忆功能": "已启用",
                 "进化学习": "已启用",
@@ -471,7 +471,7 @@ class UnifiedGradioDemo:
         if self.current_mode == "dst" and self.tracker:
             self.tracker.current_state = {}
             self.tracker.dialogue_history = []
-        elif self.current_mode == "contextmind" and self.app:
+        elif self.current_mode == "evolve" and self.app:
             # 重新初始化app
             self.initialize_scenario(self.current_scenario, self.current_mode)
         
@@ -517,13 +517,13 @@ class UnifiedGradioDemo:
             llm_summary_status = "LLM" if use_llm_summary else "模板"
             return f"⚙️ DST设置: 历史={max_history_turns}轮, 摘要={summary_status}, 方式={llm_summary_status}"
         
-        elif self.current_mode == "contextmind" and self.app:
-            # ContextMind模式的设置（记忆和进化是在初始化时设置的）
-            logger.info(f"ContextMind设置: 记忆={enable_memory}, 进化={enable_evolution}")
+        elif self.current_mode == "evolve" and self.app:
+            # Evolve模式的设置（记忆和进化是在初始化时设置的）
+            logger.info(f"Evolve设置: 记忆={enable_memory}, 进化={enable_evolution}")
             
             memory_status = "启用" if enable_memory else "禁用"
             evolution_status = "启用" if enable_evolution else "禁用"
-            return f"⚙️ ContextMind设置: 记忆={memory_status}, 进化={evolution_status}, 最大事件={max_history_turns}"
+            return f"⚙️ Evolve设置: 记忆={memory_status}, 进化={evolution_status}, 最大事件={max_history_turns}"
         
         return "⚙️ 请先应用场景配置"
 
@@ -531,7 +531,7 @@ class UnifiedGradioDemo:
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="ContextMind Gradio Web Demo",
+        description="Evolve Gradio Web Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -581,7 +581,7 @@ def main():
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
     setup_logging(level=log_level, save_to_file=True, log_dir="logs")
     
-    logger.info("[__main__] 启动ContextMind统一Gradio Demo")
+    logger.info("[__main__] 启动Evolve统一Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")
     
     # 创建Demo实例

@@ -7,12 +7,12 @@
 - Data Models: 工具模块的数据模型
 
 所有模式都使用这些通用工具，确保一致性。
-utils 模块是完全独立的，不依赖 baseline 或 contextmind 模块。
+utils 模块是完全独立的，不依赖 baseline 或 evolve 模块。
 """
 
 from .logger import (
     LogLevel,
-    ContextMindLogger,
+    EvolveLogger,
     get_logger,
     setup_logging,
     set_global_log_level,
@@ -33,7 +33,7 @@ from .data_models import (
 __all__ = [
     # Logger
     "LogLevel",
-    "ContextMindLogger",
+    "EvolveLogger",
     "get_logger",
     "setup_logging",
     "set_global_log_level",
@@ -47,4 +47,4 @@ __all__ = [
     "EmbeddingInfo",
 ]
 
-__version__ = "0.4.0"  # 独立工具模块，完全不依赖contextmind/baseline
+__version__ = "0.4.0"  # 独立工具模块，完全不依赖evolve/baseline

@@ -84,7 +84,7 @@ class MemoryBank:
         self,
         memory_service: Optional[Any] = None,
         session_service: Optional[Any] = None,
-        app_name: str = "contextmind",
+        app_name: str = "evolve",
         user_id: str = "default",
         retrieval_config: Optional[RetrievalConfig] = None,
         retriever: Optional[Any] = None,

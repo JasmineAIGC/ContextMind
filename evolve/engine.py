@@ -56,7 +56,7 @@ class ContextEngine:
     
     使用示例：
         ```python
-        from contextmind import ContextEngine
+        from evolve import ContextEngine
         
         engine = ContextEngine(
             app_name="my-app",

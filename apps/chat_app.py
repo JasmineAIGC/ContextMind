@@ -8,9 +8,9 @@ ChatApplication - 通用闲聊应用示例
 import logging
 from typing import Optional, Dict
 
-from contextmind import ContextEngine
-from contextmind.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
-from contextmind.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
+from evolve import ContextEngine
+from evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
 from utils.llm_client import SimpleLLMClient, LLMConfig
 

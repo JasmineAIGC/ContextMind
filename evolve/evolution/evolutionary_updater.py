@@ -15,13 +15,13 @@ from typing import List, Optional, Dict, Any, Tuple
 import time
 from datetime import datetime
 
-from contextmind.core.data_models import ContextItem, Knowledge
-from contextmind.core.types import ContextSource
-from contextmind.core.strategies import UpdateStrategy as BaseUpdater
+from evolve.core.data_models import ContextItem, Knowledge
+from evolve.core.types import ContextSource
+from evolve.core.strategies import UpdateStrategy as BaseUpdater
 from utils.logger import get_logger
 from utils.embedding import calculate_embedding_similarity
 
-from contextmind.memory.memory_fitness import MemoryFitness, FitnessCalculator
+from evolve.memory.memory_fitness import MemoryFitness, FitnessCalculator
 
 logger = get_logger(__name__)
 
@@ -242,7 +242,7 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
         Returns:
             过滤后的知识列表
         """
-        from contextmind.core.types import KnowledgeType
+        from evolve.core.types import KnowledgeType
         
         # 质量阈值（继承自 SimpleUpdater）
         THRESHOLD_PREFERENCE = 0.75
