@@ -1,16 +1,26 @@
-# ContextMind v0.4.0
+# ContextMind v0.5.0 (ADK-powered)
 
 一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
+v0.5.0 版本使用 **Google ADK-Python** 进行了全面优化，提供更强的稳定性、通用性和可扩展性。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 
 ---
 
+## 🎯 v0.5.0 新特性
+
+### ADK-Python 集成优化
+- ✅ **统一 LLM 客户端** - 使用 Google GenAI SDK，支持多种模型
+- ✅ **标准化工具系统** - 基于 ADK 的工具接口，易于扩展
+- ✅ **增强错误处理** - 自动重试和优雅降级
+- ✅ **改进的可观测性** - 更好的日志和追踪
+
 ## 核心特性
 
-- **模型无关** - 适配任何 LLM 提供商
+- **模型无关** - 适配任何 LLM 提供商（Google, OpenAI, 等）
 - **五步流水线** - 预处理、检索、压缩、重排序、响应处理
 - **智能记忆** - 自动知识提取和语义检索
 - **两种模式** - ContextMind 进化模式 / DST 状态追踪模式
@@ -27,13 +37,21 @@ pip install -r requirements.txt
 
 ### 配置
 
-创建 `.env` 文件：
+复制 `.env.example` 为 `.env` 并配置：
 
 ```bash
-QWEN3_API_KEY=your_api_key
-QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN3_MODEL=qwen-plus
+cp .env.example .env
 ```
+
+编辑 `.env` 文件：
+
+```ini
+# Google GenAI API (推荐 - v0.5.0)
+GOOGLE_API_KEY=your-google-api-key-here
+GOOGLE_MODEL=gemini-2.0-flash-exp
+```
+
+获取 Google API Key：https://aistudio.google.com/apikey
 
 ### 运行Demo
 
@@ -44,7 +62,7 @@ QWEN3_MODEL=qwen-plus
 python interactive_demo.py --scenario chat --mode contextmind
 
 # 客服场景 + DST模式
-python interactive_demo.py --scenario callcenter --mode basic
+python interactive_demo.py --scenario callcenter --mode dst
 
 # 保险场景 + ContextMind模式
 python interactive_demo.py --scenario insurance --mode contextmind
@@ -66,14 +84,14 @@ python gradio_demo.py
 
 ```python
 from contextmind import ContextEngine
-from utils import SimpleLLMClient
+from utils.adk_llm_client import UnifiedLLMClient
 
-# 初始化 - 支持记忆和进化学习
-llm_client = SimpleLLMClient()
+# 初始化 - 使用 ADK LLM 客户端
+llm_client = UnifiedLLMClient()
 engine = ContextEngine(
-    llm_client=llm_client,
-    enable_memory=True,      # 启用语义记忆
-    enable_evolution=True     # 启用进化学习
+    app_name="my_app",
+    user_id="user_123",
+    llm_client=llm_client
 )
 
 # 对话 - 系统会记住上下文并不断优化
