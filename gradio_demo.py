@@ -180,6 +180,11 @@ class UnifiedGradioDemo:
                     '你好！'
                 )
                 
+                # 移除耗时标记，避免影响DST提取和历史累积
+                # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
+                import re
+                system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
+                
                 # 调用process_turn处理对话状态
                 state = await self.tracker.process_turn(
                     system_utterance=system_utterance,
@@ -297,37 +302,25 @@ class UnifiedGradioDemo:
             if self.tracker.current_state:
                 state_info["---"] = "---"
             
-            # 显示累积的所有槽位信息
+            # 显示累积的所有槽位信息（精简版，只显示非空槽位）
             if self.tracker.current_state:
-                state_info["累积状态"] = "以下是所有已提取的槽位"
-                for slot_name, slot_value in self.tracker.current_state.items():
-                    state_info[f"  {slot_name}"] = slot_value
-                state_info["  累积槽位数"] = len(self.tracker.current_state)
+                # 过滤掉空值槽位，只显示有意义的信息
+                non_empty_slots = {k: v for k, v in self.tracker.current_state.items() 
+                                  if v and str(v).strip()}
                 
-                # 检查预定义槽位的丰富程度
-                predefined_slots = self.tracker.prompt_manager.ontology_slots
-                if predefined_slots:
-                    filled_count = sum(1 for slot in predefined_slots if slot in self.tracker.current_state)
-                    total_count = len(predefined_slots)
-                    completion_rate = (filled_count / total_count * 100) if total_count > 0 else 0
-                    state_info["  预定义槽位填充"] = f"{filled_count}/{total_count} ({completion_rate:.1f}%)"
+                if non_empty_slots:
+                    state_info["累积状态"] = f"已提取 {len(non_empty_slots)} 个槽位"
+                    # 简化显示，只显示槽位名和值，不显示额外的缩进和计数
+                    for slot_name, slot_value in non_empty_slots.items():
+                        # 限制值的长度，避免显示过长
+                        display_value = str(slot_value)
+                        if len(display_value) > 50:
+                            display_value = display_value[:47] + "..."
+                        state_info[f"{slot_name}"] = display_value
+                else:
+                    state_info["累积状态"] = "暂无槽位信息"
             else:
                 state_info["累积状态"] = "暂无槽位信息"
-            
-            # 分隔线
-            state_info["----"] = "----"
-            
-            # 显示意图信息
-            if hasattr(self.tracker, 'current_intents') and self.tracker.current_intents:
-                intents_str = ", ".join(str(intent) for intent in self.tracker.current_intents)
-                state_info["当前意图"] = intents_str
-            else:
-                state_info["当前意图"] = "未识别"
-            
-            # 显示配置信息
-            state_info["历史摘要"] = "已启用" if self.tracker.enable_history_summary else "未启用"
-            state_info["最大历史轮数"] = self.tracker.max_history_turns
-            state_info["LLM摘要"] = "启用" if self.tracker.use_llm_summary else "禁用(使用模板)"
             
             return state_info
         elif self.current_mode == "contextmind" and self.app:
