@@ -1,10 +1,9 @@
 """
 对话状态追踪器（Dialogue State Tracker）
 
-v0.5.0 ADK 优化版本：
-- 支持 ADK LLM 客户端
-- 增强的错误处理
-- 改进的可观测性
+v0.4.1 ADK 优化版本：
+- 使用 ADK LLM 客户端
+- 保留所有 DST 核心逻辑和 Prompt 工程
 
 基于 ACL 2023 论文的增强实现，支持：
 - 动态槽位提取
@@ -12,7 +11,7 @@ v0.5.0 ADK 优化版本：
 - 多意图追踪
 - 优化的LLM使用（默认仅在槽位提取时调用）
 
-版本: v0.5.0 (ADK-powered)
+版本: v0.4.1 (ADK 优化版)
 """
 
 from typing import Dict, List, Optional, Tuple

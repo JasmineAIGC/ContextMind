@@ -2,7 +2,7 @@
 """
 ContextMind 统一Gradio Web Demo
 
-v0.5.0 ADK 优化版本 - 使用 Google GenAI SDK
+v0.4.1 ADK 优化版本
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
 支持两种模式：DST对话状态追踪模式、ContextMind记忆进化模式
@@ -19,13 +19,8 @@ from typing import List, Tuple, Optional
 from datetime import datetime
 from pathlib import Path
 
-# 优先使用 ADK LLM 客户端
-try:
-    from utils.adk_llm_client import UnifiedLLMClient as LLMClient
-    logger_msg = "使用 ADK UnifiedLLMClient"
-except ImportError:
-    from utils.llm_client import SimpleLLMClient as LLMClient
-    logger_msg = "使用传统 SimpleLLMClient"
+# 使用 ADK LLM 客户端
+from contextmind.adk_integration import ADKLLMClient as LLMClient
 
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
@@ -36,9 +31,9 @@ from apps.insurance_app import InsuranceApplication
 from ui_components import create_gradio_ui, CUSTOM_CSS
 from utils.logger import get_logger, setup_logging, LogLevel
 
-# 使用统一的logger from utils/logger.py
+# 使用统一的logger
 logger = get_logger(__name__)
-logger.info(logger_msg)
+logger.info("使用 ADK LLM 客户端 (v0.4.1)")
 
 
 class UnifiedGradioDemo:
@@ -91,16 +86,16 @@ class UnifiedGradioDemo:
         """初始化DST模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = LLMClient()  # 使用 ADK UnifiedLLMClient 或 SimpleLLMClient
+                self.llm_client = LLMClient()  # 使用 ADK LLM 客户端
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
             if "API" in str(e).upper() or "KEY" in str(e).upper():
                 error_msg += "📝 请检查以下配置：\n"
                 error_msg += "1. 确认.env文件存在\n"
-                error_msg += "2. 配置以下环境变量：\n"
-                error_msg += "   - GOOGLE_API_KEY (ADK v0.5.0)\n"
-                error_msg += "3. 重启程序\n"
+                error_msg += "2. 配置 API Key (GOOGLE_API_KEY 或 OPENAI_API_KEY)\n"
+                error_msg += "3. 安装依赖: pip install google-adk litellm\n"
+                error_msg += "4. 重启程序\n"
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
@@ -134,12 +129,12 @@ class UnifiedGradioDemo:
         """初始化ContextMind模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = LLMClient()  # 使用 ADK UnifiedLLMClient 或 SimpleLLMClient
+                self.llm_client = LLMClient()  # 使用 ADK LLM 客户端
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
             if "API" in str(e).upper() or "KEY" in str(e).upper():
-                error_msg += "📝 请检查.env配置文件，设置 GOOGLE_API_KEY\n"
+                error_msg += "📝 请配置.env文件中的 API Key (GOOGLE_API_KEY 或 OPENAI_API_KEY)\n"
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         

@@ -1,22 +1,19 @@
-# ContextMind 项目依赖 - ADK-Python 优化版
+# ContextMind v0.4.1 项目依赖 - ADK 优化版
 
-# ADK 核心依赖
+# ADK 核心
 google-adk>=1.0.0
-google-genai
 
-# LLM 客户端
-openai
-python-dotenv
+# LLM 支持 (通过 ADK + LiteLLM)
+litellm>=1.0.0
 
-# 可观测性
-opentelemetry-api>=1.20.0
-opentelemetry-sdk>=1.20.0
+# 环境变量管理
+python-dotenv>=1.0.0
 
 # 向量数据库
 chromadb>=0.4.0
 
 # Embedding 依赖（可选）
-# 如果使用本地 embedding 模型（如 bge-large-zh-v1.5），请安装：
+# 如果使用本地 embedding 模型，请安装：
 # sentence-transformers>=2.0.0
 
 # UI 演示依赖

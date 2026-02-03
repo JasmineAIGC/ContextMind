@@ -2,7 +2,7 @@
 """
 ContextMind 统一交互式Demo
 
-v0.5.0 ADK 优化版本 - 使用 Google GenAI SDK
+v0.4.1 ADK 优化版本
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
 支持两种模式：dst（对话状态追踪）、contextmind（基于记忆进化）
@@ -21,13 +21,8 @@ from typing import Optional
 from datetime import datetime
 from pathlib import Path
 
-# 优先使用 ADK LLM 客户端
-try:
-    from utils.adk_llm_client import UnifiedLLMClient as LLMClient
-    logger_msg = "使用 ADK UnifiedLLMClient"
-except ImportError:
-    from utils.llm_client import SimpleLLMClient as LLMClient
-    logger_msg = "使用传统 SimpleLLMClient"
+# 使用 ADK LLM 客户端
+from contextmind.adk_integration import ADKLLMClient as LLMClient
 
 from dst import DialogueStateTracker, PromptManager
 from contextmind import ContextEngine
@@ -37,9 +32,9 @@ from apps.callcenter_app import CallCenterApplication
 from apps.insurance_app import InsuranceApplication
 from utils.logger import get_logger, setup_logging, LogLevel
 
-# 使用统一的logger from utils/logger.py
+# 使用统一的logger
 logger = get_logger(__name__)
-logger.info(logger_msg)
+logger.info("使用 ADK LLM 客户端 (v0.4.1)")
 
 
 def _handle_llm_init_error(e: Exception) -> None:
@@ -53,25 +48,22 @@ def _handle_llm_init_error(e: Exception) -> None:
     print(f"❌ 错误: {e}")
     print(f"{'='*60}")
     
-    # 根据错误类型提供具体帮助
+    # 提供配置帮助
     error_str = str(e)
-    if "API key" in error_str or "API_KEY" in error_str:
+    if "API" in error_str.upper() or "KEY" in error_str.upper():
         print("\n📝 请配置.env文件，添加以下内容：")
         print("=" * 60)
-        print("# ADK v0.5.0 - 使用 Google GenAI")
+        print("# 选项 1: 使用 Google Gemini")
         print("GOOGLE_API_KEY=your-google-api-key")
-        print("GOOGLE_MODEL=gemini-2.0-flash-exp")
+        print("MODEL=gemini-2.0-flash-exp")
         print()
-        print("# 或使用传统配置")
-        print("QWEN3_API_KEY=sk-your-api-key-here")
-        print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-        print("QWEN3_MODEL=Qwen3-32B")
+        print("# 选项 2: 使用 OpenAI")
+        print("OPENAI_API_KEY=your-openai-key")
+        print("MODEL=openai/gpt-4")
         print("=" * 60)
-    elif "OpenAI" in error_str or "google-genai" in error_str:
+    elif "adk" in error_str.lower() or "litellm" in error_str.lower():
         print("\n请安装依赖包：")
-        print("  pip install google-genai")
-        print("  或")
-        print("  pip install openai")
+        print("  pip install google-adk litellm")
     print()
     sys.exit(1)
 
@@ -203,7 +195,7 @@ class UnifiedInteractiveDemo:
     def print_welcome(self):
         """打印欢迎信息"""
         print("\n" + "="*60)
-        print(f"📱 ContextMind 统一交互式Demo v0.4.0")
+        print(f"📱 ContextMind 统一交互式Demo v0.4.1 (ADK 优化版)")
         print("="*60)
         print(f"场景: {self.config.name}")
         print(f"模式: {'DST (对话状态追踪)' if self.mode == 'dst' else 'ContextMind (基于记忆进化)'}")

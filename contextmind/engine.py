@@ -1,11 +1,10 @@
 """
-ContextEngine - 上下文引擎核心模块 v0.5.0
+ContextEngine - 上下文引擎核心模块 v0.4.1
 
-ADK-Python 优化版本：
-- 集成 ADK LLM 客户端支持
-- 增强的错误处理和重试机制
-- 标准化工具系统
-- 改进的可观测性
+ADK 优化版本：
+- 使用 ADK 作为底层 LLM 客户端
+- 保留所有上下文工程算法
+- 保留记忆进化系统
 
 清晰的模块化架构设计:
 - 应用层: 使用引擎的应用（示例：客服、聊天机器人等）
@@ -13,12 +12,13 @@ ADK-Python 优化版本：
 - 模块层: InputPreprocessor, MemoryBank, ContextCompressor, 
   ContextReorderer, ResponseHandler, ConversationSummarizer
 - 策略层: 可插拔的策略实现
+- LLM 层: ADK 提供统一的 LLM 接口
 
 核心职责:
 1. 上下文优化 (optimize)
 2. 响应处理 (handle_response)
 3. 知识提取 (extract_knowledge)
-4. 上下文更新 (update) - 向后兼容
+4. 上下文更新 (update)
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ logger = get_logger(__name__)
 
 class ContextEngine:
     """
-    上下文引擎 v0.5.0 (ADK-powered)
+    上下文引擎 v0.4.1 (ADK 优化版)
     
     专注于上下文优化的核心引擎，提供简洁的API：
     - optimize(): 优化上下文，返回 ContextResult
@@ -59,15 +59,15 @@ class ContextEngine:
     - 模块解耦：Pipeline、Manager、Strategy各司其职
     - 易于扩展：所有策略都可插拔替换
     - 异步优先：全面使用async/await
-    - ADK 集成：使用 ADK LLM 客户端和工具系统
+    - ADK 集成：使用 ADK 统一 LLM 调用
     
     使用示例：
         ```python
         from contextmind import ContextEngine
-        from utils.adk_llm_client import UnifiedLLMClient
+        from contextmind.adk_integration import ADKLLMClient
         
         # 使用 ADK LLM 客户端
-        llm_client = UnifiedLLMClient()
+        llm_client = ADKLLMClient()
         
         engine = ContextEngine(
             app_name="my-app",
@@ -103,21 +103,21 @@ class ContextEngine:
         """
         初始化上下文引擎
         
-        v0.5.0 ADK 优化架构:
-        - 支持 ADK LLM 客户端（推荐）
-        - 向后兼容传统 LLM 客户端
-        - 默认使用基于大语言模型的知识提取
+        v0.4.1 ADK 优化架构:
+        - 使用 ADK LLM 客户端（ADKLLMClient）
+        - 保留所有上下文工程算法
+        - 保留记忆进化系统
         
         Args:
             app_name: 应用名称
             user_id: 用户 ID
-            llm_client: LLM 客户端实例 (支持 UnifiedLLMClient 或 SimpleLLMClient)
+            llm_client: LLM 客户端实例 (推荐使用 ADKLLMClient)
             session_service: Session 服务实例 (可选)
             memory_service: Memory 服务实例 (可选)
-            max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
+            max_recent_events: 保留的最大近期事件数量 (默认 9999)
             use_postprocessor: (已废弃) 使用 handle_response 代替
             use_summarizer: 是否使用对话摘要器 (默认 False)
-            extraction_method: 知识提取方式 (默认 'llm' 使用大语言模型)
+            extraction_method: 知识提取方式 (默认 'llm')
             extraction_config: 提取配置对象 (可选)
         """
         self.app_name = app_name

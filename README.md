@@ -1,28 +1,27 @@
-# ContextMind v0.5.0 (ADK-powered)
+# ContextMind v0.4.1 (ADK 优化版)
 
 一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
-v0.5.0 版本使用 **Google ADK-Python** 进行了全面优化，提供更强的稳定性、通用性和可扩展性。
+v0.4.1 版本使用 **Google ADK-Python** 优化基础设施，专注于上下文工程核心算法。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 
 ---
 
-## 🎯 v0.5.0 新特性
+## 🎯 v0.4.1 优化重点
 
-### ADK-Python 集成优化
-- ✅ **统一 LLM 客户端** - 使用 Google GenAI SDK，支持多种模型
-- ✅ **标准化工具系统** - 基于 ADK 的工具接口，易于扩展
-- ✅ **增强错误处理** - 自动重试和优雅降级
-- ✅ **改进的可观测性** - 更好的日志和追踪
+### ADK 集成优化
+- ✅ **统一 LLM 接口** - 使用 Google ADK，支持多种模型（Gemini, OpenAI, Anthropic 等）
+- ✅ **简化基础设施** - 删除自研 LLM 客户端代码 (~1,800 行)
+- ✅ **专注核心价值** - 保留所有上下文工程算法和记忆进化系统
 
-## 核心特性
+### 核心特性保留
 
-- **模型无关** - 适配任何 LLM 提供商（Google, OpenAI, 等）
-- **五步流水线** - 预处理、检索、压缩、重排序、响应处理
-- **智能记忆** - 自动知识提取和语义检索
+- **上下文工程算法** - 完整保留五步流水线（预处理、检索、压缩、重排序、响应处理）
+- **记忆进化系统** - 完整保留记忆适应度计算和进化更新
+- **DST 模式** - 完整保留对话状态追踪和槽位提取逻辑
 - **两种模式** - ContextMind 进化模式 / DST 状态追踪模式
 
 ---
@@ -35,6 +34,12 @@ v0.5.0 版本使用 **Google ADK-Python** 进行了全面优化，提供更强�
 pip install -r requirements.txt
 ```
 
+主要依赖：
+- `google-adk` - Google Agent Development Kit
+- `litellm` - 多模型支持
+- `chromadb` - 向量数据库
+- `gradio` - Web UI
+
 ### 配置
 
 复制 `.env.example` 为 `.env` 并配置：
@@ -46,12 +51,18 @@ cp .env.example .env
 编辑 `.env` 文件：
 
 ```ini
-# Google GenAI API (推荐 - v0.5.0)
+# 选项 1: 使用 Google Gemini (推荐)
 GOOGLE_API_KEY=your-google-api-key-here
-GOOGLE_MODEL=gemini-2.0-flash-exp
-```
+MODEL=gemini-2.0-flash-exp
 
-获取 Google API Key：https://aistudio.google.com/apikey
+# 选项 2: 使用 OpenAI
+# OPENAI_API_KEY=your-openai-key
+# MODEL=openai/gpt-4
+
+# 选项 3: 使用 Anthropic Claude
+# ANTHROPIC_API_KEY=your-anthropic-key
+# MODEL=anthropic/claude-3-sonnet
+```
 
 ### 运行Demo
 
@@ -84,10 +95,10 @@ python gradio_demo.py
 
 ```python
 from contextmind import ContextEngine
-from utils.adk_llm_client import UnifiedLLMClient
+from contextmind.adk_integration import ADKLLMClient
 
 # 初始化 - 使用 ADK LLM 客户端
-llm_client = UnifiedLLMClient()
+llm_client = ADKLLMClient()
 engine = ContextEngine(
     app_name="my_app",
     user_id="user_123",
