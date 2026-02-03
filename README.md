@@ -1,256 +1,278 @@
 # ContextMind v0.4.1
 
-一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
+**通用、可扩展、易集成的上下文工程框架**
 
-v0.4.1 版本**直接使用 Google ADK-Python**，两个模式各自独立使用 ADK Agent。
+基于 [google-adk](https://github.com/google/adk-python) 的 Agent 层，专注于对话系统的上下文工程实现。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/Jasmine66Bloom/Evolution)
+[![Version](https://img.shields.io/badge/version-0.4.1-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 
 ---
 
-## 🎯 v0.4.1 架构
+## 🎯 核心特性
 
-### 两个独立模式
+### 1. 基于 ADK-Python 的 Agent 层
 
-#### 1. **DST 模式** (`dst/`)
-- **ADK 负责**: Agent 框架、LLM 调用
-- **自研部分**: 槽位提取、Prompt 工程、状态追踪算法
-- **特点**: 简单、高效、专注于对话状态
+- ✅ **底层 Agent**: 完全基于 `google.adk.agents.Agent`
+- ✅ **LLM 调用**: 通过 `google.adk.models.openai.OpenAI`
+- ✅ **无重复造轮子**: 充分利用 ADK 的成熟能力
 
-#### 2. **Evolution 模式** (`evolution/`)
-- **ADK 负责**: Agent 框架、LLM 调用
-- **自研部分**: Pipeline 算法、记忆库、记忆进化系统
-- **特点**: 复杂、智能、专注于上下文工程
+### 2. 自研上下文工程
 
-### 核心原则
+- ✅ **专注领域**: ADK 不提供上下文工程功能，我们自研实现
+- ✅ **两种模式**: DST（对话状态追踪）和 Evolution（记忆进化）
+- ✅ **核心算法**: Pipeline、槽位提取、状态追踪、记忆进化
 
-**直接使用 ADK**：
-- ✅ 无中间封装层
-- ✅ 直接使用 `google.adk.agents.Agent`
-- ✅ 直接使用 `google.adk.models.lite_llm.LiteLlm`
-- ✅ 各模式独立实现专用 Agent
+### 3. 通用框架设计
 
-**保留自研核心**：
-- ✅ DST 的槽位提取和状态追踪算法
-- ✅ Evolution 的上下文工程 Pipeline
-- ✅ Evolution 的记忆进化系统
+- ✅ **可扩展**: 灵活的场景配置系统
+- ✅ **易集成**: 标准化接口，易于集成到现有系统
+- ✅ **多场景**: 支持闲聊、客服、保险等多种应用场景
 
 ---
 
-## 快速开始
+## 📊 架构层次
 
-### 安装依赖
+```
+应用层 (gradio_demo, interactive_demo, apps)
+    ↓
+上下文工程层 (ContextMind 自研)
+├── DST 模式: 槽位提取、状态追踪、Prompt 工程
+└── Evolution 模式: Pipeline 算法、记忆库、记忆进化
+    ↓
+Agent 层 (基于 google-adk)
+└── DSTAgent, EvolutionAgent (google.adk.agents.Agent)
+    ↓
+LLM 层 (google.adk.models)
+└── OpenAI (配置为 Qwen API - OpenAI 兼容接口)
+```
+
+**详细架构**: 查看 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## 🚀 两种上下文工程模式
+
+### DST 模式 (`dst/`)
+
+**对话状态追踪** - 基于 ACL 2023 论文
+
+- **ADK 负责**: Agent 框架、LLM 调用
+- **自研实现**: 槽位提取算法、Prompt 工程、状态追踪
+- **适用场景**: 结构化任务（订票、客服）
+- **特点**: 轻量、高效
+
+### Evolution 模式 (`evolution/`)
+
+**基于进化的记忆优化** - 完整的上下文工程方案
+
+- **ADK 负责**: Agent 框架、LLM 调用
+- **自研实现**: Pipeline 算法、记忆库、记忆进化系统
+- **适用场景**: 开放域对话、个性化交互
+- **特点**: 完整、智能
+
+---
+
+## ⚡ 快速开始
+
+### 1. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 配置
+**核心依赖**:
+- `google-adk>=1.23.0` - ADK Agent 框架
+- `openai>=1.0.0` - OpenAI SDK（Qwen 兼容）
 
-编辑 `.env` 文件（当前使用 Qwen 模型）：
+### 2. 配置
+
+编辑 `.env` 文件：
 
 ```ini
-# LLM 配置 (Qwen)
+# LLM 配置（Qwen API - OpenAI 兼容接口）
 QWEN3_API_KEY=your-api-key
 QWEN3_BASE_URL=http://your-endpoint/v1
 QWEN3_MODEL=Qwen2.5-7B-Instruct
-QWEN3_MAX_TOKENS=8192
 
-# Embedding 配置（使用专门的嵌入模型，不是 LLM）
+# Embedding 配置（用于记忆检索，不是 LLM）
 EMBEDDING_MODEL_PATH=/path/to/bge-large-zh-v1.5
 EMBEDDING_MODEL=bge-large-zh-v1.5
 ```
 
-### 运行Demo
+详细配置说明: [docs/configuration.md](docs/configuration.md)
 
-#### Interactive Demo（命令行）
+### 3. 运行示例
+
+#### Web UI（Gradio）
 
 ```bash
-# 闲聊场景 + Evolution模式
+python gradio_demo.py
+# 访问 http://localhost:7860
+# 界面中选择场景（chat/callcenter/insurance）和模式（Evolution/DST）
+```
+
+#### 命令行（Interactive）
+
+```bash
+# Evolution 模式 + 闲聊场景
 python interactive_demo.py --scenario chat --mode evolution
 
-# 客服场景 + DST模式
+# DST 模式 + 客服场景
 python interactive_demo.py --scenario callcenter --mode dst
 
-# 保险场景 + Evolution模式
+# Evolution 模式 + 保险场景
 python interactive_demo.py --scenario insurance --mode evolution
 ```
 
-#### Gradio Demo（Web界面）
+---
 
-```bash
-# 启动Web界面
-python gradio_demo.py
+## 💻 API 使用
 
-# 在浏览器中访问 http://localhost:7860
-# 可在界面中选择场景（chat/callcenter/insurance）和模式（Evolution/DST）
-```
-
-### API使用
-
-#### Evolution 模式（基于记忆进化）
+### Evolution 模式示例
 
 ```python
 from evolution import EvolutionAgent, EvolutionEngine
 
-# 创建 Evolution Agent（直接使用 google.adk）
+# 1. 创建 Evolution Agent（基于 google-adk）
 agent = EvolutionAgent()
 
-# 创建引擎
+# 2. 创建引擎
 engine = EvolutionEngine(
     app_name="my_app",
     user_id="user_123",
     llm_client=agent
 )
 
-# 优化上下文
-context = await engine.optimize("你好")
-print(context)
+# 3. 优化上下文
+context = await engine.optimize("你好，我想了解保险产品")
+print(f"优化后的上下文: {context}")
+
+# 4. 生成回复
+response = await agent.generate_async("基于上下文生成回复")
 ```
 
-#### DST 模式（对话状态追踪）
+### DST 模式示例
 
 ```python
 from dst import DSTAgent, DialogueStateTracker
 
-# 创建 DST Agent（直接使用 google.adk）
+# 1. 创建 DST Agent（基于 google-adk）
 agent = DSTAgent()
 
-# 创建追踪器
+# 2. 创建状态追踪器
 tracker = DialogueStateTracker(llm_client=agent)
 
-# 追踪对话状态
-state = await tracker.track_turn("你好", "我想订餐")
-print(state)  # 返回提取的槽位和意图
-```
-
----
-
-## 演示程序
-
-### 闲聊场景
-```bash
-python chat_interactive_demo.py --mode evolution  # 完整模式
-python chat_interactive_demo.py --mode basic        # DST 模式
-python chat_gradio_demo.py                          # Web UI
-```
-
-### 客服场景
-```bash
-python callcenter_interactive_demo.py --mode evolution
-python callcenter_interactive_demo.py --mode basic
-python callcenter_gradio_demo.py                    # Web UI
-```
-
-### 保险场景（共荣保险）
-```bash
-python insurance_interactive_demo.py --mode evolution
-python insurance_interactive_demo.py --mode basic   # 使用预定义意图和槽位
-python insurance_gradio_demo.py                     # Web UI
-```
-
----
-
-## 场景配置系统
-
-Evolution v0.4.0 支持通过配置文件轻松切换不同的对话任务：
-
-### 支持的场景
-
-| 场景 | 配置文件 | 说明 |
-|------|---------|------|
-| 闲聊 | `scenarios/chat_scenario.py` | 动态槽位，开放意图 |
-| 客服 | `scenarios/callcenter_scenario.py` | 问题追踪，工单管理 |
-| 保险 | `scenarios/insurance_scenario.py` | 共荣保险，预定义意图和槽位 |
-
-### 使用配置
-
-```python
-from scenarios import get_insurance_scenario, get_chat_scenario, get_callcenter_scenario
-
-# 获取场景配置
-config = get_insurance_scenario()
-
-# DST 模式（使用预定义意图和槽位）
-from dst import DialogueStateTracker, PromptManager
-
-pm = PromptManager(
-    domain=config.scenario_name,
-    enable_dynamic_slots=False  # 使用预定义槽位
+# 3. 追踪对话状态
+state = await tracker.track_turn(
+    system_utterance="您好，有什么可以帮您的？",
+    user_utterance="我想订明天去北京的机票"
 )
 
-# 添加预定义槽位
-for slot_name, slot_desc in config.dst_slots.items():
-    pm.add_slot(slot_name, slot_desc)
-
-# Evolution 模式
-from evolution import EvolutionEngine
-
-engine = EvolutionEngine(
-    system_prompt=config.system_prompt,
-    enable_memory=config.enable_memory
-)
+# 4. 查看提取的槽位
+print(f"意图: {state.get('intent')}")
+print(f"槽位: {state.get('slots')}")
 ```
-
-### 添加新场景
-
-1. 在 `scenarios/` 创建新配置文件
-2. 在 `prompts.py` 添加系统提示词
-3. 创建对应的 demo 文件
-4. 在 `scenarios/__init__.py` 导出
-
-详见：[场景配置文档](docs/SCENARIO_CONFIGURATION.md)
 
 ---
 
-## 项目结构
+## 📖 文档
+
+### 核心文档
+
+- **[架构说明](docs/ARCHITECTURE.md)** - 详细的框架架构和设计原则
+- **[快速开始](docs/quick-start.md)** - 5分钟快速上手
+- **[配置指南](docs/configuration.md)** - 详细的配置说明
+- **[模式对比](docs/modes.md)** - DST 和 Evolution 两种模式的详细对比
+
+### 专题文档
+
+- **[DST 论文实现](docs/paper-DST.md)** - ACL 2023 论文的实现细节
+- **[DST 优化](docs/dst-optimizations.md)** - DST 模式的优化技巧
+
+完整文档索引: [docs/README.md](docs/README.md)
+
+---
+
+## 🏗️ 项目结构
 
 ```
-Evolution/ v0.4.0
-├── evolution/              # Evolution 完整框架（五层架构）
-├── dst/                      # DST 基础实现（ACL 2023 论文）
-├── scenarios/                # 场景配置系统 ✨
-│   ├── config.py            # 配置基类
-│   ├── chat_scenario.py     # 闲聊场景
-│   ├── callcenter_scenario.py  # 客服场景
-│   └── insurance_scenario.py   # 保险场景（共荣保险）
-├── utils/                    # 通用工具（logger, LLM client）
-├── examples/                 # 应用示例
+ContextMind/ v0.4.1
+├── dst/                    # DST 模式（对话状态追踪）
+│   ├── adk_agent.py       # DST Agent（基于 google-adk）
+│   ├── dialogue_state_tracker.py  # 状态追踪核心
+│   ├── prompt_manager.py  # Prompt 工程
+│   └── response_parser.py # 响应解析
+│
+├── evolution/             # Evolution 模式（记忆进化）
+│   ├── agent.py          # Evolution Agent（基于 google-adk）
+│   ├── engine.py         # Evolution 引擎
+│   ├── pipeline/         # 上下文工程 Pipeline
+│   ├── memory/           # 记忆管理系统
+│   └── evolution/        # 进化系统
+│
+├── scenarios/            # 场景配置
+│   ├── chat_scenario.py      # 闲聊
+│   ├── callcenter_scenario.py # 客服
+│   └── insurance_scenario.py  # 保险
+│
+├── apps/                 # 应用层
 │   ├── chat_app.py
 │   ├── callcenter_app.py
 │   └── insurance_app.py
-├── docs/                     # 文档
-├── prompts.py                # 系统提示词（3个主要场景）
-└── *_demo.py                 # 演示程序
+│
+├── utils/                # 工具
+│   ├── adk_config.py    # ADK 配置
+│   ├── logger.py        # 日志
+│   └── embedding.py     # Embedding
+│
+├── docs/                 # 文档
+├── gradio_demo.py       # Web UI
+├── interactive_demo.py  # CLI
+└── requirements.txt     # 依赖
 ```
 
 ---
 
-## 两种模式对比
+## 🌟 核心价值
 
-| 特性 | DST 模式 | Evolution 模式 |
-|------|---------|-----------------|
-| 方法论 | 对话状态追踪 (Dialogue State Tracking) | 基于记忆进化的对话系统 |
-| 技术基础 | ACL 2023 论文，槽位-值提取 | 五层架构，语义记忆+进化学习 |
-| 核心能力 | 意图识别、槽位提取、状态追踪 | 上下文理解、记忆管理、自主进化 |
-| 记忆系统 | ❌ 无持久记忆 | ✅ 语义记忆库 + 进化学习 |
-| 学习能力 | ❌ 无学习 | ✅ 从对话中持续学习优化 |
-| 适用场景 | 结构化任务（订票、客服） | 开放域对话、个性化交互 |
-| 复杂度 | ⭐⭐ 轻量 | ⭐⭐⭐⭐ 完整 |
+### 为什么选择 ContextMind？
+
+1. **专业的上下文工程**
+   - 不只是简单的对话管理
+   - 提供专业的上下文理解、管理和优化
+   - 两种模式覆盖不同需求场景
+
+2. **基于成熟框架**
+   - 底层 Agent 基于 google-adk
+   - 避免重复造轮子
+   - 专注于上下文工程本身
+
+3. **通用性和可扩展性**
+   - 场景配置系统，轻松适配新场景
+   - 标准化接口，易于集成
+   - 可切换不同的 LLM
+
+4. **生产就绪**
+   - 完整的错误处理
+   - 详细的日志系统
+   - 经过实际项目验证
 
 ---
 
-## 文档
-
-- [架构说明](docs/ARCHITECTURE.md)
-- [DST 文档](docs/BASIC_DST_DOCUMENTATION.md)
-- [迁移指南](docs/MIGRATION.md)
-- [更新日志](docs/CHANGELOG.md)
-
----
-
-## 开源协议
+## 📝 许可证
 
 MIT License
+
+---
+
+## 🤝 贡献
+
+欢迎贡献！请查看贡献指南。
+
+---
+
+**版本**: v0.4.1  
+**核心**: 基于 ADK-Python 的上下文工程框架  
+**定位**: 通用、可扩展、易集成
