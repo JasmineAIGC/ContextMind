@@ -26,6 +26,14 @@ ContextMind v0.4.1 - 基于 ADK-Python 的上下文工程框架
 
 ## 📚 核心文档
 
+### 框架总览
+
+- **[框架总结](FRAMEWORK_SUMMARY.md)** ⭐
+  - 三句话总结 ContextMind
+  - 框架层次和职责划分
+  - 设计原则
+  - 核心价值
+
 ### 入门指南
 
 - **[快速开始](quick-start.md)** ⭐
@@ -101,6 +109,7 @@ ContextMind v0.4.1 - 基于 ADK-Python 的上下文工程框架
 
 ### 按主题
 
+- **总览**: [框架总结](FRAMEWORK_SUMMARY.md)
 - **入门**: [快速开始](quick-start.md)
 - **架构**: [架构说明](ARCHITECTURE.md)
 - **配置**: [配置指南](configuration.md)
