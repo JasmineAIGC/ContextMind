@@ -127,11 +127,13 @@ from .evolution import (
     ImplicitFeedbackAnalyzer,
 )
 
-# 别名
+# 别名 - 统一命名风格
 registry = PluginRegistry()
 ContextMind = ContextMindConfig
 InputPreprocessor = Preprocessor
 ConversationSummarizer = LLMBasedSummarizer
+ResponseParser = ResponseHandler  # 统一Parser命名（虽然功能不同，但概念相似）
+EvolveTracker = EvolveEngine  # 统一Tracker命名
 
 
 def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app_name_prefix: str = "demo"):
@@ -192,6 +194,7 @@ __all__ = [
     
     # 核心引擎
     "EvolveEngine",
+    "EvolveTracker",  # 统一别名
     
     # 工厂方法
     "create_app_for_scenario",
@@ -234,6 +237,7 @@ __all__ = [
     "ContextCompressor",      # 步骤 3
     "ContextReorderer",       # 步骤 4
     "ResponseHandler",        # 步骤 5 (v0.2.1)
+    "ResponseParser",         # 统一别名
     
     # 支持组件
     "BaseSummarizer",

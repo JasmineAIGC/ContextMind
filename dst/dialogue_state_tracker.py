@@ -187,6 +187,10 @@ class DialogueStateTracker:
         self.history_summary = None
         logger.info("对话状态已重置")
     
+    def reset(self) -> None:
+        """重置对话状态的统一别名，与其他模式保持一致"""
+        self.reset_dialogue()
+    
     async def process_turn(self, 
                           system_utterance: str, 
                           user_utterance: str) -> Dict[str, str]:
