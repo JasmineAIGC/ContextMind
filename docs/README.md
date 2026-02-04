@@ -12,7 +12,11 @@
 ### 系统架构
 
 - [系统架构](architecture.md) - ContextMind 完整架构设计和实现细节
-- [模式对比](modes.md) - DST 与 Evolve 模式详细对比
+- [模式对比](modes.md) - DST、FnCTOD 与 Evolve 模式详细对比
+
+### 开发规范
+
+- [命名标准规范](naming-standards.md) - 三种模式的统一命名规范和最佳实践
 
 ### 版本管理
 
