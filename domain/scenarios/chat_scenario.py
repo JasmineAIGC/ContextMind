@@ -2,7 +2,7 @@
 闲聊场景配置
 """
 
-from scenarios.config import ScenarioConfig, ScenarioType
+from .config import ScenarioConfig, ScenarioType
 from prompts import CHAT_SYSTEM_PROMPT
 
 

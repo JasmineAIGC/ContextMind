@@ -23,7 +23,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.llm_client import SimpleLLMClient
 from modes.dst import DialogueStateTracker, PromptManager
-from scenarios import get_insurance_scenario
+from domain.scenarios import get_insurance_scenario
 from utils.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)

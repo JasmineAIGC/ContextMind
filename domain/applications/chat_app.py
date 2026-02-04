@@ -9,8 +9,8 @@ import logging
 from typing import Optional, Dict
 
 from modes.evolve import EvolveEngine
-from evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
-from evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
+from modes.evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from modes.evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
 from utils.llm_client import SimpleLLMClient, LLMConfig
 

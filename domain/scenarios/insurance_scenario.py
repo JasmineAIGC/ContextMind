@@ -16,7 +16,7 @@
 - 共荣保险公司的团体癌症保险产品
 """
 
-from scenarios.config import ScenarioConfig, ScenarioType
+from .config import ScenarioConfig, ScenarioType
 
 
 def get_insurance_scenario() -> ScenarioConfig:

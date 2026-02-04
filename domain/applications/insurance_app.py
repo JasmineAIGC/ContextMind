@@ -1,7 +1,7 @@
 """
-CallCenterApplication - 客服应用示例
+InsuranceApplication - 保险应用示例
 
-展示如何使用EvolveEngine构建客服对话应用。
+展示如何使用EvolveEngine构建保险对话应用。
 重点展示上下文工程能力：利用历史、记忆和知识提供连贯回复。
 """
 
@@ -9,13 +9,13 @@ import logging
 from typing import Optional
 
 from modes.evolve import EvolveEngine
-from evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
-from evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
+from modes.evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from modes.evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
 from utils.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
-from prompts import CALLCENTER_SYSTEM_PROMPT
+from prompts import INSURANCE_SYSTEM_PROMPT
 
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -25,21 +25,21 @@ logging.getLogger("openai._base_client").setLevel(logging.INFO)
 logger = get_logger(__name__)
 
 
-class CallCenterApplication:
-    """客服应用示例"""
+class InsuranceApplication:
+    """保险应用示例"""
     
     def __init__(
         self,
         context_engine: EvolveEngine,
         business_info: str = "",
         history_turns: int = 10,
-        system_prompt: str = CALLCENTER_SYSTEM_PROMPT,
+        system_prompt: str = INSURANCE_SYSTEM_PROMPT,
         llm_config: Optional[LLMConfig] = None,
         use_real_llm: bool = True,
         extraction_method: str = None,  # 知识提取方式 ('rule' 或 'llm')
         **config
     ):
-        """初始化客服应用
+        """初始化保险应用
         
         Args:
             context_engine: ContextMind 引擎实例
@@ -69,18 +69,18 @@ class CallCenterApplication:
             try:
                 self.llm_client = SimpleLLMClient(llm_config)
                 logger.info(
-                    f"[CallCenterApplication] ✓ 初始化完成 "
+                    f"[InsuranceApplication] ✓ 初始化完成 "
                     f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
                 )
             except Exception as e:
-                logger.warning(f"[CallCenterApplication] ⚠ LLM 客户端初始化失败: {e}")
-                logger.warning("[CallCenterApplication] 将使用模拟回复")
+                logger.warning(f"[InsuranceApplication] ⚠ LLM 客户端初始化失败: {e}")
+                logger.warning("[InsuranceApplication] 将使用模拟回复")
                 self.use_real_llm = False
                 self.llm_client = None
         else:
             self.llm_client = None
             logger.info(
-                f"[CallCenterApplication] ✓ 初始化完成 "
+                f"[InsuranceApplication] ✓ 初始化完成 "
                 f"(模拟回复, 知识提取: {self.extraction_method})"
             )
         
@@ -94,11 +94,11 @@ class CallCenterApplication:
             config=summarization_config,
             llm_client=self.llm_client if use_real_llm else None
         )
-        logger.debug(f"[CallCenterApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
+        logger.debug(f"[InsuranceApplication] ✓ 对话摘要器已初始化 (触发阈值: {summarization_config.summarize_threshold}轮)")
 
     
     async def build_prompt(self, user_input: str, context: ContextResult) -> str:
-        """构建客服场景 Prompt"""
+        """构建保险场景 Prompt"""
         logger.info("")
         logger.info("=" * 100)
         logger.info("[Prompt] ========== 开始构建 Prompt ==========")
@@ -310,7 +310,7 @@ class CallCenterApplication:
     @classmethod
     def create_from_config(cls, llm_client, scenario_config):
         """
-        从场景配置创建CallCenterApplication实例的工厂方法
+        从场景配置创建InsuranceApplication实例的工厂方法
         
         这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
         
@@ -319,7 +319,19 @@ class CallCenterApplication:
             scenario_config: 场景配置对象（来自scenarios模块）
             
         返回:
-            配置好的CallCenterApplication实例
+            配置好的InsuranceApplication实例
+            
+        示例:
+            from domain.applications.insurance_app import InsuranceApplication
+            from domain.scenarios import get_insurance_scenario
+            from utils.llm_client import SimpleLLMClient
+            
+            llm_client = SimpleLLMClient()
+            config = get_insurance_scenario()
+            app = InsuranceApplication.create_from_config(
+                llm_client=llm_client,
+                scenario_config=config
+            )
         """
         # 创建EvolveEngine
         engine = EvolveEngine(
@@ -336,4 +348,4 @@ class CallCenterApplication:
         )
 
 
-__all__ = ['CallCenterApplication', 'CALLCENTER_SYSTEM_PROMPT']
+__all__ = ['InsuranceApplication', 'INSURANCE_SYSTEM_PROMPT']

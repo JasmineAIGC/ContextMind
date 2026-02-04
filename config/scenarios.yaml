@@ -20,8 +20,8 @@ scenarios:
     description: 通用闲聊场景
     aliases:
       - 闲聊
-    app_class: apps.chat_app.ChatApplication
-    schema_getter: fnctod.schemas.get_chat_function_schema
+    app_class: domain.applications.chat_app.ChatApplication
+    schema_getter: modes.fnctod.schemas.get_chat_function_schema
 
   # 客服场景
   callcenter:
@@ -29,8 +29,8 @@ scenarios:
     description: 客服场景
     aliases:
       - 客服
-    app_class: apps.callcenter_app.CallCenterApplication
-    schema_getter: fnctod.schemas.get_callcenter_function_schema
+    app_class: domain.applications.callcenter_app.CallCenterApplication
+    schema_getter: modes.fnctod.schemas.get_callcenter_function_schema
 
   # 保险挽回场景
   insurance:
@@ -39,8 +39,8 @@ scenarios:
     aliases:
       - 保险
       - 保险挽回
-    app_class: apps.insurance_app.InsuranceApplication
-    schema_getter: fnctod.schemas.get_insurance_function_schema
+    app_class: domain.applications.insurance_app.InsuranceApplication
+    schema_getter: modes.fnctod.schemas.get_insurance_function_schema
 
 # 添加新场景示例：
 # 
@@ -50,5 +50,5 @@ scenarios:
 #   aliases:
 #     - 自定义
 #     - custom
-#   app_class: apps.custom_app.CustomApplication
-#   schema_getter: fnctod.schemas.get_custom_schema
+#   app_class: domain.applications.custom_app.CustomApplication
+#   schema_getter: modes.fnctod.schemas.get_custom_schema

@@ -22,7 +22,7 @@ from pathlib import Path
 from utils.llm_client import SimpleLLMClient
 from modes.dst import DialogueStateTracker
 from modes.fnctod import FnCTODTracker
-from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
+from domain.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from utils.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger from utils/logger.py
