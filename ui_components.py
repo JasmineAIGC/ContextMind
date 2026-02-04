@@ -24,44 +24,124 @@ def format_state_as_json(state_dict):
     return str(state_dict)
 
 
-# 自定义CSS样式 - 简化版本，配合 Soft 主题使用
+# 自定义CSS样式 - 配合 Soft 主题使用，提供更美观的界面
 CUSTOM_CSS = """
 /* 全局样式优化 */
 .gradio-container {
     max-width: 1400px !important;
     margin: 0 auto !important;
+    padding: 20px !important;
+}
+
+/* 标题区域美化 */
+.main-header {
+    text-align: center !important;
+    padding: 20px 0 !important;
+    margin-bottom: 20px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-radius: 16px !important;
+    color: white !important;
+}
+
+.main-header h1 {
+    color: white !important;
+    font-size: 2.2em !important;
+    font-weight: 700 !important;
+    margin-bottom: 8px !important;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.main-header p {
+    color: rgba(255,255,255,0.9) !important;
+    font-size: 1.1em !important;
+    margin: 0 !important;
+}
+
+/* 面板卡片样式 */
+.panel-card {
+    background: white !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
 }
 
 /* 聊天区域优化 */
 .chatbot {
     border-radius: 12px !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
 }
 
 /* 配置区域样式 */
 .config-section {
-    background: #f8f9fa !important;
-    padding: 15px !important;
-    border-radius: 10px !important;
+    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%) !important;
+    padding: 16px !important;
+    border-radius: 12px !important;
     border: 1px solid #e5e7eb !important;
-    margin-bottom: 15px !important;
+    margin-bottom: 16px !important;
+}
+
+/* 按钮美化 */
+button.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+button.primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
 }
 
 /* JSON显示区美化 */
 .json-display {
     border-radius: 10px !important;
-    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace !important;
     font-size: 0.9em !important;
     line-height: 1.6 !important;
+    background: #1e1e1e !important;
+}
+
+/* 分区标题样式 */
+.section-title {
+    font-size: 1.1em !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+    border-bottom: 2px solid #667eea !important;
 }
 
 /* Footer样式 */
 .footer {
     text-align: center !important;
-    color: #666 !important;
-    font-size: 0.9em !important;
+    color: #6b7280 !important;
+    font-size: 0.85em !important;
     margin-top: 30px !important;
     padding: 20px !important;
-    border-top: 1px solid #e1e8ed !important;
+    border-top: 1px solid #e5e7eb !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%) !important;
+    border-radius: 0 0 12px 12px !important;
+}
+
+/* 使用指南折叠面板样式 */
+.accordion {
+    border-radius: 12px !important;
+    border: 1px solid #e5e7eb !important;
+    overflow: hidden !important;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .gradio-container {
+        padding: 10px !important;
+    }
+    .main-header h1 {
+        font-size: 1.6em !important;
+    }
 }
 """
 
@@ -81,21 +161,23 @@ def create_gradio_ui(demo_instance=None):
         theme=gr.themes.Soft(),  # 使用 Soft 主题，更美观
         css=CUSTOM_CSS  # 附加自定义CSS
     ) as app:
-        # 标题
-        gr.Markdown("# 🧠 ContextMind 对话系统")
-        gr.Markdown("上下文工程框架 · 智能对话 · 场景灵活 · 模式可选")
+        # 标题区域 - 使用渐变背景
+        with gr.Group(elem_classes=["main-header"]):
+            gr.Markdown("# 🧠 ContextMind 对话系统")
+            gr.Markdown("上下文工程框架 · 智能对话 · 场景灵活 · 模式可选")
         
         # 主内容区 - 左右分栏
         with gr.Row():
             # 左侧列 - 对话区域
             with gr.Column(scale=3):
-                gr.Markdown("### 💬 对话窗口")
+                gr.Markdown("### 💬 对话窗口", elem_classes=["section-title"])
                 
-                # 对话框
+                # 对话框高度：520px 以适应新的标题区域高度，保持整体布局平衡
                 chatbot = gr.Chatbot(
-                    height=550,
+                    height=520,
                     avatar_images=("👤", "🤖"),
-                    elem_classes=["chatbot"]
+                    elem_classes=["chatbot"],
+                    show_copy_button=True
                 )
                 
                 # 输入区域
@@ -111,7 +193,7 @@ def create_gradio_ui(demo_instance=None):
             # 右侧列 - 配置面板
             with gr.Column(scale=2):
                 # 场景与模式配置
-                gr.Markdown("### ⚙️ 场景配置")
+                gr.Markdown("### ⚙️ 场景配置", elem_classes=["section-title"])
                 
                 scenario_selector = gr.Dropdown(
                     choices=[
@@ -135,7 +217,7 @@ def create_gradio_ui(demo_instance=None):
                 apply_btn = gr.Button("✨ 应用配置", variant="primary")
                 
                 # 操作按钮
-                gr.Markdown("### 🎮 操作")
+                gr.Markdown("### 🎮 操作", elem_classes=["section-title"])
                 with gr.Row():
                     view_state_btn = gr.Button("🔍 查看状态", scale=1)
                     reset_btn = gr.Button("🔄 重置对话", scale=1)
@@ -143,16 +225,16 @@ def create_gradio_ui(demo_instance=None):
                 clear_btn = gr.Button("🗑️ 清空历史")
                 
                 # 对话状态
-                with gr.Accordion("📊 对话状态", open=True):
+                with gr.Accordion("📊 对话状态", open=True, elem_classes=["accordion"]):
                     state_display = gr.Code(
                         label="当前状态",
                         language="json",
-                        lines=12,
+                        lines=10,
                         elem_classes=["json-display"]
                     )
                 
                 # 高级设置
-                with gr.Accordion("⚙️ 高级设置", open=False):
+                with gr.Accordion("⚙️ 高级设置", open=False, elem_classes=["accordion"]):
                     # DST模式设置
                     with gr.Group(visible=False) as dst_settings:
                         gr.Markdown("**DST模式设置**")

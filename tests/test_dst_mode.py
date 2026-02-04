@@ -221,7 +221,7 @@ async def test_dialogue(tester: DSTModeTest, dialogue_num: int, verbose: bool = 
         verbose: 是否输出详细信息
         
     Returns:
-        测试结果
+        测试结果（包含数值指标）
     """
     # 加载对话和标签
     dialogue_text = load_dialogue(dialogue_num)
@@ -243,17 +243,34 @@ async def test_dialogue(tester: DSTModeTest, dialogue_num: int, verbose: bool = 
     
     # 使用标签中的轮次（如果有的话）
     label_turns = labels.get('turns', [])
+    expected_final_state = labels.get('final_state', {})
     
     results = {
         'dialogue_id': labels.get('dialogue_id', f'对话{dialogue_num}'),
         'total_turns': len(turns),
         'processed_turns': 0,
         'states': [],
-        'final_state': None
+        'final_state': None,
+        'expected_final_state': expected_final_state,
+        # 数值指标
+        'metrics': {
+            'slot_accuracy': 0.0,           # 槽位提取准确率
+            'intent_l1_accuracy': 0.0,      # 一级意图准确率
+            'intent_l2_accuracy': 0.0,      # 二级意图准确率
+            'final_state_match_rate': 0.0,  # 最终状态匹配率
+            'total_expected_slots': 0,      # 预期槽位总数
+            'total_matched_slots': 0        # 匹配槽位总数
+        }
     }
     
+    # 用于计算指标的变量
+    total_expected_slots = 0
+    total_matched_slots = 0
+    intent_l1_correct = 0
+    intent_l2_correct = 0
+    intent_total = 0
+    
     # 处理每一轮对话
-    # 使用标签中的轮次数据（已标注的关键轮次）
     for i, turn_label in enumerate(label_turns):
         system_utterance = turn_label.get('system_utterance', '')
         user_utterance = turn_label.get('user_utterance', '')
@@ -267,25 +284,78 @@ async def test_dialogue(tester: DSTModeTest, dialogue_num: int, verbose: bool = 
         # 处理这一轮对话
         state = await tester.process_turn(system_utterance, user_utterance)
         
+        # 计算槽位匹配
+        # 采用宽松匹配策略：完全匹配得1分，部分匹配得0.5分
+        # 部分匹配使用子串检查，适用于模糊文本（如"已有保险"匹配"已有保险，月付5万"）
+        # 已知限制：可能产生假阳性（如"12"匹配"123"），在实际应用中可采用更精确的语义匹配
+        turn_matched = 0
+        turn_expected = len(expected_state)
+        for key, expected_value in expected_state.items():
+            extracted_value = state.get(key, '')
+            if extracted_value == expected_value:
+                turn_matched += 1
+            elif expected_value and extracted_value and expected_value in str(extracted_value):
+                turn_matched += 0.5  # 部分匹配
+        
+        total_expected_slots += turn_expected
+        total_matched_slots += turn_matched
+        
+        # 计算意图准确率
+        # 一级意图和二级意图分别计算，二级意图只在预期存在时统计
+        # 注意：intent_l2_accuracy 的分母是 intent_total（有一级意图的轮次数），
+        # 这意味着如果某轮没有预期的二级意图，该轮不计入二级意图正确数
+        if 'intent_level1' in expected_state:
+            intent_total += 1
+            if state.get('intent_level1', '') == expected_state['intent_level1']:
+                intent_l1_correct += 1
+            if expected_state.get('intent_level2') and state.get('intent_level2', '') == expected_state['intent_level2']:
+                intent_l2_correct += 1
+        
         if verbose:
             print(f"提取状态: {state}")
             if expected_state:
                 print(f"预期状态: {expected_state}")
+                print(f"本轮匹配: {turn_matched}/{turn_expected}")
         
         results['states'].append({
             'turn_id': i + 1,
             'extracted_state': state,
-            'expected_state': expected_state
+            'expected_state': expected_state,
+            'matched_count': turn_matched,
+            'expected_count': turn_expected
         })
         results['processed_turns'] += 1
     
     # 获取最终累积状态
     results['final_state'] = tester.get_current_state()
     
+    # 计算最终状态匹配率
+    final_matched = 0
+    final_total = len(expected_final_state)
+    for key, expected_value in expected_final_state.items():
+        extracted_value = results['final_state'].get(key, '')
+        if extracted_value == expected_value:
+            final_matched += 1
+        elif expected_value and extracted_value and expected_value in str(extracted_value):
+            final_matched += 0.5
+    
+    # 更新数值指标
+    results['metrics']['slot_accuracy'] = (total_matched_slots / total_expected_slots * 100) if total_expected_slots > 0 else 0.0
+    results['metrics']['intent_l1_accuracy'] = (intent_l1_correct / intent_total * 100) if intent_total > 0 else 0.0
+    results['metrics']['intent_l2_accuracy'] = (intent_l2_correct / intent_total * 100) if intent_total > 0 else 0.0
+    results['metrics']['final_state_match_rate'] = (final_matched / final_total * 100) if final_total > 0 else 0.0
+    results['metrics']['total_expected_slots'] = total_expected_slots
+    results['metrics']['total_matched_slots'] = total_matched_slots
+    
     if verbose:
         print(f"\n--- 最终状态 ---")
         print(f"提取: {results['final_state']}")
-        print(f"预期: {labels.get('final_state', {})}")
+        print(f"预期: {expected_final_state}")
+        print(f"\n📊 本对话指标:")
+        print(f"  槽位准确率: {results['metrics']['slot_accuracy']:.1f}%")
+        print(f"  一级意图准确率: {results['metrics']['intent_l1_accuracy']:.1f}%")
+        print(f"  二级意图准确率: {results['metrics']['intent_l2_accuracy']:.1f}%")
+        print(f"  最终状态匹配率: {results['metrics']['final_state_match_rate']:.1f}%")
     
     return results
 
@@ -318,14 +388,61 @@ async def run_all_tests(verbose: bool = True):
             print(f"\n❌ 对话{dialogue_num} 测试失败: {e}")
             all_results.append({
                 'dialogue_id': f'对话{dialogue_num}',
-                'error': str(e)
+                'error': str(e),
+                'metrics': {}
             })
     
-    # 输出总结
+    # 输出指标汇总表
     print("\n" + "="*70)
-    print("测试总结")
+    print("📊 DST 模式测试指标汇总")
     print("="*70)
     
+    # 表头
+    print(f"\n{'对话ID':<10} {'轮数':<6} {'槽位准确率':<12} {'一级意图':<10} {'二级意图':<10} {'最终匹配':<10}")
+    print("-" * 70)
+    
+    # 用于计算平均值
+    total_slot_acc = 0
+    total_intent_l1 = 0
+    total_intent_l2 = 0
+    total_final_match = 0
+    valid_count = 0
+    
+    for result in all_results:
+        dialogue_id = result.get('dialogue_id', 'Unknown')
+        if 'error' in result:
+            print(f"{dialogue_id:<10} {'错误':<6} {'-':<12} {'-':<10} {'-':<10} {'-':<10}")
+        else:
+            turns = result.get('processed_turns', 0)
+            metrics = result.get('metrics', {})
+            slot_acc = metrics.get('slot_accuracy', 0)
+            intent_l1 = metrics.get('intent_l1_accuracy', 0)
+            intent_l2 = metrics.get('intent_l2_accuracy', 0)
+            final_match = metrics.get('final_state_match_rate', 0)
+            
+            print(f"{dialogue_id:<10} {turns:<6} {slot_acc:>8.1f}%    {intent_l1:>6.1f}%    {intent_l2:>6.1f}%    {final_match:>6.1f}%")
+            
+            total_slot_acc += slot_acc
+            total_intent_l1 += intent_l1
+            total_intent_l2 += intent_l2
+            total_final_match += final_match
+            valid_count += 1
+    
+    # 输出平均值
+    if valid_count > 0:
+        print("-" * 70)
+        avg_slot = total_slot_acc / valid_count
+        avg_l1 = total_intent_l1 / valid_count
+        avg_l2 = total_intent_l2 / valid_count
+        avg_final = total_final_match / valid_count
+        print(f"{'平均值':<10} {'-':<6} {avg_slot:>8.1f}%    {avg_l1:>6.1f}%    {avg_l2:>6.1f}%    {avg_final:>6.1f}%")
+    
+    print("\n" + "="*70)
+    print("测试完成!")
+    print("="*70)
+    
+    # 详细结果总结
+    print("\n详细结果:")
     for result in all_results:
         dialogue_id = result.get('dialogue_id', 'Unknown')
         if 'error' in result:

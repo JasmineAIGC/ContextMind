@@ -190,7 +190,7 @@ async def test_dialogue(tester: EvolveModeTest, dialogue_num: int, verbose: bool
         verbose: 是否输出详细信息
         
     Returns:
-        测试结果
+        测试结果（包含数值指标）
     """
     # 加载对话和标签
     dialogue_text = load_dialogue(dialogue_num)
@@ -210,21 +210,29 @@ async def test_dialogue(tester: EvolveModeTest, dialogue_num: int, verbose: bool
     if verbose:
         print(f"解析到 {len(customer_messages)} 条客户消息")
     
+    expected_knowledge = labels.get('extracted_knowledge', {})
+    expected_memory_items = labels.get('memory_items', [])
+    
     results = {
         'dialogue_id': labels.get('dialogue_id', f'对话{dialogue_num}'),
         'total_messages': len(customer_messages),
         'processed_messages': 0,
+        'successful_messages': 0,
         'replies': [],
         'memory_count': 0,
-        'expected_knowledge': labels.get('extracted_knowledge', {}),
-        'expected_memory_items': labels.get('memory_items', [])
+        'expected_knowledge': expected_knowledge,
+        'expected_memory_items': expected_memory_items,
+        # 数值指标
+        'metrics': {
+            'processing_success_rate': 0.0,    # 处理成功率
+            'knowledge_coverage': 0.0,          # 知识覆盖率
+            'memory_generation_rate': 0.0,      # 记忆生成率
+            'expected_categories': 0,           # 期望知识类别数
+            'actual_memory_count': 0            # 实际记忆数量
+        }
     }
     
     # 处理每条客户消息
-    # 限制处理前3条消息的原因：
-    # 1. 测试效率：完整对话可能有10+轮，每轮都调用LLM耗时较长
-    # 2. 验证目的：3条消息足以验证Evolve模式的核心功能（消息处理、记忆积累）
-    # 3. 可配置：如需完整测试，可修改此处或通过参数传入
     max_messages = 3
     messages_to_process = customer_messages[:min(max_messages, len(customer_messages))]
     
@@ -244,9 +252,11 @@ async def test_dialogue(tester: EvolveModeTest, dialogue_num: int, verbose: bool
             results['replies'].append({
                 'message_id': i + 1,
                 'customer_message': message,
-                'assistant_reply': reply
+                'assistant_reply': reply,
+                'success': True
             })
             results['processed_messages'] += 1
+            results['successful_messages'] += 1
             
         except Exception as e:
             if verbose:
@@ -254,21 +264,54 @@ async def test_dialogue(tester: EvolveModeTest, dialogue_num: int, verbose: bool
             results['replies'].append({
                 'message_id': i + 1,
                 'customer_message': message,
-                'error': str(e)
+                'error': str(e),
+                'success': False
             })
+            results['processed_messages'] += 1
     
     # 获取记忆库状态
     results['memory_count'] = tester.get_memory_count()
+    
+    # 计算数值指标
+    expected_categories = len(expected_knowledge)
+    expected_memory_count = len(expected_memory_items)
+    
+    # 处理成功率：成功处理的消息数 / 已处理的消息总数
+    # processed_messages 包含成功和失败的消息，successful_messages 只计成功的
+    results['metrics']['processing_success_rate'] = (
+        results['successful_messages'] / results['processed_messages'] * 100
+    ) if results['processed_messages'] > 0 else 0.0
+    
+    # 知识覆盖率：评估系统是否能生成覆盖预期知识类别的记忆
+    # 计算方法：min(记忆数量, 期望类别数) / 期望类别数
+    # 使用 min 是因为记忆数量可能超过类别数（一个类别可生成多条记忆）
+    # 此指标表示系统是否有能力覆盖不同类型的知识，上限为100%
+    results['metrics']['knowledge_coverage'] = (
+        min(results['memory_count'], expected_categories) / expected_categories * 100
+    ) if expected_categories > 0 else 0.0
+    
+    # 记忆生成率：实际生成的记忆数 / 期望记忆数
+    # 此指标可能超过100%（如果生成的记忆比期望多）
+    results['metrics']['memory_generation_rate'] = (
+        results['memory_count'] / expected_memory_count * 100
+    ) if expected_memory_count > 0 else 0.0
+    
+    results['metrics']['expected_categories'] = expected_categories
+    results['metrics']['actual_memory_count'] = results['memory_count']
     
     if verbose:
         print(f"\n--- 记忆库状态 ---")
         print(f"记忆数量: {results['memory_count']}")
         
         # 显示期望的知识提取
-        expected = results['expected_knowledge']
         print(f"\n期望知识提取:")
-        for category, items in expected.items():
+        for category, items in expected_knowledge.items():
             print(f"  {category}: {len(items)} 条")
+        
+        print(f"\n📊 本对话指标:")
+        print(f"  处理成功率: {results['metrics']['processing_success_rate']:.1f}%")
+        print(f"  知识覆盖率: {results['metrics']['knowledge_coverage']:.1f}%")
+        print(f"  记忆生成率: {results['metrics']['memory_generation_rate']:.1f}%")
     
     return results
 
@@ -304,11 +347,57 @@ async def run_all_tests(verbose: bool = True):
                 'error': str(e)
             })
     
-    # 输出总结
+    # 输出指标汇总表
     print("\n" + "="*70)
-    print("测试总结")
+    print("📊 Evolve 模式测试指标汇总")
     print("="*70)
     
+    # 表头
+    print(f"\n{'对话ID':<10} {'消息数':<8} {'成功率':<10} {'知识覆盖':<10} {'记忆生成':<10} {'记忆数':<8}")
+    print("-" * 70)
+    
+    # 用于计算平均值
+    total_success = 0
+    total_coverage = 0
+    total_memory_rate = 0
+    total_memory_count = 0
+    valid_count = 0
+    
+    for result in all_results:
+        dialogue_id = result.get('dialogue_id', 'Unknown')
+        if 'error' in result:
+            print(f"{dialogue_id:<10} {'错误':<8} {'-':<10} {'-':<10} {'-':<10} {'-':<8}")
+        else:
+            msgs = result.get('processed_messages', 0)
+            mems = result.get('memory_count', 0)
+            metrics = result.get('metrics', {})
+            success_rate = metrics.get('processing_success_rate', 0)
+            coverage = metrics.get('knowledge_coverage', 0)
+            memory_rate = metrics.get('memory_generation_rate', 0)
+            
+            print(f"{dialogue_id:<10} {msgs:<8} {success_rate:>6.1f}%    {coverage:>6.1f}%    {memory_rate:>6.1f}%    {mems:<8}")
+            
+            total_success += success_rate
+            total_coverage += coverage
+            total_memory_rate += memory_rate
+            total_memory_count += mems
+            valid_count += 1
+    
+    # 输出平均值
+    if valid_count > 0:
+        print("-" * 70)
+        avg_success = total_success / valid_count
+        avg_coverage = total_coverage / valid_count
+        avg_memory_rate = total_memory_rate / valid_count
+        avg_memory = total_memory_count / valid_count
+        print(f"{'平均值':<10} {'-':<8} {avg_success:>6.1f}%    {avg_coverage:>6.1f}%    {avg_memory_rate:>6.1f}%    {avg_memory:.1f}")
+    
+    print("\n" + "="*70)
+    print("测试完成!")
+    print("="*70)
+    
+    # 详细结果总结
+    print("\n详细结果:")
     for result in all_results:
         dialogue_id = result.get('dialogue_id', 'Unknown')
         if 'error' in result:
