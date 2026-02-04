@@ -306,5 +306,46 @@ class InsuranceApplication:
             return response, debug_info
         
         return response
+    
+    @classmethod
+    def create_from_config(cls, llm_client, scenario_config):
+        """
+        从场景配置创建InsuranceApplication实例的工厂方法
+        
+        这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
+        
+        参数:
+            llm_client: LLM客户端实例
+            scenario_config: 场景配置对象（来自scenarios模块）
+            
+        返回:
+            配置好的InsuranceApplication实例
+            
+        示例:
+            from apps.insurance_app import InsuranceApplication
+            from scenarios import get_insurance_scenario
+            from utils.llm_client import SimpleLLMClient
+            
+            llm_client = SimpleLLMClient()
+            config = get_insurance_scenario()
+            app = InsuranceApplication.create_from_config(
+                llm_client=llm_client,
+                scenario_config=config
+            )
+        """
+        # 创建EvolveEngine
+        engine = EvolveEngine(
+            app_name=f"demo_{scenario_config.name}",
+            user_id="demo_user",
+            llm_client=llm_client
+        )
+        
+        # 创建并返回Application实例
+        return cls(
+            context_engine=engine,
+            system_prompt=scenario_config.system_prompt,
+            use_real_llm=True
+        )
+
 
 __all__ = ['InsuranceApplication', 'INSURANCE_SYSTEM_PROMPT']

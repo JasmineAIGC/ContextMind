@@ -306,5 +306,34 @@ class CallCenterApplication:
             return response, debug_info
         
         return response
+    
+    @classmethod
+    def create_from_config(cls, llm_client, scenario_config):
+        """
+        从场景配置创建CallCenterApplication实例的工厂方法
+        
+        这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
+        
+        参数:
+            llm_client: LLM客户端实例
+            scenario_config: 场景配置对象（来自scenarios模块）
+            
+        返回:
+            配置好的CallCenterApplication实例
+        """
+        # 创建EvolveEngine
+        engine = EvolveEngine(
+            app_name=f"demo_{scenario_config.name}",
+            user_id="demo_user",
+            llm_client=llm_client
+        )
+        
+        # 创建并返回Application实例
+        return cls(
+            context_engine=engine,
+            system_prompt=scenario_config.system_prompt,
+            use_real_llm=True
+        )
+
 
 __all__ = ['CallCenterApplication', 'CALLCENTER_SYSTEM_PROMPT']

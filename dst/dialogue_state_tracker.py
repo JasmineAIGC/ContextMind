@@ -637,3 +637,60 @@ class DialogueStateTracker:
                     history.append((i, value))
         
         return history
+    
+    @classmethod
+    def create_from_config(cls, llm_client, scenario_config, 
+                          max_history_turns: int = 10,
+                          enable_summary: bool = True,
+                          use_llm_summary: bool = False):
+        """
+        从场景配置创建DialogueStateTracker实例的工厂方法
+        
+        这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
+        
+        参数:
+            llm_client: LLM客户端实例
+            scenario_config: 场景配置对象（来自scenarios模块）
+            max_history_turns: 最大历史轮数
+            enable_summary: 是否启用历史摘要
+            use_llm_summary: 是否使用LLM生成摘要
+            
+        返回:
+            配置好的DialogueStateTracker实例
+            
+        示例:
+            from dst import DialogueStateTracker
+            from scenarios import get_chat_scenario
+            from utils.llm_client import SimpleLLMClient
+            
+            llm_client = SimpleLLMClient()
+            config = get_chat_scenario()
+            tracker = DialogueStateTracker.create_from_config(
+                llm_client=llm_client,
+                scenario_config=config,
+                max_history_turns=10
+            )
+        """
+        # 创建PromptManager，使用自定义模板（如果提供）
+        pm = PromptManager(
+            domain=scenario_config.name,
+            enable_dynamic_slots=scenario_config.enable_dynamic_slots,
+            custom_template=getattr(scenario_config, 'dst_prompt_template', None)
+        )
+        
+        # 添加预定义槽位
+        for slot_name, slot_desc in scenario_config.dst_slots.items():
+            # 检查是否有分类约束
+            categorical_values = None
+            if scenario_config.dst_categorical_slots and slot_name in scenario_config.dst_categorical_slots:
+                categorical_values = scenario_config.dst_categorical_slots[slot_name]
+            pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
+        
+        # 创建并返回tracker实例
+        return cls(
+            llm_client=llm_client,
+            prompt_manager=pm,
+            max_history_turns=max_history_turns,
+            enable_history_summary=enable_summary,
+            use_llm_summary=use_llm_summary
+        )
