@@ -18,13 +18,9 @@ from datetime import datetime
 from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
-from dst import DialogueStateTracker, PromptManager
-from evolve import EvolveEngine
-from fnctod import FnCTODTracker, FunctionManager
+from dst import DialogueStateTracker
+from fnctod import FnCTODTracker
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
-from apps.chat_app import ChatApplication
-from apps.callcenter_app import CallCenterApplication
-from apps.insurance_app import InsuranceApplication
 from ui_components import create_gradio_ui, CUSTOM_CSS
 from utils.logger import get_logger, setup_logging, LogLevel
 
@@ -159,20 +155,14 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 创建EvolveEngine - 使用正确的参数
-        engine = EvolveEngine(
-            app_name=f"gradio_demo_{self.current_scenario}",
-            user_id="gradio_user",
-            llm_client=self.llm_client
+        # 使用工厂方法创建应用
+        from apps import create_app_for_scenario
+        self.app = create_app_for_scenario(
+            scenario_name=self.current_scenario,
+            llm_client=self.llm_client,
+            scenario_config=self.config,
+            app_name_prefix="gradio_demo"
         )
-        
-        # 创建对应的Application - 使用正确的参数名
-        if self.current_scenario == "chat":
-            self.app = ChatApplication(context_engine=engine, system_prompt=self.config.system_prompt)
-        elif self.current_scenario == "callcenter":
-            self.app = CallCenterApplication(context_engine=engine, system_prompt=self.config.system_prompt)
-        elif self.current_scenario == "insurance":
-            self.app = InsuranceApplication(context_engine=engine, system_prompt=self.config.system_prompt)
         
         logger.info("Evolve模式初始化完成")
     

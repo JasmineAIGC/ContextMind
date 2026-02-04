@@ -23,11 +23,9 @@ from typing import Dict, List, Optional, Tuple
 import gradio as gr
 
 from utils.llm_client import SimpleLLMClient
-from dst import DialogueStateTracker, PromptManager
-from evolve import EvolveEngine
-from fnctod import FnCTODTracker, FunctionManager
+from dst import DialogueStateTracker
+from fnctod import FnCTODTracker
 from scenarios import get_insurance_scenario
-from apps.insurance_app import InsuranceApplication
 from utils.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
@@ -49,7 +47,6 @@ class BatchDialogueTest:
         self.fnctod_tracker = None  # FnCTOD mode
         self.config = None
         self.app = None
-        self.engine = None
         self.current_mode = None
         self.results_history = []
         logger.info("BatchDialogueTest 实例创建完成")
@@ -121,20 +118,18 @@ class BatchDialogueTest:
         """
         初始化 Evolve 模式
         
-        复用 gradio_demo.py 中的初始化逻辑
+        使用工厂方法简化初始化
         """
-        # 创建 EvolveEngine
-        self.engine = EvolveEngine(
-            app_name="gradio_test_insurance",
-            user_id="test_user",
-            llm_client=self.llm_client
+        # 使用工厂方法创建应用
+        from apps import create_app_for_scenario
+        self.app = create_app_for_scenario(
+            scenario_name=self.config.name,
+            llm_client=self.llm_client,
+            scenario_config=self.config,
+            app_name_prefix="gradio_test"
         )
         
-        # 创建 InsuranceApplication
-        self.app = InsuranceApplication(
-            context_engine=self.engine,
-            system_prompt=self.config.system_prompt
-        )
+        logger.info("Evolve 模式初始化完成")
     
     def reset(self):
         """重置对话状态"""
@@ -143,7 +138,7 @@ class BatchDialogueTest:
             self.tracker.dialogue_history = []
         elif self.current_mode == "fnctod" and self.fnctod_tracker:
             self.fnctod_tracker.reset()
-        elif self.current_mode == "evolve" and self.engine:
+        elif self.current_mode == "evolve" and self.app:
             # 重新初始化
             self._init_evolve_mode()
         
@@ -414,8 +409,8 @@ class BatchDialogueTest:
         
         # 获取记忆库状态
         state_info = {}
-        if hasattr(self.engine, 'memory_bank'):
-            memory_cache = self.engine.memory_bank.get_memory_cache()
+        if self.app and hasattr(self.app, 'context_engine') and hasattr(self.app.context_engine, 'memory_bank'):
+            memory_cache = self.app.context_engine.memory_bank.get_memory_cache()
             state_info['memory_count'] = len(memory_cache)
             state_info['recent_memories'] = []
             for mem in memory_cache[-5:]:  # 最近5条记忆

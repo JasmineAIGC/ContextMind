@@ -20,13 +20,9 @@ from datetime import datetime
 from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
-from dst import DialogueStateTracker, PromptManager
-from evolve import EvolveEngine
-from fnctod import FnCTODTracker, FunctionManager
+from dst import DialogueStateTracker
+from fnctod import FnCTODTracker
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
-from apps.chat_app import ChatApplication
-from apps.callcenter_app import CallCenterApplication
-from apps.insurance_app import InsuranceApplication
 from utils.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger from utils/logger.py
@@ -213,30 +209,22 @@ class UnifiedInteractiveDemo:
                 print()
                 sys.exit(1)
         
-        # 创建引擎和应用
+        # 使用工厂方法创建应用
         try:
-            engine = EvolveEngine(
-                app_name=f"interactive_demo_{self.scenario}",
-                user_id="demo_user",
-                llm_client=self.llm_client
+            from apps import create_app_for_scenario
+            self.app = create_app_for_scenario(
+                scenario_name=self.scenario,
+                llm_client=self.llm_client,
+                scenario_config=self.config,
+                app_name_prefix="interactive_demo"
             )
-            
-            # 创建对应的应用
-            if self.scenario == "chat":
-                self.app = ChatApplication(context_engine=engine, system_prompt=self.config.system_prompt)
-            elif self.scenario == "callcenter":
-                self.app = CallCenterApplication(context_engine=engine, system_prompt=self.config.system_prompt)
-            elif self.scenario == "insurance":
-                self.app = InsuranceApplication(context_engine=engine, system_prompt=self.config.system_prompt)
         except Exception as e:
-            logger.error(f"引擎或应用初始化失败: {e}", exc_info=True)
+            logger.error(f"应用初始化失败: {e}", exc_info=True)
             print(f"\n{'='*60}")
-            print(f"❌ 错误: 引擎或应用初始化失败")
+            print(f"❌ 错误: 应用初始化失败")
             print(f"详细信息: {e}")
             print(f"{'='*60}\n")
             sys.exit(1)
-        
-        self.app = None  # Evolve模式不使用DST/FnCTOD追踪器
     
     def print_welcome(self):
         """打印欢迎信息"""
