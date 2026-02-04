@@ -3,12 +3,12 @@
 Evolve 统一交互式Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：dst（对话状态追踪）、evolve（基于记忆进化）
+支持三种模式：dst（对话状态追踪）、evolve（基于记忆进化）、fnctod（函数调用DST）
 
 使用方式:
     python interactive_demo.py --scenario chat --mode evolve
     python interactive_demo.py --scenario callcenter --mode dst
-    python interactive_demo.py --scenario insurance --mode evolve --log-level DEBUG
+    python interactive_demo.py --scenario insurance --mode fnctod --log-level DEBUG
 """
 
 import asyncio
@@ -22,6 +22,7 @@ from pathlib import Path
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
 from evolve import EvolveEngine
+from fnctod import FnCTODTracker, FunctionManager
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -66,6 +67,8 @@ class UnifiedInteractiveDemo:
         # 初始化对应模式
         if mode == "dst":
             self._init_dst_mode()
+        elif mode == "fnctod":
+            self._init_fnctod_mode()
         else:
             self._init_evolve_mode()
     
@@ -146,6 +149,62 @@ class UnifiedInteractiveDemo:
         self.last_system_reply = self._get_welcome_message()
         
         self.app = None  # DST模式不使用app
+        self.fnctod_tracker = None  # DST模式不使用FnCTOD
+    
+    def _init_fnctod_mode(self):
+        """初始化FnCTOD模式"""
+        logger.info(f"初始化FnCTOD模式 - {self.config.name}")
+        
+        # 创建LLM客户端（如果还未创建）
+        if self.llm_client is None:
+            try:
+                self.llm_client = SimpleLLMClient()
+            except (ValueError, RuntimeError) as e:
+                logger.error(f"LLM客户端初始化失败: {e}")
+                print(f"\n{'='*60}")
+                print(f"❌ 错误: {e}")
+                print(f"{'='*60}")
+                
+                # 根据错误类型提供具体帮助
+                error_str = str(e)
+                if "API key" in error_str or "API_KEY" in error_str:
+                    print("\n📝 请配置.env文件，添加以下内容：")
+                    print("=" * 60)
+                    print("# 选择一个配置即可")
+                    print("QWEN3_API_KEY=sk-your-api-key-here")
+                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
+                    print("QWEN3_MODEL=Qwen3-32B")
+                    print("=" * 60)
+                    print("\n支持的环境变量名：")
+                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
+                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
+                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
+                elif "OpenAI" in error_str:
+                    print("\n请安装OpenAI包：")
+                    print("  pip install openai")
+                print()
+                sys.exit(1)
+        
+        # 创建FunctionManager并添加domain
+        function_manager = FunctionManager()
+        function_manager.add_domain_from_slots(
+            domain_name=self.config.name,
+            domain_description=self.config.description if hasattr(self.config, 'description') else f"{self.config.name} domain",
+            slots=self.config.dst_slots,
+            categorical_slots=self.config.dst_categorical_slots if hasattr(self.config, 'dst_categorical_slots') else None,
+            required_slots=[]  # 可以根据需要设置必需槽位
+        )
+        
+        # 创建FnCTOD追踪器
+        self.fnctod_tracker = FnCTODTracker(
+            llm_client=self.llm_client,
+            function_manager=function_manager,
+            use_two_stage=True,  # 使用两阶段处理
+            max_history_turns=self.max_history_turns
+        )
+        
+        self.dst_tracker = None  # FnCTOD模式不使用DST
+        self.app = None  # FnCTOD模式不使用app
     
     def _init_evolve_mode(self):
         """初始化Evolve模式"""
@@ -212,7 +271,12 @@ class UnifiedInteractiveDemo:
         print(f"📱 Evolve 统一交互式Demo v0.2.1")
         print("="*60)
         print(f"场景: {self.config.name}")
-        print(f"模式: {'DST (对话状态追踪)' if self.mode == 'dst' else 'Evolve (基于记忆进化)'}")
+        mode_name = {
+            'dst': 'DST (对话状态追踪)',
+            'evolve': 'Evolve (基于记忆进化)',
+            'fnctod': 'FnCTOD (函数调用DST)'
+        }.get(self.mode, self.mode)
+        print(f"模式: {mode_name}")
         print(f"日志级别: {logging.getLevelName(logger.level)}")
         print(f"最大历史轮数: {self.max_history_turns}")
         print("="*60)
@@ -223,6 +287,10 @@ class UnifiedInteractiveDemo:
                 print(f"✓ 已加载 {len(self.config.dst_intents)} 个意图类别")
             print(f"✓ 历史摘要: {'启用' if self.enable_summary else '禁用'}")
             print(f"✓ 摘要方式: {'LLM生成' if self.use_llm_summary else '模板生成'}")
+        elif self.mode == "fnctod":
+            print(f"✓ 已加载 {len(self.config.dst_slots)} 个参数（槽位）")
+            print(f"✓ 两阶段处理: Domain选择 → 函数调用")
+            print(f"✓ 输出格式: <function_call> + 自然语言回复")
         else:
             print("✓ 五层架构: 感知层、记忆层、上下文层、生成层、进化层")
             print(f"✓ 记忆功能: {'启用' if self.config.enable_memory else '禁用'}")
@@ -231,7 +299,7 @@ class UnifiedInteractiveDemo:
         print("\n💡 使用提示:")
         print("  - 输入 /quit 或 /exit 退出程序")
         print("  - 输入 /reset 重置对话")
-        if self.mode == "dst":
+        if self.mode in ["dst", "fnctod"]:
             print("  - 输入 /state 查看当前对话状态")
         print("="*60 + "\n")
     
@@ -262,6 +330,22 @@ class UnifiedInteractiveDemo:
             logger.error(f"DST模式处理失败: {e}")
             return f"抱歉，处理您的消息时出现了问题：{str(e)}"
     
+    async def chat_fnctod_mode(self, user_message: str) -> str:
+        """FnCTOD模式对话"""
+        try:
+            # 处理对话轮次
+            result = await self.fnctod_tracker.process_turn(
+                user_utterance=user_message,
+                system_utterance=""  # FnCTOD自己管理历史
+            )
+            
+            # 返回自然语言回复
+            return result.get("response", "")
+            
+        except Exception as e:
+            logger.error(f"FnCTOD模式处理失败: {e}")
+            return f"抱歉，处理您的消息时出现了问题：{str(e)}"
+    
     async def chat_evolve_mode(self, user_message: str) -> str:
         """Evolve模式对话"""
         try:
@@ -275,16 +359,22 @@ class UnifiedInteractiveDemo:
         """统一的对话接口"""
         if self.mode == "dst":
             return await self.chat_dst_mode(user_message)
+        elif self.mode == "fnctod":
+            return await self.chat_fnctod_mode(user_message)
         else:
             return await self.chat_evolve_mode(user_message)
     
     def show_state(self):
-        """显示当前状态（仅DST模式）"""
-        if self.mode != "dst":
-            print("⚠️  状态查看功能仅在DST模式下可用")
+        """显示当前状态（DST和FnCTOD模式）"""
+        if self.mode not in ["dst", "fnctod"]:
+            print("⚠️  状态查看功能仅在DST/FnCTOD模式下可用")
             return
         
-        state = self.dst_tracker.get_current_state()
+        if self.mode == "dst":
+            state = self.dst_tracker.get_current_state()
+        else:  # fnctod
+            state = self.fnctod_tracker.get_current_state()
+        
         print("\n" + "="*60)
         print("📊 当前对话状态:")
         print("="*60)
@@ -296,10 +386,13 @@ class UnifiedInteractiveDemo:
         """重置对话"""
         if self.mode == "dst":
             self.dst_tracker.reset_dialogue()
+            self.last_system_reply = self._get_welcome_message()
+        elif self.mode == "fnctod":
+            self.fnctod_tracker.reset()
         else:
             # Evolve模式重新初始化
             self._init_evolve_mode()
-        print("✓ 对话已重置\n")
+        print("✅ 对话已重置\n")
         
         # 重置后，机器人主动发起对话
         welcome_msg = self._get_welcome_message()
@@ -361,8 +454,8 @@ def parse_args():
 使用示例:
   python interactive_demo.py --scenario chat --mode evolve
   python interactive_demo.py --scenario callcenter --mode dst
-  python interactive_demo.py --scenario insurance --mode evolve --log-level DEBUG
-  python interactive_demo.py --scenario insurance --mode dst --max-history-turns 20
+  python interactive_demo.py --scenario insurance --mode fnctod
+  python interactive_demo.py --scenario insurance --mode dst --max-history-turns 20 --log-level DEBUG
         """
     )
     
@@ -375,9 +468,9 @@ def parse_args():
     
     parser.add_argument(
         '--mode',
-        choices=['dst', 'evolve'],
+        choices=['dst', 'evolve', 'fnctod'],
         default='evolve',
-        help='选择模式: dst(对话状态追踪) / evolve(基于记忆进化)'
+        help='选择模式: dst(对话状态追踪) / evolve(基于记忆进化) / fnctod(函数调用DST)'
     )
     
     parser.add_argument(
