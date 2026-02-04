@@ -77,13 +77,13 @@ def create_gradio_ui(demo_instance=None):
         tuple: (app, components_dict) - Gradio应用和组件字典
     """
     with gr.Blocks(
-        title="Evolve 统一Demo v0.4.1",
+        title="ContextMind Demo v0.4.1",
         theme=gr.themes.Soft(),  # 使用 Soft 主题，更美观
         css=CUSTOM_CSS  # 附加自定义CSS
     ) as app:
         # 标题
-        gr.Markdown("# 🤖 Evolve 统一对话系统")
-        gr.Markdown("智能对话 · 场景灵活 · 模式可选")
+        gr.Markdown("# 🧠 ContextMind 对话系统")
+        gr.Markdown("上下文工程框架 · 智能对话 · 场景灵活 · 模式可选")
         
         # 主内容区 - 左右分栏
         with gr.Row():
@@ -125,7 +125,7 @@ def create_gradio_ui(demo_instance=None):
                 
                 mode_selector = gr.Radio(
                     choices=[
-                        ("Evolve 模式 (记忆进化)", "contextmind"),
+                        ("ContextMind 模式 (记忆进化)", "contextmind"),
                         ("DST 模式 (槽位提取)", "dst")
                     ],
                     value="contextmind",
@@ -177,9 +177,9 @@ def create_gradio_ui(demo_instance=None):
                             info="用LLM生成摘要(更智能但慢)"
                         )
                     
-                    # Evolve模式设置
+                    # ContextMind模式设置
                     with gr.Group(visible=False) as contextmind_settings:
-                        gr.Markdown("**Evolve模式设置**")
+                        gr.Markdown("**ContextMind模式设置**")
                         enable_memory_check = gr.Checkbox(
                             value=True,
                             label="启用记忆功能",
@@ -205,7 +205,7 @@ def create_gradio_ui(demo_instance=None):
 
 ### 模式对比
 
-**Evolve 模式（基于记忆进化）**
+**ContextMind 模式（基于记忆进化）**
 - 📚 **语义记忆**: 自动记住对话内容，支持语义检索
 - 🧬 **进化学习**: 从每次对话中学习，持续优化响应
 - 🎯 **个性化**: 根据用户偏好调整对话策略
@@ -220,7 +220,7 @@ def create_gradio_ui(demo_instance=None):
 ### 使用步骤
 
 1. **选择场景**: 根据对话任务选择合适场景
-2. **选择模式**: 需要记忆和学习 → Evolve 模式；需要结构化信息提取 → DST 模式
+2. **选择模式**: 需要记忆和学习 → ContextMind 模式；需要结构化信息提取 → DST 模式
 3. **应用配置**: 点击"✨ 应用配置"按钮生效
 4. **开始对话**: 在输入框输入消息，系统自动处理
 5. **查看状态**: 点击"🔍 查看状态"查看提取的信息或记忆库
@@ -228,7 +228,7 @@ def create_gradio_ui(demo_instance=None):
         
         # Footer
         gr.Markdown(
-            "Evolve v0.4.1 | 💡 Powered by LLM",
+            "ContextMind v0.4.1 | 💡 Powered by LLM",
             elem_classes=["footer"]
         )
         

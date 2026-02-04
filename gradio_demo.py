@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Evolve 统一Gradio Web Demo
+ContextMind Gradio Web Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：DST对话状态追踪模式、Evolve记忆进化模式
+支持两种模式：DST对话状态追踪模式、ContextMind记忆进化模式
 
 使用方式:
     python gradio_demo.py
@@ -531,7 +531,7 @@ class UnifiedGradioDemo:
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="Evolve Gradio Web Demo",
+        description="ContextMind Gradio Web Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -581,7 +581,7 @@ def main():
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
     setup_logging(level=log_level, save_to_file=True, log_dir="logs")
     
-    logger.info("[__main__] 启动Evolve统一Gradio Demo")
+    logger.info("[__main__] 启动 ContextMind Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")
     
     # 创建Demo实例
