@@ -2,7 +2,7 @@
 ContextMind 测试模块
 
 包含 DST 和 Evolve 两种模式的测试代码
-测试数据来自 data/duihua.md 中的 7 通电话对话
+测试数据来自 resources/data/dialogue.md 中的 7 通电话对话
 
 目录结构:
     tests/

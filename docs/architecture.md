@@ -112,7 +112,7 @@ ContextMind/
 │   ├── quick-start.md       # 快速开始指南
 │   └── ...                  # 其他文档
 │
-├── data/                    # 数据目录
+├── resources/data/                    # 数据目录
 │   └── duihua.md            # 对话样本数据
 │
 ├── prompts.py               # 系统提示词管理
