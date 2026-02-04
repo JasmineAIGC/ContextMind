@@ -6,7 +6,7 @@ ContextMind 批量对话测试 Gradio Demo
 - 对话窗口直接输入预写好的对话内容（而非实时交互）
 - 支持单轮对话和多轮对话
 - 支持一次性输入和分批多次输入
-- 复用 gradio_demo.py 中 DST 和 ContextMind 模式的计算流程
+- 复用 gradio_demo.py 中 DST 和 Evolve 模式的计算流程
 
 使用方式:
     python gradio_test.py
@@ -474,7 +474,7 @@ def create_test_ui():
         
         # 标题
         gr.Markdown("# 🧪 ContextMind 批量对话测试")
-        gr.Markdown("直接输入对话内容进行 DST 或 ContextMind 模式测试")
+        gr.Markdown("直接输入对话内容进行 DST 或 Evolve 模式测试")
         
         with gr.Row():
             # 左侧 - 输入区
@@ -485,7 +485,7 @@ def create_test_ui():
                 mode_selector = gr.Radio(
                     choices=[
                         ("DST 模式 (槽位提取)", "dst"),
-                        ("ContextMind 模式 (记忆进化)", "evolve")
+                        ("Evolve 模式 (记忆进化)", "evolve")
                     ],
                     value="dst",
                     label="选择模式"
@@ -566,7 +566,7 @@ def create_test_ui():
 ### 模式说明
 
 - **DST 模式**：提取对话中的槽位信息（意图、保险状态等）
-- **ContextMind 模式**：基于记忆的对话处理，会积累知识
+- **Evolve 模式**：基于记忆的对话处理，会积累知识
 
 ### 测试对话
 
