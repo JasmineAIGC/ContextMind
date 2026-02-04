@@ -276,7 +276,9 @@ class UnifiedGradioDemo:
                     if '槽位提取' in timing_breakdown and len(self.tracker.step_timings) > 0:
                         del timing_breakdown['槽位提取']
                 
-                # 步骤2: 状态捕获
+                # 步骤2: 状态捕获（在回复生成之前）
+                # DST模式：状态已在process_turn中提取，现在捕获用于UI显示
+                # 此时状态将用于指导接下来的回复生成
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
@@ -310,6 +312,8 @@ class UnifiedGradioDemo:
                         del timing_breakdown['函数调用处理']
                 
                 # 状态捕获
+                # FnCTOD模式：process_turn内部已完成状态提取和回复生成
+                # 这里捕获的是内部用于生成回复的"回复前状态"
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
@@ -327,9 +331,10 @@ class UnifiedGradioDemo:
                     if '对话处理' in timing_breakdown and len(self.app.step_timings) > 0:
                         del timing_breakdown['对话处理']
                 
-                # 关键修改：在bot回复后立即捕获状态
-                # 注意：Evolve的process_turn是原子操作，包含了提取和回复
-                # 所以我们在其完成后立即捕获，这个状态反映了用户输入的理解
+                # 状态捕获
+                # Evolve模式：process_turn是原子操作，包含了上下文构建和回复生成
+                # 这里捕获的是内部用于生成回复的上下文状态
+                # 注意：Evolve的状态是从记忆库和上下文中构建的
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
@@ -393,13 +398,21 @@ class UnifiedGradioDemo:
     
     def _capture_post_user_state(self):
         """
-        捕获用户输入处理后的对话状态（在bot回复生成之前）
+        捕获用户输入处理后的对话状态（用于辅助回复生成的状态）
         
-        此方法在以下时机调用：
+        调用时机因模式而异：
         - DST模式：process_turn()之后，LLM生成回复之前
-        - Evolve模式：process_turn()之后（因为是原子操作）
+          状态提取 → 状态捕获 → 回复生成（理想时机）
         
-        捕获的状态反映了系统对用户输入的理解，而不是完整对话轮次结束后的状态
+        - FnCTOD模式：process_turn()之后（内部已完成状态提取和回复生成）
+          虽然UI捕获在回复之后，但捕获的是内部用于生成回复的"回复前状态"
+        
+        - Evolve模式：process_turn()之后（内部已完成上下文构建和回复生成）
+          虽然UI捕获在回复之后，但捕获的是内部用于生成回复的"回复前状态"
+        
+        重要说明：
+        所有模式的核心逻辑都是"先提取状态，再生成回复"，这样状态才能辅助回复生成。
+        只是UI显示的捕获时机不同，但捕获的都是用于辅助生成回复的状态。
         """
         try:
             # 直接构建状态字典，避免调用get_state造成循环
@@ -563,8 +576,13 @@ class UnifiedGradioDemo:
         """
         获取对话状态
         
-        返回用户输入处理后的状态（在bot回复生成之前捕获的状态）
-        这样显示的状态反映了系统对用户输入的理解，而不是完整对话轮次结束后的状态
+        返回用于辅助生成回复的对话状态（"回复前状态"）
+        
+        状态说明：
+        - 这个状态反映了系统对用户输入的理解
+        - 这个状态被用于辅助生成更好的回复
+        - 逻辑上，状态提取发生在回复生成之前（所有模式都遵循此原则）
+        - UI显示的是这个"回复前状态"，即使某些模式在完整轮次后才捕获
         
         如果尚未捕获状态（如第一次调用），则返回当前实时状态
         """
