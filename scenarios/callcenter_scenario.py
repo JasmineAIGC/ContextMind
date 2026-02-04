@@ -104,10 +104,9 @@ def get_callcenter_scenario() -> ScenarioConfig:
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
-        # 使用预定义槽位而非动态槽位
-        # 原因：动态槽位提取不稳定，LLM可能返回空结果或格式不一致
-        # 预定义槽位结合详细的提示词模板可确保稳定、一致的槽位提取
-        enable_dynamic_slots=False,
+        # 客服场景使用动态槽位提取，让 LLM 自动提取对话中的关键信息
+        # 客服问题多样，难以预定义所有槽位，动态提取更灵活
+        enable_dynamic_slots=True,
         dst_prompt_template=dst_prompt_template,
         system_prompt=CALLCENTER_SYSTEM_PROMPT,
         ui_title="智能客服 · 上下文工程 · 专业对话",
