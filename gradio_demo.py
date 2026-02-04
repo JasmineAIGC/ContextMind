@@ -607,13 +607,12 @@ def main():
         print(f"{'='*60}\n")
         raise
     
-    # 启动应用（CSS参数移到这里，兼容Gradio 6.0）
+    # 启动应用（CSS和theme参数移到这里，兼容Gradio 6.0）
     logger.info(f"启动Gradio应用... (端口: {args.port}, 分享: {args.share})")
     app.launch(
         server_name="0.0.0.0",
         server_port=args.port,
-        share=args.share,
-        css=CUSTOM_CSS
+        share=args.share
     )
 
 
