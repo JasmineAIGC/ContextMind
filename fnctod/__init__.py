@@ -26,6 +26,15 @@ from fnctod.function_manager import FunctionManager
 from fnctod.response_parser import FnCTODResponseParser
 from fnctod.fnctod_tracker import FnCTODTracker
 
+# 预定义Schema
+from fnctod.schemas import (
+    get_chat_function_schema,
+    get_callcenter_function_schema,
+    get_insurance_function_schema,
+    get_function_schema_for_scenario,
+    SCHEMA_GETTERS
+)
+
 __all__ = [
     'FnCTODTracker',
     'FunctionManager',
@@ -33,6 +42,12 @@ __all__ = [
     'FunctionCall',
     'DomainSpec',
     'FunctionParameter',
+    # Schema functions
+    'get_chat_function_schema',
+    'get_callcenter_function_schema',
+    'get_insurance_function_schema',
+    'get_function_schema_for_scenario',
+    'SCHEMA_GETTERS',
 ]
 
 __version__ = '0.2.1'

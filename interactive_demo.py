@@ -185,15 +185,25 @@ class UnifiedInteractiveDemo:
                 print()
                 sys.exit(1)
         
-        # 创建FunctionManager并添加domain
+        # 创建FunctionManager并使用预定义Schema
+        from fnctod import get_function_schema_for_scenario
+        
         function_manager = FunctionManager()
-        function_manager.add_domain_from_slots(
-            domain_name=self.config.name,
-            domain_description=self.config.description if hasattr(self.config, 'description') else f"{self.config.name} domain",
-            slots=self.config.dst_slots,
-            categorical_slots=self.config.dst_categorical_slots if hasattr(self.config, 'dst_categorical_slots') else None,
-            required_slots=[]  # 可以根据需要设置必需槽位
-        )
+        try:
+            # 使用预定义的函数Schema
+            schema = get_function_schema_for_scenario(self.config.name)
+            function_manager.add_domain(schema)
+            logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
+        except ValueError as e:
+            # 如果场景不支持，降级为动态创建
+            logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
+            function_manager.add_domain_from_slots(
+                domain_name=self.config.name,
+                domain_description=self.config.description if hasattr(self.config, 'description') else f"{self.config.name} domain",
+                slots=self.config.dst_slots,
+                categorical_slots=self.config.dst_categorical_slots if hasattr(self.config, 'dst_categorical_slots') else None,
+                required_slots=[]
+            )
         
         # 创建FnCTOD追踪器
         self.fnctod_tracker = FnCTODTracker(
