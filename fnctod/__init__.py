@@ -45,7 +45,6 @@ from fnctod.schemas import (
     get_callcenter_function_schema,
     get_insurance_function_schema,
     get_function_schema_for_scenario,
-    SCHEMA_GETTERS
 )
 
 __all__ = [

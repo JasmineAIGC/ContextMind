@@ -1,0 +1,106 @@
+# FnCTOD Prompt Templates
+# 提示词模板配置文件
+
+# 系统提示词
+system_prompt: |
+  You are a task-oriented dialogue assistant with function calling capability.
+  Use the provided functions to track dialogue state and generate appropriate responses.
+
+# 输出格式说明
+output_format:
+  importance_note: "IMPORTANT: You MUST always output a function call for every user input."
+  
+  format_description: |
+    Output format (REQUIRED):
+    1. First, output the function call in this EXACT format:
+       <function_call name="function_name">
+       {"param1": "value1", "param2": "value2"}
+       </function_call>
+    
+    2. Then, provide a natural language response to the user
+
+  # 单轮示例模板
+  single_turn_example_template: |
+    Example:
+       <function_call name="{domain}">
+       {example_params}
+       </function_call>
+       {example_response}
+
+  # 多轮示例模板
+  multi_turn_example_template: |
+    Multi-turn Example:
+       Turn 1 User: {turn1_user}
+       Turn 1 Assistant:
+       <function_call name="{domain}">
+       {turn1_params}
+       </function_call>
+       {turn1_response}
+       
+       Turn 2 User: {turn2_user}
+       Turn 2 Assistant:
+       <function_call name="{domain}">
+       {turn2_params}
+       </function_call>
+       {turn2_response}
+
+# 累积状态指令
+cumulative_state_instructions: |
+  Instructions:
+  - EVERY turn MUST include a <function_call> tag with the CUMULATIVE state
+  - Include ALL parameters from previous turns, plus any new/updated ones
+  - Even if no new parameters are extracted, still output the function call with existing parameters
+
+# 默认示例（如果场景没有定义自定义示例）
+default_examples:
+  single_turn:
+    domain: "chat"
+    params: '{"intent_level1": "情感", "emotion": "困惑"}'
+    response: "我理解您现在感到困惑。我会尽力帮助您。"
+  
+  multi_turn:
+    domain: "chat"
+    turn1:
+      user: "我有点不开心"
+      params: '{"intent_level1": "情感", "emotion": "烦恼"}'
+      response: "我理解您现在不开心。想和我聊聊是什么让您烦恼吗？"
+    turn2:
+      user: "数学作业太难了"
+      params: '{"intent_level1": "求助", "emotion": "烦恼", "topic": "数学"}'
+      response: "我明白数学作业很有挑战性。我们一起来看看有什么可以帮到您的。"
+
+# 场景特定示例（可选）
+scenario_examples:
+  insurance:
+    single_turn:
+      domain: "insurance"
+      params: '{"intent_level1": "咨询", "customer_name": "张三"}'
+      response: "好的，张三先生，我理解您想咨询保险产品。请问您对哪方面的保险感兴趣？"
+    
+    multi_turn:
+      domain: "insurance"
+      turn1:
+        user: "我想了解保险"
+        params: '{"intent_level1": "咨询"}'
+        response: "好的，我来为您介绍保险产品。请问您贵姓？"
+      turn2:
+        user: "我姓张"
+        params: '{"intent_level1": "咨询", "customer_name": "张先生"}'
+        response: "张先生您好，很高兴为您服务。请问您对哪种类型的保险感兴趣？"
+  
+  callcenter:
+    single_turn:
+      domain: "callcenter"
+      params: '{"intent_level1": "咨询", "issue_type": "产品咨询"}'
+      response: "好的，我理解您想咨询产品相关问题。请问具体是哪个产品呢？"
+    
+    multi_turn:
+      domain: "callcenter"
+      turn1:
+        user: "我的订单有问题"
+        params: '{"intent_level1": "投诉", "issue_type": "订单问题"}'
+        response: "非常抱歉给您带来不便。请问您的订单号是多少？"
+      turn2:
+        user: "订单号是12345"
+        params: '{"intent_level1": "投诉", "issue_type": "订单问题", "order_number": "12345"}'
+        response: "好的，我已经查到您的订单12345。让我为您查看一下具体问题。"

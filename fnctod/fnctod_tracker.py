@@ -5,6 +5,8 @@ FnCTOD Tracker
 """
 
 import time
+import yaml
+from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from fnctod.data_models import FunctionCall, DialogueTurn
 from fnctod.function_manager import FunctionManager
@@ -58,6 +60,9 @@ class FnCTODTracker:
         
         # 性能统计
         self.step_timings: Dict[str, float] = {}
+        
+        # 加载提示词模板
+        self._load_prompt_templates()
         
         logger.info(f"FnCTODTracker 初始化完成 (两阶段模式: {use_two_stage})")
     
@@ -308,9 +313,42 @@ class FnCTODTracker:
             logger.error(f"Function calling失败: {e}", exc_info=True)
             return None, "抱歉，我遇到了一些问题，请重新表述您的需求。"
     
-    def _build_function_call_prompt(self, domains: List[str]) -> str:
+    def _load_prompt_templates(self) -> None:
+        """加载提示词模板配置文件"""
+        template_path = Path(__file__).parent.parent / "fnctod_prompts.yaml"
+        
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                self.prompt_templates = yaml.safe_load(f)
+            logger.debug("成功加载FnCTOD提示词模板")
+        except Exception as e:
+            logger.warning(f"无法加载提示词模板: {e}，将使用默认配置")
+            self.prompt_templates = None
+    
+    def _get_examples_for_domain(self, domain_name: str) -> dict:
         """
-        构建function call提示词（只包含指定的domain）
+        获取域特定的示例
+        
+        Args:
+            domain_name: 域名称
+        
+        Returns:
+            示例字典（包含single_turn和multi_turn）
+        """
+        if not self.prompt_templates:
+            return {}
+        
+        # 优先使用场景特定示例
+        scenario_examples = self.prompt_templates.get('scenario_examples', {})
+        if domain_name in scenario_examples:
+            return scenario_examples[domain_name]
+        
+        # 降级到默认示例
+        return self.prompt_templates.get('default_examples', {})
+    
+    def _build_default_prompt(self, domains: List[str]) -> str:
+        """
+        构建默认提示词（配置文件不可用时的降级方案）
         
         Args:
             domains: domain列表
@@ -320,7 +358,6 @@ class FnCTODTracker:
         """
         prompt_parts = [
             "You are a task-oriented dialogue assistant with function calling capability.",
-            "Use the provided functions to track dialogue state and generate appropriate responses.",
             "",
             "Available functions:"
         ]
@@ -335,43 +372,96 @@ class FnCTODTracker:
             "",
             "IMPORTANT: You MUST always output a function call for every user input.",
             "",
-            "Output format (REQUIRED):",
-            "1. First, output the function call in this EXACT format:",
-            "   <function_call name=\"function_name\">",
-            "   {\"param1\": \"value1\", \"param2\": \"value2\"}",
-            "   </function_call>",
-            "",
-            "2. Then, provide a natural language response to the user",
-            "",
-            "Example:",
-            "   <function_call name=\"insurance\">",
-            "   {\"intent_level1\": \"咨询\", \"customer_name\": \"张三\"}",
-            "   </function_call>",
-            "   好的，张三先生，我理解您想咨询保险产品。请问您对哪方面的保险感兴趣？",
-            "",
-            "Multi-turn Example:",
-            "   Turn 1 User: 我想了解保险",
-            "   Turn 1 Assistant:",
-            "   <function_call name=\"insurance\">",
-            "   {\"intent_level1\": \"咨询\"}",
-            "   </function_call>",
-            "   好的，我来为您介绍保险产品。请问您贵姓？",
-            "",
-            "   Turn 2 User: 我姓张",
-            "   Turn 2 Assistant:",
-            "   <function_call name=\"insurance\">",
-            "   {\"intent_level1\": \"咨询\", \"customer_name\": \"张先生\"}",
-            "   </function_call>",
-            "   张先生您好，很高兴为您服务...",
+            "Output format:",
+            "<function_call name=\"function_name\">",
+            "{\"param1\": \"value1\"}",
+            "</function_call>",
+            "Natural language response",
             "",
             "Instructions:",
-            "- EVERY turn MUST include a <function_call> tag with the CUMULATIVE state",
-            "- Include ALL parameters from previous turns, plus any new/updated ones",
-            "- Even if no new parameters are extracted, still output the function call with existing parameters",
-            "- Only fill parameters that are mentioned or can be inferred from the conversation",
-            "- If a parameter is unknown or not mentioned, you can omit it from the JSON",
-            "- Be conversational and helpful in your natural language response"
+            "- Include ALL parameters from previous turns",
+            "- Add any new parameters from current turn",
         ])
+        
+        return "\n".join(prompt_parts)
+    
+    def _build_function_call_prompt(self, domains: List[str]) -> str:
+        """
+        构建function call提示词（从配置文件加载，支持自定义）
+        
+        使用 fnctod_prompts.yaml 配置文件中的模板和示例，
+        实现提示词的可配置化和场景化。
+        
+        Args:
+            domains: domain列表
+        
+        Returns:
+            提示词文本
+        """
+        # 如果没有加载模板，使用默认提示词
+        if not self.prompt_templates:
+            return self._build_default_prompt(domains)
+        
+        templates = self.prompt_templates
+        prompt_parts = []
+        
+        # 1. 系统提示词
+        prompt_parts.append(templates.get('system_prompt', ''))
+        prompt_parts.append("")
+        prompt_parts.append("Available functions:")
+        
+        # 2. 添加域的函数定义
+        for domain_name in domains:
+            domain = self.function_manager.get_domain(domain_name)
+            if domain:
+                prompt_parts.append("")
+                prompt_parts.append(domain.to_prompt_format())
+        
+        # 3. 重要性提示
+        output_fmt = templates.get('output_format', {})
+        prompt_parts.append("")
+        prompt_parts.append(output_fmt.get('importance_note', ''))
+        
+        # 4. 输出格式说明
+        prompt_parts.append("")
+        prompt_parts.append(output_fmt.get('format_description', ''))
+        
+        # 5. 示例（使用场景特定或默认示例）
+        domain_name = domains[0] if domains else 'chat'
+        examples = self._get_examples_for_domain(domain_name)
+        
+        if examples:
+            # 单轮示例
+            if 'single_turn' in examples:
+                example = examples['single_turn']
+                template = output_fmt.get('single_turn_example_template', '')
+                if template:
+                    prompt_parts.append("")
+                    prompt_parts.append(template.format(
+                        domain=example.get('domain', domain_name),
+                        example_params=example.get('params', '{}'),
+                        example_response=example.get('response', '')
+                    ))
+            
+            # 多轮示例
+            if 'multi_turn' in examples:
+                example = examples['multi_turn']
+                template = output_fmt.get('multi_turn_example_template', '')
+                if template:
+                    prompt_parts.append("")
+                    prompt_parts.append(template.format(
+                        domain=example.get('domain', domain_name),
+                        turn1_user=example.get('turn1', {}).get('user', ''),
+                        turn1_params=example.get('turn1', {}).get('params', '{}'),
+                        turn1_response=example.get('turn1', {}).get('response', ''),
+                        turn2_user=example.get('turn2', {}).get('user', ''),
+                        turn2_params=example.get('turn2', {}).get('params', '{}'),
+                        turn2_response=example.get('turn2', {}).get('response', '')
+                    ))
+        
+        # 6. 累积状态指令
+        prompt_parts.append("")
+        prompt_parts.append(templates.get('cumulative_state_instructions', ''))
         
         return "\n".join(prompt_parts)
     
