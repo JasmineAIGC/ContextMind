@@ -115,7 +115,8 @@ def create_gradio_ui(demo_instance=None):
                 mode_selector = gr.Radio(
                     choices=[
                         ("Evolve 模式 (记忆进化)", "evolve"),
-                        ("DST 模式 (槽位提取)", "dst")
+                        ("DST 模式 (槽位提取)", "dst"),
+                        ("FnCTOD 模式 (函数调用)", "fnctod")
                     ],
                     value="evolve",
                     label="选择模式"

@@ -3,7 +3,7 @@
 ContextMind Gradio Web Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持两种模式：DST对话状态追踪模式、ContextMind记忆进化模式
+支持三种模式：DST对话状态追踪模式、Evolve记忆进化模式、FnCTOD函数调用DST模式
 
 使用方式:
     python gradio_demo.py
@@ -20,6 +20,7 @@ from pathlib import Path
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
 from evolve import EvolveEngine
+from fnctod import FnCTODTracker, FunctionManager
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from apps.chat_app import ChatApplication
 from apps.callcenter_app import CallCenterApplication
@@ -45,7 +46,8 @@ class UnifiedGradioDemo:
         self.current_mode = None
         self.config = None
         self.llm_client = None
-        self.tracker = None
+        self.tracker = None  # For DST mode
+        self.fnctod_tracker = None  # For FnCTOD mode
         self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
@@ -72,6 +74,8 @@ class UnifiedGradioDemo:
         # 根据模式初始化
         if mode == "dst":
             self._init_dst_mode()
+        elif mode == "fnctod":
+            self._init_fnctod_mode()
         else:
             self._init_evolve_mode()
         
@@ -126,6 +130,46 @@ class UnifiedGradioDemo:
         )
         
         logger.info("DST模式初始化完成")
+    
+    def _init_fnctod_mode(self):
+        """初始化FnCTOD模式"""
+        try:
+            if self.llm_client is None:
+                self.llm_client = SimpleLLMClient()
+                logger.info("✅ LLM客户端初始化成功")
+        except Exception as e:
+            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
+            if "API" in str(e).upper() or "KEY" in str(e).upper():
+                error_msg += "📝 请检查以下配置：\n"
+                error_msg += "1. 确认.env文件存在\n"
+                error_msg += "2. 配置以下环境变量之一：\n"
+                error_msg += "   - QWEN3_API_KEY\n"
+                error_msg += "   - CONTEXTMIND_API_KEY\n"
+                error_msg += "   - LLM_API_KEY\n"
+                error_msg += "   - OPENAI_API_KEY\n"
+                error_msg += "3. 重启程序\n"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        
+        # 创建FunctionManager并添加domain
+        function_manager = FunctionManager()
+        function_manager.add_domain_from_slots(
+            domain_name=self.config.name,
+            domain_description=self.config.description if hasattr(self.config, 'description') else f"{self.config.name} domain",
+            slots=self.config.dst_slots,
+            categorical_slots=self.config.dst_categorical_slots if hasattr(self.config, 'dst_categorical_slots') else None,
+            required_slots=[]
+        )
+        
+        # 创建FnCTODTracker
+        self.fnctod_tracker = FnCTODTracker(
+            llm_client=self.llm_client,
+            function_manager=function_manager,
+            use_two_stage=True,
+            max_history_turns=self.max_history_turns
+        )
+        
+        logger.info("FnCTOD模式初始化完成")
     
     def _init_evolve_mode(self):
         """初始化Evolve模式"""
@@ -238,6 +282,27 @@ class UnifiedGradioDemo:
                 # chat_async returns a string directly, not a dict
                 reply = await self.llm_client.chat_async(messages=messages)
                 timing_breakdown['回复生成'] = time.time() - step_start
+                
+            elif self.current_mode == "fnctod":
+                # FnCTOD模式
+                step_start = time.time()
+                result = await self.fnctod_tracker.process_turn(
+                    user_utterance=message,
+                    system_utterance=""
+                )
+                reply = result.get("response", "")
+                timing_breakdown['函数调用处理'] = time.time() - step_start
+                
+                # 收集FnCTOD内部的详细步骤耗时
+                if hasattr(self.fnctod_tracker, 'step_timings'):
+                    timing_breakdown.update(self.fnctod_tracker.step_timings)
+                    if '函数调用处理' in timing_breakdown and len(self.fnctod_tracker.step_timings) > 0:
+                        del timing_breakdown['函数调用处理']
+                
+                # 状态捕获
+                step_start = time.time()
+                self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
                 
             else:
                 # Evolve模式
@@ -384,6 +449,48 @@ class UnifiedGradioDemo:
                     state_info["累积状态"] = "暂无槽位信息"
             else:
                 state_info["累积状态"] = "暂无槽位信息"
+            
+            return state_info
+        elif self.current_mode == "fnctod" and self.fnctod_tracker:
+            # FnCTOD模式：显示函数调用状态
+            state_info = {
+                "模式": "FnCTOD (函数调用DST)",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "对话轮数": self.fnctod_tracker.turn_count,
+            }
+            
+            # 显示最近的函数调用
+            if self.fnctod_tracker.dialogue_history:
+                last_turn = self.fnctod_tracker.dialogue_history[-1]
+                if last_turn.function_call:
+                    fc = last_turn.function_call
+                    state_info["本轮函数调用"] = fc.function_name
+                    if fc.arguments:
+                        for param, value in fc.arguments.items():
+                            state_info[f"  {param}"] = value
+                else:
+                    state_info["本轮函数调用"] = "未调用函数"
+            
+            # 分隔线
+            if self.fnctod_tracker.current_state:
+                state_info["---"] = "---"
+            
+            # 显示累积状态
+            if self.fnctod_tracker.current_state:
+                non_empty_slots = {k: v for k, v in self.fnctod_tracker.current_state.items()
+                                  if v and str(v).strip()}
+                
+                if non_empty_slots:
+                    state_info["累积状态"] = f"已提取 {len(non_empty_slots)} 个参数"
+                    for slot_name, slot_value in non_empty_slots.items():
+                        display_value = str(slot_value)
+                        if len(display_value) > 50:
+                            display_value = display_value[:47] + "..."
+                        state_info[f"{slot_name}"] = display_value
+                else:
+                    state_info["累积状态"] = "暂无参数信息"
+            else:
+                state_info["累积状态"] = "暂无参数信息"
             
             return state_info
         elif self.current_mode == "evolve" and self.app:
