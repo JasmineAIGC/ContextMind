@@ -1,238 +1,121 @@
- 日志将自动保存到: logs/contextmind_20260203_095208.log
-[2026-02-03 09:52:08] INFO - [__main__] [__main__] 启动ContextMind统一Gradio Demo
-[2026-02-03 09:52:08] INFO - [__main__] 参数配置: 日志级别=DEBUG, 最大历史轮数=10, 端口=17860, 分享=False
-[2026-02-03 09:52:08] INFO - [__main__] Demo实例创建完成（延迟初始化）
-[2026-02-03 09:52:08] INFO - [__main__] ✅ Demo实例创建成功
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] INFO - [__main__] ✅ UI创建成功
-[2026-02-03 09:52:08] INFO - [__main__] 启动Gradio应用... (端口: 17860, 分享: False)
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-[2026-02-03 09:52:08] DEBUG - Using selector: EpollSelector
-* Running on local URL:  http://0.0.0.0:17860
+python gradio_demo.py --log-level DEBUG --port 8080
+📝 日志将自动保存到: logs/evolve_20260204_174358.log
+[2026-02-04 17:43:58] INFO - [__main__] [__main__] 启动 ContextMind Gradio Demo
+[2026-02-04 17:43:58] INFO - [__main__] 参数配置: 日志级别=DEBUG, 最大历史轮数=10, 端口=8080, 分享=False
+[2026-02-04 17:43:58] INFO - [__main__] Demo实例创建完成（延迟初始化）
+[2026-02-04 17:43:58] INFO - [__main__] ✅ Demo实例创建成功
+/share/airesearch/data/yejiang.zhou/workspace/ContextMind/ui_components.py:68: UserWarning: The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0: theme, css. Please pass these parameters to launch() instead.
+  with gr.Blocks(
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='huggingface.co' port=443 local_address=None timeout=10 socket_options=None
+[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='api.gradio.app' port=443 local_address=None timeout=3 socket_options=None
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] INFO - [__main__] ✅ UI创建成功
+[2026-02-04 17:43:58] INFO - [__main__] 启动Gradio应用... (端口: 8080, 分享: False)
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
+* Running on local URL:  http://0.0.0.0:8080
+[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='localhost' port=8080 local_address=None timeout=None socket_options=None
+[2026-02-04 17:43:58] DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x7f2311511d00>
+[2026-02-04 17:43:58] DEBUG - send_request_headers.started request=<Request [b'GET']>
+[2026-02-04 17:43:58] DEBUG - send_request_headers.complete
+[2026-02-04 17:43:58] DEBUG - send_request_body.started request=<Request [b'GET']>
+[2026-02-04 17:43:58] DEBUG - send_request_body.complete
+[2026-02-04 17:43:58] DEBUG - receive_response_headers.started request=<Request [b'GET']>
+[2026-02-04 17:43:58] DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Wed, 04 Feb 2026 09:43:58 GMT'), (b'server', b'uvicorn'), (b'content-length', b'4'), (b'content-type', b'application/json')])
+[2026-02-04 17:43:58] INFO - HTTP Request: GET http://localhost:8080/gradio_api/startup-events "HTTP/1.1 200 OK"
+[2026-02-04 17:43:58] DEBUG - receive_response_body.started request=<Request [b'GET']>
+[2026-02-04 17:43:58] DEBUG - receive_response_body.complete
+[2026-02-04 17:43:58] DEBUG - response_closed.started
+[2026-02-04 17:43:58] DEBUG - response_closed.complete
+[2026-02-04 17:43:58] DEBUG - close.started
+[2026-02-04 17:43:58] DEBUG - close.complete
+[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='localhost' port=8080 local_address=None timeout=3 socket_options=None
+[2026-02-04 17:43:58] DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x7f230b068980>
+[2026-02-04 17:43:58] DEBUG - send_request_headers.started request=<Request [b'HEAD']>
+[2026-02-04 17:43:58] DEBUG - send_request_headers.complete
+[2026-02-04 17:43:58] DEBUG - send_request_body.started request=<Request [b'HEAD']>
+[2026-02-04 17:43:58] DEBUG - send_request_body.complete
+[2026-02-04 17:43:58] DEBUG - receive_response_headers.started request=<Request [b'HEAD']>
+[2026-02-04 17:43:58] DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Wed, 04 Feb 2026 09:43:58 GMT'), (b'server', b'uvicorn'), (b'content-length', b'94646'), (b'content-type', b'text/html; charset=utf-8')])
+[2026-02-04 17:43:58] INFO - HTTP Request: HEAD http://localhost:8080/ "HTTP/1.1 200 OK"
+[2026-02-04 17:43:58] DEBUG - receive_response_body.started request=<Request [b'HEAD']>
+[2026-02-04 17:43:58] DEBUG - receive_response_body.complete
+[2026-02-04 17:43:58] DEBUG - response_closed.started
+[2026-02-04 17:43:58] DEBUG - response_closed.complete
+[2026-02-04 17:43:58] DEBUG - close.started
+[2026-02-04 17:43:58] DEBUG - close.complete
 * To create a public link, set `share=True` in `launch()`.
-[2026-02-03 09:52:36] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-03 09:52:36] INFO - [utils.llm_client] [LLM Client] 初始化成功
-[2026-02-03 09:52:36] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-03 09:52:36] INFO - [dst.prompt_manager] 初始化PromptManager (领域=保险挽回, 动态槽位=False)
-[2026-02-03 09:52:36] INFO - [dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-03 09:52:36] INFO - [__main__] DST模式初始化完成
-[2026-02-03 09:52:36] INFO - [__main__] ✅ 场景初始化完成: insurance, 模式: dst
-[2026-02-03 09:52:36] INFO - [__main__] 配置已更新: insurance, dst
-[2026-02-03 09:52:40] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:40] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-03 09:52:40] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
-
-## 核心任务
-从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
-
-⚠️ 严格约束：
-1. 只能使用以下预定义的槽位名称，不能创建新槽位
-2. 对于分类槽位，只能使用列表中的值，不能使用其他值
-3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
-4. 输出必须是纯JSON格式，不包含任何解释文字
-
-## 预定义槽位名称（只...
-[2026-02-03 09:52:40] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
-user: "啥"...
-[2026-02-03 09:52:40] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:41] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:41] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{{"intent_level1": "用户忙", "intent_level2": "用户忙"}}
-[2026-02-03 09:52:41] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:41] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 50 字符
-[2026-02-03 09:52:41] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-03 09:52:41] DEBUG - [dst.response_parser] 策略1失败: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-[2026-02-03 09:52:41] DEBUG - [dst.response_parser] 尝试策略2: 正则表达式提取JSON
-[2026-02-03 09:52:41] DEBUG - [dst.response_parser] 策略2成功: 提取到 2 个字段
-[2026-02-03 09:52:41] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '用户忙', 'intent_level2': '用户忙'}
-[2026-02-03 09:52:41] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '用户忙', 'intent_level2': '用户忙'}
-[2026-02-03 09:52:41] INFO - [dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent_level1': '用户忙', 'intent_level2': '用户忙'}, 意图=用户忙
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
-
-## 核心任务
-从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
-
-⚠️ 严格约束：
-1. 只能使用以下预定义的槽位名称，不能创建新槽位
-2. 对于分类槽位，只能使用列表中的值，不能使用其他值
-3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
-4. 输出必须是纯JSON格式，不包含任何解释文字
-
-## 预定义槽位名称（只...
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
-user: "啥"...
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {{"intent_level1": "用户忙", "intent_level2": "用户忙"}}...
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small sty...
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{{"intent_level1": "咨询", "intent_level2": "询问产品详情", "insurance_type": "癌症保险"}}
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 78 字符
-[2026-02-03 09:52:55] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-03 09:52:55] DEBUG - [dst.response_parser] 策略1失败: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-[2026-02-03 09:52:55] DEBUG - [dst.response_parser] 尝试策略2: 正则表达式提取JSON
-[2026-02-03 09:52:55] DEBUG - [dst.response_parser] 策略2成功: 提取到 3 个字段
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '咨询', 'intent_level2': '询问产品详情', 'insurance_type': '癌症保险'}
-[2026-02-03 09:52:55] WARNING - [dst.response_parser] 跳过未定义的槽位: insurance_type (值: 癌症保险)
-[2026-02-03 09:52:55] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '咨询', 'intent_level2': '询问产品详情'}
-[2026-02-03 09:52:55] INFO - [dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent_level1': '咨询', 'intent_level2': '询问产品详情'}, 意图=咨询
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
-
-## 核心任务
-从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
-
-⚠️ 严格约束：
-1. 只能使用以下预定义的槽位名称，不能创建新槽位
-2. 对于分类槽位，只能使用列表中的值，不能使用其他值
-3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
-4. 输出必须是纯JSON格式，不包含任何解释文字
-
-## 预定义槽位名称（只...
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
-user: "啥"...
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {{"intent_level1": "用户忙", "intent_level2": "用户忙"}}...
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small sty...
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker]   [4] assistant: {{"intent_level1": "咨询", "intent_level2": "询问产品详情", "insurance_type": "癌症保险"}}...
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker]   [5] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small styl...
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{{"intent_level1": "无意向", "intent_level2": "犹豫", "intent_level3": "谨慎态度"}}
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 74 字符
-[2026-02-03 09:53:44] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-03 09:53:44] DEBUG - [dst.response_parser] 策略1失败: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-[2026-02-03 09:53:44] DEBUG - [dst.response_parser] 尝试策略2: 正则表达式提取JSON
-[2026-02-03 09:53:44] DEBUG - [dst.response_parser] 策略2成功: 提取到 3 个字段
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '无意向', 'intent_level2': '犹豫', 'intent_level3': '谨慎态度'}
-[2026-02-03 09:53:44] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '无意向', 'intent_level2': '犹豫', 'intent_level3': '谨慎态度'}
-[2026-02-03 09:53:44] INFO - [dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent_level1': '无意向', 'intent_level2': '犹豫', 'intent_level3': '谨慎态度'}, 意图=无意向
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
-
-## 核心任务
-从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
-
-⚠️ 严格约束：
-1. 只能使用以下预定义的槽位名称，不能创建新槽位
-2. 对于分类槽位，只能使用列表中的值，不能使用其他值
-3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
-4. 输出必须是纯JSON格式，不包含任何解释文字
-
-## 预定义槽位名称（只...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
-user: "啥"...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {{"intent_level1": "用户忙", "intent_level2": "用户忙"}}...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small sty...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [4] assistant: {{"intent_level1": "咨询", "intent_level2": "询问产品详情", "insurance_type": "癌症保险"}}...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [5] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small styl...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [6] assistant: {{"intent_level1": "无意向", "intent_level2": "犹豫", "intent_level3": "谨慎态度"}}...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker]   [7] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small styl...
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{{"intent_level1": "咨询", "intent_level2": "询问保费", "intent_level3": "保费优惠"}}
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 75 字符
-[2026-02-03 09:55:35] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-03 09:55:35] DEBUG - [dst.response_parser] 策略1失败: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-[2026-02-03 09:55:35] DEBUG - [dst.response_parser] 尝试策略2: 正则表达式提取JSON
-[2026-02-03 09:55:35] DEBUG - [dst.response_parser] 策略2成功: 提取到 3 个字段
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '咨询', 'intent_level2': '询问保费', 'intent_level3': '保费优惠'}
-[2026-02-03 09:55:35] DEBUG - [dst.response_parser] 严格模式下 intent_level3='保费优惠' 无精确匹配，返回None
-[2026-02-03 09:55:35] WARNING - [dst.response_parser] 槽位 intent_level3 的值 '保费优惠' 不在预定义列表中，已跳过
-[2026-02-03 09:55:35] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '咨询', 'intent_level2': '询问保费'}
-[2026-02-03 09:55:35] INFO - [dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent_level1': '咨询', 'intent_level2': '询问保费'}, 意图=咨询
-[2026-02-03 09:55:55] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:55] DEBUG - [dst.dialogue_state_tracker] 发送给LLM的消息:
-[2026-02-03 09:55:55] DEBUG - [dst.dialogue_state_tracker]   [0] system: 你是一个专业的保险电话销售对话状态追踪系统。
-
-## 核心任务
-从用户的回复中准确提取意图和关键信息，用于指导销售人员的应对策略。
-
-⚠️ 严格约束：
-1. 只能使用以下预定义的槽位名称，不能创建新槽位
-2. 对于分类槽位，只能使用列表中的值，不能使用其他值
-3. 如果用户输入无法匹配预定义值，该槽位留空，不要强行填充
-4. 输出必须是纯JSON格式，不包含任何解释文字
-
-## 预定义槽位名称（只...
-[2026-02-03 09:55:55] DEBUG - [dst.dialogue_state_tracker]   [1] user: system: "你好！"
-user: "啥"...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [2] assistant: {{"intent_level1": "用户忙", "intent_level2": "用户忙"}}...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [3] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small sty...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [4] assistant: {{"intent_level1": "咨询", "intent_level2": "询问产品详情", "insurance_type": "癌症保险"}}...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [5] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small styl...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [6] assistant: {{"intent_level1": "无意向", "intent_level2": "犹豫", "intent_level3": "谨慎态度"}}...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [7] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small styl...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [8] assistant: {{"intent_level1": "咨询", "intent_level2": "询问保费", "intent_level3": "保费优惠"}}...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker]   [9] user: ## 最近对话历史
-
-system: "你好！"
-user: "啥"
-system: "{'text': "您好！我是来自XX保险公司的电话销售专员。我注意到您之前可能是我们的会员之一，但可能由于某些原因没有继续选择我们的团体癌症保险。我想了解一下，您当时是否遇到了一些困扰或疑虑呢？或者，您现在是否有任何关于健康保障的需求呢？我会根据您的具体情况提供专业的建议和帮助。\n\n<small styl...
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] LLM完整响应:
-{{"intent_level1": "无意向", "intent_level2": "已有保险", "has_insurance": "是"}}
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] ============================================================
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] 开始解析响应，长度: 73 字符
-[2026-02-03 09:55:56] DEBUG - [dst.response_parser] 尝试策略1: 直接JSON解析
-[2026-02-03 09:55:56] DEBUG - [dst.response_parser] 策略1失败: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-[2026-02-03 09:55:56] DEBUG - [dst.response_parser] 尝试策略2: 正则表达式提取JSON
-[2026-02-03 09:55:56] DEBUG - [dst.response_parser] 策略2成功: 提取到 3 个字段
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] 解析结果: {'intent_level1': '无意向', 'intent_level2': '已有保险', 'has_insurance': '是'}
-[2026-02-03 09:55:56] DEBUG - [dst.dialogue_state_tracker] 归一化后: {'intent_level1': '无意向', 'intent_level2': '已有保险', 'has_insurance': '是'}
-[2026-02-03 09:55:56] INFO - [dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent_level1': '无意向', 'intent_level2': '已有保险', 'has_insurance': '是'}, 意图=无意向
+[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='huggingface.co' port=443 local_address=None timeout=10 socket_options=None
+[2026-02-04 17:44:02] DEBUG - connect_tcp.failed exception=ConnectError(gaierror(-3, 'Temporary failure in name resolution'))
+[2026-02-04 17:44:02] DEBUG - connect_tcp.failed exception=ConnectError(gaierror(-3, 'Temporary failure in name resolution'))
+[2026-02-04 17:44:02] DEBUG - connect_tcp.failed exception=ConnectError(gaierror(-3, 'Temporary failure in name resolution'))
+[2026-02-04 17:44:04] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-04 17:44:04] INFO - [utils.llm_client] [LLM Client] 初始化成功
+[2026-02-04 17:44:04] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-04 17:44:11] DEBUG - [evolve.memory.bank] [MemoryBank] 使用 Plugin - Retriever: SemanticSearchRetriever, Updater: SimpleUpdater
+[2026-02-04 17:44:11] INFO - [evolve.memory.extractor] [LLMBasedExtractor] 初始化完成 - 使用LLM自动提取
+[2026-02-04 17:44:11] INFO - [evolve.engine] [EvolveEngine] ✅ LLMBasedExtractor 已初始化用于知识提取
+[2026-02-04 17:44:11] INFO - [evolve.pipeline.response_handler] [ResponseHandler] 初始化完成
+[2026-02-04 17:44:11] INFO - [evolve.engine] [EvolveEngine] ResponseHandler 已初始化
+[2026-02-04 17:44:11] INFO - [evolve.engine] EvolveEngine 已初始化 app=gradio_demo_chat, user=gradio_demo_user
+[2026-02-04 17:44:11] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-04 17:44:11] INFO - [utils.llm_client] [LLM Client] 初始化成功
+[2026-02-04 17:44:11] INFO - [apps.chat_app] [ChatApplication] ✓ 初始化完成 (真实LLM: True, 知识提取: llm)
+[2026-02-04 17:44:11] INFO - [evolve.pipeline.summarizer] [Summarizer] ✅ 使用基于大语言模型的摘要策略
+[2026-02-04 17:44:11] INFO - [evolve.pipeline.summarizer] [LLMBasedSummarizer] 初始化完成 - 使用LLM智能摘要
+[2026-02-04 17:44:11] INFO - [evolve.pipeline.summarizer] [Summarizer] 初始化完成 - 策略: LLMBasedSummarizer, 窗口: 10, 增量模式启用
+[2026-02-04 17:44:11] DEBUG - [apps.chat_app] [ChatApplication] ✓ 对话摘要器已初始化 (方式: llm, 触发阈值: 5轮)
+[2026-02-04 17:44:11] INFO - [__main__] Evolve模式初始化完成
+[2026-02-04 17:44:11] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: evolve
+[2026-02-04 17:44:11] INFO - [__main__] 配置已更新: chat, evolve
+[2026-02-04 17:44:11] INFO - [fnctod.function_manager] FunctionManager 初始化完成
+[2026-02-04 17:44:11] DEBUG - [fnctod.function_manager] 添加domain函数: chat (6 个参数)
+[2026-02-04 17:44:11] INFO - [fnctod.fnctod_tracker] ✅ 已加载预定义FnCTOD Schema: chat
+[2026-02-04 17:44:11] DEBUG - [fnctod.response_parser] FnCTODResponseParser 初始化
+[2026-02-04 17:44:11] INFO - [fnctod.fnctod_tracker] FnCTODTracker 初始化完成 (两阶段模式: True)
+[2026-02-04 17:44:11] INFO - [__main__] FnCTOD模式初始化完成
+[2026-02-04 17:44:11] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: fnctod
+[2026-02-04 17:44:11] INFO - [__main__] 配置已更新: chat, fnctod
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] 
+============================================================
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] 处理第 1 轮对话
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] 用户: 我不想做作业
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] ============================================================
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['chat']
+[2026-02-04 17:44:19] DEBUG - [fnctod.fnctod_tracker] Function call响应: <function_call name="chat">
+{"intent_level1": "情感", "emotion": "烦恼"}
+</function_call>
+听起来你有点烦恼呢，作业让你感到头疼了吗？有什么具体的问题吗？或许我们可以一起找找解决的办法。...
+[2026-02-04 17:44:19] DEBUG - [fnctod.response_parser] 检测到function call: chat
+[2026-02-04 17:44:19] DEBUG - [fnctod.response_parser] 参数字符串: {"intent_level1": "情感", "emotion": "烦恼"}...
+[2026-02-04 17:44:19] DEBUG - [fnctod.response_parser] JSON解析成功: 2 个参数
+[2026-02-04 17:44:19] INFO - [fnctod.response_parser] 解析function call成功: chat, 2 个参数
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] Function call解析成功: chat
+[2026-02-04 17:44:19] DEBUG - [fnctod.fnctod_tracker] 状态更新: chat-intent_level1 = 情感
+[2026-02-04 17:44:19] DEBUG - [fnctod.fnctod_tracker] 状态更新: chat-emotion = 烦恼
+[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.69s)
+[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] 
+============================================================
+[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] 处理第 2 轮对话
+[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] 用户: 是啊，数学题不会做
+[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] ============================================================
+[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['chat']
+[2026-02-04 17:44:35] DEBUG - [fnctod.fnctod_tracker] Function call响应: 那我们来一起看看这道数学题吧。你可以告诉我题目是什么吗？或者是从哪里遇到困难了？...
+[2026-02-04 17:44:35] WARNING - [fnctod.response_parser] 未检测到function call标签
+[2026-02-04 17:44:35] WARNING - [fnctod.fnctod_tracker] 未检测到function call，使用响应作为自然语言回复
+[2026-02-04 17:44:35] INFO - [fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.22s)
+[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] 
+============================================================
+[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] 处理第 3 轮对话
+[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] 用户: 你能帮我做题吗
+[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] ============================================================
+[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['chat']
+[2026-02-04 17:45:02] DEBUG - [fnctod.fnctod_tracker] Function call响应: 当然可以，我会尽力帮助你理解这道题。请把题目告诉我，我们一起分析一下。...
+[2026-02-04 17:45:02] WARNING - [fnctod.response_parser] 未检测到function call标签
+[2026-02-04 17:45:02] WARNING - [fnctod.fnctod_tracker] 未检测到function call，使用响应作为自然语言回复
+[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.20s)
