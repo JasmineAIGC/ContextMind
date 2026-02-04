@@ -315,7 +315,7 @@ class FnCTODTracker:
     
     def _load_prompt_templates(self) -> None:
         """加载提示词模板配置文件"""
-        template_path = Path(__file__).parent.parent / "fnctod_prompts.yaml"
+        template_path = Path(__file__).parent / "fnctod_prompts.yaml"
         
         try:
             with open(template_path, 'r', encoding='utf-8') as f:
