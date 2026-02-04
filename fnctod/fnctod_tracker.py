@@ -61,6 +61,52 @@ class FnCTODTracker:
         
         logger.info(f"FnCTODTracker 初始化完成 (两阶段模式: {use_two_stage})")
     
+    @classmethod
+    def from_scenario(cls,
+                     llm_client,
+                     scenario_config,
+                     use_two_stage: bool = True,
+                     max_history_turns: int = 10):
+        """
+        从场景配置创建FnCTODTracker实例的工厂方法
+        
+        Args:
+            llm_client: LLM客户端实例
+            scenario_config: 场景配置对象（ScenarioConfig）
+            use_two_stage: 是否使用两阶段处理（默认True）
+            max_history_turns: 最大历史轮数（默认10）
+            
+        Returns:
+            FnCTODTracker实例
+        """
+        from fnctod import get_function_schema_for_scenario
+        
+        # 创建FunctionManager并加载schema
+        function_manager = FunctionManager()
+        try:
+            # 使用预定义的函数Schema
+            schema = get_function_schema_for_scenario(scenario_config.name)
+            function_manager.add_domain(schema)
+            logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
+        except ValueError as e:
+            # 如果场景不支持，降级为动态创建
+            logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
+            function_manager.add_domain_from_slots(
+                domain_name=scenario_config.name,
+                domain_description=getattr(scenario_config, 'description', f"{scenario_config.name} domain"),
+                slots=scenario_config.dst_slots,
+                categorical_slots=getattr(scenario_config, 'dst_categorical_slots', None),
+                required_slots=[]
+            )
+        
+        # 创建并返回tracker实例
+        return cls(
+            llm_client=llm_client,
+            function_manager=function_manager,
+            use_two_stage=use_two_stage,
+            max_history_turns=max_history_turns
+        )
+    
     async def process_turn(
         self,
         user_utterance: str,

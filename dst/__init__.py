@@ -9,6 +9,7 @@ v0.2.1 新特性：
 3. 智能历史管理 - 自动摘要长对话，保持上下文简洁
 4. 多意图追踪 - 追踪意图切换和演变
 5. 改进意图识别 - 更准确的意图分类
+6. 工厂方法 - from_scenario() 简化创建流程
 
 核心特点：
 1. 完全不进行微调（Zero-shot）
@@ -20,11 +21,21 @@ v0.2.1 新特性：
 - data_models: 数据模型（DialogueTurn, SpecialValue）
 - prompt_manager: 提示词管理器（支持动态槽位）
 - response_parser: 响应解析器（鲁棒JSON提取）
-- dialogue_state_tracker: 主追踪器（智能历史管理）
+- dialogue_state_tracker: 主追踪器（智能历史管理 + 工厂方法）
 
 与 Evolve 模式的区别：
 - Evolve: 复杂的五层架构，包含记忆库、检索、压缩等
 - DST: 简单的状态追踪，但支持动态槽位和智能历史管理
+
+使用示例：
+    # 方式1: 使用工厂方法（推荐）
+    from dst import DialogueStateTracker
+    tracker = DialogueStateTracker.from_scenario(llm_client, scenario_config)
+    
+    # 方式2: 手动创建
+    from dst import DialogueStateTracker, PromptManager
+    pm = PromptManager(domain="chat")
+    tracker = DialogueStateTracker(llm_client=llm_client, prompt_manager=pm)
 """
 
 # 数据模型

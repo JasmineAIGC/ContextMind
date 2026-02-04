@@ -10,10 +10,23 @@ FnCTOD Module - Function Calling for Task-Oriented Dialogue
 3. 支持两阶段分解：domain选择 → parameter填充
 4. 输出格式：<function_call> + 自然语言回复
 5. 支持 zero-shot 和 fine-tuning
+6. 工厂方法 - from_scenario() 简化创建流程
 
 与 DST 的区别：
 - DST: 传统的槽位-值提取
 - FnCTOD: 函数调用范式，更结构化，更易于扩展
+
+使用示例：
+    # 方式1: 使用工厂方法（推荐）
+    from fnctod import FnCTODTracker
+    tracker = FnCTODTracker.from_scenario(llm_client, scenario_config)
+    
+    # 方式2: 手动创建
+    from fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
+    function_manager = FunctionManager()
+    schema = get_function_schema_for_scenario("chat")
+    function_manager.add_domain(schema)
+    tracker = FnCTODTracker(llm_client=llm_client, function_manager=function_manager)
 
 版本: v0.2.1
 """
