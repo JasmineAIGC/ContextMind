@@ -84,7 +84,7 @@
     },
     {
       "turn_id": 9,
-      "system_utterance": "这份癌症保险只有患癌时才赔付，对吧。",
+      "system_utterance": "是的，是癌症专属保险。住院或门诊必须是癌症相关才保障。",
       "user_utterance": "这次我会把资料寄过去。",
       "expected_state": {
         "intent_level1": "拒绝",

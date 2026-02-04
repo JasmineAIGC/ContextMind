@@ -34,7 +34,7 @@
     },
     {
       "turn_id": 4,
-      "system_utterance": "您要不要考虑一下半额方案？",
+      "system_utterance": "半额方案的内容也很充实，您要不要考虑一下？",
       "user_utterance": "嗯，其他地方也有类似的。",
       "expected_state": {
         "intent_level1": "无意向",

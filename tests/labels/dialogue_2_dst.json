@@ -53,7 +53,7 @@
     },
     {
       "turn_id": 6,
-      "system_utterance": "您考虑作为追加保险吗？",
+      "system_utterance": "谢谢。实际上针对五十岁以上的人，部分保险金额会减半，但住院、门诊、诊断保险金等半额的半方案，每月保险费三千四百五十日元也可以持有，您考虑作为追加保险吗？",
       "user_utterance": "不，那个，有些难以决定。目前，",
       "expected_state": {
         "intent_level1": "无意向",
