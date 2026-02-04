@@ -18,11 +18,11 @@ FnCTOD Module - Function Calling for Task-Oriented Dialogue
 
 使用示例：
     # 方式1: 使用工厂方法（推荐）
-    from fnctod import FnCTODTracker
+    from modes.fnctod import FnCTODTracker
     tracker = FnCTODTracker.from_scenario(llm_client, scenario_config)
     
     # 方式2: 手动创建
-    from fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
+    from modes.fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
     function_manager = FunctionManager()
     schema = get_function_schema_for_scenario("chat")
     function_manager.add_domain(schema)
@@ -32,15 +32,15 @@ FnCTOD Module - Function Calling for Task-Oriented Dialogue
 """
 
 # 数据模型
-from fnctod.data_models import FunctionCall, DomainSpec, FunctionParameter
+from .data_models import FunctionCall, DomainSpec, FunctionParameter
 
 # 核心组件
-from fnctod.function_manager import FunctionManager
-from fnctod.response_parser import FnCTODResponseParser
-from fnctod.fnctod_tracker import FnCTODTracker
+from .function_manager import FunctionManager
+from .response_parser import FnCTODResponseParser
+from .fnctod_tracker import FnCTODTracker
 
 # 预定义Schema
-from fnctod.schemas import (
+from .schemas import (
     get_chat_function_schema,
     get_callcenter_function_schema,
     get_insurance_function_schema,

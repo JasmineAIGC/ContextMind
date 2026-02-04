@@ -12,9 +12,9 @@
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from dst.data_models import DialogueTurn
-from dst.prompt_manager import PromptManager
-from dst.response_parser import ResponseParser
+from .data_models import DialogueTurn
+from .prompt_manager import PromptManager
+from .response_parser import ResponseParser
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -710,7 +710,7 @@ class DialogueStateTracker:
             配置好的DialogueStateTracker实例
             
         示例:
-            from dst import DialogueStateTracker
+            from modes.dst import DialogueStateTracker
             from scenarios import get_chat_scenario
             from utils.llm_client import SimpleLLMClient
             

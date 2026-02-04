@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.llm_client import SimpleLLMClient
-from dst import DialogueStateTracker, PromptManager
+from modes.dst import DialogueStateTracker, PromptManager
 from scenarios import get_insurance_scenario
 from utils.logger import get_logger, setup_logging, LogLevel
 

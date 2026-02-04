@@ -56,7 +56,7 @@ class EvolveEngine:
     
     使用示例：
         ```python
-        from evolve import EvolveEngine
+        from modes.evolve import EvolveEngine
         
         engine = EvolveEngine(
             app_name="my-app",

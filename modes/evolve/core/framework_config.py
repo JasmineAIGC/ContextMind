@@ -11,7 +11,7 @@ Evolve 专注于上下文工程 (步骤 1-4 + 步骤 6):
 
 使用示例:
     ```python
-    from evolve import ContextMind
+    from modes.evolve import ContextMind
     
     # 设置
     cm = ContextMind()

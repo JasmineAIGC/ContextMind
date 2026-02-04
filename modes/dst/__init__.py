@@ -29,22 +29,22 @@ v0.2.1 新特性：
 
 使用示例：
     # 方式1: 使用工厂方法（推荐）
-    from dst import DialogueStateTracker
+    from modes.dst import DialogueStateTracker
     tracker = DialogueStateTracker.from_scenario(llm_client, scenario_config)
     
     # 方式2: 手动创建
-    from dst import DialogueStateTracker, PromptManager
+    from modes.dst import DialogueStateTracker, PromptManager
     pm = PromptManager(domain="chat")
     tracker = DialogueStateTracker(llm_client=llm_client, prompt_manager=pm)
 """
 
 # 数据模型
-from dst.data_models import DialogueTurn, SpecialValue
+from .data_models import DialogueTurn, SpecialValue
 
 # 核心组件
-from dst.prompt_manager import PromptManager, Language, LLMFormat
-from dst.response_parser import ResponseParser
-from dst.dialogue_state_tracker import DialogueStateTracker
+from .prompt_manager import PromptManager, Language, LLMFormat
+from .response_parser import ResponseParser
+from .dialogue_state_tracker import DialogueStateTracker
 
 __all__ = [
     'DialogueStateTracker',

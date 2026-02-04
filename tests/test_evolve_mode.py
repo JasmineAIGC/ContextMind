@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.llm_client import SimpleLLMClient
-from evolve import EvolveEngine
+from modes.evolve import EvolveEngine
 from scenarios import get_insurance_scenario
 from apps.insurance_app import InsuranceApplication
 from utils.logger import get_logger, setup_logging, LogLevel

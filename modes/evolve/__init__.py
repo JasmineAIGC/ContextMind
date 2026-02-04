@@ -14,7 +14,7 @@ Evolve - 专业的上下文优化框架 v0.2.1
 
 v0.2.1 新增功能 - Utils模块独立化与增强DST：
 {
-    from evolve import ContextMind, registry
+    from modes.evolve import ContextMind, registry
     
     # 简易集成API
     cm = ContextMind()
@@ -157,7 +157,7 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
         
     Example:
         # 使用内置场景
-        from evolve import create_app_for_scenario
+        from modes.evolve import create_app_for_scenario
         app = create_app_for_scenario("chat", llm_client, config)
         
         # 注册并使用自定义场景

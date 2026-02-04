@@ -8,7 +8,7 @@ CallCenterApplication - 客服应用示例
 import logging
 from typing import Optional
 
-from evolve import EvolveEngine
+from modes.evolve import EvolveEngine
 from evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 

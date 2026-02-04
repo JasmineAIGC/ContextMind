@@ -18,8 +18,8 @@ from datetime import datetime
 from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
-from dst import DialogueStateTracker
-from fnctod import FnCTODTracker
+from modes.dst import DialogueStateTracker
+from modes.fnctod import FnCTODTracker
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from ui_components import create_gradio_ui, CUSTOM_CSS
 from utils.logger import get_logger, setup_logging, LogLevel
@@ -156,7 +156,7 @@ class UnifiedGradioDemo:
             raise RuntimeError(error_msg)
         
         # 使用工厂方法创建应用
-        from evolve import create_app_for_scenario
+        from modes.evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.current_scenario,
             llm_client=self.llm_client,

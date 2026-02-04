@@ -15,13 +15,13 @@ from typing import List, Optional, Dict, Any, Tuple
 import time
 from datetime import datetime
 
-from evolve.core.data_models import ContextItem, Knowledge
-from evolve.core.types import ContextSource
-from evolve.core.strategies import UpdateStrategy as BaseUpdater
+from ..core.data_models import ContextItem, Knowledge
+from ..core.types import ContextSource
+from ..core.strategies import UpdateStrategy as BaseUpdater
 from utils.logger import get_logger
 from utils.embedding import calculate_embedding_similarity
 
-from evolve.memory.memory_fitness import MemoryFitness, FitnessCalculator
+from ..memory.memory_fitness import MemoryFitness, FitnessCalculator
 
 logger = get_logger(__name__)
 

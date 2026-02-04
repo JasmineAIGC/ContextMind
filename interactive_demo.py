@@ -20,8 +20,8 @@ from datetime import datetime
 from pathlib import Path
 
 from utils.llm_client import SimpleLLMClient
-from dst import DialogueStateTracker
-from fnctod import FnCTODTracker
+from modes.dst import DialogueStateTracker
+from modes.fnctod import FnCTODTracker
 from scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from utils.logger import get_logger, setup_logging, LogLevel
 
@@ -211,7 +211,7 @@ class UnifiedInteractiveDemo:
         
         # 使用工厂方法创建应用
         try:
-            from evolve import create_app_for_scenario
+            from modes.evolve import create_app_for_scenario
             self.app = create_app_for_scenario(
                 scenario_name=self.scenario,
                 llm_client=self.llm_client,

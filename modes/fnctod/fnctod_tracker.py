@@ -8,9 +8,9 @@ import time
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
-from fnctod.data_models import FunctionCall, DialogueTurn
-from fnctod.function_manager import FunctionManager
-from fnctod.response_parser import FnCTODResponseParser
+from .data_models import FunctionCall, DialogueTurn
+from .function_manager import FunctionManager
+from .response_parser import FnCTODResponseParser
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -84,7 +84,7 @@ class FnCTODTracker:
         Returns:
             FnCTODTracker实例
         """
-        from fnctod import get_function_schema_for_scenario
+        from modes.fnctod import get_function_schema_for_scenario
         
         # 创建FunctionManager并加载schema
         function_manager = FunctionManager()
@@ -522,7 +522,7 @@ class FnCTODTracker:
             配置好的FnCTODTracker实例
             
         示例:
-            from fnctod import FnCTODTracker
+            from modes.fnctod import FnCTODTracker
             from scenarios import get_chat_scenario
             from utils.llm_client import SimpleLLMClient
             
@@ -533,7 +533,7 @@ class FnCTODTracker:
                 scenario_config=config
             )
         """
-        from fnctod import get_function_schema_for_scenario, FunctionManager
+        from modes.fnctod import get_function_schema_for_scenario, FunctionManager
         
         # 创建FunctionManager
         function_manager = FunctionManager()

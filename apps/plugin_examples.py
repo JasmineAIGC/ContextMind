@@ -6,7 +6,7 @@ Plugin 架构示例
 """
 
 import asyncio
-from evolve import EvolveEngine
+from modes.evolve import EvolveEngine
 from evolve.core.models import Message, MessageRole
 
 

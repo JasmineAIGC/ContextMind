@@ -5,7 +5,7 @@ FnCTOD 预定义函数Schema
 每个Schema定义了domain作为函数的完整规格。
 """
 
-from fnctod.data_models import DomainSpec, FunctionParameter, ParameterType
+from .data_models import DomainSpec, FunctionParameter, ParameterType
 
 
 def get_chat_function_schema() -> DomainSpec:
