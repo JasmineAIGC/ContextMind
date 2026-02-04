@@ -293,7 +293,7 @@ def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
         # 添加自定义场景（在 scenarios.yaml 中配置）
         schema = get_function_schema_for_scenario("custom")
     """
-    from scenario_registry import scenario_registry
+    from config.scenario_registry import scenario_registry
     
     schema = scenario_registry.get_schema(scenario_name)
     if schema is not None:
