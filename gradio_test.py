@@ -6,7 +6,7 @@ ContextMind 批量对话测试 Gradio Demo
 - 对话窗口直接输入预写好的对话内容（而非实时交互）
 - 支持单轮对话和多轮对话
 - 支持一次性输入和分批多次输入
-- 复用 gradio_demo.py 中 DST 和 Evolve 模式的计算流程
+- 复用 gradio_demo.py 中 DST、Evolve 和 FnCTOD 模式的计算流程
 
 使用方式:
     python gradio_test.py
@@ -25,6 +25,7 @@ import gradio as gr
 from utils.llm_client import SimpleLLMClient
 from dst import DialogueStateTracker, PromptManager
 from evolve import EvolveEngine
+from fnctod import FnCTODTracker, FunctionManager
 from scenarios import get_insurance_scenario
 from apps.insurance_app import InsuranceApplication
 from utils.logger import get_logger, setup_logging, LogLevel
@@ -44,7 +45,8 @@ class BatchDialogueTest:
         """
         self.max_history_turns = max_history_turns
         self.llm_client = None
-        self.tracker = None
+        self.tracker = None  # DST mode
+        self.fnctod_tracker = None  # FnCTOD mode
         self.config = None
         self.app = None
         self.engine = None
@@ -57,7 +59,7 @@ class BatchDialogueTest:
         初始化模式
         
         Args:
-            mode: "dst" 或 "evolve"
+            mode: "dst", "evolve", 或 "fnctod"
         """
         self.current_mode = mode
         
@@ -75,6 +77,8 @@ class BatchDialogueTest:
         
         if mode == "dst":
             self._init_dst_mode()
+        elif mode == "fnctod":
+            self._init_fnctod_mode()
         else:
             self._init_evolve_mode()
         
@@ -133,6 +137,8 @@ class BatchDialogueTest:
         if self.current_mode == "dst" and self.tracker:
             self.tracker.current_state = {}
             self.tracker.dialogue_history = []
+        elif self.current_mode == "fnctod" and self.fnctod_tracker:
+            self.fnctod_tracker.reset()
         elif self.current_mode == "evolve" and self.engine:
             # 重新初始化
             self._init_evolve_mode()
@@ -306,6 +312,75 @@ class BatchDialogueTest:
         
         return result_text + summary, final_state
     
+    async def process_dialogue_fnctod(self, turns: List[Dict]) -> Tuple[str, Dict]:
+        """
+        使用 FnCTOD 模式处理对话
+        
+        Args:
+            turns: 对话轮次列表
+            
+        Returns:
+            (处理结果文本, 最终状态)
+        """
+        results = []
+        result_text = ""
+        
+        for i, turn in enumerate(turns):
+            user_utterance = turn.get('user_utterance', '')
+            
+            # 处理这一轮对话
+            result = await self.fnctod_tracker.process_turn(
+                user_utterance=user_utterance,
+                system_utterance=""
+            )
+            
+            # 记录结果
+            turn_result = {
+                'turn_id': i + 1,
+                'user_utterance': user_utterance,
+                'function_call': result.get('function_call'),
+                'response': result.get('response'),
+                'state': result.get('state')
+            }
+            results.append(turn_result)
+            
+            # 累积格式化输出
+            result_text += f"\n{'='*50}\n"
+            result_text += f"轮次 {i + 1}\n"
+            result_text += f"{'='*50}\n"
+            result_text += f"客户: {user_utterance}\n"
+            if result.get('function_call'):
+                fc = result['function_call']
+                result_text += f"\n函数调用:\n"
+                result_text += f"  函数: {fc.get('function', 'N/A')}\n"
+                if fc.get('arguments'):
+                    result_text += f"  参数:\n"
+                    for k, v in fc['arguments'].items():
+                        result_text += f"    {k}: {v}\n"
+            result_text += f"\n助手: {result.get('response', '')}\n"
+        
+        # 获取最终状态
+        final_state = self.fnctod_tracker.current_state.copy()
+        
+        # 生成汇总
+        summary = f"\n{'='*50}\n"
+        summary += f"📊 测试总结 (FnCTOD 模式)\n"
+        summary += f"{'='*50}\n"
+        summary += f"处理轮数: {len(turns)}\n"
+        summary += f"\n累积状态:\n"
+        for key, value in final_state.items():
+            if value:
+                summary += f"  {key}: {value}\n"
+        
+        # 保存到历史
+        self.results_history.append({
+            'mode': 'fnctod',
+            'turns': len(turns),
+            'final_state': final_state
+        })
+        
+        return result_text + summary, final_state
+    
     async def process_dialogue_evolve(self, turns: List[Dict]) -> Tuple[str, Dict]:
         """
         使用 Evolve 模式处理对话
@@ -382,7 +457,7 @@ async def process_dialogue_async(dialogue_text: str, mode: str) -> Tuple[str, st
     
     Args:
         dialogue_text: 对话文本
-        mode: "dst" 或 "evolve"
+        mode: "dst", "evolve", 或 "fnctod"
         
     Returns:
         (结果文本, 状态JSON)
@@ -403,6 +478,8 @@ async def process_dialogue_async(dialogue_text: str, mode: str) -> Tuple[str, st
         # 处理对话
         if mode == "dst":
             result_text, state = await instance.process_dialogue_dst(turns)
+        elif mode == "fnctod":
+            result_text, state = await instance.process_dialogue_fnctod(turns)
         else:
             result_text, state = await instance.process_dialogue_evolve(turns)
         
@@ -485,7 +562,8 @@ def create_test_ui():
                 mode_selector = gr.Radio(
                     choices=[
                         ("DST 模式 (槽位提取)", "dst"),
-                        ("Evolve 模式 (记忆进化)", "evolve")
+                        ("Evolve 模式 (记忆进化)", "evolve"),
+                        ("FnCTOD 模式 (函数调用)", "fnctod")
                     ],
                     value="dst",
                     label="选择模式"
