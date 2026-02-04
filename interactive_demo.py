@@ -295,7 +295,7 @@ class UnifiedInteractiveDemo:
         """FnCTOD模式对话"""
         try:
             # 处理对话轮次
-            result = await self.fnctod_tracker.process_turn(
+            result = await self.tracker.process_turn(
                 user_utterance=user_message,
                 system_utterance=""  # FnCTOD自己管理历史
             )

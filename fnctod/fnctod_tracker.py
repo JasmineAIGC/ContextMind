@@ -315,18 +315,28 @@ class FnCTODTracker:
         
         prompt_parts.extend([
             "",
-            "Instructions:",
-            "1. Based on the conversation, call the appropriate function with relevant parameters",
-            "2. Output the function call in this format:",
+            "IMPORTANT: You MUST always output a function call for every user input.",
+            "",
+            "Output format (REQUIRED):",
+            "1. First, output the function call in this EXACT format:",
             "   <function_call name=\"function_name\">",
             "   {\"param1\": \"value1\", \"param2\": \"value2\"}",
             "   </function_call>",
-            "3. After the function call, provide a natural language response to the user",
             "",
-            "Remember:",
+            "2. Then, provide a natural language response to the user",
+            "",
+            "Example:",
+            "   <function_call name=\"insurance\">",
+            "   {\"intent_level1\": \"咨询\", \"customer_name\": \"张三\"}",
+            "   </function_call>",
+            "   好的，张三先生，我理解您想咨询保险产品。请问您对哪方面的保险感兴趣？",
+            "",
+            "Instructions:",
+            "- Always include the <function_call> tag, even if no parameters have changed",
             "- Only fill parameters that are mentioned or can be inferred from the conversation",
             "- Maintain previously set parameters unless they are explicitly changed",
-            "- Be conversational and helpful in your responses"
+            "- If a parameter is unknown or not mentioned, you can omit it from the JSON",
+            "- Be conversational and helpful in your natural language response"
         ])
         
         return "\n".join(prompt_parts)
