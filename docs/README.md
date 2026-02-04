@@ -1,18 +1,18 @@
 # ContextMind 文档中心
 
-欢迎来到 ContextMind 项目的文档中心！这里包含了项目的所有技术文档和指南。
+欢迎来到 ContextMind 项目的文档中心！这里包含了项目的所有核心文档和指南。
 
-## 📚 文档目录
+## 📚 核心文档
 
 ### 快速开始
 
-- [快速开始指南](quick-start.md) - 快速上手 ContextMind
-- [配置指南](configuration.md) - API 密钥和场景配置
+- [快速开始指南](quick-start.md) - 5分钟快速上手 ContextMind
+- [配置指南](configuration.md) - API 密钥和环境配置
 
-### 核心文档
+### 系统架构
 
-- [系统架构](architecture.md) - ContextMind 整体架构设计
-- [模式对比](modes.md) - DST 与 ContextMind 模式对比
+- [系统架构](architecture.md) - ContextMind 完整架构设计和实现细节
+- [模式对比](modes.md) - DST 与 Evolve 模式详细对比
 
 ### 版本管理
 
@@ -29,8 +29,8 @@
 ## 🔗 相关链接
 
 - [主项目 README](../README.md)
-- [示例数据](../data/)
-- [源代码](../contextmind/)
+- [示例代码](../apps/)
+- [场景配置](../scenarios/)
 
 ## 📝 文档贡献
 

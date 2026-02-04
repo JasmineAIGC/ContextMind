@@ -7,15 +7,15 @@
 ```bash
 # 选择以下配置方式之一
 
-# 方式1：Qwen3配置（推荐）
-QWEN3_API_KEY=sk-your-api-key-here
-QWEN3_BASE_URL=http://10.112.172.30:18019/v1
-QWEN3_MODEL=Qwen3-32B
+# 方式1：Qwen配置（推荐）
+QWEN3_API_KEY=your_api_key_here
+QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN3_MODEL=qwen-plus
 
-# 方式2：通用LLM配置
-LLM_API_KEY=sk-your-api-key-here
-LLM_BASE_URL=http://10.112.172.30:18019/v1
-LLM_MODEL=Qwen3-32B
+# 方式2：OpenAI兼容配置
+LLM_API_KEY=your_api_key_here
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4
 ```
 
 ## 2. 启动Interactive Demo

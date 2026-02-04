@@ -1,4 +1,4 @@
-# ContextMind v0.2.1
+# ContextMind
 
 一个通用、可扩展、易集成的上下文工程框架，专为基于大语言模型的对话系统设计。
 
@@ -60,9 +60,11 @@ python gradio_demo.py
 # 可在界面中选择场景（chat/callcenter/insurance）和模式（Evolve/DST）
 ```
 
-### API使用
+---
 
-#### Evolve 模式（基于记忆进化）
+## API使用
+
+### Evolve 模式（基于记忆进化）
 
 ```python
 from evolve import EvolveEngine
@@ -81,7 +83,7 @@ response = await engine.chat("你好")
 print(response)
 ```
 
-#### DST 模式（对话状态追踪）
+### DST 模式（对话状态追踪）
 
 ```python
 from dst import DialogueStateTracker, PromptManager
@@ -99,64 +101,78 @@ print(state)  # 返回提取的状态信息
 
 ---
 
-## 演示程序
+## 项目结构
 
-### 闲聊场景
-```bash
-python chat_interactive_demo.py --mode evolve  # Evolve模式
-python chat_interactive_demo.py --mode dst     # DST 模式
-python chat_gradio_demo.py                     # Web UI
 ```
-
-### 客服场景
-```bash
-python callcenter_interactive_demo.py --mode evolve
-python callcenter_interactive_demo.py --mode dst
-python callcenter_gradio_demo.py                    # Web UI
-```
-
-### 保险场景（共荣保险）
-```bash
-python insurance_interactive_demo.py --mode evolve
-python insurance_interactive_demo.py --mode dst   # 使用预定义意图和槽位
-python insurance_gradio_demo.py                   # Web UI
+ContextMind/
+├── evolve/                   # Evolve 框架（五层架构）
+│   ├── core/                # 核心数据模型和配置
+│   ├── memory/              # 记忆系统（提取、存储、检索）
+│   ├── evolution/           # 进化学习系统
+│   └── pipeline/            # 五步处理流水线
+├── dst/                      # DST 基础实现（ACL 2023）
+│   ├── dialogue_state_tracker.py
+│   ├── prompt_manager.py
+│   └── response_parser.py
+├── scenarios/                # 场景配置系统
+│   ├── chat_scenario.py     # 闲聊场景
+│   ├── callcenter_scenario.py  # 客服场景
+│   └── insurance_scenario.py   # 保险场景
+├── apps/                     # 应用示例
+│   ├── chat_app.py
+│   ├── callcenter_app.py
+│   └── insurance_app.py
+├── utils/                    # 通用工具
+│   ├── logger.py
+│   ├── llm_client.py
+│   └── embedding.py
+├── docs/                     # 文档
+├── interactive_demo.py       # 命令行演示
+└── gradio_demo.py           # Web界面演示
 ```
 
 ---
 
-## 场景配置系统
+## 两种模式对比
 
-ContextMind v0.2.1 支持通过配置文件轻松切换不同的对话任务：
+| 特性 | DST 模式 | Evolve 模式 |
+|------|---------|-------------|
+| 方法论 | 对话状态追踪 | 基于记忆进化 |
+| 技术基础 | ACL 2023 论文 | 五层架构 + 语义记忆 |
+| 核心能力 | 意图识别、槽位提取 | 上下文理解、记忆管理、自主进化 |
+| 记忆系统 | ❌ 无持久记忆 | ✅ 语义记忆库 + 进化学习 |
+| 学习能力 | ❌ 无学习 | ✅ 持续学习优化 |
+| 适用场景 | 结构化任务（订票、客服） | 开放域对话、个性化交互 |
+| 复杂度 | ⭐⭐ 轻量 | ⭐⭐⭐⭐ 完整 |
 
-### 支持的场景
+---
+
+## 场景配置
+
+ContextMind 支持通过配置文件轻松切换不同的对话任务：
 
 | 场景 | 配置文件 | 说明 |
 |------|---------|------|
 | 闲聊 | `scenarios/chat_scenario.py` | 动态槽位，开放意图 |
 | 客服 | `scenarios/callcenter_scenario.py` | 问题追踪，工单管理 |
-| 保险 | `scenarios/insurance_scenario.py` | 共荣保险，预定义意图和槽位 |
+| 保险 | `scenarios/insurance_scenario.py` | 预定义意图和槽位 |
 
-### 使用配置
+### 使用场景配置
 
 ```python
-from scenarios import get_insurance_scenario, get_chat_scenario, get_callcenter_scenario
+from scenarios import get_insurance_scenario
 
 # 获取场景配置
 config = get_insurance_scenario()
 
-# DST 模式（使用预定义意图和槽位）
+# DST 模式 - 使用预定义槽位
 from dst import DialogueStateTracker, PromptManager
 
-pm = PromptManager(
-    domain=config.scenario_name,
-    enable_dynamic_slots=False  # 使用预定义槽位
-)
-
-# 添加预定义槽位
+pm = PromptManager(domain=config.scenario_name)
 for slot_name, slot_desc in config.dst_slots.items():
     pm.add_slot(slot_name, slot_desc)
 
-# Evolve 模式
+# Evolve 模式 - 使用系统提示词
 from evolve import EvolveEngine
 
 engine = EvolveEngine(
@@ -165,60 +181,16 @@ engine = EvolveEngine(
 )
 ```
 
-### 添加新场景
-
-1. 在 `scenarios/` 创建新配置文件
-2. 在 `prompts.py` 添加系统提示词
-3. 创建对应的 demo 文件
-4. 在 `scenarios/__init__.py` 导出
-
-详见：[场景配置文档](docs/SCENARIO_CONFIGURATION.md)
-
----
-
-## 项目结构
-
-```
-ContextMind/ v0.2.1
-├── evolve/                   # Evolve 完整框架（五层架构）
-├── dst/                      # DST 基础实现（ACL 2023 论文）
-├── scenarios/                # 场景配置系统 ✨
-│   ├── config.py            # 配置基类
-│   ├── chat_scenario.py     # 闲聊场景
-│   ├── callcenter_scenario.py  # 客服场景
-│   └── insurance_scenario.py   # 保险场景（共荣保险）
-├── utils/                    # 通用工具（logger, LLM client）
-├── examples/                 # 应用示例
-│   ├── chat_app.py
-│   ├── callcenter_app.py
-│   └── insurance_app.py
-├── docs/                     # 文档
-├── prompts.py                # 系统提示词（3个主要场景）
-└── *_demo.py                 # 演示程序
-```
-
----
-
-## 两种模式对比
-
-| 特性 | DST 模式 | Evolve 模式 |
-|------|---------|-----------------|
-| 方法论 | 对话状态追踪 (Dialogue State Tracking) | 基于记忆进化的对话系统 |
-| 技术基础 | ACL 2023 论文，槽位-值提取 | 五层架构，语义记忆+进化学习 |
-| 核心能力 | 意图识别、槽位提取、状态追踪 | 上下文理解、记忆管理、自主进化 |
-| 记忆系统 | ❌ 无持久记忆 | ✅ 语义记忆库 + 进化学习 |
-| 学习能力 | ❌ 无学习 | ✅ 从对话中持续学习优化 |
-| 适用场景 | 结构化任务（订票、客服） | 开放域对话、个性化交互 |
-| 复杂度 | ⭐⭐ 轻量 | ⭐⭐⭐⭐ 完整 |
-
 ---
 
 ## 文档
 
-- [架构说明](docs/ARCHITECTURE.md)
-- [DST 文档](docs/BASIC_DST_DOCUMENTATION.md)
-- [迁移指南](docs/MIGRATION.md)
-- [更新日志](docs/CHANGELOG.md)
+- [快速开始](docs/quick-start.md) - 详细安装和使用指南
+- [架构说明](docs/architecture.md) - 系统架构设计
+- [模式对比](docs/modes.md) - DST vs Evolve 详细对比
+- [配置指南](docs/configuration.md) - 高级配置选项
+- [迁移指南](docs/migration.md) - 版本升级指南
+- [更新日志](docs/changelog.md) - 版本变更历史
 
 ---
 
