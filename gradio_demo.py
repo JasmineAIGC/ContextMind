@@ -105,25 +105,10 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 创建PromptManager，使用自定义模板（如果提供）
-        pm = PromptManager(
-            domain=self.config.name,
-            enable_dynamic_slots=self.config.enable_dynamic_slots,  # 使用场景配置
-            custom_template=getattr(self.config, 'dst_prompt_template', None)  # 使用自定义模板
-        )
-        
-        # 添加预定义槽位
-        for slot_name, slot_desc in self.config.dst_slots.items():
-            # 检查是否有分类约束
-            categorical_values = None
-            if self.config.dst_categorical_slots and slot_name in self.config.dst_categorical_slots:
-                categorical_values = self.config.dst_categorical_slots[slot_name]
-            pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
-        
-        # 创建DialogueStateTracker
-        self.tracker = DialogueStateTracker(
+        # 使用工厂方法创建DST追踪器
+        self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
-            prompt_manager=pm,
+            scenario_config=self.config,
             max_history_turns=10,
             enable_history_summary=True,
             use_llm_summary=False
@@ -151,30 +136,10 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 创建FunctionManager并使用预定义Schema
-        from fnctod import get_function_schema_for_scenario
-        
-        function_manager = FunctionManager()
-        try:
-            # 使用预定义的函数Schema
-            schema = get_function_schema_for_scenario(self.config.name)
-            function_manager.add_domain(schema)
-            logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
-        except ValueError as e:
-            # 如果场景不支持，降级为动态创建
-            logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
-            function_manager.add_domain_from_slots(
-                domain_name=self.config.name,
-                domain_description=self.config.description if hasattr(self.config, 'description') else f"{self.config.name} domain",
-                slots=self.config.dst_slots,
-                categorical_slots=self.config.dst_categorical_slots if hasattr(self.config, 'dst_categorical_slots') else None,
-                required_slots=[]
-            )
-        
-        # 创建FnCTODTracker
-        self.fnctod_tracker = FnCTODTracker(
+        # 使用工厂方法创建FnCTOD追踪器
+        self.fnctod_tracker = FnCTODTracker.from_scenario(
             llm_client=self.llm_client,
-            function_manager=function_manager,
+            scenario_config=self.config,
             use_two_stage=True,
             max_history_turns=self.max_history_turns
         )

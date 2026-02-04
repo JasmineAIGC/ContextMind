@@ -121,35 +121,19 @@ class UnifiedInteractiveDemo:
                 print()
                 sys.exit(1)
         
-        # 创建PromptManager，使用自定义模板（如果提供）
-        pm = PromptManager(
-            domain=self.config.name,
-            enable_dynamic_slots=self.config.enable_dynamic_slots,  # 使用场景配置
-            custom_template=getattr(self.config, 'dst_prompt_template', None)  # 使用自定义模板
-        )
-        
-        # 添加预定义槽位
-        for slot_name, slot_desc in self.config.dst_slots.items():
-            # 检查是否有分类约束
-            categorical_values = None
-            if self.config.dst_categorical_slots and slot_name in self.config.dst_categorical_slots:
-                categorical_values = self.config.dst_categorical_slots[slot_name]
-            pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
-        
-        # 创建DST追踪器
-        self.dst_tracker = DialogueStateTracker(
+        # 使用工厂方法创建DST追踪器
+        self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
-            prompt_manager=pm,
-            use_llm_summary=self.use_llm_summary,  # 使用参数配置
-            max_history_turns=self.max_history_turns,  # 使用参数配置
-            enable_history_summary=self.enable_summary  # 使用参数配置
+            scenario_config=self.config,
+            max_history_turns=self.max_history_turns,
+            enable_history_summary=self.enable_summary,
+            use_llm_summary=self.use_llm_summary
         )
         
         # 初始化系统回复（第一轮对话使用）- 使用欢迎消息
         self.last_system_reply = self._get_welcome_message()
         
         self.app = None  # DST模式不使用app
-        self.fnctod_tracker = None  # DST模式不使用FnCTOD
     
     def _init_fnctod_mode(self):
         """初始化FnCTOD模式"""
@@ -185,35 +169,14 @@ class UnifiedInteractiveDemo:
                 print()
                 sys.exit(1)
         
-        # 创建FunctionManager并使用预定义Schema
-        from fnctod import get_function_schema_for_scenario
-        
-        function_manager = FunctionManager()
-        try:
-            # 使用预定义的函数Schema
-            schema = get_function_schema_for_scenario(self.config.name)
-            function_manager.add_domain(schema)
-            logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
-        except ValueError as e:
-            # 如果场景不支持，降级为动态创建
-            logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
-            function_manager.add_domain_from_slots(
-                domain_name=self.config.name,
-                domain_description=self.config.description if hasattr(self.config, 'description') else f"{self.config.name} domain",
-                slots=self.config.dst_slots,
-                categorical_slots=self.config.dst_categorical_slots if hasattr(self.config, 'dst_categorical_slots') else None,
-                required_slots=[]
-            )
-        
-        # 创建FnCTOD追踪器
-        self.fnctod_tracker = FnCTODTracker(
+        # 使用工厂方法创建FnCTOD追踪器
+        self.tracker = FnCTODTracker.from_scenario(
             llm_client=self.llm_client,
-            function_manager=function_manager,
-            use_two_stage=True,  # 使用两阶段处理
+            scenario_config=self.config,
+            use_two_stage=True,
             max_history_turns=self.max_history_turns
         )
         
-        self.dst_tracker = None  # FnCTOD模式不使用DST
         self.app = None  # FnCTOD模式不使用app
     
     def _init_evolve_mode(self):
@@ -273,7 +236,7 @@ class UnifiedInteractiveDemo:
             print(f"{'='*60}\n")
             sys.exit(1)
         
-        self.dst_tracker = None  # Evolve模式不使用DST
+        self.app = None  # Evolve模式不使用DST/FnCTOD追踪器
     
     def print_welcome(self):
         """打印欢迎信息"""
@@ -317,7 +280,7 @@ class UnifiedInteractiveDemo:
         """DST模式对话"""
         try:
             # 处理对话轮次 - 使用上一轮的系统回复
-            state = await self.dst_tracker.process_turn(
+            state = await self.tracker.process_turn(
                 system_utterance=self.last_system_reply,
                 user_utterance=user_message
             )
@@ -380,10 +343,7 @@ class UnifiedInteractiveDemo:
             print("⚠️  状态查看功能仅在DST/FnCTOD模式下可用")
             return
         
-        if self.mode == "dst":
-            state = self.dst_tracker.get_current_state()
-        else:  # fnctod
-            state = self.fnctod_tracker.get_current_state()
+        state = self.tracker.get_current_state()
         
         print("\n" + "="*60)
         print("📊 当前对话状态:")
@@ -395,10 +355,10 @@ class UnifiedInteractiveDemo:
     def reset(self):
         """重置对话"""
         if self.mode == "dst":
-            self.dst_tracker.reset_dialogue()
+            self.tracker.reset_dialogue()
             self.last_system_reply = self._get_welcome_message()
         elif self.mode == "fnctod":
-            self.fnctod_tracker.reset()
+            self.tracker.reset()
         else:
             # Evolve模式重新初始化
             self._init_evolve_mode()
