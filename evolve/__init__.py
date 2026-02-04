@@ -138,12 +138,13 @@ EvolveTracker = EvolveEngine  # 统一Tracker命名
 
 def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app_name_prefix: str = "demo"):
     """
-    为指定场景创建应用实例的工厂方法
+    为指定场景创建应用实例的工厂方法（通用化版本）
     
     这是Evolve模式的推荐初始化方式，与DST/FnCTOD的from_scenario()保持一致。
+    现在使用场景注册表，支持动态添加新场景，无需修改代码。
     
     Args:
-        scenario_name: 场景名称 ("chat", "callcenter", "insurance" 等)
+        scenario_name: 场景名称（支持中英文别名）
         llm_client: LLM客户端实例
         scenario_config: 场景配置对象
         app_name_prefix: 应用名称前缀（默认 "demo"）
@@ -152,15 +153,23 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
         对应场景的Application实例
         
     Raises:
-        ValueError: 如果场景不支持
+        ValueError: 如果场景未注册
         
     Example:
+        # 使用内置场景
         from evolve import create_app_for_scenario
         app = create_app_for_scenario("chat", llm_client, config)
+        
+        # 注册并使用自定义场景
+        from scenario_registry import scenario_registry
+        scenario_registry.register(
+            name="custom",
+            app_class=CustomApplication,
+            aliases=["自定义"]
+        )
+        app = create_app_for_scenario("custom", llm_client, config)
     """
-    from apps.chat_app import ChatApplication
-    from apps.callcenter_app import CallCenterApplication
-    from apps.insurance_app import InsuranceApplication
+    from scenario_registry import scenario_registry
     
     # 创建引擎
     engine = EvolveEngine(
@@ -169,18 +178,21 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
         llm_client=llm_client
     )
     
-    # 根据场景创建对应的应用
-    scenario_lower = scenario_name.lower()
-    system_prompt = scenario_config.system_prompt
+    # 从注册表获取应用类
+    app_class = scenario_registry.get_app_class(scenario_name)
     
-    if scenario_lower in ["chat", "闲聊"]:
-        return ChatApplication(context_engine=engine, system_prompt=system_prompt)
-    elif scenario_lower in ["callcenter", "客服"]:
-        return CallCenterApplication(context_engine=engine, system_prompt=system_prompt)
-    elif scenario_lower in ["insurance", "保险", "保险挽回"]:
-        return InsuranceApplication(context_engine=engine, system_prompt=system_prompt)
-    else:
-        raise ValueError(f"不支持的场景: {scenario_name}。支持的场景: chat, callcenter, insurance")
+    if app_class is None:
+        # 提供友好的错误信息
+        available_scenarios = scenario_registry.list_scenarios()
+        raise ValueError(
+            f"场景 '{scenario_name}' 未注册。\n"
+            f"可用场景: {', '.join(available_scenarios)}\n"
+            f"提示: 使用 scenario_registry.register() 注册新场景"
+        )
+    
+    # 创建应用实例
+    system_prompt = scenario_config.system_prompt
+    return app_class(context_engine=engine, system_prompt=system_prompt)
 
 
 __all__ = [
