@@ -211,7 +211,7 @@ class UnifiedInteractiveDemo:
         
         # 使用工厂方法创建应用
         try:
-            from apps import create_app_for_scenario
+            from evolve import create_app_for_scenario
             self.app = create_app_for_scenario(
                 scenario_name=self.scenario,
                 llm_client=self.llm_client,

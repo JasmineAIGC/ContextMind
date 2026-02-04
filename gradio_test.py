@@ -121,7 +121,7 @@ class BatchDialogueTest:
         使用工厂方法简化初始化
         """
         # 使用工厂方法创建应用
-        from apps import create_app_for_scenario
+        from evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.config.name,
             llm_client=self.llm_client,

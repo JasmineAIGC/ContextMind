@@ -156,7 +156,7 @@ class UnifiedGradioDemo:
             raise RuntimeError(error_msg)
         
         # 使用工厂方法创建应用
-        from apps import create_app_for_scenario
+        from evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.current_scenario,
             llm_client=self.llm_client,
