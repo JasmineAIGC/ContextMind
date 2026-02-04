@@ -4,6 +4,7 @@
 google-adk
 openai
 python-dotenv
+PyYAML>=6.0.0
 
 # Embedding 依赖（可选）
 # 如果使用本地 embedding 模型（如 bge-large-zh-v1.5），请安装：
