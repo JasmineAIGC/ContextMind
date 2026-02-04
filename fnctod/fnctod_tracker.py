@@ -159,7 +159,7 @@ class FnCTODTracker:
         
         # 调用LLM
         try:
-            response = await self.llm_client.chat(messages)
+            response = await self.llm_client.chat_async(messages)
             logger.debug(f"Domain选择响应: {response}")
             
             # 解析domain
@@ -224,7 +224,7 @@ class FnCTODTracker:
         
         # 调用LLM
         try:
-            response = await self.llm_client.chat(messages)
+            response = await self.llm_client.chat_async(messages)
             logger.debug(f"Function call响应: {response[:200]}...")
             
             # 解析function call
