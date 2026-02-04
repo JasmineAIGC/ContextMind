@@ -28,7 +28,7 @@ from .core.data_models import (
     Knowledge,
 )
 from .core.types import MessageRole, ContextSource
-from contextmind.common.logger import get_logger
+from contextmind.infra.logger import get_logger
 from .memory import SessionManager, MemoryBank
 from .pipeline.response_handler import ResponseHandler
 from .pipeline.preprocessor import InputPreprocessor

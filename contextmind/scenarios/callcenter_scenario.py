@@ -3,7 +3,7 @@
 """
 
 from .config import ScenarioConfig, ScenarioType
-from contextmind.common.prompts import CALLCENTER_SYSTEM_PROMPT
+from contextmind.config.prompts import CALLCENTER_SYSTEM_PROMPT
 
 
 def get_callcenter_scenario() -> ScenarioConfig:

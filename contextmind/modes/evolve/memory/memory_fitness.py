@@ -27,7 +27,7 @@ from datetime import datetime
 from enum import Enum
 
 from ..core.data_models import ContextItem
-from contextmind.common.logger import get_logger
+from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 

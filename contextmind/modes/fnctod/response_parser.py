@@ -8,7 +8,7 @@ import re
 import json
 from typing import Dict, List, Optional, Tuple, Any
 from .data_models import FunctionCall
-from contextmind.common.logger import get_logger
+from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 

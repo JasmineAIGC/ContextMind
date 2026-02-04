@@ -21,11 +21,11 @@ from typing import Dict, List, Optional
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from contextmind.common.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.modes.evolve import EvolveEngine
 from contextmind.scenarios import get_insurance_scenario
-from contextmind.scenarios.insurance_app import InsuranceApplication
-from contextmind.common.logger import get_logger, setup_logging, LogLevel
+from contextmind.apps.insurance_app import InsuranceApplication
+from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
 

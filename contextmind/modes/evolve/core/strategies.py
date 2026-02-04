@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from .data_models import ContextItem, ProcessedContext, ContextResult, Message, Knowledge
-from contextmind.common.logger import get_logger
+from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 

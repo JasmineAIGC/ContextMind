@@ -9,7 +9,7 @@
 
 from typing import Dict, List, Set, Optional
 from enum import Enum
-from contextmind.common.logger import get_logger
+from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 

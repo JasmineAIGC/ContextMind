@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .data_models import DialogueTurn
 from .prompt_manager import PromptManager
 from .response_parser import ResponseParser
-from contextmind.common.logger import get_logger
+from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -712,7 +712,7 @@ class DialogueStateTracker:
         示例:
             from contextmind.modes.dst import DialogueStateTracker
             from scenarios import get_chat_scenario
-            from contextmind.common.llm_client import SimpleLLMClient
+            from contextmind.infra.llm_client import SimpleLLMClient
             
             llm_client = SimpleLLMClient()
             config = get_chat_scenario()
