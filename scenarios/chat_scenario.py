@@ -25,7 +25,8 @@ def get_chat_scenario() -> ScenarioConfig:
     
     # 闲聊场景的槽位
     dst_slots = {
-        "intent": "用户意图",
+        "intent_level1": "一级意图（主意图）",
+        "intent_level2": "二级意图（子意图）",
         "topic": "对话话题",
         "emotion": "情绪状态",
         "user_name": "用户名称",
@@ -33,18 +34,54 @@ def get_chat_scenario() -> ScenarioConfig:
     }
     
     dst_categorical_slots = {
+        "intent_level1": ["闲聊", "求助", "分享", "情感", "其他"],
         "emotion": ["开心", "平静", "烦恼", "兴奋", "其他"]
     }
     
     dst_prompt_template = """你是一个对话信息提取系统。
 
-从用户的回复中提取：
-1. 意图：用户想要做什么（闲聊、求助、分享、情感表达等）
-2. 话题：谈论的主题
-3. 情绪：用户的情绪状态
-4. 其他关键信息
+## 核心任务
+从用户的回复中提取意图和关键信息。
 
-返回JSON格式，只包含提取到的信息。
+## 预定义槽位
+- intent_level1: 一级意图（闲聊、求助、分享、情感、其他）
+- intent_level2: 二级意图（详细子意图）
+- topic: 对话话题
+- emotion: 情绪状态（开心、平静、烦恼、兴奋、其他）
+- user_name: 用户名称（如果提及）
+- context_info: 其他上下文信息
+
+## 一级意图说明
+- **闲聊**: 日常交流、问候、告别、感谢
+- **求助**: 请求建议、寻求帮助、咨询问题
+- **分享**: 分享经历、表达观点、讲述故事
+- **情感**: 表达情绪、倾诉烦恼、庆祝喜悦
+- **其他**: 不确定、混合意图
+
+## 提取示例
+
+用户："你好啊，最近怎么样？"
+```json
+{"intent_level1": "闲聊", "intent_level2": "问候", "emotion": "平静"}
+```
+
+用户："我今天心情很好，升职了！"
+```json
+{"intent_level1": "分享", "intent_level2": "分享经历", "emotion": "开心", "topic": "工作升职"}
+```
+
+用户："能给我推荐一些好书吗？"
+```json
+{"intent_level1": "求助", "intent_level2": "请求建议", "topic": "书籍推荐"}
+```
+
+## 输出要求
+1. 必须返回纯JSON格式
+2. 必须包含 intent_level1
+3. 尽量提取 intent_level2、topic、emotion
+4. 不要添加任何解释文字
+
+只返回JSON，不要其他内容。
 """
     
     return ScenarioConfig(
@@ -54,7 +91,10 @@ def get_chat_scenario() -> ScenarioConfig:
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
-        enable_dynamic_slots=True,  # 闲聊场景使用动态槽位提取，LLM自由提取
+        # 使用预定义槽位而非动态槽位
+        # 原因：动态槽位提取不稳定，LLM可能返回空结果或格式不一致
+        # 预定义槽位结合详细的提示词模板可确保稳定、一致的槽位提取
+        enable_dynamic_slots=False,
         dst_prompt_template=dst_prompt_template,
         system_prompt=CHAT_SYSTEM_PROMPT,
         ui_title="智能对话 · 上下文理解 · 长期记忆",
