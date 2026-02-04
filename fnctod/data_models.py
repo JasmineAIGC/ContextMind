@@ -137,10 +137,20 @@ class FunctionCall:
             "response": self.natural_response
         }
     
+    def to_xml(self) -> str:
+        """
+        转换为XML格式的function call（用于提示词中的历史记录）
+        
+        Returns:
+            XML格式的function call字符串
+        """
+        import json
+        args_json = json.dumps(self.arguments, ensure_ascii=False, indent=0)
+        return f"<function_call name=\"{self.function_name}\">\n{args_json}\n</function_call>"
+    
     def __str__(self) -> str:
         """字符串表示"""
-        args_str = ", ".join(f"{k}={v}" for k, v in self.arguments.items())
-        return f"<function_call name=\"{self.function_name}\">\n{args_str}\n</function_call>"
+        return self.to_xml()
 
 
 @dataclass

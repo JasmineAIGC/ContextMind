@@ -251,18 +251,36 @@ class FnCTODTracker:
             {"role": "system", "content": system_prompt}
         ]
         
-        # 添加对话历史
+        # 添加对话历史（包含function call和自然语言回复）
         for turn in self.dialogue_history[-self.max_history_turns:]:
             messages.append({"role": "user", "content": turn.user_utterance})
-            if turn.system_utterance:
+            
+            # 构建完整的assistant回复（function call + 自然语言回复）
+            if turn.function_call and turn.system_utterance:
+                # 包含function call和自然语言回复
+                assistant_content = f"{turn.function_call.to_xml()}\n{turn.system_utterance}"
+                messages.append({"role": "assistant", "content": assistant_content})
+            elif turn.system_utterance:
+                # 只有自然语言回复（降级情况）
                 messages.append({"role": "assistant", "content": turn.system_utterance})
         
-        # 添加当前状态信息
+        # 添加当前状态提示（帮助LLM维护累积状态）
         if self.current_state:
-            state_str = ", ".join(f"{k}={v}" for k, v in self.current_state.items())
+            # 将状态转换为更清晰的JSON格式
+            import json
+            # 将 "domain-param" 格式转换为 domain分组的字典
+            state_by_domain = {}
+            for key, value in self.current_state.items():
+                if '-' in key:
+                    domain, param = key.split('-', 1)
+                    if domain not in state_by_domain:
+                        state_by_domain[domain] = {}
+                    state_by_domain[domain][param] = value
+            
+            state_json = json.dumps(state_by_domain, ensure_ascii=False, indent=2)
             messages.append({
                 "role": "system",
-                "content": f"Current state: {state_str}"
+                "content": f"Previous cumulative state:\n{state_json}\n\nRemember to include ALL previous parameters in your function call, plus any new ones from the current turn."
             })
         
         # 添加当前用户输入
@@ -331,10 +349,26 @@ class FnCTODTracker:
             "   </function_call>",
             "   好的，张三先生，我理解您想咨询保险产品。请问您对哪方面的保险感兴趣？",
             "",
+            "Multi-turn Example:",
+            "   Turn 1 User: 我想了解保险",
+            "   Turn 1 Assistant:",
+            "   <function_call name=\"insurance\">",
+            "   {\"intent_level1\": \"咨询\"}",
+            "   </function_call>",
+            "   好的，我来为您介绍保险产品。请问您贵姓？",
+            "",
+            "   Turn 2 User: 我姓张",
+            "   Turn 2 Assistant:",
+            "   <function_call name=\"insurance\">",
+            "   {\"intent_level1\": \"咨询\", \"customer_name\": \"张先生\"}",
+            "   </function_call>",
+            "   张先生您好，很高兴为您服务...",
+            "",
             "Instructions:",
-            "- Always include the <function_call> tag, even if no parameters have changed",
+            "- EVERY turn MUST include a <function_call> tag with the CUMULATIVE state",
+            "- Include ALL parameters from previous turns, plus any new/updated ones",
+            "- Even if no new parameters are extracted, still output the function call with existing parameters",
             "- Only fill parameters that are mentioned or can be inferred from the conversation",
-            "- Maintain previously set parameters unless they are explicitly changed",
             "- If a parameter is unknown or not mentioned, you can omit it from the JSON",
             "- Be conversational and helpful in your natural language response"
         ])
