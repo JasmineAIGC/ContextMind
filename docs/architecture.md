@@ -1,10 +1,10 @@
-# ContextMind 架构 (v0.4.1)
+# ContextMind 架构 (v0.2.1)
 
-本文档描述 ContextMind v0.4.1 的架构设计和实现细节。
+本文档描述 ContextMind v0.2.1 的架构设计和实现细节。
 
 ## 版本信息
 
-- **当前版本**: v0.4.1
+- **当前版本**: v0.2.1
 - **发布日期**: 2026-01-29
 - **主要更新**: Utils独立化、知识提取能力、DST增强
 
@@ -31,7 +31,7 @@ ContextMind 遵循**五步流水线架构**进行上下文优化：
 最终结果 + 记忆已更新
 ```
 
-**架构变更（v0.4.1）：**
+**架构变更（v0.2.1）：**
 - ✅ **Utils独立化** - utils模块移至根目录，完全独立
 - ✅ **知识提取增强** - 新增LLM驱动的知识提取能力
 - ✅ **DST完整实现** - 完整的ACL 2023论文合规性实现
@@ -62,7 +62,7 @@ ContextMind/
 │   │   ├── context_retriever.py # 步骤 2：ContextRetriever（占位符）
 │   │   ├── compressor.py        # 步骤 3：ContextCompressor
 │   │   ├── reorderer.py         # 步骤 4：ContextReorderer
-│   │   ├── response_handler.py  # 步骤 5：ResponseHandler (v0.4.1增强)
+│   │   ├── response_handler.py  # 步骤 5：ResponseHandler (v0.2.1增强)
 │   │   └── summarizer.py        # ConversationSummarizer（由压缩器使用）
 │   │
 │   │ # MemoryBank 模块 - 4 个子模块
@@ -70,7 +70,7 @@ ContextMind/
 │   │   ├── __init__.py      # 导出所有记忆组件
 │   │   ├── bank.py          # 主 MemoryBank 类
 │   │   ├── session.py       # SessionManager
-│   │   ├── extractor.py     # 知识提取器 (v0.4.1增强)
+│   │   ├── extractor.py     # 知识提取器 (v0.2.1增强)
 │   │   ├── retriever.py     # 检索相关记忆
 │   │   └── updater.py       # 记忆更新（添加/删除/更新）
 │   │
@@ -79,17 +79,17 @@ ContextMind/
 │       ├── evolutionary_updater.py
 │       └── feedback_system.py
 │
-├── dst/                     # 增强的 DST 实现 (v0.4.1)
+├── dst/                     # 增强的 DST 实现 (v0.2.1)
 │   ├── __init__.py
 │   ├── data_models.py       # 数据模型
 │   ├── dialogue_state_tracker.py  # 完整 ACL 2023 实现
 │   ├── prompt_manager.py    # 提示词管理器
 │   └── response_parser.py   # 响应解析器
 │
-├── utils/                   # 独立工具模块 (v0.4.1 移至根目录)
+├── utils/                   # 独立工具模块 (v0.2.1 移至根目录)
 │   ├── __init__.py          # 导出所有工具
 │   ├── logger.py            # 统一日志系统
-│   ├── llm_client.py        # 统一 LLM 客户端 (v0.4.1增强)
+│   ├── llm_client.py        # 统一 LLM 客户端 (v0.2.1增强)
 │   ├── embedding.py         # 嵌入向量工具
 │   └── data_models.py       # 数据模型
 │
@@ -107,7 +107,7 @@ ContextMind/
 │   └── plugin_examples.py
 │
 ├── docs/                    # 文档
-│   ├── architecture.md      # 本文档 (v0.4.1)
+│   ├── architecture.md      # 本文档 (v0.2.1)
 │   ├── modes.md             # 模式对比文档
 │   ├── quick-start.md       # 快速开始指南
 │   └── ...                  # 其他文档
@@ -148,7 +148,7 @@ ContextMind/
 - **技术**：时间戳排序、来源优先级、相关性评分
 - **缓解**："中间丢失"问题
 
-#### 步骤 5：ResponseHandler (`response_handler.py`) - v0.4.1 增强
+#### 步骤 5：ResponseHandler (`response_handler.py`) - v0.2.1 增强
 - **目的**：处理 LLM 响应并更新记忆库
 - **职责**：
   1. 解析 LLM 响应
@@ -156,7 +156,7 @@ ContextMind/
   3. 自动更新记忆库
   4. 记录完整对话轮次
 - **特点**：形成完整的记忆更新闭环
-- **v0.4.1 新特性**：
+- **v0.2.1 新特性**：
   - 支持自动知识提取 (`auto_extract=True`)
   - 集成 LLM 驱动的知识提取器
   - 提取用户偏好、事实、模式、策略和经验
@@ -166,13 +166,13 @@ ContextMind/
 
 MemoryBank 实现了 4 子模块架构：
 
-#### 2.1 Extractor (`memory/extractor.py`) - v0.4.1 增强
+#### 2.1 Extractor (`memory/extractor.py`) - v0.2.1 增强
 - **目的**：提取高价值信息用于长期存储
 - **实现**：
   - `RuleBasedExtractor`：模式匹配（轻量级）
-  - `LLMBasedExtractor`：大语言模型辅助提取（高端，v0.4.1增强）
+  - `LLMBasedExtractor`：大语言模型辅助提取（高端，v0.2.1增强）
   - `ImportancePredictorExtractor`：基于机器学习的重要性评分
-- **v0.4.1 新特性**：
+- **v0.2.1 新特性**：
   - 增强的 LLM 驱动知识提取
   - 支持从多轮对话中提取结构化知识
   - 提取用户偏好、事实、对话模式、策略和经验
@@ -221,7 +221,7 @@ MemoryBank 实现了 4 子模块架构：
 - 协调所有流水线组件
 - 提供高级 API：`optimize()`、`update()`、`extract_knowledge()`
 
-## v0.4.1 核心特性
+## v0.2.1 核心特性
 
 ### 1. 独立的 Utils 模块
 
@@ -242,7 +242,7 @@ utils/
 
 **导入示例：**
 ```python
-# v0.4.1 新导入方式
+# v0.2.1 新导入方式
 from utils import get_logger, SimpleLLMClient, LLMConfig
 from utils.embedding import get_embedding
 ```
@@ -320,7 +320,7 @@ class DialogueTurn:
 
 **新的 API：**
 ```python
-# v0.4.1 推荐方式 - 自动知识提取
+# v0.2.1 推荐方式 - 自动知识提取
 result = await engine.handle_response(
     user_input=user_input,
     llm_response=assistant_response,
@@ -340,7 +340,7 @@ await engine.update(user_input, assistant_response)
 
 ## 导入模式
 
-### 推荐（v0.4.1+）
+### 推荐（v0.2.1+）
 
 ```python
 # Utils 模块 - 从根目录导入
@@ -396,12 +396,12 @@ from evolve import (
 ```
 
 **注意：** 
-- `KVCacheManager` 和 `PostProcessor` 已在 v0.4.1 中移除
+- `KVCacheManager` 和 `PostProcessor` 已在 v0.2.1 中移除
 - 主框架模块为 `evolve`，不是 `contextmind`
 
 ## 迁移指南
 
-### 从 v7.3 迁移到 v0.4.1
+### 从 v7.3 迁移到 v0.2.1
 
 **重要变更：**
 
@@ -414,7 +414,7 @@ from evolve import (
    # ❌ 旧代码 (v7.3)
    from examples.llm_client import SimpleLLMClient
    
-   # ✅ 新代码 (v0.4.1)
+   # ✅ 新代码 (v0.2.1)
    from utils.logger import get_logger
    from utils.llm_client import SimpleLLMClient
    ```
@@ -434,7 +434,7 @@ from evolve import (
    # 旧代码 (v7.3) - 仍然支持
    await engine.update(user_input, assistant_response)
    
-   # 新代码 (v0.4.1) - 推荐
+   # 新代码 (v0.2.1) - 推荐
    result = await engine.handle_response(
        user_input=user_input,
        llm_response=assistant_response,
@@ -449,7 +449,7 @@ from evolve import (
    - 支持标准消息列表格式
    - 自动兼容，无需修改现有代码
 
-### 从 v7.2 迁移到 v0.4.1
+### 从 v7.2 迁移到 v0.2.1
 
 **重要变更：**
 
@@ -462,7 +462,7 @@ from evolve import (
    # 旧代码 (v7.2)
    await engine.update(user_input, assistant_response)
    
-   # 新代码 (v0.4.1) - 推荐
+   # 新代码 (v0.2.1) - 推荐
    result = await engine.handle_response(
        user_input=user_input,
        llm_response=assistant_response,
@@ -478,13 +478,13 @@ from evolve import (
    - 步骤数量从 6 步减少到 5 步
    - 最后一步现在是 ResponseHandler（响应处理和记忆更新）
 
-### 从 v7.1 迁移到 v0.4.1
+### 从 v7.1 迁移到 v0.2.1
 
-**注意**：v0.4.1 是一次重大重构，模块结构有较大变化。
+**注意**：v0.2.1 是一次重大重构，模块结构有较大变化。
 
 1. **主框架模块**：从 `contextmind` 改为 `evolve`
    ```python
-   # v0.4.1 导入方式
+   # v0.2.1 导入方式
    from evolve import EvolveEngine
    from evolve.pipeline import Preprocessor, ContextCompressor
    from evolve.memory import MemoryBank, SessionManager
@@ -492,13 +492,13 @@ from evolve import (
 
 2. **Utils 模块独立化**
    ```python
-   # v0.4.1 导入方式
+   # v0.2.1 导入方式
    from utils import get_logger, SimpleLLMClient
    ```
 
 3. **DST 模块增强**
    ```python
-   # v0.4.1 导入方式
+   # v0.2.1 导入方式
    from dst import DialogueStateTracker, PromptManager
    ```
 

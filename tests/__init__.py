@@ -31,4 +31,4 @@ ContextMind 测试模块
     python tests/test_evolve_mode.py
 """
 
-__version__ = "0.4.1"
+__version__ = "0.2.1"

@@ -66,7 +66,7 @@ def create_gradio_ui(demo_instance=None):
         tuple: (app, components_dict) - Gradio应用和组件字典
     """
     with gr.Blocks(
-        title="ContextMind Demo v0.4.1",
+        title="ContextMind Demo v0.2.1",
         theme=gr.themes.Soft(),
         css=CUSTOM_CSS
     ) as app:
@@ -217,7 +217,7 @@ def create_gradio_ui(demo_instance=None):
         
         # Footer
         gr.Markdown(
-            "ContextMind v0.4.1 | 💡 Powered by LLM",
+            "ContextMind v0.2.1 | 💡 Powered by LLM",
             elem_classes=["footer"]
         )
         

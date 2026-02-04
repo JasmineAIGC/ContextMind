@@ -1,7 +1,7 @@
 """
 日志工具
 
-Evolve v0.4.1 统一日志系统
+Evolve v0.2.1 统一日志系统
 """
 
 import logging
@@ -18,7 +18,7 @@ class LogLevel(PyEnum):
 
 class EvolveLogger:
     """
-    Evolve v0.4.1 统一日志系统
+    Evolve v0.2.1 统一日志系统
     
     功能特性：
     - 信息模式：记录关键信息、Pipeline 输入输出和重要事件

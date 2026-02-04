@@ -7,7 +7,7 @@
 - 多意图追踪
 - 优化的LLM使用（默认仅在槽位提取时调用）
 
-版本: v0.4.1
+版本: v0.2.1
 """
 
 from typing import Dict, List, Optional, Tuple

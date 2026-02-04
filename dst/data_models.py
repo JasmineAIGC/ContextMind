@@ -3,7 +3,7 @@
 
 定义DST系统使用的核心数据结构。
 
-版本: v0.4.1
+版本: v0.2.1
 """
 
 from dataclasses import dataclass, field

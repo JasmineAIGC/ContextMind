@@ -1,4 +1,4 @@
-# ContextMind v0.4.1 快速开始指南
+# ContextMind v0.2.1 快速开始指南
 
 ## 1. 配置API密钥
 

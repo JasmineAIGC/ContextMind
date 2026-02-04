@@ -14,7 +14,7 @@ Evolution Module - 进化式记忆优化
     from evolve.evolution import FeedbackCollector
 """
 
-__version__ = "0.4.1"
+__version__ = "0.2.1"
 
 # 从模块文件导入主要类
 from .evolutionary_updater import EvolutionaryMemoryUpdater

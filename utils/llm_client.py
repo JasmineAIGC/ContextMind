@@ -1,10 +1,10 @@
 """
-Evolve v0.4.1 演示用的简单 LLM 客户端
+Evolve v0.2.1 演示用的简单 LLM 客户端
 
 为演示应用提供轻量级的 OpenAI 兼容 LLM 客户端。
 基于 v6.0 客户端但为演示目的进行了简化。
 
-注意: 在 v0.4.1 中，LLM 调用在 Evolve 框架外部。
+注意: 在 v0.2.1 中，LLM 调用在 Evolve 框架外部。
 此客户端仅用于演示应用，不是核心框架的一部分。
 """
 
@@ -149,10 +149,10 @@ class LLMConfig:
 
 
 class SimpleLLMClient:
-    """演示应用的简单 LLM 客户端 (v0.4.1)。
+    """演示应用的简单 LLM 客户端 (v0.2.1)。
     
     注意: 这不是 Evolve 核心框架的一部分。
-    在 v0.4.1 中，LLM 调用是外部的。此客户端仅用于演示。
+    在 v0.2.1 中，LLM 调用是外部的。此客户端仅用于演示。
     """
 
     def __init__(self, config: Optional[LLMConfig] = None):

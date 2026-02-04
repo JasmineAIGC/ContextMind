@@ -42,7 +42,7 @@
 ### ContextMind 现有架构
 
 ```
-ContextMind v0.4.1
+ContextMind v0.2.1
 ├── 双模式系统
 │   ├── ContextMind 模式 (五层架构 + 记忆进化)
 │   └── DST 模式 (对话状态追踪)
