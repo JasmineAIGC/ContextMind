@@ -10,7 +10,7 @@
 版本: v0.2.1
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from dst.data_models import DialogueTurn
 from dst.prompt_manager import PromptManager
@@ -540,7 +540,7 @@ class DialogueStateTracker:
         """
         return self.current_intents.copy()
     
-    def get_statistics(self) -> Dict[str, any]:
+    def get_statistics(self) -> Dict[str, Any]:
         """
         获取追踪器统计信息
         

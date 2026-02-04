@@ -49,23 +49,23 @@ class RuleBasedExtractor(BaseExtractor):
     
     # 属性用于访问
     @property
-    def CONFIDENCE_FILTER_MIN(self) -> float:
+    def confidence_filter_min(self) -> float:
         return self.config.min_confidence
     
     @property
-    def CONFIDENCE_PREFERENCE_POSITIVE(self) -> float:
+    def confidence_preference_positive(self) -> float:
         return self.config.preference_confidence
     
     @property
-    def CONFIDENCE_PREFERENCE_NEGATIVE(self) -> float:
+    def confidence_preference_negative(self) -> float:
         return self.config.preference_confidence * 0.9
     
     @property
-    def CONFIDENCE_FACT(self) -> float:
+    def confidence_fact(self) -> float:
         return self.config.fact_confidence
     
     @property
-    def CONFIDENCE_EVENT(self) -> float:
+    def confidence_event(self) -> float:
         return self.config.event_confidence
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
@@ -99,11 +99,11 @@ class RuleBasedExtractor(BaseExtractor):
         
         # 过滤低置信度知识
         before_filter = len(knowledge)
-        knowledge = [k for k in knowledge if k.confidence >= self.CONFIDENCE_FILTER_MIN]
+        knowledge = [k for k in knowledge if k.confidence >= self.confidence_filter_min]
         filtered_count = before_filter - len(knowledge)
         
         if filtered_count > 0:
-            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.CONFIDENCE_FILTER_MIN})")
+            logger.debug(f"[Extractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.confidence_filter_min})")
         
         logger.info(f"[Extractor] ✓ 知识提取完成 - 总计 {len(knowledge)} 条有效知识")
         
@@ -187,7 +187,7 @@ class RuleBasedExtractor(BaseExtractor):
                         preferences.append(Knowledge(
                             content=full_content,
                             knowledge_type=KnowledgeType.PREFERENCE,
-                            scores=ScoreInfo(confidence=self.CONFIDENCE_PREFERENCE_POSITIVE),
+                            scores=ScoreInfo(confidence=self.confidence_preference_positive),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={'category': category, 'keyword': keyword, 'phrase': phrase, 'context': content[:100]}
@@ -230,7 +230,7 @@ class RuleBasedExtractor(BaseExtractor):
                         facts.append(Knowledge(
                             content=f"{subject}{detail}",
                             knowledge_type=KnowledgeType.FACT,
-                            scores=ScoreInfo(confidence=self.CONFIDENCE_FACT),
+                            scores=ScoreInfo(confidence=self.confidence_fact),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={'category': category, 'subject': subject, 'detail': detail, 'context': content[:100]}
@@ -266,7 +266,7 @@ class RuleBasedExtractor(BaseExtractor):
                         events.append(Knowledge(
                             content=f"{keyword}{detail}",
                             knowledge_type=KnowledgeType.EVENT,
-                            scores=ScoreInfo(confidence=self.CONFIDENCE_EVENT),
+                            scores=ScoreInfo(confidence=self.confidence_event),
                             extraction_method='rule',
                             source_message_ids=[getattr(msg, 'id', '')],
                             metadata={'keyword': keyword, 'category': category, 'context': content[:100]}
