@@ -3,7 +3,7 @@
 """
 
 from .config import ScenarioConfig, ScenarioType
-from prompts import CHAT_SYSTEM_PROMPT
+from lib.prompts import CHAT_SYSTEM_PROMPT
 
 
 def get_chat_scenario() -> ScenarioConfig:

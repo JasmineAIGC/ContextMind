@@ -12,10 +12,10 @@ from modes.evolve import EvolveEngine
 from modes.evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from modes.evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
-from utils.llm_client import SimpleLLMClient, LLMConfig
+from lib.utils.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
-from prompts import INSURANCE_SYSTEM_PROMPT
+from lib.prompts import INSURANCE_SYSTEM_PROMPT
 
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -324,7 +324,7 @@ class InsuranceApplication:
         示例:
             from domain.applications.insurance_app import InsuranceApplication
             from domain.scenarios import get_insurance_scenario
-            from utils.llm_client import SimpleLLMClient
+            from lib.utils.llm_client import SimpleLLMClient
             
             llm_client = SimpleLLMClient()
             config = get_insurance_scenario()

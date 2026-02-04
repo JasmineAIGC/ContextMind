@@ -19,11 +19,11 @@ from typing import Optional
 from datetime import datetime
 from pathlib import Path
 
-from utils.llm_client import SimpleLLMClient
+from lib.utils.llm_client import SimpleLLMClient
 from modes.dst import DialogueStateTracker
 from modes.fnctod import FnCTODTracker
 from domain.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
-from utils.logger import get_logger, setup_logging, LogLevel
+from lib.utils.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)

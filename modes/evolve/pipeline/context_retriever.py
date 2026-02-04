@@ -7,7 +7,7 @@ ContextRetriever - 管道架构步骤2
 
 from typing import List, Optional, Any
 from ..core.data_models import ContextItem
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

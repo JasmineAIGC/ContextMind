@@ -9,7 +9,7 @@
 
 from typing import Dict, List, Set, Optional
 from enum import Enum
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

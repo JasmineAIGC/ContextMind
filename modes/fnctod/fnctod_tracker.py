@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from .data_models import FunctionCall, DialogueTurn
 from .function_manager import FunctionManager
 from .response_parser import FnCTODResponseParser
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -524,7 +524,7 @@ class FnCTODTracker:
         示例:
             from modes.fnctod import FnCTODTracker
             from scenarios import get_chat_scenario
-            from utils.llm_client import SimpleLLMClient
+            from lib.utils.llm_client import SimpleLLMClient
             
             llm_client = SimpleLLMClient()
             config = get_chat_scenario()

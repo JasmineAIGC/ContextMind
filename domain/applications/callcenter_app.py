@@ -12,10 +12,10 @@ from modes.evolve import EvolveEngine
 from modes.evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
 from modes.evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
-from utils.llm_client import SimpleLLMClient, LLMConfig
+from lib.utils.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
-from prompts import CALLCENTER_SYSTEM_PROMPT
+from lib.prompts import CALLCENTER_SYSTEM_PROMPT
 
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)

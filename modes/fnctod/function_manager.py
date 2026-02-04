@@ -7,7 +7,7 @@ FnCTOD Function Manager
 import json
 from typing import Dict, List, Optional
 from .data_models import DomainSpec, FunctionParameter, ParameterType
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

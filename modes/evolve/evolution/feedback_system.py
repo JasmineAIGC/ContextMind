@@ -181,7 +181,7 @@ class ConversationSession:
 
 from typing import List, Dict, Optional, Any, Callable
 import time
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 from ..memory.memory_fitness import FitnessCalculator
 from ..core.data_models import ContextItem
 

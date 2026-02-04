@@ -21,11 +21,11 @@ from typing import Dict, List, Optional
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.llm_client import SimpleLLMClient
+from lib.utils.llm_client import SimpleLLMClient
 from modes.evolve import EvolveEngine
 from domain.scenarios import get_insurance_scenario
 from domain.applications.insurance_app import InsuranceApplication
-from utils.logger import get_logger, setup_logging, LogLevel
+from lib.utils.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
 

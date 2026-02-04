@@ -39,7 +39,7 @@ from ..engine import EvolveEngine
 from .registry import registry
 from .data_models import Message
 from .types import MessageRole
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

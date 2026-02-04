@@ -5,7 +5,7 @@ InputPreprocessor - 管道架构步骤1
 """
 
 import re
-from utils.logger import get_logger
+from lib.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
