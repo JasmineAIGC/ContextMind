@@ -6,6 +6,6 @@ This module handles:
 - Scenario configuration: Loads and validates scenario configurations from YAML
 """
 
-from contextmind.core.config.registry import scenario_registry
+from contextmind.config.registry import scenario_registry
 
 __all__ = ["scenario_registry"]

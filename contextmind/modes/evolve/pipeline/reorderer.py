@@ -7,7 +7,7 @@ ContextReorderer - 管道架构步骤4
 from typing import Optional
 
 from ..core.data_models import ProcessedContext
-from contextmind.core.common.utils.logger import get_logger
+from contextmind.common.logger import get_logger
 from ..core.strategies import RerankingStrategy
 
 logger = get_logger(__name__)

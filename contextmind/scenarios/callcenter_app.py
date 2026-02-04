@@ -9,13 +9,13 @@ import logging
 from typing import Optional
 
 from contextmind.modes.evolve import EvolveEngine
-from modes.evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
-from modes.evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
+from contextmind.modes.evolve.core.models import Message, MessageRole, ContextResult, ContextSource, get_logger
+from contextmind.modes.evolve.pipeline.summarizer import ConversationSummarizer, SummarizationConfig
 
-from contextmind.core.common.utils.llm_client import SimpleLLMClient, LLMConfig
+from contextmind.common.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
-from contextmind.core.common.prompts import CALLCENTER_SYSTEM_PROMPT
+from contextmind.common.prompts import CALLCENTER_SYSTEM_PROMPT
 
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)

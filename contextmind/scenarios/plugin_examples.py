@@ -7,7 +7,7 @@ Plugin 架构示例
 
 import asyncio
 from contextmind.modes.evolve import EvolveEngine
-from modes.evolve.core.models import Message, MessageRole
+from contextmind.modes.evolve.core.models import Message, MessageRole
 
 
 # ============================================================================

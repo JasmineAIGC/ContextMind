@@ -161,7 +161,7 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
         app = create_app_for_scenario("chat", llm_client, config)
         
         # 注册并使用自定义场景
-        from contextmind.core.config.registry import scenario_registry
+        from contextmind.config.registry import scenario_registry
         scenario_registry.register(
             name="custom",
             app_class=CustomApplication,
@@ -169,7 +169,7 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
         )
         app = create_app_for_scenario("custom", llm_client, config)
     """
-    from contextmind.core.config.registry import scenario_registry
+    from contextmind.config.registry import scenario_registry
     
     # 创建引擎
     engine = EvolveEngine(

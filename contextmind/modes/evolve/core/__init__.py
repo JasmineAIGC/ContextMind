@@ -35,7 +35,7 @@ from .configs import (
     DEFAULT_MEMORY_CONFIG,
 )
 
-from contextmind.core.common.utils.logger import (
+from contextmind.common.logger import (
     EvolveLogger,
     LogLevel,
     get_logger,

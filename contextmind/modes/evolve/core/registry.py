@@ -19,7 +19,7 @@ Evolve 插件注册中心 - 集中式插件发现和管理
 """
 
 from typing import Dict, Type, Optional, Any, Callable
-from contextmind.core.common.utils.logger import get_logger
+from contextmind.common.logger import get_logger
 
 logger = get_logger(__name__)
 

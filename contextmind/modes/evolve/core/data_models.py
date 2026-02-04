@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional
 
 from .types import KnowledgeType, MessageRole, ContextSource
 # EmbeddingInfo 现在从 utils 导入，保持 utils 模块独立性
-from contextmind.core.common.utils.data_models import EmbeddingInfo
+from contextmind.common.data_models import EmbeddingInfo
 
 
 # ============================================================================

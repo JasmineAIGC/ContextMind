@@ -10,9 +10,9 @@ import re
 from ..core.data_models import ContextItem
 from ..core.types import ContextSource
 from ..core.configs import RetrievalConfig, DEFAULT_MEMORY_CONFIG
-from contextmind.core.common.utils.logger import get_logger
+from contextmind.common.logger import get_logger
 from ..core.strategies import RetrievalStrategy as BaseRetriever  # Use core base class
-from contextmind.core.common.utils.embedding import get_embedding_client, calculate_embedding_similarity
+from contextmind.common.embedding import get_embedding_client, calculate_embedding_similarity
 
 logger = get_logger(__name__)
 

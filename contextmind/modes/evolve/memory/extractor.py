@@ -17,9 +17,9 @@ import json
 from ..core.data_models import Message, Knowledge, ScoreInfo
 from ..core.types import KnowledgeType
 from ..core.configs import ExtractionConfig, DEFAULT_MEMORY_CONFIG
-from contextmind.core.common.utils.logger import get_logger
+from contextmind.common.logger import get_logger
 from ..core.strategies import ExtractionStrategy as BaseExtractor  # Use core base class
-from contextmind.core.common.utils.embedding import get_embedding_client
+from contextmind.common.embedding import get_embedding_client
 
 logger = get_logger(__name__)
 

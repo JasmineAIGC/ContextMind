@@ -22,11 +22,11 @@ from typing import Dict, List, Optional, Tuple
 
 import gradio as gr
 
-from contextmind.core.common.utils.llm_client import SimpleLLMClient
+from contextmind.common.llm_client import SimpleLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.scenarios.config import get_insurance_scenario
-from contextmind.core.common.utils.logger import get_logger, setup_logging, LogLevel
+from contextmind.scenarios import get_insurance_scenario
+from contextmind.common.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
 

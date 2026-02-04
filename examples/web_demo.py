@@ -17,12 +17,12 @@ from typing import List, Tuple, Optional
 from datetime import datetime
 from pathlib import Path
 
-from contextmind.core.common.utils.llm_client import SimpleLLMClient
+from contextmind.common.llm_client import SimpleLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.scenarios.config import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
+from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from ui_components import create_gradio_ui, CUSTOM_CSS
-from contextmind.core.common.utils.logger import get_logger, setup_logging, LogLevel
+from contextmind.common.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)

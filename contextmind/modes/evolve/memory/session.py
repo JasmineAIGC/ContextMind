@@ -10,7 +10,7 @@ from datetime import datetime
 
 from ..core.data_models import Message
 from ..core.types import MessageRole
-from contextmind.core.common.utils.logger import get_logger
+from contextmind.common.logger import get_logger
 
 logger = get_logger(__name__)
 

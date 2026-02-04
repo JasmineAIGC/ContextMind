@@ -16,7 +16,7 @@ __version__ = "0.2.1"
 __author__ = "ContextMind Team"
 
 # Re-export main components for convenient access
-from contextmind.core.config.registry import scenario_registry
+from contextmind.config.registry import scenario_registry
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine

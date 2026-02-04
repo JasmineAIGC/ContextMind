@@ -18,8 +18,8 @@ from datetime import datetime
 from ..core.data_models import ContextItem, Knowledge
 from ..core.types import ContextSource
 from ..core.strategies import UpdateStrategy as BaseUpdater
-from contextmind.core.common.utils.logger import get_logger
-from contextmind.core.common.utils.embedding import calculate_embedding_similarity
+from contextmind.common.logger import get_logger
+from contextmind.common.embedding import calculate_embedding_similarity
 
 from ..memory.memory_fitness import MemoryFitness, FitnessCalculator
 

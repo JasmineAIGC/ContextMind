@@ -2,19 +2,21 @@
 Scenario definitions and applications for ContextMind
 
 This module contains:
-- config: Scenario configuration definitions (chat, callcenter, insurance)
-- apps: Application implementations for Evolve mode
+- Scenario configuration definitions (chat, callcenter, insurance)
+- Application implementations for Evolve mode
 """
 
-# Import scenario configurations
-from contextmind.scenarios.config import (
-    get_chat_scenario,
-    get_callcenter_scenario,
-    get_insurance_scenario,
-)
+from .config import ScenarioConfig, ScenarioType
+from .chat_scenario import get_chat_scenario
+from .callcenter_scenario import get_callcenter_scenario
+from .insurance_scenario import get_insurance_scenario
 
 __all__ = [
-    "get_chat_scenario",
-    "get_callcenter_scenario",
-    "get_insurance_scenario",
+    'ScenarioConfig',
+    'ScenarioType',
+    'get_chat_scenario',
+    'get_callcenter_scenario',
+    'get_insurance_scenario',
 ]
+
+__version__ = "0.2.1"

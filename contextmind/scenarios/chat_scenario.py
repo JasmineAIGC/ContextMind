@@ -3,7 +3,7 @@
 """
 
 from .config import ScenarioConfig, ScenarioType
-from contextmind.core.common.prompts import CHAT_SYSTEM_PROMPT
+from contextmind.common.prompts import CHAT_SYSTEM_PROMPT
 
 
 def get_chat_scenario() -> ScenarioConfig:
