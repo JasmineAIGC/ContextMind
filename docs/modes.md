@@ -1,8 +1,11 @@
-# DST vs Evolve 模式对比与高级设置说明
+# DST vs Evolve vs FnCTOD 模式对比与高级设置说明
 
 ## 概述
 
-ContextMind支持两种对话模式，每种模式有不同的计算流程和参数设置。
+ContextMind支持三种对话模式，每种模式有不同的计算流程和参数设置：
+- **DST模式**：基于槽位提取的对话状态追踪
+- **Evolve模式**：基于记忆进化的智能对话系统
+- **FnCTOD模式**：基于函数调用的对话状态追踪（DST的升级版）
 
 ## 模式对比
 
@@ -306,3 +309,179 @@ class EvolveEngine:
 - **Evolve模式**：完整架构、记忆与学习、复杂对话处理
 - **高级设置**：根据具体需求调整，平衡性能和效果
 - **状态显示**：两种模式都提供详细的状态信息，便于理解和调试
+
+### FnCTOD模式（函数调用DST）
+
+#### 计算流程
+```
+用户输入
+  ↓
+1. 接收 user_utterance（用户话语）
+  ↓
+2. Stage 1: Domain Selection（域选择）
+   - 构建domain选择提示词
+   - LLM识别相关的domain
+   - 输出: <domain>domain_name</domain>
+  ↓
+3. Stage 2: Function Calling（函数调用）
+   - 构建选中domain的完整函数规格
+   - LLM生成function call
+   - 输出: <function_call name="domain">{"param": "value"}</function_call>
+  ↓
+4. 解析function call提取参数
+  ↓
+5. 更新累积状态
+  ↓
+6. 生成自然语言回复
+  ↓
+7. 返回结果（包含状态、function_call、回复）
+```
+
+#### 核心特性
+- **函数调用范式**：将domain视为函数，槽位视为参数
+- **两阶段处理**：先选择domain，再填充参数
+- **预定义Schema**：为三个场景预定义了函数规格
+- **结构化输出**：XML格式的function call + 自然语言回复
+- **零样本能力**：无需训练，基于LLM prompting
+- **向后兼容**：支持动态创建schema作为fallback
+
+#### 预定义Schema
+
+FnCTOD为三个场景提供了预定义的函数Schema：
+
+##### 1. 闲聊场景 (Chat)
+- **Domain**: `chat`
+- **参数数量**: 6个
+- **必需参数**: `intent_level1`
+- **参数列表**:
+  - intent_level1: 一级意图（闲聊、求助、分享、情感、其他）
+  - intent_level2: 二级意图
+  - topic: 对话话题
+  - emotion: 情绪状态（开心、平静、烦恼、兴奋、其他）
+  - user_name: 用户名称
+  - context_info: 其他上下文信息
+
+##### 2. 客服场景 (Callcenter)
+- **Domain**: `callcenter`
+- **参数数量**: 9个
+- **必需参数**: `intent_level1`
+- **参数列表**:
+  - intent_level1: 一级意图（咨询、投诉、售后、账户、其他）
+  - intent_level2: 二级意图
+  - issue_type: 问题类型
+  - customer_name: 客户姓名
+  - product: 相关产品
+  - order_number: 订单号
+  - resolution_status: 解决状态（未解决、处理中、已解决、需升级）
+  - urgency: 紧急程度（低、中、高、紧急）
+  - satisfaction: 满意度（满意、一般、不满意、未知）
+
+##### 3. 保险场景 (Insurance)
+- **Domain**: `insurance`
+- **参数数量**: 14个
+- **必需参数**: `intent_level1`
+- **参数列表**:
+  - intent_level1: 一级意图（拒绝、无意向、用户忙、考虑、质疑类、接受、咨询）
+  - intent_level2, intent_level3: 二级、三级意图
+  - customer_name: 客户姓名
+  - age, gender, occupation: 基本信息
+  - existing_insurance: 已有保险情况
+  - insurance_interest: 保险兴趣（是、否、考虑中）
+  - budget, family_info, health_concern: 需求信息
+  - rejection_reason: 拒绝原因
+  - follow_up_status: 跟进状态（待跟进、已跟进、已成交、已放弃）
+
+#### 使用示例
+
+```python
+from fnctod import get_function_schema_for_scenario, FunctionManager, FnCTODTracker
+
+# 1. 获取预定义schema
+schema = get_function_schema_for_scenario("闲聊")
+
+# 2. 创建FunctionManager
+function_manager = FunctionManager()
+function_manager.add_domain(schema)
+
+# 3. 创建FnCTOD追踪器
+tracker = FnCTODTracker(
+    llm_client=llm_client,
+    function_manager=function_manager,
+    use_two_stage=True  # 启用两阶段处理
+)
+
+# 4. 处理对话
+result = await tracker.process_turn(user_utterance="你好")
+# 返回: {
+#   "state": {"chat-intent_level1": "闲聊", ...},
+#   "response": "你好！很高兴见到你...",
+#   "function_call": {...}
+# }
+```
+
+#### 高级设置参数
+
+##### 1. 两阶段处理（use_two_stage）
+- **作用**：控制是否使用两阶段处理
+- **默认值**：True
+- **说明**：
+  - **True**: 先选择domain，再调用函数（适合多domain场景）
+  - **False**: 直接调用函数（适合单domain场景）
+
+##### 2. 历史轮数（max_history_turns）
+- **作用**：控制保留的历史轮数
+- **默认值**：10轮
+- **范围**：5-50轮
+
+#### 对话状态显示
+
+FnCTOD模式显示以下信息：
+
+```json
+{
+  "模式": "FnCTOD (函数调用DST)",
+  "场景": "💬 闲聊对话",
+  "对话轮数": 3,
+  "本轮函数调用": "chat",
+  "  intent_level1": "闲聊",
+  "  topic": "天气",
+  "  emotion": "平静",
+  "---": "---",
+  "累积状态": "已提取 3 个参数",
+  "chat-intent_level1": "闲聊",
+  "chat-topic": "天气",
+  "chat-emotion": "平静"
+}
+```
+
+## 三种模式对比
+
+| 特性 | DST | Evolve | FnCTOD |
+|------|-----|--------|--------|
+| **方法论** | 槽位-值提取 | 记忆进化 | 函数调用 |
+| **技术基础** | ACL 2023 DST | 五层架构 | FnCTOD论文 |
+| **核心能力** | 状态追踪 | 记忆+学习 | 结构化提取 |
+| **处理模式** | 单阶段 | 多层流水线 | 两阶段 |
+| **Schema管理** | 动态或预定义 | 无 | 预定义Schema |
+| **输出格式** | JSON状态 | 自然回复 | Function call + 回复 |
+| **记忆系统** | ❌ 无 | ✅ 完整 | ❌ 无 |
+| **学习能力** | ❌ 无 | ✅ 持续学习 | ❌ 无 |
+| **适用场景** | 结构化任务 | 开放对话 | 任务对话+API集成 |
+| **复杂度** | ⭐⭐ 中等 | ⭐⭐⭐⭐ 完整 | ⭐⭐⭐ 较高 |
+| **扩展性** | 中等 | 高 | 非常高 |
+| **标准兼容** | 自定义 | 自定义 | OpenAI兼容 |
+
+## 模式选择建议（更新）
+
+### 使用FnCTOD模式的场景
+- ✅ 需要与外部API/工具集成
+- ✅ 任务导向型对话（DST的升级版）
+- ✅ 需要结构化的function calling输出
+- ✅ 多domain场景需要明确分离
+- ✅ 希望遵循OpenAI function calling标准
+- ✅ 需要预定义Schema保证一致性
+
+### DST vs FnCTOD 选择建议
+- **选择DST**: 简单的槽位提取，不需要function calling
+- **选择FnCTOD**: 需要更结构化的输出，或需要与工具集成
+
