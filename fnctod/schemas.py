@@ -269,23 +269,12 @@ def get_insurance_function_schema() -> DomainSpec:
     return schema
 
 
-# 映射字典：scenario_type -> schema getter
-SCHEMA_GETTERS = {
-    "chat": get_chat_function_schema,
-    "闲聊": get_chat_function_schema,
-    "callcenter": get_callcenter_function_schema,
-    "客服": get_callcenter_function_schema,
-    "insurance": get_insurance_function_schema,
-    "保险": get_insurance_function_schema,
-    "保险挽回": get_insurance_function_schema,  # 保险场景的完整名称
-}
-
-
 def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
     """
-    根据场景名称获取对应的函数Schema（通用化版本）
+    根据场景名称获取对应的函数Schema
     
-    现在使用场景注册表，支持动态添加新场景的Schema。
+    使用场景注册表，支持动态添加新场景的Schema。
+    所有场景必须在 scenarios.yaml 中配置。
     
     Args:
         scenario_name: 场景名称（支持中英文别名）
@@ -299,31 +288,20 @@ def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
     Example:
         # 使用内置场景Schema
         schema = get_function_schema_for_scenario("chat")
+        schema = get_function_schema_for_scenario("闲聊")  # 中文别名
         
-        # 注册并使用自定义Schema
-        from scenario_registry import scenario_registry
-        scenario_registry.register(
-            name="custom",
-            schema_getter=get_custom_schema
-        )
+        # 添加自定义场景（在 scenarios.yaml 中配置）
         schema = get_function_schema_for_scenario("custom")
     """
     from scenario_registry import scenario_registry
     
-    # 优先使用注册表
     schema = scenario_registry.get_schema(scenario_name)
     if schema is not None:
         return schema
     
-    # 降级：使用旧的硬编码映射（向后兼容）
-    getter = SCHEMA_GETTERS.get(scenario_name)
-    if getter is not None:
-        return getter()
-    
-    # 两者都没有，抛出错误
     available_scenarios = scenario_registry.list_scenarios()
     raise ValueError(
-        f"场景 '{scenario_name}' 没有注册Schema。\n"
+        f"场景 '{scenario_name}' 未注册或没有Schema。\n"
         f"已注册场景: {', '.join(available_scenarios)}\n"
-        f"提示: 使用 scenario_registry.register(name, schema_getter=...) 注册Schema"
+        f"请在 scenarios.yaml 中配置该场景的 schema_getter。"
     )

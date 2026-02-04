@@ -51,26 +51,24 @@ class ScenarioRegistry:
         config_path = current_dir / self._config_file
         
         if not config_path.exists():
-            # 如果配置文件不存在，使用内置场景（向后兼容）
-            self._load_builtin_scenarios()
-            return
+            raise FileNotFoundError(
+                f"配置文件 {config_path} 不存在。\n"
+                f"请创建 scenarios.yaml 配置文件来定义场景。"
+            )
         
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             
             if not config or 'scenarios' not in config:
-                self._load_builtin_scenarios()
-                return
+                raise ValueError("配置文件格式错误：缺少 'scenarios' 字段")
             
             # 加载每个场景
             for scenario_name, scenario_config in config['scenarios'].items():
                 self._load_scenario(scenario_name, scenario_config)
                 
         except Exception as e:
-            # 加载失败时降级到内置场景
-            print(f"警告: 无法加载配置文件 {config_path}: {e}")
-            self._load_builtin_scenarios()
+            raise RuntimeError(f"加载配置文件 {config_path} 失败: {e}")
     
     def _load_scenario(self, name: str, config: Dict[str, Any]) -> None:
         """
@@ -139,50 +137,6 @@ class ScenarioRegistry:
             print(f"警告: 无法导入函数 {callable_path}: {e}")
             return None
     
-    def _load_builtin_scenarios(self) -> None:
-        """降级方案：直接加载内置场景（向后兼容）"""
-        try:
-            from apps.chat_app import ChatApplication
-            from apps.callcenter_app import CallCenterApplication
-            from apps.insurance_app import InsuranceApplication
-            from fnctod.schemas import (
-                get_chat_function_schema,
-                get_callcenter_function_schema,
-                get_insurance_function_schema
-            )
-            
-            # 手动注册内置场景
-            builtin_scenarios = {
-                'chat': {
-                    'name': 'chat',
-                    'app_class': ChatApplication,
-                    'schema_getter': get_chat_function_schema,
-                    'aliases': ['闲聊'],
-                    'description': '通用闲聊场景'
-                },
-                'callcenter': {
-                    'name': 'callcenter',
-                    'app_class': CallCenterApplication,
-                    'schema_getter': get_callcenter_function_schema,
-                    'aliases': ['客服'],
-                    'description': '客服场景'
-                },
-                'insurance': {
-                    'name': 'insurance',
-                    'app_class': InsuranceApplication,
-                    'schema_getter': get_insurance_function_schema,
-                    'aliases': ['保险', '保险挽回'],
-                    'description': '保险挽回场景'
-                }
-            }
-            
-            self._scenarios = builtin_scenarios
-            for name, info in builtin_scenarios.items():
-                for alias in info['aliases']:
-                    self._aliases[alias.lower()] = name
-                    
-        except ImportError:
-            pass
     
     def _resolve_name(self, name: str) -> Optional[str]:
         """

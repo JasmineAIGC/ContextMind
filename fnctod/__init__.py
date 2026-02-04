@@ -48,14 +48,10 @@ from fnctod.schemas import (
     SCHEMA_GETTERS
 )
 
-# 别名 - 统一命名风格
-ResponseParser = FnCTODResponseParser  # 统一Parser命名
-
 __all__ = [
     'FnCTODTracker',
     'FunctionManager',
     'FnCTODResponseParser',
-    'ResponseParser',  # 统一别名
     'FunctionCall',
     'DomainSpec',
     'FunctionParameter',
@@ -64,7 +60,6 @@ __all__ = [
     'get_callcenter_function_schema',
     'get_insurance_function_schema',
     'get_function_schema_for_scenario',
-    'SCHEMA_GETTERS',
 ]
 
 __version__ = '0.2.1'

@@ -46,12 +46,8 @@ from dst.prompt_manager import PromptManager, Language, LLMFormat
 from dst.response_parser import ResponseParser
 from dst.dialogue_state_tracker import DialogueStateTracker
 
-# 别名 - 统一命名风格（推荐使用简短名称）
-DSTTracker = DialogueStateTracker
-
 __all__ = [
     'DialogueStateTracker',
-    'DSTTracker',  # 推荐使用的简短别名
     'PromptManager',
     'ResponseParser',
     'DialogueTurn',

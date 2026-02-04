@@ -165,16 +165,23 @@ class DialogueStateTracker:
     @property
     def turns(self) -> List[DialogueTurn]:
         """
-        获取对话历史（别名属性）
+        获取对话历史
         
         返回:
             对话历史列表
         """
         return self.dialogue_history
     
-    def reset_dialogue(self) -> None:
+    def reset(self) -> None:
         """
-        重置对话状态（开始新对话）
+        重置对话状态，清空所有历史和状态
+        
+        重置内容:
+            - 消息历史
+            - 当前状态
+            - 对话轮次历史
+            - 意图历史
+            - 历史摘要
         """
         self.messages = [
             {"role": "system", "content": self.prompt_manager.get_system_instruction()}
@@ -183,13 +190,9 @@ class DialogueStateTracker:
         self.dialogue_history = []
         self.intent_history = []
         self.current_intents = []
-        self.intent_states = {}  # 重置意图状态
+        self.intent_states = {}
         self.history_summary = None
         logger.info("对话状态已重置")
-    
-    def reset(self) -> None:
-        """重置对话状态的统一别名，与其他模式保持一致"""
-        self.reset_dialogue()
     
     async def process_turn(self, 
                           system_utterance: str, 
