@@ -348,14 +348,17 @@ class LLMBasedExtractor(BaseExtractor):
         
         # 过滤低置信度知识
         before_filter = len(knowledge_list)
-        filtered_knowledge = [k for k in knowledge_list if k.confidence < self.config.min_confidence]
-        knowledge_list = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
-        filtered_count = before_filter - len(knowledge_list)
+        knowledge_list_filtered = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
+        filtered_count = before_filter - len(knowledge_list_filtered)
         
         if filtered_count > 0:
+            # 仅在需要时计算被过滤的知识列表
+            filtered_knowledge = [k for k in knowledge_list if k.confidence < self.config.min_confidence]
             logger.info(f"[LLMBasedExtractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.config.min_confidence})")
             for k in filtered_knowledge:
                 logger.debug(f"  过滤: [{k.knowledge_type.value}] {k.content[:40]}... (confidence={k.confidence:.2f})")
+        
+        knowledge_list = knowledge_list_filtered
         
         logger.info(f"[LLMBasedExtractor] ✓ 知识提取完成 - 总计 {len(knowledge_list)} 条有效知识")
         
@@ -471,12 +474,15 @@ class LLMBasedExtractor(BaseExtractor):
                             logger.debug(f"[LLMBasedExtractor] 跳过无效类型: type={type_str}")
                             continue
                         
-                        # 降低内容长度要求：从5降到2
+                        # 内容长度要求：最小2字符
+                        # 原因：中文2字已足以表达有意义的概念（如"吃辣"、"保险"）
+                        # 过于严格的长度要求会遗漏简短但有价值的信息
                         if not content or len(content) < 2:
                             logger.debug(f"[LLMBasedExtractor] 跳过内容过短: {content}")
                             continue
                         
-                        # 使用配置中的最小置信度，不再硬编码 0.72
+                        # 置信度要求：使用配置中的最小置信度（默认0.5）
+                        # 不再硬编码0.72，允许用户通过配置控制提取的宽松程度
                         min_confidence = self.config.min_confidence
                         if confidence < min_confidence or confidence > 1.0:
                             logger.debug(f"[LLMBasedExtractor] 跳过不合理置信度: {confidence} (阈值: {min_confidence})")
@@ -525,7 +531,12 @@ class LLMBasedExtractor(BaseExtractor):
 
     def _validate_knowledge_against_conversation(self, knowledge_list: List[Knowledge], conversation_text: str) -> List[Knowledge]:
         """
-        验证提取的知识是否真实存在于对话中，过滤幻觉内容（进一步放宽验证）
+        验证提取的知识是否真实存在于对话中，过滤幻觉内容
+        
+        使用放宽的验证策略：
+        - 将知识内容拆分成2-3字的子短语
+        - 只要有任意一个子短语能在对话中找到，就认为验证通过
+        - 这允许部分匹配，提高召回率（如"喜欢吃辣"能匹配"喜欢吃辣的食物"）
         
         Args:
             knowledge_list: 待验证的知识列表
@@ -545,40 +556,34 @@ class LLMBasedExtractor(BaseExtractor):
             content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
             
             # 提取所有2字以上的中文词组
+            # 注：2字是中文语义的最小单位，足以进行有效验证
             key_phrases = re.findall(r'[\u4e00-\u9fa5]{2,}', content_clean)
             
             # 如果没有提取到关键短语，使用整个清理后的内容
             if not key_phrases:
                 key_phrases = [content_clean]
             
-            # 进一步放宽：将长短语拆分成2-3字的小短语进行匹配
-            # 这样可以匹配部分内容，例如"喜欢吃辣"可以匹配"喜欢吃辣的食物"
-            all_sub_phrases = []
+            # 生成所有2-3字的子短语（使用set去重，提高性能）
+            all_sub_phrases = set()
             for phrase in key_phrases:
-                # 提取所有2-3字的子串
                 for i in range(len(phrase)):
                     if i + 2 <= len(phrase):
-                        all_sub_phrases.append(phrase[i:i+2])
+                        all_sub_phrases.add(phrase[i:i+2])
                     if i + 3 <= len(phrase):
-                        all_sub_phrases.append(phrase[i:i+3])
+                        all_sub_phrases.add(phrase[i:i+3])
             
             # 至少需要有一个2-3字的子短语能在对话中找到
             found = False
             for sub_phrase in all_sub_phrases:
                 if len(sub_phrase) >= 2 and sub_phrase.lower() in conversation_lower:
                     found = True
-                    logger.debug(f"[LLMBasedExtractor] 验证通过: '{sub_phrase}' 在对话中")
-                    break
+                    break  # 找到一个匹配就足够了，提前终止
             
             if found:
                 validated.append(knowledge)
             else:
                 # 记录被过滤的可疑知识
                 logger.debug(f"[LLMBasedExtractor] 过滤疑似幻觉: [{knowledge.knowledge_type.value}] {content[:50]}... (无法在对话中找到匹配)")
-        
-        return validated
-        
-        return validated
         
         return validated
 
