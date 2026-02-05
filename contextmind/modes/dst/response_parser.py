@@ -201,11 +201,17 @@ class ResponseParser:
         返回:
             归一化后的值，strict模式下无匹配返回None
         """
-        if not value or not value.strip():
+        if not value:
             return value
         
+        # 确保value是字符串类型（处理int、bool等类型）
+        value_str = str(value) if not isinstance(value, str) else value
+        
+        if not value_str.strip():
+            return value_str
+        
         # 基础归一化：去除首尾空格
-        normalized = value.strip()
+        normalized = value_str.strip()
         
         # 确定候选值列表
         if candidates is None:
@@ -255,8 +261,14 @@ class ResponseParser:
         normalized = {}
         
         for slot, value in extracted.items():
+            # 确保value是字符串类型（处理int、bool等类型）
+            if value is None:
+                continue
+            
+            value_str = str(value) if not isinstance(value, str) else value
+            
             # 跳过空值（空字符串或仅包含空白字符）
-            if not value or not value.strip():
+            if not value_str or not value_str.strip():
                 continue
             
             # 动态槽位模式：接受所有槽位
@@ -264,31 +276,31 @@ class ResponseParser:
                 # 对分类槽位尝试归一化（但不强制）
                 if slot in categorical_slots:
                     normalized_value = self.normalize_value(
-                        slot, value, categorical_slots[slot], strict=False
+                        slot, value_str, categorical_slots[slot], strict=False
                     )
-                    normalized[slot] = normalized_value if normalized_value else value
+                    normalized[slot] = normalized_value if normalized_value else value_str
                 else:
                     # 非分类槽位，直接保留
-                    normalized[slot] = value
+                    normalized[slot] = value_str
                 continue
             
             # 严格模式：过滤1 - 只保留预定义的槽位名称
             if slot not in allowed_slots:
-                logger.warning(f"跳过未定义的槽位: {slot} (值: {value})")
+                logger.warning(f"跳过未定义的槽位: {slot} (值: {value_str})")
                 continue
             
             # 严格模式：过滤2 - 对分类槽位进行严格归一化
             if slot in categorical_slots:
                 normalized_value = self.normalize_value(
-                    slot, value, categorical_slots[slot], strict=True
+                    slot, value_str, categorical_slots[slot], strict=True
                 )
                 if normalized_value:
                     normalized[slot] = normalized_value
                 else:
-                    logger.warning(f"槽位 {slot} 的值 '{value}' 不在预定义列表中，已跳过")
+                    logger.warning(f"槽位 {slot} 的值 '{value_str}' 不在预定义列表中，已跳过")
             else:
                 # 非分类槽位，直接保留（但值必须非空）
-                if value.strip():
-                    normalized[slot] = value
+                if value_str.strip():
+                    normalized[slot] = value_str
         
         return normalized
