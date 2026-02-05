@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-ContextMind 批量对话测试 Gradio Demo
+ContextMind 批量对话测试Demo
 
-与 gradio_demo.py 的区别：
+使用Gradio界面进行批量对话测试
+
+与 web_demo.py 的区别：
 - 对话窗口直接输入预写好的对话内容（而非实时交互）
 - 支持单轮对话和多轮对话
 - 支持一次性输入和分批多次输入
-- 复用 gradio_demo.py 中 DST、Evolve 和 FnCTOD 模式的计算流程
 
 使用方式:
-    python gradio_test.py
-    python gradio_test.py --port 7861
+    python examples/batch_demo.py
+    python examples/batch_demo.py --port 7861
+    python examples/batch_demo.py --log-level DEBUG
 """
 
 import argparse
@@ -624,12 +626,12 @@ def create_test_ui():
             gr.Markdown("""
 ### 功能说明
 
-这是一个批量对话测试界面，与 `gradio_demo.py` 的主要区别：
+这是一个批量对话测试界面，与 `web_demo.py` 的主要区别：
 
 1. **直接输入对话内容**：不是实时交互，而是直接粘贴完整对话
 2. **支持单轮/多轮**：可以输入一轮或多轮对话
 3. **支持多次输入**：可以多次运行测试，状态会累积
-4. **复用计算流程**：完全复用 `gradio_demo.py` 中的 DST 和 ContextMind 计算逻辑
+4. **复用计算流程**：完全复用 `web_demo.py` 中的 DST 和 Evolve 计算逻辑
 
 ### 对话格式
 
@@ -677,7 +679,7 @@ def create_test_ui():
 
 def parse_args():
     """解析命令行参数"""
-    parser = argparse.ArgumentParser(description="Evolve 批量对话测试")
+    parser = argparse.ArgumentParser(description="ContextMind 批量对话测试Demo")
     parser.add_argument('--port', type=int, default=7861, help='端口号')
     parser.add_argument('--share', action='store_true', help='创建公共链接')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO')
@@ -692,7 +694,7 @@ def main():
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
     setup_logging(level=log_level, save_to_file=True, log_dir="logs")
     
-    logger.info("启动 Evolve 批量对话测试")
+    logger.info("启动 ContextMind 批量对话测试Demo")
     
     # 创建 UI
     app = create_test_ui()

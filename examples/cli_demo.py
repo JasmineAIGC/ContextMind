@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Evolve 统一交互式Demo
+ContextMind 命令行交互Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持三种模式：dst（对话状态追踪）、evolve（基于记忆进化）、fnctod（函数调用DST）
+支持三种模式：dst（对话状态追踪）、evolve（基于AlphaEvolve/ThetaEvolve算法）、fnctod（函数调用DST）
 
 使用方式:
-    python interactive_demo.py --scenario chat --mode evolve
-    python interactive_demo.py --scenario callcenter --mode dst
-    python interactive_demo.py --scenario insurance --mode fnctod --log-level DEBUG
+    python examples/cli_demo.py --scenario chat --mode evolve
+    python examples/cli_demo.py --scenario callcenter --mode dst
+    python examples/cli_demo.py --scenario insurance --mode fnctod --log-level DEBUG
 """
 
 import asyncio
@@ -229,7 +229,7 @@ class UnifiedInteractiveDemo:
     def print_welcome(self):
         """打印欢迎信息"""
         print("\n" + "="*60)
-        print(f"📱 Evolve 统一交互式Demo v0.2.1")
+        print(f"📱 ContextMind 命令行交互Demo v0.2.1")
         print("="*60)
         print(f"场景: {self.config.name}")
         mode_name = {
@@ -406,14 +406,14 @@ class UnifiedInteractiveDemo:
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="Evolve 统一交互式Demo",
+        description="ContextMind 命令行交互Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python interactive_demo.py --scenario chat --mode evolve
-  python interactive_demo.py --scenario callcenter --mode dst
-  python interactive_demo.py --scenario insurance --mode fnctod
-  python interactive_demo.py --scenario insurance --mode dst --max-history-turns 20 --log-level DEBUG
+  python examples/cli_demo.py --scenario chat --mode evolve
+  python examples/cli_demo.py --scenario callcenter --mode dst
+  python examples/cli_demo.py --scenario insurance --mode fnctod
+  python examples/cli_demo.py --scenario insurance --mode dst --max-history-turns 20 --log-level DEBUG
         """
     )
     

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-ContextMind Gradio Web Demo
+ContextMind Web界面Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
 支持三种模式：DST对话状态追踪模式、Evolve记忆进化模式、FnCTOD函数调用DST模式
 
 使用方式:
-    python gradio_demo.py
-    python gradio_demo.py --log-level DEBUG --port 8080
-    python gradio_demo.py --max-history-turns 20 --share
+    python examples/web_demo.py
+    python examples/web_demo.py --log-level DEBUG --port 8080
+    python examples/web_demo.py --max-history-turns 20 --share
 """
 
 import argparse
@@ -621,14 +621,14 @@ class UnifiedGradioDemo:
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="ContextMind Gradio Web Demo",
+        description="ContextMind Web界面Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python gradio_demo.py
-  python gradio_demo.py --log-level DEBUG
-  python gradio_demo.py --port 8080 --share
-  python gradio_demo.py --max-history-turns 20 --log-level INFO
+  python examples/web_demo.py
+  python examples/web_demo.py --log-level DEBUG
+  python examples/web_demo.py --port 8080 --share
+  python examples/web_demo.py --max-history-turns 20 --log-level INFO
         """
     )
     
