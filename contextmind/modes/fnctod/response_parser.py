@@ -75,6 +75,10 @@ class FnCTODResponseParser:
         function_call = None
         natural_response = response
         
+        # 记录原始响应（用于调试）
+        logger.debug(f"原始响应长度: {len(response)}")
+        logger.debug(f"原始响应前200字符: {response[:200]}")
+        
         # 匹配 <function_call name="...">...</function_call>
         pattern = r'<function_call\s+name="([^"]+)"\s*>(.*?)</function_call>'
         match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
@@ -83,11 +87,14 @@ class FnCTODResponseParser:
             function_name = match.group(1).strip()
             arguments_str = match.group(2).strip()
             
-            logger.debug(f"检测到function call: {function_name}")
-            logger.debug(f"参数字符串: {arguments_str[:100]}...")
+            logger.info(f"✅ 检测到function call: {function_name}")
+            logger.debug(f"参数字符串: {arguments_str[:200]}...")
             
             # 解析参数
             arguments = self._parse_arguments(arguments_str)
+            
+            if not arguments:
+                logger.warning(f"⚠️ Function call '{function_name}' 没有参数，这可能不正确")
             
             function_call = FunctionCall(
                 function_name=function_name,
@@ -104,9 +111,40 @@ class FnCTODResponseParser:
             
             function_call.natural_response = natural_response
             
-            logger.info(f"解析function call成功: {function_name}, {len(arguments)} 个参数")
+            logger.info(f"✅ 解析function call成功: {function_name}, {len(arguments)} 个参数")
+            logger.debug(f"参数: {arguments}")
         else:
-            logger.warning("未检测到function call标签")
+            logger.warning("❌ 未检测到function call标签")
+            logger.debug(f"尝试查找的模式: <function_call name=\"...\">...</function_call>")
+            
+            # 尝试查找是否有部分匹配
+            if '<function_call' in response.lower():
+                logger.warning("⚠️ 响应中包含<function_call但格式不正确")
+                # 记录可能的格式问题
+                partial_matches = re.findall(r'<function_call[^>]*>', response, re.IGNORECASE)
+                if partial_matches:
+                    logger.debug(f"发现的开始标签: {partial_matches}")
+            
+            # 尝试更宽松的匹配（不要求name属性用引号）
+            loose_pattern = r'<function_call\s+name=([^\s>]+)\s*>(.*?)</function_call>'
+            loose_match = re.search(loose_pattern, response, re.DOTALL | re.IGNORECASE)
+            if loose_match:
+                logger.info("ℹ️ 使用宽松模式匹配到function call")
+                function_name = loose_match.group(1).strip().strip('"\'')
+                arguments_str = loose_match.group(2).strip()
+                arguments = self._parse_arguments(arguments_str)
+                
+                function_call = FunctionCall(
+                    function_name=function_name,
+                    arguments=arguments,
+                    raw_output=loose_match.group(0)
+                )
+                natural_response = response[loose_match.end():].strip()
+                if not natural_response:
+                    natural_response = response[:loose_match.start()].strip()
+                function_call.natural_response = natural_response
+                
+                logger.info(f"✅ (宽松模式) 解析成功: {function_name}, {len(arguments)} 个参数")
         
         return function_call, natural_response
     

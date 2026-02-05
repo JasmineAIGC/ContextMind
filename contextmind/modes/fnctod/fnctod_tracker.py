@@ -321,28 +321,32 @@ class FnCTODTracker:
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
-            logger.debug(f"Function call响应: {response[:200]}...")
+            logger.info(f"✅ 收到LLM响应，长度: {len(response)}")
+            logger.debug(f"LLM响应前300字符: {response[:300]}...")
             
             # 记录LLM调用时间
             self.step_timings['函数调用'] = time.time() - llm_start
             
             # 解析function call
             parse_start = time.time()
+            logger.info("开始解析function call...")
             function_call, natural_response = self.parser.parse_function_call(response)
             
             if not function_call:
                 # 如果没有检测到function call，将整个响应作为自然语言回复
-                logger.warning("未检测到function call，使用响应作为自然语言回复")
+                logger.warning("⚠️ 未检测到function call，使用响应作为自然语言回复")
+                logger.warning(f"⚠️ 完整响应: {response}")
                 natural_response = response
             else:
-                logger.info(f"Function call解析成功: {function_call.function_name}")
+                logger.info(f"✅ Function call解析成功: {function_call.function_name}")
+                logger.info(f"✅ 提取的参数: {function_call.arguments}")
             
             # 记录解析时间
             self.step_timings['响应解析'] = time.time() - parse_start
             
             return function_call, natural_response
         except Exception as e:
-            logger.error(f"Function calling失败: {e}", exc_info=True)
+            logger.error(f"❌ Function calling失败: {e}", exc_info=True)
             return None, "抱歉，我遇到了一些问题，请重新表述您的需求。"
     
     def _load_prompt_templates(self) -> None:
