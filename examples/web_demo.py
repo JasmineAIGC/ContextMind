@@ -21,7 +21,7 @@ from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
-from ui_components import create_gradio_ui, CUSTOM_CSS
+from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 # 使用统一的logger from utils/logger.py
