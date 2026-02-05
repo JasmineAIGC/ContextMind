@@ -481,8 +481,9 @@ class BatchDialogueTest:
         
         # 创建Evolve引擎（所有应用都需要）
         evolve_engine = EvolveEngine(
-            llm_client=self.llm_client,
-            session_id=session_id
+            app_name=f"batch_{scenario_name}",
+            user_id=session_id,
+            llm_client=self.llm_client
         )
         
         # 根据场景创建相应的应用

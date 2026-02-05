@@ -19,9 +19,9 @@ from apps.chat_app import ChatApplication
 class MedicalApplication(ChatApplication):
     """医疗咨询场景应用"""
     
-    def __init__(self, context_engine, system_prompt: str = ""):
+    def __init__(self, evolve_engine, system_prompt: str = ""):
         super().__init__(
-            context_engine, 
+            evolve_engine, 
             system_prompt or "你是一个专业的医疗咨询助手"
         )
 ```
@@ -193,9 +193,9 @@ from apps.callcenter_app import CallCenterApplication
 class TechSupportApplication(CallCenterApplication):
     """技术支持场景"""
     
-    def __init__(self, context_engine, system_prompt: str = ""):
+    def __init__(self, evolve_engine, system_prompt: str = ""):
         super().__init__(
-            context_engine,
+            evolve_engine,
             system_prompt or "你是一个专业的技术支持工程师"
         )
 ```
@@ -527,9 +527,9 @@ from apps.chat_app import ChatApplication
 class MedicalApplication(ChatApplication):
     """医疗咨询应用"""
     
-    def __init__(self, context_engine, system_prompt: str = ""):
+    def __init__(self, evolve_engine, system_prompt: str = ""):
         super().__init__(
-            context_engine,
+            evolve_engine,
             system_prompt or "你是一个专业的医疗咨询助手，请提供准确的医疗建议。"
         )
 
