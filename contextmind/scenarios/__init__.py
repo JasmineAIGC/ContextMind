@@ -1,9 +1,9 @@
 """
-Scenario definitions and applications for ContextMind
+ContextMind 场景定义和应用
 
-This module contains:
-- Scenario configuration definitions (chat, callcenter, insurance)
-- Application implementations for Evolve mode
+本模块包含:
+- 场景配置定义（闲聊、客服、保险）
+- Evolve 模式的应用实现
 """
 
 from .config import ScenarioConfig, ScenarioType

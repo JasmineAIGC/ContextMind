@@ -1,13 +1,13 @@
 """
-Dialogue processing modes for ContextMind
+ContextMind 对话处理模式
 
-Three modes available:
-- dst: Dialogue State Tracking mode
-- fnctod: Function Calling for Task-Oriented Dialogue mode
-- evolve: Evolutionary Context Optimization mode
+提供三种可用模式:
+- dst: 对话状态追踪模式
+- fnctod: 任务型对话的函数调用模式
+- evolve: 演化式上下文优化模式
 """
 
-# Import mode entry points
+# 导入模式入口
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
