@@ -135,10 +135,12 @@ class FnCTODTransferTODTest:
         total_slots = 0
         matched_slots = 0
         total_turns = 0
-        perfect_turns = 0
         
         all_expected = []
         all_extracted = []
+        
+        # 维护累积的期望状态（用于正确比较）
+        cumulative_expected_state = {}
         
         # 逐轮测试
         for turn in dialogue.turns:
@@ -163,8 +165,11 @@ class FnCTODTransferTODTest:
                 logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
                 extracted_state = {}
             
-            # 比较expected_slots和extracted_state
-            expected = turn.expected_slots
+            # 更新累积的期望状态（合并本轮的变化）
+            cumulative_expected_state.update(turn.expected_slots)
+            
+            # 比较累积的期望状态和提取状态
+            expected = cumulative_expected_state.copy()
             
             # 计算本轮的匹配度
             turn_total = len(expected)
@@ -172,15 +177,15 @@ class FnCTODTransferTODTest:
             
             for slot, expected_value in expected.items():
                 extracted_value = extracted_state.get(slot)
-                if extracted_value == expected_value:
+                # 转换为字符串进行比较
+                expected_value_str = str(expected_value) if expected_value is not None else None
+                extracted_value_str = str(extracted_value) if extracted_value is not None else None
+                if expected_value_str == extracted_value_str:
                     turn_matched += 1
             
             total_slots += turn_total
             matched_slots += turn_matched
             total_turns += 1
-            
-            if turn_total == 0 or turn_matched == turn_total:
-                perfect_turns += 1
             
             all_expected.append(expected)
             all_extracted.append(extracted_state)
@@ -190,35 +195,110 @@ class FnCTODTransferTODTest:
                 print(f"提取状态: {extracted_state}")
                 print(f"匹配数: {turn_matched}/{turn_total}")
         
-        # 计算评估指标
+        # 计算评估指标（对齐TransferTOD论文）
         slot_accuracy = matched_slots / total_slots if total_slots > 0 else 0.0
-        joint_goal_accuracy = perfect_turns / total_turns if total_turns > 0 else 0.0
         
-        # 计算Precision/Recall/F1
-        precision, recall, f1 = self._calculate_prf(all_expected, all_extracted)
+        # Joint Accuracy（对话级别，使用最终状态）- 对齐TransferTOD论文
+        final_expected = cumulative_expected_state
+        final_extracted = extracted_state  # 最后一轮的状态
+        joint_accuracy = self._calculate_joint_accuracy(final_expected, final_extracted)
+        
+        # 计算Precision/Recall/F1（基于slot-value pairs）- 对齐TransferTOD论文
+        precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
         
         metrics = {
             "dialogue_id": dialogue_id,
             "slot_accuracy": slot_accuracy,
-            "joint_goal_accuracy": joint_goal_accuracy,
+            "joint_accuracy": joint_accuracy,  # TransferTOD论文指标：对话级别
             "precision": precision,
             "recall": recall,
             "f1": f1,
             "total_slots": total_slots,
             "matched_slots": matched_slots,
             "total_turns": total_turns,
-            "perfect_turns": perfect_turns
         }
         
         if verbose:
-            print("\n--- 测试结果 ---")
-            print(f"槽位准确率: {slot_accuracy * 100:.2f}%")
-            print(f"Joint Goal Accuracy: {joint_goal_accuracy * 100:.2f}%")
-            print(f"Precision: {precision * 100:.2f}%")
-            print(f"Recall: {recall * 100:.2f}%")
-            print(f"F1 Score: {f1 * 100:.2f}%")
+            print("\n--- 测试结果（对齐TransferTOD论文指标）---")
+            print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
+            print(f"联合准确率 (Joint Accuracy): {joint_accuracy * 100:.2f}%")
+            print(f"精确率 (Precision): {precision * 100:.2f}%")
+            print(f"召回率 (Recall): {recall * 100:.2f}%")
+            print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
         
         return metrics
+    
+    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict) -> float:
+        """
+        计算Joint Accuracy（对话级别）- 对齐TransferTOD论文
+        
+        比较两个状态是否完全匹配（所有slot-value pairs都相同）
+        
+        Args:
+            expected: 期望的最终状态
+            extracted: 提取的最终状态
+            
+        Returns:
+            1.0 if完全匹配, 0.0 otherwise
+        """
+        # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
+        expected_pairs = set()
+        for k, v in expected.items():
+            v_str = str(v) if v is not None else None
+            if v_str is not None:
+                expected_pairs.add((k, v_str))
+        
+        extracted_pairs = set()
+        for k, v in extracted.items():
+            v_str = str(v) if v is not None else None
+            if v_str is not None:
+                extracted_pairs.add((k, v_str))
+        
+        return 1.0 if expected_pairs == extracted_pairs else 0.0
+    
+    def _calculate_prf_pairs(self, expected: Dict, extracted: Dict) -> Tuple[float, float, float]:
+        """
+        计算Precision、Recall和F1 Score（基于slot-value pairs）- 对齐TransferTOD论文
+        
+        与TransferTOD论文的eval.py一致，使用slot-value pairs作为比较单元
+        
+        Args:
+            expected: 期望的最终状态
+            extracted: 提取的最终状态
+            
+        Returns:
+            (precision, recall, f1)
+        """
+        # 转换为slot-value pairs的集合（对齐TransferTOD论文的实现）
+        expected_pairs = set()
+        for k, v in expected.items():
+            v_str = str(v) if v is not None else None
+            if v_str is not None:
+                expected_pairs.add((k, v_str))
+        
+        extracted_pairs = set()
+        for k, v in extracted.items():
+            v_str = str(v) if v is not None else None
+            if v_str is not None:
+                extracted_pairs.add((k, v_str))
+        
+        # 计算TP, FP, FN（对齐TransferTOD论文的f1_calculator）
+        TP = len(expected_pairs & extracted_pairs)  # 交集
+        FP = len(extracted_pairs - expected_pairs)  # 预测但不在真实中
+        FN = len(expected_pairs - extracted_pairs)  # 真实但未预测
+        
+        # 特殊情况处理（对齐TransferTOD论文）
+        if len(expected_pairs) == 0:
+            if len(extracted_pairs) == 0:
+                return 1.0, 1.0, 1.0
+            else:
+                return 0.0, 0.0, 0.0
+        
+        precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+        recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        
+        return precision, recall, f1
     
     def _calculate_prf(self, expected_list: List[Dict], extracted_list: List[Dict]) -> Tuple[float, float, float]:
         """
@@ -307,24 +387,28 @@ async def main():
             logger.error(f"测试对话 {dialogue_id} 失败: {e}")
             continue
     
-    # 输出汇总指标
+    # 输出汇总指标（对齐TransferTOD论文）
     if all_metrics:
         print("\n" + "=" * 70)
-        print("📊 测试指标汇总")
+        print("📊 测试指标汇总（对齐TransferTOD论文）")
         print("=" * 70)
         
         avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
-        avg_joint_goal = sum(m["joint_goal_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
         avg_precision = sum(m["precision"] for m in all_metrics) / len(all_metrics)
         avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
         avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
         
         print(f"\n测试对话数: {len(all_metrics)}")
-        print(f"平均槽位准确率: {avg_slot_accuracy * 100:.2f}%")
-        print(f"平均 Joint Goal Accuracy: {avg_joint_goal * 100:.2f}%")
-        print(f"平均 Precision: {avg_precision * 100:.2f}%")
-        print(f"平均 Recall: {avg_recall * 100:.2f}%")
-        print(f"平均 F1 Score: {avg_f1 * 100:.2f}%")
+        print(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
+        print(f"平均联合准确率 (Joint Accuracy): {avg_joint_accuracy * 100:.2f}%")
+        print(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
+        print(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
+        print(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
+        print()
+        print("注：指标计算方法已对齐TransferTOD论文")
+        print("  - Joint Accuracy: 对话级别（最终状态完全匹配）")
+        print("  - F1/Precision/Recall: 基于slot-value pairs计算")
         print()
 
 
