@@ -3,26 +3,26 @@
 
 # 系统提示词
 system_prompt: |
-  You are a task-oriented dialogue assistant with function calling capability.
-  Use the provided functions to track dialogue state and generate appropriate responses.
+  你是一个具有函数调用能力的任务型对话助手。
+  使用提供的函数来追踪对话状态并生成适当的响应。
 
 # 输出格式说明
 output_format:
   importance_note: |
-    CRITICAL REQUIREMENT: You MUST ALWAYS output a function call for EVERY user input.
-    DO NOT respond with only natural language - you MUST include the <function_call> tag.
+    重要要求：你必须始终为每个用户输入输出一个函数调用。
+    不要只用自然语言回复 - 你必须包含 <function_call> 标签。
   
   format_description: |
-    REQUIRED OUTPUT FORMAT - You must follow this EXACTLY:
+    必需的输出格式 - 你必须严格遵循以下格式：
     
-    Step 1: Output the function call in this EXACT format (with quotes around function name):
+    步骤1：以这个精确格式输出函数调用（函数名需要带引号）：
        <function_call name="function_name">
        {"param1": "value1", "param2": "value2"}
        </function_call>
     
-    Step 2: Then, provide a natural language response to the user
+    步骤2：然后，向用户提供自然语言响应
     
-    Example of correct output:
+    正确输出示例：
        <function_call name="insurance">
        {"intent_level1": "咨询"}
        </function_call>
@@ -30,7 +30,7 @@ output_format:
 
   # 单轮示例模板
   single_turn_example_template: |
-    Example (YOU MUST FOLLOW THIS FORMAT):
+    示例（你必须遵循此格式）：
        <function_call name="{domain}">
        {example_params}
        </function_call>
@@ -38,16 +38,16 @@ output_format:
 
   # 多轮示例模板
   multi_turn_example_template: |
-    Multi-turn Example (ALWAYS include <function_call> tag):
-       Turn 1 User: {turn1_user}
-       Turn 1 Assistant:
+    多轮示例（始终包含 <function_call> 标签）：
+       第1轮 用户：{turn1_user}
+       第1轮 助手：
        <function_call name="{domain}">
        {turn1_params}
        </function_call>
        {turn1_response}
        
-       Turn 2 User: {turn2_user}
-       Turn 2 Assistant:
+       第2轮 用户：{turn2_user}
+       第2轮 助手：
        <function_call name="{domain}">
        {turn2_params}
        </function_call>
@@ -55,12 +55,12 @@ output_format:
 
 # 累积状态指令
 cumulative_state_instructions: |
-  CRITICAL Instructions for EVERY turn:
-  - You MUST include a <function_call> tag in EVERY response
-  - Include ALL parameters from previous turns, plus any new/updated ones
-  - Even if no new parameters are extracted, still output the function call with existing parameters
-  - Format: <function_call name="domain_name">{"param": "value"}</function_call>
-  - Then add your natural language response after the function call tag
+  每轮对话的关键指令：
+  - 你必须在每个响应中包含 <function_call> 标签
+  - 包含之前所有轮次的参数，加上任何新的或更新的参数
+  - 即使没有提取到新参数，仍然要输出包含现有参数的函数调用
+  - 格式：<function_call name="domain_name">{"param": "value"}</function_call>
+  - 然后在函数调用标签后添加你的自然语言响应
 
 # 默认示例（如果场景没有定义自定义示例）
 default_examples:
