@@ -368,20 +368,23 @@ class ConversationSummarizer:
             if config.method == "llm" and llm_client:
                 logger.info("[Summarizer] ✅ 使用基于大语言模型的摘要策略")
                 self.strategy = LLMBasedSummarizer(llm_client, config)
+            elif config.method == "rule":
+                logger.info("[Summarizer] ✅ 使用基于规则的摘要策略")
+                self.strategy = RuleBasedSummarizer(config)
             else:
                 if config.method == "llm" and not llm_client:
-                    logger.error("[Summarizer] ⚠️ LLM摘要需要llm_client，摘要功能将被禁用")
-                    self.strategy = None
+                    logger.error("[Summarizer] ⚠️ LLM摘要需要llm_client，回退到规则摘要")
+                    self.strategy = RuleBasedSummarizer(config)
                 else:
-                    logger.warning("[Summarizer] ⚠️ 不支持的摘要方法，摘要功能将被禁用")
-                    self.strategy = None
+                    logger.warning("[Summarizer] ⚠️ 不支持的摘要方法，使用规则摘要作为默认")
+                    self.strategy = RuleBasedSummarizer(config)
         else:
             if llm_client:
                 logger.info("[Summarizer] ✅ 默认使用基于大语言模型的摘要策略")
                 self.strategy = LLMBasedSummarizer(llm_client, self.config)
             else:
-                logger.warning("[Summarizer] ⚠️ 未提供llm_client，摘要功能将被禁用")
-                self.strategy = strategy  # 可能是 None
+                logger.warning("[Summarizer] ⚠️ 未提供llm_client，使用规则摘要")
+                self.strategy = RuleBasedSummarizer(self.config) if strategy is None else strategy
         
         self.window_size = window_size
         

@@ -367,15 +367,19 @@ class BatchDialogueTest:
                         result_text += f"    {k}: {v}\n"
             result_text += f"\n助手: {result.get('response', '')}\n"
         
-        # 获取最终状态
-        final_state = self.fnctod_tracker.current_state.copy()
+        # 获取最终状态 - 使用最后一轮的状态，而不是全局累积状态
+        # 因为全局累积状态可能包含不同domain的槽位
+        if results:
+            final_state = results[-1].get('state', {})
+        else:
+            final_state = {}
         
         # 生成汇总
         summary = f"\n{'='*50}\n"
         summary += f"📊 测试总结 (FnCTOD 模式)\n"
         summary += f"{'='*50}\n"
         summary += f"处理轮数: {len(turns)}\n"
-        summary += f"\n累积状态:\n"
+        summary += f"\n最终状态 (最后一轮):\n"
         for key, value in final_state.items():
             if value:
                 summary += f"  {key}: {value}\n"
