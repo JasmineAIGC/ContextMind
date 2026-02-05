@@ -20,13 +20,13 @@
 
 - [API 参考](api-reference.md) - 完整的 API 文档
 - [扩展场景](extending-scenarios.md) - 添加新场景的指南
-- [命名规范](naming-standards.md) - 代码命名标准
+- [贡献指南](CONTRIBUTING.md) - 如何参与贡献
 
 ### 帮助和支持
 
 - [故障排查](troubleshooting.md) - 常见问题和解决方案
-- [迁移指南](migration.md) - 版本升级指南
 - [更新日志](changelog.md) - 版本变更历史
+- [架构概览](ARCHITECTURE.md) - 高层架构视图
 
 ---
 
@@ -66,8 +66,8 @@
 
 #### 架构文档
 - **架构说明** - 系统设计和组件关系
+- **架构概览** - 高层架构视图
 - **目录结构** - 代码组织和文件说明
-- **命名规范** - 代码风格和命名约定
 
 #### 使用指南
 - **模式对比** - DST vs FnCTOD vs Evolve
@@ -76,7 +76,6 @@
 
 #### 维护文档
 - **故障排查** - 常见错误和解决方法
-- **迁移指南** - 版本升级步骤
 - **更新日志** - 每个版本的变更
 
 ---
@@ -101,8 +100,8 @@
 
 1. 深入 [架构文档](architecture.md)
 2. 研究 [目录结构](directory-structure.md)
-3. 遵循 [命名规范](naming-standards.md)
-4. 贡献代码（参考主目录 CONTRIBUTING.md）
+3. 查看 [架构概览](ARCHITECTURE.md)
+4. 贡献代码（参考 [贡献指南](CONTRIBUTING.md)）
 
 ---
 
