@@ -294,6 +294,10 @@ class LLMBasedExtractor(BaseExtractor):
     5. ✅ 更高的准确率和召回率
     """
     
+    # 配置常量
+    MIN_CONTENT_LENGTH = 2  # 最小内容长度（中文2字足以表达有意义概念）
+    MIN_PHRASE_LENGTH = 2  # 验证时的最小短语长度
+    
     _TYPE_MAPPING = {
         kt.value.lower(): kt for kt in KnowledgeType
     }
@@ -453,8 +457,8 @@ class LLMBasedExtractor(BaseExtractor):
             if json_match:
                 json_str = json_match.group(1)
             else:
-                # 尝试提取任何 JSON 对象
-                json_match = re.search(r'\{.*"knowledge".*\}', llm_response, re.DOTALL)
+                # 尝试提取任何 JSON 对象（使用非贪婪匹配避免灾难性回溯）
+                json_match = re.search(r'\{.*?"knowledge".*?\}', llm_response, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(0)
                 else:
@@ -477,7 +481,8 @@ class LLMBasedExtractor(BaseExtractor):
                         # 内容长度要求：最小2字符
                         # 原因：中文2字已足以表达有意义的概念（如"吃辣"、"保险"）
                         # 过于严格的长度要求会遗漏简短但有价值的信息
-                        if not content or len(content) < 2:
+                        # 注：针对中文优化，多字节字符按单个字符计数
+                        if not content or len(content) < self.MIN_CONTENT_LENGTH:
                             logger.debug(f"[LLMBasedExtractor] 跳过内容过短: {content}")
                             continue
                         
@@ -555,27 +560,33 @@ class LLMBasedExtractor(BaseExtractor):
             # 去除常见的前缀（如"用户偏好："、"用户意图："等）
             content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
             
-            # 提取所有2字以上的中文词组
+            # 提取所有MIN_PHRASE_LENGTH字以上的中文词组
             # 注：2字是中文语义的最小单位，足以进行有效验证
-            key_phrases = re.findall(r'[\u4e00-\u9fa5]{2,}', content_clean)
+            key_phrases = re.findall(r'[\u4e00-\u9fa5]{' + str(self.MIN_PHRASE_LENGTH) + r',}', content_clean)
             
             # 如果没有提取到关键短语，使用整个清理后的内容
             if not key_phrases:
                 key_phrases = [content_clean]
             
-            # 生成所有2-3字的子短语（使用set去重，提高性能）
+            # 生成2-3字的子短语（使用set去重，提高性能）
+            # 限制：最多处理前5个主要短语，避免过多计算
             all_sub_phrases = set()
-            for phrase in key_phrases:
+            for phrase in key_phrases[:5]:  # 限制短语数量
                 for i in range(len(phrase)):
                     if i + 2 <= len(phrase):
                         all_sub_phrases.add(phrase[i:i+2])
                     if i + 3 <= len(phrase):
                         all_sub_phrases.add(phrase[i:i+3])
+                    # 如果已经生成足够的子短语，提前终止
+                    if len(all_sub_phrases) > 20:
+                        break
+                if len(all_sub_phrases) > 20:
+                    break
             
-            # 至少需要有一个2-3字的子短语能在对话中找到
+            # 至少需要有一个MIN_PHRASE_LENGTH字的子短语能在对话中找到
             found = False
             for sub_phrase in all_sub_phrases:
-                if len(sub_phrase) >= 2 and sub_phrase.lower() in conversation_lower:
+                if len(sub_phrase) >= self.MIN_PHRASE_LENGTH and sub_phrase.lower() in conversation_lower:
                     found = True
                     break  # 找到一个匹配就足够了，提前终止
             
