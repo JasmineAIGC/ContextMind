@@ -143,10 +143,17 @@ class FnCTODTracker:
         # 准备对话历史用于后续处理（在_select_domains和_call_function中使用）
         self.step_timings['历史准备'] = time.time() - step_start
         
-        # 步骤2: 提示词构建（在_select_domains或_call_function中完成）
-        # 步骤3: Domain Selection (如果使用两阶段)
+        # 步骤2 & 3: Domain Selection (如果需要)
         selected_domains = []
-        if self.use_two_stage and len(self.function_manager.get_all_domains()) > 1:
+        
+        # 智能检测：如果场景已确定，跳过域选择
+        if self.scenario_config:
+            # 场景已确定，domain已知，跳过域选择阶段
+            selected_domains = [self.scenario_config.name]
+            logger.info(f"✅ 场景已确定，跳过域选择，直接使用domain: {selected_domains}")
+        elif self.use_two_stage and len(self.function_manager.get_all_domains()) > 1:
+            # 场景未确定，需要执行域选择
+            logger.info("场景未确定，执行域选择...")
             selected_domains = await self._select_domains(user_utterance)
         else:
             # 单阶段或单domain场景，直接使用所有domain
@@ -199,8 +206,10 @@ class FnCTODTracker:
         Returns:
             domain名称列表
         """
-        step_start = time.time()
         logger.info("Stage 1: Domain Selection")
+        
+        # 步骤2a: 提示词构建
+        prompt_start = time.time()
         
         # 构建domain选择提示词
         system_prompt = self.function_manager.generate_system_prompt(include_all_specs=False)
@@ -221,9 +230,9 @@ class FnCTODTracker:
         messages.append({"role": "user", "content": user_utterance})
         
         # 记录提示词构建时间
-        prompt_time = time.time() - step_start
+        self.step_timings['提示词构建'] = time.time() - prompt_start
         
-        # 调用LLM
+        # 步骤3: 调用LLM进行域选择
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
@@ -237,9 +246,8 @@ class FnCTODTracker:
                 logger.warning("未检测到domain，使用第一个domain作为默认")
                 domains = [self.function_manager.get_domain_names()[0]]
             
-            # 记录总时间（包含提示词构建和LLM调用）
-            self.step_timings['提示词构建'] = prompt_time
-            self.step_timings['领域选择'] = time.time() - llm_start
+            # 记录域选择时间（LLM调用时间）
+            self.step_timings['域选择'] = time.time() - llm_start
             logger.info(f"选中的domain: {domains}")
             
             return domains
@@ -263,12 +271,12 @@ class FnCTODTracker:
         Returns:
             (FunctionCall对象, 自然语言回复)
         """
-        step_start = time.time()
         logger.info(f"Stage 2: Function Calling for domains: {domains}")
         
-        # 如果没有提示词构建时间（单阶段模式），记录它
-        if '提示词构建' not in self.step_timings:
-            prompt_start = time.time()
+        # 步骤2b或2a（单阶段）: 提示词构建
+        # 如果是两阶段模式，这是第二次提示词构建
+        # 如果是单阶段模式（跳过域选择），这是唯一的提示词构建
+        prompt_start = time.time()
         
         # 构建完整规格提示词（只包含选中的domain）
         system_prompt = self._build_function_call_prompt(domains)
@@ -313,11 +321,12 @@ class FnCTODTracker:
         # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
-        # 如果是单阶段模式，记录提示词构建时间
-        if '提示词构建' not in self.step_timings:
-            self.step_timings['提示词构建'] = time.time() - prompt_start
+        # 记录提示词构建时间
+        # 如果是单阶段模式（没有域选择），这是第一次也是唯一一次提示词构建
+        # 如果是两阶段模式（有域选择），这是第二次提示词构建，覆盖之前的记录
+        self.step_timings['提示词构建'] = time.time() - prompt_start
         
-        # 调用LLM
+        # 步骤3或4: 调用LLM进行函数调用
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
@@ -327,7 +336,7 @@ class FnCTODTracker:
             # 记录LLM调用时间
             self.step_timings['函数调用'] = time.time() - llm_start
             
-            # 解析function call
+            # 步骤4或5: 解析function call
             parse_start = time.time()
             logger.info("开始解析function call...")
             function_call, natural_response = self.parser.parse_function_call(response)
