@@ -35,6 +35,7 @@ class FnCTODTracker:
         self,
         llm_client=None,
         function_manager: Optional[FunctionManager] = None,
+        scenario_config=None,
         use_two_stage: bool = True,
         max_history_turns: int = 10
     ):
@@ -44,12 +45,14 @@ class FnCTODTracker:
         Args:
             llm_client: LLM客户端
             function_manager: 函数管理器
+            scenario_config: 场景配置对象（可选，用于优化域选择）
             use_two_stage: 是否使用两阶段处理（默认True）
             max_history_turns: 最大历史轮数
         """
         self.llm_client = llm_client
         self.function_manager = function_manager or FunctionManager()
         self.parser = FnCTODResponseParser()
+        self.scenario_config = scenario_config
         self.use_two_stage = use_two_stage
         self.max_history_turns = max_history_turns
         
@@ -64,7 +67,7 @@ class FnCTODTracker:
         # 加载提示词模板
         self._load_prompt_templates()
         
-        logger.info(f"FnCTODTracker 初始化完成 (两阶段模式: {use_two_stage})")
+        logger.info(f"FnCTODTracker 初始化完成 (两阶段模式: {use_two_stage}, 场景: {scenario_config.name if scenario_config else '未指定'})")
     
     @classmethod
     def from_scenario(cls,
@@ -108,6 +111,7 @@ class FnCTODTracker:
         return cls(
             llm_client=llm_client,
             function_manager=function_manager,
+            scenario_config=scenario_config,
             use_two_stage=use_two_stage,
             max_history_turns=max_history_turns
         )
