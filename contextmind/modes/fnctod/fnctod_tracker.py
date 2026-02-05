@@ -198,7 +198,12 @@ class FnCTODTracker:
     
     async def _select_domains(self, user_utterance: str) -> List[str]:
         """
-        Stage 1: 选择相关的domain
+        Stage 1: 选择相关的domain（FnCTOD论文Fig.2第一阶段）
+        
+        流程顺序（必须按此顺序）：
+        1. 构建提示词（包含所有domain的简要描述）
+        2. 调用LLM
+        3. 解析domain标签
         
         Args:
             user_utterance: 用户输入
@@ -208,7 +213,8 @@ class FnCTODTracker:
         """
         logger.info("Stage 1: Domain Selection")
         
-        # 步骤2a: 提示词构建
+        # 步骤1: 提示词构建（必须在LLM调用之前）
+        # 根据FnCTOD论文，提示词包含所有domain的简要描述
         prompt_start = time.time()
         
         # 构建domain选择提示词
@@ -229,10 +235,11 @@ class FnCTODTracker:
         # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
-        # 记录提示词构建时间
+        # 提示词构建完成，记录时间
         self.step_timings['提示词构建'] = time.time() - prompt_start
         
-        # 步骤3: 调用LLM进行域选择
+        # 步骤2: 调用LLM进行域选择（在提示词构建之后）
+        # 根据FnCTOD论文，LLM在接收到完整提示词后输出domain标签
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
@@ -246,9 +253,9 @@ class FnCTODTracker:
                 logger.warning("未检测到domain，使用第一个domain作为默认")
                 domains = [self.function_manager.get_domain_names()[0]]
             
-            # 记录域选择时间（LLM调用时间）
+            # LLM调用完成，记录时间
             self.step_timings['域选择'] = time.time() - llm_start
-            logger.info(f"选中的domain: {domains}")
+            logger.info(f"✅ Domain选择完成: {domains}")
             
             return domains
         except Exception as e:
@@ -262,7 +269,12 @@ class FnCTODTracker:
         domains: List[str]
     ) -> Tuple[Optional[FunctionCall], str]:
         """
-        Stage 2: 调用函数填充参数
+        Stage 2: 调用函数填充参数（FnCTOD论文Fig.2第二阶段）
+        
+        流程顺序（必须按此顺序）：
+        1. 构建提示词（包含选中domain的完整spec + few-shot示例）
+        2. 调用LLM
+        3. 解析function call JSON + 自然语言回复
         
         Args:
             user_utterance: 用户输入
@@ -273,7 +285,11 @@ class FnCTODTracker:
         """
         logger.info(f"Stage 2: Function Calling for domains: {domains}")
         
-        # 步骤2b或2a（单阶段）: 提示词构建
+        # 步骤1: 提示词构建（必须在LLM调用之前）
+        # 根据FnCTOD论文Fig.3，提示词包含：
+        # - 整体指令
+        # - 函数规格（JSON schema）
+        # - Few-shot示例（可选）
         # 如果是两阶段模式，这是第二次提示词构建
         # 如果是单阶段模式（跳过域选择），这是唯一的提示词构建
         prompt_start = time.time()
@@ -321,22 +337,27 @@ class FnCTODTracker:
         # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
-        # 记录提示词构建时间
+        # 提示词构建完成，记录时间
         # 如果是单阶段模式（没有域选择），这是第一次也是唯一一次提示词构建
         # 如果是两阶段模式（有域选择），这是第二次提示词构建，覆盖之前的记录
         self.step_timings['提示词构建'] = time.time() - prompt_start
         
-        # 步骤3或4: 调用LLM进行函数调用
+        # 步骤2: 调用LLM进行函数调用（在提示词构建之后）
+        # 根据FnCTOD论文，LLM在接收到完整提示词后输出：
+        # <function_call name="domain">{"param": "value"}</function_call> + 自然语言回复
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
             logger.info(f"✅ 收到LLM响应，长度: {len(response)}")
             logger.debug(f"LLM响应前300字符: {response[:300]}...")
             
-            # 记录LLM调用时间
+            # LLM调用完成，记录时间
             self.step_timings['函数调用'] = time.time() - llm_start
             
-            # 步骤4或5: 解析function call
+            # 步骤3: 解析响应（在LLM调用之后）
+            # 根据FnCTOD论文，需要提取：
+            # 1. <function_call> 标签内的JSON参数
+            # 2. 标签后的自然语言回复
             parse_start = time.time()
             logger.info("开始解析function call...")
             function_call, natural_response = self.parser.parse_function_call(response)
