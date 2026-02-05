@@ -233,7 +233,7 @@ class CallCenterApplication:
             include_session=True,
             include_memory=True,
         )
-        self.step_timings['上下文优化'] = time.time() - step_start
+        self.step_timings['上下文检索'] = time.time() - step_start
         
         if debug:
             # 保存召回结果
@@ -281,7 +281,7 @@ class CallCenterApplication:
             user_input=user_input,
             assistant_response=response
         )
-        self.step_timings['上下文更新'] = time.time() - step_start
+        self.step_timings['对话更新'] = time.time() - step_start
         
         # 步骤5: 提取知识（如果需要）
         step_start = time.time()

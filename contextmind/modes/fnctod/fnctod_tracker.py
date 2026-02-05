@@ -138,7 +138,13 @@ class FnCTODTracker:
         logger.info(f"用户: {user_utterance}")
         logger.info(f"{'='*60}")
         
-        # Stage 1: Domain Selection (如果使用两阶段)
+        # 步骤1: 历史准备
+        step_start = time.time()
+        # 准备对话历史用于后续处理（在_select_domains和_call_function中使用）
+        self.step_timings['历史准备'] = time.time() - step_start
+        
+        # 步骤2: 提示词构建（在_select_domains或_call_function中完成）
+        # 步骤3: Domain Selection (如果使用两阶段)
         selected_domains = []
         if self.use_two_stage and len(self.function_manager.get_all_domains()) > 1:
             selected_domains = await self._select_domains(user_utterance)
@@ -146,13 +152,14 @@ class FnCTODTracker:
             # 单阶段或单domain场景，直接使用所有domain
             selected_domains = self.function_manager.get_domain_names()
         
-        # Stage 2: Function Calling
+        # 步骤4: Function Calling
         function_call, natural_response = await self._call_function(
             user_utterance,
             selected_domains
         )
         
-        # 更新状态
+        # 步骤5: 状态更新
+        step_start = time.time()
         if function_call:
             self._update_state(function_call)
         
@@ -169,6 +176,8 @@ class FnCTODTracker:
         # 限制历史长度
         if len(self.dialogue_history) > self.max_history_turns:
             self.dialogue_history = self.dialogue_history[-self.max_history_turns:]
+        
+        self.step_timings['状态更新'] = time.time() - step_start
         
         elapsed = time.time() - start_time
         logger.info(f"✅ 对话处理完成 (耗时: {elapsed:.2f}s)")
@@ -211,7 +220,11 @@ class FnCTODTracker:
         # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
+        # 记录提示词构建时间
+        prompt_time = time.time() - step_start
+        
         # 调用LLM
+        llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
             logger.debug(f"Domain选择响应: {response}")
@@ -224,7 +237,9 @@ class FnCTODTracker:
                 logger.warning("未检测到domain，使用第一个domain作为默认")
                 domains = [self.function_manager.get_domain_names()[0]]
             
-            self.step_timings['领域选择'] = time.time() - step_start
+            # 记录总时间（包含提示词构建和LLM调用）
+            self.step_timings['提示词构建'] = prompt_time
+            self.step_timings['领域选择'] = time.time() - llm_start
             logger.info(f"选中的domain: {domains}")
             
             return domains
@@ -250,6 +265,10 @@ class FnCTODTracker:
         """
         step_start = time.time()
         logger.info(f"Stage 2: Function Calling for domains: {domains}")
+        
+        # 如果没有提示词构建时间（单阶段模式），记录它
+        if '提示词构建' not in self.step_timings:
+            prompt_start = time.time()
         
         # 构建完整规格提示词（只包含选中的domain）
         system_prompt = self._build_function_call_prompt(domains)
@@ -294,12 +313,21 @@ class FnCTODTracker:
         # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
+        # 如果是单阶段模式，记录提示词构建时间
+        if '提示词构建' not in self.step_timings:
+            self.step_timings['提示词构建'] = time.time() - prompt_start
+        
         # 调用LLM
+        llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
             logger.debug(f"Function call响应: {response[:200]}...")
             
+            # 记录LLM调用时间
+            self.step_timings['函数调用'] = time.time() - llm_start
+            
             # 解析function call
+            parse_start = time.time()
             function_call, natural_response = self.parser.parse_function_call(response)
             
             if not function_call:
@@ -309,7 +337,8 @@ class FnCTODTracker:
             else:
                 logger.info(f"Function call解析成功: {function_call.function_name}")
             
-            self.step_timings['函数调用'] = time.time() - step_start
+            # 记录解析时间
+            self.step_timings['响应解析'] = time.time() - parse_start
             
             return function_call, natural_response
         except Exception as e:

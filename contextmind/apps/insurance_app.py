@@ -254,7 +254,7 @@ class InsuranceApplication:
         # 步骤2: 构建 Prompt
         step_start = time.time()
         prompt = await self.build_prompt(user_input, context_result)
-        self.step_timings['Prompt构建'] = time.time() - step_start
+        self.step_timings['上下文整合'] = time.time() - step_start
         
         if debug:
             debug_info['prompt'] = prompt
@@ -281,7 +281,7 @@ class InsuranceApplication:
             user_input=user_input,
             assistant_response=response
         )
-        self.step_timings['上下文更新'] = time.time() - step_start
+        self.step_timings['对话更新'] = time.time() - step_start
         
         # 步骤5: 提取知识（如果需要）
         step_start = time.time()

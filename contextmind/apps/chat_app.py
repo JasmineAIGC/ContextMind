@@ -260,7 +260,7 @@ class ChatApplication:
         
         debug_info = {} if debug else None
         
-        # 步骤1: 优化上下文
+        # 步骤1: 上下文检索
         step_start = time.time()
         if debug:
             # 保存优化前的记忆库状态
@@ -279,7 +279,7 @@ class ChatApplication:
             include_session=True,
             include_memory=True,
         )
-        self.step_timings['上下文优化'] = time.time() - step_start
+        self.step_timings['上下文检索'] = time.time() - step_start
         
         if debug:
             # 保存召回结果
@@ -297,15 +297,15 @@ class ChatApplication:
                 'compressed': context_result.compressed
             }
         
-        # 步骤2: 构建 Prompt (传递debug_info以保存摘要信息)
+        # 步骤2: 上下文整合（构建Prompt）
         step_start = time.time()
         prompt = await self.build_prompt(user_input, context_result, debug_info if debug else None)
-        self.step_timings['Prompt构建'] = time.time() - step_start
+        self.step_timings['上下文整合'] = time.time() - step_start
         
         if debug:
             debug_info['prompt'] = prompt
         
-        # 步骤3: 调用 LLM（v7.1: LLM 调用是外部的）
+        # 步骤3: LLM生成
         step_start = time.time()
         if self.use_real_llm and self.llm_client:
             try:
@@ -323,15 +323,15 @@ class ChatApplication:
             logger.warning("[Simulated] 使用模拟回复（未配置LLM）")
         self.step_timings['LLM生成'] = time.time() - step_start
         
-        # 步骤4: 更新上下文
+        # 步骤4: 对话更新
         step_start = time.time()
         await self.context_engine.update(
             user_input=user_input,
             assistant_response=response
         )
-        self.step_timings['上下文更新'] = time.time() - step_start
+        self.step_timings['对话更新'] = time.time() - step_start
         
-        # 步骤5: 提取知识（如果需要）
+        # 步骤5: 知识提取
         step_start = time.time()
         extracted_knowledge = []
         try:

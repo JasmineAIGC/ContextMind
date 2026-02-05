@@ -222,12 +222,12 @@ class DialogueStateTracker:
         # 格式化当前轮次
         turn_prompt = f'system: "{system_utterance}"\nuser: "{user_utterance}"'
         
-        # 步骤1: 准备历史对话（智能管理）
+        # 步骤1: 历史准备
         step_start = time.time()
         history_for_prompt = self._prepare_history_for_prompt()
         self.step_timings['历史准备'] = time.time() - step_start
         
-        # 步骤2: 构建消息（包括系统指令更新和历史添加）
+        # 步骤2: 提示词构建（包括系统指令更新和消息构建）
         step_start = time.time()
         # 如果有历史摘要，更新系统指令
         if self.history_summary and self.enable_history_summary:
@@ -245,9 +245,9 @@ class DialogueStateTracker:
         
         # 添加到消息历史
         self.messages.append({"role": "user", "content": full_prompt})
-        self.step_timings['消息构建'] = time.time() - step_start
+        self.step_timings['提示词构建'] = time.time() - step_start
         
-        # 步骤3: 调用LLM（所有理解由LLM完成）
+        # 步骤3: LLM槽位提取
         step_start = time.time()
         if self.llm_client:
             try:
@@ -279,24 +279,22 @@ class DialogueStateTracker:
         # 添加助手响应到历史
         self.messages.append({"role": "assistant", "content": raw_response})
         
-        # 步骤4: 解析响应
+        # 步骤4: 响应解析（合并JSON解析和值归一化）
         step_start = time.time()
         logger.debug(f"开始解析响应，长度: {len(raw_response)} 字符")
         turn_updates = self.response_parser.extract_json(raw_response)
         logger.debug(f"解析结果: {turn_updates}")
-        self.step_timings['JSON解析'] = time.time() - step_start
         
-        # 步骤5: 归一化槽位值（优化）- 应用严格分类约束
-        step_start = time.time()
+        # 归一化槽位值（优化）- 应用严格分类约束
         turn_updates = self.response_parser.normalize_extracted(
             turn_updates,
             self.prompt_manager.get_all_slots(),
             self.prompt_manager.categorical_slots or {}
         )
         logger.debug(f"归一化后: {turn_updates}")
-        self.step_timings['值归一化'] = time.time() - step_start
+        self.step_timings['响应解析'] = time.time() - step_start
         
-        # 步骤6: 更新累积状态
+        # 步骤5: 状态更新
         step_start = time.time()
         self._update_state(turn_updates)
         
