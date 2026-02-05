@@ -58,20 +58,22 @@ class DSTTransferTODTest:
             logger.error(f"❌ LLM客户端初始化失败: {e}")
             raise
         
-        # 获取领域schema
+        # 获取领域schema（可选：用于指导LLM，但在动态模式下非必需）
         schema = self.adapter.get_domain_schema(domain)
         
-        # 创建PromptManager
+        # 创建PromptManager（启用动态槽位）
+        # 动态槽位模式：LLM可以自由提取任何相关信息，不限于预定义槽位
         pm = PromptManager(
             domain=domain,
             enable_dynamic_slots=True
         )
         
-        # 添加槽位
+        # 可选：添加槽位定义作为指导（在动态模式下，即使未预定义的槽位也会被接受）
         for slot_name, slot_info in schema["slots"].items():
             pm.add_slot(slot_name, slot_info.get("description", slot_name))
         
         # 创建DialogueStateTracker
+        # 注意：enable_dynamic_slots=True 会自动禁用槽位过滤，接受所有LLM提取的槽位
         self.tracker = DialogueStateTracker(
             llm_client=self.llm_client,
             prompt_manager=pm,
@@ -81,6 +83,8 @@ class DSTTransferTODTest:
         )
         
         logger.info(f"✅ DST模式初始化完成 - 领域: {domain}")
+        logger.info(f"   动态槽位模式: 启用（接受所有LLM提取的槽位）")
+        logger.info(f"   预定义槽位数: {len(schema['slots'])}")
     
     async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
         """

@@ -243,6 +243,7 @@ class TransferTODAdapter(DatasetAdapter):
         获取指定领域的槽位Schema
         
         从该领域的所有对话中自动提取槽位信息。
+        收集所有轮次中出现的槽位，而不仅仅是final_state。
         
         Args:
             domain: 领域名称（如"酒店"、"餐厅"等）
@@ -262,7 +263,10 @@ class TransferTODAdapter(DatasetAdapter):
             try:
                 dialogue = self.load_dialogue(dialogue_id)
                 if dialogue.domain == domain:
-                    # 从final_state收集槽位
+                    # 从所有轮次的expected_slots收集槽位
+                    for turn in dialogue.turns:
+                        slots.update(turn.expected_slots.keys())
+                    # 也从final_state收集槽位
                     slots.update(dialogue.final_state.keys())
             except Exception:
                 continue
