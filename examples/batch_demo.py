@@ -337,7 +337,7 @@ class BatchDialogueTest:
         from contextmind.modes.fnctod import FnCTODTracker
         tracker = FnCTODTracker.from_scenario(
             self.llm_client,
-            self.scenario_config,
+            self.config,
             use_two_stage=True,
             max_history_turns=10
         )
@@ -474,7 +474,7 @@ class BatchDialogueTest:
         Returns:
             应用实例 (InsuranceApplication/CallCenterApplication/ChatApplication)
         """
-        scenario_name = self.scenario_config.name
+        scenario_name = self.config.name
         
         # 根据场景创建相应的应用
         if "保险" in scenario_name:
