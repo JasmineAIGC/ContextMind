@@ -320,11 +320,10 @@ class LLMBasedExtractor(BaseExtractor):
     
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
         """使用LLM提取知识"""
-        # 如果没有 LLM 客户端，回退到基于规则的提取
+        # 如果没有 LLM 客户端，抛出错误（不允许回退到规则提取）
         if not self.llm_client:
-            logger.debug("[LLMBasedExtractor] 回退到规则提取 (无LLM客户端)")
-            fallback = RuleBasedExtractor(self.config)
-            return await fallback.extract(messages)
+            logger.error("[LLMBasedExtractor] ❌ LLM客户端未提供！知识提取需要LLM客户端。")
+            raise ValueError("LLM客户端未提供。LLM提取模式需要llm_client参数。")
         
         logger.info(f"[LLMBasedExtractor] 开始LLM知识提取 - 处理 {len(messages)} 条消息")
         
@@ -333,41 +332,43 @@ class LLMBasedExtractor(BaseExtractor):
             logger.warning("[LLMBasedExtractor] 对话文本为空，跳过提取")
             return []
         
-        try:
-            extracted_data = await self._extract_with_llm(conversation_text)
-            knowledge_list = self._parse_llm_response(extracted_data, messages)
-            
-            # 验证提取的知识是否真实存在于对话中
-            before_validation = len(knowledge_list)
-            knowledge_list = self._validate_knowledge_against_conversation(knowledge_list, conversation_text)
-            hallucination_count = before_validation - len(knowledge_list)
-            
-            if hallucination_count > 0:
-                logger.warning(f"[LLMBasedExtractor] ⚠️ 过滤疑似幻觉知识: {hallucination_count} 条")
-            
-            # 过滤低置信度知识
-            before_filter = len(knowledge_list)
-            knowledge_list = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
-            filtered_count = before_filter - len(knowledge_list)
-            
-            if filtered_count > 0:
-                logger.debug(f"[LLMBasedExtractor] 过滤低置信度知识: {filtered_count} 条")
-            
-            logger.info(f"[LLMBasedExtractor] ✓ 知识提取完成 - 总计 {len(knowledge_list)} 条有效知识")
-            
-            if knowledge_list:
-                logger.debug(f"[LLMBasedExtractor] 提取的知识详情:")
-                for i, k in enumerate(knowledge_list[:5], 1):
-                    logger.debug(f"  {i}. [{k.knowledge_type.value}] {k.content[:60]}... (置信度: {k.confidence:.2f})")
-                if len(knowledge_list) > 5:
-                    logger.debug(f"  ... 以及其他 {len(knowledge_list) - 5} 条知识")
-            
-            return knowledge_list
-            
-        except Exception as e:
-            logger.error(f"[LLMBasedExtractor] LLM提取失败: {e}, 回退到规则提取")
-            fallback = RuleBasedExtractor(self.config)
-            return await fallback.extract(messages)
+        # 不使用 try-catch 回退，让错误向上传播
+        extracted_data = await self._extract_with_llm(conversation_text)
+        knowledge_list = self._parse_llm_response(extracted_data, messages)
+        
+        # 验证提取的知识是否真实存在于对话中（放宽验证）
+        before_validation = len(knowledge_list)
+        knowledge_list = self._validate_knowledge_against_conversation(knowledge_list, conversation_text)
+        hallucination_count = before_validation - len(knowledge_list)
+        
+        if hallucination_count > 0:
+            logger.info(f"[LLMBasedExtractor] 过滤疑似幻觉知识: {hallucination_count} 条")
+            for k in knowledge_list:
+                logger.debug(f"  保留: [{k.knowledge_type.value}] {k.content[:40]}...")
+        
+        # 过滤低置信度知识
+        before_filter = len(knowledge_list)
+        filtered_knowledge = [k for k in knowledge_list if k.confidence < self.config.min_confidence]
+        knowledge_list = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
+        filtered_count = before_filter - len(knowledge_list)
+        
+        if filtered_count > 0:
+            logger.info(f"[LLMBasedExtractor] 过滤低置信度知识: {filtered_count} 条 (阈值: {self.config.min_confidence})")
+            for k in filtered_knowledge:
+                logger.debug(f"  过滤: [{k.knowledge_type.value}] {k.content[:40]}... (confidence={k.confidence:.2f})")
+        
+        logger.info(f"[LLMBasedExtractor] ✓ 知识提取完成 - 总计 {len(knowledge_list)} 条有效知识")
+        
+        if knowledge_list:
+            logger.debug(f"[LLMBasedExtractor] 提取的知识详情:")
+            for i, k in enumerate(knowledge_list[:5], 1):
+                logger.debug(f"  {i}. [{k.knowledge_type.value}] {k.content[:60]}... (置信度: {k.confidence:.2f})")
+            if len(knowledge_list) > 5:
+                logger.debug(f"  ... 以及其他 {len(knowledge_list) - 5} 条知识")
+        else:
+            logger.warning(f"[LLMBasedExtractor] ⚠️ 未提取到任何有效知识（原始提取: {before_validation} 条，验证后: {before_validation - hallucination_count} 条，过滤后: 0 条）")
+        
+        return knowledge_list
     
     def _build_conversation_text(self, messages: List[Message]) -> str:
         """构建对话文本"""
@@ -379,29 +380,38 @@ class LLMBasedExtractor(BaseExtractor):
     
     async def _extract_with_llm(self, conversation_text: str) -> str:
         """使用LLM提取知识"""
-        system_prompt = """你是一个专业的知识提取助手。从对话中提取结构化知识信息。
+        # 使用配置中的置信度阈值
+        min_confidence_threshold = self.config.min_confidence
+        
+        system_prompt = f"""你是一个专业的知识提取助手。从对话中提取结构化知识信息。
 
 ⚠️ 重要原则：
 1. **只能提取对话中明确出现的信息** - 必须能在原文中找到直接依据
 2. **严禁推理、联想、补充信息** - 不要根据常识或背景知识添加内容
 3. **严禁捏造或猜测** - 如果对话中没有说，就不要提取
 4. **如实提取** - 保持原意，不要过度解读或扩展
+5. **宁可多提取** - 即使是简短的信息也要提取，不要遗漏有价值的内容
 
 返回JSON格式:
 ```json
-{
+{{
   "knowledge": [
-    {
+    {{
       "content": "用户是软件工程师，25岁",
       "type": "user_info",
       "confidence": 0.95
-    }
+    }},
+    {{
+      "content": "用户喜欢吃辣",
+      "type": "preference",
+      "confidence": 0.85
+    }}
   ]
-}
+}}
 ```
 
 支持的知识类型包括: user_info, preference, fact, event, intent, need, opinion, habit, constraint, interest等40种。
-只提取高价值信息，置信度需要>=0.70。
+置信度范围: 0.0-1.0，提取所有有价值信息，置信度需要>={min_confidence_threshold}。
 记住：提取的每条知识都必须有对话中的直接依据，不可凭空创造。"""
         
         user_prompt = f"""请从以下对话中提取结构化知识：
@@ -409,7 +419,10 @@ class LLMBasedExtractor(BaseExtractor):
 {conversation_text}
 
 请返回JSON格式的提取结果。
-提醒：只提取对话中明确出现的信息，不要添加任何推理、联想或补充的内容。"""
+提醒：
+1. 只提取对话中明确出现的信息，不要添加任何推理、联想或补充的内容
+2. 不要遗漏任何有价值的信息，即使很简短也要提取
+3. 确保每条知识都有对话中的直接依据"""
         
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
         
@@ -437,7 +450,12 @@ class LLMBasedExtractor(BaseExtractor):
             if json_match:
                 json_str = json_match.group(1)
             else:
-                json_str = llm_response.strip()
+                # 尝试提取任何 JSON 对象
+                json_match = re.search(r'\{.*"knowledge".*\}', llm_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                else:
+                    json_str = llm_response.strip()
             
             data = json.loads(json_str)
             
@@ -448,17 +466,20 @@ class LLMBasedExtractor(BaseExtractor):
                         type_str = item.get('type', '').lower()
                         confidence = float(item.get('confidence', 0.8))
                         
-                        # 验证检查
+                        # 验证检查（放宽）
                         if not type_str or type_str in ['unknown', 'none', '']:
                             logger.debug(f"[LLMBasedExtractor] 跳过无效类型: type={type_str}")
                             continue
                         
-                        if not content or len(content) < 5:
+                        # 降低内容长度要求：从5降到2
+                        if not content or len(content) < 2:
                             logger.debug(f"[LLMBasedExtractor] 跳过内容过短: {content}")
                             continue
                         
-                        if confidence < 0.72 or confidence > 1.0:
-                            logger.debug(f"[LLMBasedExtractor] 跳过不合理置信度: {confidence}")
+                        # 使用配置中的最小置信度，不再硬编码 0.72
+                        min_confidence = self.config.min_confidence
+                        if confidence < min_confidence or confidence > 1.0:
+                            logger.debug(f"[LLMBasedExtractor] 跳过不合理置信度: {confidence} (阈值: {min_confidence})")
                             continue
                         
                         knowledge_type = self._TYPE_MAPPING.get(type_str)
@@ -495,6 +516,7 @@ class LLMBasedExtractor(BaseExtractor):
             
         except json.JSONDecodeError as e:
             logger.error(f"[LLMBasedExtractor] JSON解析失败: {e}")
+            logger.debug(f"[LLMBasedExtractor] 原始响应: {llm_response[:200]}...")
         except Exception as e:
             logger.error(f"[LLMBasedExtractor] 解析LLM响应失败: {e}")
         
@@ -503,7 +525,7 @@ class LLMBasedExtractor(BaseExtractor):
 
     def _validate_knowledge_against_conversation(self, knowledge_list: List[Knowledge], conversation_text: str) -> List[Knowledge]:
         """
-        验证提取的知识是否真实存在于对话中，过滤幻觉内容
+        验证提取的知识是否真实存在于对话中，过滤幻觉内容（放宽验证）
         
         Args:
             knowledge_list: 待验证的知识列表
@@ -523,16 +545,18 @@ class LLMBasedExtractor(BaseExtractor):
             content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
             
             # 分词提取关键实体和动词（简单方法：提取较长的连续中文片段）
-            # 提取3个字以上的中文词组
-            key_phrases = re.findall(r'[\u4e00-\u9fa5]{3,}', content_clean)
+            # 降低要求：从3个字以上改为2个字以上
+            key_phrases = re.findall(r'[\u4e00-\u9fa5]{2,}', content_clean)
             
             # 如果没有提取到关键短语，使用整个清理后的内容
             if not key_phrases:
                 key_phrases = [content_clean]
             
-            # 检查是否至少有一个关键短语出现在对话中
+            # 放宽验证：只需要找到任意一个2字以上的关键词即可
+            # 之前的要求是3字以上，现在降低到2字
             found = False
             for phrase in key_phrases:
+                # 允许更短的匹配，并且不区分大小写
                 if len(phrase) >= 2 and phrase.lower() in conversation_lower:
                     found = True
                     break
@@ -542,6 +566,8 @@ class LLMBasedExtractor(BaseExtractor):
             else:
                 # 记录被过滤的可疑知识
                 logger.debug(f"[LLMBasedExtractor] 过滤疑似幻觉: [{knowledge.knowledge_type.value}] {content[:50]}...")
+        
+        return validated
         
         return validated
 
