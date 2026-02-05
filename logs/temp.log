@@ -1,374 +1,137 @@
 python tests/test_dst_transfertod.py --domain 酒店 --data-type clean --limit 10 --data-root .data/TransferTOD/
-
-📝 日志将自动保存到: logs/evolve_20260205_190600.log
+📝 日志将自动保存到: logs/evolve_20260205_193258.log
 ======================================================================
 DST 模式测试 - TransferTOD 数据集 (酒店)
 ======================================================================
 
 找到 200 个对话实例
 限制测试数量: 10
-[2026-02-05 19:06:26] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-05 19:06:26] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
-[2026-02-05 19:06:26] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-05 19:06:32] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=酒店, 动态槽位=True)
-[2026-02-05 19:06:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-05 19:06:32] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 酒店
-[2026-02-05 19:06:32] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 咨询酒店星级)
-[2026-02-05 19:06:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'酒店星级': '?'}, 意图=未识别
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: dontcare)
-[2026-02-05 19:06:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'酒店星级': '1'}, 意图=未识别
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'酒店星级': '1', '酒店类型': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: ?)
-[2026-02-05 19:06:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'酒店星级': '1', '酒店类型': '商务'}, 意图=未识别
-[2026-02-05 19:06:34] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:34] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:34] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 李永阳)
-[2026-02-05 19:06:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'酒店星级': '1', '酒店类型': '商务', '手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 李永阳)
-[2026-02-05 19:06:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'酒店星级': '1', '酒店类型': '商务', '手机号': '1858999495', '入住时间': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 李永阳)
-[2026-02-05 19:06:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:06:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'酒店星级': '1', '酒店类型': '商务', '手机号': '1858999495', '入住时间': '傍晚6点'}, 意图=未识别
-[2026-02-05 19:06:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 李永阳)
-[2026-02-05 19:06:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 有SPA)
-[2026-02-05 19:06:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 房间类型 (值: dontcare)
-[2026-02-05 19:06:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'酒店星级': '1', '酒店类型': '商务', '手机号': '1858999495', '入住时间': '傍晚6点'}, 意图=未识别
-[2026-02-05 19:06:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 李永阳)
-[2026-02-05 19:06:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 有SPA)
-[2026-02-05 19:06:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 房间类型 (值: 吸烟房)
-[2026-02-05 19:06:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: dontcare)
-[2026-02-05 19:06:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'酒店星级': '1', '酒店类型': '商务', '手机号': '1858999495', '入住时间': '傍晚6点'}, 意图=未识别
-[2026-02-05 19:06:38] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:38] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 615245196302152958)
-[2026-02-05 19:06:38] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 李永阳)
-[2026-02-05 19:06:38] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 有SPA)
-[2026-02-05 19:06:38] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 房间类型 (值: 吸烟房)
-[2026-02-05 19:06:38] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 5天)
-[2026-02-05 19:06:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'酒店星级': '1', '酒店类型': '商务', '手机号': '1858999495', '入住时间': '傍晚6点', '入住日期': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:06:39] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时长)
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: dontcare)
-[2026-02-05 19:06:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={}, 意图=未识别
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时长)
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'是否需要吸烟房': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时长和房间类型)
-[2026-02-05 19:06:39] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:39] ERROR - [__main__] 处理轮次 2 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:06:40] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时长和房间类型)
-[2026-02-05 19:06:40] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:40] ERROR - [__main__] 处理轮次 3 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:06:40] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:40] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:40] ERROR - [__main__] 处理轮次 4 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:06:41] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:41] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:41] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 安芷生)
-[2026-02-05 19:06:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店服务': '有泳池', '入住时间': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:41] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:41] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:41] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 安芷生)
-[2026-02-05 19:06:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店服务': '有泳池', '入住时间': '8:30 a.m.'}, 意图=未识别
-[2026-02-05 19:06:42] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:42] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:42] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 安芷生)
-[2026-02-05 19:06:42] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 344854198707021851)
-[2026-02-05 19:06:42] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 手机号码 (值: dontcare)
-[2026-02-05 19:06:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店服务': '有泳池', '入住时间': '8:30 a.m.'}, 意图=未识别
-[2026-02-05 19:06:43] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:43] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:43] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 安芷生)
-[2026-02-05 19:06:43] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 344854198707021851)
-[2026-02-05 19:06:43] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 手机号码 (值: 1822893173)
-[2026-02-05 19:06:43] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店服务': '有泳池', '入住时间': '8:30 a.m.', '酒店类型': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:44] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:44] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:06:44] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 安芷生)
-[2026-02-05 19:06:44] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 344854198707021851)
-[2026-02-05 19:06:44] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 手机号码 (值: 1822893173)
-[2026-02-05 19:06:44] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店服务': '有泳池', '入住时间': '8:30 a.m.', '酒店类型': '舒适型'}, 意图=未识别
-[2026-02-05 19:06:45] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:06:45] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:45] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住日期)
-[2026-02-05 19:06:45] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'入住日期': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:45] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:06:45] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'入住时间': '2015/8/3', '入住日期': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:46] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:06:46] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'入住时间': '下午2点左右', '入住日期': '2015/8/3', '酒店星级': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:46] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:46] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:46] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:46] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:47] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:47] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:48] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:48] ERROR - [__main__] 处理轮次 6 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:48] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:48] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:49] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:49] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:50] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:50] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:51] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:06:51] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:51] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:06:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'入住时间': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:51] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:06:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'入住时间': '10:00', '手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:51] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'入住时间': '10:00', '手机号': '1803083395', '酒店星级': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:52] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:52] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:52] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:52] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:53] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:53] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:53] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:53] ERROR - [__main__] 处理轮次 6 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:54] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:54] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:55] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:55] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:55] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:55] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:56] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:06:56] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:06:56] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取用户名)
-[2026-02-05 19:06:56] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: dontcare)
-[2026-02-05 19:06:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={}, 意图=未识别
-[2026-02-05 19:06:56] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取用户名)
-[2026-02-05 19:06:56] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:06:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'入住时间': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:57] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:06:57] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:06:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'入住时间': '傍晚6点左右', '是否需要吸烟房': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:57] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:06:57] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:06:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'入住时间': '傍晚6点左右', '入住日期': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:58] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住日期)
-[2026-02-05 19:06:58] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:06:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '酒店类型': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:58] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:58] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:06:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'入住时间': '傍晚6点左右', '入住日期': '2018/1/18', '酒店类型': '经济型', '酒店服务': 'dontcare'}, 意图=未识别
-[2026-02-05 19:06:59] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:06:59] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:06:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'入住时间': '傍晚6点左右', '入住日期': '2018/1/18', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:00] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:00] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:07:00] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: dontcare)
-[2026-02-05 19:07:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'入住时间': '傍晚6点左右', '入住日期': '2018/1/18', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': '1856316172'}, 意图=未识别
-[2026-02-05 19:07:01] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:01] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:07:01] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 569699197308056304)
-[2026-02-05 19:07:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'入住时间': '傍晚6点左右', '入住日期': '2018/1/18', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': '1856316172', '入住天数': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:01] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:01] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 刘佳诚)
-[2026-02-05 19:07:01] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 569699197308056304)
-[2026-02-05 19:07:01] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:02] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:07:02] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:03] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取手机号)
-[2026-02-05 19:07:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:03] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取手机号)
-[2026-02-05 19:07:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'手机号': '1887467231', '酒店星级': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:03] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:03] ERROR - [__main__] 处理轮次 2 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:04] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:07:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'入住时间': '下午2点', '手机号': '1887467231', '酒店星级': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:04] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取用户名)
-[2026-02-05 19:07:04] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:04] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: dontcare)
-[2026-02-05 19:07:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'手机号': '1887467231', '入住时间': '下午2点'}, 意图=未识别
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 648980201206203195)
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'入住时间': '下午2点', '手机号': '1887467231'}, 意图=未识别
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 648980201206203195)
-[2026-02-05 19:07:05] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 酒廊)
-[2026-02-05 19:07:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'入住时间': '下午2点', '手机号': '1887467231', '酒店类型': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:06] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:06] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:06] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 648980201206203195)
-[2026-02-05 19:07:06] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 酒廊)
-[2026-02-05 19:07:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'入住时间': '下午2点', '手机号': '1887467231', '入住日期': '2021.3.23', '入住天数': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:07] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:07] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:07] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 648980201206203195)
-[2026-02-05 19:07:07] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 酒廊)
-[2026-02-05 19:07:07] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:08] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:08] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:08] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 648980201206203195)
-[2026-02-05 19:07:08] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 酒廊)
-[2026-02-05 19:07:08] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:09] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:07:09] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 胡棚)
-[2026-02-05 19:07:09] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 648980201206203195)
-[2026-02-05 19:07:09] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: 酒廊)
-[2026-02-05 19:07:09] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:09] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取酒店类型)
-[2026-02-05 19:07:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'酒店类型': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:09] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'酒店类型': '经济型', '是否需要吸烟房': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:10] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'酒店类型': '经济型'}, 意图=未识别
-[2026-02-05 19:07:10] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:10] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'入住时间': 'dontcare', '酒店类型': '经济型'}, 意图=未识别
-[2026-02-05 19:07:11] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:11] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'入住时间': '傍晚6点', '酒店类型': '经济型', '入住天数': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:11] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:11] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:11] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:12] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:12] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:12] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 杨西文)
-[2026-02-05 19:07:12] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'入住时间': '傍晚6点', '酒店类型': '经济型', '入住天数': '5天', '手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:13] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:13] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:13] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:14] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:14] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:14] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:15] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:15] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:15] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:16] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:07:16] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 178231195212014167)
-[2026-02-05 19:07:16] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:16] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 获取手机号)
-[2026-02-05 19:07:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:16] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'是否需要吸烟房': 'dontcare', '手机号': '17618444326'}, 意图=未识别
-[2026-02-05 19:07:16] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'手机号': '17618444326', '酒店星级': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:17] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:17] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:17] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'手机号': '17618444326', '酒店星级': 'dontcare', '入住时间': '7 p.m.'}, 意图=未识别
-[2026-02-05 19:07:18] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'手机号': '17618444326', '酒店星级': 'dontcare', '入住时间': '7 p.m.', '酒店类型': '有SPA'}, 意图=未识别
-[2026-02-05 19:07:18] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:18] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 酒店类型2 (值: 豪华型)
-[2026-02-05 19:07:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'手机号': '17618444326', '酒店星级': 'dontcare', '入住时间': '7 p.m.', '酒店类型': '有SPA'}, 意图=未识别
-[2026-02-05 19:07:19] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:19] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 酒店类型2 (值: 豪华型)
-[2026-02-05 19:07:19] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: dontcare)
-[2026-02-05 19:07:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'手机号': '17618444326', '酒店星级': 'dontcare', '入住时间': '7 p.m.', '酒店类型': '有SPA', '入住日期': '2022年3月23日'}, 意图=未识别
-[2026-02-05 19:07:20] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:20] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 酒店类型2 (值: 豪华型)
-[2026-02-05 19:07:20] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 642473199302054568)
-[2026-02-05 19:07:20] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: dontcare)
-[2026-02-05 19:07:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'手机号': '17618444326', '酒店星级': 'dontcare', '入住时间': '7 p.m.', '酒店类型': '有SPA', '入住日期': '2022年3月23日'}, 意图=未识别
-[2026-02-05 19:07:21] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:21] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 酒店类型2 (值: 豪华型)
-[2026-02-05 19:07:21] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 642473199302054568)
-[2026-02-05 19:07:21] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 何建超)
-[2026-02-05 19:07:21] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'手机号': '17618444326', '酒店星级': 'dontcare', '入住时间': '7 p.m.', '酒店类型': '有SPA', '入住日期': '2022年3月23日', '入住天数': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:22] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:22] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:22] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:07:22] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'入住时间': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:23] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:23] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: dontcare)
-[2026-02-05 19:07:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'入住时间': '7 p.m.'}, 意图=未识别
-[2026-02-05 19:07:23] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:23] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'入住时间': '7 p.m.', '酒店类型': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:24] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:24] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:24] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:24] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:24] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:24] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:25] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:25] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:25] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:25] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'入住时间': '7 p.m.', '酒店星级': 'dontcare', '酒店类型': 'dontcare', '入住日期': '婚礼办理'}, 意图=未识别
-[2026-02-05 19:07:26] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:26] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:26] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'入住时间': '7 p.m.', '酒店星级': 'dontcare', '酒店类型': 'dontcare', '入住日期': '2022-6-17', '是否需要吸烟房': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:27] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:27] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:27] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:27] ERROR - [__main__] 处理轮次 7 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:07:28] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:28] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:28] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:28] ERROR - [__main__] 处理轮次 8 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:07:28] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:28] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:28] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:28] ERROR - [__main__] 处理轮次 9 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:07:29] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:07:29] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 409505197609089601)
-[2026-02-05 19:07:29] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:30] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间)
-[2026-02-05 19:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'入住时间': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:30] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认入住时间和入住天数)
-[2026-02-05 19:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'入住时间': '8:30 a.m.', '入住天数': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:30] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:30] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:31] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:31] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:31] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:07:31] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:31] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:32] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:32] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:32] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: dontcare)
-[2026-02-05 19:07:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847'}, 意图=未识别
-[2026-02-05 19:07:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 166230199612252090)
-[2026-02-05 19:07:33] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 服务要求 (值: dontcare)
-[2026-02-05 19:07:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847'}, 意图=未识别
-[2026-02-05 19:07:34] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:34] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:34] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 166230199612252090)
-[2026-02-05 19:07:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '酒店服务': '泳池'}, 意图=未识别
-[2026-02-05 19:07:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 166230199612252090)
-[2026-02-05 19:07:35] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: dontcare)
-[2026-02-05 19:07:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '酒店服务': '泳池', '入住日期': '2019.2.3'}, 意图=未识别
-[2026-02-05 19:07:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 预订酒店)
-[2026-02-05 19:07:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 入住时长 (值: 两周)
-[2026-02-05 19:07:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 身份证号码 (值: 166230199612252090)
-[2026-02-05 19:07:36] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: 用户名 (值: 杜丽玲)
-[2026-02-05 19:07:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '酒店服务': '泳池', '入住日期': '2019.2.3', '是否需要吸烟房': 'dontcare'}, 意图=未识别
-[2026-02-05 19:07:37] WARNING - [contextmind.modes.dst.response_parser] 跳过未定义的槽位: intent (值: 确认预订信息)
-[2026-02-05 19:07:37] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:24] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-05 19:33:24] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-05 19:33:24] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-05 19:33:29] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=酒店, 动态槽位=True)
+[2026-02-05 19:33:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-05 19:33:29] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 酒店
+[2026-02-05 19:33:29] INFO - [__main__]    动态槽位模式: 启用（接受所有LLM提取的槽位）
+[2026-02-05 19:33:29] INFO - [__main__]    预定义槽位数: 10
+[2026-02-05 19:33:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询酒店星级', '酒店星级': '?'}, 意图=咨询酒店星级
+[2026-02-05 19:33:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '?'}, 意图=预订酒店
+[2026-02-05 19:33:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': '有SPA', '房间类型': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': '有SPA', '房间类型': '吸烟房', '入住时长': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': '有SPA', '房间类型': '吸烟房', '入住时长': '5天', '入住日期': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:36] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认入住时长', '入住时长': 'dontcare'}, 意图=确认入住时长
+[2026-02-05 19:33:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时长', '入住时长': '两周', '是否需要吸烟房': 'dontcare'}, 意图=确认入住时长
+[2026-02-05 19:33:37] ERROR - [__main__] 处理轮次 2 时出错: 'bool' object has no attribute 'strip'
+[2026-02-05 19:33:37] ERROR - [__main__] 处理轮次 3 时出错: 'bool' object has no attribute 'strip'
+[2026-02-05 19:33:37] ERROR - [__main__] 处理轮次 4 时出错: 'bool' object has no attribute 'strip'
+[2026-02-05 19:33:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '用户名': '安芷生', '入住时间': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': '344854198707021851', '手机号码': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': '344854198707021851', '手机号码': '1822893173', '酒店类型': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': '344854198707021851', '手机号码': '1822893173', '酒店类型': '舒适型', '开始日期': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:42] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认入住日期', '入住日期': 'dontcare'}, 意图=确认入住日期
+[2026-02-05 19:33:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时间和日期', '入住日期': '2015/8/3', '入住时间': 'dontcare'}, 意图=确认入住时间和日期
+[2026-02-05 19:33:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '确认入住时间和酒店星级', '入住日期': '2015/8/3', '入住时间': '下午2点左右', '酒店星级': 'dontcare'}, 意图=确认入住时间和酒店星级
+[2026-02-05 19:33:43] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:43] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:44] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:44] ERROR - [__main__] 处理轮次 6 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:45] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:46] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:46] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:47] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认入住时间', '入住时间': 'dontcare'}, 意图=确认入住时间
+[2026-02-05 19:33:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时间和联系方式', '入住时间': '10:00', '手机号': 'dontcare'}, 意图=确认入住时间和联系方式
+[2026-02-05 19:33:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '入住时间': '10:00', '手机号': '1803083395', '酒店星级': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:49] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:49] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:50] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:50] ERROR - [__main__] 处理轮次 6 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:51] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:52] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:52] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:53] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取用户名', '用户名': 'dontcare'}, 意图=获取用户名
+[2026-02-05 19:33:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取用户名', '用户名': '刘佳诚', '入住时间': 'dontcare'}, 意图=获取用户名
+[2026-02-05 19:33:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '确认入住时间和需求', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '是否需要吸烟房': 'dontcare'}, 意图=确认入住时间和需求
+[2026-02-05 19:33:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '确认入住时间和开始日期', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '开始日期': 'dontcare'}, 意图=确认入住时间和开始日期
+[2026-02-05 19:33:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '确认入住日期和酒店类型', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': 'dontcare'}, 意图=确认入住日期和酒店类型
+[2026-02-05 19:33:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': '1856316172', '身份证号码': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': '1856316172', '身份证号码': '569699197308056304', '入住天数': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:33:58] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:33:59] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取手机号', '手机号': 'dontcare'}, 意图=获取手机号
+[2026-02-05 19:34:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取手机号', '手机号': '1887467231', '酒店星级': 'dontcare'}, 意图=获取手机号
+[2026-02-05 19:34:00] ERROR - [__main__] 处理轮次 2 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '确认入住时间和用户名', '入住时间': '下午2点', '用户名': 'dontcare', '手机号': '1887467231', '酒店星级': 'dontcare'}, 意图=确认入住时间和用户名
+[2026-02-05 19:34:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取用户名', '用户名': '胡棚', '手机号': '1887467231', '身份证号码': 'dontcare', '入住时间': '下午2点', '酒店星级': 'dontcare'}, 意图=获取用户名
+[2026-02-05 19:34:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取身份证号码', '用户名': '胡棚', '手机号': '1887467231', '身份证号码': '648980201206203195', '入住时间': '下午2点', '酒店星级': 'dontcare', '酒店服务': 'dontcare'}, 意图=获取身份证号码
+[2026-02-05 19:34:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时间': '下午2点', '手机号': '1887467231', '用户名': '胡棚', '身份证号码': '648980201206203195', '酒店服务': '酒廊', '酒店星级': 'dontcare', '开始日期': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时间': '下午2点', '手机号': '1887467231', '用户名': '胡棚', '身份证号码': '648980201206203195', '酒店服务': '酒廊', '酒店星级': 'dontcare', '入住天数': 'dontcare', '开始日期': '2021.3.23'}, 意图=预订酒店
+[2026-02-05 19:34:04] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:05] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:06] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取酒店类型', '酒店类型': 'dontcare'}, 意图=获取酒店类型
+[2026-02-05 19:34:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取酒店类型', '酒店类型': '经济型', '是否需要吸烟房': 'dontcare'}, 意图=获取酒店类型
+[2026-02-05 19:34:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '获取酒店类型和吸烟房需求', '酒店类型': '经济型', '身份证号码': 'dontcare'}, 意图=获取酒店类型和吸烟房需求
+[2026-02-05 19:34:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取入住时间和身份证号码', '入住时间': 'dontcare', '身份证号码': '178231195212014167', '酒店类型': '经济型'}, 意图=获取入住时间和身份证号码
+[2026-02-05 19:34:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取入住时间和入住天数', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare'}, 意图=获取入住时间和入住天数
+[2026-02-05 19:34:09] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '获取用户名和手机号', '用户名': '杨西文', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare', '手机号': 'dontcare'}, 意图=获取用户名和手机号
+[2026-02-05 19:34:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '获取手机号和开始日期', '用户名': '杨西文', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare', '手机号': '17619721584', '开始日期': 'dontcare'}, 意图=获取手机号和开始日期
+[2026-02-05 19:34:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '获取开始日期', '开始日期': '下个月2号', '用户名': '杨西文', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare', '手机号': '17619721584', '酒店星级': 'dontcare'}, 意图=获取开始日期
+[2026-02-05 19:34:12] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:13] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取手机号', '手机号': 'dontcare'}, 意图=获取手机号
+[2026-02-05 19:34:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取手机号', '手机号': '17618444326', '是否需要吸烟房': 'dontcare'}, 意图=获取手机号
+[2026-02-05 19:34:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '获取酒店星级', '酒店星级': 'dontcare', '手机号': '17618444326'}, 意图=获取酒店星级
+[2026-02-05 19:34:15] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:15] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住时间': 'dontcare', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '有SPA', '酒店服务': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '入住时间': 'dontcare', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA'}, 意图=预订酒店
+[2026-02-05 19:34:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时间': '22年3月23', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA', '入住天数': 'dontcare', '身份证号码': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时间': '22年3月23', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA', '入住天数': 'dontcare', '身份证号码': '642473199302054568', '用户名': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住时间': '22年3月23', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA', '入住天数': 'dontcare', '身份证号码': '642473199302054568', '用户名': '何建超'}, 意图=预订酒店
+[2026-02-05 19:34:20] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取入住时间', '入住时间': 'dontcare'}, 意图=获取入住时间
+[2026-02-05 19:34:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取入住时间和身份证号码', '入住时间': '7 p.m.', '身份证号码': 'dontcare'}, 意图=获取入住时间和身份证号码
+[2026-02-05 19:34:21] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '获取入住时间和身份证号码', '入住时间': '7 p.m.', '身份证号码': '409505197609089601', '酒店类型': 'dontcare'}, 意图=获取入住时间和身份证号码
+[2026-02-05 19:34:21] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:22] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '确认入住日期', '入住日期': '婚礼办理', '入住时间': '7 p.m.', '身份证号码': '409505197609089601', '酒店星级': 'dontcare', '酒店类型': 'dontcare', '酒店服务': 'dontcare'}, 意图=确认入住日期
+[2026-02-05 19:34:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '确认入住日期', '入住日期': '2022-6-17', '入住时间': '7 p.m.', '身份证号码': '409505197609089601', '是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店类型': 'dontcare', '酒店服务': 'dontcare'}, 意图=确认入住日期
+[2026-02-05 19:34:24] ERROR - [__main__] 处理轮次 7 时出错: 'bool' object has no attribute 'strip'
+[2026-02-05 19:34:25] ERROR - [__main__] 处理轮次 8 时出错: 'bool' object has no attribute 'strip'
+[2026-02-05 19:34:26] ERROR - [__main__] 处理轮次 9 时出错: 'bool' object has no attribute 'strip'
+[2026-02-05 19:34:27] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取入住时间', '入住时间': 'dontcare'}, 意图=获取入住时间
+[2026-02-05 19:34:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时间和入住天数', '入住时间': '8:30 a.m.', '入住天数': 'dontcare'}, 意图=确认入住时间和入住天数
+[2026-02-05 19:34:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:28] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
+[2026-02-05 19:34:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': '泳池', '开始日期': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': '泳池', '开始日期': '2019.2.3', '用户名': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': '泳池', '开始日期': '2019.2.3', '用户名': '杜丽玲', '是否需要吸烟房': 'dontcare'}, 意图=预订酒店
+[2026-02-05 19:34:34] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
 
 ======================================================================
 📊 测试指标汇总
 ======================================================================
 
 测试对话数: 10
-平均槽位准确率: 25.00%
-平均 Joint Goal Accuracy: 31.82%
-平均 Precision: 12.16%
-平均 Recall: 25.00%
-平均 F1 Score: 14.87%
+平均槽位准确率: 27.00%
+平均 Joint Goal Accuracy: 33.64%
+平均 Precision: 8.34%
+平均 Recall: 27.00%
+平均 F1 Score: 11.32%
