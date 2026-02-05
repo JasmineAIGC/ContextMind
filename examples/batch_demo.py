@@ -299,7 +299,7 @@ class BatchDialogueTest:
                     result_text += f"  {key}: {value}\n"
         
         # 获取最终累积状态
-        final_state = self.tracker.current_state.copy()
+        final_state = tracker.current_state.copy()
         
         # 生成汇总
         summary = f"\n{'='*50}\n"
@@ -330,6 +330,16 @@ class BatchDialogueTest:
         Returns:
             (处理结果文本, 最终状态)
         """
+        # ✅ 为每个对话创建新的tracker实例，确保测试结果独立
+        from contextmind.modes.fnctod import FnCTODTracker
+        tracker = FnCTODTracker.from_scenario(
+            self.llm_client,
+            self.scenario_config,
+            use_two_stage=True,
+            max_history_turns=10
+        )
+        logger.info(f"✅ 为新对话创建FnCTOD tracker")
+        
         results = []
         result_text = ""
         
@@ -337,7 +347,7 @@ class BatchDialogueTest:
             user_utterance = turn.get('user_utterance', '')
             
             # 处理这一轮对话
-            result = await self.fnctod_tracker.process_turn(
+            result = await tracker.process_turn(
                 user_utterance=user_utterance,
                 system_utterance=""
             )
@@ -405,13 +415,17 @@ class BatchDialogueTest:
         Returns:
             (处理结果文本, 状态信息)
         """
+        # ✅ 为每个对话创建新的应用实例，确保测试结果独立
+        app = self._create_app_instance()
+        logger.info(f"✅ 为新对话创建Evolve应用")
+        
         result_text = ""
         
         for i, turn in enumerate(turns):
             user_utterance = turn.get('user_utterance', '')
             
             # 处理用户消息 - 复用 gradio_demo.py 的流程
-            reply = await self.app.process_turn(user_utterance)
+            reply = await app.process_turn(user_utterance)
             
             # 格式化输出
             result_text += f"\n{'='*50}\n"
@@ -422,8 +436,8 @@ class BatchDialogueTest:
         
         # 获取记忆库状态
         state_info = {}
-        if self.app and hasattr(self.app, 'context_engine') and hasattr(self.app.context_engine, 'memory_bank'):
-            memory_cache = self.app.context_engine.memory_bank.get_memory_cache()
+        if app and hasattr(app, 'context_engine') and hasattr(app.context_engine, 'memory_bank'):
+            memory_cache = app.context_engine.memory_bank.get_memory_cache()
             state_info['memory_count'] = len(memory_cache)
             state_info['recent_memories'] = []
             for mem in memory_cache[-5:]:  # 最近5条记忆
@@ -449,6 +463,38 @@ class BatchDialogueTest:
         })
         
         return result_text + summary, state_info
+    
+    def _create_app_instance(self):
+        """
+        为每个对话创建新的应用实例
+        
+        Returns:
+            应用实例 (InsuranceApplication/CallCenterApplication/ChatApplication)
+        """
+        scenario_name = self.scenario_config.name
+        
+        # 根据场景创建相应的应用
+        if "保险" in scenario_name:
+            from contextmind.apps.insurance_app import InsuranceApplication
+            return InsuranceApplication(
+                llm_client=self.llm_client,
+                session_id=f"batch_test_{id(self)}",
+                use_real_llm=True
+            )
+        elif "客服" in scenario_name or "callcenter" in scenario_name.lower():
+            from contextmind.apps.callcenter_app import CallCenterApplication
+            return CallCenterApplication(
+                llm_client=self.llm_client,
+                session_id=f"batch_test_{id(self)}",
+                use_real_llm=True
+            )
+        else:
+            from contextmind.apps.chat_app import ChatApplication
+            return ChatApplication(
+                llm_client=self.llm_client,
+                session_id=f"batch_test_{id(self)}",
+                use_real_llm=True
+            )
 
 
 # 全局测试实例
