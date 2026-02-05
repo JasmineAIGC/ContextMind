@@ -153,8 +153,16 @@ class FnCTODTracker:
         # 智能检测：如果场景已确定，跳过域选择
         if self.scenario_config:
             # 场景已确定，domain已知，跳过域选择阶段
-            selected_domains = [self.scenario_config.name]
-            logger.info(f"✅ 场景已确定，跳过域选择，直接使用domain: {selected_domains}")
+            # 注意：使用FunctionManager中实际注册的domain名称，而不是scenario_config.name
+            # 因为scenario名称（如"保险挽回"）可能与domain名称（如"insurance"）不同
+            available_domains = self.function_manager.get_domain_names()
+            if available_domains:
+                selected_domains = available_domains
+                logger.info(f"✅ 场景已确定，跳过域选择，直接使用domain: {selected_domains}")
+            else:
+                # 如果没有注册的domain，回退到域选择
+                logger.warning("⚠️ 场景已确定但没有注册的domain，执行域选择")
+                selected_domains = await self._select_domains(user_utterance)
         elif self.use_two_stage and len(self.function_manager.get_all_domains()) > 1:
             # 场景未确定，需要执行域选择
             logger.info("场景未确定，执行域选择...")
