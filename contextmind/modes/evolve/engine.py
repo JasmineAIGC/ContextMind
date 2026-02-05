@@ -91,19 +91,22 @@ class EvolveEngine:
         """
         初始化上下文引擎
         
-        v0.2.1 知识提取架构:
-        默认使用基于大语言模型的知识提取，确保最佳效果
+        v0.2.1+ 知识提取架构:
+        默认使用基于大语言模型的知识提取，确保最佳效果。
+        当LLM不可用时，自动降级到规则提取，确保知识提取功能始终可用。
         
         Args:
             app_name: 应用名称
             user_id: 用户 ID
-            llm_client: LLM 客户端实例 (可选，但强烈推荐用于知识提取)
+            llm_client: LLM 客户端实例 (可选，推荐用于高质量知识提取)
             session_service: Session 服务实例 (可选)
             memory_service: Memory 服务实例 (可选)
             max_recent_events: 保留的最大近期事件数量 (默认 9999, 实际不限制)
             use_postprocessor: (已废弃) 使用 handle_response 代替
             use_summarizer: 是否使用对话摘要器 (默认 False)
-            extraction_method: 知识提取方式 (默认 'llm' 使用大语言模型)
+            extraction_method: 知识提取方式 ('llm' 或 'rule', 默认 'llm')
+                - 'llm': 使用LLM进行智能提取（需要llm_client，否则自动降级）
+                - 'rule': 使用规则提取（轻量级，无需LLM）
             extraction_config: 提取配置对象 (可选)
         """
         self.app_name = app_name
@@ -134,8 +137,8 @@ class EvolveEngine:
         self.compressor = ContextCompressor()
         self.reorderer = ContextReorderer()
         
-        # 初始化知识提取器 (v0.2.1 - 默认使用 LLM，确保最佳效果)
-        from .memory import LLMBasedExtractor
+        # 初始化知识提取器 (v0.2.1+ - 支持 LLM 和规则提取，自动降级)
+        from .memory import LLMBasedExtractor, RuleBasedExtractor
         from .core.configs import DEFAULT_MEMORY_CONFIG
         
         # 使用提供的配置或默认配置
@@ -145,23 +148,32 @@ class EvolveEngine:
         
         if extraction_method == "llm":
             if not llm_client:
-                logger.error(
+                # 自动降级到规则提取，而不是完全禁用
+                logger.warning(
                     "[EvolveEngine] ⚠️ LLM提取模式需要llm_client参数！"
-                    "知识提取功能将被禁用。请提供llm_client以启用自动知识提取。"
+                    "自动降级到RuleBasedExtractor以确保知识提取功能可用。"
                 )
-                self.extractor = None
-                self.extraction_method = "disabled"
+                self.extractor = RuleBasedExtractor(config)
+                self.extraction_method = "rule"
+                logger.info("[EvolveEngine] ✅ RuleBasedExtractor 已初始化（降级模式）")
             else:
                 self.extractor = LLMBasedExtractor(llm_client, config)
+                self.extraction_method = "llm"
                 logger.info("[EvolveEngine] ✅ LLMBasedExtractor 已初始化用于知识提取")
+        elif extraction_method == "rule":
+            # 支持显式使用规则提取
+            self.extractor = RuleBasedExtractor(config)
+            self.extraction_method = "rule"
+            logger.info("[EvolveEngine] ✅ RuleBasedExtractor 已初始化用于知识提取")
         else:
-            # 不再支持基于规则的提取
+            # 未知的提取方式，降级到规则提取
             logger.warning(
-                f"[EvolveEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
-                "v0.2.1+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
+                f"[EvolveEngine] ⚠️ 未知的提取方式: {extraction_method}. "
+                "降级到RuleBasedExtractor以确保知识提取功能可用。"
             )
-            self.extractor = None
-            self.extraction_method = "disabled"
+            self.extractor = RuleBasedExtractor(config)
+            self.extraction_method = "rule"
+            logger.info("[EvolveEngine] ✅ RuleBasedExtractor 已初始化（降级模式）")
         
         # 初始化响应处理器 (v0.2.1 - 替代 PostProcessor)
         self.response_handler = ResponseHandler(
