@@ -1,121 +1,80 @@
-python gradio_demo.py --log-level DEBUG --port 8080
-📝 日志将自动保存到: logs/evolve_20260204_174358.log
-[2026-02-04 17:43:58] INFO - [__main__] [__main__] 启动 ContextMind Gradio Demo
-[2026-02-04 17:43:58] INFO - [__main__] 参数配置: 日志级别=DEBUG, 最大历史轮数=10, 端口=8080, 分享=False
-[2026-02-04 17:43:58] INFO - [__main__] Demo实例创建完成（延迟初始化）
-[2026-02-04 17:43:58] INFO - [__main__] ✅ Demo实例创建成功
-/share/airesearch/data/yejiang.zhou/workspace/ContextMind/ui_components.py:68: UserWarning: The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0: theme, css. Please pass these parameters to launch() instead.
+python examples/web_demo.py --log-level DEBUG --port 6060
+📝 日志将自动保存到: logs/evolve_20260205_133902.log
+[2026-02-05 13:39:02] INFO - [__main__] [__main__] 启动 ContextMind Gradio Demo
+[2026-02-05 13:39:02] INFO - [__main__] 参数配置: 日志级别=DEBUG, 最大历史轮数=10, 端口=6060, 分享=False
+[2026-02-05 13:39:02] INFO - [__main__] Demo实例创建完成（延迟初始化）
+[2026-02-05 13:39:02] INFO - [__main__] ✅ Demo实例创建成功
+/share/airesearch/data/yejiang.zhou/workspace/ContextMind/contextmind/ui/components.py:68: UserWarning: The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0: theme, css. Please pass these parameters to launch() instead.
   with gr.Blocks(
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='huggingface.co' port=443 local_address=None timeout=10 socket_options=None
-[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='api.gradio.app' port=443 local_address=None timeout=3 socket_options=None
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] INFO - [__main__] ✅ UI创建成功
-[2026-02-04 17:43:58] INFO - [__main__] 启动Gradio应用... (端口: 8080, 分享: False)
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-[2026-02-04 17:43:58] DEBUG - Using selector: EpollSelector
-* Running on local URL:  http://0.0.0.0:8080
-[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='localhost' port=8080 local_address=None timeout=None socket_options=None
-[2026-02-04 17:43:58] DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x7f2311511d00>
-[2026-02-04 17:43:58] DEBUG - send_request_headers.started request=<Request [b'GET']>
-[2026-02-04 17:43:58] DEBUG - send_request_headers.complete
-[2026-02-04 17:43:58] DEBUG - send_request_body.started request=<Request [b'GET']>
-[2026-02-04 17:43:58] DEBUG - send_request_body.complete
-[2026-02-04 17:43:58] DEBUG - receive_response_headers.started request=<Request [b'GET']>
-[2026-02-04 17:43:58] DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Wed, 04 Feb 2026 09:43:58 GMT'), (b'server', b'uvicorn'), (b'content-length', b'4'), (b'content-type', b'application/json')])
-[2026-02-04 17:43:58] INFO - HTTP Request: GET http://localhost:8080/gradio_api/startup-events "HTTP/1.1 200 OK"
-[2026-02-04 17:43:58] DEBUG - receive_response_body.started request=<Request [b'GET']>
-[2026-02-04 17:43:58] DEBUG - receive_response_body.complete
-[2026-02-04 17:43:58] DEBUG - response_closed.started
-[2026-02-04 17:43:58] DEBUG - response_closed.complete
-[2026-02-04 17:43:58] DEBUG - close.started
-[2026-02-04 17:43:58] DEBUG - close.complete
-[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='localhost' port=8080 local_address=None timeout=3 socket_options=None
-[2026-02-04 17:43:58] DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x7f230b068980>
-[2026-02-04 17:43:58] DEBUG - send_request_headers.started request=<Request [b'HEAD']>
-[2026-02-04 17:43:58] DEBUG - send_request_headers.complete
-[2026-02-04 17:43:58] DEBUG - send_request_body.started request=<Request [b'HEAD']>
-[2026-02-04 17:43:58] DEBUG - send_request_body.complete
-[2026-02-04 17:43:58] DEBUG - receive_response_headers.started request=<Request [b'HEAD']>
-[2026-02-04 17:43:58] DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'date', b'Wed, 04 Feb 2026 09:43:58 GMT'), (b'server', b'uvicorn'), (b'content-length', b'94646'), (b'content-type', b'text/html; charset=utf-8')])
-[2026-02-04 17:43:58] INFO - HTTP Request: HEAD http://localhost:8080/ "HTTP/1.1 200 OK"
-[2026-02-04 17:43:58] DEBUG - receive_response_body.started request=<Request [b'HEAD']>
-[2026-02-04 17:43:58] DEBUG - receive_response_body.complete
-[2026-02-04 17:43:58] DEBUG - response_closed.started
-[2026-02-04 17:43:58] DEBUG - response_closed.complete
-[2026-02-04 17:43:58] DEBUG - close.started
-[2026-02-04 17:43:58] DEBUG - close.complete
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] INFO - [__main__] ✅ UI创建成功
+[2026-02-05 13:39:02] INFO - [__main__] 启动Gradio应用... (端口: 6060, 分享: False)
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+[2026-02-05 13:39:02] DEBUG - Using selector: EpollSelector
+* Running on local URL:  http://0.0.0.0:6060
 * To create a public link, set `share=True` in `launch()`.
-[2026-02-04 17:43:58] DEBUG - connect_tcp.started host='huggingface.co' port=443 local_address=None timeout=10 socket_options=None
-[2026-02-04 17:44:02] DEBUG - connect_tcp.failed exception=ConnectError(gaierror(-3, 'Temporary failure in name resolution'))
-[2026-02-04 17:44:02] DEBUG - connect_tcp.failed exception=ConnectError(gaierror(-3, 'Temporary failure in name resolution'))
-[2026-02-04 17:44:02] DEBUG - connect_tcp.failed exception=ConnectError(gaierror(-3, 'Temporary failure in name resolution'))
-[2026-02-04 17:44:04] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-04 17:44:04] INFO - [utils.llm_client] [LLM Client] 初始化成功
-[2026-02-04 17:44:04] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-04 17:44:11] DEBUG - [evolve.memory.bank] [MemoryBank] 使用 Plugin - Retriever: SemanticSearchRetriever, Updater: SimpleUpdater
-[2026-02-04 17:44:11] INFO - [evolve.memory.extractor] [LLMBasedExtractor] 初始化完成 - 使用LLM自动提取
-[2026-02-04 17:44:11] INFO - [evolve.engine] [EvolveEngine] ✅ LLMBasedExtractor 已初始化用于知识提取
-[2026-02-04 17:44:11] INFO - [evolve.pipeline.response_handler] [ResponseHandler] 初始化完成
-[2026-02-04 17:44:11] INFO - [evolve.engine] [EvolveEngine] ResponseHandler 已初始化
-[2026-02-04 17:44:11] INFO - [evolve.engine] EvolveEngine 已初始化 app=gradio_demo_chat, user=gradio_demo_user
-[2026-02-04 17:44:11] INFO - [utils.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-04 17:44:11] INFO - [utils.llm_client] [LLM Client] 初始化成功
-[2026-02-04 17:44:11] INFO - [apps.chat_app] [ChatApplication] ✓ 初始化完成 (真实LLM: True, 知识提取: llm)
-[2026-02-04 17:44:11] INFO - [evolve.pipeline.summarizer] [Summarizer] ✅ 使用基于大语言模型的摘要策略
-[2026-02-04 17:44:11] INFO - [evolve.pipeline.summarizer] [LLMBasedSummarizer] 初始化完成 - 使用LLM智能摘要
-[2026-02-04 17:44:11] INFO - [evolve.pipeline.summarizer] [Summarizer] 初始化完成 - 策略: LLMBasedSummarizer, 窗口: 10, 增量模式启用
-[2026-02-04 17:44:11] DEBUG - [apps.chat_app] [ChatApplication] ✓ 对话摘要器已初始化 (方式: llm, 触发阈值: 5轮)
-[2026-02-04 17:44:11] INFO - [__main__] Evolve模式初始化完成
-[2026-02-04 17:44:11] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: evolve
-[2026-02-04 17:44:11] INFO - [__main__] 配置已更新: chat, evolve
-[2026-02-04 17:44:11] INFO - [fnctod.function_manager] FunctionManager 初始化完成
-[2026-02-04 17:44:11] DEBUG - [fnctod.function_manager] 添加domain函数: chat (6 个参数)
-[2026-02-04 17:44:11] INFO - [fnctod.fnctod_tracker] ✅ 已加载预定义FnCTOD Schema: chat
-[2026-02-04 17:44:11] DEBUG - [fnctod.response_parser] FnCTODResponseParser 初始化
-[2026-02-04 17:44:11] INFO - [fnctod.fnctod_tracker] FnCTODTracker 初始化完成 (两阶段模式: True)
-[2026-02-04 17:44:11] INFO - [__main__] FnCTOD模式初始化完成
-[2026-02-04 17:44:11] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: fnctod
-[2026-02-04 17:44:11] INFO - [__main__] 配置已更新: chat, fnctod
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] 
+[2026-02-05 13:46:30] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-05 13:46:30] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-05 13:46:30] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-05 13:46:30] DEBUG - [contextmind.modes.evolve.memory.bank] [MemoryBank] 使用 Plugin - Retriever: SemanticSearchRetriever, Updater: SimpleUpdater
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.memory.extractor] [LLMBasedExtractor] 初始化完成 - 使用LLM自动提取
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✅ LLMBasedExtractor 已初始化用于知识提取
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.pipeline.response_handler] [ResponseHandler] 初始化完成
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ResponseHandler 已初始化
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.engine] EvolveEngine 已初始化 app=gradio_demo_chat, user=gradio_demo_user
+[2026-02-05 13:46:30] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-05 13:46:30] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-05 13:46:30] INFO - [contextmind.apps.chat_app] [ChatApplication] ✓ 初始化完成 (真实LLM: True, 知识提取: llm)
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.pipeline.summarizer] [Summarizer] ✅ 使用基于大语言模型的摘要策略
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.pipeline.summarizer] [LLMBasedSummarizer] 初始化完成 - 使用LLM智能摘要
+[2026-02-05 13:46:30] INFO - [contextmind.modes.evolve.pipeline.summarizer] [Summarizer] 初始化完成 - 策略: LLMBasedSummarizer, 窗口: 10, 增量模式启用
+[2026-02-05 13:46:30] DEBUG - [contextmind.apps.chat_app] [ChatApplication] ✓ 对话摘要器已初始化 (方式: llm, 触发阈值: 5轮)
+[2026-02-05 13:46:30] INFO - [__main__] Evolve模式初始化完成
+[2026-02-05 13:46:30] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: evolve
+[2026-02-05 13:46:30] INFO - [__main__] 配置已更新: chat, evolve
+[2026-02-05 13:46:34] INFO - [contextmind.modes.fnctod.function_manager] FunctionManager 初始化完成
+[2026-02-05 13:46:34] DEBUG - [contextmind.modes.fnctod.function_manager] 添加domain函数: insurance (14 个参数)
+[2026-02-05 13:46:34] INFO - [contextmind.modes.fnctod.fnctod_tracker] ✅ 已加载预定义FnCTOD Schema: insurance
+[2026-02-05 13:46:34] DEBUG - [contextmind.modes.fnctod.response_parser] FnCTODResponseParser 初始化
+[2026-02-05 13:46:34] DEBUG - [contextmind.modes.fnctod.fnctod_tracker] 成功加载FnCTOD提示词模板
+[2026-02-05 13:46:34] INFO - [contextmind.modes.fnctod.fnctod_tracker] FnCTODTracker 初始化完成 (两阶段模式: True)
+[2026-02-05 13:46:34] INFO - [__main__] FnCTOD模式初始化完成
+[2026-02-05 13:46:34] INFO - [__main__] ✅ 场景初始化完成: insurance, 模式: fnctod
+[2026-02-05 13:46:34] INFO - [__main__] 配置已更新: insurance, fnctod
+[2026-02-05 13:46:36] INFO - [contextmind.modes.fnctod.fnctod_tracker] 
 ============================================================
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] 处理第 1 轮对话
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] 用户: 我不想做作业
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] ============================================================
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['chat']
-[2026-02-04 17:44:19] DEBUG - [fnctod.fnctod_tracker] Function call响应: <function_call name="chat">
-{"intent_level1": "情感", "emotion": "烦恼"}
-</function_call>
-听起来你有点烦恼呢，作业让你感到头疼了吗？有什么具体的问题吗？或许我们可以一起找找解决的办法。...
-[2026-02-04 17:44:19] DEBUG - [fnctod.response_parser] 检测到function call: chat
-[2026-02-04 17:44:19] DEBUG - [fnctod.response_parser] 参数字符串: {"intent_level1": "情感", "emotion": "烦恼"}...
-[2026-02-04 17:44:19] DEBUG - [fnctod.response_parser] JSON解析成功: 2 个参数
-[2026-02-04 17:44:19] INFO - [fnctod.response_parser] 解析function call成功: chat, 2 个参数
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] Function call解析成功: chat
-[2026-02-04 17:44:19] DEBUG - [fnctod.fnctod_tracker] 状态更新: chat-intent_level1 = 情感
-[2026-02-04 17:44:19] DEBUG - [fnctod.fnctod_tracker] 状态更新: chat-emotion = 烦恼
-[2026-02-04 17:44:19] INFO - [fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.69s)
-[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] 
+[2026-02-05 13:46:36] INFO - [contextmind.modes.fnctod.fnctod_tracker] 处理第 1 轮对话
+[2026-02-05 13:46:36] INFO - [contextmind.modes.fnctod.fnctod_tracker] 用户: 什么
+[2026-02-05 13:46:36] INFO - [contextmind.modes.fnctod.fnctod_tracker] ============================================================
+[2026-02-05 13:46:36] INFO - [contextmind.modes.fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['insurance']
+[2026-02-05 13:46:37] INFO - [contextmind.modes.fnctod.fnctod_tracker] ✅ 收到LLM响应，长度: 26
+[2026-02-05 13:46:37] DEBUG - [contextmind.modes.fnctod.fnctod_tracker] LLM响应前300字符: 看起来您可能没有说完，您想了解关于保险的哪些方面呢？...
+[2026-02-05 13:46:37] INFO - [contextmind.modes.fnctod.fnctod_tracker] 开始解析function call...
+[2026-02-05 13:46:37] DEBUG - [contextmind.modes.fnctod.response_parser] 原始响应长度: 26
+[2026-02-05 13:46:37] DEBUG - [contextmind.modes.fnctod.response_parser] 原始响应前200字符: 看起来您可能没有说完，您想了解关于保险的哪些方面呢？
+[2026-02-05 13:46:37] WARNING - [contextmind.modes.fnctod.response_parser] ❌ 未检测到function call标签
+[2026-02-05 13:46:37] DEBUG - [contextmind.modes.fnctod.response_parser] 尝试查找的模式: <function_call name="...">...</function_call>
+[2026-02-05 13:46:37] WARNING - [contextmind.modes.fnctod.fnctod_tracker] ⚠️ 未检测到function call，使用响应作为自然语言回复
+[2026-02-05 13:46:37] WARNING - [contextmind.modes.fnctod.fnctod_tracker] ⚠️ 完整响应: 看起来您可能没有说完，您想了解关于保险的哪些方面呢？
+[2026-02-05 13:46:37] INFO - [contextmind.modes.fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.60s)
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] 
 ============================================================
-[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] 处理第 2 轮对话
-[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] 用户: 是啊，数学题不会做
-[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] ============================================================
-[2026-02-04 17:44:34] INFO - [fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['chat']
-[2026-02-04 17:44:35] DEBUG - [fnctod.fnctod_tracker] Function call响应: 那我们来一起看看这道数学题吧。你可以告诉我题目是什么吗？或者是从哪里遇到困难了？...
-[2026-02-04 17:44:35] WARNING - [fnctod.response_parser] 未检测到function call标签
-[2026-02-04 17:44:35] WARNING - [fnctod.fnctod_tracker] 未检测到function call，使用响应作为自然语言回复
-[2026-02-04 17:44:35] INFO - [fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.22s)
-[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] 
-============================================================
-[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] 处理第 3 轮对话
-[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] 用户: 你能帮我做题吗
-[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] ============================================================
-[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['chat']
-[2026-02-04 17:45:02] DEBUG - [fnctod.fnctod_tracker] Function call响应: 当然可以，我会尽力帮助你理解这道题。请把题目告诉我，我们一起分析一下。...
-[2026-02-04 17:45:02] WARNING - [fnctod.response_parser] 未检测到function call标签
-[2026-02-04 17:45:02] WARNING - [fnctod.fnctod_tracker] 未检测到function call，使用响应作为自然语言回复
-[2026-02-04 17:45:02] INFO - [fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.20s)
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] 处理第 2 轮对话
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] 用户: 听不懂
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] ============================================================
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] Stage 2: Function Calling for domains: ['insurance']
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] ✅ 收到LLM响应，长度: 50
+[2026-02-05 13:47:00] DEBUG - [contextmind.modes.fnctod.fnctod_tracker] LLM响应前300字符: 请告诉我您具体想要了解的内容，我会尽力帮助您的。是关于保险产品的种类、购买流程，还是其他方面的信息？...
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] 开始解析function call...
+[2026-02-05 13:47:00] DEBUG - [contextmind.modes.fnctod.response_parser] 原始响应长度: 50
+[2026-02-05 13:47:00] DEBUG - [contextmind.modes.fnctod.response_parser] 原始响应前200字符: 请告诉我您具体想要了解的内容，我会尽力帮助您的。是关于保险产品的种类、购买流程，还是其他方面的信息？
+[2026-02-05 13:47:00] WARNING - [contextmind.modes.fnctod.response_parser] ❌ 未检测到function call标签
+[2026-02-05 13:47:00] DEBUG - [contextmind.modes.fnctod.response_parser] 尝试查找的模式: <function_call name="...">...</function_call>
+[2026-02-05 13:47:00] WARNING - [contextmind.modes.fnctod.fnctod_tracker] ⚠️ 未检测到function call，使用响应作为自然语言回复
+[2026-02-05 13:47:00] WARNING - [contextmind.modes.fnctod.fnctod_tracker] ⚠️ 完整响应: 请告诉我您具体想要了解的内容，我会尽力帮助您的。是关于保险产品的种类、购买流程，还是其他方面的信息？
+[2026-02-05 13:47:00] INFO - [contextmind.modes.fnctod.fnctod_tracker] ✅ 对话处理完成 (耗时: 0.27s)
