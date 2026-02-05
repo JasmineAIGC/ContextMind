@@ -307,26 +307,25 @@ class UnifiedGradioDemo:
             # 添加总计到timing_breakdown
             timing_breakdown['总计'] = elapsed_time
             
-            # 构建详细的耗时信息显示
+            # 构建详细的耗时信息显示（单行格式）
             if timing_breakdown and len(timing_breakdown) > 1:
-                # 分步骤显示，带百分比
-                timing_lines = []
+                # 单行显示，用 | 分隔各步骤
+                timing_parts = []
                 total_time = timing_breakdown.get('总计', elapsed_time)
                 
                 for key, value in timing_breakdown.items():
                     if key != '总计':
-                        percentage = (value / total_time * 100) if total_time > 0 else 0
-                        timing_lines.append(f"  • {key}: {value:.2f}s ({percentage:.1f}%)")
+                        timing_parts.append(f"{key}{value:.2f}s")
                 
-                # 添加总计（突出显示）
-                timing_lines.append(f"  **总计: {total_time:.2f}s**")
+                # 添加总计
+                timing_parts.append(f"总计{total_time:.2f}s")
                 
-                timing_display = "⏱️ **执行耗时详情**:\n" + "\n".join(timing_lines)
+                timing_display = "⏱️ " + " | ".join(timing_parts)
             else:
                 timing_display = f"⏱️ 生成耗时: {elapsed_time:.2f}秒"
             
-            # 在回复中添加耗时信息（小号灰色文本，Markdown格式）
-            reply_with_timing = f"{reply}\n\n<details>\n<summary style='color: #666; cursor: pointer;'>📊 性能统计（点击展开）</summary>\n\n{timing_display}\n</details>"
+            # 在回复中添加耗时信息（小号灰色文本）
+            reply_with_timing = f"{reply}\n\n<small style='color: #888;'>{timing_display}</small>"
             
             # 更新历史 - 使用Gradio 6.0格式 (flat list)
             return history + [
