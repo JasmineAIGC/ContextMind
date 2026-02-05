@@ -130,35 +130,61 @@ python tests/test_fnctod_transfertod.py --data-root /path/to/your/TransferTOD
 
 ## 📊 评估指标说明
 
+**注意：指标计算已对齐TransferTOD论文标准**
+
 ### 1. Slot Accuracy（槽位准确率）
 
 - **定义**：所有轮次中正确提取的槽位数占总槽位数的比例
 - **计算公式**：`matched_slots / total_slots`
 - **含义**：衡量模型在槽位级别的提取准确性
+- **用途**：用于分析模型的细粒度性能
 
-### 2. Joint Goal Accuracy（联合目标准确率）
+### 2. Joint Accuracy（联合准确率）⭐ TransferTOD论文主要指标
 
-- **定义**：所有槽位都正确提取的轮次占总轮次的比例
-- **计算公式**：`perfect_turns / total_turns`
-- **含义**：衡量模型在对话轮次级别的完全正确率（更严格）
+- **定义**：对话最终状态完全匹配的对话数占总对话数的比例
+- **计算方法**：
+  ```python
+  # 将状态转换为slot-value pairs集合
+  expected_pairs = set([(k, v) for k, v in final_state.items()])
+  predicted_pairs = set([(k, v) for k, v in predicted_state.items()])
+  # 完全匹配才算正确
+  joint_accuracy = 1.0 if expected_pairs == predicted_pairs else 0.0
+  ```
+- **含义**：衡量对话级别的完整正确性（最严格的指标）
+- **对齐**：与TransferTOD论文的Joint Accuracy定义一致
 
-### 3. Precision（精确率）
+### 3. Precision（精确率）⭐ 基于slot-value pairs
 
-- **定义**：提取的槽位中正确的比例
+- **定义**：提取的slot-value pairs中正确的比例
 - **计算公式**：`TP / (TP + FP)`
 - **含义**：衡量模型提取结果的准确性
+- **对齐**：使用slot-value pairs作为比较单元（与TransferTOD论文一致）
 
-### 4. Recall（召回率）
+### 4. Recall（召回率）⭐ 基于slot-value pairs
 
-- **定义**：应该提取的槽位中被正确提取的比例
+- **定义**：应该提取的slot-value pairs中被正确提取的比例
 - **计算公式**：`TP / (TP + FN)`
 - **含义**：衡量模型提取的完整性
+- **对齐**：使用slot-value pairs作为比较单元（与TransferTOD论文一致）
 
-### 5. F1 Score
+### 5. F1 Score ⭐ 基于slot-value pairs
 
 - **定义**：Precision 和 Recall 的调和平均值
 - **计算公式**：`2 * P * R / (P + R)`
 - **含义**：综合评估模型性能
+- **对齐**：与TransferTOD论文的f1_calculator实现一致
+
+### 与TransferTOD论文对齐说明
+
+本测试框架的指标计算已完全对齐TransferTOD论文（EMNLP 2024）的评估标准：
+
+1. **Joint Accuracy**：对话级别评估，要求最终状态的所有slot-value pairs完全匹配
+2. **F1/Precision/Recall**：基于slot-value pairs的集合运算，而非简单的槽位名称比较
+3. **特殊情况处理**：当expected为空且predicted也为空时，P/R/F1 = 1.0（完全对齐论文）
+
+参考论文：
+- Zhang et al. (2024). "TransferTOD: A Generalizable Chinese Multi-Domain Task-Oriented Dialogue System with Transfer Capabilities". EMNLP 2024.
+- 官方代码：https://github.com/KongLongGeFDU/TransferTOD
 
 ---
 
@@ -289,23 +315,27 @@ DST 模式测试 - TransferTOD 数据集 (酒店)
 提取状态: {'姓名': '韩金虎', '入住日期': '这个月20号'}
 匹配数: 2/2
 
---- 测试结果 ---
-槽位准确率: 95.00%
-Joint Goal Accuracy: 90.00%
-Precision: 94.50%
-Recall: 95.50%
-F1 Score: 95.00%
+--- 测试结果（对齐TransferTOD论文指标）---
+槽位准确率 (Slot Accuracy): 95.00%
+联合准确率 (Joint Accuracy): 1.00 (100%)
+精确率 (Precision): 94.50%
+召回率 (Recall): 95.50%
+F1分数 (F1 Score): 95.00%
 
 ======================================================================
-📊 测试指标汇总
+📊 测试指标汇总（对齐TransferTOD论文）
 ======================================================================
 
 测试对话数: 3
-平均槽位准确率: 93.45%
-平均 Joint Goal Accuracy: 87.23%
-平均 Precision: 92.87%
-平均 Recall: 94.12%
-平均 F1 Score: 93.49%
+平均槽位准确率 (Slot Accuracy): 93.45%
+平均联合准确率 (Joint Accuracy): 66.67%
+平均精确率 (Precision): 92.87%
+平均召回率 (Recall): 94.12%
+平均F1分数 (F1 Score): 93.49%
+
+注：指标计算方法已对齐TransferTOD论文
+  - Joint Accuracy: 对话级别（最终状态完全匹配）
+  - F1/Precision/Recall: 基于slot-value pairs计算
 ```
 
 ---
