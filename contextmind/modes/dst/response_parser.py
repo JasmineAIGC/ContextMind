@@ -239,15 +239,18 @@ class ResponseParser:
                            allowed_slots: Dict[str, str],
                            categorical_slots: Dict[str, List[str]]) -> Dict[str, str]:
         """
-        严格归一化提取的槽位（仅保留预定义槽位，严格匹配分类值）
+        归一化提取的槽位
+        
+        在动态槽位模式下（enable_filtering=False），接受所有LLM提取的槽位。
+        在严格模式下（enable_filtering=True），仅保留预定义槽位并严格匹配分类值。
         
         参数:
             extracted: 从LLM响应中提取的槽位
-            allowed_slots: 允许的槽位定义
-            categorical_slots: 分类槽位的候选值
+            allowed_slots: 允许的槽位定义（仅在严格模式下使用）
+            categorical_slots: 分类槽位的候选值（用于值归一化）
             
         返回:
-            归一化后的槽位字典（只包含预定义槽位和值）
+            归一化后的槽位字典
         """
         normalized = {}
         
@@ -256,12 +259,25 @@ class ResponseParser:
             if not value or not value.strip():
                 continue
             
-            # 过滤1：只保留预定义的槽位名称
+            # 动态槽位模式：接受所有槽位
+            if not self.enable_filtering:
+                # 对分类槽位尝试归一化（但不强制）
+                if slot in categorical_slots:
+                    normalized_value = self.normalize_value(
+                        slot, value, categorical_slots[slot], strict=False
+                    )
+                    normalized[slot] = normalized_value if normalized_value else value
+                else:
+                    # 非分类槽位，直接保留
+                    normalized[slot] = value
+                continue
+            
+            # 严格模式：过滤1 - 只保留预定义的槽位名称
             if slot not in allowed_slots:
                 logger.warning(f"跳过未定义的槽位: {slot} (值: {value})")
                 continue
             
-            # 过滤2：对分类槽位进行严格归一化
+            # 严格模式：过滤2 - 对分类槽位进行严格归一化
             if slot in categorical_slots:
                 normalized_value = self.normalize_value(
                     slot, value, categorical_slots[slot], strict=True
