@@ -340,17 +340,9 @@ class LLMBasedExtractor(BaseExtractor):
         extracted_data = await self._extract_with_llm(conversation_text)
         knowledge_list = self._parse_llm_response(extracted_data, messages)
         
-        # 验证提取的知识是否真实存在于对话中（放宽验证）
-        before_validation = len(knowledge_list)
-        knowledge_list = self._validate_knowledge_against_conversation(knowledge_list, conversation_text)
-        hallucination_count = before_validation - len(knowledge_list)
+        logger.info(f"[LLMBasedExtractor] LLM提取到 {len(knowledge_list)} 条原始知识")
         
-        if hallucination_count > 0:
-            logger.info(f"[LLMBasedExtractor] 过滤疑似幻觉知识: {hallucination_count} 条")
-            for k in knowledge_list:
-                logger.debug(f"  保留: [{k.knowledge_type.value}] {k.content[:40]}...")
-        
-        # 过滤低置信度知识
+        # 过滤低置信度知识（信任LLM提取结果，仅通过置信度过滤）
         before_filter = len(knowledge_list)
         knowledge_list_filtered = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
         filtered_count = before_filter - len(knowledge_list_filtered)
@@ -373,7 +365,7 @@ class LLMBasedExtractor(BaseExtractor):
             if len(knowledge_list) > 5:
                 logger.debug(f"  ... 以及其他 {len(knowledge_list) - 5} 条知识")
         else:
-            logger.warning(f"[LLMBasedExtractor] ⚠️ 未提取到任何有效知识（原始提取: {before_validation} 条，验证后: {before_validation - hallucination_count} 条，过滤后: 0 条）")
+            logger.warning(f"[LLMBasedExtractor] ⚠️ 未提取到任何有效知识（原始提取: {before_filter} 条，置信度过滤后: 0 条）")
         
         return knowledge_list
     
@@ -533,70 +525,6 @@ class LLMBasedExtractor(BaseExtractor):
         
         return knowledge_list
 
-
-    def _validate_knowledge_against_conversation(self, knowledge_list: List[Knowledge], conversation_text: str) -> List[Knowledge]:
-        """
-        验证提取的知识是否真实存在于对话中，过滤幻觉内容
-        
-        使用放宽的验证策略：
-        - 将知识内容拆分成2-3字的子短语
-        - 只要有任意一个子短语能在对话中找到，就认为验证通过
-        - 这允许部分匹配，提高召回率（如"喜欢吃辣"能匹配"喜欢吃辣的食物"）
-        
-        Args:
-            knowledge_list: 待验证的知识列表
-            conversation_text: 原始对话文本
-            
-        Returns:
-            验证通过的知识列表
-        """
-        validated = []
-        conversation_lower = conversation_text.lower()
-        
-        for knowledge in knowledge_list:
-            content = knowledge.content.strip()
-            
-            # 提取关键词进行验证
-            # 去除常见的前缀（如"用户偏好："、"用户意图："等）
-            content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
-            
-            # 提取所有MIN_PHRASE_LENGTH字以上的中文词组
-            # 注：2字是中文语义的最小单位，足以进行有效验证
-            key_phrases = re.findall(r'[\u4e00-\u9fa5]{' + str(self.MIN_PHRASE_LENGTH) + r',}', content_clean)
-            
-            # 如果没有提取到关键短语，使用整个清理后的内容
-            if not key_phrases:
-                key_phrases = [content_clean]
-            
-            # 生成2-3字的子短语（使用set去重，提高性能）
-            # 限制：最多处理前5个主要短语，避免过多计算
-            all_sub_phrases = set()
-            for phrase in key_phrases[:5]:  # 限制短语数量
-                for i in range(len(phrase)):
-                    if i + 2 <= len(phrase):
-                        all_sub_phrases.add(phrase[i:i+2])
-                    if i + 3 <= len(phrase):
-                        all_sub_phrases.add(phrase[i:i+3])
-                    # 如果已经生成足够的子短语，提前终止
-                    if len(all_sub_phrases) > 20:
-                        break
-                if len(all_sub_phrases) > 20:
-                    break
-            
-            # 至少需要有一个MIN_PHRASE_LENGTH字的子短语能在对话中找到
-            found = False
-            for sub_phrase in all_sub_phrases:
-                if len(sub_phrase) >= self.MIN_PHRASE_LENGTH and sub_phrase.lower() in conversation_lower:
-                    found = True
-                    break  # 找到一个匹配就足够了，提前终止
-            
-            if found:
-                validated.append(knowledge)
-            else:
-                # 记录被过滤的可疑知识
-                logger.debug(f"[LLMBasedExtractor] 过滤疑似幻觉: [{knowledge.knowledge_type.value}] {content[:50]}... (无法在对话中找到匹配)")
-        
-        return validated
 
 
 # ============================================================================
