@@ -70,7 +70,7 @@ class EvolveModeTest:
         
         # 创建 InsuranceApplication - 复用 gradio_demo.py 的初始化逻辑
         self.app = InsuranceApplication(
-            context_engine=self.engine,
+            evolve_engine=self.engine,
             system_prompt=self.config.system_prompt
         )
         
@@ -86,7 +86,7 @@ class EvolveModeTest:
                 llm_client=self.llm_client
             )
             self.app = InsuranceApplication(
-                context_engine=self.engine,
+                evolve_engine=self.engine,
                 system_prompt=self.config.system_prompt
             )
             logger.info("Evolve状态已重置")

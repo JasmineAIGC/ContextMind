@@ -481,7 +481,7 @@ class UnifiedGradioDemo:
             return state_info
         elif self.current_mode == "evolve" and self.app:
             # Evolve模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
-            engine = self.app.context_engine
+            engine = self.app.evolve_engine
             state_info = {
                 "模式": "Evolve (基于记忆进化)",
                 "场景": self._get_scenario_name(self.current_scenario),

@@ -30,7 +30,7 @@ class InsuranceApplication:
     
     def __init__(
         self,
-        context_engine: EvolveEngine,
+        evolve_engine: EvolveEngine,
         business_info: str = "",
         history_turns: int = 10,
         system_prompt: str = INSURANCE_SYSTEM_PROMPT,
@@ -42,7 +42,7 @@ class InsuranceApplication:
         """初始化保险应用
         
         Args:
-            context_engine: ContextMind 引擎实例
+            evolve_engine: Evolve 引擎实例
             business_info: 业务信息
             history_turns: 历史轮数
             system_prompt: 系统提示
@@ -51,7 +51,7 @@ class InsuranceApplication:
             extraction_method: 知识提取方式 ('rule' 规则提取, 'llm' LLM自动提取)
                 如未指定，使用引擎的extraction_method
         """
-        self.context_engine = context_engine
+        self.evolve_engine = evolve_engine
         self.business_info = business_info
         self.history_turns = history_turns
         self.system_prompt = system_prompt
@@ -62,7 +62,7 @@ class InsuranceApplication:
         if extraction_method:
             self.extraction_method = extraction_method
         else:
-            self.extraction_method = getattr(context_engine, 'extraction_method', 'rule')
+            self.extraction_method = getattr(evolve_engine, 'extraction_method', 'rule')
         
         # 初始化 LLM 客户端（如果使用真实 LLM）
         if use_real_llm:
@@ -218,7 +218,7 @@ class InsuranceApplication:
         step_start = time.time()
         if debug:
             # 保存优化前的记忆库状态
-            memory_cache = self.context_engine.memory_bank.get_memory_cache()
+            memory_cache = self.evolve_engine.memory_bank.get_memory_cache()
             debug_info['memory_before'] = [
                 {
                     "content": m.content, 
@@ -228,7 +228,7 @@ class InsuranceApplication:
                 for m in memory_cache
             ]
         
-        context_result = await self.context_engine.optimize(
+        context_result = await self.evolve_engine.optimize(
             user_input=user_input,
             include_session=True,
             include_memory=True,
@@ -277,7 +277,7 @@ class InsuranceApplication:
         
         # 步骤4: 更新上下文
         step_start = time.time()
-        await self.context_engine.update(
+        await self.evolve_engine.update(
             user_input=user_input,
             assistant_response=response
         )
@@ -287,7 +287,7 @@ class InsuranceApplication:
         step_start = time.time()
         extracted_knowledge = []
         try:
-            knowledge_list = await self.context_engine.extract_knowledge(auto_store=True)
+            knowledge_list = await self.evolve_engine.extract_knowledge(auto_store=True)
             if debug and knowledge_list:
                 extracted_knowledge = [
                     {
@@ -342,7 +342,7 @@ class InsuranceApplication:
         
         # 创建并返回Application实例
         return cls(
-            context_engine=engine,
+            evolve_engine=engine,
             system_prompt=scenario_config.system_prompt,
             use_real_llm=True
         )

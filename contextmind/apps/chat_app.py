@@ -30,7 +30,7 @@ class ChatApplication:
     
     def __init__(
         self,
-        context_engine: EvolveEngine,
+        evolve_engine: EvolveEngine,
         system_prompt: str = CHAT_SYSTEM_PROMPT,
         history_turns: int = 10,
         llm_config: Optional[LLMConfig] = None,
@@ -41,7 +41,7 @@ class ChatApplication:
         """初始化闲聊应用
         
         Args:
-            context_engine: 进化引擎
+            evolve_engine: 进化引擎
             system_prompt: 系统提示词（可自定义）
             history_turns: Prompt中包含的历史轮数
             llm_config: LLM 配置（可选，从环境变量加载）
@@ -50,7 +50,7 @@ class ChatApplication:
                 如未指定，使用引擎的extraction_method
             **config: 其他配置参数
         """
-        self.context_engine = context_engine
+        self.evolve_engine = evolve_engine
         self.system_prompt = system_prompt
         self.history_turns = history_turns
         self.config = config
@@ -60,7 +60,7 @@ class ChatApplication:
         if extraction_method:
             self.extraction_method = extraction_method
         else:
-            self.extraction_method = getattr(context_engine, 'extraction_method', 'rule')
+            self.extraction_method = getattr(evolve_engine, 'extraction_method', 'rule')
         
         # 初始化 LLM 客户端（如果使用真实 LLM）
         if use_real_llm:
@@ -155,7 +155,7 @@ class ChatApplication:
             import asyncio
             try:
                 # 尝试获取session的完整历史长度
-                session = self.context_engine.session_manager.get_session()
+                session = self.evolve_engine.session_manager.get_session()
                 if session:
                     # 使用同步方式获取历史（如果在事件循环中）
                     try:
@@ -264,7 +264,7 @@ class ChatApplication:
         step_start = time.time()
         if debug:
             # 保存优化前的记忆库状态
-            memory_cache = self.context_engine.memory_bank.get_memory_cache()
+            memory_cache = self.evolve_engine.memory_bank.get_memory_cache()
             debug_info['memory_before'] = [
                 {
                     "content": m.content,
@@ -274,7 +274,7 @@ class ChatApplication:
                 for m in memory_cache
             ]
         
-        context_result = await self.context_engine.optimize(
+        context_result = await self.evolve_engine.optimize(
             user_input=user_input,
             include_session=True,
             include_memory=True,
@@ -325,7 +325,7 @@ class ChatApplication:
         
         # 步骤4: 对话更新
         step_start = time.time()
-        await self.context_engine.update(
+        await self.evolve_engine.update(
             user_input=user_input,
             assistant_response=response
         )
@@ -335,7 +335,7 @@ class ChatApplication:
         step_start = time.time()
         extracted_knowledge = []
         try:
-            knowledge_list = await self.context_engine.extract_knowledge(auto_store=True)
+            knowledge_list = await self.evolve_engine.extract_knowledge(auto_store=True)
             if debug and knowledge_list:
                 extracted_knowledge = [
                     {
@@ -378,7 +378,7 @@ class ChatApplication:
         
         # 创建并返回Application实例
         return cls(
-            context_engine=engine,
+            evolve_engine=engine,
             system_prompt=scenario_config.system_prompt,
             use_real_llm=True
         )

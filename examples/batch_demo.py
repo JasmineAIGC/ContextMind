@@ -474,28 +474,40 @@ class BatchDialogueTest:
         Returns:
             应用实例 (InsuranceApplication/CallCenterApplication/ChatApplication)
         """
+        from contextmind.modes.evolve import EvolveEngine
+        
         scenario_name = self.config.name
+        session_id = f"batch_test_{id(self)}"
+        
+        # 创建Evolve引擎（所有应用都需要）
+        evolve_engine = EvolveEngine(
+            llm_client=self.llm_client,
+            session_id=session_id
+        )
         
         # 根据场景创建相应的应用
         if "保险" in scenario_name:
             from contextmind.apps.insurance_app import InsuranceApplication
             return InsuranceApplication(
+                evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
-                session_id=f"batch_test_{id(self)}",
+                session_id=session_id,
                 use_real_llm=True
             )
         elif "客服" in scenario_name or "callcenter" in scenario_name.lower():
             from contextmind.apps.callcenter_app import CallCenterApplication
             return CallCenterApplication(
+                evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
-                session_id=f"batch_test_{id(self)}",
+                session_id=session_id,
                 use_real_llm=True
             )
         else:
             from contextmind.apps.chat_app import ChatApplication
             return ChatApplication(
+                evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
-                session_id=f"batch_test_{id(self)}",
+                session_id=session_id,
                 use_real_llm=True
             )
 
