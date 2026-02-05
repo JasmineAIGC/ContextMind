@@ -531,7 +531,7 @@ def load_test_dialogue(dialogue_num: int) -> str:
         对话文本
     """
     try:
-        dialogue_path = Path(__file__).parent / "tests" / "dialogues" / f"dialogue_{dialogue_num}.txt"
+        dialogue_path = Path(__file__).parent.parent / "tests" / "dialogues" / f"dialogue_{dialogue_num}.txt"
         if dialogue_path.exists():
             with open(dialogue_path, 'r', encoding='utf-8') as f:
                 return f.read()
