@@ -15,11 +15,18 @@ ContextMind 批量对话测试Demo
     python examples/batch_demo.py --log-level DEBUG
 """
 
+import sys
+from pathlib import Path
+
+# 添加项目根目录到 Python 路径，使得可以直接运行而无需安装
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 import argparse
 import asyncio
 import json
 import re
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import gradio as gr

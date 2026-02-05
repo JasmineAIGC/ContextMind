@@ -42,7 +42,7 @@ setup(
     include_package_data=True,
     package_data={
         "contextmind": [
-            "core/config/*.yaml",
+            "config/*.yaml",
             "modes/fnctod/*.yaml",
         ],
     },
