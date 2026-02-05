@@ -298,8 +298,11 @@ class BatchDialogueTest:
                 if value:  # 只显示非空值
                     result_text += f"  {key}: {value}\n"
         
-        # 获取最终累积状态
-        final_state = tracker.current_state.copy()
+        # 获取最终状态 - 使用最后一轮的状态
+        if results:
+            final_state = results[-1].copy()
+        else:
+            final_state = {}
         
         # 生成汇总
         summary = f"\n{'='*50}\n"
