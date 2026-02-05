@@ -1,527 +1,85 @@
-# ContextMind 架构 (v0.2.1)
-
-本文档描述 ContextMind v0.2.1 的架构设计和实现细节。
-
-## 版本信息
-
-- **当前版本**: v0.2.1
-- **发布日期**: 2026-01-29
-- **主要更新**: Utils独立化、知识提取能力、DST增强
-
-## 概述
-
-ContextMind 遵循**五步流水线架构**进行上下文优化：
-
-```
-原始用户输入
-    ↓
-1. InputPreprocessor      (输入清理和规范化)
-    ↓
-2. ContextRetriever       (外部检索)
-   + MemoryBank          (长期记忆管理)
-    ↓
-3. ContextCompressor      (上下文压缩与对话摘要器)
-    ↓
-4. ContextReorderer       (上下文重排序)
-    ↓
-构建最终提示 → [用户调用 LLM] → 获得响应
-    ↓
-5. ResponseHandler        (响应处理和记忆更新)
-    ↓
-最终结果 + 记忆已更新
-```
-
-**架构变更（v0.2.1）：**
-- ✅ **Utils独立化** - utils模块移至根目录，完全独立
-- ✅ **知识提取增强** - 新增LLM驱动的知识提取能力
-- ✅ **DST完整实现** - 完整的ACL 2023论文合规性实现
-- ✅ **ResponseHandler增强** - 完整的响应处理和知识提取流程
-- ❌ **移除** KVCacheManager - KV缓存管理属于LLM推理框架职责
+# ContextMind 架构文档
 
 ## 项目结构
 
 ```
 ContextMind/
-├── evolve/                   # Evolve 核心框架
-│   ├── __init__.py          # 主要导出
-│   ├── engine.py            # 主编排引擎（EvolveEngine）
-│   │
-│   │ # 核心系统组件
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── configs.py       # 配置类
-│   │   ├── data_models.py   # 数据模型
-│   │   ├── models.py        # 领域模型
-│   │   ├── registry.py      # 注册系统
-│   │   ├── strategies.py    # 策略定义
-│   │   └── types.py         # 类型定义
-│   │
-│   │ # 流水线架构 - 5 步
-│   ├── pipeline/
-│   │   ├── preprocessor.py      # 步骤 1：InputPreprocessor
-│   │   ├── context_retriever.py # 步骤 2：ContextRetriever（占位符）
-│   │   ├── compressor.py        # 步骤 3：ContextCompressor
-│   │   ├── reorderer.py         # 步骤 4：ContextReorderer
-│   │   ├── response_handler.py  # 步骤 5：ResponseHandler (v0.2.1增强)
-│   │   └── summarizer.py        # ConversationSummarizer（由压缩器使用）
-│   │
-│   │ # MemoryBank 模块 - 4 个子模块
-│   ├── memory/
-│   │   ├── __init__.py      # 导出所有记忆组件
-│   │   ├── bank.py          # 主 MemoryBank 类
-│   │   ├── session.py       # SessionManager
-│   │   ├── extractor.py     # 知识提取器 (v0.2.1增强)
-│   │   ├── retriever.py     # 检索相关记忆
-│   │   └── updater.py       # 记忆更新（添加/删除/更新）
-│   │
-│   └── evolution/           # 进化式优化（高级功能）
-│       ├── __init__.py
-│       ├── evolutionary_updater.py
-│       └── feedback_system.py
-│
-├── dst/                     # 增强的 DST 实现 (v0.2.1)
-│   ├── __init__.py
-│   ├── data_models.py       # 数据模型
-│   ├── dialogue_state_tracker.py  # 完整 ACL 2023 实现
-│   ├── prompt_manager.py    # 提示词管理器
-│   └── response_parser.py   # 响应解析器
-│
-├── utils/                   # 独立工具模块 (v0.2.1 移至根目录)
-│   ├── __init__.py          # 导出所有工具
-│   ├── logger.py            # 统一日志系统
-│   ├── llm_client.py        # 统一 LLM 客户端 (v0.2.1增强)
-│   ├── embedding.py         # 嵌入向量工具
-│   └── data_models.py       # 数据模型
-│
-├── scenarios/               # 场景配置
-│   ├── __init__.py
-│   ├── config.py            # 配置基类
-│   ├── chat_scenario.py     # 闲聊场景
-│   ├── callcenter_scenario.py  # 客服场景
-│   └── insurance_scenario.py   # 保险场景
-│
-├── apps/                    # 应用示例
-│   ├── chat_app.py
-│   ├── callcenter_app.py
-│   ├── insurance_app.py
-│   └── plugin_examples.py
-│
-├── docs/                    # 文档
-│   ├── architecture.md      # 本文档 (v0.2.1)
-│   ├── modes.md             # 模式对比文档
-│   ├── quick-start.md       # 快速开始指南
-│   └── ...                  # 其他文档
-│
-├── resources/data/                    # 数据目录
-│   └── duihua.md            # 对话样本数据
-│
-├── prompts.py               # 系统提示词管理
-├── interactive_demo.py      # 统一交互式演示
-├── gradio_demo.py           # Web 界面演示
-├── ui_components.py         # UI 组件
-├── requirements.txt         # 依赖包
-├── logs/                    # 日志文件
-└── .env                     # 环境配置
+├── contextmind/              # 主包（可通过pip安装）
+│   ├── core/                 # 核心框架层
+│   │   ├── config/           # 配置管理
+│   │   │   ├── registry.py   # 场景注册表
+│   │   │   └── scenarios.yaml # 场景配置
+│   │   └── common/           # 通用组件
+│   │       ├── prompts.py    # 系统提示词
+│   │       ├── ui_components.py # UI组件
+│   │       └── utils/        # 工具库
+│   ├── modes/                # 对话处理模式
+│   │   ├── dst/              # 对话状态追踪
+│   │   ├── fnctod/           # 函数调用模式
+│   │   └── evolve/           # 演化式上下文
+│   └── scenarios/            # 场景定义
+│       ├── config/           # 场景配置
+│       └── apps/             # 应用实现
+├── examples/                 # 示例程序
+├── tests/                    # 测试
+├── docs/                     # 文档
+├── resources/                # 静态资源
+└── setup.py                  # 安装配置
 ```
 
-## 核心组件
+## 架构层次
 
-### 1. 流水线组件（5 步）
+### 1. Core Layer（核心层）
+- **config**: 配置管理和场景注册
+- **common**: 通用组件和工具库
 
-#### 步骤 1：InputPreprocessor (`preprocessor.py`)
-- **目的**：输入清理和规范化
-- **方法**：文本清理、验证、规范化
-- **常用技术**：基于正则的清理、动态提示模板、语义分块
+### 2. Modes Layer（模式层）
+- **dst**: 对话状态追踪模式
+- **fnctod**: 函数调用模式
+- **evolve**: 演化式上下文优化模式
 
-#### 步骤 2：上下文检索
-- **ContextRetriever** (`retriever.py`)：外部知识检索（占位符）
-- **MemoryBank** (`memory/bank.py`)：长期记忆管理
-  - 使用 4 个子模块：Extractor、Retriever、Updater、Bank
+### 3. Scenarios Layer（场景层）
+- **config**: 场景配置定义
+- **apps**: 场景应用实现
 
-#### 步骤 3：ContextCompressor (`compressor.py`)
-- **目的**：上下文压缩以减少 token 使用
-- **使用**：ConversationSummarizer 用于最近对话摘要
-- **技术**：滑动窗口、摘要、智能过滤
+### 4. Examples Layer（示例层）
+- **cli_demo**: 命令行示例
+- **web_demo**: Web界面示例
+- **batch_demo**: 批量测试示例
 
-#### 步骤 4：ContextReorderer (`reorderer.py`)
-- **目的**：重排序上下文以突出关键信息
-- **技术**：时间戳排序、来源优先级、相关性评分
-- **缓解**："中间丢失"问题
+## 使用方式
 
-#### 步骤 5：ResponseHandler (`response_handler.py`) - v0.2.1 增强
-- **目的**：处理 LLM 响应并更新记忆库
-- **职责**：
-  1. 解析 LLM 响应
-  2. 从响应中提取知识（新增）
-  3. 自动更新记忆库
-  4. 记录完整对话轮次
-- **特点**：形成完整的记忆更新闭环
-- **v0.2.1 新特性**：
-  - 支持自动知识提取 (`auto_extract=True`)
-  - 集成 LLM 驱动的知识提取器
-  - 提取用户偏好、事实、模式、策略和经验
-  - 可选的自动存储到记忆库
-
-### 2. MemoryBank 模块 (`memory/`)
-
-MemoryBank 实现了 4 子模块架构：
-
-#### 2.1 Extractor (`memory/extractor.py`) - v0.2.1 增强
-- **目的**：提取高价值信息用于长期存储
-- **实现**：
-  - `RuleBasedExtractor`：模式匹配（轻量级）
-  - `LLMBasedExtractor`：大语言模型辅助提取（高端，v0.2.1增强）
-  - `ImportancePredictorExtractor`：基于机器学习的重要性评分
-- **v0.2.1 新特性**：
-  - 增强的 LLM 驱动知识提取
-  - 支持从多轮对话中提取结构化知识
-  - 提取用户偏好、事实、对话模式、策略和经验
-  - 可自定义提取策略和模板
-
-#### 2.2 Retriever (`memory/retriever.py`)
-- **目的**：基于查询检索相关记忆
-- **实现**：
-  - `SemanticSearchRetriever`：基于嵌入的相似性
-  - `HybridRetriever`：语义 + 关键词匹配
-  - `LocatorMechanism`：带上下文加权的精确定位
-
-#### 2.3 Updater (`memory/updater.py`)
-- **目的**：智能记忆更新（添加/删除/更新）
-- **操作**：
-  - **添加**：插入新的高价值记忆
-  - **删除**：删除过时/低价值记忆
-  - **更新**：处理冲突和信息演化
-- **实现**：
-  - `SimpleUpdater`：基本添加/更新/去重逻辑
-  - `ConflictResolver`：基于大语言模型的冲突检测
-  - `AdaptiveEviction`：预测性修剪
-
-#### 2.4 Bank (`memory/bank.py`)
-- **目的**：协调所有子模块的主 MemoryBank 类
-- **功能**：
-  - 持久化用户/对话记忆存储
-  - 结构化记忆笔记（偏好、事实、事件）
-  - 记忆生命周期管理
-  - 跨会话连续性
-
-### 3. 支持组件
-
-#### SessionManager (`memory/session.py`)
-- 管理对话会话
-- 存储消息历史
-- 提供最近历史访问
-
-#### ConversationSummarizer (`summarizer.py`)
-- 摘要最近对话
-- 由 ContextCompressor 使用
-- 在保留上下文的同时减少 token 使用
-
-#### EvolveEngine (`engine.py`)
-- 主编排引擎
-- 协调所有流水线组件
-- 提供高级 API：`optimize()`、`update()`、`extract_knowledge()`
-
-## v0.2.1 核心特性
-
-### 1. 独立的 Utils 模块
-
-**变更说明：**
-- utils 模块移至根目录 `utils/`
-- 完全独立，不依赖 evolve 或 dst 模块
-- 统一的工具供所有模式使用（DST 和 Evolve）
-
-**新结构：**
-```python
-utils/
-├── __init__.py       # 导出所有工具
-├── logger.py         # 统一日志系统
-├── llm_client.py     # 统一 LLM 客户端
-├── embedding.py      # 嵌入向量工具
-└── data_models.py    # 数据模型
-```
-
-**导入示例：**
-```python
-# v0.2.1 新导入方式
-from utils import get_logger, SimpleLLMClient, LLMConfig
-from utils.embedding import get_embedding
-```
-
-### 2. 知识提取能力
-
-**新增功能：**
-- 从多轮对话中自动提取结构化知识
-- LLM 驱动的智能提取
-- 支持多种知识类型
-
-**知识类型：**
-1. **user_preferences**: 用户偏好和需求
-2. **facts**: 事实性知识和信息
-3. **patterns**: 对话模式和流程
-4. **strategies**: 有效的策略和方法
-5. **experiences**: 经验总结和教训
-
-**使用示例：**
-```python
-from utils import SimpleLLMClient
-
-class KnowledgeExtractor:
-    async def extract_knowledge(self, dialogue):
-        # 从对话中提取结构化知识
-        return {
-            "user_preferences": ["偏好1", "偏好2"],
-            "facts": ["事实1", "事实2"],
-            "patterns": ["模式1", "模式2"],
-            "strategies": ["策略1", "策略2"],
-            "experiences": ["经验1", "经验2"]
-        }
-```
-
-**测试文件：**
-- `test_knowledge_extraction.py` - 包含3个实际场景测试：
-  - 客服对话知识提取
-  - 技术支持知识提取
-  - 咨询对话知识提取
-
-### 3. 增强的 DST 实现
-
-**完整的 ACL 2023 论文合规性：**
-- ✅ 100% 文档覆盖率（完整的 docstrings）
-- ✅ 100% 类型提示覆盖率
-- ✅ 生产级代码质量
-- ✅ 增强的数据结构
-
-**改进组件：**
-1. **PromptManager** - 槽位管理和约束验证
-2. **ResponseParser** - 鲁棒的 JSON 解析和幻觉过滤
-3. **DialogueStateTracker** - 完整的状态追踪实现
-
-**新增数据结构：**
-```python
-from enum import Enum
-from dataclasses import dataclass
-
-class SpecialValue(Enum):
-    """Special slot values (ACL 2023 paper)."""
-    UNKNOWN = "?"        # 用户在询问
-    DONTCARE = "dontcare"  # 用户不关心
-
-@dataclass
-class DialogueTurn:
-    """单个对话轮次的完整记录."""
-    system_utterance: str
-    user_utterance: str
-    predicted_updates: Dict[str, str]
-    dialogue_state: Dict[str, str]
-    timestamp: float
-```
-
-### 4. ResponseHandler 增强
-
-**新的 API：**
-```python
-# v0.2.1 推荐方式 - 自动知识提取
-result = await engine.handle_response(
-    user_input=user_input,
-    llm_response=assistant_response,
-    auto_extract=True,   # 自动提取知识
-    auto_store=True      # 自动存储到记忆库
-)
-
-# 兼容方式 - 仅记录对话
-await engine.update(user_input, assistant_response)
-```
-
-**功能增强：**
-- 自动知识提取开关
-- 自动存储到记忆库
-- 完整的对话轮次记录
-- 提取结果返回
-
-## 导入模式
-
-### 推荐（v0.2.1+）
+### 作为包导入
 
 ```python
-# Utils 模块 - 从根目录导入
-from utils import get_logger, SimpleLLMClient, LLMConfig
-from utils.embedding import get_embedding
-
-# 流水线组件
-from evolve.pipeline import (
-    Preprocessor,
-    ContextCompressor,
-    ContextReorderer,
-    ResponseHandler,
-)
-
-# 记忆组件
-from evolve.memory import (
-    MemoryBank,
-    SessionManager,
-    LLMBasedExtractor,
-    SemanticSearchRetriever,
-    SimpleUpdater,
-)
-
-# 高级 API
-from evolve import EvolveEngine, PluginRegistry
-
-# DST 组件（增强实现）
-from dst import (
+# 方式1: 从主包导入
+from contextmind import (
     DialogueStateTracker,
-    PromptManager,
-    ResponseParser,
-    SpecialValue,
-    DialogueTurn,
+    FnCTODTracker,
+    EvolveEngine,
+    scenario_registry,
 )
 
-# 场景配置
-from scenarios import (
-    get_chat_scenario,
-    get_callcenter_scenario,
-    get_insurance_scenario,
-)
+# 方式2: 从子模块导入
+from contextmind.modes.dst import DialogueStateTracker
+from contextmind.core.config.registry import scenario_registry
+from contextmind.scenarios.config import get_chat_scenario
 ```
 
-### 向后兼容说明
+### 安装使用
 
-```python
-# evolve 模块提供别名以保持兼容
-from evolve import (
-    InputPreprocessor,  # 别名: Preprocessor
-    ConversationSummarizer,  # 别名: LLMBasedSummarizer
-    ContextMind,  # 别名: ContextMindConfig
-)
+```bash
+# 开发模式安装
+pip install -e .
+
+# 使用
+import contextmind
+tracker = contextmind.DialogueStateTracker.from_scenario(...)
 ```
-
-**注意：** 
-- `KVCacheManager` 和 `PostProcessor` 已在 v0.2.1 中移除
-- 主框架模块为 `evolve`，不是 `contextmind`
-
-## 迁移指南
-
-### 从 v7.3 迁移到 v0.2.1
-
-**重要变更：**
-
-1. **Utils模块独立化** (Breaking Change)
-   - utils模块已移至根目录
-   - 完全不依赖 evolve 或 dst 模块
-   - 必须更新所有导入路径
-   
-   ```python
-   # ❌ 旧代码 (v7.3)
-   from examples.llm_client import SimpleLLMClient
-   
-   # ✅ 新代码 (v0.2.1)
-   from utils.logger import get_logger
-   from utils.llm_client import SimpleLLMClient
-   ```
-
-2. **知识提取能力** (New Feature)
-   - 新增 LLM 驱动的知识提取
-   - 可选功能，不影响现有代码
-   - 参考 `test_knowledge_extraction.py` 了解用法
-
-3. **增强的DST实现** (Enhancement)
-   - dst模块现在完整支持ACL 2023规范
-   - 100% 文档和类型提示覆盖
-   - 向后兼容，无需修改代码
-
-4. **ResponseHandler 增强** (Enhancement)
-   ```python
-   # 旧代码 (v7.3) - 仍然支持
-   await engine.update(user_input, assistant_response)
-   
-   # 新代码 (v0.2.1) - 推荐
-   result = await engine.handle_response(
-       user_input=user_input,
-       llm_response=assistant_response,
-       auto_extract=True,   # 自动提取知识
-       auto_store=True      # 自动存储到记忆库
-   )
-   ```
-
-5. **SimpleLLMClient 新方法** (Enhancement)
-   - 新增 `chat(messages, temperature)` 同步方法
-   - 新增 `chat_async(messages, temperature)` 异步方法
-   - 支持标准消息列表格式
-   - 自动兼容，无需修改现有代码
-
-### 从 v7.2 迁移到 v0.2.1
-
-**重要变更：**
-
-1. **KVCacheManager 已移除**
-   - KV 缓存管理属于 LLM 推理框架（vLLM, sglang等）职责
-   - 请在您的 LLM 推理层配置 KV 缓存策略
-
-2. **PostProcessor 替换为 ResponseHandler**
-   ```python
-   # 旧代码 (v7.2)
-   await engine.update(user_input, assistant_response)
-   
-   # 新代码 (v0.2.1) - 推荐
-   result = await engine.handle_response(
-       user_input=user_input,
-       llm_response=assistant_response,
-       auto_extract=True,   # 自动提取知识
-       auto_store=True      # 自动存储到记忆库
-   )
-   
-   # 或继续使用 update() (仅记录对话，不提取知识)
-   await engine.update(user_input, assistant_response)
-   ```
-
-3. **流水线步骤调整**
-   - 步骤数量从 6 步减少到 5 步
-   - 最后一步现在是 ResponseHandler（响应处理和记忆更新）
-
-### 从 v7.1 迁移到 v0.2.1
-
-**注意**：v0.2.1 是一次重大重构，模块结构有较大变化。
-
-1. **主框架模块**：从 `contextmind` 改为 `evolve`
-   ```python
-   # v0.2.1 导入方式
-   from evolve import EvolveEngine
-   from evolve.pipeline import Preprocessor, ContextCompressor
-   from evolve.memory import MemoryBank, SessionManager
-   ```
-
-2. **Utils 模块独立化**
-   ```python
-   # v0.2.1 导入方式
-   from utils import get_logger, SimpleLLMClient
-   ```
-
-3. **DST 模块增强**
-   ```python
-   # v0.2.1 导入方式
-   from dst import DialogueStateTracker, PromptManager
-   ```
 
 ## 设计原则
 
-1. **模块化**：流水线中的每一步都是独立模块
-2. **插件架构**：所有组件都是可插拔和可替换的
-3. **向后兼容**：旧导入仍通过包装模块工作
-4. **清晰分离**：Pipeline、Memory、Strategies 和 Utils 是独立的
-5. **类型安全**：使用 dataclass 进行强类型检查
-6. **异步优先**：所有 I/O 操作使用 async/await
-
-## 架构优势
-
-1. **清晰的结构**：易于理解从输入到输出的流程
-2. **易于测试**：每个组件都可以独立测试
-3. **灵活性**：组件可以被替换或扩展
-4. **可维护性**：相关代码组织在一起
-5. **可扩展性**：可以添加新组件而不破坏现有代码
-
-## 后续步骤
-
-- 为外部知识库实现完整的 ContextRetriever
-- 添加更多 Extractor/Retriever/Updater 策略
-- 增强 ResponseHandler 的响应分析能力
-- 完善基于响应质量的记忆策略调整机制
+1. **模块化**: 每层职责清晰，可独立使用
+2. **可扩展**: 易于添加新模式、新场景
+3. **专业性**: 符合Python包开发标准
+4. **清晰性**: 命名准确，结构清晰
