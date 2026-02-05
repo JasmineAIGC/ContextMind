@@ -1,0 +1,86 @@
+{
+  "dialogue_id": "对话7",
+  "description": "年轻客户询问后因产品只保癌症不符合综合保障需求而拒绝",
+  "turns": [
+    {
+      "turn_id": 1,
+      "system_utterance": "我是札幌合作社团体癌症保险担当。请问，您是札幌合作社会员吗？",
+      "user_utterance": "是的。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解"
+      }
+    },
+    {
+      "turn_id": 2,
+      "system_utterance": "非常抱歉。这是保险介绍电话，您现在方便接听吗？",
+      "user_utterance": "是的，我正忙着，但请问有什么事？",
+      "expected_state": {
+        "intent_level1": "用户忙",
+        "intent_level2": "用户忙",
+        "intent_level3": "当前很忙"
+      }
+    },
+    {
+      "turn_id": 3,
+      "system_utterance": "可以简单通过电话为您说明一下吗？",
+      "user_utterance": "是的。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 4,
+      "system_utterance": "为了安全确认，您现在不在开车吧？",
+      "user_utterance": "啊，不，我在家，没问题。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解"
+      }
+    },
+    {
+      "turn_id": 5,
+      "system_utterance": "请借此机会为癌症准备更充分的保障，您觉得如何？",
+      "user_utterance": "这个住院保障，即使不是癌症住院也赔付吗？",
+      "expected_state": {
+        "intent_level1": "咨询",
+        "intent_level2": "询问保障内容",
+        "intent_level3": "充分了解"
+      }
+    },
+    {
+      "turn_id": 6,
+      "system_utterance": "这不是医疗保险，是癌症专属保险，只有因癌症治疗目的住院时才保障。",
+      "user_utterance": "啊，没关系，不用了。",
+      "expected_state": {
+        "intent_level1": "拒绝",
+        "intent_level2": "明确、强硬拒绝",
+        "intent_level3": "不感兴趣"
+      }
+    },
+    {
+      "turn_id": 7,
+      "system_utterance": "啊，没有符合您的需求吗？",
+      "user_utterance": "啊，是的，没问题。",
+      "expected_state": {
+        "intent_level1": "拒绝",
+        "intent_level2": "明确、强硬拒绝",
+        "intent_level3": "强硬态度"
+      }
+    }
+  ],
+  "final_state": {
+    "intent_level1": "拒绝",
+    "intent_level2": "明确、强硬拒绝",
+    "intent_level3": "不感兴趣",
+    "conversation_stage": "客户拒绝"
+  },
+  "dialogue_metadata": {
+    "monthly_premium": "1570日元",
+    "customer_age_range": "30岁以下",
+    "final_result": "拒绝",
+    "main_objection": "只保癌症，不符合综合保障需求"
+  }
+}

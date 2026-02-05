@@ -1,0 +1,90 @@
+{
+  "dialogue_id": "对话1",
+  "description": "销售员向已有保险的客户推销团体癌症保险，客户表示现有保障足够，最终委婉拒绝",
+  "turns": [
+    {
+      "turn_id": 1,
+      "system_utterance": "您好，打扰了。我是札幌生活合作社团体癌症保险的负责人。平时一直承蒙您对合作社的关照。请问札幌生活合作社的会员XX様在家吗？",
+      "user_utterance": "是的，是我。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 2,
+      "system_utterance": "今天打电话来，是想为札幌生活合作社会员专属的团体癌症保险做个简单介绍，可以占用您一点时间通过电话说明吗？",
+      "user_utterance": "哦，请问有什么事？",
+      "expected_state": {
+        "intent_level1": "咨询",
+        "intent_level2": "询问保障内容",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 3,
+      "system_utterance": "请问您已经买过癌症保险了吗？",
+      "user_utterance": "啊，有买过。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有癌症保险",
+        "has_cancer_insurance": "是"
+      }
+    },
+    {
+      "turn_id": 4,
+      "system_utterance": "半额方案的内容也很充实，您要不要考虑一下？",
+      "user_utterance": "嗯，其他地方也有类似的。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有保险",
+        "intent_level3": "已有保障"
+      }
+    },
+    {
+      "turn_id": 5,
+      "system_utterance": "果然还是有点难决定吗？",
+      "user_utterance": "就先谢绝了。",
+      "expected_state": {
+        "intent_level1": "拒绝",
+        "intent_level2": "委婉拒绝",
+        "intent_level3": "委婉态度"
+      }
+    },
+    {
+      "turn_id": 6,
+      "system_utterance": "好的。您想了很久，非常感谢，能不能告诉我您犹豫的地方是什么？",
+      "user_utterance": "嗯，就是已经买了很多其他保险了。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有保险",
+        "intent_level3": "已有保障",
+        "has_insurance": "是"
+      }
+    },
+    {
+      "turn_id": 7,
+      "system_utterance": "您有没有稍微考虑过半额方案？",
+      "user_utterance": "现在用现有的那些就行了，嗯。",
+      "expected_state": {
+        "intent_level1": "拒绝",
+        "intent_level2": "委婉拒绝",
+        "intent_level3": "已有保障"
+      }
+    }
+  ],
+  "final_state": {
+    "intent_level1": "拒绝",
+    "intent_level2": "委婉拒绝",
+    "intent_level3": "已有保障",
+    "has_cancer_insurance": "是",
+    "has_insurance": "是",
+    "conversation_stage": "客户拒绝"
+  },
+  "dialogue_metadata": {
+    "monthly_premium": "5140日元",
+    "final_result": "拒绝",
+    "main_objection": "已有保险，现有保障足够"
+  }
+}

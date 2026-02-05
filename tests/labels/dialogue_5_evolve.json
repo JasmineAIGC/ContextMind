@@ -1,0 +1,80 @@
+{
+  "dialogue_id": "对话5",
+  "dialogue_summary": "回访客户因收入不稳定而拒绝，虽认可可能后悔但现有保障应能应付",
+  "extracted_knowledge": {
+    "user_preferences": [
+      {
+        "content": "客户不希望增加月付负担",
+        "confidence": 0.95
+      },
+      {
+        "content": "客户认为现有保险保障已足够",
+        "confidence": 0.85
+      }
+    ],
+    "facts": [
+      {
+        "content": "客户收入不稳定",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户已有癌症保险或特约",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户是回访对象，之前已接受过介绍",
+        "confidence": 1.0
+      },
+      {
+        "content": "客户在保险咨询窗口听过介绍后加入现有保险",
+        "confidence": 0.9
+      }
+    ],
+    "patterns": [
+      {
+        "content": "回访时询问资料查看情况能了解客户兴趣程度",
+        "confidence": 0.8
+      },
+      {
+        "content": "客户提及收入不稳定是强烈的拒绝信号",
+        "confidence": 0.95
+      }
+    ],
+    "strategies": [
+      {
+        "content": "对收入不稳定客户，即使半额方案也可能不适合推荐",
+        "confidence": 0.9
+      },
+      {
+        "content": "客户承认可能后悔时，不应强行推销",
+        "confidence": 0.85
+      }
+    ],
+    "experiences": [
+      {
+        "content": "收入不稳定是月付型保险的核心障碍",
+        "confidence": 0.95
+      },
+      {
+        "content": "回访客户如果态度未变，应尊重其决定",
+        "confidence": 0.85
+      },
+      {
+        "content": "客户理性承认风险但仍拒绝时，说明决定经过深思熟虑",
+        "confidence": 0.8
+      }
+    ]
+  },
+  "memory_items": [
+    {
+      "content": "收入不稳定的客户对月付型保险敏感，不宜强推",
+      "importance": 0.95,
+      "category": "experiences"
+    },
+    {
+      "content": "回访时客户态度未变应礼貌结束，保持未来合作可能",
+      "importance": 0.85,
+      "category": "strategies"
+    }
+  ]
+}

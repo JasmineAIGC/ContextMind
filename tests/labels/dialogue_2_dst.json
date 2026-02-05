@@ -1,0 +1,88 @@
+{
+  "dialogue_id": "对话2",
+  "description": "中年客户因保费负担困难而拒绝保险推销",
+  "turns": [
+    {
+      "turn_id": 1,
+      "system_utterance": "我是札幌合作社团体癌症保险担当。一直以来感谢您对合作社的支持。冒昧请问，您是札幌合作社会员吗？",
+      "user_utterance": "啊，是的。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 2,
+      "system_utterance": "可以简单通过电话为您说明一下吗？",
+      "user_utterance": "是的。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 3,
+      "system_utterance": "为了安全确认，您现在没有在开车吧？",
+      "user_utterance": "啊，现在不是。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解"
+      }
+    },
+    {
+      "turn_id": 4,
+      "system_utterance": "请务必借此机会为癌症准备更充分的保障，您觉得如何？",
+      "user_utterance": "啊，因为我已经加入保险了。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有保险",
+        "has_insurance": "是"
+      }
+    },
+    {
+      "turn_id": 5,
+      "system_utterance": "是的，您也有癌症保险吗？",
+      "user_utterance": "啊，是的。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有癌症保险",
+        "has_cancer_insurance": "是"
+      }
+    },
+    {
+      "turn_id": 6,
+      "system_utterance": "谢谢。实际上针对五十岁以上的人，部分保险金额会减半，但住院、门诊、诊断保险金等半额的半方案，每月保险费三千四百五十日元也可以持有，您考虑作为追加保险吗？",
+      "user_utterance": "不，那个，有些难以决定。目前，",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "犹豫",
+        "intent_level3": "谨慎态度"
+      }
+    },
+    {
+      "turn_id": 7,
+      "system_utterance": "保险费负担有点困难吗？",
+      "user_utterance": "嗯，是的，大致如此。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "保费贵",
+        "intent_level3": "负担过重"
+      }
+    }
+  ],
+  "final_state": {
+    "intent_level1": "无意向",
+    "intent_level2": "保费贵",
+    "intent_level3": "负担过重",
+    "has_cancer_insurance": "是",
+    "has_insurance": "是",
+    "conversation_stage": "客户拒绝"
+  },
+  "dialogue_metadata": {
+    "monthly_premium": "6850日元",
+    "final_result": "拒绝",
+    "main_objection": "保费负担困难"
+  }
+}

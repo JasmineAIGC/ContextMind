@@ -1,0 +1,80 @@
+{
+  "dialogue_id": "对话4",
+  "description": "中年客户已有保险但态度开放，表示可以考虑增加保障",
+  "turns": [
+    {
+      "turn_id": 1,
+      "system_utterance": "我是札幌合作社团体癌症保险担当。您是札幌合作社会员〇〇様吗？",
+      "user_utterance": "是的。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解"
+      }
+    },
+    {
+      "turn_id": 2,
+      "system_utterance": "今天是为了向札幌合作社会员专属的团体癌症保险做介绍而联系。可以简单通过电话为您说明一下吗？",
+      "user_utterance": "是的。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解",
+        "intent_level3": "开放态度"
+      }
+    },
+    {
+      "turn_id": 3,
+      "system_utterance": "为了安全确认，您现在不在开车吧？",
+      "user_utterance": "嗯，没问题。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "同意了解"
+      }
+    },
+    {
+      "turn_id": 4,
+      "system_utterance": "请借此机会为癌症准备更充分的保障，您觉得如何？",
+      "user_utterance": "啊，保险啊，我稍微整理过，已经有了一些。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有保险",
+        "has_insurance": "是"
+      }
+    },
+    {
+      "turn_id": 5,
+      "system_utterance": "那么，包括癌症保险和特约，您的保障内容已经很充实了吗？",
+      "user_utterance": "是的，嗯。",
+      "expected_state": {
+        "intent_level1": "无意向",
+        "intent_level2": "已有癌症保险",
+        "intent_level3": "已有保障",
+        "has_cancer_insurance": "是"
+      }
+    },
+    {
+      "turn_id": 6,
+      "system_utterance": "此次没有持有期限限制，只要是五十岁以上人士，我们还准备了半额计划，费用减半，每月两千六百日元也可以持有，所以建议作为追加组合加入。",
+      "user_utterance": "啊，是的，没问题，那个，支出稍微增加一些也没关系，嗯。",
+      "expected_state": {
+        "intent_level1": "接受",
+        "intent_level2": "有意向",
+        "intent_level3": "开放态度",
+        "customer_age_range": "50岁以上"
+      }
+    }
+  ],
+  "final_state": {
+    "intent_level1": "接受",
+    "intent_level2": "有意向",
+    "intent_level3": "开放态度",
+    "has_insurance": "是",
+    "has_cancer_insurance": "是",
+    "customer_age_range": "50岁以上",
+    "conversation_stage": "了解产品"
+  },
+  "dialogue_metadata": {
+    "monthly_premium": "5140日元",
+    "final_result": "接受考虑",
+    "main_objection": "已有保险，但可接受适度增加"
+  }
+}
