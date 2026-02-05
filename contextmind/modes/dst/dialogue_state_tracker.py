@@ -274,7 +274,7 @@ class DialogueStateTracker:
         else:
             logger.warning("未提供LLM客户端，使用空响应")
             raw_response = "{}"
-        self.step_timings['LLM提取'] = time.time() - step_start
+        self.step_timings['LLM槽位提取'] = time.time() - step_start
         
         # 添加助手响应到历史
         self.messages.append({"role": "assistant", "content": raw_response})

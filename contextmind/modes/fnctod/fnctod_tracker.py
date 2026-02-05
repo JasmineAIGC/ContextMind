@@ -130,6 +130,9 @@ class FnCTODTracker:
         self.turn_count += 1
         start_time = time.time()
         
+        # 初始化步骤计时字典
+        self.step_timings = {}
+        
         logger.info(f"\n{'='*60}")
         logger.info(f"处理第 {self.turn_count} 轮对话")
         logger.info(f"用户: {user_utterance}")
@@ -221,7 +224,7 @@ class FnCTODTracker:
                 logger.warning("未检测到domain，使用第一个domain作为默认")
                 domains = [self.function_manager.get_domain_names()[0]]
             
-            self.step_timings['domain_selection'] = time.time() - step_start
+            self.step_timings['领域选择'] = time.time() - step_start
             logger.info(f"选中的domain: {domains}")
             
             return domains
@@ -306,7 +309,7 @@ class FnCTODTracker:
             else:
                 logger.info(f"Function call解析成功: {function_call.function_name}")
             
-            self.step_timings['function_calling'] = time.time() - step_start
+            self.step_timings['函数调用'] = time.time() - step_start
             
             return function_call, natural_response
         except Exception as e:
