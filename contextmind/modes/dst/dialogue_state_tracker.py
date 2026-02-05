@@ -82,9 +82,13 @@ class DialogueStateTracker:
         if hasattr(self.prompt_manager, 'categorical_slots'):
             categorical_slots = self.prompt_manager.categorical_slots
         
+        # 使用 PromptManager 的 enable_dynamic_slots 设置（而非 __init__ 参数）
+        # 这样可以正确支持 from_scenario() 工厂方法
+        pm_enable_dynamic = self.prompt_manager.enable_dynamic_slots
+        
         self.response_parser = ResponseParser(
             ontology_slots=self.prompt_manager.get_slot_names(),
-            enable_filtering=not enable_dynamic_slots,  # 动态模式不过滤
+            enable_filtering=not pm_enable_dynamic,  # 动态模式不过滤
             categorical_slots=categorical_slots  # 传递分类槽位
         )
         
