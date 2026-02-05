@@ -120,6 +120,9 @@ class DSTTransferTODTest:
         all_expected = []
         all_extracted = []
         
+        # 维护累积的期望状态（用于正确比较）
+        cumulative_expected_state = {}
+        
         # 逐轮测试
         for turn in dialogue.turns:
             if verbose:
@@ -137,8 +140,11 @@ class DSTTransferTODTest:
                 logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
                 extracted_state = {}
             
-            # 比较expected_slots和extracted_state
-            expected = turn.expected_slots
+            # 更新累积的期望状态（合并本轮的变化）
+            cumulative_expected_state.update(turn.expected_slots)
+            
+            # 比较累积的期望状态和提取状态
+            expected = cumulative_expected_state.copy()
             
             # 计算本轮的匹配度
             turn_total = len(expected)
@@ -146,7 +152,10 @@ class DSTTransferTODTest:
             
             for slot, expected_value in expected.items():
                 extracted_value = extracted_state.get(slot)
-                if extracted_value == expected_value:
+                # 转换为字符串进行比较（因为expected可能是原始类型）
+                expected_value_str = str(expected_value) if expected_value is not None else None
+                extracted_value_str = str(extracted_value) if extracted_value is not None else None
+                if expected_value_str == extracted_value_str:
                     turn_matched += 1
             
             total_slots += turn_total
@@ -211,13 +220,21 @@ class DSTTransferTODTest:
         
         for expected, extracted in zip(expected_list, extracted_list):
             for slot, value in expected.items():
-                if slot in extracted and extracted[slot] == value:
+                # 转换为字符串进行比较
+                expected_value_str = str(value) if value is not None else None
+                extracted_value_str = str(extracted.get(slot)) if extracted.get(slot) is not None else None
+                
+                if slot in extracted and expected_value_str == extracted_value_str:
                     true_positive += 1
                 else:
                     false_negative += 1
             
             for slot, value in extracted.items():
-                if slot not in expected or expected.get(slot) != value:
+                # 转换为字符串进行比较
+                expected_value_str = str(expected.get(slot)) if expected.get(slot) is not None else None
+                extracted_value_str = str(value) if value is not None else None
+                
+                if slot not in expected or expected_value_str != extracted_value_str:
                     false_positive += 1
         
         precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0.0
