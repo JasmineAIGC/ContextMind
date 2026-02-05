@@ -337,6 +337,14 @@ class LLMBasedExtractor(BaseExtractor):
             extracted_data = await self._extract_with_llm(conversation_text)
             knowledge_list = self._parse_llm_response(extracted_data, messages)
             
+            # 验证提取的知识是否真实存在于对话中
+            before_validation = len(knowledge_list)
+            knowledge_list = self._validate_knowledge_against_conversation(knowledge_list, conversation_text)
+            hallucination_count = before_validation - len(knowledge_list)
+            
+            if hallucination_count > 0:
+                logger.warning(f"[LLMBasedExtractor] ⚠️ 过滤疑似幻觉知识: {hallucination_count} 条")
+            
             # 过滤低置信度知识
             before_filter = len(knowledge_list)
             knowledge_list = [k for k in knowledge_list if k.confidence >= self.config.min_confidence]
@@ -373,6 +381,12 @@ class LLMBasedExtractor(BaseExtractor):
         """使用LLM提取知识"""
         system_prompt = """你是一个专业的知识提取助手。从对话中提取结构化知识信息。
 
+⚠️ 重要原则：
+1. **只能提取对话中明确出现的信息** - 必须能在原文中找到直接依据
+2. **严禁推理、联想、补充信息** - 不要根据常识或背景知识添加内容
+3. **严禁捏造或猜测** - 如果对话中没有说，就不要提取
+4. **如实提取** - 保持原意，不要过度解读或扩展
+
 返回JSON格式:
 ```json
 {
@@ -387,13 +401,15 @@ class LLMBasedExtractor(BaseExtractor):
 ```
 
 支持的知识类型包括: user_info, preference, fact, event, intent, need, opinion, habit, constraint, interest等40种。
-只提取高价值信息，置信度需要>=0.70。"""
+只提取高价值信息，置信度需要>=0.70。
+记住：提取的每条知识都必须有对话中的直接依据，不可凭空创造。"""
         
         user_prompt = f"""请从以下对话中提取结构化知识：
 
 {conversation_text}
 
-请返回JSON格式的提取结果。"""
+请返回JSON格式的提取结果。
+提醒：只提取对话中明确出现的信息，不要添加任何推理、联想或补充的内容。"""
         
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
         
@@ -483,6 +499,51 @@ class LLMBasedExtractor(BaseExtractor):
             logger.error(f"[LLMBasedExtractor] 解析LLM响应失败: {e}")
         
         return knowledge_list
+
+
+    def _validate_knowledge_against_conversation(self, knowledge_list: List[Knowledge], conversation_text: str) -> List[Knowledge]:
+        """
+        验证提取的知识是否真实存在于对话中，过滤幻觉内容
+        
+        Args:
+            knowledge_list: 待验证的知识列表
+            conversation_text: 原始对话文本
+            
+        Returns:
+            验证通过的知识列表
+        """
+        validated = []
+        conversation_lower = conversation_text.lower()
+        
+        for knowledge in knowledge_list:
+            content = knowledge.content.strip()
+            
+            # 提取关键词进行验证
+            # 去除常见的前缀（如"用户偏好："、"用户意图："等）
+            content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
+            
+            # 分词提取关键实体和动词（简单方法：提取较长的连续中文片段）
+            # 提取3个字以上的中文词组
+            key_phrases = re.findall(r'[\u4e00-\u9fa5]{3,}', content_clean)
+            
+            # 如果没有提取到关键短语，使用整个清理后的内容
+            if not key_phrases:
+                key_phrases = [content_clean]
+            
+            # 检查是否至少有一个关键短语出现在对话中
+            found = False
+            for phrase in key_phrases:
+                if len(phrase) >= 2 and phrase.lower() in conversation_lower:
+                    found = True
+                    break
+            
+            if found:
+                validated.append(knowledge)
+            else:
+                # 记录被过滤的可疑知识
+                logger.debug(f"[LLMBasedExtractor] 过滤疑似幻觉: [{knowledge.knowledge_type.value}] {content[:50]}...")
+        
+        return validated
 
 
 # ============================================================================
