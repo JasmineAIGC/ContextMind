@@ -8,20 +8,29 @@ system_prompt: |
 
 # 输出格式说明
 output_format:
-  importance_note: "IMPORTANT: You MUST always output a function call for every user input."
+  importance_note: |
+    CRITICAL REQUIREMENT: You MUST ALWAYS output a function call for EVERY user input.
+    DO NOT respond with only natural language - you MUST include the <function_call> tag.
   
   format_description: |
-    Output format (REQUIRED):
-    1. First, output the function call in this EXACT format:
+    REQUIRED OUTPUT FORMAT - You must follow this EXACTLY:
+    
+    Step 1: Output the function call in this EXACT format (with quotes around function name):
        <function_call name="function_name">
        {"param1": "value1", "param2": "value2"}
        </function_call>
     
-    2. Then, provide a natural language response to the user
+    Step 2: Then, provide a natural language response to the user
+    
+    Example of correct output:
+       <function_call name="insurance">
+       {"intent_level1": "咨询"}
+       </function_call>
+       好的，我理解您想咨询保险。请问您对哪方面的保险感兴趣？
 
   # 单轮示例模板
   single_turn_example_template: |
-    Example:
+    Example (YOU MUST FOLLOW THIS FORMAT):
        <function_call name="{domain}">
        {example_params}
        </function_call>
@@ -29,7 +38,7 @@ output_format:
 
   # 多轮示例模板
   multi_turn_example_template: |
-    Multi-turn Example:
+    Multi-turn Example (ALWAYS include <function_call> tag):
        Turn 1 User: {turn1_user}
        Turn 1 Assistant:
        <function_call name="{domain}">
@@ -46,10 +55,12 @@ output_format:
 
 # 累积状态指令
 cumulative_state_instructions: |
-  Instructions:
-  - EVERY turn MUST include a <function_call> tag with the CUMULATIVE state
+  CRITICAL Instructions for EVERY turn:
+  - You MUST include a <function_call> tag in EVERY response
   - Include ALL parameters from previous turns, plus any new/updated ones
   - Even if no new parameters are extracted, still output the function call with existing parameters
+  - Format: <function_call name="domain_name">{"param": "value"}</function_call>
+  - Then add your natural language response after the function call tag
 
 # 默认示例（如果场景没有定义自定义示例）
 default_examples:
