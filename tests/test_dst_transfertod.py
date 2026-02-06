@@ -123,6 +123,9 @@ class DSTTransferTODTest:
         # 维护累积的期望状态（用于正确比较）
         cumulative_expected_state = {}
         
+        # 初始化最终提取状态（防止空对话情况）
+        final_extracted_state = {}
+        
         # 逐轮测试
         for turn in dialogue.turns:
             if verbose:
@@ -168,6 +171,9 @@ class DSTTransferTODTest:
             all_expected.append(expected)
             all_extracted.append(extracted_state)
             
+            # 保存最终提取状态
+            final_extracted_state = extracted_state
+            
             if verbose:
                 print(f"期望状态: {expected}")
                 print(f"提取状态: {extracted_state}")
@@ -178,8 +184,16 @@ class DSTTransferTODTest:
         
         # Joint Accuracy（对话级别，使用最终状态）- 对齐TransferTOD论文
         # 比较最终的累积状态是否完全匹配
+        # 使用tracker的current_state作为最终状态（更可靠）
         final_expected = cumulative_expected_state
-        final_extracted = extracted_state  # 最后一轮的状态
+        final_extracted = self.tracker.current_state if hasattr(self, 'tracker') else final_extracted_state
+        
+        # DEBUG: 添加调试输出
+        if verbose:
+            print(f"\n--- 最终状态比较（Joint Accuracy）---")
+            print(f"最终期望状态: {final_expected}")
+            print(f"最终提取状态: {final_extracted}")
+        
         joint_accuracy = self._calculate_joint_accuracy(final_expected, final_extracted)
         
         # 计算Precision/Recall/F1（基于slot-value pairs）- 对齐TransferTOD论文
@@ -223,15 +237,25 @@ class DSTTransferTODTest:
         # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
         expected_pairs = set()
         for k, v in expected.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                expected_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            expected_pairs.add((k, v_str))
         
         extracted_pairs = set()
         for k, v in extracted.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                extracted_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            extracted_pairs.add((k, v_str))
+        
+        # DEBUG: Log mismatch details
+        if expected_pairs != extracted_pairs:
+            logger.debug(f"JA Mismatch - Expected: {expected_pairs}, Extracted: {extracted_pairs}")
+            logger.debug(f"  Missing: {expected_pairs - extracted_pairs}")
+            logger.debug(f"  Extra: {extracted_pairs - expected_pairs}")
         
         return 1.0 if expected_pairs == extracted_pairs else 0.0
     
@@ -251,15 +275,19 @@ class DSTTransferTODTest:
         # 转换为slot-value pairs的集合（对齐TransferTOD论文的实现）
         expected_pairs = set()
         for k, v in expected.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                expected_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            expected_pairs.add((k, v_str))
         
         extracted_pairs = set()
         for k, v in extracted.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                extracted_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            extracted_pairs.add((k, v_str))
         
         # 计算TP, FP, FN（对齐TransferTOD论文的f1_calculator）
         TP = len(expected_pairs & extracted_pairs)  # 交集
