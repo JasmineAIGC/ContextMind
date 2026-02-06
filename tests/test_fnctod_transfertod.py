@@ -244,15 +244,25 @@ class FnCTODTransferTODTest:
         # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
         expected_pairs = set()
         for k, v in expected.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                expected_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            expected_pairs.add((k, v_str))
         
         extracted_pairs = set()
         for k, v in extracted.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                extracted_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            extracted_pairs.add((k, v_str))
+        
+        # DEBUG: Log mismatch details
+        if expected_pairs != extracted_pairs:
+            logger.debug(f"JA Mismatch - Expected: {expected_pairs}, Extracted: {extracted_pairs}")
+            logger.debug(f"  Missing: {expected_pairs - extracted_pairs}")
+            logger.debug(f"  Extra: {extracted_pairs - expected_pairs}")
         
         return 1.0 if expected_pairs == extracted_pairs else 0.0
     
@@ -272,15 +282,19 @@ class FnCTODTransferTODTest:
         # 转换为slot-value pairs的集合（对齐TransferTOD论文的实现）
         expected_pairs = set()
         for k, v in expected.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                expected_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            expected_pairs.add((k, v_str))
         
         extracted_pairs = set()
         for k, v in extracted.items():
-            v_str = str(v) if v is not None else None
-            if v_str is not None:
-                extracted_pairs.add((k, v_str))
+            # 过滤None和空值
+            if v is None or v == '' or v == 'null' or v == 'None':
+                continue
+            v_str = str(v)
+            extracted_pairs.add((k, v_str))
         
         # 计算TP, FP, FN（对齐TransferTOD论文的f1_calculator）
         TP = len(expected_pairs & extracted_pairs)  # 交集
