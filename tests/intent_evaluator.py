@@ -130,12 +130,12 @@ class IntentEvaluator:
         if turn_id == 0 and not slot_updates:
             return "greeting", "task_independent"
         
-        # 1.2 告别
-        if self._check_intent_by_markers("farewell", user_utterance):
+        # 1.2 告别（基于简单关键词检测）
+        if user_utterance and any(word in user_utterance.lower() for word in ['再见', '拜拜', 'bye', 'goodbye']):
             return "farewell", "task_independent"
         
-        # 1.3 感谢
-        if self._check_intent_by_markers("thanking", user_utterance):
+        # 1.3 感谢（基于简单关键词检测）
+        if user_utterance and any(word in user_utterance.lower() for word in ['谢谢', '感谢', 'thanks', 'thank you']):
             return "thanking", "task_independent"
         
         # 1.4 闲聊（无槽位变化且非特殊场景）
@@ -144,8 +144,8 @@ class IntentEvaluator:
         
         # === 规则2: 任务相关意图判断（按优先级） ===
         
-        # 2.1 请求信息（槽位值为特殊标记或包含请求标记词）
-        if self._has_request_marker(slot_updates) or self._check_intent_by_markers("request_info", user_utterance):
+        # 2.1 请求信息（槽位值为特殊标记）
+        if self._has_request_marker(slot_updates):
             return "request_info", "task_related"
         
         # 2.2 更正信息（修改已存在的槽位值）
@@ -153,11 +153,11 @@ class IntentEvaluator:
             return "correct_info", "task_related"
         
         # 2.3 确认信息（槽位值与之前相同，表示确认）
-        if self._is_confirmation(slot_updates, previous_state) or self._check_intent_by_markers("confirm_info", user_utterance):
+        if self._is_confirmation(slot_updates, previous_state):
             return "confirm_info", "task_related"
         
         # 2.4 应答确认（简单的槽位更新，通常是回答系统问题）
-        if self._is_acknowledge(slot_updates, user_utterance):
+        if self._is_acknowledgement(slot_updates, user_utterance):
             return "acknowledge", "task_related"
         
         # 2.5 提供信息（默认，新增或更新槽位）
@@ -167,23 +167,29 @@ class IntentEvaluator:
         # === 规则3: 未知意图 ===
         return "unknown", "meta"
     
-    def _check_intent_by_markers(self, intent_id: str, text: str) -> bool:
+    def _check_intent_by_markers(self, domain: str, intent: str, text: str) -> bool:
         """
-        根据配置的标记词检测意图
+        根据配置的标记词检测意图（需要领域参数）
+        
+        注意：此方法保留用于未来扩展，当前推断逻辑主要基于槽位模式
         
         Args:
-            intent_id: 意图ID
+            domain: 领域名称
+            intent: 意图名称
             text: 要检测的文本
             
         Returns:
             是否匹配
         """
-        if not text or intent_id not in self._marker_cache:
+        if not text or domain not in self._marker_cache:
             return False
         
-        markers = self._marker_cache[intent_id]
+        if intent not in self._marker_cache[domain]:
+            return False
+            
+        markers = self._marker_cache[domain][intent]
         text_lower = text.lower()
-        return any(marker in text_lower for marker in markers)
+        return any(marker in text_lower for marker in markers if marker)
     
     def _has_request_marker(self, slot_updates: Dict[str, Any]) -> bool:
         """检测是否包含请求标记"""
@@ -211,8 +217,8 @@ class IntentEvaluator:
     
     def _is_acknowledgement(self, slot_updates: Dict[str, Any], user_utterance: str) -> bool:
         """检测是否为简单应答（如"好的"、"是的"）"""
-        # 使用配置的标记词
-        if self._check_intent_by_markers("acknowledge", user_utterance):
+        # 简单关键词检测
+        if user_utterance and any(word in user_utterance.lower() for word in ['好的', '是的', '对', '嗯', 'ok', 'yes']):
             return True
         # 简单启发式：单个槽位更新且话语很短
         if len(slot_updates) == 1 and len(user_utterance) < 10:
