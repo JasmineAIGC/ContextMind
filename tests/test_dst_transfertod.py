@@ -237,22 +237,10 @@ class DSTTransferTODTest:
         Returns:
             1.0 if匹配, 0.0 otherwise
         """
-        # 转换为slot-value pairs的集合进行比较
-        expected_pairs = set()
-        for k, v in expected.items():
-            # 过滤None和空值
-            if v is None or v == '' or v == 'null' or v == 'None':
-                continue
-            v_str = str(v)
-            expected_pairs.add((k, v_str))
-        
-        extracted_pairs = set()
-        for k, v in extracted.items():
-            # 过滤None和空值
-            if v is None or v == '' or v == 'null' or v == 'None':
-                continue
-            v_str = str(v)
-            extracted_pairs.add((k, v_str))
+        # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
+        # 注：TransferTOD适配器已确保不含None值，此处不需要额外过滤
+        expected_pairs = set([(k, str(v)) for k, v in expected.items()])
+        extracted_pairs = set([(k, str(v)) for k, v in extracted.items()])
         
         # DEBUG: Log mismatch details
         if expected_pairs != extracted_pairs:
@@ -285,21 +273,9 @@ class DSTTransferTODTest:
             (precision, recall, f1)
         """
         # 转换为slot-value pairs的集合（对齐TransferTOD论文的实现）
-        expected_pairs = set()
-        for k, v in expected.items():
-            # 过滤None和空值
-            if v is None or v == '' or v == 'null' or v == 'None':
-                continue
-            v_str = str(v)
-            expected_pairs.add((k, v_str))
-        
-        extracted_pairs = set()
-        for k, v in extracted.items():
-            # 过滤None和空值
-            if v is None or v == '' or v == 'null' or v == 'None':
-                continue
-            v_str = str(v)
-            extracted_pairs.add((k, v_str))
+        # 注：TransferTOD适配器已确保不含None值，此处不需要额外过滤
+        expected_pairs = set([(k, str(v)) for k, v in expected.items()])
+        extracted_pairs = set([(k, str(v)) for k, v in extracted.items()])
         
         # 计算TP, FP, FN（对齐TransferTOD论文的f1_calculator）
         TP = len(expected_pairs & extracted_pairs)  # 交集
