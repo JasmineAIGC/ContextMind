@@ -10,6 +10,17 @@
 from typing import Dict, List, Tuple, Any, Optional
 from collections import Counter, defaultdict
 from enum import Enum
+import os
+
+# 可选导入matplotlib用于可视化
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # 使用非GUI后端
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 
 class TaskRelevance(Enum):
@@ -399,15 +410,88 @@ class IntentEvaluator:
             'phase_intent_distribution': {k: dict(v) for k, v in phase_intent_dist.items()}
         }
     
-    def get_detailed_report(self) -> str:
+    def plot_confusion_matrix(self, output_path: str = "confusion_matrix.png") -> Optional[str]:
+        """
+        生成混淆矩阵可视化图表
+        
+        Args:
+            output_path: 输出图片的路径
+            
+        Returns:
+            保存的图片路径，如果matplotlib不可用则返回None
+        """
+        if not MATPLOTLIB_AVAILABLE:
+            return None
+        
+        metrics = self.calculate_metrics()
+        confusion = metrics['confusion_matrix']
+        
+        if not confusion:
+            return None
+        
+        # 获取所有意图类型
+        all_intents = sorted(
+            set(metrics['predicted_distribution'].keys()) | 
+            set(metrics['inferred_distribution'].keys())
+        )
+        
+        # 构建混淆矩阵数组
+        import numpy as np
+        matrix_size = len(all_intents)
+        matrix = np.zeros((matrix_size, matrix_size))
+        
+        for i, true_intent in enumerate(all_intents):
+            for j, pred_intent in enumerate(all_intents):
+                matrix[i, j] = confusion.get(true_intent, {}).get(pred_intent, 0)
+        
+        # 创建图表
+        plt.figure(figsize=(12, 10))
+        
+        # 使用seaborn绘制热图
+        sns.heatmap(
+            matrix,
+            annot=True,
+            fmt='g',
+            cmap='Blues',
+            xticklabels=all_intents,
+            yticklabels=all_intents,
+            cbar_kws={'label': '数量'},
+            square=True,
+            linewidths=0.5,
+            linecolor='gray'
+        )
+        
+        plt.title('意图混淆矩阵 (Intent Confusion Matrix)\n行=Ground Truth, 列=Predicted', 
+                 fontsize=14, fontweight='bold', pad=20)
+        plt.xlabel('预测意图 (Predicted Intent)', fontsize=12, fontweight='bold')
+        plt.ylabel('实际意图 (Ground Truth Intent)', fontsize=12, fontweight='bold')
+        
+        # 旋转标签以提高可读性
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        
+        # 调整布局
+        plt.tight_layout()
+        
+        # 保存图片
+        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        
+        return output_path
+    
+    def get_detailed_report(self, save_confusion_plot: bool = True, plot_path: str = "confusion_matrix.png") -> str:
         """
         生成详细的评测报告（v2.0 - 增强版）
         
+        Args:
+            save_confusion_plot: 是否保存混淆矩阵图表
+            plot_path: 混淆矩阵图表保存路径
+            
         Returns:
             格式化的报告字符串，包括：
             - 基础准确率
             - 意图分布对比
-            - 混淆矩阵
+            - 混淆矩阵（简化版或图表）
             - 错误模式分析
             - 意图转换分析（新增）
             - 对话阶段分析（新增）
@@ -480,32 +564,48 @@ class IntentEvaluator:
             
             report.append("")
         
-        # 混淆矩阵
+        # 混淆矩阵 - 使用可视化或简化版本
         if metrics['confusion_matrix']:
             report.append("-" * 70)
-            report.append("混淆矩阵 (行=Ground Truth, 列=Predicted)")
+            report.append("混淆矩阵 (Confusion Matrix)")
             report.append("-" * 70)
             
-            # 获取所有意图类型
-            all_intents_list = sorted(
-                set(metrics['predicted_distribution'].keys()) | 
-                set(metrics['inferred_distribution'].keys())
-            )
+            # 尝试生成可视化图表
+            plot_saved = False
+            if save_confusion_plot and MATPLOTLIB_AVAILABLE:
+                try:
+                    saved_path = self.plot_confusion_matrix(plot_path)
+                    if saved_path:
+                        report.append(f"✅ 混淆矩阵可视化已保存到: {saved_path}")
+                        report.append("")
+                        plot_saved = True
+                except Exception as e:
+                    report.append(f"⚠️  混淆矩阵可视化生成失败: {str(e)}")
+                    report.append("")
             
-            # 表头
-            header = f"{'GT\\Pred':<20}"
-            for intent in all_intents_list:
-                header += f"{intent:<15}"
-            report.append(header)
-            report.append("-" * 70)
-            
-            # 数据行
-            for true_intent in all_intents_list:
-                row = f"{true_intent:<20}"
-                for pred_intent in all_intents_list:
-                    count = metrics['confusion_matrix'].get(true_intent, {}).get(pred_intent, 0)
-                    row += f"{count:<15}"
-                report.append(row)
+            if not plot_saved:
+                # 如果没有生成图表，显示简化的文本版本
+                if not MATPLOTLIB_AVAILABLE:
+                    report.append("ℹ️  提示: 安装matplotlib和seaborn可查看可视化混淆矩阵")
+                    report.append("")
+                
+                # 只显示对角线准确率摘要，而不是完整矩阵
+                report.append("混淆矩阵摘要 (主对角线准确率):")
+                report.append("-" * 70)
+                
+                all_intents_list = sorted(
+                    set(metrics['predicted_distribution'].keys()) | 
+                    set(metrics['inferred_distribution'].keys())
+                )
+                
+                report.append(f"{'意图类型':<20} {'正确数':<10} {'总数':<10} {'准确率':<10}")
+                report.append("-" * 70)
+                
+                for intent in all_intents_list:
+                    correct_count = metrics['confusion_matrix'].get(intent, {}).get(intent, 0)
+                    total_count = metrics['inferred_distribution'].get(intent, 0)
+                    accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
+                    report.append(f"{intent:<20} {correct_count:<10} {total_count:<10} {accuracy:.1f}%")
             
             report.append("")
         
