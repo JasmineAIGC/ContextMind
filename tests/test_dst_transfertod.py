@@ -14,6 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
+from collections import defaultdict
 
 # 添加项目根目录到Python路径
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -428,6 +429,7 @@ async def main():
     
     # 批量测试
     all_metrics = []
+    domain_metrics = defaultdict(list)  # 按领域分组的指标
     current_domain = None
     
     for dialogue_id in dialogue_ids:
@@ -439,9 +441,12 @@ async def main():
                     current_domain = dialogue.domain
                     print(f"\n初始化领域: {current_domain}")
                     test.initialize(current_domain)
+            else:
+                current_domain = args.domain
             
             metrics = await test.test_dialogue(dialogue_id, verbose=args.verbose)
             all_metrics.append(metrics)
+            domain_metrics[current_domain].append(metrics)
         except Exception as e:
             logger.error(f"测试对话 {dialogue_id} 失败: {e}")
             continue
@@ -452,6 +457,22 @@ async def main():
         print("📊 测试指标汇总（对齐TransferTOD论文）")
         print("=" * 70)
         
+        # 按领域显示指标
+        if len(domain_metrics) > 1:
+            print("\n【分领域统计】")
+            print("-" * 70)
+            for domain, metrics_list in sorted(domain_metrics.items()):
+                avg_slot_acc = sum(m["slot_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_ja = sum(m["joint_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_f1 = sum(m["f1"] for m in metrics_list) / len(metrics_list)
+                
+                print(f"\n{domain}领域 (对话数: {len(metrics_list)}):")
+                print(f"  槽位准确率: {avg_slot_acc * 100:.2f}%")
+                print(f"  联合准确率: {avg_ja * 100:.2f}%")
+                print(f"  F1分数: {avg_f1 * 100:.2f}%")
+            print()
+        
+        # 汇总统计
         avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
         avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
         avg_joint_accuracy_soft = sum(m["joint_accuracy_soft"] for m in all_metrics) / len(all_metrics)
@@ -459,7 +480,9 @@ async def main():
         avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
         avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
         
-        print(f"\n测试对话数: {len(all_metrics)}")
+        print("\n【整体汇总统计】")
+        print("-" * 70)
+        print(f"总测试对话数: {len(all_metrics)}")
         print(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
         print(f"平均联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy * 100:.2f}%")
         print(f"平均联合准确率-软匹配 (Joint Accuracy Soft): {avg_joint_accuracy_soft * 100:.2f}%")

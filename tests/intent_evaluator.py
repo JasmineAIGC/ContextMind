@@ -18,6 +18,11 @@ try:
     matplotlib.use('Agg')  # 使用非GUI后端
     import matplotlib.pyplot as plt
     import seaborn as sns
+    
+    # 配置中文字体支持
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'WenQuanYi Micro Hei']
+    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -412,7 +417,7 @@ class IntentEvaluator:
     
     def plot_confusion_matrix(self, output_path: str = "confusion_matrix.png") -> Optional[str]:
         """
-        生成混淆矩阵可视化图表
+        生成混淆矩阵可视化图表（优化版：聚合到高层次意图类别）
         
         Args:
             output_path: 输出图片的路径
@@ -429,23 +434,51 @@ class IntentEvaluator:
         if not confusion:
             return None
         
-        # 获取所有意图类型
-        all_intents = sorted(
-            set(metrics['predicted_distribution'].keys()) | 
-            set(metrics['inferred_distribution'].keys())
-        )
+        # 定义意图聚合映射：将详细意图归类到高层次类别
+        intent_mapping = {
+            'provide_info': '提供信息',
+            'request_info': '请求信息',
+            'confirm_info': '确认信息',
+            'correct_info': '修正信息',
+            'acknowledge': '应答确认',
+            'chitchat': '闲聊',
+            'greeting': '问候',
+            'farewell': '告别',
+            'thanking': '感谢',
+            'clarification': '澄清',
+            'unknown': '未识别',
+            '未识别': '未识别',
+        }
         
-        # 构建混淆矩阵数组
+        # 聚合混淆矩阵到高层次类别
+        aggregated_confusion = defaultdict(lambda: defaultdict(int))
+        for true_intent, pred_dict in confusion.items():
+            true_category = intent_mapping.get(true_intent, '其他')
+            for pred_intent, count in pred_dict.items():
+                pred_category = intent_mapping.get(pred_intent, '其他')
+                aggregated_confusion[true_category][pred_category] += count
+        
+        if not aggregated_confusion:
+            return None
+        
+        # 获取所有类别并排序
+        all_categories = sorted(set(
+            list(aggregated_confusion.keys()) + 
+            [cat for cats in aggregated_confusion.values() for cat in cats.keys()]
+        ))
+        
+        # 构建聚合后的混淆矩阵数组
         import numpy as np
-        matrix_size = len(all_intents)
+        matrix_size = len(all_categories)
         matrix = np.zeros((matrix_size, matrix_size))
         
-        for i, true_intent in enumerate(all_intents):
-            for j, pred_intent in enumerate(all_intents):
-                matrix[i, j] = confusion.get(true_intent, {}).get(pred_intent, 0)
+        for i, true_cat in enumerate(all_categories):
+            for j, pred_cat in enumerate(all_categories):
+                matrix[i, j] = aggregated_confusion.get(true_cat, {}).get(pred_cat, 0)
         
-        # 创建图表
-        plt.figure(figsize=(12, 10))
+        # 创建图表（根据类别数量调整大小）
+        figsize = (max(8, matrix_size * 1.2), max(7, matrix_size * 1.0))
+        plt.figure(figsize=figsize)
         
         # 使用seaborn绘制热图
         sns.heatmap(
@@ -453,18 +486,18 @@ class IntentEvaluator:
             annot=True,
             fmt='g',
             cmap='Blues',
-            xticklabels=all_intents,
-            yticklabels=all_intents,
+            xticklabels=all_categories,
+            yticklabels=all_categories,
             cbar_kws={'label': '数量'},
             square=True,
             linewidths=0.5,
             linecolor='gray'
         )
         
-        plt.title('意图混淆矩阵 (Intent Confusion Matrix)\n行=Ground Truth, 列=Predicted', 
+        plt.title('意图混淆矩阵 (Intent Confusion Matrix)\n行=实际意图, 列=预测意图', 
                  fontsize=14, fontweight='bold', pad=20)
-        plt.xlabel('预测意图 (Predicted Intent)', fontsize=12, fontweight='bold')
-        plt.ylabel('实际意图 (Ground Truth Intent)', fontsize=12, fontweight='bold')
+        plt.xlabel('预测意图 (Predicted)', fontsize=12, fontweight='bold')
+        plt.ylabel('实际意图 (Ground Truth)', fontsize=12, fontweight='bold')
         
         # 旋转标签以提高可读性
         plt.xticks(rotation=45, ha='right')
@@ -473,8 +506,11 @@ class IntentEvaluator:
         # 调整布局
         plt.tight_layout()
         
-        # 保存图片
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        # 保存图片（抑制输出）
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            plt.savefig(output_path, dpi=150, bbox_inches='tight')
         plt.close()
         
         return output_path
