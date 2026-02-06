@@ -155,6 +155,7 @@ class DSTTransferTODTest:
                     # 意图评测：添加本轮评测
                     total_turns = len(dialogue.turns)
                     self.intent_evaluator.add_turn_evaluation(
+                        domain=current_domain,  # 添加领域参数
                         turn_id=turn.turn_id,
                         predicted_intent=predicted_intent,
                         turn_updates=turn.expected_slots,  # 使用expected_slots作为ground truth的槽位变化
@@ -167,7 +168,11 @@ class DSTTransferTODTest:
                     if verbose:
                         # 推断意图用于显示（正确解包tuple）
                         inferred_result = self.intent_evaluator.infer_intent_from_slots(
-                            turn.expected_slots, previous_state, turn.user_utterance, turn.turn_id
+                            domain=current_domain,  # 添加领域参数
+                            turn_updates=turn.expected_slots,
+                            previous_state=previous_state,
+                            user_utterance=turn.user_utterance,
+                            turn_id=turn.turn_id
                         )
                         # infer_intent_from_slots 返回 (intent, task_relevance) 元组
                         if isinstance(inferred_result, tuple):
