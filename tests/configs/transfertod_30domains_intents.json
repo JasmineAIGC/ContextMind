@@ -22,14 +22,66 @@
         "其他"
       ],
       "intent_descriptions": {
-        "预订酒店": {"description": "用户预订酒店房间", "keywords": ["预订", "订房", "住"]},
-        "查询酒店信息": {"description": "查询酒店设施、位置等信息", "keywords": ["查询", "有什么", "在哪"]},
-        "取消预订": {"description": "取消已预订的酒店", "keywords": ["取消", "不要了"]},
-        "修改预订": {"description": "修改预订信息", "keywords": ["修改", "改", "换"]},
-        "咨询价格": {"description": "询问价格费用", "keywords": ["多少钱", "价格", "费用"]},
-        "确认预订": {"description": "确认预订信息", "keywords": ["确认", "对的", "是的"]},
-        "投诉反馈": {"description": "投诉或反馈问题", "keywords": ["投诉", "反馈", "问题"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "预订酒店": {
+          "description": "用户预订酒店房间",
+          "keywords": [
+            "预订",
+            "订房",
+            "住"
+          ]
+        },
+        "查询酒店信息": {
+          "description": "查询酒店设施、位置等信息",
+          "keywords": [
+            "查询",
+            "有什么",
+            "在哪"
+          ]
+        },
+        "取消预订": {
+          "description": "取消已预订的酒店",
+          "keywords": [
+            "取消",
+            "不要了"
+          ]
+        },
+        "修改预订": {
+          "description": "修改预订信息",
+          "keywords": [
+            "修改",
+            "改",
+            "换"
+          ]
+        },
+        "咨询价格": {
+          "description": "询问价格费用",
+          "keywords": [
+            "多少钱",
+            "价格",
+            "费用"
+          ]
+        },
+        "确认预订": {
+          "description": "确认预订信息",
+          "keywords": [
+            "确认",
+            "对的",
+            "是的"
+          ]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈问题",
+          "keywords": [
+            "投诉",
+            "反馈",
+            "问题"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "餐厅": {
@@ -45,14 +97,66 @@
         "其他"
       ],
       "intent_descriptions": {
-        "预订餐厅": {"description": "预订餐厅座位", "keywords": ["预订", "订位", "订餐"]},
-        "查询餐厅信息": {"description": "查询餐厅位置、营业时间等", "keywords": ["查询", "在哪", "几点"]},
-        "取消预订": {"description": "取消餐厅预订", "keywords": ["取消", "不去了"]},
-        "修改预订": {"description": "修改预订时间或人数", "keywords": ["修改", "改", "换"]},
-        "咨询菜单": {"description": "询问菜品、菜单", "keywords": ["菜单", "有什么菜", "推荐"]},
-        "确认预订": {"description": "确认预订信息", "keywords": ["确认", "对", "是"]},
-        "投诉反馈": {"description": "投诉或反馈", "keywords": ["投诉", "反馈", "不满意"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "预订餐厅": {
+          "description": "预订餐厅座位",
+          "keywords": [
+            "预订",
+            "订位",
+            "订餐"
+          ]
+        },
+        "查询餐厅信息": {
+          "description": "查询餐厅位置、营业时间等",
+          "keywords": [
+            "查询",
+            "在哪",
+            "几点"
+          ]
+        },
+        "取消预订": {
+          "description": "取消餐厅预订",
+          "keywords": [
+            "取消",
+            "不去了"
+          ]
+        },
+        "修改预订": {
+          "description": "修改预订时间或人数",
+          "keywords": [
+            "修改",
+            "改",
+            "换"
+          ]
+        },
+        "咨询菜单": {
+          "description": "询问菜品、菜单",
+          "keywords": [
+            "菜单",
+            "有什么菜",
+            "推荐"
+          ]
+        },
+        "确认预订": {
+          "description": "确认预订信息",
+          "keywords": [
+            "确认",
+            "对",
+            "是"
+          ]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": [
+            "投诉",
+            "反馈",
+            "不满意"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "景点": {
@@ -67,13 +171,59 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询景点信息": {"description": "查询景点详情", "keywords": ["景点", "什么", "介绍"]},
-        "购票咨询": {"description": "咨询购票方式", "keywords": ["买票", "购票", "门票"]},
-        "行程规划": {"description": "规划游览路线", "keywords": ["路线", "怎么玩", "规划"]},
-        "咨询开放时间": {"description": "询问开放时间", "keywords": ["几点", "营业时间", "开放"]},
-        "咨询门票价格": {"description": "询问门票价格", "keywords": ["多少钱", "价格", "票价"]},
-        "交通咨询": {"description": "询问交通方式", "keywords": ["怎么去", "交通", "路线"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询景点信息": {
+          "description": "查询景点详情",
+          "keywords": [
+            "景点",
+            "什么",
+            "介绍"
+          ]
+        },
+        "购票咨询": {
+          "description": "咨询购票方式",
+          "keywords": [
+            "买票",
+            "购票",
+            "门票"
+          ]
+        },
+        "行程规划": {
+          "description": "规划游览路线",
+          "keywords": [
+            "路线",
+            "怎么玩",
+            "规划"
+          ]
+        },
+        "咨询开放时间": {
+          "description": "询问开放时间",
+          "keywords": [
+            "几点",
+            "营业时间",
+            "开放"
+          ]
+        },
+        "咨询门票价格": {
+          "description": "询问门票价格",
+          "keywords": [
+            "多少钱",
+            "价格",
+            "票价"
+          ]
+        },
+        "交通咨询": {
+          "description": "询问交通方式",
+          "keywords": [
+            "怎么去",
+            "交通",
+            "路线"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "出租车": {
@@ -87,12 +237,50 @@
         "其他"
       ],
       "intent_descriptions": {
-        "叫车": {"description": "叫出租车", "keywords": ["叫车", "打车", "要车"]},
-        "查询路线": {"description": "查询行车路线", "keywords": ["路线", "怎么走", "多久"]},
-        "取消订单": {"description": "取消叫车订单", "keywords": ["取消", "不要了"]},
-        "修改目的地": {"description": "修改目的地", "keywords": ["改", "去", "换"]},
-        "咨询费用": {"description": "询问打车费用", "keywords": ["多少钱", "费用", "价格"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "叫车": {
+          "description": "叫出租车",
+          "keywords": [
+            "叫车",
+            "打车",
+            "要车"
+          ]
+        },
+        "查询路线": {
+          "description": "查询行车路线",
+          "keywords": [
+            "路线",
+            "怎么走",
+            "多久"
+          ]
+        },
+        "取消订单": {
+          "description": "取消叫车订单",
+          "keywords": [
+            "取消",
+            "不要了"
+          ]
+        },
+        "修改目的地": {
+          "description": "修改目的地",
+          "keywords": [
+            "改",
+            "去",
+            "换"
+          ]
+        },
+        "咨询费用": {
+          "description": "询问打车费用",
+          "keywords": [
+            "多少钱",
+            "费用",
+            "价格"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "地铁": {
@@ -106,12 +294,51 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询地铁线路": {"description": "查询地铁线路", "keywords": ["线路", "哪条线", "坐几号线"]},
-        "查询时刻表": {"description": "查询发车时间", "keywords": ["时刻表", "几点", "末班车"]},
-        "查询票价": {"description": "询问地铁票价", "keywords": ["多少钱", "票价", "费用"]},
-        "查询换乘": {"description": "查询换乘方案", "keywords": ["换乘", "转", "怎么换"]},
-        "查询站点": {"description": "查询站点信息", "keywords": ["站", "站点", "经过"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询地铁线路": {
+          "description": "查询地铁线路",
+          "keywords": [
+            "线路",
+            "哪条线",
+            "坐几号线"
+          ]
+        },
+        "查询时刻表": {
+          "description": "查询发车时间",
+          "keywords": [
+            "时刻表",
+            "几点",
+            "末班车"
+          ]
+        },
+        "查询票价": {
+          "description": "询问地铁票价",
+          "keywords": [
+            "多少钱",
+            "票价",
+            "费用"
+          ]
+        },
+        "查询换乘": {
+          "description": "查询换乘方案",
+          "keywords": [
+            "换乘",
+            "转",
+            "怎么换"
+          ]
+        },
+        "查询站点": {
+          "description": "查询站点信息",
+          "keywords": [
+            "站",
+            "站点",
+            "经过"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "火车": {
@@ -127,14 +354,67 @@
         "其他"
       ],
       "intent_descriptions": {
-        "购票": {"description": "购买火车票", "keywords": ["买票", "购票", "订票"]},
-        "查询车次": {"description": "查询车次信息", "keywords": ["车次", "几点", "有什么车"]},
-        "退票": {"description": "退火车票", "keywords": ["退票", "退", "不去了"]},
-        "改签": {"description": "改签车票", "keywords": ["改签", "改", "换"]},
-        "咨询价格": {"description": "询问票价", "keywords": ["多少钱", "价格", "票价"]},
-        "确认订单": {"description": "确认订单", "keywords": ["确认", "对", "是"]},
-        "查询余票": {"description": "查询剩余票数", "keywords": ["还有票吗", "余票", "有没有"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "购票": {
+          "description": "购买火车票",
+          "keywords": [
+            "买票",
+            "购票",
+            "订票"
+          ]
+        },
+        "查询车次": {
+          "description": "查询车次信息",
+          "keywords": [
+            "车次",
+            "几点",
+            "有什么车"
+          ]
+        },
+        "退票": {
+          "description": "退火车票",
+          "keywords": [
+            "退票",
+            "退",
+            "不去了"
+          ]
+        },
+        "改签": {
+          "description": "改签车票",
+          "keywords": [
+            "改签",
+            "改",
+            "换"
+          ]
+        },
+        "咨询价格": {
+          "description": "询问票价",
+          "keywords": [
+            "多少钱",
+            "价格",
+            "票价"
+          ]
+        },
+        "确认订单": {
+          "description": "确认订单",
+          "keywords": [
+            "确认",
+            "对",
+            "是"
+          ]
+        },
+        "查询余票": {
+          "description": "查询剩余票数",
+          "keywords": [
+            "还有票吗",
+            "余票",
+            "有没有"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "医院": {
@@ -149,13 +429,58 @@
         "其他"
       ],
       "intent_descriptions": {
-        "预约挂号": {"description": "预约挂号", "keywords": ["挂号", "预约", "看病"]},
-        "查询医生": {"description": "查询医生信息", "keywords": ["医生", "专家", "哪个医生"]},
-        "查询科室": {"description": "查询科室", "keywords": ["科室", "什么科", "哪个科"]},
-        "取消预约": {"description": "取消挂号预约", "keywords": ["取消", "不去了"]},
-        "咨询就诊时间": {"description": "询问就诊时间", "keywords": ["几点", "时间", "什么时候"]},
-        "咨询费用": {"description": "询问医疗费用", "keywords": ["多少钱", "费用", "价格"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "预约挂号": {
+          "description": "预约挂号",
+          "keywords": [
+            "挂号",
+            "预约",
+            "看病"
+          ]
+        },
+        "查询医生": {
+          "description": "查询医生信息",
+          "keywords": [
+            "医生",
+            "专家",
+            "哪个医生"
+          ]
+        },
+        "查询科室": {
+          "description": "查询科室",
+          "keywords": [
+            "科室",
+            "什么科",
+            "哪个科"
+          ]
+        },
+        "取消预约": {
+          "description": "取消挂号预约",
+          "keywords": [
+            "取消",
+            "不去了"
+          ]
+        },
+        "咨询就诊时间": {
+          "description": "询问就诊时间",
+          "keywords": [
+            "几点",
+            "时间",
+            "什么时候"
+          ]
+        },
+        "咨询费用": {
+          "description": "询问医疗费用",
+          "keywords": [
+            "多少钱",
+            "费用",
+            "价格"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "电影": {
@@ -170,13 +495,59 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询电影": {"description": "查询电影信息", "keywords": ["电影", "什么片", "有什么"]},
-        "购票": {"description": "购买电影票", "keywords": ["买票", "购票", "订票"]},
-        "查询影院": {"description": "查询影院信息", "keywords": ["影院", "电影院", "在哪"]},
-        "查询场次": {"description": "查询放映场次", "keywords": ["场次", "几点", "时间"]},
-        "退票": {"description": "退电影票", "keywords": ["退票", "退", "不看了"]},
-        "选座": {"description": "选择座位", "keywords": ["座位", "选座", "哪个位置"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询电影": {
+          "description": "查询电影信息",
+          "keywords": [
+            "电影",
+            "什么片",
+            "有什么"
+          ]
+        },
+        "购票": {
+          "description": "购买电影票",
+          "keywords": [
+            "买票",
+            "购票",
+            "订票"
+          ]
+        },
+        "查询影院": {
+          "description": "查询影院信息",
+          "keywords": [
+            "影院",
+            "电影院",
+            "在哪"
+          ]
+        },
+        "查询场次": {
+          "description": "查询放映场次",
+          "keywords": [
+            "场次",
+            "几点",
+            "时间"
+          ]
+        },
+        "退票": {
+          "description": "退电影票",
+          "keywords": [
+            "退票",
+            "退",
+            "不看了"
+          ]
+        },
+        "选座": {
+          "description": "选择座位",
+          "keywords": [
+            "座位",
+            "选座",
+            "哪个位置"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "天气": {
@@ -190,12 +561,51 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询天气": {"description": "查询天气情况", "keywords": ["天气", "怎么样", "如何"]},
-        "查询温度": {"description": "查询气温", "keywords": ["温度", "多少度", "气温"]},
-        "查询降水": {"description": "查询降雨降雪", "keywords": ["下雨", "下雪", "降水"]},
-        "查询空气质量": {"description": "查询空气质量", "keywords": ["空气", "pm2.5", "质量"]},
-        "查询未来天气": {"description": "查询未来天气预报", "keywords": ["明天", "后天", "未来"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询天气": {
+          "description": "查询天气情况",
+          "keywords": [
+            "天气",
+            "怎么样",
+            "如何"
+          ]
+        },
+        "查询温度": {
+          "description": "查询气温",
+          "keywords": [
+            "温度",
+            "多少度",
+            "气温"
+          ]
+        },
+        "查询降水": {
+          "description": "查询降雨降雪",
+          "keywords": [
+            "下雨",
+            "下雪",
+            "降水"
+          ]
+        },
+        "查询空气质量": {
+          "description": "查询空气质量",
+          "keywords": [
+            "空气",
+            "pm2.5",
+            "质量"
+          ]
+        },
+        "查询未来天气": {
+          "description": "查询未来天气预报",
+          "keywords": [
+            "明天",
+            "后天",
+            "未来"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "音乐": {
@@ -210,13 +620,59 @@
         "其他"
       ],
       "intent_descriptions": {
-        "播放音乐": {"description": "播放音乐", "keywords": ["播放", "放", "听"]},
-        "搜索歌曲": {"description": "搜索歌曲", "keywords": ["搜索", "找", "有没有"]},
-        "暂停播放": {"description": "暂停音乐", "keywords": ["暂停", "停", "别放了"]},
-        "切换歌曲": {"description": "切换到下一首", "keywords": ["下一首", "换", "切歌"]},
-        "查询歌手": {"description": "查询歌手信息", "keywords": ["歌手", "谁唱的", "歌星"]},
-        "收藏歌曲": {"description": "收藏喜欢的歌", "keywords": ["收藏", "喜欢", "加入"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "播放音乐": {
+          "description": "播放音乐",
+          "keywords": [
+            "播放",
+            "放",
+            "听"
+          ]
+        },
+        "搜索歌曲": {
+          "description": "搜索歌曲",
+          "keywords": [
+            "搜索",
+            "找",
+            "有没有"
+          ]
+        },
+        "暂停播放": {
+          "description": "暂停音乐",
+          "keywords": [
+            "暂停",
+            "停",
+            "别放了"
+          ]
+        },
+        "切换歌曲": {
+          "description": "切换到下一首",
+          "keywords": [
+            "下一首",
+            "换",
+            "切歌"
+          ]
+        },
+        "查询歌手": {
+          "description": "查询歌手信息",
+          "keywords": [
+            "歌手",
+            "谁唱的",
+            "歌星"
+          ]
+        },
+        "收藏歌曲": {
+          "description": "收藏喜欢的歌",
+          "keywords": [
+            "收藏",
+            "喜欢",
+            "加入"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "新闻": {
@@ -230,12 +686,51 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询新闻": {"description": "查询新闻", "keywords": ["新闻", "消息", "资讯"]},
-        "播报新闻": {"description": "播报新闻", "keywords": ["播报", "读", "念"]},
-        "搜索新闻": {"description": "搜索特定新闻", "keywords": ["搜索", "找", "关于"]},
-        "查询头条": {"description": "查询头条新闻", "keywords": ["头条", "热点", "热门"]},
-        "查询分类新闻": {"description": "查询特定类别新闻", "keywords": ["财经", "体育", "娱乐"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询新闻": {
+          "description": "查询新闻",
+          "keywords": [
+            "新闻",
+            "消息",
+            "资讯"
+          ]
+        },
+        "播报新闻": {
+          "description": "播报新闻",
+          "keywords": [
+            "播报",
+            "读",
+            "念"
+          ]
+        },
+        "搜索新闻": {
+          "description": "搜索特定新闻",
+          "keywords": [
+            "搜索",
+            "找",
+            "关于"
+          ]
+        },
+        "查询头条": {
+          "description": "查询头条新闻",
+          "keywords": [
+            "头条",
+            "热点",
+            "热门"
+          ]
+        },
+        "查询分类新闻": {
+          "description": "查询特定类别新闻",
+          "keywords": [
+            "财经",
+            "体育",
+            "娱乐"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "电视": {
@@ -249,12 +744,51 @@
         "其他"
       ],
       "intent_descriptions": {
-        "播放电视": {"description": "打开电视播放", "keywords": ["打开", "播放", "看"]},
-        "搜索节目": {"description": "搜索电视节目", "keywords": ["搜索", "找", "有没有"]},
-        "换台": {"description": "切换频道", "keywords": ["换台", "切换", "换"]},
-        "调整音量": {"description": "调节音量", "keywords": ["音量", "大点", "小点"]},
-        "查询节目单": {"description": "查询节目表", "keywords": ["节目单", "节目表", "有什么"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "播放电视": {
+          "description": "打开电视播放",
+          "keywords": [
+            "打开",
+            "播放",
+            "看"
+          ]
+        },
+        "搜索节目": {
+          "description": "搜索电视节目",
+          "keywords": [
+            "搜索",
+            "找",
+            "有没有"
+          ]
+        },
+        "换台": {
+          "description": "切换频道",
+          "keywords": [
+            "换台",
+            "切换",
+            "换"
+          ]
+        },
+        "调整音量": {
+          "description": "调节音量",
+          "keywords": [
+            "音量",
+            "大点",
+            "小点"
+          ]
+        },
+        "查询节目单": {
+          "description": "查询节目表",
+          "keywords": [
+            "节目单",
+            "节目表",
+            "有什么"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "购物": {
@@ -270,14 +804,67 @@
         "其他"
       ],
       "intent_descriptions": {
-        "搜索商品": {"description": "搜索商品", "keywords": ["搜索", "找", "有没有"]},
-        "加入购物车": {"description": "加入购物车", "keywords": ["加入", "购物车", "放进"]},
-        "下单购买": {"description": "下单购买", "keywords": ["买", "下单", "购买"]},
-        "查询订单": {"description": "查询订单状态", "keywords": ["订单", "查询", "哪了"]},
-        "退货退款": {"description": "退货或退款", "keywords": ["退货", "退款", "不要了"]},
-        "查询物流": {"description": "查询物流信息", "keywords": ["物流", "快递", "到哪了"]},
-        "咨询价格": {"description": "询问价格", "keywords": ["多少钱", "价格", "费用"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "搜索商品": {
+          "description": "搜索商品",
+          "keywords": [
+            "搜索",
+            "找",
+            "有没有"
+          ]
+        },
+        "加入购物车": {
+          "description": "加入购物车",
+          "keywords": [
+            "加入",
+            "购物车",
+            "放进"
+          ]
+        },
+        "下单购买": {
+          "description": "下单购买",
+          "keywords": [
+            "买",
+            "下单",
+            "购买"
+          ]
+        },
+        "查询订单": {
+          "description": "查询订单状态",
+          "keywords": [
+            "订单",
+            "查询",
+            "哪了"
+          ]
+        },
+        "退货退款": {
+          "description": "退货或退款",
+          "keywords": [
+            "退货",
+            "退款",
+            "不要了"
+          ]
+        },
+        "查询物流": {
+          "description": "查询物流信息",
+          "keywords": [
+            "物流",
+            "快递",
+            "到哪了"
+          ]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": [
+            "多少钱",
+            "价格",
+            "费用"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "银行": {
@@ -292,13 +879,59 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询余额": {"description": "查询账户余额", "keywords": ["余额", "还有多少", "剩多少"]},
-        "转账": {"description": "转账汇款", "keywords": ["转账", "汇款", "转"]},
-        "查询交易记录": {"description": "查询交易明细", "keywords": ["交易", "记录", "明细"]},
-        "理财咨询": {"description": "咨询理财产品", "keywords": ["理财", "投资", "收益"]},
-        "信用卡咨询": {"description": "咨询信用卡", "keywords": ["信用卡", "额度", "还款"]},
-        "贷款咨询": {"description": "咨询贷款", "keywords": ["贷款", "借钱", "分期"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询余额": {
+          "description": "查询账户余额",
+          "keywords": [
+            "余额",
+            "还有多少",
+            "剩多少"
+          ]
+        },
+        "转账": {
+          "description": "转账汇款",
+          "keywords": [
+            "转账",
+            "汇款",
+            "转"
+          ]
+        },
+        "查询交易记录": {
+          "description": "查询交易明细",
+          "keywords": [
+            "交易",
+            "记录",
+            "明细"
+          ]
+        },
+        "理财咨询": {
+          "description": "咨询理财产品",
+          "keywords": [
+            "理财",
+            "投资",
+            "收益"
+          ]
+        },
+        "信用卡咨询": {
+          "description": "咨询信用卡",
+          "keywords": [
+            "信用卡",
+            "额度",
+            "还款"
+          ]
+        },
+        "贷款咨询": {
+          "description": "咨询贷款",
+          "keywords": [
+            "贷款",
+            "借钱",
+            "分期"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "快递": {
@@ -313,13 +946,58 @@
         "其他"
       ],
       "intent_descriptions": {
-        "寄快递": {"description": "寄送快递", "keywords": ["寄", "寄快递", "发"]},
-        "查询物流": {"description": "查询物流信息", "keywords": ["物流", "到哪了", "查询"]},
-        "取消快递": {"description": "取消快递", "keywords": ["取消", "不寄了"]},
-        "修改地址": {"description": "修改收货地址", "keywords": ["改地址", "修改", "换"]},
-        "咨询价格": {"description": "询问快递费用", "keywords": ["多少钱", "价格", "费用"]},
-        "投诉": {"description": "投诉快递问题", "keywords": ["投诉", "反馈", "问题"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "寄快递": {
+          "description": "寄送快递",
+          "keywords": [
+            "寄",
+            "寄快递",
+            "发"
+          ]
+        },
+        "查询物流": {
+          "description": "查询物流信息",
+          "keywords": [
+            "物流",
+            "到哪了",
+            "查询"
+          ]
+        },
+        "取消快递": {
+          "description": "取消快递",
+          "keywords": [
+            "取消",
+            "不寄了"
+          ]
+        },
+        "修改地址": {
+          "description": "修改收货地址",
+          "keywords": [
+            "改地址",
+            "修改",
+            "换"
+          ]
+        },
+        "咨询价格": {
+          "description": "询问快递费用",
+          "keywords": [
+            "多少钱",
+            "价格",
+            "费用"
+          ]
+        },
+        "投诉": {
+          "description": "投诉快递问题",
+          "keywords": [
+            "投诉",
+            "反馈",
+            "问题"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "翻译": {
@@ -332,11 +1010,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "中英翻译": {"description": "中英文互译", "keywords": ["翻译", "英文", "中文"]},
-        "其他语言翻译": {"description": "其他语言翻译", "keywords": ["日语", "韩语", "法语"]},
-        "查询单词": {"description": "查询单词意思", "keywords": ["什么意思", "单词", "词"]},
-        "查询例句": {"description": "查询例句", "keywords": ["例句", "怎么说", "用法"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "中英翻译": {
+          "description": "中英文互译",
+          "keywords": [
+            "翻译",
+            "英文",
+            "中文"
+          ]
+        },
+        "其他语言翻译": {
+          "description": "其他语言翻译",
+          "keywords": [
+            "日语",
+            "韩语",
+            "法语"
+          ]
+        },
+        "查询单词": {
+          "description": "查询单词意思",
+          "keywords": [
+            "什么意思",
+            "单词",
+            "词"
+          ]
+        },
+        "查询例句": {
+          "description": "查询例句",
+          "keywords": [
+            "例句",
+            "怎么说",
+            "用法"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "提醒": {
@@ -349,11 +1059,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "设置提醒": {"description": "设置新提醒", "keywords": ["提醒", "设置", "创建"]},
-        "查询提醒": {"description": "查询提醒列表", "keywords": ["查询", "有什么", "看看"]},
-        "删除提醒": {"description": "删除提醒", "keywords": ["删除", "取消", "不要了"]},
-        "修改提醒": {"description": "修改提醒内容或时间", "keywords": ["修改", "改", "换"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "设置提醒": {
+          "description": "设置新提醒",
+          "keywords": [
+            "提醒",
+            "设置",
+            "创建"
+          ]
+        },
+        "查询提醒": {
+          "description": "查询提醒列表",
+          "keywords": [
+            "查询",
+            "有什么",
+            "看看"
+          ]
+        },
+        "删除提醒": {
+          "description": "删除提醒",
+          "keywords": [
+            "删除",
+            "取消",
+            "不要了"
+          ]
+        },
+        "修改提醒": {
+          "description": "修改提醒内容或时间",
+          "keywords": [
+            "修改",
+            "改",
+            "换"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "闹钟": {
@@ -366,11 +1108,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "设置闹钟": {"description": "设置新闹钟", "keywords": ["设置", "闹钟", "定"]},
-        "查询闹钟": {"description": "查询闹钟列表", "keywords": ["查询", "有什么", "几点"]},
-        "删除闹钟": {"description": "删除闹钟", "keywords": ["删除", "取消", "不要"]},
-        "关闭闹钟": {"description": "关闭响铃的闹钟", "keywords": ["关闭", "停", "别响了"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "设置闹钟": {
+          "description": "设置新闹钟",
+          "keywords": [
+            "设置",
+            "闹钟",
+            "定"
+          ]
+        },
+        "查询闹钟": {
+          "description": "查询闹钟列表",
+          "keywords": [
+            "查询",
+            "有什么",
+            "几点"
+          ]
+        },
+        "删除闹钟": {
+          "description": "删除闹钟",
+          "keywords": [
+            "删除",
+            "取消",
+            "不要"
+          ]
+        },
+        "关闭闹钟": {
+          "description": "关闭响铃的闹钟",
+          "keywords": [
+            "关闭",
+            "停",
+            "别响了"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "日历": {
@@ -384,12 +1158,51 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询日期": {"description": "查询日期", "keywords": ["几号", "日期", "星期几"]},
-        "添加日程": {"description": "添加日程安排", "keywords": ["添加", "安排", "日程"]},
-        "查询日程": {"description": "查询日程", "keywords": ["查询", "有什么", "安排"]},
-        "删除日程": {"description": "删除日程", "keywords": ["删除", "取消", "不去了"]},
-        "修改日程": {"description": "修改日程", "keywords": ["修改", "改", "换"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询日期": {
+          "description": "查询日期",
+          "keywords": [
+            "几号",
+            "日期",
+            "星期几"
+          ]
+        },
+        "添加日程": {
+          "description": "添加日程安排",
+          "keywords": [
+            "添加",
+            "安排",
+            "日程"
+          ]
+        },
+        "查询日程": {
+          "description": "查询日程",
+          "keywords": [
+            "查询",
+            "有什么",
+            "安排"
+          ]
+        },
+        "删除日程": {
+          "description": "删除日程",
+          "keywords": [
+            "删除",
+            "取消",
+            "不去了"
+          ]
+        },
+        "修改日程": {
+          "description": "修改日程",
+          "keywords": [
+            "修改",
+            "改",
+            "换"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "股票": {
@@ -403,12 +1216,51 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询股价": {"description": "查询股票价格", "keywords": ["股价", "多少", "价格"]},
-        "查询涨跌": {"description": "查询涨跌情况", "keywords": ["涨", "跌", "涨跌"]},
-        "查询股票信息": {"description": "查询股票详细信息", "keywords": ["股票", "信息", "代码"]},
-        "添加自选": {"description": "添加自选股", "keywords": ["添加", "自选", "关注"]},
-        "交易咨询": {"description": "咨询交易事宜", "keywords": ["买", "卖", "交易"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询股价": {
+          "description": "查询股票价格",
+          "keywords": [
+            "股价",
+            "多少",
+            "价格"
+          ]
+        },
+        "查询涨跌": {
+          "description": "查询涨跌情况",
+          "keywords": [
+            "涨",
+            "跌",
+            "涨跌"
+          ]
+        },
+        "查询股票信息": {
+          "description": "查询股票详细信息",
+          "keywords": [
+            "股票",
+            "信息",
+            "代码"
+          ]
+        },
+        "添加自选": {
+          "description": "添加自选股",
+          "keywords": [
+            "添加",
+            "自选",
+            "关注"
+          ]
+        },
+        "交易咨询": {
+          "description": "咨询交易事宜",
+          "keywords": [
+            "买",
+            "卖",
+            "交易"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "外卖": {
@@ -423,13 +1275,59 @@
         "其他"
       ],
       "intent_descriptions": {
-        "点外卖": {"description": "点外卖下单", "keywords": ["点外卖", "订餐", "买"]},
-        "查询商家": {"description": "查询商家信息", "keywords": ["商家", "店", "有什么"]},
-        "查询订单": {"description": "查询订单状态", "keywords": ["订单", "到哪了", "查询"]},
-        "取消订单": {"description": "取消外卖订单", "keywords": ["取消", "不要了", "退"]},
-        "催单": {"description": "催促送餐", "keywords": ["催单", "快点", "还有多久"]},
-        "投诉": {"description": "投诉问题", "keywords": ["投诉", "反馈", "问题"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "点外卖": {
+          "description": "点外卖下单",
+          "keywords": [
+            "点外卖",
+            "订餐",
+            "买"
+          ]
+        },
+        "查询商家": {
+          "description": "查询商家信息",
+          "keywords": [
+            "商家",
+            "店",
+            "有什么"
+          ]
+        },
+        "查询订单": {
+          "description": "查询订单状态",
+          "keywords": [
+            "订单",
+            "到哪了",
+            "查询"
+          ]
+        },
+        "取消订单": {
+          "description": "取消外卖订单",
+          "keywords": [
+            "取消",
+            "不要了",
+            "退"
+          ]
+        },
+        "催单": {
+          "description": "催促送餐",
+          "keywords": [
+            "催单",
+            "快点",
+            "还有多久"
+          ]
+        },
+        "投诉": {
+          "description": "投诉问题",
+          "keywords": [
+            "投诉",
+            "反馈",
+            "问题"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "导航": {
@@ -442,11 +1340,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "路线规划": {"description": "规划导航路线", "keywords": ["导航", "怎么去", "路线"]},
-        "查询地点": {"description": "查询地点位置", "keywords": ["在哪", "位置", "地址"]},
-        "查询路况": {"description": "查询路况信息", "keywords": ["路况", "堵不堵", "交通"]},
-        "周边搜索": {"description": "搜索周边设施", "keywords": ["附近", "周边", "有什么"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "路线规划": {
+          "description": "规划导航路线",
+          "keywords": [
+            "导航",
+            "怎么去",
+            "路线"
+          ]
+        },
+        "查询地点": {
+          "description": "查询地点位置",
+          "keywords": [
+            "在哪",
+            "位置",
+            "地址"
+          ]
+        },
+        "查询路况": {
+          "description": "查询路况信息",
+          "keywords": [
+            "路况",
+            "堵不堵",
+            "交通"
+          ]
+        },
+        "周边搜索": {
+          "description": "搜索周边设施",
+          "keywords": [
+            "附近",
+            "周边",
+            "有什么"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "计算器": {
@@ -458,10 +1388,37 @@
         "其他"
       ],
       "intent_descriptions": {
-        "数学计算": {"description": "进行数学计算", "keywords": ["加", "减", "乘", "除", "等于"]},
-        "单位换算": {"description": "单位转换", "keywords": ["换算", "转换", "等于"]},
-        "汇率换算": {"description": "货币汇率换算", "keywords": ["汇率", "美元", "人民币"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "数学计算": {
+          "description": "进行数学计算",
+          "keywords": [
+            "加",
+            "减",
+            "乘",
+            "除",
+            "等于"
+          ]
+        },
+        "单位换算": {
+          "description": "单位转换",
+          "keywords": [
+            "换算",
+            "转换",
+            "等于"
+          ]
+        },
+        "汇率换算": {
+          "description": "货币汇率换算",
+          "keywords": [
+            "汇率",
+            "美元",
+            "人民币"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "笔记": {
@@ -474,11 +1431,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "创建笔记": {"description": "新建笔记", "keywords": ["创建", "新建", "记录"]},
-        "查询笔记": {"description": "查询笔记内容", "keywords": ["查询", "看", "有什么"]},
-        "删除笔记": {"description": "删除笔记", "keywords": ["删除", "删", "不要了"]},
-        "修改笔记": {"description": "修改笔记", "keywords": ["修改", "改", "更新"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "创建笔记": {
+          "description": "新建笔记",
+          "keywords": [
+            "创建",
+            "新建",
+            "记录"
+          ]
+        },
+        "查询笔记": {
+          "description": "查询笔记内容",
+          "keywords": [
+            "查询",
+            "看",
+            "有什么"
+          ]
+        },
+        "删除笔记": {
+          "description": "删除笔记",
+          "keywords": [
+            "删除",
+            "删",
+            "不要了"
+          ]
+        },
+        "修改笔记": {
+          "description": "修改笔记",
+          "keywords": [
+            "修改",
+            "改",
+            "更新"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "百科": {
@@ -490,10 +1479,35 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询知识": {"description": "查询百科知识", "keywords": ["是什么", "什么是", "介绍"]},
-        "搜索词条": {"description": "搜索百科词条", "keywords": ["搜索", "查", "找"]},
-        "查询定义": {"description": "查询词语定义", "keywords": ["定义", "解释", "意思"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询知识": {
+          "description": "查询百科知识",
+          "keywords": [
+            "是什么",
+            "什么是",
+            "介绍"
+          ]
+        },
+        "搜索词条": {
+          "description": "搜索百科词条",
+          "keywords": [
+            "搜索",
+            "查",
+            "找"
+          ]
+        },
+        "查询定义": {
+          "description": "查询词语定义",
+          "keywords": [
+            "定义",
+            "解释",
+            "意思"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "运动": {
@@ -506,11 +1520,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "查询赛事": {"description": "查询体育赛事", "keywords": ["赛事", "比赛", "几点"]},
-        "查询比分": {"description": "查询比赛比分", "keywords": ["比分", "几比几", "赢了吗"]},
-        "查询排名": {"description": "查询排名榜", "keywords": ["排名", "第几", "名次"]},
-        "查询球队": {"description": "查询球队信息", "keywords": ["球队", "队", "球员"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "查询赛事": {
+          "description": "查询体育赛事",
+          "keywords": [
+            "赛事",
+            "比赛",
+            "几点"
+          ]
+        },
+        "查询比分": {
+          "description": "查询比赛比分",
+          "keywords": [
+            "比分",
+            "几比几",
+            "赢了吗"
+          ]
+        },
+        "查询排名": {
+          "description": "查询排名榜",
+          "keywords": [
+            "排名",
+            "第几",
+            "名次"
+          ]
+        },
+        "查询球队": {
+          "description": "查询球队信息",
+          "keywords": [
+            "球队",
+            "队",
+            "球员"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "智能家居": {
@@ -524,12 +1570,52 @@
         "其他"
       ],
       "intent_descriptions": {
-        "开关设备": {"description": "打开或关闭设备", "keywords": ["打开", "关闭", "开", "关"]},
-        "调节温度": {"description": "调节温度", "keywords": ["温度", "热", "冷"]},
-        "调节亮度": {"description": "调节灯光亮度", "keywords": ["亮度", "亮", "暗"]},
-        "查询状态": {"description": "查询设备状态", "keywords": ["状态", "开了吗", "关了吗"]},
-        "设置场景": {"description": "设置智能场景", "keywords": ["场景", "模式", "设置"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "开关设备": {
+          "description": "打开或关闭设备",
+          "keywords": [
+            "打开",
+            "关闭",
+            "开",
+            "关"
+          ]
+        },
+        "调节温度": {
+          "description": "调节温度",
+          "keywords": [
+            "温度",
+            "热",
+            "冷"
+          ]
+        },
+        "调节亮度": {
+          "description": "调节灯光亮度",
+          "keywords": [
+            "亮度",
+            "亮",
+            "暗"
+          ]
+        },
+        "查询状态": {
+          "description": "查询设备状态",
+          "keywords": [
+            "状态",
+            "开了吗",
+            "关了吗"
+          ]
+        },
+        "设置场景": {
+          "description": "设置智能场景",
+          "keywords": [
+            "场景",
+            "模式",
+            "设置"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "图片": {
@@ -542,11 +1628,43 @@
         "其他"
       ],
       "intent_descriptions": {
-        "搜索图片": {"description": "搜索图片", "keywords": ["搜索", "找", "图片"]},
-        "保存图片": {"description": "保存图片", "keywords": ["保存", "存", "下载"]},
-        "分享图片": {"description": "分享图片", "keywords": ["分享", "发", "传"]},
-        "编辑图片": {"description": "编辑图片", "keywords": ["编辑", "修改", "处理"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "搜索图片": {
+          "description": "搜索图片",
+          "keywords": [
+            "搜索",
+            "找",
+            "图片"
+          ]
+        },
+        "保存图片": {
+          "description": "保存图片",
+          "keywords": [
+            "保存",
+            "存",
+            "下载"
+          ]
+        },
+        "分享图片": {
+          "description": "分享图片",
+          "keywords": [
+            "分享",
+            "发",
+            "传"
+          ]
+        },
+        "编辑图片": {
+          "description": "编辑图片",
+          "keywords": [
+            "编辑",
+            "修改",
+            "处理"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     },
     "视频": {
@@ -559,11 +1677,106 @@
         "其他"
       ],
       "intent_descriptions": {
-        "搜索视频": {"description": "搜索视频", "keywords": ["搜索", "找", "视频"]},
-        "播放视频": {"description": "播放视频", "keywords": ["播放", "看", "放"]},
-        "暂停视频": {"description": "暂停视频", "keywords": ["暂停", "停", "别放了"]},
-        "收藏视频": {"description": "收藏视频", "keywords": ["收藏", "喜欢", "加入"]},
-        "其他": {"description": "其他未分类的意图", "keywords": [], "is_fallback": true}
+        "搜索视频": {
+          "description": "搜索视频",
+          "keywords": [
+            "搜索",
+            "找",
+            "视频"
+          ]
+        },
+        "播放视频": {
+          "description": "播放视频",
+          "keywords": [
+            "播放",
+            "看",
+            "放"
+          ]
+        },
+        "暂停视频": {
+          "description": "暂停视频",
+          "keywords": [
+            "暂停",
+            "停",
+            "别放了"
+          ]
+        },
+        "收藏视频": {
+          "description": "收藏视频",
+          "keywords": [
+            "收藏",
+            "喜欢",
+            "加入"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "公交": {
+      "domain_en": "bus",
+      "intents": [
+        "查询公交线路",
+        "查询站点",
+        "查询发车时间",
+        "查询票价",
+        "乘车指引",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询公交线路": {
+          "description": "查询公交车线路信息",
+          "keywords": [
+            "公交",
+            "线路",
+            "几路",
+            "路线"
+          ]
+        },
+        "查询站点": {
+          "description": "查询公交站点位置",
+          "keywords": [
+            "站点",
+            "在哪",
+            "站牌",
+            "车站"
+          ]
+        },
+        "查询发车时间": {
+          "description": "查询公交发车时间",
+          "keywords": [
+            "几点",
+            "时间",
+            "发车",
+            "首末班"
+          ]
+        },
+        "查询票价": {
+          "description": "查询公交票价",
+          "keywords": [
+            "多少钱",
+            "票价",
+            "价格",
+            "费用"
+          ]
+        },
+        "乘车指引": {
+          "description": "询问如何乘坐公交",
+          "keywords": [
+            "怎么坐",
+            "怎么去",
+            "换乘",
+            "坐几路"
+          ]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
       }
     }
   }
