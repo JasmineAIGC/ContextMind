@@ -1,8 +1,8 @@
 """
-Domain-specific Intent Configuration for TransferTOD Dataset
+TransferTOD数据集的域特定意图配置
 
-Supports 30 domains with comprehensive intent taxonomy.
-Special handling for "其他" (Other) intent as a fallback category.
+支持30个域，包含完整的意图分类体系。
+对"其他"(Other)意图提供特殊处理，作为回退类别。
 """
 
 import json
@@ -12,18 +12,17 @@ from typing import Dict, List, Optional, Any
 
 class DomainIntentConfig:
     """
-    Domain-specific intent configuration
+    域特定意图配置
     
-    Manages intent definitions for 30 TransferTOD domains with special handling
-    for the "其他" (Other) intent.
+    管理30个TransferTOD域的意图定义，并对"其他"(Other)意图提供特殊处理。
     """
     
     def __init__(self, config_data: Dict[str, Any]):
         """
-        Initialize domain intent configuration
+        初始化域意图配置
         
-        Args:
-            config_data: Configuration dictionary loaded from JSON
+        参数:
+            config_data: 从JSON加载的配置字典
         """
         self.dataset = config_data.get("dataset", "TransferTOD")
         self.version = config_data.get("version", "3.0")
@@ -32,29 +31,29 @@ class DomainIntentConfig:
         self.metadata = config_data.get("metadata", {})
         self.domains = config_data.get("domains", {})
         
-        # Extract special "其他" intent handling info
+        # 提取特殊"其他"意图处理信息
         self.other_intent_name = self.metadata.get("other_intent_name", "其他")
         self.other_intent_description = self.metadata.get("other_intent_description", "")
         self.other_intent_evaluation = self.metadata.get("other_intent_evaluation", "special_handling")
     
     def get_all_domains(self) -> List[str]:
         """
-        Get list of all domain names
+        获取所有域名列表
         
-        Returns:
-            List of domain names (Chinese)
+        返回:
+            域名列表(中文)
         """
         return list(self.domains.keys())
     
     def get_domain_intents(self, domain: str) -> List[str]:
         """
-        Get list of intents for a specific domain
+        获取特定域的意图列表
         
-        Args:
-            domain: Domain name (e.g., "酒店", "餐厅")
+        参数:
+            domain: 域名(例如，"酒店"、"餐厅")
             
-        Returns:
-            List of intent names for the domain
+        返回:
+            该域的意图名称列表
         """
         if domain not in self.domains:
             return []
@@ -62,14 +61,14 @@ class DomainIntentConfig:
     
     def get_intent_description(self, domain: str, intent: str) -> Dict[str, Any]:
         """
-        Get description and metadata for a specific intent
+        获取特定意图的描述和元数据
         
-        Args:
-            domain: Domain name
-            intent: Intent name
+        参数:
+            domain: 域名
+            intent: 意图名称
             
-        Returns:
-            Dictionary with intent description, keywords, etc.
+        返回:
+            包含意图描述、关键词等的字典
         """
         if domain not in self.domains:
             return {}
@@ -79,14 +78,14 @@ class DomainIntentConfig:
     
     def is_fallback_intent(self, domain: str, intent: str) -> bool:
         """
-        Check if an intent is a fallback intent (其他)
+        检查意图是否为回退意图(其他)
         
-        Args:
-            domain: Domain name
-            intent: Intent name
+        参数:
+            domain: 域名
+            intent: 意图名称
             
-        Returns:
-            True if this is the fallback "其他" intent
+        返回:
+            如果是回退"其他"意图则返回True
         """
         if intent == self.other_intent_name:
             return True
@@ -96,14 +95,14 @@ class DomainIntentConfig:
     
     def get_intent_keywords(self, domain: str, intent: str) -> List[str]:
         """
-        Get keywords for intent detection
+        获取意图检测的关键词
         
-        Args:
-            domain: Domain name
-            intent: Intent name
+        参数:
+            domain: 域名
+            intent: 意图名称
             
-        Returns:
-            List of keywords
+        返回:
+            关键词列表
         """
         intent_desc = self.get_intent_description(domain, intent)
         return intent_desc.get("keywords", [])
@@ -115,18 +114,18 @@ class DomainIntentConfig:
         slot_changes: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Infer intent from dialogue context
+        从对话上下文推断意图
         
-        Uses keyword matching and slot hints to determine the most likely intent.
-        Falls back to "其他" if no clear match is found.
+        使用关键词匹配和槽值提示来确定最可能的意图。
+        如果找不到清晰的匹配，则回退到"其他"。
         
-        Args:
-            domain: Domain name
-            user_utterance: User's utterance text
-            slot_changes: Dictionary of slot changes in this turn
+        参数:
+            domain: 域名
+            user_utterance: 用户说话文本
+            slot_changes: 本轮槽值变化字典
             
-        Returns:
-            Inferred intent name
+        返回:
+            推断的意图名称
         """
         if domain not in self.domains:
             return self.other_intent_name
@@ -134,66 +133,66 @@ class DomainIntentConfig:
         if slot_changes is None:
             slot_changes = {}
         
-        # Get all intents for this domain
+        # 获取该域的所有意图
         intents = self.get_domain_intents(domain)
         
-        # Score each intent (excluding "其他" for now)
+        # 对每个意图进行评分(暂时排除"其他")
         scores = {}
         for intent in intents:
             if self.is_fallback_intent(domain, intent):
-                continue  # Skip fallback intent in scoring
+                continue  # 跳过评分中的回退意图
             
             score = 0
             keywords = self.get_intent_keywords(domain, intent)
             
-            # Score based on keyword matches
+            # 基于关键词匹配的评分
             for keyword in keywords:
                 if keyword and keyword in user_utterance:
                     score += 2
             
-            # Additional scoring based on slot changes (if available)
-            # This is a simple heuristic and can be improved
+            # 基于槽值变化的额外评分(如果可用)
+            # 这是一个简单的启发式方法，可以进一步改进
             if slot_changes:
                 score += 1
             
             scores[intent] = score
         
-        # Find intent with highest score
+        # 查找评分最高的意图
         if scores:
             best_intent = max(scores.items(), key=lambda x: x[1])
             if best_intent[1] > 0:
                 return best_intent[0]
         
-        # Fall back to "其他" if no clear match
+        # 如果没有清晰匹配，回退到"其他"
         return self.other_intent_name
     
     def get_domain_info(self, domain: str) -> Dict[str, Any]:
         """
-        Get complete information about a domain
+        获取域的完整信息
         
-        Args:
-            domain: Domain name
+        参数:
+            domain: 域名
             
-        Returns:
-            Dictionary with domain information
+        返回:
+            包含域信息的字典
         """
         return self.domains.get(domain, {})
     
     def get_total_intents_count(self, domain: Optional[str] = None) -> int:
         """
-        Get total number of intents
+        获取意图总数
         
-        Args:
-            domain: If specified, count intents for that domain only.
-                   If None, count total unique intents across all domains.
+        参数:
+            domain: 如果指定，则仅计算该域的意图数。
+                   如果为None，则计算所有域中的总唯一意图数。
         
-        Returns:
-            Number of intents
+        返回:
+            意图数量
         """
         if domain:
             return len(self.get_domain_intents(domain))
         else:
-            # Count total across all domains
+            # 计算所有域中的总数
             total = 0
             for d in self.domains.values():
                 total += len(d.get("intents", []))
@@ -202,9 +201,9 @@ class DomainIntentConfig:
 
 class DomainIntentConfigLoader:
     """
-    Singleton loader for domain intent configuration
+    域意图配置的单例加载器
     
-    Loads and caches the 30-domain intent configuration from JSON file.
+    从JSON文件加载和缓存30域意图配置。
     """
     
     _instance: Optional['DomainIntentConfig'] = None
@@ -213,28 +212,28 @@ class DomainIntentConfigLoader:
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> DomainIntentConfig:
         """
-        Load domain intent configuration (singleton pattern)
+        加载域意图配置(单例模式)
         
-        Args:
-            config_path: Path to configuration file. If None, uses default.
+        参数:
+            config_path: 配置文件的路径。如果为None，则使用默认路径。
             
-        Returns:
-            DomainIntentConfig instance
+        返回:
+            DomainIntentConfig实例
         """
-        # Determine config path
+        # 确定配置文件路径
         if config_path is None:
-            # Default to 30-domain configuration
+            # 默认使用30域配置
             config_path = str(Path(__file__).parent / "configs" / "transfertod_30domains_intents.json")
         
-        # Return cached instance if same config path
+        # 如果路径相同，则返回缓存的实例
         if cls._instance is not None and cls._config_path == config_path:
             return cls._instance
         
-        # Load configuration
+        # 加载配置
         with open(config_path, 'r', encoding='utf-8') as f:
             config_data = json.load(f)
         
-        # Create and cache instance
+        # 创建并缓存实例
         cls._instance = DomainIntentConfig(config_data)
         cls._config_path = config_path
         
@@ -243,13 +242,13 @@ class DomainIntentConfigLoader:
     @classmethod
     def reload(cls, config_path: Optional[str] = None) -> DomainIntentConfig:
         """
-        Force reload of configuration
+        强制重新加载配置
         
-        Args:
-            config_path: Path to configuration file
+        参数:
+            config_path: 配置文件的路径
             
-        Returns:
-            Fresh DomainIntentConfig instance
+        返回:
+            新的DomainIntentConfig实例
         """
         cls._instance = None
         cls._config_path = None
@@ -258,26 +257,26 @@ class DomainIntentConfigLoader:
 
 def load_domain_intent_config(config_path: Optional[str] = None) -> DomainIntentConfig:
     """
-    Convenience function to load domain intent configuration
+    加载域意图配置的便利函数
     
-    Args:
-        config_path: Path to configuration file. If None, uses default 30-domain config.
+    参数:
+        config_path: 配置文件的路径。如果为None，则使用默认的30域配置。
         
-    Returns:
-        DomainIntentConfig instance
+    返回:
+        DomainIntentConfig实例
     """
     return DomainIntentConfigLoader.load(config_path)
 
 
-# For backward compatibility
+# 用于向后兼容性
 def get_domain_intent_config(config_path: Optional[str] = None) -> DomainIntentConfig:
     """
-    Legacy function name for backward compatibility
+    旧版函数名，用于向后兼容性
     
-    Args:
-        config_path: Path to configuration file
+    参数:
+        config_path: 配置文件的路径
         
-    Returns:
-        DomainIntentConfig instance
+    返回:
+        DomainIntentConfig实例
     """
     return load_domain_intent_config(config_path)
