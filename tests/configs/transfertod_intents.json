@@ -1,0 +1,173 @@
+{
+  "dataset": "TransferTOD",
+  "version": "1.0",
+  "description": "TransferTOD数据集意图配置 - 从槽位变化推断的隐式意图标签",
+  "intents": {
+    "task_related": [
+      {
+        "id": "provide_info",
+        "name_en": "provide_info",
+        "name_zh": "提供信息",
+        "description": "用户主动提供槽位值",
+        "inference_rule": "has_new_or_updated_slots",
+        "priority": 4,
+        "examples": ["我叫张三", "入住时间是明天", "我要预订两个房间"]
+      },
+      {
+        "id": "request_info",
+        "name_en": "request_info",
+        "name_zh": "请求信息",
+        "description": "用户询问槽位值或信息",
+        "inference_rule": "has_request_markers",
+        "priority": 2,
+        "examples": ["价格是多少", "有什么房型", "能告诉我地址吗"],
+        "markers": ["?", "？", "吗", "什么", "哪", "多少", "几", "是否", "能否"]
+      },
+      {
+        "id": "confirm_info",
+        "name_en": "confirm_info",
+        "name_zh": "确认信息",
+        "description": "用户确认系统提供的信息",
+        "inference_rule": "has_confirmation_pattern",
+        "priority": 3,
+        "examples": ["对", "是的", "没错", "确认"],
+        "markers": ["对", "是", "好", "可以", "确认", "没错"]
+      },
+      {
+        "id": "correct_info",
+        "name_en": "correct_info",
+        "name_zh": "更正信息",
+        "description": "用户纠正之前的槽位值",
+        "inference_rule": "has_slot_value_change",
+        "priority": 3,
+        "examples": ["不对，应该是李四", "改成明天"],
+        "markers": ["不", "改", "换", "修改", "更正"]
+      },
+      {
+        "id": "acknowledge",
+        "name_en": "acknowledge",
+        "name_zh": "应答确认",
+        "description": "简单的应答或确认",
+        "inference_rule": "is_simple_acknowledgment",
+        "priority": 3,
+        "examples": ["好的", "嗯", "知道了"],
+        "markers": ["好", "嗯", "哦", "知道", "明白", "应答"]
+      }
+    ],
+    "task_independent": [
+      {
+        "id": "chitchat",
+        "name_en": "chitchat",
+        "name_zh": "闲聊",
+        "description": "日常对话，无槽位变化",
+        "inference_rule": "no_slot_changes",
+        "priority": 1,
+        "examples": ["今天天气真好", "你好吗"]
+      },
+      {
+        "id": "greeting",
+        "name_en": "greeting",
+        "name_zh": "问候",
+        "description": "开场问候",
+        "inference_rule": "is_greeting",
+        "priority": 1,
+        "examples": ["你好", "早上好", "您好"],
+        "markers": ["你好", "您好", "早上好", "晚上好", "问好"]
+      },
+      {
+        "id": "farewell",
+        "name_en": "farewell",
+        "name_zh": "告别",
+        "description": "结束对话",
+        "inference_rule": "is_farewell",
+        "priority": 1,
+        "examples": ["再见", "拜拜", "回头见"],
+        "markers": ["再见", "拜拜", "回见", "告辞"]
+      },
+      {
+        "id": "thanking",
+        "name_en": "thanking",
+        "name_zh": "感谢",
+        "description": "表达感谢",
+        "inference_rule": "is_thanking",
+        "priority": 1,
+        "examples": ["谢谢", "多谢", "感谢"],
+        "markers": ["谢", "感谢"]
+      }
+    ],
+    "meta": [
+      {
+        "id": "clarification",
+        "name_en": "clarification",
+        "name_zh": "澄清",
+        "description": "请求澄清或反问",
+        "inference_rule": "is_clarification",
+        "priority": 2,
+        "examples": ["什么意思", "你是说"],
+        "markers": ["什么意思", "不明白", "没听懂"]
+      },
+      {
+        "id": "unknown",
+        "name_en": "unknown",
+        "name_zh": "未识别",
+        "description": "无法识别的意图",
+        "inference_rule": "default",
+        "priority": 0,
+        "examples": []
+      }
+    ]
+  },
+  "normalization_mapping": {
+    "提供信息": "provide_info",
+    "请求信息": "request_info",
+    "确认信息": "confirm_info",
+    "修正信息": "correct_info",
+    "更正信息": "correct_info",
+    "应答确认": "acknowledge",
+    "应答": "acknowledge",
+    "闲聊": "chitchat",
+    "问候": "greeting",
+    "告别": "farewell",
+    "感谢": "thanking",
+    "澄清": "clarification",
+    "未识别": "unknown",
+    "其他": "unknown",
+    "provide_info": "provide_info",
+    "request_info": "request_info",
+    "confirm_info": "confirm_info",
+    "correct_info": "correct_info",
+    "acknowledge": "acknowledge",
+    "chitchat": "chitchat",
+    "greeting": "greeting",
+    "farewell": "farewell",
+    "thanking": "thanking",
+    "clarification": "clarification",
+    "unknown": "unknown"
+  },
+  "task_relevance_mapping": {
+    "provide_info": "task_related",
+    "request_info": "task_related",
+    "confirm_info": "task_related",
+    "correct_info": "task_related",
+    "acknowledge": "task_related",
+    "chitchat": "task_independent",
+    "greeting": "task_independent",
+    "farewell": "task_independent",
+    "thanking": "task_independent",
+    "clarification": "meta",
+    "unknown": "meta"
+  },
+  "aggregation_mapping": {
+    "provide_info": "提供信息",
+    "request_info": "请求信息",
+    "confirm_info": "确认信息",
+    "correct_info": "修正信息",
+    "acknowledge": "应答确认",
+    "chitchat": "闲聊",
+    "greeting": "问候",
+    "farewell": "告别",
+    "thanking": "感谢",
+    "clarification": "澄清",
+    "unknown": "未识别"
+  }
+}
