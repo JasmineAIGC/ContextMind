@@ -192,7 +192,7 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
     
     # 创建应用实例
     system_prompt = scenario_config.system_prompt
-    return app_class(context_engine=engine, system_prompt=system_prompt)
+    return app_class(evolve_engine=engine, system_prompt=system_prompt)
 
 
 __all__ = [
