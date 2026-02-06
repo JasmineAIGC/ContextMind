@@ -167,6 +167,24 @@ def create_gradio_ui(demo_instance=None):
                             info="用LLM生成摘要(更智能但慢)"
                         )
                     
+                    # FnCTOD模式设置
+                    with gr.Group(visible=False) as fnctod_settings:
+                        gr.Markdown("**FnCTOD模式设置**")
+                        fnctod_max_history_slider = gr.Slider(
+                            minimum=5,
+                            maximum=50,
+                            value=10,
+                            step=1,
+                            label="历史轮数",
+                            info="FnCTOD模式保存的对话轮数"
+                        )
+                        
+                        use_two_stage_check = gr.Checkbox(
+                            value=True,
+                            label="启用两阶段处理",
+                            info="先选择domain再填充参数（推荐）"
+                        )
+                    
                     # Evolve模式设置
                     with gr.Group(visible=False) as contextmind_settings:
                         gr.Markdown("**Evolve模式设置**")
@@ -207,10 +225,16 @@ def create_gradio_ui(demo_instance=None):
 - 📊 **状态追踪**: 跟踪对话状态变化，累积信息
 - 💡 **适用**: 任务型对话、信息收集、结构化交互
 
+**FnCTOD 模式（函数调用型对话）**
+- 🔧 **函数调用**: 通过函数调用方式提取结构化信息
+- 🎯 **两阶段处理**: 先选择domain，再填充参数
+- 📦 **结构化输出**: 输出标准function call格式
+- 💡 **适用**: API集成、结构化任务、多domain场景
+
 ### 使用步骤
 
 1. **选择场景**: 根据对话任务选择合适场景
-2. **选择模式**: 需要记忆和学习 → Evolve 模式；需要结构化信息提取 → DST 模式
+2. **选择模式**: 需要记忆和学习 → Evolve 模式；需要结构化信息提取 → DST/FnCTOD 模式
 3. **应用配置**: 点击"✨ 应用配置"按钮生效
 4. **开始对话**: 在输入框输入消息，系统自动处理
 5. **查看状态**: 点击"🔍 查看状态"查看提取的信息或记忆库
@@ -228,10 +252,13 @@ def create_gradio_ui(demo_instance=None):
             "mode_selector": mode_selector,
             "apply_btn": apply_btn,
             "dst_settings": dst_settings,
+            "fnctod_settings": fnctod_settings,
             "contextmind_settings": contextmind_settings,
             "max_history_slider": max_history_slider,
             "enable_summary_check": enable_summary_check,
             "use_llm_summary_check": use_llm_summary_check,
+            "fnctod_max_history_slider": fnctod_max_history_slider,
+            "use_two_stage_check": use_two_stage_check,
             "enable_memory_check": enable_memory_check,
             "enable_evolution_check": enable_evolution_check,
             "chatbot": chatbot,
@@ -299,21 +326,23 @@ def create_gradio_ui(demo_instance=None):
                 
                 # 根据模式显示/隐藏对应的设置组
                 if mode == "dst":
-                    return history, gr.update(visible=True), gr.update(visible=False)
+                    return history, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+                elif mode == "fnctod":
+                    return history, gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
                 else:  # evolve
-                    return history, gr.update(visible=False), gr.update(visible=True)
+                    return history, gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
             
             apply_btn.click(
                 fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
-                outputs=[chatbot, dst_settings, contextmind_settings]
+                outputs=[chatbot, dst_settings, fnctod_settings, contextmind_settings]
             )
             
             # 页面加载时自动应用默认配置，显示欢迎消息
             app.load(
                 fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
-                outputs=[chatbot, dst_settings, contextmind_settings]
+                outputs=[chatbot, dst_settings, fnctod_settings, contextmind_settings]
             )
         
     return app, components
