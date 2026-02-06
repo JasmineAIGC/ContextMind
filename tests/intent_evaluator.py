@@ -479,13 +479,19 @@ class IntentEvaluator:
         
         return output_path
     
-    def get_detailed_report(self, save_confusion_plot: bool = True, plot_path: str = "confusion_matrix.png") -> str:
+    def get_detailed_report(
+        self, 
+        save_confusion_plot: bool = True, 
+        plot_path: str = "confusion_matrix.png",
+        include_confusion_matrix: bool = True
+    ) -> str:
         """
         生成详细的评测报告（v2.0 - 增强版）
         
         Args:
             save_confusion_plot: 是否保存混淆矩阵图表
             plot_path: 混淆矩阵图表保存路径
+            include_confusion_matrix: 是否在报告中包含混淆矩阵文本（默认True）
             
         Returns:
             格式化的报告字符串，包括：
@@ -509,6 +515,15 @@ class IntentEvaluator:
         report.append(f"总轮次数: {metrics['total_turns']}")
         report.append(f"正确轮次: {metrics['correct_turns']}")
         report.append(f"意图准确率: {metrics['accuracy']:.2%}")
+        report.append("")
+        
+        # 添加指标说明
+        report.append("说明：")
+        report.append("  - 意图准确率: 预测意图与推断意图完全一致的轮次占比")
+        report.append("  - 任务相关性: 意图是否与任务目标直接相关")
+        report.append("  - 对话阶段: 对话在整个流程中所处的阶段（开场、信息收集等）")
+        report.append("  - 意图分布: 各类意图在预测和推断中的出现频率对比")
+        report.append("  - 意图转换: 连续轮次之间的意图变化模式分析")
         report.append("")
         
         # 任务相关性统计（新增）
@@ -583,7 +598,8 @@ class IntentEvaluator:
                     report.append(f"⚠️  混淆矩阵可视化生成失败: {str(e)}")
                     report.append("")
             
-            if not plot_saved:
+            # 只在include_confusion_matrix=True时显示文本版本
+            if include_confusion_matrix and not plot_saved:
                 # 如果没有生成图表，显示简化的文本版本
                 if not MATPLOTLIB_AVAILABLE:
                     report.append("ℹ️  提示: 安装matplotlib和seaborn可查看可视化混淆矩阵")
@@ -606,8 +622,8 @@ class IntentEvaluator:
                     total_count = metrics['inferred_distribution'].get(intent, 0)
                     accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
                     report.append(f"{intent:<20} {correct_count:<10} {total_count:<10} {accuracy:.1f}%")
-            
-            report.append("")
+                
+                report.append("")
         
         # 错误模式分析
         if metrics['error_patterns']:

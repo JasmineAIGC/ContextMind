@@ -456,7 +456,11 @@ async def main():
         print()
         print("说明：由于TransferTOD数据集没有显式意图标签，我们通过槽位变化模式推断隐式意图。")
         print()
-        print(test.intent_evaluator.get_detailed_report())
+        print(test.intent_evaluator.get_detailed_report(
+            save_confusion_plot=True,
+            plot_path="intent_confusion_matrix.png",
+            include_confusion_matrix=False  # 不打印混淆矩阵，只保存为图片
+        ))
         
         print()
         print("说明：")
