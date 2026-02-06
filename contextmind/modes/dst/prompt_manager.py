@@ -13,6 +13,21 @@ from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Intent label loader (imported lazily to avoid circular dependencies)
+_intent_label_loader = None
+
+def _get_intent_label_loader():
+    """Lazy load intent label loader"""
+    global _intent_label_loader
+    if _intent_label_loader is None:
+        try:
+            from tests.intent_label_loader import get_intent_label_loader
+            _intent_label_loader = get_intent_label_loader()
+        except Exception as e:
+            logger.warning(f"Failed to load intent labels: {e}")
+            _intent_label_loader = None
+    return _intent_label_loader
+
 
 class Language(Enum):
     """支持的语言"""
@@ -56,7 +71,8 @@ class PromptManager:
                  llm_format: LLMFormat = LLMFormat.GENERAL,
                  template_style: str = "structured",
                  max_context_length: Optional[int] = None,
-                 custom_template: Optional[str] = None):
+                 custom_template: Optional[str] = None,
+                 enable_intent_prediction: bool = True):
         """
         初始化提示词管理器
         
@@ -68,6 +84,7 @@ class PromptManager:
             template_style: 模板风格 - "structured"(详细), "concise"(简洁), "conversational"(对话式)
             max_context_length: 最大上下文长度（自动根据LLM格式设置）
             custom_template: 自定义提示词模板（如果提供，将替代默认生成的模板）
+            enable_intent_prediction: 是否启用基于领域的意图预测（默认True）
         """
         self.domain = domain
         self.enable_dynamic_slots = enable_dynamic_slots
@@ -75,6 +92,7 @@ class PromptManager:
         self.llm_format = llm_format
         self.template_style = template_style
         self.custom_template = custom_template
+        self.enable_intent_prediction = enable_intent_prediction
         
         # 根据LLM格式设置默认上下文长度
         if max_context_length is None:
@@ -86,7 +104,79 @@ class PromptManager:
         self.ontology_slots: Dict[str, str] = {}
         self.categorical_constraints: Dict[str, List[str]] = {}
         
-        logger.info(f"初始化PromptManager (领域={domain}, 动态槽位={enable_dynamic_slots})")
+        # 加载领域特定的意图标签（如果启用）
+        self.domain_intents: List[str] = []
+        if self.enable_intent_prediction:
+            self._load_domain_intents()
+        
+        logger.info(f"初始化PromptManager (领域={domain}, 动态槽位={enable_dynamic_slots}, 意图预测={enable_intent_prediction})")
+    
+    def _load_domain_intents(self) -> None:
+        """
+        从intent_labels配置文件中加载领域特定的意图列表
+        """
+        loader = _get_intent_label_loader()
+        if loader is None:
+            logger.warning(f"Intent label loader not available, intent prediction disabled for domain: {self.domain}")
+            return
+        
+        try:
+            self.domain_intents = loader.get_domain_intents(self.domain)
+            if self.domain_intents:
+                logger.info(f"Loaded {len(self.domain_intents)} intents for domain: {self.domain}")
+            else:
+                logger.warning(f"No intents found for domain: {self.domain}")
+        except Exception as e:
+            logger.error(f"Failed to load domain intents: {e}")
+            self.domain_intents = []
+    
+    def _get_intent_instructions(self) -> str:
+        """
+        生成领域特定的意图识别指令
+        
+        返回:
+            意图识别指令字符串
+        """
+        if not self.enable_intent_prediction or not self.domain_intents:
+            return ""
+        
+        loader = _get_intent_label_loader()
+        if loader is None:
+            return ""
+        
+        intent_text = f"""## 意图识别指南（{self.domain}领域）
+
+**重要：必须从以下预定义的意图列表中选择一个最匹配的意图。**
+
+该领域的有效意图包括：
+
+"""
+        
+        # Add each intent with description and keywords
+        for intent in self.domain_intents:
+            desc_info = loader.get_intent_description(self.domain, intent)
+            description = desc_info.get("description", "")
+            keywords = desc_info.get("keywords", [])
+            
+            intent_text += f"  - **{intent}**"
+            if description:
+                intent_text += f": {description}"
+            if keywords:
+                keyword_str = ", ".join(keywords[:5])  # Limit to 5 keywords
+                intent_text += f" (关键词: {keyword_str})"
+            intent_text += "\n"
+        
+        intent_text += """
+**意图选择要求：**
+1. 必须从上述列表中选择一个意图，不能自由创建新意图
+2. 分析用户话语，选择最匹配的意图
+3. 如果无法匹配任何具体意图，选择"其他"
+4. intent字段的值必须完全匹配列表中的意图名称
+
+"""
+        
+        return intent_text
+
     
     def add_slot(self, 
                  name: str, 
@@ -168,6 +258,10 @@ class PromptManager:
    - **动态变化**：新增、修改、删除的信息
 
 """
+            # Add domain-specific intent instructions if available
+            intent_instructions = self._get_intent_instructions()
+            if intent_instructions:
+                instruction += intent_instructions
         else:
             # 如果有预定义槽位，提供指导
             if self.ontology_slots:
