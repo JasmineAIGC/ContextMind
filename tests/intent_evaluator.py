@@ -104,68 +104,33 @@ class IntentEvaluator:
         turn_id: int = 0
     ) -> Tuple[str, str]:
         """
-        从槽位变化推断隐式意图（v2.0 - 配置驱动）
+        从槽位变化推断意图
         
-        新版推断规则：
-        1. 考虑任务相关性（第一层）
-        2. 识别具体对话行为（第二层）
-        3. 考虑对话上下文（轮次、历史意图等）
-        4. 使用配置文件定义的规则和标记词
+        重要：只返回JSON配置文件中定义的意图，不能自定义
+        对于无法明确分类的情况，返回"其他"
         
         Args:
-            turn_updates: 当前轮的槽位更新
-            previous_state: 上一轮的对话状态
-            user_utterance: 用户话语（可选，用于辅助判断）
-            turn_id: 轮次ID（用于判断对话阶段）
+            domain: 对话领域
+            turn_updates: 当前轮次的槽位更新
+            previous_state: 之前的状态
+            user_utterance: 用户话语
+            turn_id: 轮次ID
             
         Returns:
-            (intent_type, task_relevance) - 意图类型和任务相关性
+            (intent, task_relevance) 元组
+            intent: 意图名称（来自JSON配置）
+            task_relevance: 任务相关性
         """
         # 过滤掉'intent'槽位本身
         slot_updates = {k: v for k, v in turn_updates.items() if k != 'intent'}
         
-        # === 规则1: 任务无关意图判断（按优先级） ===
+        # 获取领域的兜底意图（所有领域都有"其他"）
+        fallback_intent = self.intent_label_loader.other_intent_name  # "其他"
         
-        # 1.1 问候（通常在开场）
-        if turn_id == 0 and not slot_updates:
-            return "greeting", "task_independent"
-        
-        # 1.2 告别（基于简单关键词检测）
-        if user_utterance and any(word in user_utterance.lower() for word in ['再见', '拜拜', 'bye', 'goodbye']):
-            return "farewell", "task_independent"
-        
-        # 1.3 感谢（基于简单关键词检测）
-        if user_utterance and any(word in user_utterance.lower() for word in ['谢谢', '感谢', 'thanks', 'thank you']):
-            return "thanking", "task_independent"
-        
-        # 1.4 闲聊（无槽位变化且非特殊场景）
-        if not slot_updates and turn_id > 0:
-            return "chitchat", "task_independent"
-        
-        # === 规则2: 任务相关意图判断（按优先级） ===
-        
-        # 2.1 请求信息（槽位值为特殊标记）
-        if self._has_request_marker(slot_updates):
-            return "request_info", "task_related"
-        
-        # 2.2 更正信息（修改已存在的槽位值）
-        if self._is_correction(slot_updates, previous_state):
-            return "correct_info", "task_related"
-        
-        # 2.3 确认信息（槽位值与之前相同，表示确认）
-        if self._is_confirmation(slot_updates, previous_state):
-            return "confirm_info", "task_related"
-        
-        # 2.4 应答确认（简单的槽位更新，通常是回答系统问题）
-        if self._is_acknowledgement(slot_updates, user_utterance):
-            return "acknowledge", "task_related"
-        
-        # 2.5 提供信息（默认，新增或更新槽位）
-        if slot_updates:
-            return "provide_info", "task_related"
-        
-        # === 规则3: 未知意图 ===
-        return "unknown", "meta"
+        # 由于无法可靠地将槽位模式映射到特定的领域意图
+        # 我们返回"其他"作为推断意图
+        # 这确保了所有意图标签都来自JSON配置文件，不重新定义
+        return fallback_intent, "task_related"
     
     def _check_intent_by_markers(self, domain: str, intent: str, text: str) -> bool:
         """
