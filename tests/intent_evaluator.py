@@ -595,15 +595,49 @@ class IntentEvaluator:
         report.append("说明：")
         report.append("  - 意图准确率: 预测意图与推断意图完全一致的轮次占比")
         
-        # 如果准确率为0%，添加提示
+        # 如果准确率为0%，添加诊断信息
         if metrics['accuracy'] == 0 and metrics['total_turns'] > 0:
+            # 检查是否所有预测都是'未识别'或'unknown'
+            predicted_intents = [pred for pred, _ in self.predictions]
+            unique_predictions = set(predicted_intents)
+            
+            # 标准化检查
+            intent_normalization = {
+                '未识别': 'unknown',
+                'unknown': 'unknown',
+            }
+            normalized_predictions = set(
+                intent_normalization.get(p.lower(), p.lower()) 
+                for p in unique_predictions
+            )
+            
             report.append("")
-            report.append("⚠️  提示：意图准确率为0%可能的原因：")
-            report.append("  1. DST未配置意图提取功能（默认意图为'未识别'）")
-            report.append("  2. DST意图格式与推断意图格式不匹配")
-            report.append("     - DST预测: 中文意图（如'提供信息'）或'未识别'")
-            report.append("     - 推断意图: 英文枚举值（如'provide_info'）")
-            report.append("  3. 需要在DST配置中启用意图提取，并确保格式一致")
+            if normalized_predictions == {'unknown'}:
+                # 所有预测都是'未识别'，说明DST未配置意图提取
+                # 显示推断的意图样本
+                inferred_intents = [inf for _, inf in self.predictions]
+                unique_inferred = sorted(set(inferred_intents))
+                inferred_sample = ', '.join(unique_inferred[:5])
+                
+                report.append("❌ 诊断结果：DST未配置意图提取功能")
+                report.append("")
+                report.append("说明：")
+                report.append(f"  - 所有 {metrics['total_turns']} 轮对话的预测意图都是'未识别'")
+                report.append("  - 这说明DST Tracker未开启意图提取功能")
+                report.append(f"  - 而从槽位推断的意图有: {inferred_sample}")
+                report.append("  - 因此无法进行有效的意图评测对比")
+                report.append("")
+                report.append("建议：")
+                report.append("  1. 在DST的prompt中添加意图提取指令")
+                report.append("  2. 或者跳过意图评测（专注于槽位提取评测）")
+                report.append("  3. 意图评测功能仅在DST配置了意图提取时才有意义")
+            else:
+                # 有不同的预测，但准确率仍为0%
+                report.append("⚠️  提示：意图准确率为0%可能的原因：")
+                report.append("  1. DST意图格式与推断意图格式不匹配")
+                report.append(f"     - DST预测的意图类型: {', '.join(sorted(unique_predictions)[:5])}")
+                report.append("     - 需要确保意图名称格式一致（支持中英文映射）")
+                report.append("  2. 检查意图标准化映射是否完整")
         
         report.append("")
         
