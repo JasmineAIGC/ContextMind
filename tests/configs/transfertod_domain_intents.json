@@ -1,0 +1,301 @@
+{
+  "dataset": "TransferTOD",
+  "version": "2.0",
+  "description": "Domain-specific intent configuration for TransferTOD dataset. Each domain has task-specific intents.",
+  "note": "TransferTOD dataset does not have explicit intent labels. These intents are inferred based on common task patterns in Chinese TOD.",
+  "domains": {
+    "酒店": {
+      "domain_name_en": "Hotel",
+      "intents": [
+        "预订酒店",
+        "查询酒店信息",
+        "取消预订",
+        "修改预订",
+        "咨询价格",
+        "确认预订",
+        "投诉或反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订酒店": {
+          "description": "用户想要预订酒店房间",
+          "slot_hints": ["姓名", "入住日期", "退房日期", "房型", "房间数"],
+          "keywords": ["预订", "订", "住", "房间", "入住"]
+        },
+        "查询酒店信息": {
+          "description": "用户查询酒店相关信息（位置、设施、服务等）",
+          "slot_hints": ["酒店名称", "地址", "设施"],
+          "keywords": ["查询", "在哪", "有什么", "信息", "了解"]
+        },
+        "取消预订": {
+          "description": "用户想要取消已有的酒店预订",
+          "slot_hints": ["预订编号", "姓名"],
+          "keywords": ["取消", "不要", "退订"]
+        },
+        "修改预订": {
+          "description": "用户想要修改已有的预订信息",
+          "slot_hints": ["预订编号", "入住日期", "退房日期", "房型"],
+          "keywords": ["修改", "改", "换", "调整"]
+        },
+        "咨询价格": {
+          "description": "用户咨询酒店价格或费用",
+          "slot_hints": ["房型", "价格"],
+          "keywords": ["价格", "多少钱", "费用", "贵不贵"]
+        },
+        "确认预订": {
+          "description": "用户确认预订信息或订单",
+          "slot_hints": ["预订编号"],
+          "keywords": ["确认", "对", "是的", "没问题"]
+        },
+        "投诉或反馈": {
+          "description": "用户对酒店服务进行投诉或反馈",
+          "slot_hints": [],
+          "keywords": ["投诉", "不满意", "问题", "反馈"]
+        },
+        "其他": {
+          "description": "其他未分类的酒店相关意图",
+          "slot_hints": [],
+          "keywords": []
+        }
+      }
+    },
+    "餐厅": {
+      "domain_name_en": "Restaurant",
+      "intents": [
+        "预订餐厅",
+        "查询餐厅信息",
+        "取消预订",
+        "修改预订",
+        "咨询菜单",
+        "确认预订",
+        "投诉或反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订餐厅": {
+          "description": "用户想要预订餐厅",
+          "slot_hints": ["姓名", "预订时间", "人数", "餐厅名称"],
+          "keywords": ["预订", "订", "订位", "订餐"]
+        },
+        "查询餐厅信息": {
+          "description": "用户查询餐厅相关信息",
+          "slot_hints": ["餐厅名称", "地址", "营业时间"],
+          "keywords": ["查询", "在哪", "信息", "了解", "有什么"]
+        },
+        "取消预订": {
+          "description": "用户想要取消餐厅预订",
+          "slot_hints": ["预订编号", "姓名"],
+          "keywords": ["取消", "不去", "退订"]
+        },
+        "修改预订": {
+          "description": "用户想要修改餐厅预订",
+          "slot_hints": ["预订编号", "预订时间", "人数"],
+          "keywords": ["修改", "改", "换", "调整"]
+        },
+        "咨询菜单": {
+          "description": "用户咨询餐厅菜单或菜品",
+          "slot_hints": ["菜品名称", "价格"],
+          "keywords": ["菜单", "菜", "吃什么", "有什么菜"]
+        },
+        "确认预订": {
+          "description": "用户确认餐厅预订",
+          "slot_hints": ["预订编号"],
+          "keywords": ["确认", "对", "是的", "没问题"]
+        },
+        "投诉或反馈": {
+          "description": "用户对餐厅进行投诉或反馈",
+          "slot_hints": [],
+          "keywords": ["投诉", "不满意", "问题", "反馈"]
+        },
+        "其他": {
+          "description": "其他未分类的餐厅相关意图",
+          "slot_hints": [],
+          "keywords": []
+        }
+      }
+    },
+    "景点": {
+      "domain_name_en": "Attraction",
+      "intents": [
+        "查询景点信息",
+        "购票咨询",
+        "行程规划",
+        "咨询开放时间",
+        "咨询门票价格",
+        "交通咨询",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询景点信息": {
+          "description": "用户查询景点的基本信息",
+          "slot_hints": ["景点名称", "地址", "介绍"],
+          "keywords": ["查询", "景点", "在哪", "信息", "了解"]
+        },
+        "购票咨询": {
+          "description": "用户咨询购买门票相关事宜",
+          "slot_hints": ["景点名称", "票价", "购票方式"],
+          "keywords": ["买票", "购票", "门票", "票"]
+        },
+        "行程规划": {
+          "description": "用户请求帮助规划游览行程",
+          "slot_hints": ["景点名称", "游览时间"],
+          "keywords": ["行程", "怎么玩", "路线", "规划"]
+        },
+        "咨询开放时间": {
+          "description": "用户咨询景点的开放时间",
+          "slot_hints": ["景点名称", "开放时间"],
+          "keywords": ["开放时间", "几点", "营业时间", "开门"]
+        },
+        "咨询门票价格": {
+          "description": "用户咨询景点门票价格",
+          "slot_hints": ["景点名称", "票价"],
+          "keywords": ["价格", "多少钱", "票价", "费用"]
+        },
+        "交通咨询": {
+          "description": "用户咨询到达景点的交通方式",
+          "slot_hints": ["景点名称", "地址", "交通方式"],
+          "keywords": ["怎么去", "交通", "路线", "坐什么车"]
+        },
+        "其他": {
+          "description": "其他未分类的景点相关意图",
+          "slot_hints": [],
+          "keywords": []
+        }
+      }
+    },
+    "出租车": {
+      "domain_name_en": "Taxi",
+      "intents": [
+        "预订出租车",
+        "查询路线",
+        "取消预订",
+        "修改行程",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订出租车": {
+          "description": "用户想要预订出租车",
+          "slot_hints": ["出发地", "目的地", "出发时间"],
+          "keywords": ["打车", "叫车", "预订", "出租车"]
+        },
+        "查询路线": {
+          "description": "用户查询出租车路线",
+          "slot_hints": ["出发地", "目的地"],
+          "keywords": ["路线", "怎么走", "多远", "多久"]
+        },
+        "取消预订": {
+          "description": "用户取消出租车预订",
+          "slot_hints": ["订单编号"],
+          "keywords": ["取消", "不要", "不用"]
+        },
+        "修改行程": {
+          "description": "用户修改出租车行程",
+          "slot_hints": ["订单编号", "目的地", "出发时间"],
+          "keywords": ["修改", "改", "换"]
+        },
+        "其他": {
+          "description": "其他未分类的出租车相关意图",
+          "slot_hints": [],
+          "keywords": []
+        }
+      }
+    },
+    "地铁": {
+      "domain_name_en": "Metro",
+      "intents": [
+        "查询地铁线路",
+        "查询时刻表",
+        "查询票价",
+        "查询换乘",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询地铁线路": {
+          "description": "用户查询地铁线路信息",
+          "slot_hints": ["起点站", "终点站", "线路"],
+          "keywords": ["地铁", "线路", "几号线", "坐哪条线"]
+        },
+        "查询时刻表": {
+          "description": "用户查询地铁时刻表",
+          "slot_hints": ["线路", "车站"],
+          "keywords": ["时刻表", "几点", "末班车", "首班车"]
+        },
+        "查询票价": {
+          "description": "用户查询地铁票价",
+          "slot_hints": ["起点站", "终点站"],
+          "keywords": ["票价", "多少钱", "价格", "费用"]
+        },
+        "查询换乘": {
+          "description": "用户查询地铁换乘方案",
+          "slot_hints": ["起点站", "终点站"],
+          "keywords": ["换乘", "转", "怎么换", "在哪换"]
+        },
+        "其他": {
+          "description": "其他未分类的地铁相关意图",
+          "slot_hints": [],
+          "keywords": []
+        }
+      }
+    },
+    "火车": {
+      "domain_name_en": "Train",
+      "intents": [
+        "预订火车票",
+        "查询车次",
+        "取消订单",
+        "改签",
+        "咨询价格",
+        "确认订单",
+        "退票",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订火车票": {
+          "description": "用户想要预订火车票",
+          "slot_hints": ["出发地", "目的地", "出发日期", "车次"],
+          "keywords": ["订票", "买票", "预订", "火车票"]
+        },
+        "查询车次": {
+          "description": "用户查询火车车次信息",
+          "slot_hints": ["出发地", "目的地", "出发日期"],
+          "keywords": ["查询", "车次", "有什么车", "几点"]
+        },
+        "取消订单": {
+          "description": "用户取消火车票订单",
+          "slot_hints": ["订单编号"],
+          "keywords": ["取消", "不要", "退订"]
+        },
+        "改签": {
+          "description": "用户改签火车票",
+          "slot_hints": ["订单编号", "新日期", "新车次"],
+          "keywords": ["改签", "换", "改"]
+        },
+        "咨询价格": {
+          "description": "用户咨询火车票价格",
+          "slot_hints": ["车次", "座位类型"],
+          "keywords": ["价格", "多少钱", "票价", "费用"]
+        },
+        "确认订单": {
+          "description": "用户确认火车票订单",
+          "slot_hints": ["订单编号"],
+          "keywords": ["确认", "对", "是的", "没问题"]
+        },
+        "退票": {
+          "description": "用户退火车票",
+          "slot_hints": ["订单编号"],
+          "keywords": ["退票", "退"]
+        },
+        "其他": {
+          "description": "其他未分类的火车相关意图",
+          "slot_hints": [],
+          "keywords": []
+        }
+      }
+    }
+  },
+  "default_intent": "其他",
+  "intent_inference_rules": {
+    "priority": "Use slot_hints and keywords to infer intent from dialogue context",
+    "fallback": "If no clear match, use default_intent"
+  }
+}
