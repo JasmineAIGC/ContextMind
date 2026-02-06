@@ -486,7 +486,7 @@ class IntentEvaluator:
         include_confusion_matrix: bool = True
     ) -> str:
         """
-        生成详细的评测报告（v2.0 - 增强版）
+        生成简化的评测报告（仅数值结果）
         
         Args:
             save_confusion_plot: 是否保存混淆矩阵图表
@@ -494,92 +494,39 @@ class IntentEvaluator:
             include_confusion_matrix: 是否在报告中包含混淆矩阵文本（默认True）
             
         Returns:
-            格式化的报告字符串，包括：
-            - 基础准确率
-            - 意图分布对比
-            - 混淆矩阵（简化版或图表）
-            - 错误模式分析
-            - 意图转换分析（新增）
-            - 对话阶段分析（新增）
-            - 任务相关性统计（新增）
+            格式化的报告字符串，仅包括核心数值
         """
         metrics = self.calculate_metrics()
         
         report = []
         report.append("=" * 70)
-        report.append("意图评测报告 v2.0 (Intent Evaluation Report)")
+        report.append("意图评测报告 (Intent Evaluation Report)")
         report.append("=" * 70)
         report.append("")
         
-        # 总体准确率
+        # 总体准确率（仅核心数值）
         report.append(f"总轮次数: {metrics['total_turns']}")
         report.append(f"正确轮次: {metrics['correct_turns']}")
         report.append(f"意图准确率: {metrics['accuracy']:.2%}")
         report.append("")
         
-        # 添加指标说明
+        # 添加说明
         report.append("说明：")
         report.append("  - 意图准确率: 预测意图与推断意图完全一致的轮次占比")
-        report.append("  - 任务相关性: 意图是否与任务目标直接相关")
-        report.append("  - 对话阶段: 对话在整个流程中所处的阶段（开场、信息收集等）")
-        report.append("  - 意图分布: 各类意图在预测和推断中的出现频率对比")
-        report.append("  - 意图转换: 连续轮次之间的意图变化模式分析")
-        report.append("")
         
-        # 任务相关性统计（新增）
-        if metrics['task_relevance_stats']:
-            report.append("-" * 70)
-            report.append("任务相关性统计")
-            report.append("-" * 70)
-            for relevance, count in metrics['task_relevance_stats'].items():
-                percentage = count / metrics['total_turns'] * 100 if metrics['total_turns'] > 0 else 0
-                report.append(f"{relevance:<20} {count:<10} ({percentage:.1f}%)")
+        # 如果准确率为0%，添加提示
+        if metrics['accuracy'] == 0 and metrics['total_turns'] > 0:
             report.append("")
-        
-        # 意图分布对比
-        report.append("-" * 70)
-        report.append("意图分布对比")
-        report.append("-" * 70)
-        
-        all_intents = set(metrics['predicted_distribution'].keys()) | \
-                     set(metrics['inferred_distribution'].keys())
-        
-        report.append(f"{'意图类型':<20} {'预测数量':<12} {'推断数量':<12} {'差异':<10}")
-        report.append("-" * 70)
-        
-        for intent in sorted(all_intents):
-            pred_count = metrics['predicted_distribution'].get(intent, 0)
-            inf_count = metrics['inferred_distribution'].get(intent, 0)
-            diff = pred_count - inf_count
-            diff_str = f"{diff:+d}" if diff != 0 else "0"
-            report.append(f"{intent:<20} {pred_count:<12} {inf_count:<12} {diff_str:<10}")
+            report.append("⚠️  提示：意图准确率为0%可能的原因：")
+            report.append("  1. DST未配置意图提取功能（默认意图为'未识别'）")
+            report.append("  2. DST意图格式与推断意图格式不匹配")
+            report.append("     - DST预测: 中文意图（如'提供信息'）或'未识别'")
+            report.append("     - 推断意图: 英文枚举值（如'provide_info'）")
+            report.append("  3. 需要在DST配置中启用意图提取，并确保格式一致")
         
         report.append("")
         
-        # 对话阶段分布（新增）
-        if metrics['phase_distribution']:
-            report.append("-" * 70)
-            report.append("对话阶段分布")
-            report.append("-" * 70)
-            for phase, count in sorted(metrics['phase_distribution'].items()):
-                percentage = count / metrics['total_turns'] * 100 if metrics['total_turns'] > 0 else 0
-                report.append(f"{phase:<25} {count:<10} ({percentage:.1f}%)")
-            report.append("")
-        
-        # 意图转换分析（新增）
-        if metrics['transition_stats']:
-            report.append("-" * 70)
-            report.append(f"意图转换模式 (Top 15) - 总转换数: {metrics['transition_count']}")
-            report.append("-" * 70)
-            report.append(f"{'前一意图':<20} {'当前意图':<20} {'出现次数':<10}")
-            report.append("-" * 70)
-            
-            for (prev_intent, curr_intent), count in metrics['transition_stats'].items():
-                report.append(f"{prev_intent:<20} {curr_intent:<20} {count:<10}")
-            
-            report.append("")
-        
-        # 混淆矩阵 - 使用可视化或简化版本
+        # 混淆矩阵 - 仅保存图表，不打印
         if metrics['confusion_matrix']:
             report.append("-" * 70)
             report.append("混淆矩阵 (Confusion Matrix)")
@@ -592,49 +539,12 @@ class IntentEvaluator:
                     saved_path = self.plot_confusion_matrix(plot_path)
                     if saved_path:
                         report.append(f"✅ 混淆矩阵可视化已保存到: {saved_path}")
-                        report.append("")
                         plot_saved = True
                 except Exception as e:
                     report.append(f"⚠️  混淆矩阵可视化生成失败: {str(e)}")
-                    report.append("")
             
-            # 只在include_confusion_matrix=True时显示文本版本
-            if include_confusion_matrix and not plot_saved:
-                # 如果没有生成图表，显示简化的文本版本
-                if not MATPLOTLIB_AVAILABLE:
-                    report.append("ℹ️  提示: 安装matplotlib和seaborn可查看可视化混淆矩阵")
-                    report.append("")
-                
-                # 只显示对角线准确率摘要，而不是完整矩阵
-                report.append("混淆矩阵摘要 (主对角线准确率):")
-                report.append("-" * 70)
-                
-                all_intents_list = sorted(
-                    set(metrics['predicted_distribution'].keys()) | 
-                    set(metrics['inferred_distribution'].keys())
-                )
-                
-                report.append(f"{'意图类型':<20} {'正确数':<10} {'总数':<10} {'准确率':<10}")
-                report.append("-" * 70)
-                
-                for intent in all_intents_list:
-                    correct_count = metrics['confusion_matrix'].get(intent, {}).get(intent, 0)
-                    total_count = metrics['inferred_distribution'].get(intent, 0)
-                    accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
-                    report.append(f"{intent:<20} {correct_count:<10} {total_count:<10} {accuracy:.1f}%")
-                
-                report.append("")
-        
-        # 错误模式分析
-        if metrics['error_patterns']:
-            report.append("-" * 70)
-            report.append(f"常见错误模式 (Top 10) - 总错误数: {metrics['error_count']}")
-            report.append("-" * 70)
-            report.append(f"{'预测意图':<20} {'实际意图':<20} {'出现次数':<10}")
-            report.append("-" * 70)
-            
-            for (pred, inf), count in metrics['error_patterns'].items():
-                report.append(f"{pred:<20} {inf:<20} {count:<10}")
+            if not plot_saved and not MATPLOTLIB_AVAILABLE:
+                report.append("ℹ️  提示: 安装matplotlib和seaborn可查看可视化混淆矩阵")
             
             report.append("")
         
