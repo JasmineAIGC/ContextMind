@@ -20,6 +20,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from tests.adapters import TransferTODAdapter
+from tests.intent_evaluator import IntentEvaluator
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -42,6 +43,7 @@ class DSTTransferTODTest:
         self.adapter = TransferTODAdapter(data_root)
         self.llm_client = None
         self.tracker = None
+        self.intent_evaluator = IntentEvaluator()  # 意图评测器
         
     def initialize(self, domain: str):
         """
@@ -126,6 +128,9 @@ class DSTTransferTODTest:
         # 初始化最终提取状态（防止空对话情况）
         final_extracted_state = {}
         
+        # 上一轮状态（用于意图推断）
+        previous_state = {}
+        
         # 逐轮测试
         for turn in dialogue.turns:
             if verbose:
@@ -139,9 +144,36 @@ class DSTTransferTODTest:
                     system_utterance=turn.system_utterance,
                     user_utterance=turn.user_utterance
                 )
+                
+                # 获取本轮的turn_updates（包含预测的意图）
+                if self.tracker.dialogue_history:
+                    last_turn = self.tracker.dialogue_history[-1]
+                    turn_updates = last_turn.turn_updates
+                    predicted_intent = turn_updates.get('intent', '未识别')
+                    
+                    # 意图评测：添加本轮评测
+                    self.intent_evaluator.add_turn_evaluation(
+                        turn_id=turn.turn_id,
+                        predicted_intent=predicted_intent,
+                        turn_updates=turn.expected_slots,  # 使用expected_slots作为ground truth的槽位变化
+                        previous_state=previous_state,
+                        user_utterance=turn.user_utterance,
+                        dialogue_id=dialogue_id
+                    )
+                    
+                    if verbose:
+                        # 推断意图用于显示
+                        inferred_intent = self.intent_evaluator.infer_intent_from_slots(
+                            turn.expected_slots, previous_state, turn.user_utterance
+                        )
+                        print(f"预测意图: {predicted_intent}, 推断意图: {inferred_intent}")
+                
             except Exception as e:
                 logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
                 extracted_state = {}
+            
+            # 更新上一轮状态（用于下一轮的意图推断）
+            previous_state = cumulative_expected_state.copy()
             
             # 更新累积的期望状态（合并本轮的变化）
             cumulative_expected_state.update(turn.expected_slots)
@@ -415,6 +447,17 @@ async def main():
         print("  - Joint Accuracy Strict: 对话级别（最终状态完全匹配，对齐论文）")
         print("  - Joint Accuracy Soft: 对话级别（所有期望槽位都存在，允许额外槽位）")
         print("  - F1/Precision/Recall: 基于slot-value pairs计算")
+        print()
+        
+        # 输出意图评测报告
+        print("\n" + "=" * 70)
+        print("🎯 意图评测报告")
+        print("=" * 70)
+        print()
+        print("说明：由于TransferTOD数据集没有显式意图标签，我们通过槽位变化模式推断隐式意图。")
+        print()
+        print(test.intent_evaluator.get_detailed_report())
+        
         print()
         print("说明：")
         print("  - Strict JA = 0% 说明模型总是预测了额外的槽位")
