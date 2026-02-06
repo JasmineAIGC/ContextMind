@@ -166,6 +166,21 @@ def create_gradio_ui(demo_instance=None):
                             label="使用LLM生成摘要",
                             info="用LLM生成摘要(更智能但慢)"
                         )
+                        
+                        dst_temperature_slider = gr.Slider(
+                            minimum=0.0,
+                            maximum=1.0,
+                            value=0.0,
+                            step=0.1,
+                            label="温度参数",
+                            info="控制槽位提取的确定性（0=严格，1=灵活）"
+                        )
+                        
+                        enable_dynamic_slots_check = gr.Checkbox(
+                            value=True,
+                            label="启用动态槽位",
+                            info="允许提取未预定义的槽位（通用模式）"
+                        )
                     
                     # FnCTOD模式设置
                     with gr.Group(visible=False) as fnctod_settings:
@@ -184,20 +199,38 @@ def create_gradio_ui(demo_instance=None):
                             label="启用两阶段处理",
                             info="先选择domain再填充参数（推荐）"
                         )
+                        
+                        fnctod_temperature_slider = gr.Slider(
+                            minimum=0.0,
+                            maximum=1.0,
+                            value=0.0,
+                            step=0.1,
+                            label="温度参数",
+                            info="控制函数调用的确定性（0=严格，1=灵活）"
+                        )
                     
                     # Evolve模式设置
-                    with gr.Group(visible=False) as contextmind_settings:
+                    with gr.Group(visible=False) as evolve_settings:
                         gr.Markdown("**Evolve模式设置**")
                         enable_memory_check = gr.Checkbox(
                             value=True,
                             label="启用记忆功能",
-                            info="启用长期记忆存储"
+                            info="启用长期记忆存储和语义检索"
                         )
                         
                         enable_evolution_check = gr.Checkbox(
                             value=True,
                             label="启用进化学习",
-                            info="从对话中学习和优化"
+                            info="从对话中学习和优化响应策略"
+                        )
+                        
+                        evolve_temperature_slider = gr.Slider(
+                            minimum=0.0,
+                            maximum=2.0,
+                            value=0.7,
+                            step=0.1,
+                            label="创造性温度",
+                            info="控制回复的随机性和创造性（0=保守，2=创新）"
                         )
         
         # 使用指南
@@ -253,14 +286,18 @@ def create_gradio_ui(demo_instance=None):
             "apply_btn": apply_btn,
             "dst_settings": dst_settings,
             "fnctod_settings": fnctod_settings,
-            "contextmind_settings": contextmind_settings,
+            "evolve_settings": evolve_settings,
             "max_history_slider": max_history_slider,
             "enable_summary_check": enable_summary_check,
             "use_llm_summary_check": use_llm_summary_check,
+            "dst_temperature_slider": dst_temperature_slider,
+            "enable_dynamic_slots_check": enable_dynamic_slots_check,
             "fnctod_max_history_slider": fnctod_max_history_slider,
             "use_two_stage_check": use_two_stage_check,
+            "fnctod_temperature_slider": fnctod_temperature_slider,
             "enable_memory_check": enable_memory_check,
             "enable_evolution_check": enable_evolution_check,
+            "evolve_temperature_slider": evolve_temperature_slider,
             "chatbot": chatbot,
             "msg": msg,
             "send_btn": send_btn,
@@ -335,14 +372,14 @@ def create_gradio_ui(demo_instance=None):
             apply_btn.click(
                 fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
-                outputs=[chatbot, dst_settings, fnctod_settings, contextmind_settings]
+                outputs=[chatbot, dst_settings, fnctod_settings, evolve_settings]
             )
             
             # 页面加载时自动应用默认配置，显示欢迎消息
             app.load(
                 fn=apply_config_and_update_ui,
                 inputs=[scenario_selector, mode_selector],
-                outputs=[chatbot, dst_settings, fnctod_settings, contextmind_settings]
+                outputs=[chatbot, dst_settings, fnctod_settings, evolve_settings]
             )
         
     return app, components
