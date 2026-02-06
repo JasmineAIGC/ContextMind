@@ -4,13 +4,15 @@
 
 为DST方法设计的意图评测框架，通过槽位变化推断隐式意图标签。
 
-版本: v1.0
+版本: v2.0 - 使用配置文件驱动，移除硬编码
 """
 
 from typing import Dict, List, Tuple, Any, Optional
 from collections import Counter, defaultdict
-from enum import Enum
 import os
+
+# 导入意图配置加载器
+from tests.intent_config import load_intent_config, IntentConfig
 
 # 可选导入matplotlib用于可视化
 try:
@@ -28,58 +30,9 @@ except ImportError:
     MATPLOTLIB_AVAILABLE = False
 
 
-class TaskRelevance(Enum):
-    """任务相关性"""
-    TASK_RELATED = "task_related"           # 与任务相关
-    TASK_INDEPENDENT = "task_independent"   # 与任务无关
-
-
-class IntentType(Enum):
-    """
-    重新设计的意图类型枚举（两层架构）
-    
-    设计原则：
-    1. 区分任务相关性（第一层）
-    2. 明确对话行为（第二层）
-    3. 支持意图转换追踪
-    
-    版本: v2.0
-    """
-    # === 任务相关意图（Task-Related Intents）===
-    PROVIDE_INFO = "provide_info"       # 提供信息 - 用户主动提供槽位值
-    REQUEST_INFO = "request_info"       # 请求信息 - 用户询问槽位值
-    CONFIRM_INFO = "confirm_info"       # 确认信息 - 用户确认系统提供的信息
-    CORRECT_INFO = "correct_info"       # 更正信息 - 用户纠正之前的槽位值
-    ACKNOWLEDGE = "acknowledge"         # 应答确认 - 简单的"是"、"好的"等
-    
-    # === 任务无关意图（Task-Independent Intents）===
-    CHITCHAT = "chitchat"              # 闲聊 - 日常对话
-    GREETING = "greeting"              # 问候 - 开场问候
-    FAREWELL = "farewell"              # 告别 - 结束对话
-    THANKING = "thanking"              # 感谢 - 表达感谢
-    
-    # === 元意图（Meta Intents）===
-    CLARIFICATION = "clarification"    # 澄清/反问 - 请求澄清
-    UNKNOWN = "unknown"                # 未知 - 无法识别的意图
-
-
-class DialoguePhase(Enum):
-    """
-    对话阶段枚举
-    
-    任务导向对话的典型阶段序列
-    """
-    OPENING = "opening"                        # 开场阶段
-    INFORMATION_GATHERING = "info_gathering"   # 信息收集阶段
-    SLOT_FILLING = "slot_filling"             # 槽位填充阶段
-    CONFIRMATION = "confirmation"              # 确认阶段
-    COMPLETION = "completion"                  # 完成阶段
-    CLOSING = "closing"                        # 结束阶段
-
-
 class IntentEvaluator:
     """
-    意图评测器 v2.0
+    意图评测器 v2.0 - 配置驱动版本
     
     核心功能：
     1. 从槽位变化推断隐式意图（作为ground truth）
@@ -90,18 +43,44 @@ class IntentEvaluator:
     设计原理：
     - TransferTOD数据集没有显式意图标签
     - 通过槽位变化模式推断隐式意图
+    - 使用JSON配置文件定义意图类型，移除硬编码
     - 支持两层意图架构（任务相关性 + 对话行为）
     - 追踪意图转换模式和对话阶段
     """
     
-    def __init__(self):
+    def __init__(self, intent_config: Optional[IntentConfig] = None):
         """
         初始化意图评测器
+        
+        Args:
+            intent_config: 意图配置对象，如果为None则加载默认配置
         """
         self.predictions = []  # [(predicted_intent, inferred_intent), ...]
         self.turn_details = []  # 每轮详细信息
         self.intent_transitions = []  # 意图转换序列
-        self.current_phase = DialoguePhase.OPENING  # 当前对话阶段
+        
+        # 加载意图配置
+        self.intent_config = intent_config or load_intent_config()
+        
+        # 从配置加载意图信息
+        self._load_intent_info()
+        
+    def _load_intent_info(self):
+        """从配置加载意图信息"""
+        # 获取所有意图ID
+        self.all_intent_ids = self.intent_config.get_all_intent_ids()
+        
+        # 获取映射关系
+        self.normalization_mapping = self.intent_config.get_normalization_mapping()
+        self.task_relevance_mapping = self.intent_config.get_task_relevance_mapping()
+        self.aggregation_mapping = self.intent_config.get_aggregation_mapping()
+        
+        # 缓存意图标记词
+        self._marker_cache = {}
+        for intent_id in self.all_intent_ids:
+            markers = self.intent_config.get_intent_markers(intent_id)
+            if markers:
+                self._marker_cache[intent_id] = markers
         
     def infer_intent_from_slots(
         self, 
@@ -111,12 +90,13 @@ class IntentEvaluator:
         turn_id: int = 0
     ) -> Tuple[str, str]:
         """
-        从槽位变化推断隐式意图（v2.0）
+        从槽位变化推断隐式意图（v2.0 - 配置驱动）
         
         新版推断规则：
         1. 考虑任务相关性（第一层）
         2. 识别具体对话行为（第二层）
         3. 考虑对话上下文（轮次、历史意图等）
+        4. 使用配置文件定义的规则和标记词
         
         Args:
             turn_updates: 当前轮的槽位更新
@@ -130,48 +110,66 @@ class IntentEvaluator:
         # 过滤掉'intent'槽位本身
         slot_updates = {k: v for k, v in turn_updates.items() if k != 'intent'}
         
-        # === 规则1: 任务无关意图判断 ===
+        # === 规则1: 任务无关意图判断（按优先级） ===
         
         # 1.1 问候（通常在开场）
         if turn_id == 0 and not slot_updates:
-            return IntentType.GREETING.value, TaskRelevance.TASK_INDEPENDENT.value
+            return "greeting", "task_independent"
         
-        # 1.2 告别（通常在结束）
-        if self._is_farewell(user_utterance):
-            return IntentType.FAREWELL.value, TaskRelevance.TASK_INDEPENDENT.value
+        # 1.2 告别
+        if self._check_intent_by_markers("farewell", user_utterance):
+            return "farewell", "task_independent"
         
         # 1.3 感谢
-        if self._is_thanking(user_utterance):
-            return IntentType.THANKING.value, TaskRelevance.TASK_INDEPENDENT.value
+        if self._check_intent_by_markers("thanking", user_utterance):
+            return "thanking", "task_independent"
         
         # 1.4 闲聊（无槽位变化且非特殊场景）
         if not slot_updates and turn_id > 0:
-            return IntentType.CHITCHAT.value, TaskRelevance.TASK_INDEPENDENT.value
+            return "chitchat", "task_independent"
         
-        # === 规则2: 任务相关意图判断 ===
+        # === 规则2: 任务相关意图判断（按优先级） ===
         
-        # 2.1 请求信息（槽位值为特殊标记）
-        if self._has_request_marker(slot_updates):
-            return IntentType.REQUEST_INFO.value, TaskRelevance.TASK_RELATED.value
+        # 2.1 请求信息（槽位值为特殊标记或包含请求标记词）
+        if self._has_request_marker(slot_updates) or self._check_intent_by_markers("request_info", user_utterance):
+            return "request_info", "task_related"
         
         # 2.2 更正信息（修改已存在的槽位值）
         if self._is_correction(slot_updates, previous_state):
-            return IntentType.CORRECT_INFO.value, TaskRelevance.TASK_RELATED.value
+            return "correct_info", "task_related"
         
         # 2.3 确认信息（槽位值与之前相同，表示确认）
-        if self._is_confirmation(slot_updates, previous_state):
-            return IntentType.CONFIRM_INFO.value, TaskRelevance.TASK_RELATED.value
+        if self._is_confirmation(slot_updates, previous_state) or self._check_intent_by_markers("confirm_info", user_utterance):
+            return "confirm_info", "task_related"
         
         # 2.4 应答确认（简单的槽位更新，通常是回答系统问题）
         if self._is_acknowledge(slot_updates, user_utterance):
-            return IntentType.ACKNOWLEDGE.value, TaskRelevance.TASK_RELATED.value
+            return "acknowledge", "task_related"
         
         # 2.5 提供信息（默认，新增或更新槽位）
         if slot_updates:
-            return IntentType.PROVIDE_INFO.value, TaskRelevance.TASK_RELATED.value
+            return "provide_info", "task_related"
         
         # === 规则3: 未知意图 ===
-        return IntentType.UNKNOWN.value, TaskRelevance.TASK_INDEPENDENT.value
+        return "unknown", "meta"
+    
+    def _check_intent_by_markers(self, intent_id: str, text: str) -> bool:
+        """
+        根据配置的标记词检测意图
+        
+        Args:
+            intent_id: 意图ID
+            text: 要检测的文本
+            
+        Returns:
+            是否匹配
+        """
+        if not text or intent_id not in self._marker_cache:
+            return False
+        
+        markers = self._marker_cache[intent_id]
+        text_lower = text.lower()
+        return any(marker in text_lower for marker in markers)
     
     def _has_request_marker(self, slot_updates: Dict[str, Any]) -> bool:
         """检测是否包含请求标记"""
@@ -197,24 +195,15 @@ class IntentEvaluator:
                 return True
         return False
     
-    def _is_acknowledge(self, slot_updates: Dict[str, Any], user_utterance: str) -> bool:
+    def _is_acknowledgement(self, slot_updates: Dict[str, Any], user_utterance: str) -> bool:
         """检测是否为简单应答（如"好的"、"是的"）"""
+        # 使用配置的标记词
+        if self._check_intent_by_markers("acknowledge", user_utterance):
+            return True
         # 简单启发式：单个槽位更新且话语很短
         if len(slot_updates) == 1 and len(user_utterance) < 10:
             return True
         return False
-    
-    def _is_farewell(self, user_utterance: str) -> bool:
-        """检测是否为告别"""
-        farewell_keywords = ['再见', '谢谢', '拜拜', 'bye', 'goodbye', '结束']
-        utterance_lower = user_utterance.lower()
-        return any(kw in utterance_lower for kw in farewell_keywords)
-    
-    def _is_thanking(self, user_utterance: str) -> bool:
-        """检测是否为感谢"""
-        thank_keywords = ['谢谢', '感谢', 'thanks', 'thank you']
-        utterance_lower = user_utterance.lower()
-        return any(kw in utterance_lower for kw in thank_keywords)
     
     def infer_dialogue_phase(
         self,
@@ -233,34 +222,34 @@ class IntentEvaluator:
             total_turns: 总轮次数（如果已知）
             
         Returns:
-            对话阶段
+            对话阶段字符串
         """
         # 开场阶段（前1-2轮）
         if turn_id <= 1:
-            return DialoguePhase.OPENING.value
+            return "opening"
         
         # 结束阶段（最后1-2轮或无槽位更新）
         if total_turns > 0 and turn_id >= total_turns - 2:
-            return DialoguePhase.CLOSING.value
+            return "closing"
         
         # 确认阶段（槽位值重复）
         if self._is_confirmation(slot_updates, previous_state):
-            return DialoguePhase.CONFIRMATION.value
+            return "confirmation"
         
         # 槽位填充阶段（有槽位更新）
         if slot_updates:
             # 如果已有较多槽位，可能在确认
             if len(previous_state) >= 3:
-                return DialoguePhase.CONFIRMATION.value
+                return "confirmation"
             else:
-                return DialoguePhase.SLOT_FILLING.value
+                return "slot_filling"
         
         # 信息收集阶段（早期，槽位较少）
         if len(previous_state) < 2:
-            return DialoguePhase.INFORMATION_GATHERING.value
+            return "info_gathering"
         
         # 默认槽位填充
-        return DialoguePhase.SLOT_FILLING.value
+        return "slot_filling"
     
     def add_turn_evaluation(
         self,
@@ -303,48 +292,10 @@ class IntentEvaluator:
             total_turns
         )
         
-        # 意图名称标准化映射（支持中英文）
-        intent_normalization = {
-            # 中文 → 英文标准名
-            '提供信息': 'provide_info',
-            '请求信息': 'request_info',
-            '确认信息': 'confirm_info',
-            '修正信息': 'correct_info',
-            '更正信息': 'correct_info',  # 同义词
-            '应答确认': 'acknowledge',
-            '应答': 'acknowledge',
-            '闲聊': 'chitchat',
-            '问候': 'greeting',
-            '告别': 'farewell',
-            '感谢': 'thanking',
-            '澄清': 'clarification',
-            '未识别': 'unknown',
-            '其他': 'other',
-            # 英文保持不变（小写化）
-            'provide_info': 'provide_info',
-            'request_info': 'request_info',
-            'confirm_info': 'confirm_info',
-            'correct_info': 'correct_info',
-            'acknowledge': 'acknowledge',
-            'chitchat': 'chitchat',
-            'greeting': 'greeting',
-            'farewell': 'farewell',
-            'thanking': 'thanking',
-            'clarification': 'clarification',
-            'unknown': 'unknown',
-            'other': 'other',
-        }
-        
-        # 标准化预测意图
-        predicted_intent = predicted_intent or IntentType.UNKNOWN.value
-        predicted_normalized = intent_normalization.get(
-            predicted_intent.lower(), 
-            predicted_intent.lower()
-        )
-        inferred_normalized = intent_normalization.get(
-            inferred_intent.lower(),
-            inferred_intent.lower()
-        )
+        # 使用配置的标准化映射
+        predicted_intent = predicted_intent or "unknown"
+        predicted_normalized = self.intent_config.normalize_intent(predicted_intent)
+        inferred_normalized = self.intent_config.normalize_intent(inferred_intent)
         
         # 判断是否正确（使用标准化后的值）
         is_correct = (predicted_normalized == inferred_normalized)
@@ -354,9 +305,6 @@ class IntentEvaluator:
             previous_intent = self.turn_details[-1]['inferred_intent']
             transition = (previous_intent, inferred_intent)
             self.intent_transitions.append(transition)
-        
-        # 更新当前阶段
-        self.current_phase = dialogue_phase
         
         # 记录详情
         detail = {
@@ -479,21 +427,8 @@ class IntentEvaluator:
         if not confusion:
             return None
         
-        # 定义意图聚合映射：将详细意图归类到高层次类别
-        intent_mapping = {
-            'provide_info': '提供信息',
-            'request_info': '请求信息',
-            'confirm_info': '确认信息',
-            'correct_info': '修正信息',
-            'acknowledge': '应答确认',
-            'chitchat': '闲聊',
-            'greeting': '问候',
-            'farewell': '告别',
-            'thanking': '感谢',
-            'clarification': '澄清',
-            'unknown': '未识别',
-            '未识别': '未识别',
-        }
+        # 使用配置的意图聚合映射
+        intent_mapping = self.intent_config.get_aggregation_mapping()
         
         # 聚合混淆矩阵到高层次类别
         aggregated_confusion = defaultdict(lambda: defaultdict(int))
@@ -605,13 +540,9 @@ class IntentEvaluator:
             predicted_intents = [pred for pred, _ in self.predictions]
             unique_predictions = set(predicted_intents)
             
-            # 标准化检查
-            intent_normalization = {
-                '未识别': 'unknown',
-                'unknown': 'unknown',
-            }
+            # 使用配置的标准化映射检查
             normalized_predictions = set(
-                intent_normalization.get(p.lower(), p.lower()) 
+                self.intent_config.normalize_intent(p) 
                 for p in unique_predictions
             )
             
