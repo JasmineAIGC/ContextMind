@@ -1,9 +1,8 @@
 """
-Domain-specific intent configuration loader for TransferTOD dataset.
+Domain-specific Intent Configuration for TransferTOD Dataset
 
-This module provides functionality to load and query domain-specific intent configurations.
-Unlike the general intent configuration, this one groups intents by domain (酒店, 餐厅, etc.)
-and provides domain-specific intent labels.
+Supports 30 domains with comprehensive intent taxonomy.
+Special handling for "其他" (Other) intent as a fallback category.
 """
 
 import json
@@ -13,33 +12,43 @@ from typing import Dict, List, Optional, Any
 
 class DomainIntentConfig:
     """
-    Domain-specific intent configuration.
+    Domain-specific intent configuration
     
-    Provides methods to query intents by domain, infer intents from dialogue context,
-    and manage domain-specific intent taxonomies.
+    Manages intent definitions for 30 TransferTOD domains with special handling
+    for the "其他" (Other) intent.
     """
     
     def __init__(self, config_data: Dict[str, Any]):
         """
-        Initialize with parsed configuration data.
+        Initialize domain intent configuration
         
         Args:
-            config_data: Parsed JSON configuration
+            config_data: Configuration dictionary loaded from JSON
         """
-        self.config_data = config_data
-        self.dataset = config_data.get("dataset", "Unknown")
-        self.version = config_data.get("version", "1.0")
+        self.dataset = config_data.get("dataset", "TransferTOD")
+        self.version = config_data.get("version", "3.0")
         self.description = config_data.get("description", "")
+        self.total_domains = config_data.get("total_domains", 30)
+        self.metadata = config_data.get("metadata", {})
         self.domains = config_data.get("domains", {})
-        self.default_intent = config_data.get("default_intent", "其他")
         
+        # Extract special "其他" intent handling info
+        self.other_intent_name = self.metadata.get("other_intent_name", "其他")
+        self.other_intent_description = self.metadata.get("other_intent_description", "")
+        self.other_intent_evaluation = self.metadata.get("other_intent_evaluation", "special_handling")
+    
     def get_all_domains(self) -> List[str]:
-        """Get list of all domain names."""
+        """
+        Get list of all domain names
+        
+        Returns:
+            List of domain names (Chinese)
+        """
         return list(self.domains.keys())
     
     def get_domain_intents(self, domain: str) -> List[str]:
         """
-        Get list of intents for a specific domain.
+        Get list of intents for a specific domain
         
         Args:
             domain: Domain name (e.g., "酒店", "餐厅")
@@ -48,135 +57,200 @@ class DomainIntentConfig:
             List of intent names for the domain
         """
         if domain not in self.domains:
-            return [self.default_intent]
+            return []
         return self.domains[domain].get("intents", [])
     
     def get_intent_description(self, domain: str, intent: str) -> Dict[str, Any]:
         """
-        Get detailed description of an intent.
+        Get description and metadata for a specific intent
         
         Args:
             domain: Domain name
             intent: Intent name
             
         Returns:
-            Dictionary with intent description, slot_hints, and keywords
+            Dictionary with intent description, keywords, etc.
         """
         if domain not in self.domains:
             return {}
         
-        intent_descriptions = self.domains[domain].get("intent_descriptions", {})
-        return intent_descriptions.get(intent, {})
+        intent_descs = self.domains[domain].get("intent_descriptions", {})
+        return intent_descs.get(intent, {})
+    
+    def is_fallback_intent(self, domain: str, intent: str) -> bool:
+        """
+        Check if an intent is a fallback intent (其他)
+        
+        Args:
+            domain: Domain name
+            intent: Intent name
+            
+        Returns:
+            True if this is the fallback "其他" intent
+        """
+        if intent == self.other_intent_name:
+            return True
+        
+        intent_desc = self.get_intent_description(domain, intent)
+        return intent_desc.get("is_fallback", False)
     
     def get_intent_keywords(self, domain: str, intent: str) -> List[str]:
-        """Get keywords associated with an intent."""
-        desc = self.get_intent_description(domain, intent)
-        return desc.get("keywords", [])
-    
-    def get_intent_slot_hints(self, domain: str, intent: str) -> List[str]:
-        """Get slot hints that suggest this intent."""
-        desc = self.get_intent_description(domain, intent)
-        return desc.get("slot_hints", [])
+        """
+        Get keywords for intent detection
+        
+        Args:
+            domain: Domain name
+            intent: Intent name
+            
+        Returns:
+            List of keywords
+        """
+        intent_desc = self.get_intent_description(domain, intent)
+        return intent_desc.get("keywords", [])
     
     def infer_intent_from_context(
-        self, 
-        domain: str, 
-        user_utterance: str = "", 
-        slot_changes: Dict[str, Any] = None
+        self,
+        domain: str,
+        user_utterance: str = "",
+        slot_changes: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Infer intent from dialogue context.
+        Infer intent from dialogue context
+        
+        Uses keyword matching and slot hints to determine the most likely intent.
+        Falls back to "其他" if no clear match is found.
         
         Args:
             domain: Domain name
             user_utterance: User's utterance text
-            slot_changes: Dictionary of slots that changed in this turn
+            slot_changes: Dictionary of slot changes in this turn
             
         Returns:
             Inferred intent name
         """
         if domain not in self.domains:
-            return self.default_intent
+            return self.other_intent_name
         
-        slot_changes = slot_changes or {}
+        if slot_changes is None:
+            slot_changes = {}
+        
+        # Get all intents for this domain
         intents = self.get_domain_intents(domain)
         
-        # Score each intent based on keywords and slot hints
+        # Score each intent (excluding "其他" for now)
         scores = {}
         for intent in intents:
-            score = 0
+            if self.is_fallback_intent(domain, intent):
+                continue  # Skip fallback intent in scoring
             
-            # Check keywords in user utterance
+            score = 0
             keywords = self.get_intent_keywords(domain, intent)
+            
+            # Score based on keyword matches
             for keyword in keywords:
-                if keyword in user_utterance:
+                if keyword and keyword in user_utterance:
                     score += 2
             
-            # Check slot hints
-            slot_hints = self.get_intent_slot_hints(domain, intent)
-            for slot in slot_changes.keys():
-                if slot in slot_hints:
-                    score += 1
+            # Additional scoring based on slot changes (if available)
+            # This is a simple heuristic and can be improved
+            if slot_changes:
+                score += 1
             
             scores[intent] = score
         
-        # Return intent with highest score, or default if all scores are 0
-        if not scores or max(scores.values()) == 0:
-            return self.default_intent
+        # Find intent with highest score
+        if scores:
+            best_intent = max(scores.items(), key=lambda x: x[1])
+            if best_intent[1] > 0:
+                return best_intent[0]
         
-        return max(scores.items(), key=lambda x: x[1])[0]
+        # Fall back to "其他" if no clear match
+        return self.other_intent_name
     
-    def get_domain_name_en(self, domain: str) -> str:
-        """Get English name of domain."""
-        if domain not in self.domains:
-            return ""
-        return self.domains[domain].get("domain_name_en", "")
+    def get_domain_info(self, domain: str) -> Dict[str, Any]:
+        """
+        Get complete information about a domain
+        
+        Args:
+            domain: Domain name
+            
+        Returns:
+            Dictionary with domain information
+        """
+        return self.domains.get(domain, {})
+    
+    def get_total_intents_count(self, domain: Optional[str] = None) -> int:
+        """
+        Get total number of intents
+        
+        Args:
+            domain: If specified, count intents for that domain only.
+                   If None, count total unique intents across all domains.
+        
+        Returns:
+            Number of intents
+        """
+        if domain:
+            return len(self.get_domain_intents(domain))
+        else:
+            # Count total across all domains
+            total = 0
+            for d in self.domains.values():
+                total += len(d.get("intents", []))
+            return total
 
 
 class DomainIntentConfigLoader:
     """
-    Singleton loader for domain-specific intent configurations.
+    Singleton loader for domain intent configuration
+    
+    Loads and caches the 30-domain intent configuration from JSON file.
     """
     
-    _instance: Optional[DomainIntentConfig] = None
+    _instance: Optional['DomainIntentConfig'] = None
     _config_path: Optional[str] = None
     
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> DomainIntentConfig:
         """
-        Load domain intent configuration.
+        Load domain intent configuration (singleton pattern)
         
         Args:
-            config_path: Path to configuration JSON file.
-                        If None, uses default path.
-        
+            config_path: Path to configuration file. If None, uses default.
+            
         Returns:
             DomainIntentConfig instance
         """
         # Determine config path
         if config_path is None:
-            # Default to transfertod_domain_intents.json in configs directory
-            current_dir = Path(__file__).parent
-            config_path = current_dir / "configs" / "transfertod_domain_intents.json"
-        else:
-            config_path = Path(config_path)
+            # Default to 30-domain configuration
+            config_path = str(Path(__file__).parent / "configs" / "transfertod_30domains_intents.json")
         
-        # Load configuration if not cached or path changed
-        if cls._instance is None or cls._config_path != str(config_path):
-            if not config_path.exists():
-                raise FileNotFoundError(f"Configuration file not found: {config_path}")
-            
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
-            
-            cls._instance = DomainIntentConfig(config_data)
-            cls._config_path = str(config_path)
+        # Return cached instance if same config path
+        if cls._instance is not None and cls._config_path == config_path:
+            return cls._instance
+        
+        # Load configuration
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+        
+        # Create and cache instance
+        cls._instance = DomainIntentConfig(config_data)
+        cls._config_path = config_path
         
         return cls._instance
     
     @classmethod
     def reload(cls, config_path: Optional[str] = None) -> DomainIntentConfig:
-        """Force reload configuration."""
+        """
+        Force reload of configuration
+        
+        Args:
+            config_path: Path to configuration file
+            
+        Returns:
+            Fresh DomainIntentConfig instance
+        """
         cls._instance = None
         cls._config_path = None
         return cls.load(config_path)
@@ -184,10 +258,10 @@ class DomainIntentConfigLoader:
 
 def load_domain_intent_config(config_path: Optional[str] = None) -> DomainIntentConfig:
     """
-    Convenience function to load domain intent configuration.
+    Convenience function to load domain intent configuration
     
     Args:
-        config_path: Optional path to configuration file
+        config_path: Path to configuration file. If None, uses default 30-domain config.
         
     Returns:
         DomainIntentConfig instance
@@ -195,23 +269,15 @@ def load_domain_intent_config(config_path: Optional[str] = None) -> DomainIntent
     return DomainIntentConfigLoader.load(config_path)
 
 
-# Example usage
-if __name__ == "__main__":
-    # Load configuration
-    config = load_domain_intent_config()
+# For backward compatibility
+def get_domain_intent_config(config_path: Optional[str] = None) -> DomainIntentConfig:
+    """
+    Legacy function name for backward compatibility
     
-    print(f"Dataset: {config.dataset}")
-    print(f"Version: {config.version}")
-    print(f"\nDomains: {', '.join(config.get_all_domains())}")
-    
-    # Get intents for a domain
-    hotel_intents = config.get_domain_intents("酒店")
-    print(f"\n酒店 intents ({len(hotel_intents)}): {', '.join(hotel_intents)}")
-    
-    # Infer intent from context
-    intent = config.infer_intent_from_context(
-        domain="酒店",
-        user_utterance="我想预订一个房间",
-        slot_changes={"姓名": "张三", "入住日期": "2024-01-01"}
-    )
-    print(f"\nInferred intent: {intent}")
+    Args:
+        config_path: Path to configuration file
+        
+    Returns:
+        DomainIntentConfig instance
+    """
+    return load_domain_intent_config(config_path)
