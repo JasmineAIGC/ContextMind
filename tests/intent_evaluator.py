@@ -525,6 +525,10 @@ class IntentEvaluator:
         figsize = (max(8, matrix_size * 1.2), max(7, matrix_size * 1.0))
         plt.figure(figsize=figsize)
         
+        # 确保字体配置应用到当前图表
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'WenQuanYi Micro Hei']
+        plt.rcParams['axes.unicode_minus'] = False
+        
         # 使用seaborn绘制热图
         sns.heatmap(
             matrix,
@@ -633,11 +637,32 @@ class IntentEvaluator:
                 report.append("  3. 意图评测功能仅在DST配置了意图提取时才有意义")
             else:
                 # 有不同的预测，但准确率仍为0%
-                report.append("⚠️  提示：意图准确率为0%可能的原因：")
-                report.append("  1. DST意图格式与推断意图格式不匹配")
-                report.append(f"     - DST预测的意图类型: {', '.join(sorted(unique_predictions)[:5])}")
-                report.append("     - 需要确保意图名称格式一致（支持中英文映射）")
-                report.append("  2. 检查意图标准化映射是否完整")
+                # 检查是否是任务特定的描述（而非标准意图类型）
+                is_task_specific = any(
+                    len(p) > 6 or any(keyword in p for keyword in ['入住', '预订', '取消', '咨询', '了解', '告知', '房间', '酒店', '餐厅'])
+                    for p in unique_predictions
+                )
+                
+                if is_task_specific:
+                    report.append("❌ 诊断结果：DST输出的是任务特定描述，非标准意图类型")
+                    report.append("")
+                    report.append("说明：")
+                    report.append(f"  - DST预测了 {len(unique_predictions)} 种不同的描述")
+                    unique_sample = ', '.join(sorted(unique_predictions)[:5])
+                    report.append(f"  - 示例: {unique_sample}")
+                    report.append("  - 这些是针对具体槽位的任务描述，而非通用意图类型")
+                    report.append("  - 标准意图类型应该是: provide_info, request_info, confirm_info等")
+                    report.append("")
+                    report.append("建议：")
+                    report.append("  1. 修改DST prompt，使用标准意图分类（如provide_info, request_info）")
+                    report.append("  2. 或将任务描述映射到标准意图类型")
+                    report.append("  3. 当前评测框架期望的是抽象的意图类型，而非具体的任务描述")
+                else:
+                    report.append("⚠️  提示：意图准确率为0%可能的原因：")
+                    report.append("  1. DST意图格式与推断意图格式不匹配")
+                    report.append(f"     - DST预测的意图类型: {', '.join(sorted(unique_predictions)[:5])}")
+                    report.append("     - 需要确保意图名称格式一致（支持中英文映射）")
+                    report.append("  2. 检查意图标准化映射是否完整")
         
         report.append("")
         

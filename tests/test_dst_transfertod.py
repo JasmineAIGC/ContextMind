@@ -457,18 +457,24 @@ async def main():
         print("📊 测试指标汇总（对齐TransferTOD论文）")
         print("=" * 70)
         
-        # 按领域显示指标
-        if len(domain_metrics) > 1:
+        # 按领域显示指标（即使只有一个领域也显示）
+        if domain_metrics:
             print("\n【分领域统计】")
             print("-" * 70)
             for domain, metrics_list in sorted(domain_metrics.items()):
                 avg_slot_acc = sum(m["slot_accuracy"] for m in metrics_list) / len(metrics_list)
-                avg_ja = sum(m["joint_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_ja_strict = sum(m["joint_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_ja_soft = sum(m["joint_accuracy_soft"] for m in metrics_list) / len(metrics_list)
+                avg_precision = sum(m["precision"] for m in metrics_list) / len(metrics_list)
+                avg_recall = sum(m["recall"] for m in metrics_list) / len(metrics_list)
                 avg_f1 = sum(m["f1"] for m in metrics_list) / len(metrics_list)
                 
                 print(f"\n{domain}领域 (对话数: {len(metrics_list)}):")
                 print(f"  槽位准确率: {avg_slot_acc * 100:.2f}%")
-                print(f"  联合准确率: {avg_ja * 100:.2f}%")
+                print(f"  联合准确率-严格: {avg_ja_strict * 100:.2f}%")
+                print(f"  联合准确率-软匹配: {avg_ja_soft * 100:.2f}%")
+                print(f"  精确率: {avg_precision * 100:.2f}%")
+                print(f"  召回率: {avg_recall * 100:.2f}%")
                 print(f"  F1分数: {avg_f1 * 100:.2f}%")
             print()
         
