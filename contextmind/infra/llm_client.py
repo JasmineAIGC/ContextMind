@@ -60,7 +60,7 @@ class LLMConfig:
     temperature: float = DEFAULT_TEMPERATURE
     access_key: Optional[str] = None
     top_k: int = 20
-    max_tokens: int = 8192
+    max_tokens: int = 4096  # 降低默认值以避免超出上下文限制
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
@@ -135,7 +135,7 @@ class LLMConfig:
 
         # 读取 max_tokens 参数（可选）
         max_tokens_str = _first_env(["QWEN3_MAX_TOKENS", "LLM_MAX_TOKENS", "MAX_TOKENS"])
-        max_tokens = int(max_tokens_str) if max_tokens_str else 8192
+        max_tokens = int(max_tokens_str) if max_tokens_str else 4096  # 降低默认值
 
         return cls(
             api_key=api_key,
@@ -154,6 +154,23 @@ class SimpleLLMClient:
     注意: 这不是 Evolve 核心框架的一部分。
     在 v0.2.1 中，LLM 调用是外部的。此客户端仅用于演示。
     """
+    
+    # 常见模型的上下文限制（tokens）
+    MODEL_CONTEXT_LIMITS = {
+        "gpt-3.5-turbo": 4096,
+        "gpt-3.5-turbo-16k": 16384,
+        "gpt-4": 8192,
+        "gpt-4-32k": 32768,
+        "gpt-4-turbo": 128000,
+        "gpt-4o": 128000,
+        "Qwen2.5-7B-Instruct": 32768,
+        "Qwen2.5-14B-Instruct": 32768,
+        "Qwen2.5-32B-Instruct": 32768,
+        "Qwen2.5-72B-Instruct": 32768,
+        "Qwen3-32B": 32768,
+        "deepseek-chat": 32768,
+        "deepseek-r1": 64000,
+    }
 
     def __init__(self, config: Optional[LLMConfig] = None):
         """初始化客户端。"""
@@ -179,6 +196,96 @@ class SimpleLLMClient:
             default_headers=headers or None,
         )
         logger.info(f"[LLM Client] 初始化成功")
+    
+    def _estimate_tokens(self, text: str) -> int:
+        """
+        估算文本的token数量
+        
+        使用简单的启发式方法：
+        - 中文：1个字符约等于1个token
+        - 英文：1个单词约等于1.3个token
+        
+        Args:
+            text: 要估算的文本
+            
+        Returns:
+            估算的token数量
+        """
+        # 简单估算：中文字符 + 英文单词的token数
+        # 这是一个粗略估计，实际token数可能有所不同
+        import re
+        
+        # 统计中文字符（包括标点）
+        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+        
+        # 统计英文单词
+        english_words = len(re.findall(r'\b[a-zA-Z]+\b', text))
+        
+        # 估算：中文1字=1token, 英文1词≈1.3token
+        estimated_tokens = chinese_chars + int(english_words * 1.3)
+        
+        # 加上一些额外的空间用于标点和格式
+        estimated_tokens = int(estimated_tokens * 1.1)
+        
+        return max(estimated_tokens, len(text) // 4)  # 至少按4字符=1token估算
+    
+    def _get_model_context_limit(self) -> int:
+        """
+        获取当前模型的上下文限制
+        
+        Returns:
+            上下文限制（tokens）
+        """
+        model = self.config.model
+        
+        # 检查完全匹配
+        if model in self.MODEL_CONTEXT_LIMITS:
+            return self.MODEL_CONTEXT_LIMITS[model]
+        
+        # 检查部分匹配（例如 "Qwen2.5-7B" 匹配 "Qwen2.5"）
+        for known_model, limit in self.MODEL_CONTEXT_LIMITS.items():
+            if known_model.lower() in model.lower() or model.lower() in known_model.lower():
+                return limit
+        
+        # 默认使用保守的限制
+        logger.warning(f"未知模型 {model}，使用默认上下文限制 4096 tokens")
+        return 4096
+    
+    def _calculate_safe_max_tokens(self, messages: list) -> int:
+        """
+        根据输入消息计算安全的max_tokens值
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            安全的max_tokens值
+        """
+        # 估算输入的token数
+        input_text = ""
+        for msg in messages:
+            if isinstance(msg, dict) and "content" in msg:
+                input_text += msg["content"] + " "
+        
+        estimated_input_tokens = self._estimate_tokens(input_text)
+        
+        # 获取模型的上下文限制
+        context_limit = self._get_model_context_limit()
+        
+        # 计算可用的token空间（保留10%的安全边际）
+        available_tokens = int((context_limit - estimated_input_tokens) * 0.9)
+        
+        # 取配置的max_tokens和可用空间的较小值
+        safe_max_tokens = min(self.config.max_tokens, max(available_tokens, 512))
+        
+        # 如果调整了max_tokens，记录日志
+        if safe_max_tokens < self.config.max_tokens:
+            logger.info(
+                f"动态调整max_tokens: {self.config.max_tokens} -> {safe_max_tokens} "
+                f"(输入≈{estimated_input_tokens} tokens, 上下文限制={context_limit})"
+            )
+        
+        return safe_max_tokens
 
     def generate(self, prompt: str) -> Tuple[str, str]:
         """基于 Prompt 调用 LLM，返回 (reasoning, content)。
@@ -193,7 +300,12 @@ class SimpleLLMClient:
             - reasoning_content: 某些模型支持（如 DeepSeek-R1）
             - response_content: 实际的回复内容
         """
+        messages = [{"role": "user", "content": prompt}]
+        
         try:
+            # 动态计算安全的max_tokens
+            safe_max_tokens = self._calculate_safe_max_tokens(messages)
+            
             # 构造 extra_body 参数
             extra_body = {
                 "top_k": self.config.top_k,
@@ -205,9 +317,9 @@ class SimpleLLMClient:
             # 调用 OpenAI Chat Completions API
             response = self._client.chat.completions.create(
                 model=self.config.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
+                max_tokens=safe_max_tokens,  # 使用动态计算的值
                 stream=False,  # 显式禁用流式传输
                 extra_body=extra_body,
             )
@@ -275,6 +387,9 @@ class SimpleLLMClient:
             # 使用配置的温度或传入的温度
             temp = temperature if temperature is not None else self.config.temperature
             
+            # 动态计算安全的max_tokens
+            safe_max_tokens = self._calculate_safe_max_tokens(messages)
+            
             # 构造 extra_body 参数
             extra_body = {
                 "top_k": self.config.top_k,
@@ -288,7 +403,7 @@ class SimpleLLMClient:
                 model=self.config.model,
                 messages=messages,
                 temperature=temp,
-                max_tokens=self.config.max_tokens,
+                max_tokens=safe_max_tokens,  # 使用动态计算的值
                 stream=False,  # 显式禁用流式传输
                 extra_body=extra_body,
             )
