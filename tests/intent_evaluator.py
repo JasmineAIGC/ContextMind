@@ -303,11 +303,51 @@ class IntentEvaluator:
             total_turns
         )
         
+        # 意图名称标准化映射（支持中英文）
+        intent_normalization = {
+            # 中文 → 英文标准名
+            '提供信息': 'provide_info',
+            '请求信息': 'request_info',
+            '确认信息': 'confirm_info',
+            '修正信息': 'correct_info',
+            '更正信息': 'correct_info',  # 同义词
+            '应答确认': 'acknowledge',
+            '应答': 'acknowledge',
+            '闲聊': 'chitchat',
+            '问候': 'greeting',
+            '告别': 'farewell',
+            '感谢': 'thanking',
+            '澄清': 'clarification',
+            '未识别': 'unknown',
+            '其他': 'other',
+            # 英文保持不变（小写化）
+            'provide_info': 'provide_info',
+            'request_info': 'request_info',
+            'confirm_info': 'confirm_info',
+            'correct_info': 'correct_info',
+            'acknowledge': 'acknowledge',
+            'chitchat': 'chitchat',
+            'greeting': 'greeting',
+            'farewell': 'farewell',
+            'thanking': 'thanking',
+            'clarification': 'clarification',
+            'unknown': 'unknown',
+            'other': 'other',
+        }
+        
         # 标准化预测意图
         predicted_intent = predicted_intent or IntentType.UNKNOWN.value
+        predicted_normalized = intent_normalization.get(
+            predicted_intent.lower(), 
+            predicted_intent.lower()
+        )
+        inferred_normalized = intent_normalization.get(
+            inferred_intent.lower(),
+            inferred_intent.lower()
+        )
         
-        # 判断是否正确
-        is_correct = (predicted_intent.lower() == inferred_intent.lower())
+        # 判断是否正确（使用标准化后的值）
+        is_correct = (predicted_normalized == inferred_normalized)
         
         # 记录意图转换
         if self.turn_details:
@@ -427,6 +467,11 @@ class IntentEvaluator:
         """
         if not MATPLOTLIB_AVAILABLE:
             return None
+        
+        # 抑制matplotlib字体警告（避免CJK字符缺失警告）
+        import warnings
+        warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+        warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
         
         metrics = self.calculate_metrics()
         confusion = metrics['confusion_matrix']
