@@ -7,38 +7,75 @@
 版本: v1.0
 """
 
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from collections import Counter, defaultdict
 from enum import Enum
 
 
+class TaskRelevance(Enum):
+    """任务相关性"""
+    TASK_RELATED = "task_related"           # 与任务相关
+    TASK_INDEPENDENT = "task_independent"   # 与任务无关
+
+
 class IntentType(Enum):
     """
-    意图类型枚举
+    重新设计的意图类型枚举（两层架构）
     
-    基于对话状态追踪的常见意图分类
+    设计原则：
+    1. 区分任务相关性（第一层）
+    2. 明确对话行为（第二层）
+    3. 支持意图转换追踪
+    
+    版本: v2.0
     """
-    INFORM = "inform"          # 提供信息 - 新增/更新槽位
-    REQUEST = "request"        # 请求信息 - 查询某个槽位
-    CONFIRM = "confirm"        # 确认信息 - 重复已有槽位
-    NEGATE = "negate"         # 否定/修改 - 更改之前的槽位值
-    CHITCHAT = "chitchat"     # 闲聊 - 无槽位变化
-    OTHER = "other"           # 其他
+    # === 任务相关意图（Task-Related Intents）===
+    PROVIDE_INFO = "provide_info"       # 提供信息 - 用户主动提供槽位值
+    REQUEST_INFO = "request_info"       # 请求信息 - 用户询问槽位值
+    CONFIRM_INFO = "confirm_info"       # 确认信息 - 用户确认系统提供的信息
+    CORRECT_INFO = "correct_info"       # 更正信息 - 用户纠正之前的槽位值
+    ACKNOWLEDGE = "acknowledge"         # 应答确认 - 简单的"是"、"好的"等
+    
+    # === 任务无关意图（Task-Independent Intents）===
+    CHITCHAT = "chitchat"              # 闲聊 - 日常对话
+    GREETING = "greeting"              # 问候 - 开场问候
+    FAREWELL = "farewell"              # 告别 - 结束对话
+    THANKING = "thanking"              # 感谢 - 表达感谢
+    
+    # === 元意图（Meta Intents）===
+    CLARIFICATION = "clarification"    # 澄清/反问 - 请求澄清
+    UNKNOWN = "unknown"                # 未知 - 无法识别的意图
+
+
+class DialoguePhase(Enum):
+    """
+    对话阶段枚举
+    
+    任务导向对话的典型阶段序列
+    """
+    OPENING = "opening"                        # 开场阶段
+    INFORMATION_GATHERING = "info_gathering"   # 信息收集阶段
+    SLOT_FILLING = "slot_filling"             # 槽位填充阶段
+    CONFIRMATION = "confirmation"              # 确认阶段
+    COMPLETION = "completion"                  # 完成阶段
+    CLOSING = "closing"                        # 结束阶段
 
 
 class IntentEvaluator:
     """
-    意图评测器
+    意图评测器 v2.0
     
     核心功能：
     1. 从槽位变化推断隐式意图（作为ground truth）
     2. 评测DST预测的意图
     3. 计算多维度评测指标
+    4. 追踪意图转换和对话阶段
     
     设计原理：
     - TransferTOD数据集没有显式意图标签
     - 通过槽位变化模式推断隐式意图
-    - 这种推断虽不完美，但提供了合理的baseline
+    - 支持两层意图架构（任务相关性 + 对话行为）
+    - 追踪意图转换模式和对话阶段
     """
     
     def __init__(self):
@@ -47,51 +84,167 @@ class IntentEvaluator:
         """
         self.predictions = []  # [(predicted_intent, inferred_intent), ...]
         self.turn_details = []  # 每轮详细信息
+        self.intent_transitions = []  # 意图转换序列
+        self.current_phase = DialoguePhase.OPENING  # 当前对话阶段
         
     def infer_intent_from_slots(
         self, 
         turn_updates: Dict[str, Any],
         previous_state: Dict[str, Any],
-        user_utterance: str = ""
-    ) -> str:
+        user_utterance: str = "",
+        turn_id: int = 0
+    ) -> Tuple[str, str]:
         """
-        从槽位变化推断隐式意图
+        从槽位变化推断隐式意图（v2.0）
         
-        推断规则：
-        1. 无槽位变化 → chitchat (闲聊)
-        2. 槽位值为'?'或UNKNOWN → request (请求信息)
-        3. 槽位值改变（之前存在） → negate (否定/修改)
-        4. 新增槽位或更新槽位 → inform (提供信息)
+        新版推断规则：
+        1. 考虑任务相关性（第一层）
+        2. 识别具体对话行为（第二层）
+        3. 考虑对话上下文（轮次、历史意图等）
         
         Args:
             turn_updates: 当前轮的槽位更新
             previous_state: 上一轮的对话状态
             user_utterance: 用户话语（可选，用于辅助判断）
+            turn_id: 轮次ID（用于判断对话阶段）
             
         Returns:
-            推断的意图类型
+            (intent_type, task_relevance) - 意图类型和任务相关性
         """
         # 过滤掉'intent'槽位本身
         slot_updates = {k: v for k, v in turn_updates.items() if k != 'intent'}
         
-        # 规则1: 无槽位变化
-        if not slot_updates:
-            return IntentType.CHITCHAT.value
+        # === 规则1: 任务无关意图判断 ===
         
-        # 规则2: 检测请求意图（槽位值为特殊标记）
+        # 1.1 问候（通常在开场）
+        if turn_id == 0 and not slot_updates:
+            return IntentType.GREETING.value, TaskRelevance.TASK_INDEPENDENT.value
+        
+        # 1.2 告别（通常在结束）
+        if self._is_farewell(user_utterance):
+            return IntentType.FAREWELL.value, TaskRelevance.TASK_INDEPENDENT.value
+        
+        # 1.3 感谢
+        if self._is_thanking(user_utterance):
+            return IntentType.THANKING.value, TaskRelevance.TASK_INDEPENDENT.value
+        
+        # 1.4 闲聊（无槽位变化且非特殊场景）
+        if not slot_updates and turn_id > 0:
+            return IntentType.CHITCHAT.value, TaskRelevance.TASK_INDEPENDENT.value
+        
+        # === 规则2: 任务相关意图判断 ===
+        
+        # 2.1 请求信息（槽位值为特殊标记）
+        if self._has_request_marker(slot_updates):
+            return IntentType.REQUEST_INFO.value, TaskRelevance.TASK_RELATED.value
+        
+        # 2.2 更正信息（修改已存在的槽位值）
+        if self._is_correction(slot_updates, previous_state):
+            return IntentType.CORRECT_INFO.value, TaskRelevance.TASK_RELATED.value
+        
+        # 2.3 确认信息（槽位值与之前相同，表示确认）
+        if self._is_confirmation(slot_updates, previous_state):
+            return IntentType.CONFIRM_INFO.value, TaskRelevance.TASK_RELATED.value
+        
+        # 2.4 应答确认（简单的槽位更新，通常是回答系统问题）
+        if self._is_acknowledge(slot_updates, user_utterance):
+            return IntentType.ACKNOWLEDGE.value, TaskRelevance.TASK_RELATED.value
+        
+        # 2.5 提供信息（默认，新增或更新槽位）
+        if slot_updates:
+            return IntentType.PROVIDE_INFO.value, TaskRelevance.TASK_RELATED.value
+        
+        # === 规则3: 未知意图 ===
+        return IntentType.UNKNOWN.value, TaskRelevance.TASK_INDEPENDENT.value
+    
+    def _has_request_marker(self, slot_updates: Dict[str, Any]) -> bool:
+        """检测是否包含请求标记"""
         for slot, value in slot_updates.items():
             value_str = str(value).lower() if value is not None else ""
-            if value_str in ['?', 'unknown', 'null', '未知']:
-                return IntentType.REQUEST.value
-        
-        # 规则3: 检测否定意图（修改已存在的槽位）
+            if value_str in ['?', 'unknown', 'null', '未知', 'none']:
+                return True
+        return False
+    
+    def _is_correction(self, slot_updates: Dict[str, Any], previous_state: Dict[str, Any]) -> bool:
+        """检测是否为更正（修改已有槽位）"""
         for slot, value in slot_updates.items():
             if slot in previous_state and previous_state[slot] != value:
                 # 槽位值发生变化
-                return IntentType.NEGATE.value
+                return True
+        return False
+    
+    def _is_confirmation(self, slot_updates: Dict[str, Any], previous_state: Dict[str, Any]) -> bool:
+        """检测是否为确认（重复已有槽位值）"""
+        for slot, value in slot_updates.items():
+            if slot in previous_state and previous_state[slot] == value:
+                # 槽位值相同，可能是确认
+                return True
+        return False
+    
+    def _is_acknowledge(self, slot_updates: Dict[str, Any], user_utterance: str) -> bool:
+        """检测是否为简单应答（如"好的"、"是的"）"""
+        # 简单启发式：单个槽位更新且话语很短
+        if len(slot_updates) == 1 and len(user_utterance) < 10:
+            return True
+        return False
+    
+    def _is_farewell(self, user_utterance: str) -> bool:
+        """检测是否为告别"""
+        farewell_keywords = ['再见', '谢谢', '拜拜', 'bye', 'goodbye', '结束']
+        utterance_lower = user_utterance.lower()
+        return any(kw in utterance_lower for kw in farewell_keywords)
+    
+    def _is_thanking(self, user_utterance: str) -> bool:
+        """检测是否为感谢"""
+        thank_keywords = ['谢谢', '感谢', 'thanks', 'thank you']
+        utterance_lower = user_utterance.lower()
+        return any(kw in utterance_lower for kw in thank_keywords)
+    
+    def infer_dialogue_phase(
+        self,
+        turn_id: int,
+        slot_updates: Dict[str, Any],
+        previous_state: Dict[str, Any],
+        total_turns: int = 0
+    ) -> str:
+        """
+        推断当前对话阶段
         
-        # 规则4: 默认为提供信息（新增槽位或首次赋值）
-        return IntentType.INFORM.value
+        Args:
+            turn_id: 当前轮次ID
+            slot_updates: 槽位更新
+            previous_state: 之前的状态
+            total_turns: 总轮次数（如果已知）
+            
+        Returns:
+            对话阶段
+        """
+        # 开场阶段（前1-2轮）
+        if turn_id <= 1:
+            return DialoguePhase.OPENING.value
+        
+        # 结束阶段（最后1-2轮或无槽位更新）
+        if total_turns > 0 and turn_id >= total_turns - 2:
+            return DialoguePhase.CLOSING.value
+        
+        # 确认阶段（槽位值重复）
+        if self._is_confirmation(slot_updates, previous_state):
+            return DialoguePhase.CONFIRMATION.value
+        
+        # 槽位填充阶段（有槽位更新）
+        if slot_updates:
+            # 如果已有较多槽位，可能在确认
+            if len(previous_state) >= 3:
+                return DialoguePhase.CONFIRMATION.value
+            else:
+                return DialoguePhase.SLOT_FILLING.value
+        
+        # 信息收集阶段（早期，槽位较少）
+        if len(previous_state) < 2:
+            return DialoguePhase.INFORMATION_GATHERING.value
+        
+        # 默认槽位填充
+        return DialoguePhase.SLOT_FILLING.value
     
     def add_turn_evaluation(
         self,
@@ -100,10 +253,11 @@ class IntentEvaluator:
         turn_updates: Dict[str, Any],
         previous_state: Dict[str, Any],
         user_utterance: str = "",
-        dialogue_id: str = ""
+        dialogue_id: str = "",
+        total_turns: int = 0
     ) -> Dict[str, Any]:
         """
-        添加一轮对话的意图评测
+        添加一轮对话的意图评测（v2.0）
         
         Args:
             turn_id: 轮次ID
@@ -112,29 +266,50 @@ class IntentEvaluator:
             previous_state: 之前的状态
             user_utterance: 用户话语
             dialogue_id: 对话ID
+            total_turns: 总轮次数
             
         Returns:
             评测详情
         """
-        # 推断ground truth意图
-        inferred_intent = self.infer_intent_from_slots(
+        # 推断ground truth意图（返回意图类型和任务相关性）
+        inferred_intent, task_relevance = self.infer_intent_from_slots(
             turn_updates, 
             previous_state,
-            user_utterance
+            user_utterance,
+            turn_id
+        )
+        
+        # 推断对话阶段
+        dialogue_phase = self.infer_dialogue_phase(
+            turn_id,
+            turn_updates,
+            previous_state,
+            total_turns
         )
         
         # 标准化预测意图
-        predicted_intent = predicted_intent or IntentType.OTHER.value
+        predicted_intent = predicted_intent or IntentType.UNKNOWN.value
         
         # 判断是否正确
         is_correct = (predicted_intent.lower() == inferred_intent.lower())
+        
+        # 记录意图转换
+        if self.turn_details:
+            previous_intent = self.turn_details[-1]['inferred_intent']
+            transition = (previous_intent, inferred_intent)
+            self.intent_transitions.append(transition)
+        
+        # 更新当前阶段
+        self.current_phase = dialogue_phase
         
         # 记录详情
         detail = {
             'dialogue_id': dialogue_id,
             'turn_id': turn_id,
-            'predicted': predicted_intent,
-            'inferred': inferred_intent,
+            'predicted_intent': predicted_intent,
+            'inferred_intent': inferred_intent,
+            'task_relevance': task_relevance,
+            'dialogue_phase': dialogue_phase,
             'correct': is_correct,
             'turn_updates': turn_updates.copy(),
             'user_utterance': user_utterance
@@ -147,10 +322,17 @@ class IntentEvaluator:
     
     def calculate_metrics(self) -> Dict[str, Any]:
         """
-        计算意图评测指标
+        计算意图评测指标（v2.0 - 增强版）
         
         Returns:
-            评测指标字典
+            评测指标字典，包括：
+            - 基础准确率
+            - 意图分布
+            - 混淆矩阵
+            - 错误分析
+            - 意图转换分析（新增）
+            - 对话阶段分析（新增）
+            - 任务相关性统计（新增）
         """
         if not self.predictions:
             return {
@@ -159,7 +341,10 @@ class IntentEvaluator:
                 'correct_turns': 0,
                 'intent_distribution': {},
                 'confusion_matrix': {},
-                'error_analysis': {}
+                'error_analysis': {},
+                'transition_analysis': {},
+                'phase_distribution': {},
+                'task_relevance_stats': {}
             }
         
         # 基础统计
@@ -179,8 +364,24 @@ class IntentEvaluator:
         # 错误分析
         errors = [d for d in self.turn_details if not d['correct']]
         error_patterns = Counter(
-            (d['predicted'], d['inferred']) for d in errors
+            (d['predicted_intent'], d['inferred_intent']) for d in errors
         )
+        
+        # 意图转换分析（新增）
+        transition_stats = Counter(self.intent_transitions)
+        
+        # 对话阶段分布（新增）
+        phase_dist = Counter(d['dialogue_phase'] for d in self.turn_details)
+        
+        # 任务相关性统计（新增）
+        task_relevance_dist = Counter(d.get('task_relevance', 'unknown') for d in self.turn_details)
+        
+        # 按阶段的意图分布（新增）
+        phase_intent_dist = defaultdict(Counter)
+        for d in self.turn_details:
+            phase = d['dialogue_phase']
+            intent = d['inferred_intent']
+            phase_intent_dist[phase][intent] += 1
         
         return {
             'accuracy': accuracy,
@@ -190,21 +391,33 @@ class IntentEvaluator:
             'inferred_distribution': dict(inferred_dist),
             'confusion_matrix': {k: dict(v) for k, v in confusion.items()},
             'error_patterns': dict(error_patterns.most_common(10)),
-            'error_count': len(errors)
+            'error_count': len(errors),
+            'transition_stats': dict(transition_stats.most_common(15)),
+            'transition_count': len(self.intent_transitions),
+            'phase_distribution': dict(phase_dist),
+            'task_relevance_stats': dict(task_relevance_dist),
+            'phase_intent_distribution': {k: dict(v) for k, v in phase_intent_dist.items()}
         }
     
     def get_detailed_report(self) -> str:
         """
-        生成详细的评测报告
+        生成详细的评测报告（v2.0 - 增强版）
         
         Returns:
-            格式化的报告字符串
+            格式化的报告字符串，包括：
+            - 基础准确率
+            - 意图分布对比
+            - 混淆矩阵
+            - 错误模式分析
+            - 意图转换分析（新增）
+            - 对话阶段分析（新增）
+            - 任务相关性统计（新增）
         """
         metrics = self.calculate_metrics()
         
         report = []
         report.append("=" * 70)
-        report.append("意图评测报告 (Intent Evaluation Report)")
+        report.append("意图评测报告 v2.0 (Intent Evaluation Report)")
         report.append("=" * 70)
         report.append("")
         
@@ -214,6 +427,16 @@ class IntentEvaluator:
         report.append(f"意图准确率: {metrics['accuracy']:.2%}")
         report.append("")
         
+        # 任务相关性统计（新增）
+        if metrics['task_relevance_stats']:
+            report.append("-" * 70)
+            report.append("任务相关性统计")
+            report.append("-" * 70)
+            for relevance, count in metrics['task_relevance_stats'].items():
+                percentage = count / metrics['total_turns'] * 100 if metrics['total_turns'] > 0 else 0
+                report.append(f"{relevance:<20} {count:<10} ({percentage:.1f}%)")
+            report.append("")
+        
         # 意图分布对比
         report.append("-" * 70)
         report.append("意图分布对比")
@@ -222,7 +445,7 @@ class IntentEvaluator:
         all_intents = set(metrics['predicted_distribution'].keys()) | \
                      set(metrics['inferred_distribution'].keys())
         
-        report.append(f"{'意图类型':<15} {'预测数量':<12} {'推断数量':<12} {'差异':<10}")
+        report.append(f"{'意图类型':<20} {'预测数量':<12} {'推断数量':<12} {'差异':<10}")
         report.append("-" * 70)
         
         for intent in sorted(all_intents):
@@ -230,9 +453,32 @@ class IntentEvaluator:
             inf_count = metrics['inferred_distribution'].get(intent, 0)
             diff = pred_count - inf_count
             diff_str = f"{diff:+d}" if diff != 0 else "0"
-            report.append(f"{intent:<15} {pred_count:<12} {inf_count:<12} {diff_str:<10}")
+            report.append(f"{intent:<20} {pred_count:<12} {inf_count:<12} {diff_str:<10}")
         
         report.append("")
+        
+        # 对话阶段分布（新增）
+        if metrics['phase_distribution']:
+            report.append("-" * 70)
+            report.append("对话阶段分布")
+            report.append("-" * 70)
+            for phase, count in sorted(metrics['phase_distribution'].items()):
+                percentage = count / metrics['total_turns'] * 100 if metrics['total_turns'] > 0 else 0
+                report.append(f"{phase:<25} {count:<10} ({percentage:.1f}%)")
+            report.append("")
+        
+        # 意图转换分析（新增）
+        if metrics['transition_stats']:
+            report.append("-" * 70)
+            report.append(f"意图转换模式 (Top 15) - 总转换数: {metrics['transition_count']}")
+            report.append("-" * 70)
+            report.append(f"{'前一意图':<20} {'当前意图':<20} {'出现次数':<10}")
+            report.append("-" * 70)
+            
+            for (prev_intent, curr_intent), count in metrics['transition_stats'].items():
+                report.append(f"{prev_intent:<20} {curr_intent:<20} {count:<10}")
+            
+            report.append("")
         
         # 混淆矩阵
         if metrics['confusion_matrix']:
@@ -247,18 +493,18 @@ class IntentEvaluator:
             )
             
             # 表头
-            header = f"{'GT\\Pred':<12}"
+            header = f"{'GT\\Pred':<20}"
             for intent in all_intents_list:
-                header += f"{intent:<12}"
+                header += f"{intent:<15}"
             report.append(header)
             report.append("-" * 70)
             
             # 数据行
             for true_intent in all_intents_list:
-                row = f"{true_intent:<12}"
+                row = f"{true_intent:<20}"
                 for pred_intent in all_intents_list:
                     count = metrics['confusion_matrix'].get(true_intent, {}).get(pred_intent, 0)
-                    row += f"{count:<12}"
+                    row += f"{count:<15}"
                 report.append(row)
             
             report.append("")
@@ -268,11 +514,11 @@ class IntentEvaluator:
             report.append("-" * 70)
             report.append(f"常见错误模式 (Top 10) - 总错误数: {metrics['error_count']}")
             report.append("-" * 70)
-            report.append(f"{'预测意图':<15} {'实际意图':<15} {'出现次数':<10}")
+            report.append(f"{'预测意图':<20} {'实际意图':<20} {'出现次数':<10}")
             report.append("-" * 70)
             
             for (pred, inf), count in metrics['error_patterns'].items():
-                report.append(f"{pred:<15} {inf:<15} {count:<10}")
+                report.append(f"{pred:<20} {inf:<20} {count:<10}")
             
             report.append("")
         
@@ -286,3 +532,5 @@ class IntentEvaluator:
         """
         self.predictions = []
         self.turn_details = []
+        self.intent_transitions = []
+        self.current_phase = DialoguePhase.OPENING
