@@ -194,7 +194,9 @@ class DSTTransferTODTest:
             print(f"最终期望状态: {final_expected}")
             print(f"最终提取状态: {final_extracted}")
         
-        joint_accuracy = self._calculate_joint_accuracy(final_expected, final_extracted)
+        # 计算两种Joint Accuracy
+        joint_accuracy_strict = self._calculate_joint_accuracy(final_expected, final_extracted, mode='strict')
+        joint_accuracy_soft = self._calculate_joint_accuracy(final_expected, final_extracted, mode='soft')
         
         # 计算Precision/Recall/F1（基于slot-value pairs）- 对齐TransferTOD论文
         precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
@@ -202,7 +204,8 @@ class DSTTransferTODTest:
         metrics = {
             "dialogue_id": dialogue_id,
             "slot_accuracy": slot_accuracy,
-            "joint_accuracy": joint_accuracy,  # TransferTOD论文指标：对话级别
+            "joint_accuracy": joint_accuracy_strict,  # TransferTOD论文指标：对话级别（严格）
+            "joint_accuracy_soft": joint_accuracy_soft,  # 软匹配：允许额外槽位
             "precision": precision,
             "recall": recall,
             "f1": f1,
@@ -214,27 +217,27 @@ class DSTTransferTODTest:
         if verbose:
             print("\n--- 测试结果（对齐TransferTOD论文指标）---")
             print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
-            print(f"联合准确率 (Joint Accuracy): {joint_accuracy * 100:.2f}%")
+            print(f"联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
+            print(f"联合准确率-软匹配 (Joint Accuracy Soft): {joint_accuracy_soft * 100:.2f}%")
             print(f"精确率 (Precision): {precision * 100:.2f}%")
             print(f"召回率 (Recall): {recall * 100:.2f}%")
             print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
         
         return metrics
     
-    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict) -> float:
+    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict, mode: str = 'strict') -> float:
         """
-        计算Joint Accuracy（对话级别）- 对齐TransferTOD论文
-        
-        比较两个状态是否完全匹配（所有slot-value pairs都相同）
+        计算Joint Accuracy（对话级别）- 支持strict和soft两种模式
         
         Args:
             expected: 期望的最终状态
             extracted: 提取的最终状态
+            mode: 'strict' (完全匹配) 或 'soft' (期望槽位都存在即可)
             
         Returns:
-            1.0 if完全匹配, 0.0 otherwise
+            1.0 if匹配, 0.0 otherwise
         """
-        # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
+        # 转换为slot-value pairs的集合进行比较
         expected_pairs = set()
         for k, v in expected.items():
             # 过滤None和空值
@@ -257,7 +260,16 @@ class DSTTransferTODTest:
             logger.debug(f"  Missing: {expected_pairs - extracted_pairs}")
             logger.debug(f"  Extra: {extracted_pairs - expected_pairs}")
         
-        return 1.0 if expected_pairs == extracted_pairs else 0.0
+        # 根据模式计算
+        if mode == 'strict':
+            # Strict模式: 完全匹配（对齐TransferTOD论文）
+            return 1.0 if expected_pairs == extracted_pairs else 0.0
+        elif mode == 'soft':
+            # Soft模式: 所有期望的槽位都被正确提取（允许额外槽位）
+            # 适用于模型可能过度预测的情况
+            return 1.0 if expected_pairs.issubset(extracted_pairs) else 0.0
+        else:
+            raise ValueError(f"Unknown mode: {mode}. Use 'strict' or 'soft'")
     
     def _calculate_prf_pairs(self, expected: Dict, extracted: Dict) -> Tuple[float, float, float]:
         """
@@ -410,20 +422,28 @@ async def main():
         
         avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
         avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy_soft = sum(m["joint_accuracy_soft"] for m in all_metrics) / len(all_metrics)
         avg_precision = sum(m["precision"] for m in all_metrics) / len(all_metrics)
         avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
         avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
         
         print(f"\n测试对话数: {len(all_metrics)}")
         print(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
-        print(f"平均联合准确率 (Joint Accuracy): {avg_joint_accuracy * 100:.2f}%")
+        print(f"平均联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy * 100:.2f}%")
+        print(f"平均联合准确率-软匹配 (Joint Accuracy Soft): {avg_joint_accuracy_soft * 100:.2f}%")
         print(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
         print(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
         print(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
         print()
         print("注：指标计算方法已对齐TransferTOD论文")
-        print("  - Joint Accuracy: 对话级别（最终状态完全匹配）")
+        print("  - Joint Accuracy Strict: 对话级别（最终状态完全匹配，对齐论文）")
+        print("  - Joint Accuracy Soft: 对话级别（所有期望槽位都存在，允许额外槽位）")
         print("  - F1/Precision/Recall: 基于slot-value pairs计算")
+        print()
+        print("说明：")
+        print("  - Strict JA = 0% 说明模型总是预测了额外的槽位")
+        print("  - Soft JA > 0% 说明模型能找到所有期望槽位（但可能过度预测）")
+        print("  - 如果 Soft JA 高但 Strict JA 低，说明模型倾向于过度预测")
         print()
 
 
