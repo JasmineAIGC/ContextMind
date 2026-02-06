@@ -13,7 +13,7 @@ from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Intent label loader (imported lazily to avoid circular dependencies)
+# 意图标签加载器（延迟导入以避免循环依赖）
 _intent_label_loader = None
 
 def _get_intent_label_loader():
@@ -152,7 +152,7 @@ class PromptManager:
 
 """
         
-        # Add each intent with description and keywords
+        # 添加每个意图的描述和关键词
         for intent in self.domain_intents:
             desc_info = loader.get_intent_description(self.domain, intent)
             description = desc_info.get("description", "")
@@ -162,7 +162,7 @@ class PromptManager:
             if description:
                 intent_text += f": {description}"
             if keywords:
-                keyword_str = ", ".join(keywords[:5])  # Limit to 5 keywords
+                keyword_str = ", ".join(keywords[:5])  # 限制显示5个关键词
                 intent_text += f" (关键词: {keyword_str})"
             intent_text += "\n"
         
@@ -258,7 +258,7 @@ class PromptManager:
    - **动态变化**：新增、修改、删除的信息
 
 """
-            # Add domain-specific intent instructions if available
+            # 如果可用，添加领域专属意图指令
             intent_instructions = self._get_intent_instructions()
             if intent_instructions:
                 instruction += intent_instructions
