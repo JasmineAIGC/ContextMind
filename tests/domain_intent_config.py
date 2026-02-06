@@ -266,17 +266,3 @@ def load_domain_intent_config(config_path: Optional[str] = None) -> DomainIntent
         DomainIntentConfig实例
     """
     return DomainIntentConfigLoader.load(config_path)
-
-
-# 用于向后兼容性
-def get_domain_intent_config(config_path: Optional[str] = None) -> DomainIntentConfig:
-    """
-    旧版函数名，用于向后兼容性
-    
-    参数:
-        config_path: 配置文件的路径
-        
-    返回:
-        DomainIntentConfig实例
-    """
-    return load_domain_intent_config(config_path)

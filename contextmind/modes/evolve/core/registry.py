@@ -8,13 +8,13 @@ Evolve 插件注册中心 - 集中式插件发现和管理
     from contextmind.modes.evolve import registry
     
     # 列出可用的提取器
-    print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
+    print(registry.list_extractors())  # ['llm_based', 'importance']
     
     # 获取提取器插件
-    extractor = registry.get_extractor('rule_based')
+    extractor = registry.get_extractor('llm_based')
     
-    # 运行时切换提取器
-    engine.set_extractor(registry.get_extractor('llm_entity'))
+    # 获取检索器插件
+    retriever = registry.get_retriever('semantic')
     ```
 """
 

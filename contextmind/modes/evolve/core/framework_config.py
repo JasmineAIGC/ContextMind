@@ -289,15 +289,6 @@ class ContextMind:
         logger.info(f"[ContextMind] ✓ 后处理完成")
         return processed_output
     
-    def set_extractor(self, extractor_name: str):
-        """切换提取器插件"""
-        extractor = registry.get_extractor(extractor_name)
-        if extractor:
-            # 提取器通过引擎初始化设置
-            # 此方法已弃用
-            logger.warning(f"[ContextMind] set_extractor is deprecated. Use engine initialization parameters instead.")
-            logger.info(f"[ContextMind] 提取器: {extractor_name}")
-    
     def set_retriever(self, retriever_name: str):
         """切换检索器插件"""
         retriever = registry.get_retriever(retriever_name)
