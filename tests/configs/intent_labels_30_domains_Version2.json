@@ -1,0 +1,1428 @@
+{
+  "dataset": "TransferTOD",
+  "version": "3.0",
+  "description": "Comprehensive 30-domain intent configuration for TransferTOD dataset with special handling for '其他' intent",
+  "total_domains": 30,
+  "metadata": {
+    "other_intent_name": "其他",
+    "other_intent_description": "catch-all intent for utterances that don't fit other intent categories",
+    "other_intent_evaluation": "special_handling"
+  },
+  "domains": {
+    "酒店": {
+      "domain_en": "hotel",
+      "domain_code": "1-hotel",
+      "intents": [
+        "预订酒店",
+        "查询酒店信息",
+        "取消预订",
+        "修改预订",
+        "咨询价格",
+        "确认预订",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订酒店": {
+          "description": "用户预订酒店房间",
+          "keywords": ["预订", "订房", "住", "入住"]
+        },
+        "查询酒店信息": {
+          "description": "查询酒店设施、位置等信息",
+          "keywords": ["查询", "有什么", "在哪", "设施"]
+        },
+        "取消预订": {
+          "description": "取消已预订的酒店",
+          "keywords": ["取消", "不要了", "退订"]
+        },
+        "修改预订": {
+          "description": "修改预订信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格费用",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "确认预订": {
+          "description": "确认预订信息",
+          "keywords": ["确认", "对的", "是的"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈问题",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "景点": {
+      "domain_en": "tourism",
+      "domain_code": "2-tourism",
+      "intents": [
+        "查询景点信息",
+        "购票咨询",
+        "行程规划",
+        "咨询开放时间",
+        "咨询门票价格",
+        "交通咨询",
+        "预订景点",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询景点信息": {
+          "description": "查询景点详情",
+          "keywords": ["景点", "什么", "介绍", "有什么"]
+        },
+        "购票咨询": {
+          "description": "咨询购票方式",
+          "keywords": ["买票", "购票", "门票"]
+        },
+        "行程规划": {
+          "description": "规划游览路线",
+          "keywords": ["路线", "怎么玩", "规划", "游玩"]
+        },
+        "咨询开放时间": {
+          "description": "询问开放时间",
+          "keywords": ["几点", "营业时间", "开放"]
+        },
+        "咨询门票价格": {
+          "description": "询问门票价格",
+          "keywords": ["多少钱", "价格", "票价"]
+        },
+        "交通咨询": {
+          "description": "询问交通方式",
+          "keywords": ["怎么去", "交通", "路线", "出行方式"]
+        },
+        "预订景点": {
+          "description": "预订景点门票或服务",
+          "keywords": ["预订", "预约", "帮我订"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "餐厅": {
+      "domain_en": "gastronomy",
+      "domain_code": "3-gastronomy",
+      "intents": [
+        "预订餐厅",
+        "查询餐厅信息",
+        "取消预订",
+        "修改预订",
+        "咨询菜单",
+        "确认预订",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订餐厅": {
+          "description": "预订餐厅座位",
+          "keywords": ["预订", "订位", "订餐", "订桌"]
+        },
+        "查询餐厅信息": {
+          "description": "查询餐厅位置、营业时间等",
+          "keywords": ["查询", "在哪", "几点", "餐厅"]
+        },
+        "取消预订": {
+          "description": "取消餐厅预订",
+          "keywords": ["取消", "不去了"]
+        },
+        "修改预订": {
+          "description": "修改预订时间或人数",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询菜单": {
+          "description": "询问菜品、菜单",
+          "keywords": ["菜单", "有什么菜", "推荐", "菜品"]
+        },
+        "确认预订": {
+          "description": "确认预订信息",
+          "keywords": ["确认", "对", "是"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "不满意"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "外卖": {
+      "domain_en": "takeaways",
+      "domain_code": "4-takeaways",
+      "intents": [
+        "点外卖",
+        "查询商家",
+        "查询订单",
+        "取消订单",
+        "催单",
+        "投诉",
+        "咨询价格",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "点外卖": {
+          "description": "点外卖下单",
+          "keywords": ["点外卖", "订餐", "买", "下单"]
+        },
+        "查询商家": {
+          "description": "查询商家信息",
+          "keywords": ["商家", "店", "有什么", "餐厅"]
+        },
+        "查询订单": {
+          "description": "查询订单状态",
+          "keywords": ["订单", "到哪了", "查询"]
+        },
+        "取消订单": {
+          "description": "取消外卖订单",
+          "keywords": ["取消", "不要了", "退"]
+        },
+        "催单": {
+          "description": "催促送餐",
+          "keywords": ["催单", "快点", "还有多久"]
+        },
+        "投诉": {
+          "description": "投诉问题",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "火车票": {
+      "domain_en": "train_ticket",
+      "domain_code": "5-train_ticket",
+      "intents": [
+        "购票",
+        "查询车次",
+        "退票",
+        "改签",
+        "咨询价格",
+        "确认订单",
+        "查询余票",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "购票": {
+          "description": "购买火车票",
+          "keywords": ["买票", "购票", "订票"]
+        },
+        "查询车次": {
+          "description": "查询车次信息",
+          "keywords": ["车次", "几点", "有什么车"]
+        },
+        "退票": {
+          "description": "退火车票",
+          "keywords": ["退票", "退", "不去了"]
+        },
+        "改签": {
+          "description": "改签车票",
+          "keywords": ["改签", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问票价",
+          "keywords": ["多少钱", "价格", "票价"]
+        },
+        "确认订单": {
+          "description": "确认订单",
+          "keywords": ["确认", "对", "是"]
+        },
+        "查询余票": {
+          "description": "查询剩余票数",
+          "keywords": ["还有票吗", "余票", "有没有"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "机票": {
+      "domain_en": "air_ticket",
+      "domain_code": "6-air_ticket",
+      "intents": [
+        "预订机票",
+        "查询航班",
+        "退票",
+        "改签",
+        "咨询价格",
+        "确认订单",
+        "查询余票",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订机票": {
+          "description": "预订购买机票",
+          "keywords": ["订票", "买票", "预订"]
+        },
+        "查询航班": {
+          "description": "查询航班信息",
+          "keywords": ["航班", "几点", "查询"]
+        },
+        "退票": {
+          "description": "退机票",
+          "keywords": ["退票", "退", "不去了"]
+        },
+        "改签": {
+          "description": "改签机票",
+          "keywords": ["改签", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问机票价格",
+          "keywords": ["多少钱", "价格", "票价"]
+        },
+        "确认订单": {
+          "description": "确认订单",
+          "keywords": ["确认", "对", "是"]
+        },
+        "查询余票": {
+          "description": "查询剩余票数",
+          "keywords": ["还有票吗", "余票", "有没有"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "邮轮": {
+      "domain_en": "ocean_liner",
+      "domain_code": "7-ocean_liner",
+      "intents": [
+        "预订邮轮",
+        "查询邮轮信息",
+        "取消预订",
+        "修改预订",
+        "咨询价格",
+        "查询服务",
+        "确认订单",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订邮轮": {
+          "description": "预订邮轮行程",
+          "keywords": ["预订", "订", "买"]
+        },
+        "查询邮轮信息": {
+          "description": "查询邮轮航线、服务等",
+          "keywords": ["查询", "邮轮", "航线", "信息"]
+        },
+        "取消预订": {
+          "description": "取消邮轮预订",
+          "keywords": ["取消", "不去了"]
+        },
+        "修改预订": {
+          "description": "修改预订信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格费用",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "查询服务": {
+          "description": "查询邮轮服务设施",
+          "keywords": ["服务", "设施", "有什么"]
+        },
+        "确认订单": {
+          "description": "确认订单",
+          "keywords": ["确认", "对", "是"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "租车": {
+      "domain_en": "car_rent",
+      "domain_code": "8-car_rent",
+      "intents": [
+        "预订租车",
+        "查询车型",
+        "取消订单",
+        "修改订单",
+        "咨询价格",
+        "查询服务",
+        "确认订单",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订租��": {
+          "description": "预订租赁车辆",
+          "keywords": ["租车", "预订", "订"]
+        },
+        "查询车型": {
+          "description": "查询可租车型",
+          "keywords": ["车型", "有什么车", "查询"]
+        },
+        "取消订单": {
+          "description": "取消租车订单",
+          "keywords": ["取消", "不租了"]
+        },
+        "修改订单": {
+          "description": "修改租车信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问租车价格",
+          "keywords": ["多少钱", "价格", "费用", "预算"]
+        },
+        "查询服务": {
+          "description": "查询租车服务",
+          "keywords": ["服务", "有什么", "提供"]
+        },
+        "确认订单": {
+          "description": "确认订单",
+          "keywords": ["确认", "对", "是"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "租房": {
+      "domain_en": "house_rent",
+      "domain_code": "9-house_rent",
+      "intents": [
+        "查询房源",
+        "预约看房",
+        "确认租房",
+        "咨询价格",
+        "咨询配套设施",
+        "咨询交通",
+        "修改需求",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询房源": {
+          "description": "查询可租房源",
+          "keywords": ["查询", "有没有", "房源", "租房"]
+        },
+        "预约看房": {
+          "description": "预约看房时间",
+          "keywords": ["看房", "预约", "参观"]
+        },
+        "确认租房": {
+          "description": "确认租房意向",
+          "keywords": ["确认", "租", "要了"]
+        },
+        "咨询价格": {
+          "description": "询问租金价格",
+          "keywords": ["多少钱", "租金", "价格"]
+        },
+        "咨询配套设施": {
+          "description": "询问房屋配套设施",
+          "keywords": ["设施", "配套", "有什么", "装修"]
+        },
+        "咨询交通": {
+          "description": "询问交通情况",
+          "keywords": ["交通", "地铁", "怎么去"]
+        },
+        "修改需求": {
+          "description": "修改租房需求",
+          "keywords": ["修改", "改", "换"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "电影": {
+      "domain_en": "movie",
+      "domain_code": "10-movie",
+      "intents": [
+        "查询电影",
+        "购票",
+        "查询影院",
+        "查询场次",
+        "退票",
+        "选座",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询电影": {
+          "description": "查询电影信息",
+          "keywords": ["电影", "什么片", "有什么"]
+        },
+        "购票": {
+          "description": "购买电影票",
+          "keywords": ["买票", "购票", "订票"]
+        },
+        "查询影院": {
+          "description": "查询影院信息",
+          "keywords": ["影院", "电影院", "在哪"]
+        },
+        "查询场次": {
+          "description": "查询放映场次",
+          "keywords": ["场次", "几点", "时间"]
+        },
+        "退票": {
+          "description": "退电影票",
+          "keywords": ["退票", "退", "不看了"]
+        },
+        "选座": {
+          "description": "选择座位",
+          "keywords": ["座位", "选座", "哪个位置"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "音乐会": {
+      "domain_en": "concert",
+      "domain_code": "11-concert",
+      "intents": [
+        "查询音乐会",
+        "购票",
+        "查询场馆",
+        "查询场次",
+        "退票",
+        "选座",
+        "咨询价格",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询音乐会": {
+          "description": "查询音乐会信息",
+          "keywords": ["音乐会", "演出", "有什么"]
+        },
+        "购票": {
+          "description": "购买音乐会门票",
+          "keywords": ["买票", "购票", "订票"]
+        },
+        "查询场馆": {
+          "description": "查询场馆信息",
+          "keywords": ["场馆", "在哪", "地点"]
+        },
+        "查询场次": {
+          "description": "查询演出时间",
+          "keywords": ["场次", "几点", "时间"]
+        },
+        "退票": {
+          "description": "退票",
+          "keywords": ["退票", "退", "不去了"]
+        },
+        "选座": {
+          "description": "选择座位",
+          "keywords": ["座位", "选座", "位置"]
+        },
+        "咨询价格": {
+          "description": "询问票价",
+          "keywords": ["多少钱", "价格", "票价"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "博物馆": {
+      "domain_en": "museum",
+      "domain_code": "12-museum",
+      "intents": [
+        "查询展览",
+        "预订门票",
+        "查询开放时间",
+        "咨询服务",
+        "咨询价格",
+        "取消预订",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "查询展览": {
+          "description": "查询展览信息",
+          "keywords": ["展览", "有什么", "查询"]
+        },
+        "预订门票": {
+          "description": "预订博物馆门票",
+          "keywords": ["预订", "买票", "订票"]
+        },
+        "查询开放时间": {
+          "description": "询问开放时间",
+          "keywords": ["几点", "开放时间", "营业"]
+        },
+        "咨询服务": {
+          "description": "咨询博物馆服务",
+          "keywords": ["服务", "讲解", "导览"]
+        },
+        "咨询价格": {
+          "description": "询问门票价格",
+          "keywords": ["多少钱", "价格", "票价"]
+        },
+        "取消预订": {
+          "description": "取消预订",
+          "keywords": ["取消", "不去了"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "度假村": {
+      "domain_en": "vacation_villages",
+      "domain_code": "13-vacation_villages",
+      "intents": [
+        "预订度假村",
+        "查询度假村信息",
+        "取消预订",
+        "修改预订",
+        "咨询价格",
+        "咨询服务",
+        "确认预订",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预订度假村": {
+          "description": "预订度假村",
+          "keywords": ["预订", "订", "预约"]
+        },
+        "查询度假村信息": {
+          "description": "查询度假村设施、位置等",
+          "keywords": ["查询", "有什么", "在哪", "信息"]
+        },
+        "取消预订": {
+          "description": "取消预订",
+          "keywords": ["取消", "不去了"]
+        },
+        "修改预订": {
+          "description": "修改预订信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "咨询服务": {
+          "description": "咨询服务设施",
+          "keywords": ["服务", "设施", "娱乐活动"]
+        },
+        "确认预订": {
+          "description": "确认预订",
+          "keywords": ["确认", "对", "是"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "购物": {
+      "domain_en": "shopping",
+      "domain_code": "14-shopping",
+      "intents": [
+        "搜索商品",
+        "加入购物车",
+        "下单购买",
+        "查询订单",
+        "退货退款",
+        "查询物流",
+        "咨询价格",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "搜索商品": {
+          "description": "搜索商品",
+          "keywords": ["搜索", "找", "有没有", "商品"]
+        },
+        "加入购物车": {
+          "description": "加入购物车",
+          "keywords": ["加入", "购物车", "放进"]
+        },
+        "下单购买": {
+          "description": "下单购买",
+          "keywords": ["买", "下单", "购买"]
+        },
+        "查询订单": {
+          "description": "查询订单状态",
+          "keywords": ["订单", "查询", "哪了"]
+        },
+        "退货退款": {
+          "description": "退货或退款",
+          "keywords": ["退货", "退款", "不要了"]
+        },
+        "查询物流": {
+          "description": "查询物流信息",
+          "keywords": ["物流", "快递", "到哪了"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "电话卡": {
+      "domain_en": "calling_card",
+      "domain_code": "15-calling_card",
+      "intents": [
+        "办理套餐",
+        "查询套餐",
+        "充值缴费",
+        "取消业务",
+        "修改套餐",
+        "咨询价格",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "办理套餐": {
+          "description": "办理手机套餐",
+          "keywords": ["办理", "开通", "套餐"]
+        },
+        "查询套餐": {
+          "description": "查询套餐信息",
+          "keywords": ["查询", "有什么", "套餐"]
+        },
+        "充值缴费": {
+          "description": "充值或缴费",
+          "keywords": ["充值", "缴费", "交费"]
+        },
+        "取消业务": {
+          "description": "取消业务",
+          "keywords": ["取消", "不要了", "停止"]
+        },
+        "修改套餐": {
+          "description": "修改套餐",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "医院": {
+      "domain_en": "hospital",
+      "domain_code": "16-hospital",
+      "intents": [
+        "预约挂号",
+        "查询医生",
+        "查询科室",
+        "取消预约",
+        "咨询就诊时间",
+        "咨询费用",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约挂号": {
+          "description": "预约挂号",
+          "keywords": ["挂号", "预约", "看病"]
+        },
+        "查询医生": {
+          "description": "查询医生信息",
+          "keywords": ["医生", "专家", "哪个医生"]
+        },
+        "查询科室": {
+          "description": "查询科室",
+          "keywords": ["科室", "什么科", "哪个科"]
+        },
+        "取消预约": {
+          "description": "取消挂号预约",
+          "keywords": ["取消", "不去了"]
+        },
+        "咨询就诊时间": {
+          "description": "询问就诊时间",
+          "keywords": ["几点", "时间", "什么时候"]
+        },
+        "咨询费用": {
+          "description": "询问医疗费用",
+          "keywords": ["多少钱", "费用", "价格"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "牙医": {
+      "domain_en": "dentistry",
+      "domain_code": "17-dentistry",
+      "intents": [
+        "预约就诊",
+        "查询医生",
+        "取消预约",
+        "咨询治疗方案",
+        "咨询费用",
+        "修改预约",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约就诊": {
+          "description": "预约牙科就诊",
+          "keywords": ["预约", "挂号", "看牙"]
+        },
+        "查询医生": {
+          "description": "查询牙医信息",
+          "keywords": ["医生", "牙医", "专家"]
+        },
+        "取消预约": {
+          "description": "取消预约",
+          "keywords": ["取消", "不去了"]
+        },
+        "咨询治疗方案": {
+          "description": "咨询治疗方案",
+          "keywords": ["治疗", "方案", "怎么办"]
+        },
+        "咨询费用": {
+          "description": "询问治疗费用",
+          "keywords": ["多少钱", "费用", "价格"]
+        },
+        "修改预约": {
+          "description": "修改预约时间",
+          "keywords": ["修改", "改", "换"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "美容院": {
+      "domain_en": "beautysalon",
+      "domain_code": "18-beautysalon",
+      "intents": [
+        "预约服务",
+        "查询项目",
+        "取消预约",
+        "修改预约",
+        "咨询价格",
+        "咨询产品",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约服务": {
+          "description": "预约美容���务",
+          "keywords": ["预约", "订", "美容"]
+        },
+        "查询项目": {
+          "description": "查询美容项目",
+          "keywords": ["项目", "有什么", "服务"]
+        },
+        "取消预约": {
+          "description": "取消预约",
+          "keywords": ["取消", "不去了"]
+        },
+        "修改预约": {
+          "description": "修改预约时间",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "预算"]
+        },
+        "咨询产品": {
+          "description": "咨询美容产品",
+          "keywords": ["产品", "用什么", "推荐"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "理发店": {
+      "domain_en": "hairsalon",
+      "domain_code": "19-hairsalon",
+      "intents": [
+        "预约理发",
+        "查询服务",
+        "取消预约",
+        "修改预约",
+        "咨询价格",
+        "咨询发型",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约理发": {
+          "description": "预约理发服务",
+          "keywords": ["预约", "理发", "剪发"]
+        },
+        "查询服务": {
+          "description": "查询理发服务",
+          "keywords": ["服务", "有什么", "项目"]
+        },
+        "取消预约": {
+          "description": "取消预约",
+          "keywords": ["取消", "不去了"]
+        },
+        "修改预约": {
+          "description": "修改预约时间",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "咨询发型": {
+          "description": "咨询发型设计",
+          "keywords": ["发型", "怎么剪", "推荐"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "健身房": {
+      "domain_en": "gym",
+      "domain_code": "20-gym",
+      "intents": [
+        "办理会员",
+        "预约课程",
+        "查询课程信息",
+        "取消预约",
+        "咨询价格",
+        "咨询教练",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "办理会员": {
+          "description": "办理健身房会员卡",
+          "keywords": ["办卡", "会员", "开卡"]
+        },
+        "预约课程": {
+          "description": "预约健身课程",
+          "keywords": ["预约", "课程", "报名"]
+        },
+        "查询课程信息": {
+          "description": "查询课程安排",
+          "keywords": ["课程", "有什么", "时间"]
+        },
+        "取消预约": {
+          "description": "取消课程预约",
+          "keywords": ["取消", "不去了"]
+        },
+        "咨询价格": {
+          "description": "询问价格费用",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "咨询教练": {
+          "description": "咨询私教信息",
+          "keywords": ["教练", "私教", "指导"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "培训班": {
+      "domain_en": "training_session",
+      "domain_code": "21-training_session",
+      "intents": [
+        "报名培训",
+        "查询课程",
+        "咨询价格",
+        "取消报名",
+        "查询时间",
+        "咨询证书",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "报名培训": {
+          "description": "报名培训课程",
+          "keywords": ["报名", "参加", "注册"]
+        },
+        "查询课程": {
+          "description": "查询培训课程信息",
+          "keywords": ["课程", "有什么", "学什么"]
+        },
+        "咨询价格": {
+          "description": "询问培训费用",
+          "keywords": ["多少钱", "价格", "学费"]
+        },
+        "取消报名": {
+          "description": "取消培训报名",
+          "keywords": ["取消", "退出", "不学了"]
+        },
+        "查询时间": {
+          "description": "查询上课时间",
+          "keywords": ["时间", "几点", "什么时候"]
+        },
+        "咨询证书": {
+          "description": "咨询结业证书",
+          "keywords": ["证书", "文凭", "资格"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "洗衣": {
+      "domain_en": "wash",
+      "domain_code": "22-wash",
+      "intents": [
+        "预约洗衣",
+        "查询服务",
+        "取消订单",
+        "修改订单",
+        "咨询价格",
+        "查询进度",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约洗衣": {
+          "description": "预约洗衣服务",
+          "keywords": ["预约", "洗衣", "送洗"]
+        },
+        "查询服务": {
+          "description": "查询洗衣服务",
+          "keywords": ["服务", "有什么", "项目"]
+        },
+        "取消订单": {
+          "description": "取消洗衣订单",
+          "keywords": ["取消", "不要了"]
+        },
+        "修改订单": {
+          "description": "修改订单信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "查询进度": {
+          "description": "查询洗衣进度",
+          "keywords": ["进度", "好了吗", "什么时候"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "家电维修": {
+      "domain_en": "appliance_repair",
+      "domain_code": "23-appliance_repair",
+      "intents": [
+        "预约维修",
+        "查询服务",
+        "取消预约",
+        "修改预约",
+        "咨询价格",
+        "查询进度",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约维修": {
+          "description": "预约家电维修",
+          "keywords": ["预约", "维修", "修理"]
+        },
+        "查询服务": {
+          "description": "查询维修服务",
+          "keywords": ["服务", "有什么", "能修"]
+        },
+        "取消预约": {
+          "description": "取消预约",
+          "keywords": ["取消", "不修了"]
+        },
+        "修改预约": {
+          "description": "修改预约时间",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问维修价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "查询进度": {
+          "description": "查询维修进度",
+          "keywords": ["进度", "修好了吗", "什么时候"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "搬家": {
+      "domain_en": "removal",
+      "domain_code": "24-removal",
+      "intents": [
+        "预约搬家",
+        "查询服务",
+        "取消订单",
+        "修改订单",
+        "咨询价格",
+        "查询进度",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约搬家": {
+          "description": "预约搬家服务",
+          "keywords": ["预约", "搬家", "订"]
+        },
+        "查询服务": {
+          "description": "查询搬家服务",
+          "keywords": ["服务", "有什么", "项目"]
+        },
+        "取消订单": {
+          "description": "取消搬家订单",
+          "keywords": ["取消", "不搬了"]
+        },
+        "修改订单": {
+          "description": "修改订单信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "查询进度": {
+          "description": "查询搬家进度",
+          "keywords": ["进度", "到哪了", "什么时候"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "律师": {
+      "domain_en": "solicitors",
+      "domain_code": "25-solicitors",
+      "intents": [
+        "法律咨询",
+        "预约律师",
+        "查询收费",
+        "案件委托",
+        "查询进度",
+        "文件准备",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "法律咨询": {
+          "description": "咨询法律问题",
+          "keywords": ["咨询", "法律", "问题"]
+        },
+        "预约律师": {
+          "description": "预约律师见面",
+          "keywords": ["预约", "见面", "约见"]
+        },
+        "查询收费": {
+          "description": "查询律师费用",
+          "keywords": ["收费", "价格", "多少钱"]
+        },
+        "案件委托": {
+          "description": "委托案件",
+          "keywords": ["委托", "代理", "打官司"]
+        },
+        "查询进度": {
+          "description": "查询案件进度",
+          "keywords": ["进度", "到哪了", "怎么样了"]
+        },
+        "文件准备": {
+          "description": "准备法律文件",
+          "keywords": ["文件", "材料", "准备"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "打印": {
+      "domain_en": "print",
+      "domain_code": "26-print",
+      "intents": [
+        "预约打印",
+        "查询服务",
+        "取消订单",
+        "修改订单",
+        "咨询价格",
+        "查询进度",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约打印": {
+          "description": "预约打印服务",
+          "keywords": ["预约", "打印", "复印"]
+        },
+        "查询服务": {
+          "description": "查询打印服务",
+          "keywords": ["服务", "有什么", "能打印"]
+        },
+        "取消订单": {
+          "description": "取消打印订单",
+          "keywords": ["取消", "不打了"]
+        },
+        "修改订单": {
+          "description": "修改订单信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问打印价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "查询��度": {
+          "description": "查询打印进度",
+          "keywords": ["进度", "好了吗", "什么时候"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "摄影": {
+      "domain_en": "photography",
+      "domain_code": "27-photography",
+      "intents": [
+        "预约拍摄",
+        "查询套餐",
+        "取消预约",
+        "修改预约",
+        "咨询价格",
+        "查询进度",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约拍摄": {
+          "description": "预约摄影拍摄",
+          "keywords": ["预约", "拍摄", "拍照"]
+        },
+        "查询套餐": {
+          "description": "查询摄影套餐",
+          "keywords": ["套餐", "有什么", "服务"]
+        },
+        "取消预约": {
+          "description": "取消预约",
+          "keywords": ["取消", "不拍了"]
+        },
+        "修改预约": {
+          "description": "修改预约时间",
+          "keywords": ["修改", "改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "查询进度": {
+          "description": "查询拍摄进度",
+          "keywords": ["进度", "好了吗", "什么时候"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "送水": {
+      "domain_en": "water_delivery",
+      "domain_code": "28-water_delivery",
+      "intents": [
+        "订水",
+        "查询品牌",
+        "查询价格",
+        "修改订单",
+        "取消订单",
+        "查询配送",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "订水": {
+          "description": "订购桶装水",
+          "keywords": ["订水", "送水", "买水"]
+        },
+        "查询品牌": {
+          "description": "查询水的品牌",
+          "keywords": ["品牌", "什么牌子", "有哪些"]
+        },
+        "查询价格": {
+          "description": "查询水的价格",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "修改订单": {
+          "description": "修改订单信息",
+          "keywords": ["修改", "改", "换"]
+        },
+        "取消订单": {
+          "description": "取消订水",
+          "keywords": ["取消", "不要了"]
+        },
+        "查询配送": {
+          "description": "查询配送信息",
+          "keywords": ["配送", "送到", "什么时候"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "保洁": {
+      "domain_en": "sanitation",
+      "domain_code": "29-sanitation",
+      "intents": [
+        "预约保洁",
+        "查询服务",
+        "咨询价格",
+        "取消预约",
+        "修改时间",
+        "投诉反馈",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "预约保洁": {
+          "description": "预约保洁服务",
+          "keywords": ["预约", "保洁", "打扫"]
+        },
+        "查询服务": {
+          "description": "查询服务内容",
+          "keywords": ["服务", "有什么", "项目"]
+        },
+        "咨询价格": {
+          "description": "询问保洁价格",
+          "keywords": ["多少钱", "价格", "收费"]
+        },
+        "取消预约": {
+          "description": "取消保洁预约",
+          "keywords": ["取消", "不要了"]
+        },
+        "修改时间": {
+          "description": "修改服务时间",
+          "keywords": ["修改", "改时间", "换"]
+        },
+        "投诉反馈": {
+          "description": "投诉或反馈",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    },
+    "快递": {
+      "domain_en": "courier",
+      "domain_code": "30-courier",
+      "intents": [
+        "寄快递",
+        "查询物流",
+        "取消快递",
+        "修改地址",
+        "咨询价格",
+        "投诉",
+        "其他"
+      ],
+      "intent_descriptions": {
+        "寄快递": {
+          "description": "寄送快递",
+          "keywords": ["寄", "寄快递", "发"]
+        },
+        "查询物流": {
+          "description": "查询物流信息",
+          "keywords": ["物流", "到哪了", "查询"]
+        },
+        "取消快递": {
+          "description": "取消快递",
+          "keywords": ["取消", "不寄了"]
+        },
+        "修改地址": {
+          "description": "修改收货地址",
+          "keywords": ["改地址", "修改", "换"]
+        },
+        "咨询价格": {
+          "description": "询问快递费用",
+          "keywords": ["多少钱", "价格", "费用"]
+        },
+        "投诉": {
+          "description": "投诉快递问题",
+          "keywords": ["投诉", "反馈", "问题"]
+        },
+        "其他": {
+          "description": "其他未分类的意图",
+          "keywords": [],
+          "is_fallback": true
+        }
+      }
+    }
+  }
+}
