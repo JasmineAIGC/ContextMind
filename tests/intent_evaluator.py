@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 import os
 
 # 导入意图配置加载器
-from tests.intent_config import load_intent_config, IntentConfig
+from tests.intent_label_loader import get_intent_label_loader, IntentLabelLoader
 
 # 可选导入matplotlib用于可视化
 try:
@@ -48,42 +48,56 @@ class IntentEvaluator:
     - 追踪意图转换模式和对话阶段
     """
     
-    def __init__(self, intent_config: Optional[IntentConfig] = None):
+    def __init__(self, intent_label_loader: Optional[IntentLabelLoader] = None):
         """
         初始化意图评测器
         
         Args:
-            intent_config: 意图配置对象，如果为None则加载默认配置
+            intent_label_loader: 意图标签加载器对象，如果为None则加载默认配置
         """
         self.predictions = []  # [(predicted_intent, inferred_intent), ...]
         self.turn_details = []  # 每轮详细信息
         self.intent_transitions = []  # 意图转换序列
         
-        # 加载意图配置
-        self.intent_config = intent_config or load_intent_config()
+        # 加载意图标签加载器
+        self.intent_label_loader = intent_label_loader or get_intent_label_loader()
         
         # 从配置加载意图信息
         self._load_intent_info()
         
     def _load_intent_info(self):
-        """从配置加载意图信息"""
-        # 获取所有意图ID
-        self.all_intent_ids = self.intent_config.get_all_intent_ids()
+        """从意图标签加载器加载意图信息"""
+        # 构建标准化映射：从所有领域的意图名称到标准化名称
+        self.normalization_mapping = {}
+        self.aggregation_mapping = {}
         
-        # 获取映射关系
-        self.normalization_mapping = self.intent_config.get_normalization_mapping()
-        self.task_relevance_mapping = self.intent_config.get_task_relevance_mapping()
-        self.aggregation_mapping = self.intent_config.get_aggregation_mapping()
+        for domain in self.intent_label_loader.get_all_domains():
+            domain_intents = self.intent_label_loader.get_domain_intents(domain)
+            for intent in domain_intents:
+                # 标准化：转小写并替换空格
+                normalized = intent.lower().replace(' ', '_')
+                # 支持中英文映射
+                self.normalization_mapping[intent] = normalized
+                self.normalization_mapping[intent.lower()] = normalized
+                # 聚合映射：使用原始中文名称作为显示名称
+                self.aggregation_mapping[normalized] = intent
         
-        # 缓存意图标记词
+        # 缓存意图关键词（用于推断）
         self._marker_cache = {}
-        for intent_id in self.all_intent_ids:
-            markers = self.intent_config.get_intent_markers(intent_id)
-            if markers:
-                self._marker_cache[intent_id] = markers
+        for domain in self.intent_label_loader.get_all_domains():
+            if domain not in self._marker_cache:
+                self._marker_cache[domain] = {}
+            domain_intents = self.intent_label_loader.get_domain_intents(domain)
+            for intent in domain_intents:
+                intent_desc = self.intent_label_loader.get_intent_description(domain, intent)
+                if intent_desc and "keywords" in intent_desc:
+                    keywords = intent_desc["keywords"]
+                    if keywords:
+                        self._marker_cache[domain][intent] = keywords
         
     def infer_intent_from_slots(
-        self, 
+        self,
+        domain: str,  # 新增：领域参数
         turn_updates: Dict[str, Any],
         previous_state: Dict[str, Any],
         user_utterance: str = "",
@@ -253,6 +267,7 @@ class IntentEvaluator:
     
     def add_turn_evaluation(
         self,
+        domain: str,  # 新增：领域参数
         turn_id: int,
         predicted_intent: str,
         turn_updates: Dict[str, Any],
@@ -265,6 +280,7 @@ class IntentEvaluator:
         添加一轮对话的意图评测（v2.0）
         
         Args:
+            domain: 领域名称
             turn_id: 轮次ID
             predicted_intent: DST预测的意图
             turn_updates: 槽位更新
@@ -278,6 +294,7 @@ class IntentEvaluator:
         """
         # 推断ground truth意图（返回意图类型和任务相关性）
         inferred_intent, task_relevance = self.infer_intent_from_slots(
+            domain,
             turn_updates, 
             previous_state,
             user_utterance,
@@ -294,8 +311,8 @@ class IntentEvaluator:
         
         # 使用配置的标准化映射
         predicted_intent = predicted_intent or "unknown"
-        predicted_normalized = self.intent_config.normalize_intent(predicted_intent)
-        inferred_normalized = self.intent_config.normalize_intent(inferred_intent)
+        predicted_normalized = self.normalization_mapping.get(predicted_intent.lower(), predicted_intent.lower())
+        inferred_normalized = self.normalization_mapping.get(inferred_intent.lower(), inferred_intent.lower())
         
         # 判断是否正确（使用标准化后的值）
         is_correct = (predicted_normalized == inferred_normalized)
