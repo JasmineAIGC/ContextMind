@@ -1,7 +1,7 @@
 """
-Intent Label Loader for TransferTOD Dataset
+TransferTOD数据集的意图标签加载器
 
-Loads and provides access to intent labels from intent_labels_30_domains_Version2.json
+从intent_labels_30_domains_Version2.json加载并提供意图标签访问接口
 """
 
 import json
@@ -14,21 +14,21 @@ logger = get_logger(__name__)
 
 class IntentLabelLoader:
     """
-    Loader for intent labels configuration from JSON file
+    从JSON文件加载意图标签配置
     
-    Provides access to domain-specific intent labels, descriptions, and keywords
-    for use in DST prompting and evaluation.
+    提供访问领域专属意图标签、描述和关键词的接口，
+    用于DST提示词生成和评测。
     """
     
     def __init__(self, config_path: Optional[str] = None):
         """
-        Initialize the intent label loader
+        初始化意图标签加载器
         
         Args:
-            config_path: Path to the intent labels JSON file
+            config_path: 意图标签JSON文件路径
         """
         if config_path is None:
-            # Default path relative to this file
+            # 默认路径相对于当前文件
             config_path = Path(__file__).parent / "configs" / "intent_labels_30_domains_Version2.json"
         
         self.config_path = Path(config_path)
@@ -36,46 +36,46 @@ class IntentLabelLoader:
         self.domains = self.config.get("domains", {})
         self.metadata = self.config.get("metadata", {})
         
-        logger.info(f"Loaded intent labels for {len(self.domains)} domains")
+        logger.info(f"已加载 {len(self.domains)} 个领域的意图标签")
     
     def _load_config(self) -> Dict:
-        """Load the intent labels configuration from JSON file"""
+        """从JSON文件加载意图标签配置"""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
-            logger.error(f"Intent labels file not found: {self.config_path}")
+            logger.error(f"意图标签文件未找到: {self.config_path}")
             raise
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse intent labels JSON: {e}")
+            logger.error(f"意图标签JSON解析失败: {e}")
             raise
     
     def get_domain_intents(self, domain: str) -> List[str]:
         """
-        Get the list of intents for a specific domain
+        获取指定领域的意图列表
         
         Args:
-            domain: Domain name (Chinese, e.g., "酒店", "景点")
+            domain: 领域名称（中文，如"酒店"、"景点"）
             
         Returns:
-            List of intent names for the domain
+            该领域的意图名称列表
         """
         if domain not in self.domains:
-            logger.warning(f"Domain '{domain}' not found in intent labels")
+            logger.warning(f"领域 '{domain}' 在意图标签中未找到")
             return []
         
         return self.domains[domain].get("intents", [])
     
     def get_intent_description(self, domain: str, intent: str) -> Dict:
         """
-        Get the description and metadata for a specific intent
+        获取特定意图的描述和元数据
         
         Args:
-            domain: Domain name
-            intent: Intent name
+            domain: 领域名称
+            intent: 意图名称
             
         Returns:
-            Dictionary with description, keywords, etc.
+            包含描述、关键词等的字典
         """
         if domain not in self.domains:
             return {}
@@ -85,59 +85,59 @@ class IntentLabelLoader:
     
     def get_intent_keywords(self, domain: str, intent: str) -> List[str]:
         """
-        Get keywords for a specific intent
+        获取特定意图的关键词
         
         Args:
-            domain: Domain name
-            intent: Intent name
+            domain: 领域名称
+            intent: 意图名称
             
         Returns:
-            List of keywords for the intent
+            该意图的关键词列表
         """
         desc = self.get_intent_description(domain, intent)
         return desc.get("keywords", [])
     
     def is_fallback_intent(self, domain: str, intent: str) -> bool:
         """
-        Check if an intent is a fallback intent (e.g., "其他")
+        检查是否为兜底意图（如"其他"）
         
         Args:
-            domain: Domain name
-            intent: Intent name
+            domain: 领域名称
+            intent: 意图名称
             
         Returns:
-            True if this is a fallback intent
+            如果是兜底意图返回True
         """
         desc = self.get_intent_description(domain, intent)
         return desc.get("is_fallback", False)
     
     def get_fallback_intent_name(self) -> str:
         """
-        Get the name of the fallback intent
+        获取兜底意图的名称
         
         Returns:
-            Fallback intent name (default: "其他")
+            兜底意图名称（默认："其他"）
         """
         return self.metadata.get("other_intent_name", "其他")
     
     def get_all_domains(self) -> List[str]:
         """
-        Get list of all available domains
+        获取所有可用领域的列表
         
         Returns:
-            List of domain names
+            领域名称列表
         """
         return list(self.domains.keys())
     
     def get_prompt_intent_list(self, domain: str) -> str:
         """
-        Generate formatted intent list for use in prompts
+        生成格式化的意图列表用于提示词
         
         Args:
-            domain: Domain name
+            domain: 领域名称
             
         Returns:
-            Formatted string listing all intents with descriptions
+            格式化的字符串，列出所有意图及其描述
         """
         intents = self.get_domain_intents(domain)
         intent_descriptions = self.domains.get(domain, {}).get("intent_descriptions", {})
@@ -162,13 +162,13 @@ class IntentLabelLoader:
     
     def get_domain_code(self, domain: str) -> Optional[str]:
         """
-        Get the domain code for a specific domain
+        获取指定领域的领域代码
         
         Args:
-            domain: Domain name
+            domain: 领域名称
             
         Returns:
-            Domain code (e.g., "1-hotel") or None if not found
+            领域代码（如"1-hotel"）或None（未找到时）
         """
         if domain not in self.domains:
             return None
@@ -176,32 +176,32 @@ class IntentLabelLoader:
     
     def get_domain_en(self, domain: str) -> Optional[str]:
         """
-        Get the English name for a specific domain
+        获取指定领域的英文名称
         
         Args:
-            domain: Domain name (Chinese)
+            domain: 领域名称（中文）
             
         Returns:
-            English domain name or None if not found
+            英文领域名称或None（未找到时）
         """
         if domain not in self.domains:
             return None
         return self.domains[domain].get("domain_en")
 
 
-# Singleton instance for easy access
+# 单例实例，便于访问
 _intent_label_loader = None
 
 
 def get_intent_label_loader(config_path: Optional[str] = None) -> IntentLabelLoader:
     """
-    Get the singleton IntentLabelLoader instance
+    获取单例IntentLabelLoader实例
     
     Args:
-        config_path: Optional path to config file (only used on first call)
+        config_path: 可选的配置文件路径（仅首次调用时使用）
         
     Returns:
-        IntentLabelLoader instance
+        IntentLabelLoader实例
     """
     global _intent_label_loader
     if _intent_label_loader is None:
