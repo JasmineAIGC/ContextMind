@@ -247,7 +247,12 @@ class DialogueStateTracker:
         else:
             full_prompt = turn_prompt
         
-        # 添加到消息历史
+        # 【修复】清理旧消息，防止指数级增长
+        # 策略：只保留系统消息，历史已经在 full_prompt 中了
+        # 这样避免了历史在 messages 数组中重复累积
+        self.messages = [self.messages[0]]  # 只保留系统消息
+        
+        # 添加当前轮次的用户消息（已包含必要的历史）
         self.messages.append({"role": "user", "content": full_prompt})
         self.step_timings['提示词构建'] = time.time() - step_start
         
@@ -280,8 +285,10 @@ class DialogueStateTracker:
             raw_response = "{}"
         self.step_timings['LLM槽位提取'] = time.time() - step_start
         
-        # 添加助手响应到历史
-        self.messages.append({"role": "assistant", "content": raw_response})
+        # 【修复】不再添加助手响应到 messages 数组
+        # 因为我们已经在每轮重置 messages，只保留系统消息
+        # 历史已经通过 dialogue_history 管理，并在需要时包含在 full_prompt 中
+        # 这避免了 messages 数组的无限增长
         
         # 步骤4: 响应解析（合并JSON解析和值归一化）
         step_start = time.time()
