@@ -152,20 +152,27 @@ class DSTTransferTODTest:
                     predicted_intent = turn_updates.get('intent', '未识别')
                     
                     # 意图评测：添加本轮评测
+                    total_turns = len(dialogue.turns)
                     self.intent_evaluator.add_turn_evaluation(
                         turn_id=turn.turn_id,
                         predicted_intent=predicted_intent,
                         turn_updates=turn.expected_slots,  # 使用expected_slots作为ground truth的槽位变化
                         previous_state=previous_state,
                         user_utterance=turn.user_utterance,
-                        dialogue_id=dialogue_id
+                        dialogue_id=dialogue_id,
+                        total_turns=total_turns  # 添加total_turns参数
                     )
                     
                     if verbose:
-                        # 推断意图用于显示
-                        inferred_intent = self.intent_evaluator.infer_intent_from_slots(
-                            turn.expected_slots, previous_state, turn.user_utterance
+                        # 推断意图用于显示（正确解包tuple）
+                        inferred_result = self.intent_evaluator.infer_intent_from_slots(
+                            turn.expected_slots, previous_state, turn.user_utterance, turn.turn_id
                         )
+                        # infer_intent_from_slots 返回 (intent, task_relevance) 元组
+                        if isinstance(inferred_result, tuple):
+                            inferred_intent, task_relevance = inferred_result
+                        else:
+                            inferred_intent = inferred_result
                         print(f"预测意图: {predicted_intent}, 推断意图: {inferred_intent}")
                 
             except Exception as e:
@@ -371,8 +378,8 @@ class DSTTransferTODTest:
 async def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="DST模式 - TransferTOD数据集测试")
-    parser.add_argument("--domain", type=str, default="酒店", help="测试领域")
-    parser.add_argument("--data-type", type=str, default="clean", choices=["clean", "noise"], help="数据类型")
+    parser.add_argument("--domain", type=str, default=None, help="测试领域（不指定则测试所有领域）")
+    parser.add_argument("--data-type", type=str, default=None, choices=["clean", "noise", None], help="数据类型（不指定则测试所有类型）")
     parser.add_argument("--limit", type=int, default=None, help="限制测试数量")
     parser.add_argument("--data-root", type=str, default="./data/TransferTOD", help="数据集根目录")
     parser.add_argument("--verbose", action="store_true", help="输出详细信息")
@@ -382,8 +389,13 @@ async def main():
     # 设置日志
     setup_logging(LogLevel.INFO)
     
+    # 显示测试范围
+    domain_desc = args.domain if args.domain else "所有领域"
+    data_type_desc = args.data_type if args.data_type else "所有类型"
+    
     print("=" * 70)
-    print(f"DST 模式测试 - TransferTOD 数据集 ({args.domain})")
+    print(f"DST 模式测试 - TransferTOD 数据集")
+    print(f"领域: {domain_desc}, 数据类型: {data_type_desc}")
     print("=" * 70)
     
     # 初始化测试
@@ -399,7 +411,7 @@ async def main():
         return
     
     if not dialogue_ids:
-        print(f"\n未找到领域 '{args.domain}' 的对话数据")
+        print(f"\n未找到符合条件的对话数据")
         return
     
     print(f"\n找到 {len(dialogue_ids)} 个对话实例")
@@ -409,13 +421,25 @@ async def main():
         dialogue_ids = dialogue_ids[:args.limit]
         print(f"限制测试数量: {args.limit}")
     
-    # 初始化DST
-    test.initialize(args.domain)
+    # 如果指定了domain，初始化DST for that domain
+    # 如果没有指定domain，需要按对话的domain分组处理
+    if args.domain:
+        test.initialize(args.domain)
     
     # 批量测试
     all_metrics = []
+    current_domain = None
+    
     for dialogue_id in dialogue_ids:
         try:
+            # 如果没有指定domain，需要为每个对话的domain初始化tracker
+            if not args.domain:
+                dialogue = test.adapter.load_dialogue(dialogue_id)
+                if dialogue.domain != current_domain:
+                    current_domain = dialogue.domain
+                    print(f"\n初始化领域: {current_domain}")
+                    test.initialize(current_domain)
+            
             metrics = await test.test_dialogue(dialogue_id, verbose=args.verbose)
             all_metrics.append(metrics)
         except Exception as e:

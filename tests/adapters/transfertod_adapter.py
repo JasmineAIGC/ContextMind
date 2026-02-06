@@ -288,13 +288,13 @@ class TransferTODAdapter(DatasetAdapter):
         
         return schema
     
-    def get_dialogues_by_domain(self, domain: str, data_type: str = "clean") -> List[str]:
+    def get_dialogues_by_domain(self, domain: str = None, data_type: str = None) -> List[str]:
         """
         获取指定领域和数据类型的对话ID列表
         
         Args:
-            domain: 领域名称
-            data_type: 数据类型，"clean" 或 "noise"
+            domain: 领域名称，None表示所有领域
+            data_type: 数据类型，"clean"、"noise" 或 None (所有类型)
             
         Returns:
             符合条件的对话ID列表
@@ -303,14 +303,20 @@ class TransferTODAdapter(DatasetAdapter):
         
         for dialogue_id in self.get_all_dialogue_ids():
             # 检查数据类型
-            if not dialogue_id.startswith(f"{data_type}/"):
-                continue
+            if data_type is not None:
+                if not dialogue_id.startswith(f"{data_type}/"):
+                    continue
             
-            try:
-                dialogue = self.load_dialogue(dialogue_id)
-                if dialogue.domain == domain:
-                    matching_ids.append(dialogue_id)
-            except Exception:
-                continue
+            # 检查领域
+            if domain is not None:
+                try:
+                    dialogue = self.load_dialogue(dialogue_id)
+                    if dialogue.domain == domain:
+                        matching_ids.append(dialogue_id)
+                except Exception:
+                    continue
+            else:
+                # domain=None 表示所有领域
+                matching_ids.append(dialogue_id)
         
         return matching_ids
