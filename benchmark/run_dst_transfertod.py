@@ -426,8 +426,18 @@ async def main():
     
     args = parser.parse_args()
     
-    # 设置日志
-    setup_logging(LogLevel.INFO)
+    # 问题2修复：根据 verbose 参数调整日志级别
+    if not args.verbose:
+        # 在 no-verbose 模式下，只显示 WARNING 及以上级别的日志
+        # 这样可以抑制 INFO 日志，但保留重要的警告和错误
+        import logging
+        logging.getLogger().setLevel(logging.WARNING)
+        # 同时抑制第三方库的详细日志
+        logging.getLogger('contextmind').setLevel(logging.WARNING)
+        setup_logging(LogLevel.WARNING)
+    else:
+        # 设置日志
+        setup_logging(LogLevel.INFO)
     
     # 显示测试范围
     domain_desc = args.domain if args.domain else "所有领域"
@@ -564,6 +574,48 @@ async def main():
         for line in summary_lines:
             if line:  # 跳过空行
                 logger.info(line)
+        
+        # 问题5修复：将指标结果保存到文件
+        output_dir = Path("benchmark_results")
+        output_dir.mkdir(exist_ok=True)
+        
+        # 生成带时间戳的文件名
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        metrics_file = output_dir / f"dst_transfertod_metrics_{timestamp}.txt"
+        
+        # 保存详细的评测结果
+        with open(metrics_file, 'w', encoding='utf-8') as f:
+            # 写入命令和参数
+            f.write("=" * 70 + "\n")
+            f.write("DST TransferTOD 评测结果\n")
+            f.write("=" * 70 + "\n")
+            f.write(f"时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"领域: {args.domain if args.domain else '所有领域'}\n")
+            f.write(f"数据类型: {args.data_type if args.data_type else '所有类型'}\n")
+            f.write(f"测试数量: {len(all_metrics)}\n")
+            f.write(f"数据路径: {args.data_root}\n")
+            f.write("\n")
+            
+            # 写入汇总结果
+            f.write(summary_text)
+            
+            # 写入详细的每个对话的指标
+            f.write("\n\n" + "=" * 70 + "\n")
+            f.write("详细对话指标\n")
+            f.write("=" * 70 + "\n\n")
+            for m in all_metrics:
+                f.write(f"对话ID: {m['dialogue_id']}\n")
+                f.write(f"  槽位准确率: {m['slot_accuracy'] * 100:.2f}%\n")
+                f.write(f"  联合准确率(严格): {m['joint_accuracy'] * 100:.2f}%\n")
+                f.write(f"  联合准确率(软匹配): {m['joint_accuracy_soft'] * 100:.2f}%\n")
+                f.write(f"  精确率: {m['precision'] * 100:.2f}%\n")
+                f.write(f"  召回率: {m['recall'] * 100:.2f}%\n")
+                f.write(f"  F1分数: {m['f1'] * 100:.2f}%\n")
+                f.write("\n")
+        
+        print(f"\n✅ 评测结果已保存到: {metrics_file}")
+        logger.info(f"评测结果已保存到: {metrics_file}")
 
 
 if __name__ == "__main__":

@@ -21,8 +21,8 @@ def _get_intent_label_loader():
     global _intent_label_loader
     if _intent_label_loader is None:
         try:
-            from tests.intent_label_loader import get_intent_label_loader
-            _intent_label_loader = get_intent_label_loader()
+            from benchmark.shared.intent_label_loader import IntentLabelLoader
+            _intent_label_loader = IntentLabelLoader()
         except Exception as e:
             logger.warning(f"Failed to load intent labels: {e}")
             _intent_label_loader = None
