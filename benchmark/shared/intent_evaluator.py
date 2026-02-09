@@ -84,31 +84,15 @@ class IntentEvaluator:
                 self.aggregation_mapping[normalized] = intent
         
         # 意图标准化映射：将变体统一到标准形式
-        # 目的：确保同一含义的意图只有一个标准词语
-        self.intent_normalization = {
-            # 预订类意图标准化为"预订酒店"
-            '预定酒店': '预订酒店',
-            '预订房间': '预订酒店',
-            '预定房间': '预订酒店',
-            '酒店预订': '预订酒店',
-            '房间预订': '预订酒店',
-            
-            # 查询类意图标准化为"查询酒店信息"
-            '咨询酒店': '查询酒店信息',
-            '查询酒店': '查询酒店信息',
-            '酒店咨询': '查询酒店信息',
-            '咨询酒店信息': '查询酒店信息',
-            
-            # 确认类意图标准化为"确认预订"
-            '确认订单': '确认预订',
-            '订单确认': '确认预订',
-            '确认酒店': '确认预订',
-            
-            # 取消类意图标准化为"取消预订"
-            '取消订单': '取消预订',
-            '订单取消': '取消预订',
-            '取消酒店': '取消预订',
-        }
+        # 重要：所有映射的目标必须是配置文件中定义的预定义意图
+        # 动态从配置文件构建变体映射，确保目标都是预定义的意图
+        self.intent_normalization = self._build_intent_normalization_mapping()
+        
+        # 构建所有预定义意图的集合（用于验证）
+        self.predefined_intents = set()
+        for domain in self.intent_label_loader.get_all_domains():
+            domain_intents = self.intent_label_loader.get_domain_intents(domain)
+            self.predefined_intents.update(domain_intents)
         
         # 缓存意图关键词（用于推断）
         self._marker_cache = {}
@@ -122,35 +106,112 @@ class IntentEvaluator:
                     keywords = intent_desc["keywords"]
                     if keywords:
                         self._marker_cache[domain][intent] = keywords
+    
+    def _build_intent_normalization_mapping(self) -> Dict[str, str]:
+        """
+        从配置文件动态构建意图标准化映射
         
-    def normalize_intent(self, intent: str) -> str:
+        重要：所有映射的目标必须是配置文件中定义的预定义意图
+        确保标准化不会产生配置文件之外的意图
+        
+        Returns:
+            变体到标准意图的映射字典
+        """
+        mapping = {}
+        
+        # 只定义必要的变体映射，所有目标必须在配置文件中存在
+        # 酒店领域的变体映射
+        if self._intent_exists_in_config('酒店', '预订酒店'):
+            mapping['预定酒店'] = '预订酒店'
+            mapping['预订房间'] = '预订酒店'
+            mapping['预定房间'] = '预订酒店'
+            mapping['酒店预订'] = '预订酒店'
+            mapping['房间预订'] = '预订酒店'
+        
+        if self._intent_exists_in_config('酒店', '查询酒店信息'):
+            mapping['咨询酒店'] = '查询酒店信息'
+            mapping['查询酒店'] = '查询酒店信息'
+            mapping['酒店咨询'] = '查询酒店信息'
+            mapping['咨询酒店信息'] = '查询酒店信息'
+        
+        if self._intent_exists_in_config('酒店', '确认预订'):
+            mapping['确认订单'] = '确认预订'
+            mapping['订单确认'] = '确认预订'
+            mapping['确认酒店'] = '确认预订'
+        
+        if self._intent_exists_in_config('酒店', '取消预订'):
+            mapping['取消订单'] = '取消预订'
+            mapping['订单取消'] = '取消预订'
+            mapping['取消酒店'] = '取消预订'
+        
+        return mapping
+    
+    def _intent_exists_in_config(self, domain: str, intent: str) -> bool:
+        """
+        检查意图是否在配置文件的指定领域中存在
+        
+        Args:
+            domain: 领域名称
+            intent: 意图名称
+            
+        Returns:
+            是否存在
+        """
+        domain_intents = self.intent_label_loader.get_domain_intents(domain)
+        return intent in domain_intents
+        
+    def normalize_intent(self, intent: str, domain: str = None) -> str:
         """
         标准化意图名称，将变体统一为标准形式
         
-        目的：确保同一含义的意图只有一个标准词语
+        重要：确保同一含义的意图只有一个标准词语
+        更重要：确保返回的意图必须在配置文件的预定义列表中
+        
         例如："预定酒店"、"预订房间" → "预订酒店"
         
         Args:
             intent: 原始意图名称
+            domain: 领域名称（可选，用于验证）
             
         Returns:
-            标准化后的意图名称
+            标准化后的意图名称（保证在预定义列表中）
         """
         if not intent:
             return intent
         
         # 首先尝试直接映射
         if intent in self.intent_normalization:
-            return self.intent_normalization[intent]
+            normalized = self.intent_normalization[intent]
+            # 验证标准化后的意图在预定义集合中
+            if normalized in self.predefined_intents:
+                return normalized
         
         # 尝试小写匹配
         intent_lower = intent.lower()
         for variant, standard in self.intent_normalization.items():
             if intent_lower == variant.lower():
-                return standard
+                # 验证标准化后的意图在预定义集合中
+                if standard in self.predefined_intents:
+                    return standard
         
-        # 没有映射，返回原值
-        return intent
+        # 检查原始意图是否已在预定义列表中
+        if intent in self.predefined_intents:
+            return intent
+        
+        # 如果提供了领域，尝试找到最接近的预定义意图
+        if domain:
+            domain_intents = self.intent_label_loader.get_domain_intents(domain)
+            # 尝试部分匹配
+            for predefined_intent in domain_intents:
+                if intent.lower() in predefined_intent.lower() or predefined_intent.lower() in intent.lower():
+                    return predefined_intent
+            # 如果都不匹配，返回领域的第一个非兜底意图
+            non_fallback = [i for i in domain_intents if not self.intent_label_loader.is_fallback_intent(domain, i)]
+            if non_fallback:
+                return non_fallback[0]
+        
+        # 最后，如果无法标准化且不在预定义列表中，返回"其他"
+        return self.intent_label_loader.get_fallback_intent_name()
     
     def infer_intent_from_slots(
         self,
@@ -451,8 +512,21 @@ class IntentEvaluator:
         )
         
         # 标准化意图名称（将变体统一为标准形式）
-        predicted_intent_normalized = self.normalize_intent(predicted_intent)
-        inferred_intent_normalized = self.normalize_intent(inferred_intent)
+        # 确保所有意图都来自配置文件的预定义列表
+        predicted_intent_normalized = self.normalize_intent(predicted_intent, domain)
+        inferred_intent_normalized = self.normalize_intent(inferred_intent, domain)
+        
+        # 验证标准化后的意图在预定义列表中
+        if predicted_intent_normalized not in self.predefined_intents:
+            # 记录警告并使用领域的兜底意图
+            print(f"警告: 预测意图 '{predicted_intent}' (标准化后: '{predicted_intent_normalized}') 不在预定义列表中，使用兜底意图")
+            predicted_intent_normalized = self.intent_label_loader.get_fallback_intent_name()
+        
+        if inferred_intent_normalized not in self.predefined_intents:
+            # 记录警告并使用领域的兜底意图
+            print(f"警告: 推断意图 '{inferred_intent}' (标准化后: '{inferred_intent_normalized}') 不在预定义列表中，使用兜底意图")
+            inferred_intent_normalized = self.intent_label_loader.get_fallback_intent_name()
+        
         
         # 判断是否正确（使用标准化后的值）
         is_correct = (predicted_intent_normalized.lower() == inferred_intent_normalized.lower())
