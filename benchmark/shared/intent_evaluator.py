@@ -83,22 +83,9 @@ class IntentEvaluator:
                 # 聚合映射：使用原始中文名称作为显示名称
                 self.aggregation_mapping[normalized] = intent
         
-        # 添加常见变体映射（处理"预定"和"预订"等变体）
-        # 这些映射将变体统一到标准形式
-        variant_mappings = {
-            '预定酒店': '预订酒店',
-            '预定房间': '预订酒店',
-            '预订房间': '预订酒店',
-            '咨询酒店': '查询酒店信息',
-            '查询酒店': '查询酒店信息',
-        }
-        
-        for variant, standard in variant_mappings.items():
-            # 将变体映射到标准形式的normalized版本
-            if standard.lower() in self.normalization_mapping:
-                normalized_standard = self.normalization_mapping[standard.lower()]
-                self.normalization_mapping[variant] = normalized_standard
-                self.normalization_mapping[variant.lower()] = normalized_standard
+        # 问题1修复：移除变体映射，强制使用预定义意图标签
+        # 不再允许"预定酒店"、"咨询酒店"等变体
+        # 所有意图必须使用配置文件中定义的标准名称
         
         # 缓存意图关键词（用于推断）
         self._marker_cache = {}
@@ -851,8 +838,10 @@ class IntentEvaluator:
                 report.append("说明：对话级别评测将整个对话作为一个单元进行意图评测")
                 report.append("")
         
-        # 添加分类指标（精确率、召回率、F1分数）
-        if metrics.get('per_class_metrics') and metrics['total_turns'] > 0:
+        # 问题2修复：添加分类指标（精确率、召回率、F1分数）
+        # 对于对话级别评测也要显示分类指标
+        dialogue_metrics_exist = metrics.get('dialogue_metrics', {}).get('total_dialogues', 0) > 0
+        if metrics.get('per_class_metrics') and (metrics['total_turns'] > 0 or dialogue_metrics_exist):
             report.append("-" * 70)
             report.append("分类评测指标")
             report.append("-" * 70)

@@ -490,16 +490,18 @@ async def main():
             logger.error(f"测试对话 {dialogue_id} 失败: {e}")
             continue
     
-    # 输出汇总指标（对齐TransferTOD论文）
+    # 问题3修复：输出汇总指标（对齐TransferTOD论文）
+    # 同时输出到终端和日志文件
     if all_metrics:
-        print("\n" + "=" * 70)
-        print("📊 测试指标汇总（对齐TransferTOD论文）")
-        print("=" * 70)
+        summary_lines = []
+        summary_lines.append("\n" + "=" * 70)
+        summary_lines.append("📊 测试指标汇总（对齐TransferTOD论文）")
+        summary_lines.append("=" * 70)
         
         # 按领域显示指标（即使只有一个领域也显示）
         if domain_metrics:
-            print("\n【分领域统计】")
-            print("-" * 70)
+            summary_lines.append("\n【分领域统计】")
+            summary_lines.append("-" * 70)
             for domain, metrics_list in sorted(domain_metrics.items()):
                 avg_slot_acc = sum(m["slot_accuracy"] for m in metrics_list) / len(metrics_list)
                 avg_ja_strict = sum(m["joint_accuracy"] for m in metrics_list) / len(metrics_list)
@@ -508,14 +510,14 @@ async def main():
                 avg_recall = sum(m["recall"] for m in metrics_list) / len(metrics_list)
                 avg_f1 = sum(m["f1"] for m in metrics_list) / len(metrics_list)
                 
-                print(f"\n{domain}领域 (对话数: {len(metrics_list)}):")
-                print(f"  槽位准确率: {avg_slot_acc * 100:.2f}%")
-                print(f"  联合准确率-严格: {avg_ja_strict * 100:.2f}%")
-                print(f"  联合准确率-软匹配: {avg_ja_soft * 100:.2f}%")
-                print(f"  精确率: {avg_precision * 100:.2f}%")
-                print(f"  召回率: {avg_recall * 100:.2f}%")
-                print(f"  F1分数: {avg_f1 * 100:.2f}%")
-            print()
+                summary_lines.append(f"\n{domain}领域 (对话数: {len(metrics_list)}):")
+                summary_lines.append(f"  槽位准确率: {avg_slot_acc * 100:.2f}%")
+                summary_lines.append(f"  联合准确率-严格: {avg_ja_strict * 100:.2f}%")
+                summary_lines.append(f"  联合准确率-软匹配: {avg_ja_soft * 100:.2f}%")
+                summary_lines.append(f"  精确率: {avg_precision * 100:.2f}%")
+                summary_lines.append(f"  召回率: {avg_recall * 100:.2f}%")
+                summary_lines.append(f"  F1分数: {avg_f1 * 100:.2f}%")
+            summary_lines.append("")
         
         # 汇总统计
         avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
@@ -525,34 +527,43 @@ async def main():
         avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
         avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
         
-        print("\n【整体汇总统计】")
-        print("-" * 70)
-        print(f"总测试对话数: {len(all_metrics)}")
-        print(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
-        print(f"平均联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy * 100:.2f}%")
-        print(f"平均联合准确率-软匹配 (Joint Accuracy Soft): {avg_joint_accuracy_soft * 100:.2f}%")
-        print(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
-        print(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
-        print(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
-        print()
-        print("注：指标计算方法已对齐TransferTOD论文")
-        print("  - Joint Accuracy Strict: 对话级别（最终状态完全匹配，对齐论文）")
-        print("  - Joint Accuracy Soft: 对话级别（所有期望槽位都存在，允许额外槽位）")
-        print("  - F1/Precision/Recall: 基于slot-value pairs计算")
-        print()
+        summary_lines.append("\n【整体汇总统计】")
+        summary_lines.append("-" * 70)
+        summary_lines.append(f"总测试对话数: {len(all_metrics)}")
+        summary_lines.append(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
+        summary_lines.append(f"平均联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy * 100:.2f}%")
+        summary_lines.append(f"平均联合准确率-软匹配 (Joint Accuracy Soft): {avg_joint_accuracy_soft * 100:.2f}%")
+        summary_lines.append(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
+        summary_lines.append(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
+        summary_lines.append(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
+        summary_lines.append("")
+        summary_lines.append("注：指标计算方法已对齐TransferTOD论文")
+        summary_lines.append("  - Joint Accuracy Strict: 对话级别（最终状态完全匹配，对齐论文）")
+        summary_lines.append("  - Joint Accuracy Soft: 对话级别（所有期望槽位都存在，允许额外槽位）")
+        summary_lines.append("  - F1/Precision/Recall: 基于slot-value pairs计算")
+        summary_lines.append("")
         
         # 输出意图评测报告
-        print("\n" + "=" * 70)
-        print("🎯 对话级别意图评测报告")
-        print("=" * 70)
-        print()
-        print(test.intent_evaluator.get_detailed_report(
+        summary_lines.append("\n" + "=" * 70)
+        summary_lines.append("🎯 对话级别意图评测报告")
+        summary_lines.append("=" * 70)
+        summary_lines.append("")
+        intent_report = test.intent_evaluator.get_detailed_report(
             save_confusion_plot=True,
             plot_path="intent_confusion_matrix.png",
             include_confusion_matrix=False  # 不打印混淆矩阵，只保存为图片
-        ))
+        )
+        summary_lines.append(intent_report)
+        summary_lines.append("")
         
-        print()
+        # 将汇总结果同时输出到终端和日志文件
+        summary_text = "\n".join(summary_lines)
+        print(summary_text)
+        
+        # 同时输出到日志文件（使用INFO级别）
+        for line in summary_lines:
+            if line:  # 跳过空行
+                logger.info(line)
 
 
 if __name__ == "__main__":
