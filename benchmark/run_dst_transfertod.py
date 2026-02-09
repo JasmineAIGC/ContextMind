@@ -537,23 +537,12 @@ async def main():
         print("🎯 对话级别意图评测报告")
         print("=" * 70)
         print()
-        print("说明：")
-        print("  - 评测粒度：对话级别（整个多轮对话作为一个评测单元）")
-        print("  - 预测意图提取：取对话中出现最频繁的意图（排除'未识别'）")
-        print("  - 标签意图推断：基于用户所有话语的关键词匹配推断对话整体意图")
-        print("  - 改进策略：尽量避免返回'其他'，优先返回领域定义的具体意图")
-        print("  - TransferTOD数据集无显式意图标注，推断意图仅供参考")
-        print()
         print(test.intent_evaluator.get_detailed_report(
             save_confusion_plot=True,
             plot_path="intent_confusion_matrix.png",
             include_confusion_matrix=False  # 不打印混淆矩阵，只保存为图片
         ))
         
-        print()
-        print("说明：")
-        print("  - 对话级别意图评测聚焦于整个对话的意图识别能力")
-        print("  - 不对单个轮次的意图做评测，只评测对话整体意图")
         print()
 
 
