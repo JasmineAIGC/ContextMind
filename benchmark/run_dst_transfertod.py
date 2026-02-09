@@ -1,417 +1,532 @@
 #!/usr/bin/env python3
 """
-DST on TransferTOD 评测运行器
+DST模式 - TransferTOD数据集评测脚本
 
-支持：
-- 清晰的指标显示
-- 结果保存（JSON, CSV）
-- 可视化图表生成
-- 详细度控制（--verbose）
-- 意图评测
+使用TransferTOD数据集测试DialogueStateTracker的槽位提取能力。
+
+使用方式:
+    python benchmark/run_dst_transfertod.py
+    python benchmark/run_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
 """
 
-import argparse
-import json
-import sys
 import asyncio
+import argparse
+import sys
 from pathlib import Path
-from datetime import datetime
+from typing import Dict, List, Any, Tuple
+from collections import defaultdict
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 添加项目根目录到Python路径
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
-from benchmark.algorithms.dst import DSTEvaluator
 from benchmark.shared.intent_evaluator import IntentEvaluator
-from benchmark.shared.intent_label_loader import get_intent_label_loader
-
-# Import DST model
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
 from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.logger import get_logger, setup_logging, LogLevel
+
+logger = get_logger(__name__)
 
 
-def print_header(title: str):
-    """打印标题"""
-    width = 60
-    print("\n" + "=" * width)
-    print(title.center(width))
-    print("=" * width + "\n")
-
-
-def print_metrics_table(metrics_dict: dict, intent_metrics: dict = None, verbose: int = 1):
-    """打印指标表格"""
-    if verbose == 0:
-        # Quiet mode - only show key metrics
-        print(f"Slot Accuracy: {metrics_dict['slot_level']['accuracy']:.4f}")
-        print(f"Joint Accuracy: {metrics_dict['dialogue_state_level']['joint_accuracy']:.4f}")
-        if intent_metrics:
-            print(f"Intent Accuracy: {intent_metrics.get('intent_accuracy', 0.0):.4f}")
-        return
+class DSTTransferTODTest:
+    """
+    DST模式 - TransferTOD测试类
+    """
     
-    # Normal or verbose mode - show detailed table
-    print("\n╔" + "═" * 58 + "╗")
-    print("║" + " DST 评测指标 ".center(58) + "║")
-    print("╠" + "═" * 58 + "╣")
-    
-    print("║ " + "Slot-Level Metrics".ljust(57) + "║")
-    slot_metrics = metrics_dict['slot_level']
-    print(f"║   Slot Accuracy:        {slot_metrics['accuracy']:.4f}".ljust(59) + "║")
-    print(f"║   Precision:            {slot_metrics['precision']:.4f}".ljust(59) + "║")
-    print(f"║   Recall:               {slot_metrics['recall']:.4f}".ljust(59) + "║")
-    print(f"║   F1 Score:             {slot_metrics['f1']:.4f}".ljust(59) + "║")
-    
-    print("║ " + " " * 57 + "║")
-    print("║ " + "Dialogue-State-Level Metrics".ljust(57) + "║")
-    ds_metrics = metrics_dict['dialogue_state_level']
-    print(f"║   Joint Accuracy:       {ds_metrics['joint_accuracy']:.4f}".ljust(59) + "║")
-    print(f"║   Joint Accuracy (Strict): {ds_metrics['joint_accuracy_strict']:.4f}".ljust(59) + "║")
-    
-    print("║ " + " " * 57 + "║")
-    print("║ " + "Statistics".ljust(57) + "║")
-    stats = metrics_dict['statistics']
-    print(f"║   Total Turns:          {stats['total_turns']}".ljust(59) + "║")
-    print(f"║   Total Slots:          {stats['total_slots']}".ljust(59) + "║")
-    print(f"║   Correct Slots:        {stats['correct_slots']}".ljust(59) + "║")
-    print(f"║   Correct Turns:        {stats['correct_turns']}".ljust(59) + "║")
-    
-    print("╚" + "═" * 58 + "╝\n")
-    
-    # Show intent metrics if available
-    if intent_metrics and verbose >= 1:
-        print("\n╔" + "═" * 58 + "╗")
-        print("║" + " 意图评测指标 ".center(58) + "║")
-        print("╠" + "═" * 58 + "╣")
-        print(f"║   Intent Accuracy:      {intent_metrics.get('intent_accuracy', 0.0):.4f}".ljust(59) + "║")
-        print(f"║   Total Turns:          {intent_metrics.get('total_turns', 0)}".ljust(59) + "║")
-        print(f"║   Correct Predictions:  {intent_metrics.get('correct_predictions', 0)}".ljust(59) + "║")
-        print("╚" + "═" * 58 + "╝\n")
-    
-    # Show domain breakdown if available and verbose
-    if verbose >= 1 and 'domain_breakdown' in metrics_dict and metrics_dict['domain_breakdown']:
-        print("\n领域细分指标:")
-        print("-" * 60)
-        for domain, domain_metrics in metrics_dict['domain_breakdown'].items():
-            print(f"  {domain}:")
-            print(f"    Slot Accuracy:  {domain_metrics['slot_accuracy']:.4f}")
-            print(f"    Joint Accuracy: {domain_metrics['joint_accuracy']:.4f}")
-            print(f"    Total Turns:    {domain_metrics['total_turns']}")
-        print("-" * 60)
-
-
-def save_results(metrics_dict: dict, output_dir: Path, verbose: int = 1):
-    """保存结果到文件"""
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Save metrics as JSON
-    metrics_file = output_dir / "metrics.json"
-    with open(metrics_file, 'w', encoding='utf-8') as f:
-        json.dump(metrics_dict, f, ensure_ascii=False, indent=2)
-    
-    if verbose >= 1:
-        print(f"✅ 指标已保存到: {metrics_file}")
-    
-    # Save summary as text
-    summary_file = output_dir / "summary.txt"
-    with open(summary_file, 'w', encoding='utf-8') as f:
-        f.write("=" * 60 + "\n")
-        f.write(" DST on TransferTOD 评测结果摘要 ".center(60) + "\n")
-        f.write("=" * 60 + "\n\n")
-        f.write(f"评测时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+    def __init__(self, data_root: str = "./data/TransferTOD"):
+        """
+        初始化测试
         
-        f.write("主要指标:\n")
-        f.write(f"  Slot Accuracy:  {metrics_dict['slot_level']['accuracy']:.4f}\n")
-        f.write(f"  Joint Accuracy: {metrics_dict['dialogue_state_level']['joint_accuracy']:.4f}\n")
-        f.write(f"  F1 Score:       {metrics_dict['slot_level']['f1']:.4f}\n\n")
+        Args:
+            data_root: TransferTOD数据集根目录
+        """
+        self.adapter = TransferTODAdapter(data_root)
+        self.llm_client = None
+        self.tracker = None
+        self.intent_evaluator = IntentEvaluator()  # 意图评测器
         
-        f.write("统计信息:\n")
-        stats = metrics_dict['statistics']
-        f.write(f"  Total Turns:    {stats['total_turns']}\n")
-        f.write(f"  Total Slots:    {stats['total_slots']}\n")
-        f.write(f"  Correct Slots:  {stats['correct_slots']}\n")
-        f.write(f"  Correct Turns:  {stats['correct_turns']}\n")
-    
-    if verbose >= 1:
-        print(f"✅ 摘要已保存到: {summary_file}")
-
-
-def main():
-    parser = argparse.ArgumentParser(description='DST on TransferTOD 评测')
-    parser.add_argument('--data-root', type=str, default='./data/TransferTOD',
-                      help='TransferTOD 数据集根目录 (默认: ./data/TransferTOD)')
-    parser.add_argument('--data-type', type=str, default='clean',
-                      choices=['clean', 'noise'],
-                      help='数据类型：clean 或 noise (默认: clean)')
-    parser.add_argument('--domain', type=str, default=None,
-                      help='指定领域（可选，不指定则评测所有领域）')
-    parser.add_argument('--limit', type=int, default=None,
-                      help='限制评测对话数量（用于快速测试）')
-    parser.add_argument('--verbose', '-v', type=int, default=1, choices=[0, 1, 2],
-                      help='日志详细度: 0=安静, 1=正常, 2=详细 (默认: 1)')
-    parser.add_argument('--output-dir', type=str, default=None,
-                      help='结果输出目录（可选）')
-    parser.add_argument('--save-plots', action='store_true',
-                      help='生成并保存可视化图表')
-    parser.add_argument('--use-actual-dst', action='store_true',
-                      help='使用实际DST模型进行预测（需要LLM，否则使用ground truth）')
-    
-    args = parser.parse_args()
-    
-    # Print header
-    if args.verbose >= 1:
-        print_header("DST on TransferTOD 评测")
-        print(f"领域: {args.domain or '所有'}")
-        print(f"数据类型: {args.data_type}")
-        print(f"限制数量: {args.limit or '无限制'}")
-        if args.use_actual_dst:
-            print(f"模式: 使用实际DST模型")
-        else:
-            print(f"模式: 使用Ground Truth（快速评测）")
-        print()
-    
-    # Load adapter
-    adapter = TransferTODAdapter(args.data_root)
-    
-    # List dialogues
-    dialogue_ids = adapter.list_dialogues(
-        data_type=args.data_type,
-        domain=args.domain
-    )
-    
-    if args.limit:
-        dialogue_ids = dialogue_ids[:args.limit]
-    
-    if args.verbose >= 1:
-        print(f"找到 {len(dialogue_ids)} 个对话\n")
-    
-    if not dialogue_ids:
-        print("⚠️  未找到对话数据，请检查数据路径")
-        return
-    
-    # Initialize evaluators
-    dst_evaluator = DSTEvaluator()
-    intent_evaluator = IntentEvaluator()
-    intent_label_loader = get_intent_label_loader()
-    
-    # Initialize DST tracker if using actual model
-    dst_tracker = None
-    if args.use_actual_dst:
+    def initialize(self, domain: str):
+        """
+        初始化DST追踪器
+        
+        Args:
+            domain: 领域名称
+        """
+        # 创建LLM客户端
         try:
-            # Initialize LLM client
-            llm_client = SimpleLLMClient()
-            if args.verbose >= 1:
-                print("✅ LLM客户端初始化成功\n")
+            self.llm_client = SimpleLLMClient()
+            logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
-            print(f"⚠️  LLM初始化失败: {e}")
-            print("⚠️  将使用Ground Truth模式")
-            args.use_actual_dst = False
-    
-    # Run evaluation with asyncio if using actual DST
-    if args.use_actual_dst:
-        asyncio.run(evaluate_with_dst_model(
-            dialogue_ids, adapter, dst_evaluator, intent_evaluator,
-            dst_tracker, llm_client, args
-        ))
-    else:
-        evaluate_with_ground_truth(
-            dialogue_ids, adapter, dst_evaluator, intent_evaluator, args
-        )
-    
-    # Calculate metrics
-    metrics = dst_evaluator.calculate_metrics()
-    metrics_dict = metrics.to_dict()
-    
-    # Get intent metrics
-    intent_metrics_raw = intent_evaluator.calculate_metrics()
-    intent_metrics_dict = {
-        'intent_accuracy': intent_metrics_raw.get('accuracy', 0.0),
-        'total_turns': intent_metrics_raw.get('total_turns', 0),
-        'correct_predictions': intent_metrics_raw.get('correct_turns', 0)
-    }
-    
-    # Display metrics
-    if args.verbose >= 1:
-        print()
-        print_header("评测结果")
-    
-    print_metrics_table(metrics_dict, intent_metrics_dict, args.verbose)
-    
-    # Save results if output directory specified
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-        # Merge intent metrics into main metrics
-        full_metrics = metrics_dict.copy()
-        full_metrics['intent_metrics'] = intent_metrics_dict
-        save_results(full_metrics, output_dir, args.verbose)
+            logger.error(f"❌ LLM客户端初始化失败: {e}")
+            raise
         
-        # Generate plots if requested
-        if args.save_plots:
-            try:
-                import matplotlib
-                matplotlib.use('Agg')  # Non-interactive backend
-                import matplotlib.pyplot as plt
-                
-                # Create a simple bar chart of metrics
-                fig, ax = plt.subplots(figsize=(12, 6))
-                metrics_names = ['Slot\nAccuracy', 'Precision', 'Recall', 'F1', 'Joint\nAccuracy', 'Intent\nAccuracy']
-                metrics_values = [
-                    metrics_dict['slot_level']['accuracy'],
-                    metrics_dict['slot_level']['precision'],
-                    metrics_dict['slot_level']['recall'],
-                    metrics_dict['slot_level']['f1'],
-                    metrics_dict['dialogue_state_level']['joint_accuracy'],
-                    intent_metrics_dict.get('intent_accuracy', 0.0)
-                ]
-                
-                bars = ax.bar(metrics_names, metrics_values, 
-                            color=['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#1abc9c'])
-                ax.set_ylim(0, 1.0)
-                ax.set_ylabel('Score', fontsize=12)
-                ax.set_title('DST Evaluation Metrics', fontsize=14, fontweight='bold')
-                ax.grid(axis='y', alpha=0.3)
-                
-                # Add value labels on bars
-                for bar in bars:
-                    height = bar.get_height()
-                    ax.text(bar.get_x() + bar.get_width()/2., height,
-                           f'{height:.4f}',
-                           ha='center', va='bottom', fontsize=10)
-                
-                plt.tight_layout()
-                plot_file = output_dir / "metrics_chart.png"
-                plt.savefig(plot_file, dpi=150, bbox_inches='tight')
-                plt.close()
-                
-                if args.verbose >= 1:
-                    print(f"✅ 图表已保存到: {plot_file}")
-                
-            except ImportError:
-                if args.verbose >= 1:
-                    print("⚠️  matplotlib 未安装，跳过图表生成")
-            except Exception as e:
-                if args.verbose >= 1:
-                    print(f"⚠️  生成图表时出错: {e}")
+        # 获取领域schema（可选：用于指导LLM，但在动态模式下非必需）
+        schema = self.adapter.get_domain_schema(domain)
+        
+        # 创建PromptManager（启用动态槽位）
+        # 动态槽位模式：LLM可以自由提取任何相关信息，不限于预定义槽位
+        pm = PromptManager(
+            domain=domain,
+            enable_dynamic_slots=True
+        )
+        
+        # 可选：添加槽位定义作为指导（在动态模式下，即使未预定义的槽位也会被接受）
+        for slot_name, slot_info in schema["slots"].items():
+            pm.add_slot(slot_name, slot_info.get("description", slot_name))
+        
+        # 创建DialogueStateTracker
+        # 注意：enable_dynamic_slots=True 会自动禁用槽位过滤，接受所有LLM提取的槽位
+        self.tracker = DialogueStateTracker(
+            llm_client=self.llm_client,
+            prompt_manager=pm,
+            max_history_turns=10,
+            enable_history_summary=True,
+            use_llm_summary=False
+        )
+        
+        logger.info(f"✅ DST模式初始化完成 - 领域: {domain}")
+        logger.info(f"   动态槽位模式: 启用（接受所有LLM提取的槽位）")
+        logger.info(f"   预定义槽位数: {len(schema['slots'])}")
     
-    if args.verbose >= 1:
-        print("\n评测完成！\n")
-
-
-async def evaluate_with_dst_model(dialogue_ids, adapter, dst_evaluator, intent_evaluator,
-                                   dst_tracker, llm_client, args):
-    """使用实际DST模型进行评测"""
-    for idx, dialogue_id in enumerate(dialogue_ids, 1):
-        try:
-            dialogue = adapter.load_dialogue(dialogue_id)
+    async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
+        """
+        测试单个对话
+        
+        Args:
+            dialogue_id: 对话ID
+            verbose: 是否输出详细信息
             
-            if args.verbose == 2:  # Debug mode
-                print(f"[{idx}/{len(dialogue_ids)}] 评测对话: {dialogue_id} ({dialogue.domain})")
-            elif args.verbose == 1 and idx % 10 == 0:  # Progress indicator
-                print(f"进度: {idx}/{len(dialogue_ids)} 完成")
+        Returns:
+            测试指标
+        """
+        # 加载对话
+        dialogue = self.adapter.load_dialogue(dialogue_id)
+        
+        if verbose:
+            print("\n" + "=" * 60)
+            print(f"测试对话: {dialogue_id}")
+            print(f"领域: {dialogue.domain}")
+            print(f"描述: {dialogue.description}")
+            print("=" * 60)
+        
+        # 重置追踪器状态
+        self.tracker.current_state = {}
+        self.tracker.dialogue_history = []
+        
+        # 评估指标
+        total_slots = 0
+        matched_slots = 0
+        total_turns = 0
+        perfect_turns = 0
+        
+        all_expected = []
+        all_extracted = []
+        
+        # 维护累积的期望状态（用于正确比较）
+        cumulative_expected_state = {}
+        
+        # 初始化最终提取状态（防止空对话情况）
+        final_extracted_state = {}
+        
+        # 上一轮状态（用于意图推断）
+        previous_state = {}
+        
+        # 逐轮测试
+        for turn in dialogue.turns:
+            if verbose:
+                print(f"\n--- 轮次 {turn.turn_id} ---")
+                print(f"系统: {turn.system_utterance[:80]}...")
+                print(f"用户: {turn.user_utterance[:80]}...")
             
-            # Initialize DST tracker for this dialogue
-            prompt_manager = PromptManager(
-                domain=dialogue.domain,
-                enable_dynamic_slots=True,
-                enable_intent_prediction=True
-            )
-            tracker = DialogueStateTracker(
-                llm_client=llm_client,
-                prompt_manager=prompt_manager,
-                enable_dynamic_slots=True
-            )
-            
-            # Process each turn
-            current_predicted_state = {}
-            for turn_idx, turn in enumerate(dialogue.turns):
-                # Run DST model
-                predicted_updates = await tracker.process_turn(
-                    system_utterance=turn.system_utterance or "",
+            # 调用DST
+            try:
+                extracted_state = await self.tracker.process_turn(
+                    system_utterance=turn.system_utterance,
                     user_utterance=turn.user_utterance
                 )
                 
-                # Update cumulative state
-                current_predicted_state.update(predicted_updates)
+                # 获取本轮的turn_updates（包含预测的意图）
+                if self.tracker.dialogue_history:
+                    last_turn = self.tracker.dialogue_history[-1]
+                    turn_updates = last_turn.turn_updates
+                    predicted_intent = turn_updates.get('intent', '未识别')
+                    
+                    # 意图评测：添加本轮评测
+                    total_turns = len(dialogue.turns)
+                    self.intent_evaluator.add_turn_evaluation(
+                        domain=dialogue.domain,  # 添加领域参数
+                        turn_id=turn.turn_id,
+                        predicted_intent=predicted_intent,
+                        turn_updates=turn.expected_slots,  # 使用expected_slots作为ground truth的槽位变化
+                        previous_state=previous_state,
+                        user_utterance=turn.user_utterance,
+                        dialogue_id=dialogue_id,
+                        total_turns=total_turns  # 添加total_turns参数
+                    )
+                    
+                    if verbose:
+                        # 推断意图用于显示（正确解包tuple）
+                        inferred_result = self.intent_evaluator.infer_intent_from_slots(
+                            domain=dialogue.domain,  # 添加领域参数
+                            turn_updates=turn.expected_slots,
+                            previous_state=previous_state,
+                            user_utterance=turn.user_utterance,
+                            turn_id=turn.turn_id
+                        )
+                        # infer_intent_from_slots 返回 (intent, task_relevance) 元组
+                        if isinstance(inferred_result, tuple):
+                            inferred_intent, task_relevance = inferred_result
+                        else:
+                            inferred_intent = inferred_result
+                        print(f"预测意图: {predicted_intent}, 推断意图: {inferred_intent}")
                 
-                # Get predicted intent if available
-                predicted_intent = predicted_updates.get('intent', '其他')
+            except Exception as e:
+                logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
+                extracted_state = {}
+            
+            # 更新上一轮状态（用于下一轮的意图推断）
+            previous_state = cumulative_expected_state.copy()
+            
+            # 更新累积的期望状态（合并本轮的变化）
+            cumulative_expected_state.update(turn.expected_slots)
+            
+            # 比较累积的期望状态和提取状态
+            expected = cumulative_expected_state.copy()
+            
+            # 计算本轮的匹配度
+            turn_total = len(expected)
+            turn_matched = 0
+            
+            for slot, expected_value in expected.items():
+                extracted_value = extracted_state.get(slot)
+                # 转换为字符串进行比较（因为expected可能是原始类型）
+                expected_value_str = str(expected_value) if expected_value is not None else None
+                extracted_value_str = str(extracted_value) if extracted_value is not None else None
+                if expected_value_str == extracted_value_str:
+                    turn_matched += 1
+            
+            total_slots += turn_total
+            matched_slots += turn_matched
+            total_turns += 1
+            
+            if turn_total == 0 or turn_matched == turn_total:
+                perfect_turns += 1
+            
+            all_expected.append(expected)
+            all_extracted.append(extracted_state)
+            
+            # 保存最终提取状态
+            final_extracted_state = extracted_state
+            
+            if verbose:
+                print(f"期望状态: {expected}")
+                print(f"提取状态: {extracted_state}")
+                print(f"匹配数: {turn_matched}/{turn_total}")
+        
+        # 计算评估指标（对齐TransferTOD论文）
+        slot_accuracy = matched_slots / total_slots if total_slots > 0 else 0.0
+        
+        # Joint Accuracy（对话级别，使用最终状态）- 对齐TransferTOD论文
+        # 比较最终的累积状态是否完全匹配
+        # 使用tracker的current_state作为最终状态（更可靠）
+        final_expected = cumulative_expected_state
+        final_extracted = self.tracker.current_state if hasattr(self, 'tracker') else final_extracted_state
+        
+        # DEBUG: 添加调试输出
+        if verbose:
+            print(f"\n--- 最终状态比较（Joint Accuracy）---")
+            print(f"最终期望状态: {final_expected}")
+            print(f"最终提取状态: {final_extracted}")
+        
+        # 计算两种Joint Accuracy
+        joint_accuracy_strict = self._calculate_joint_accuracy(final_expected, final_extracted, mode='strict')
+        joint_accuracy_soft = self._calculate_joint_accuracy(final_expected, final_extracted, mode='soft')
+        
+        # 计算Precision/Recall/F1（基于slot-value pairs）- 对齐TransferTOD论文
+        precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
+        
+        metrics = {
+            "dialogue_id": dialogue_id,
+            "slot_accuracy": slot_accuracy,
+            "joint_accuracy": joint_accuracy_strict,  # TransferTOD论文指标：对话级别（严格）
+            "joint_accuracy_soft": joint_accuracy_soft,  # 软匹配：允许额外槽位
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "total_slots": total_slots,
+            "matched_slots": matched_slots,
+            "total_turns": total_turns,
+        }
+        
+        if verbose:
+            print("\n--- 测试结果（对齐TransferTOD论文指标）---")
+            print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
+            print(f"联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
+            print(f"联合准确率-软匹配 (Joint Accuracy Soft): {joint_accuracy_soft * 100:.2f}%")
+            print(f"精确率 (Precision): {precision * 100:.2f}%")
+            print(f"召回率 (Recall): {recall * 100:.2f}%")
+            print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
+        
+        return metrics
+    
+    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict, mode: str = 'strict') -> float:
+        """
+        计算Joint Accuracy（对话级别）- 支持strict和soft两种模式
+        
+        Args:
+            expected: 期望的最终状态
+            extracted: 提取的最终状态
+            mode: 'strict' (完全匹配) 或 'soft' (期望槽位都存在即可)
+            
+        Returns:
+            1.0 if匹配, 0.0 otherwise
+        """
+        # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
+        # 注：TransferTOD适配器已确保不含None值，此处不需要额外过滤
+        expected_pairs = set([(k, str(v)) for k, v in expected.items()])
+        extracted_pairs = set([(k, str(v)) for k, v in extracted.items()])
+        
+        # DEBUG: Log mismatch details
+        if expected_pairs != extracted_pairs:
+            logger.debug(f"JA Mismatch - Expected: {expected_pairs}, Extracted: {extracted_pairs}")
+            logger.debug(f"  Missing: {expected_pairs - extracted_pairs}")
+            logger.debug(f"  Extra: {extracted_pairs - expected_pairs}")
+        
+        # 根据模式计算
+        if mode == 'strict':
+            # Strict模式: 完全匹配（对齐TransferTOD论文）
+            return 1.0 if expected_pairs == extracted_pairs else 0.0
+        elif mode == 'soft':
+            # Soft模式: 所有期望的槽位都被正确提取（允许额外槽位）
+            # 适用于模型可能过度预测的情况
+            return 1.0 if expected_pairs.issubset(extracted_pairs) else 0.0
+        else:
+            raise ValueError(f"Unknown mode: {mode}. Use 'strict' or 'soft'")
+    
+    def _calculate_prf_pairs(self, expected: Dict, extracted: Dict) -> Tuple[float, float, float]:
+        """
+        计算Precision、Recall和F1 Score（基于slot-value pairs）- 对齐TransferTOD论文
+        
+        与TransferTOD论文的eval.py一致，使用slot-value pairs作为比较单元
+        
+        Args:
+            expected: 期望的最终状态
+            extracted: 提取的最终状态
+            
+        Returns:
+            (precision, recall, f1)
+        """
+        # 转换为slot-value pairs的集合（对齐TransferTOD论文的实现）
+        # 注：TransferTOD适配器已确保不含None值，此处不需要额外过滤
+        expected_pairs = set([(k, str(v)) for k, v in expected.items()])
+        extracted_pairs = set([(k, str(v)) for k, v in extracted.items()])
+        
+        # 计算TP, FP, FN（对齐TransferTOD论文的f1_calculator）
+        TP = len(expected_pairs & extracted_pairs)  # 交集
+        FP = len(extracted_pairs - expected_pairs)  # 预测但不在真实中
+        FN = len(expected_pairs - extracted_pairs)  # 真实但未预测
+        
+        # 特殊情况处理（对齐TransferTOD论文）
+        if len(expected_pairs) == 0:
+            if len(extracted_pairs) == 0:
+                return 1.0, 1.0, 1.0
+            else:
+                return 0.0, 0.0, 0.0
+        
+        precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+        recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        
+        return precision, recall, f1
+    
+    def _calculate_prf(self, expected_list: List[Dict], extracted_list: List[Dict]) -> Tuple[float, float, float]:
+        """
+        计算Precision、Recall和F1 Score
+        
+        Args:
+            expected_list: 期望槽位列表
+            extracted_list: 提取槽位列表
+            
+        Returns:
+            (precision, recall, f1)
+        """
+        true_positive = 0
+        false_positive = 0
+        false_negative = 0
+        
+        for expected, extracted in zip(expected_list, extracted_list):
+            for slot, value in expected.items():
+                # 转换为字符串进行比较
+                expected_value_str = str(value) if value is not None else None
+                extracted_value_str = str(extracted.get(slot)) if extracted.get(slot) is not None else None
                 
-                # Add to intent evaluator
-                intent_evaluator.add_turn_evaluation(
-                    domain=dialogue.domain,
-                    turn_id=turn_idx,
-                    predicted_intent=predicted_intent,
-                    turn_updates=turn.expected_slots,
-                    previous_state=current_predicted_state,
-                    user_utterance=turn.user_utterance,
-                    dialogue_id=dialogue_id,
-                    total_turns=len(dialogue.turns)
-                )
+                if slot in extracted and expected_value_str == extracted_value_str:
+                    true_positive += 1
+                else:
+                    false_negative += 1
             
-            # Evaluate final state
-            dst_evaluator.add_prediction(
-                predicted=current_predicted_state,
-                ground_truth=dialogue.final_state,
-                domain=dialogue.domain
-            )
-            
-        except Exception as e:
-            if args.verbose >= 1:
-                print(f"⚠️  评测对话 {dialogue_id} 时出错: {e}")
-            continue
+            for slot, value in extracted.items():
+                # 转换为字符串进行比较
+                expected_value_str = str(expected.get(slot)) if expected.get(slot) is not None else None
+                extracted_value_str = str(value) if value is not None else None
+                
+                if slot not in expected or expected_value_str != extracted_value_str:
+                    false_positive += 1
+        
+        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0.0
+        recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        
+        return precision, recall, f1
 
 
-def evaluate_with_ground_truth(dialogue_ids, adapter, dst_evaluator, intent_evaluator, args):
-    """使用Ground Truth进行快速评测（用于测试评测框架本身）"""
-    for idx, dialogue_id in enumerate(dialogue_ids, 1):
+async def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(description="DST模式 - TransferTOD数据集测试")
+    parser.add_argument("--domain", type=str, default=None, help="测试领域（不指定则测试所有领域）")
+    parser.add_argument("--data-type", type=str, default=None, choices=["clean", "noise", None], help="数据类型（不指定则测试所有类型）")
+    parser.add_argument("--limit", type=int, default=None, help="限制测试数量")
+    parser.add_argument("--data-root", type=str, default="./data/TransferTOD", help="数据集根目录")
+    parser.add_argument("--verbose", action="store_true", help="输出详细信息")
+    
+    args = parser.parse_args()
+    
+    # 设置日志
+    setup_logging(LogLevel.INFO)
+    
+    # 显示测试范围
+    domain_desc = args.domain if args.domain else "所有领域"
+    data_type_desc = args.data_type if args.data_type else "所有类型"
+    
+    print("=" * 70)
+    print(f"DST 模式测试 - TransferTOD 数据集")
+    print(f"领域: {domain_desc}, 数据类型: {data_type_desc}")
+    print("=" * 70)
+    
+    # 初始化测试
+    test = DSTTransferTODTest(data_root=args.data_root)
+    
+    # 获取对话列表
+    try:
+        dialogue_ids = test.adapter.get_dialogues_by_domain(args.domain, args.data_type)
+    except Exception as e:
+        logger.error(f"获取对话列表失败: {e}")
+        print(f"\n错误: 无法加载数据集。请确保数据集位于 {args.data_root}")
+        print("数据集应包含以下结构: data/raw_data/clean/ 和 data/raw_data/noise/")
+        return
+    
+    if not dialogue_ids:
+        print(f"\n未找到符合条件的对话数据")
+        return
+    
+    print(f"\n找到 {len(dialogue_ids)} 个对话实例")
+    
+    # 限制测试数量
+    if args.limit:
+        dialogue_ids = dialogue_ids[:args.limit]
+        print(f"限制测试数量: {args.limit}")
+    
+    # 如果指定了domain，初始化DST for that domain
+    # 如果没有指定domain，需要按对话的domain分组处理
+    if args.domain:
+        test.initialize(args.domain)
+    
+    # 批量测试
+    all_metrics = []
+    domain_metrics = defaultdict(list)  # 按领域分组的指标
+    current_domain = None
+    
+    for dialogue_id in dialogue_ids:
         try:
-            dialogue = adapter.load_dialogue(dialogue_id)
+            # 如果没有指定domain，需要为每个对话的domain初始化tracker
+            if not args.domain:
+                dialogue = test.adapter.load_dialogue(dialogue_id)
+                if dialogue.domain != current_domain:
+                    current_domain = dialogue.domain
+                    print(f"\n初始化领域: {current_domain}")
+                    test.initialize(current_domain)
+            else:
+                current_domain = args.domain
             
-            if args.verbose == 2:  # Debug mode
-                print(f"[{idx}/{len(dialogue_ids)}] 评测对话: {dialogue_id} ({dialogue.domain})")
-            elif args.verbose == 1 and idx % 10 == 0:  # Progress indicator
-                print(f"进度: {idx}/{len(dialogue_ids)} 完成")
-            
-            # Simulate turn-by-turn tracking
-            current_state = {}
-            for turn_idx, turn in enumerate(dialogue.turns):
-                # Simulate prediction by using ground truth with some noise
-                # In reality, this should come from your DST model
-                current_state.update(turn.expected_slots)
-                
-                # For demo: add some random errors (10% of the time)
-                import random
-                predicted_state = current_state.copy()
-                if random.random() < 0.1 and predicted_state:
-                    # Randomly corrupt one slot
-                    slot_to_corrupt = random.choice(list(predicted_state.keys()))
-                    predicted_state[slot_to_corrupt] = predicted_state[slot_to_corrupt] + "_错误"
-                
-                # Get predicted intent (using ground truth for now)
-                predicted_intent = turn.expected_slots.get('intent', '其他')
-                
-                # Add to intent evaluator  
-                intent_evaluator.add_turn_evaluation(
-                    domain=dialogue.domain,
-                    turn_id=turn_idx,
-                    predicted_intent=predicted_intent,
-                    turn_updates=turn.expected_slots,
-                    previous_state=current_state,
-                    user_utterance=turn.user_utterance,
-                    dialogue_id=dialogue_id,
-                    total_turns=len(dialogue.turns)
-                )
-            
-            # Evaluate final state (with simulated errors)
-            dst_evaluator.add_prediction(
-                predicted=predicted_state,
-                ground_truth=dialogue.final_state,
-                domain=dialogue.domain
-            )
-            
+            metrics = await test.test_dialogue(dialogue_id, verbose=args.verbose)
+            all_metrics.append(metrics)
+            domain_metrics[current_domain].append(metrics)
         except Exception as e:
-            if args.verbose >= 1:
-                print(f"⚠️  评测对话 {dialogue_id} 时出错: {e}")
+            logger.error(f"测试对话 {dialogue_id} 失败: {e}")
             continue
+    
+    # 输出汇总指标（对齐TransferTOD论文）
+    if all_metrics:
+        print("\n" + "=" * 70)
+        print("📊 测试指标汇总（对齐TransferTOD论文）")
+        print("=" * 70)
+        
+        # 按领域显示指标（即使只有一个领域也显示）
+        if domain_metrics:
+            print("\n【分领域统计】")
+            print("-" * 70)
+            for domain, metrics_list in sorted(domain_metrics.items()):
+                avg_slot_acc = sum(m["slot_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_ja_strict = sum(m["joint_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_ja_soft = sum(m["joint_accuracy_soft"] for m in metrics_list) / len(metrics_list)
+                avg_precision = sum(m["precision"] for m in metrics_list) / len(metrics_list)
+                avg_recall = sum(m["recall"] for m in metrics_list) / len(metrics_list)
+                avg_f1 = sum(m["f1"] for m in metrics_list) / len(metrics_list)
+                
+                print(f"\n{domain}领域 (对话数: {len(metrics_list)}):")
+                print(f"  槽位准确率: {avg_slot_acc * 100:.2f}%")
+                print(f"  联合准确率-严格: {avg_ja_strict * 100:.2f}%")
+                print(f"  联合准确率-软匹配: {avg_ja_soft * 100:.2f}%")
+                print(f"  精确率: {avg_precision * 100:.2f}%")
+                print(f"  召回率: {avg_recall * 100:.2f}%")
+                print(f"  F1分数: {avg_f1 * 100:.2f}%")
+            print()
+        
+        # 汇总统计
+        avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy_soft = sum(m["joint_accuracy_soft"] for m in all_metrics) / len(all_metrics)
+        avg_precision = sum(m["precision"] for m in all_metrics) / len(all_metrics)
+        avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
+        avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
+        
+        print("\n【整体汇总统计】")
+        print("-" * 70)
+        print(f"总测试对话数: {len(all_metrics)}")
+        print(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
+        print(f"平均联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy * 100:.2f}%")
+        print(f"平均联合准确率-软匹配 (Joint Accuracy Soft): {avg_joint_accuracy_soft * 100:.2f}%")
+        print(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
+        print(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
+        print(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
+        print()
+        print("注：指标计算方法已对齐TransferTOD论文")
+        print("  - Joint Accuracy Strict: 对话级别（最终状态完全匹配，对齐论文）")
+        print("  - Joint Accuracy Soft: 对话级别（所有期望槽位都存在，允许额外槽位）")
+        print("  - F1/Precision/Recall: 基于slot-value pairs计算")
+        print()
+        
+        # 输出意图评测报告
+        print("\n" + "=" * 70)
+        print("🎯 意图评测报告")
+        print("=" * 70)
+        print()
+        print("说明：由于TransferTOD数据集没有显式意图标签，我们通过槽位变化模式推断隐式意图。")
+        print()
+        print(test.intent_evaluator.get_detailed_report(
+            save_confusion_plot=True,
+            plot_path="intent_confusion_matrix.png",
+            include_confusion_matrix=False  # 不打印混淆矩阵，只保存为图片
+        ))
+        
+        print()
+        print("说明：")
+        print("  - Strict JA = 0% 说明模型总是预测了额外的槽位")
+        print("  - Soft JA > 0% 说明模型能找到所有期望槽位（但可能过度预测）")
+        print("  - 如果 Soft JA 高但 Strict JA 低，说明模型倾向于过度预测")
+        print()
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    asyncio.run(main())
