@@ -415,7 +415,7 @@ class DSTTransferTODTest:
         return precision, recall, f1
 
 
-async def main():
+def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="DST模式 - TransferTOD数据集测试")
     parser.add_argument("--domain", type=str, default=None, help="测试领域（不指定则测试所有领域）")
@@ -481,6 +481,9 @@ async def main():
     domain_metrics = defaultdict(list)  # 按领域分组的指标
     current_domain = None
     
+    # 创建事件循环来运行async函数
+    loop = asyncio.get_event_loop()
+    
     for dialogue_id in dialogue_ids:
         try:
             # 如果没有指定domain，需要为每个对话的domain初始化tracker
@@ -493,7 +496,8 @@ async def main():
             else:
                 current_domain = args.domain
             
-            metrics = await test.test_dialogue(dialogue_id, verbose=args.verbose)
+            # 使用事件循环运行async函数
+            metrics = loop.run_until_complete(test.test_dialogue(dialogue_id, verbose=args.verbose))
             all_metrics.append(metrics)
             domain_metrics[current_domain].append(metrics)
         except Exception as e:
@@ -619,13 +623,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    try:
-        # Python 3.7+ 的推荐方式
-        asyncio.run(main())
-    except AttributeError:
-        # Python 3.6 的兼容方式
-        loop = asyncio.get_event_loop()
-        try:
-            loop.run_until_complete(main())
-        finally:
-            loop.close()
+    main()
