@@ -481,28 +481,40 @@ def main():
     domain_metrics = defaultdict(list)  # 按领域分组的指标
     current_domain = None
     
-    # 创建事件循环来运行async函数
-    loop = asyncio.get_event_loop()
+    # 创建或获取事件循环来运行async函数
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     
-    for dialogue_id in dialogue_ids:
-        try:
-            # 如果没有指定domain，需要为每个对话的domain初始化tracker
-            if not args.domain:
-                dialogue = test.adapter.load_dialogue(dialogue_id)
-                if dialogue.domain != current_domain:
-                    current_domain = dialogue.domain
-                    print(f"\n初始化领域: {current_domain}")
-                    test.initialize(current_domain)
-            else:
-                current_domain = args.domain
-            
-            # 使用事件循环运行async函数
-            metrics = loop.run_until_complete(test.test_dialogue(dialogue_id, verbose=args.verbose))
-            all_metrics.append(metrics)
-            domain_metrics[current_domain].append(metrics)
-        except Exception as e:
-            logger.error(f"测试对话 {dialogue_id} 失败: {e}")
-            continue
+    try:
+        for dialogue_id in dialogue_ids:
+            try:
+                # 如果没有指定domain，需要为每个对话的domain初始化tracker
+                if not args.domain:
+                    dialogue = test.adapter.load_dialogue(dialogue_id)
+                    if dialogue.domain != current_domain:
+                        current_domain = dialogue.domain
+                        print(f"\n初始化领域: {current_domain}")
+                        test.initialize(current_domain)
+                else:
+                    current_domain = args.domain
+                
+                # 使用事件循环运行async函数
+                metrics = loop.run_until_complete(test.test_dialogue(dialogue_id, verbose=args.verbose))
+                all_metrics.append(metrics)
+                domain_metrics[current_domain].append(metrics)
+            except Exception as e:
+                logger.error(f"测试对话 {dialogue_id} 失败: {e}")
+                continue
+    finally:
+        # 确保事件循环在使用后正确关闭
+        if not loop.is_closed():
+            loop.close()
     
     # 问题3修复：输出汇总指标（对齐TransferTOD论文）
     # 同时输出到终端和日志文件
