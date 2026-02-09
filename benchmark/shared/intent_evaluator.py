@@ -83,9 +83,32 @@ class IntentEvaluator:
                 # 聚合映射：使用原始中文名称作为显示名称
                 self.aggregation_mapping[normalized] = intent
         
-        # 问题1修复：移除变体映射，强制使用预定义意图标签
-        # 不再允许"预定酒店"、"咨询酒店"等变体
-        # 所有意图必须使用配置文件中定义的标准名称
+        # 意图标准化映射：将变体统一到标准形式
+        # 目的：确保同一含义的意图只有一个标准词语
+        self.intent_normalization = {
+            # 预订类意图标准化为"预订酒店"
+            '预定酒店': '预订酒店',
+            '预订房间': '预订酒店',
+            '预定房间': '预订酒店',
+            '酒店预订': '预订酒店',
+            '房间预订': '预订酒店',
+            
+            # 查询类意图标准化为"查询酒店信息"
+            '咨询酒店': '查询酒店信息',
+            '查询酒店': '查询酒店信息',
+            '酒店咨询': '查询酒店信息',
+            '咨询酒店信息': '查询酒店信息',
+            
+            # 确认类意图标准化为"确认预订"
+            '确认订单': '确认预订',
+            '订单确认': '确认预订',
+            '确认酒店': '确认预订',
+            
+            # 取消类意图标准化为"取消预订"
+            '取消订单': '取消预订',
+            '订单取消': '取消预订',
+            '取消酒店': '取消预订',
+        }
         
         # 缓存意图关键词（用于推断）
         self._marker_cache = {}
@@ -100,6 +123,35 @@ class IntentEvaluator:
                     if keywords:
                         self._marker_cache[domain][intent] = keywords
         
+    def normalize_intent(self, intent: str) -> str:
+        """
+        标准化意图名称，将变体统一为标准形式
+        
+        目的：确保同一含义的意图只有一个标准词语
+        例如："预定酒店"、"预订房间" → "预订酒店"
+        
+        Args:
+            intent: 原始意图名称
+            
+        Returns:
+            标准化后的意图名称
+        """
+        if not intent:
+            return intent
+        
+        # 首先尝试直接映射
+        if intent in self.intent_normalization:
+            return self.intent_normalization[intent]
+        
+        # 尝试小写匹配
+        intent_lower = intent.lower()
+        for variant, standard in self.intent_normalization.items():
+            if intent_lower == variant.lower():
+                return standard
+        
+        # 没有映射，返回原值
+        return intent
+    
     def infer_intent_from_slots(
         self,
         domain: str,  # 新增：领域参数
@@ -398,25 +450,28 @@ class IntentEvaluator:
             turn_id=0
         )
         
-        # 标准化
-        predicted_normalized = self.normalization_mapping.get(predicted_intent.lower(), predicted_intent.lower())
-        inferred_normalized = self.normalization_mapping.get(inferred_intent.lower(), inferred_intent.lower())
+        # 标准化意图名称（将变体统一为标准形式）
+        predicted_intent_normalized = self.normalize_intent(predicted_intent)
+        inferred_intent_normalized = self.normalize_intent(inferred_intent)
         
-        # 判断是否正确
-        is_correct = (predicted_normalized == inferred_normalized)
+        # 判断是否正确（使用标准化后的值）
+        is_correct = (predicted_intent_normalized.lower() == inferred_intent_normalized.lower())
         
-        # 记录对话级别的意图
+        # 记录对话级别的意图（使用标准化后的值）
         detail = {
             'dialogue_id': dialogue_id,
             'domain': domain,
-            'predicted_intent': predicted_intent,
-            'inferred_intent': inferred_intent,
+            'predicted_intent': predicted_intent_normalized,  # 使用标准化后的值
+            'inferred_intent': inferred_intent_normalized,    # 使用标准化后的值
+            'predicted_intent_original': predicted_intent,     # 保留原始值用于追溯
+            'inferred_intent_original': inferred_intent,       # 保留原始值用于追溯
             'task_relevance': task_relevance,
             'correct': is_correct,
             'dialogue_slots': dialogue_slots.copy()
         }
         
-        self.dialogue_intents.append((dialogue_id, predicted_intent, inferred_intent))
+        # 存储标准化后的意图
+        self.dialogue_intents.append((dialogue_id, predicted_intent_normalized, inferred_intent_normalized))
         
         return detail
     
