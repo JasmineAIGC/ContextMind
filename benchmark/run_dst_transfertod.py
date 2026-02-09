@@ -159,22 +159,6 @@ class DSTTransferTODTest:
                     turn_updates = last_turn.turn_updates
                     predicted_intent = turn_updates.get('intent', '未识别')
                     all_predicted_intents.append(predicted_intent)
-                    
-                    if verbose:
-                        # 推断意图用于显示（正确解包tuple）
-                        inferred_result = self.intent_evaluator.infer_intent_from_slots(
-                            domain=dialogue.domain,  # 添加领域参数
-                            turn_updates=turn.expected_slots,
-                            previous_state=previous_state,
-                            user_utterance=turn.user_utterance,
-                            turn_id=turn.turn_id
-                        )
-                        # infer_intent_from_slots 返回 (intent, task_relevance) 元组
-                        if isinstance(inferred_result, tuple):
-                            inferred_intent, task_relevance = inferred_result
-                        else:
-                            inferred_intent = inferred_result
-                        print(f"预测意图: {predicted_intent}, 推断意图: {inferred_intent}")
                 
             except Exception as e:
                 logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
@@ -302,6 +286,7 @@ class DSTTransferTODTest:
             result = "✓ 正确" if is_correct else "✗ 错误"
             print(f"评测结果: {result}")
             print("=" * 70)
+            print()  # 添加空行分隔不同对话
 
         
         metrics = {
