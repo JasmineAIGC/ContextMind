@@ -1,5 +1,19 @@
 # ContextMind - TransferTOD 测试框架
 
+## ⚠️ 重要通知
+
+**DST模式评测已迁移到 `benchmark/run_dst_transfertod.py`**
+
+原 `tests/test_dst_transfertod.py` 已被废弃，请使用统一的评测脚本：
+
+```bash
+# 推荐使用方式
+python benchmark/run_dst_transfertod.py
+python benchmark/run_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
+```
+
+---
+
 ## 📋 目录结构
 
 ```
@@ -9,9 +23,15 @@ tests/
 │   ├── __init__.py                  # 适配器包导出
 │   ├── base_adapter.py              # 适配器抽象基类
 │   └── transfertod_adapter.py       # TransferTOD数据集适配器
-├── test_dst_transfertod.py          # DST模式测试脚本
+├── test_dst_transfertod.py          # [已废弃] DST模式测试脚本 -> 使用 benchmark/run_dst_transfertod.py
 ├── test_fnctod_transfertod.py       # FnCTOD模式测试脚本
+├── intent_evaluator.py              # 意图评测器
+├── intent_label_loader.py           # 意图标签加载器
 └── README.md                        # 本文档
+
+benchmark/                           # 评测脚本（推荐）
+├── run_dst_transfertod.py           # DST模式评测脚本（推荐）
+└── run_fnctod_transfertod.py        # FnCTOD模式评测脚本
 
 tests_legacy/                        # 原有测试（已重命名）
 ├── test_dst_mode.py                 # 原DST模式测试
@@ -26,9 +46,10 @@ tests_legacy/                        # 原有测试（已重命名）
 本测试框架为 ContextMind 项目提供基于 **TransferTOD数据集** 的标准化测试能力，支持：
 
 1. **数据集适配器架构**：统一的数据加载接口，便于扩展其他数据集
-2. **DST模式测试**：测试 DialogueStateTracker 的槽位提取准确性
+2. **DST模式评测**：测试 DialogueStateTracker 的槽位提取准确性（推荐使用 `benchmark/run_dst_transfertod.py`）
 3. **FnCTOD模式测试**：测试 FnCTODTracker 的函数调用和槽位填充能力
 4. **完整评估指标**：Slot Accuracy、Joint Goal Accuracy、Precision/Recall/F1
+5. **对话级别意图评测**：基于关键词匹配推断对话整体意图
 
 ---
 
@@ -90,21 +111,23 @@ ls data/TransferTOD/data/raw_data/clean/
 ls data/TransferTOD/data/raw_data/noise/
 ```
 
-### 2. 运行 DST 模式测试
+### 2. 运行 DST 模式评测（推荐使用 benchmark 版本）
 
 ```bash
 # 测试酒店领域的清洁数据（默认）
-python tests/test_dst_transfertod.py
+python benchmark/run_dst_transfertod.py
 
 # 指定领域和数据类型
-python tests/test_dst_transfertod.py --domain 酒店 --data-type clean
+python benchmark/run_dst_transfertod.py --domain 酒店 --data-type clean
 
 # 限制测试数量（快速验证）
-python tests/test_dst_transfertod.py --limit 5
+python benchmark/run_dst_transfertod.py --limit 5
 
 # 查看详细输出
-python tests/test_dst_transfertod.py --limit 3 --verbose
+python benchmark/run_dst_transfertod.py --limit 3 --verbose
 ```
+
+**注意**：`tests/test_dst_transfertod.py` 已被废弃，会自动重定向到 `benchmark/run_dst_transfertod.py`
 
 ### 3. 运行 FnCTOD 模式测试
 
@@ -122,7 +145,7 @@ python tests/test_fnctod_transfertod.py --limit 3 --verbose
 ### 4. 自定义数据集路径
 
 ```bash
-python tests/test_dst_transfertod.py --data-root /path/to/your/TransferTOD
+python benchmark/run_dst_transfertod.py --data-root /path/to/your/TransferTOD
 python tests/test_fnctod_transfertod.py --data-root /path/to/your/TransferTOD
 ```
 
@@ -285,7 +308,7 @@ for turn in dialogue.turns:
 
 ## 🧪 测试输出示例
 
-运行 `python tests/test_dst_transfertod.py --limit 3 --verbose` 后的输出：
+运行 `python benchmark/run_dst_transfertod.py --limit 3 --verbose` 后的输出：
 
 ```
 ======================================================================

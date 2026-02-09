@@ -2,12 +2,71 @@
 """
 DST模式 - TransferTOD数据集测试脚本
 
-使用TransferTOD数据集测试DialogueStateTracker的槽位提取能力。
+⚠️ 废弃通知 (DEPRECATED)
+==========================================
+此文件已被废弃，请使用统一的评测脚本：
+  benchmark/run_dst_transfertod.py
 
 使用方式:
+    python benchmark/run_dst_transfertod.py
+    python benchmark/run_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
+
+此文件将在未来版本中移除。
+==========================================
+
+使用TransferTOD数据集测试DialogueStateTracker的槽位提取能力。
+
+原使用方式（已废弃）:
     python tests/test_dst_transfertod.py
     python tests/test_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
 """
+
+import sys
+import warnings
+
+# 显示废弃警告
+warnings.warn(
+    "tests/test_dst_transfertod.py 已被废弃，请使用 benchmark/run_dst_transfertod.py",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+print("=" * 70)
+print("⚠️  废弃通知")
+print("=" * 70)
+print()
+print("此脚本 (tests/test_dst_transfertod.py) 已被废弃。")
+print("请使用统一的评测脚本: benchmark/run_dst_transfertod.py")
+print()
+print("使用方式:")
+print("  python benchmark/run_dst_transfertod.py")
+print("  python benchmark/run_dst_transfertod.py --domain 酒店 --limit 10")
+print()
+print("=" * 70)
+print()
+
+# 导入并运行 benchmark 版本
+try:
+    import subprocess
+    import sys
+    
+    # 传递所有参数到 benchmark 版本
+    benchmark_script = "benchmark/run_dst_transfertod.py"
+    args = sys.argv[1:]  # 获取除脚本名外的所有参数
+    
+    print(f"正在重定向到: {benchmark_script}")
+    print()
+    
+    # 调用 benchmark 版本
+    result = subprocess.run([sys.executable, benchmark_script] + args)
+    sys.exit(result.returncode)
+    
+except Exception as e:
+    print(f"错误: 无法运行 {benchmark_script}")
+    print(f"详情: {e}")
+    print()
+    print("请直接运行: python benchmark/run_dst_transfertod.py")
+    sys.exit(1)
 
 import asyncio
 import argparse
