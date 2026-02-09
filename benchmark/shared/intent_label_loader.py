@@ -120,6 +120,16 @@ class IntentLabelLoader:
         """
         return self.metadata.get("other_intent_name", "其他")
     
+    @property
+    def other_intent_name(self) -> str:
+        """
+        获取兜底意图名称（属性访问方式）
+        
+        Returns:
+            兜底意图名称（默认："其他"）
+        """
+        return self.get_fallback_intent_name()
+    
     def get_all_domains(self) -> List[str]:
         """
         获取所有可用领域的列表
