@@ -5,10 +5,10 @@ FnCTOD-RiSAWOZ 适配器（待实现）
 """
 
 from typing import Dict, List, Any, Optional
-from benchmark.adapters.base_adapter import BaseAdapter
+from benchmark.adapters.base_adapter import DatasetAdapter
 
 
-class FnCTODRiSAWOZAdapter(BaseAdapter):
+class FnCTODRiSAWOZAdapter(DatasetAdapter):
     """
     FnCTOD算法在RiSAWOZ数据集上的适配器
     

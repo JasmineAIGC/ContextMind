@@ -13,7 +13,7 @@ TransferTOD数据集特点:
 import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from .base_adapter import DatasetAdapter, DialogueInstance, DialogueTurn
+from benchmark.adapters.base_adapter import DatasetAdapter, DialogueInstance, DialogueTurn
 
 
 class TransferTODAdapter(DatasetAdapter):

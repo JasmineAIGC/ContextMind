@@ -4,7 +4,7 @@ Benchmark 适配器模块
 提供算法-数据集之间的适配层
 """
 
-from .base_adapter import BaseAdapter
+from .base_adapter import DatasetAdapter
 from .dst_transfertod import DSTTransferTODAdapter
 from .fnctod_transfertod import FnCTODTransferTODAdapter
 
@@ -13,7 +13,7 @@ from .fnctod_transfertod import FnCTODTransferTODAdapter
 # from .fnctod_risawoz import FnCTODRiSAWOZAdapter
 
 __all__ = [
-    'BaseAdapter',
+    'DatasetAdapter',
     'DSTTransferTODAdapter',
     'FnCTODTransferTODAdapter',
 ]

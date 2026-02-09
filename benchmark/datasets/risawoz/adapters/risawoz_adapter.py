@@ -5,10 +5,10 @@ RiSAWOZ 数据集适配器（待实现）
 """
 
 from typing import List, Optional, Dict, Any
-from benchmark.adapters.base_adapter import BaseAdapter
+from benchmark.adapters.base_adapter import DatasetAdapter
 
 
-class RiSAWOZAdapter(BaseAdapter):
+class RiSAWOZAdapter(DatasetAdapter):
     """
     RiSAWOZ数据集适配器
     

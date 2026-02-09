@@ -6,10 +6,10 @@ DST-TransferTOD 适配器
 
 from typing import Dict, List, Any, Optional
 from benchmark.datasets.transfertod.adapters.transfertod_adapter import TransferTODAdapter
-from benchmark.adapters.base_adapter import BaseAdapter
+from benchmark.adapters.base_adapter import DatasetAdapter
 
 
-class DSTTransferTODAdapter(BaseAdapter):
+class DSTTransferTODAdapter(DatasetAdapter):
     """
     DST算法在TransferTOD数据集上的适配器
     
