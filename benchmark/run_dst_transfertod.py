@@ -422,7 +422,7 @@ async def main():
     parser.add_argument("--data-type", type=str, default=None, choices=["clean", "noise", None], help="数据类型（不指定则测试所有类型）")
     parser.add_argument("--limit", type=int, default=None, help="限制测试数量")
     parser.add_argument("--data-root", type=str, default="./data/TransferTOD", help="数据集根目录")
-    parser.add_argument("--verbose", action="store_true", help="输出详细信息")
+    parser.add_argument("--no-verbose", action="store_false", dest="verbose", default=True, help="禁用详细信息输出（默认启用）")
     
     args = parser.parse_args()
     
