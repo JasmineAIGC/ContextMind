@@ -14,6 +14,7 @@ class LogLevel(PyEnum):
     """Evolve 日志级别"""
     INFO = "INFO"      # 信息模式：记录关键信息和流程
     DEBUG = "DEBUG"    # 调试模式：记录所有详细日志
+    WARNING = "WARNING"  # 警告模式：仅记录警告和错误
 
 
 class EvolveLogger:
@@ -58,7 +59,9 @@ class EvolveLogger:
         """
         # 如果是标准logging级别，转换为LogLevel
         if isinstance(level, int):
-            if level >= logging.INFO:
+            if level >= logging.WARNING:
+                self.level = LogLevel.WARNING
+            elif level >= logging.INFO:
                 self.level = LogLevel.INFO
             else:
                 self.level = LogLevel.DEBUG
@@ -189,7 +192,7 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
     设置 Evolve 日志配置
     
     Args:
-        level: Evolve 日志级别（INFO 或 DEBUG）
+        level: Evolve 日志级别（INFO, DEBUG 或 WARNING）
         python_log_level: Python 日志级别（默认基于 Evolve 级别）
         save_to_file: 是否自动保存日志到文件（默认：True）
         log_dir: 日志文件保存目录（默认："logs"）
@@ -201,6 +204,8 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
     if python_log_level is None:
         if level == LogLevel.DEBUG:
             python_log_level = logging.DEBUG
+        elif level == LogLevel.WARNING:
+            python_log_level = logging.WARNING
         else:
             python_log_level = logging.INFO
     
