@@ -80,7 +80,12 @@ class DSTEvaluator:
                 total_slots += 1
                 domain_stats[domain]["total"] += 1
                 
-                if pred.get(slot, "") == gt.get(slot, ""):
+                # Normalize values to strings for comparison
+                # Handle None, int, bool, and string types
+                pred_val = str(pred.get(slot, "")) if pred.get(slot) is not None else ""
+                gt_val = str(gt.get(slot, "")) if gt.get(slot) is not None else ""
+                
+                if pred_val == gt_val:
                     correct_slots += 1
                     domain_stats[domain]["correct"] += 1
                 else:
