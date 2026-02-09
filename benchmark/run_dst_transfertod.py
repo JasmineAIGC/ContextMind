@@ -621,13 +621,26 @@ def main():
             f.write("详细对话指标\n")
             f.write("=" * 70 + "\n\n")
             for m in all_metrics:
-                f.write(f"对话ID: {m['dialogue_id']}\n")
-                f.write(f"  槽位准确率: {m['slot_accuracy'] * 100:.2f}%\n")
-                f.write(f"  联合准确率(严格): {m['joint_accuracy'] * 100:.2f}%\n")
-                f.write(f"  联合准确率(软匹配): {m['joint_accuracy_soft'] * 100:.2f}%\n")
-                f.write(f"  精确率: {m['precision'] * 100:.2f}%\n")
-                f.write(f"  召回率: {m['recall'] * 100:.2f}%\n")
-                f.write(f"  F1分数: {m['f1'] * 100:.2f}%\n")
+                try:
+                    # 安全地获取和格式化指标值，避免KeyError和TypeError
+                    dialogue_id = m.get('dialogue_id', 'Unknown')
+                    slot_acc = m.get('slot_accuracy', 0) or 0
+                    joint_acc = m.get('joint_accuracy', 0) or 0
+                    joint_acc_soft = m.get('joint_accuracy_soft', 0) or 0
+                    precision = m.get('precision', 0) or 0
+                    recall = m.get('recall', 0) or 0
+                    f1 = m.get('f1', 0) or 0
+                    
+                    f.write(f"对话ID: {dialogue_id}\n")
+                    f.write(f"  槽位准确率: {slot_acc * 100:.2f}%\n")
+                    f.write(f"  联合准确率(严格): {joint_acc * 100:.2f}%\n")
+                    f.write(f"  联合准确率(软匹配): {joint_acc_soft * 100:.2f}%\n")
+                    f.write(f"  精确率: {precision * 100:.2f}%\n")
+                    f.write(f"  召回率: {recall * 100:.2f}%\n")
+                    f.write(f"  F1分数: {f1 * 100:.2f}%\n")
+                except Exception as e:
+                    logger.error(f"写入指标时出错: {e}, 指标数据: {m}")
+                    continue
                 f.write("\n")
         
         print(f"\n✅ 评测结果已保存到: {metrics_file}")
