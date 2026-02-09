@@ -83,6 +83,23 @@ class IntentEvaluator:
                 # 聚合映射：使用原始中文名称作为显示名称
                 self.aggregation_mapping[normalized] = intent
         
+        # 添加常见变体映射（处理"预定"和"预订"等变体）
+        # 这些映射将变体统一到标准形式
+        variant_mappings = {
+            '预定酒店': '预订酒店',
+            '预定房间': '预订酒店',
+            '预订房间': '预订酒店',
+            '咨询酒店': '查询酒店信息',
+            '查询酒店': '查询酒店信息',
+        }
+        
+        for variant, standard in variant_mappings.items():
+            # 将变体映射到标准形式的normalized版本
+            if standard.lower() in self.normalization_mapping:
+                normalized_standard = self.normalization_mapping[standard.lower()]
+                self.normalization_mapping[variant] = normalized_standard
+                self.normalization_mapping[variant.lower()] = normalized_standard
+        
         # 缓存意图关键词（用于推断）
         self._marker_cache = {}
         for domain in self.intent_label_loader.get_all_domains():
@@ -435,7 +452,12 @@ class IntentEvaluator:
         dialogue_metrics = {}
         if self.dialogue_intents:
             dialogue_total = len(self.dialogue_intents)
-            dialogue_correct = sum(1 for _, pred, inf in self.dialogue_intents if pred.lower() == inf.lower())
+            # 使用标准化映射进行比较，处理"预定"vs"预订"等变体
+            dialogue_correct = sum(
+                1 for _, pred, inf in self.dialogue_intents 
+                if self.normalization_mapping.get(pred.lower(), pred.lower()) == 
+                   self.normalization_mapping.get(inf.lower(), inf.lower())
+            )
             dialogue_accuracy = dialogue_correct / dialogue_total if dialogue_total > 0 else 0.0
             dialogue_metrics = {
                 'dialogue_accuracy': dialogue_accuracy,
@@ -817,18 +839,9 @@ class IntentEvaluator:
                 report.append(f"对话意图准确率: {dm['dialogue_accuracy']:.2%}")
                 report.append("")
                 
-                # 添加详细的对话列表
-                report.append("对话详细列表：")
-                report.append("")
-                report.append(f"{'对话ID':<20} {'预测意图':<20} {'真值意图':<20} {'结果':<10}")
-                report.append("-" * 70)
+                # 需求2: 移除详细对话列表，只保留汇总指标
+                # 详细列表已在每个对话评测时输出，此处不再重复
                 
-                for dialogue_id, predicted_intent, inferred_intent in self.dialogue_intents:
-                    is_correct = predicted_intent.lower() == inferred_intent.lower()
-                    result = "✓ 正确" if is_correct else "✗ 错误"
-                    report.append(f"{str(dialogue_id):<20} {predicted_intent:<20} {inferred_intent:<20} {result:<10}")
-                
-                report.append("")
                 report.append("说明：对话级别评测将整个对话作为一个单元进行意图评测")
                 report.append("")
         
@@ -910,18 +923,48 @@ class IntentEvaluator:
         accuracy = metrics.get('accuracy', 0.0)
         total_turns = metrics.get('total_turns', 0)
         
-        if total_turns == 0:
+        # 检查是否有对话级别评测数据
+        dialogue_metrics = metrics.get('dialogue_metrics', {})
+        has_dialogue_data = dialogue_metrics.get('total_dialogues', 0) > 0
+        
+        # 如果既没有轮次数据也没有对话数据，返回无评测数据
+        if total_turns == 0 and not has_dialogue_data:
             summary.append("  无评测数据")
             return "\n".join(summary)
         
-        if accuracy >= 0.8:
-            summary.append(f"  ✅ 意图识别表现优秀（准确率: {accuracy:.1%}）")
-        elif accuracy >= 0.5:
-            summary.append(f"  ⚠️  意图识别表现中等（准确率: {accuracy:.1%}）")
-        elif accuracy > 0:
-            summary.append(f"  ❌ 意图识别表现较差（准确率: {accuracy:.1%}）")
-        else:
-            summary.append(f"  ❌ 意图识别完全失败（准确率: {accuracy:.1%}）")
+        # 使用对话级别准确率（如果有）
+        if has_dialogue_data:
+            dialogue_accuracy = dialogue_metrics.get('dialogue_accuracy', 0.0)
+            total_dialogues = dialogue_metrics.get('total_dialogues', 0)
+            
+            if dialogue_accuracy >= 0.8:
+                summary.append(f"  ✅ 对话意图识别表现优秀（准确率: {dialogue_accuracy:.1%}，共{total_dialogues}个对话）")
+            elif dialogue_accuracy >= 0.5:
+                summary.append(f"  ⚠️  对话意图识别表现中等（准确率: {dialogue_accuracy:.1%}，共{total_dialogues}个对话）")
+            elif dialogue_accuracy > 0:
+                summary.append(f"  ❌ 对话意图识别表现较差（准确率: {dialogue_accuracy:.1%}，共{total_dialogues}个对话）")
+            else:
+                summary.append(f"  ❌ 对话意图识别完全失败（准确率: {dialogue_accuracy:.1%}，共{total_dialogues}个对话）")
+        elif total_turns > 0:
+            # 使用轮次级别准确率（如果没有对话数据）
+            if accuracy >= 0.8:
+                summary.append(f"  ✅ 意图识别表现优秀（准确率: {accuracy:.1%}）")
+            elif accuracy >= 0.5:
+                summary.append(f"  ⚠️  意图识别表现中等（准确率: {accuracy:.1%}）")
+            elif accuracy > 0:
+                summary.append(f"  ❌ 意图识别表现较差（准确率: {accuracy:.1%}）")
+            else:
+                summary.append(f"  ❌ 意图识别完全失败（准确率: {accuracy:.1%}）")
+        
+        # 2. 分类指标摘要（如果有）
+        macro = metrics.get('macro_metrics', {})
+        micro = metrics.get('micro_metrics', {})
+        
+        if macro and macro.get('f1', 0) > 0:
+            summary.append("")
+            summary.append("【分类指标】")
+            summary.append(f"  宏平均F1: {macro.get('f1', 0):.1%}")
+            summary.append(f"  微平均F1: {micro.get('f1', 0):.1%}")
         
         # 2. 主要问题分析
         summary.append("")

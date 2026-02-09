@@ -246,10 +246,6 @@ class DSTTransferTODTest:
             user_utterances=all_user_utterances
         )
         
-        if verbose:
-            print(f"\n--- 对话级别意图 ---")
-            print(f"对话预测意图: {dialogue_predicted_intent}")
-        
         # 计算评估指标（对齐TransferTOD论文）
         slot_accuracy = matched_slots / total_slots if total_slots > 0 else 0.0
         
@@ -258,18 +254,55 @@ class DSTTransferTODTest:
         final_expected = cumulative_expected_state
         # final_extracted 已经在上面定义
         
-        # DEBUG: 添加调试输出
-        if verbose:
-            print(f"\n--- 最终状态比较（Joint Accuracy）---")
-            print(f"最终期望状态: {final_expected}")
-            print(f"最终提取状态: {final_extracted}")
-        
         # 计算两种Joint Accuracy
         joint_accuracy_strict = self._calculate_joint_accuracy(final_expected, final_extracted, mode='strict')
         joint_accuracy_soft = self._calculate_joint_accuracy(final_expected, final_extracted, mode='soft')
         
         # 计算Precision/Recall/F1（基于slot-value pairs）- 对齐TransferTOD论文
         precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
+        
+        # 需求1: 调整输出顺序 - 先输出槽位结果，再输出意图结果
+        if verbose:
+            print("\n" + "=" * 70)
+            print("📊 对话评测结果")
+            print("=" * 70)
+            
+            # 1. 先输出槽位值结果
+            print("\n【槽位评测结果】")
+            print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
+            print(f"联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
+            print(f"联合准确率-软匹配 (Joint Accuracy Soft): {joint_accuracy_soft * 100:.2f}%")
+            print(f"精确率 (Precision): {precision * 100:.2f}%")
+            print(f"召回率 (Recall): {recall * 100:.2f}%")
+            print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
+            print(f"\n最终期望状态: {final_expected}")
+            print(f"最终提取状态: {final_extracted}")
+            
+            # 2. 再输出意图结果（包含真值意图）
+            # 先获取真值意图（从intent_evaluator推断）
+            inferred_intent, _ = self.intent_evaluator.infer_intent_from_slots(
+                domain=dialogue.domain,
+                turn_updates={},  # 不需要槽位更新
+                previous_state={},
+                user_utterance=' '.join(all_user_utterances)  # 使用所有用户话语
+            )
+            
+            print("\n【意图评测结果】")
+            print(f"预测意图: {dialogue_predicted_intent}")
+            print(f"真值意图: {inferred_intent}")
+            
+            # 使用标准化映射进行比较
+            norm_predicted = self.intent_evaluator.normalization_mapping.get(
+                dialogue_predicted_intent.lower(), dialogue_predicted_intent.lower()
+            )
+            norm_inferred = self.intent_evaluator.normalization_mapping.get(
+                inferred_intent.lower(), inferred_intent.lower()
+            )
+            is_correct = norm_predicted == norm_inferred
+            result = "✓ 正确" if is_correct else "✗ 错误"
+            print(f"评测结果: {result}")
+            print("=" * 70)
+
         
         metrics = {
             "dialogue_id": dialogue_id,
@@ -283,15 +316,6 @@ class DSTTransferTODTest:
             "matched_slots": matched_slots,
             "total_turns": total_turns,
         }
-        
-        if verbose:
-            print("\n--- 测试结果（对齐TransferTOD论文指标）---")
-            print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
-            print(f"联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
-            print(f"联合准确率-软匹配 (Joint Accuracy Soft): {joint_accuracy_soft * 100:.2f}%")
-            print(f"精确率 (Precision): {precision * 100:.2f}%")
-            print(f"召回率 (Recall): {recall * 100:.2f}%")
-            print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
         
         return metrics
     
