@@ -27,7 +27,7 @@ from benchmark.shared.intent_label_loader import get_intent_label_loader
 
 # Import DST model
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
-from contextmind.infra.llm_client import LLMClient
+from contextmind.infra.llm_client import SimpleLLMClient
 
 
 def print_header(title: str):
@@ -197,7 +197,7 @@ def main():
     if args.use_actual_dst:
         try:
             # Initialize LLM client
-            llm_client = LLMClient()
+            llm_client = SimpleLLMClient()
             if args.verbose >= 1:
                 print("✅ LLM客户端初始化成功\n")
         except Exception as e:
