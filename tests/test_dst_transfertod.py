@@ -278,6 +278,10 @@ class DSTTransferTODTest:
                 print(f"提取状态: {extracted_state}")
                 print(f"匹配数: {turn_matched}/{turn_total}")
         
+        # 计算最终提取状态（在使用前定义）
+        # 使用tracker的current_state作为最终状态（更可靠）
+        final_extracted = self.tracker.current_state if hasattr(self, 'tracker') else final_extracted_state
+        
         # 对话级别意图评测（在所有轮次处理完成后）
         # 提取对话级别的预测意图：使用出现频率最高的意图（排除'未识别'）
         dialogue_predicted_intent = '未识别'
@@ -310,9 +314,8 @@ class DSTTransferTODTest:
         
         # Joint Accuracy（对话级别，使用最终状态）- 对齐TransferTOD论文
         # 比较最终的累积状态是否完全匹配
-        # 使用tracker的current_state作为最终状态（更可靠）
         final_expected = cumulative_expected_state
-        final_extracted = self.tracker.current_state if hasattr(self, 'tracker') else final_extracted_state
+        # final_extracted 已经在上面定义
         
         # DEBUG: 添加调试输出
         if verbose:
