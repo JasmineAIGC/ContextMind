@@ -105,16 +105,18 @@ class IntentEvaluator:
         turn_id: int = 0
     ) -> Tuple[str, str]:
         """
-        从槽位变化推断意图
+        从槽位变化和用户话语推断意图
         
         重要：只返回JSON配置文件中定义的意图，不能自定义
         对于无法明确分类的情况，返回"其他"
         
+        优先使用关键词匹配，其次使用槽位模式分析
+        
         Args:
             domain: 对话领域
-            turn_updates: 当前轮次的槽位更新
+            turn_updates: 当前轮次的槽位更新（或完整对话的所有槽位）
             previous_state: 之前的状态
-            user_utterance: 用户话语
+            user_utterance: 用户话语（或所有用户话语的组合）
             turn_id: 轮次ID
             
         Returns:
@@ -128,9 +130,41 @@ class IntentEvaluator:
         # 获取领域的兜底意图（所有领域都有"其他"）
         fallback_intent = self.intent_label_loader.get_fallback_intent_name()  # "其他"
         
-        # 由于无法可靠地将槽位模式映射到特定的领域意图
-        # 我们返回"其他"作为推断意图
-        # 这确保了所有意图标签都来自JSON配置文件，不重新定义
+        # 获取该领域的所有意图
+        domain_intents = self.intent_label_loader.get_domain_intents(domain)
+        if not domain_intents:
+            return fallback_intent, "task_related"
+        
+        # 基于关键词匹配推断意图
+        if user_utterance:
+            intent_scores = {}
+            for intent in domain_intents:
+                # 跳过兜底意图，稍后处理
+                if self.intent_label_loader.is_fallback_intent(domain, intent):
+                    continue
+                
+                keywords = self.intent_label_loader.get_intent_keywords(domain, intent)
+                score = 0
+                for keyword in keywords:
+                    if keyword and keyword in user_utterance:
+                        score += 1
+                
+                if score > 0:
+                    intent_scores[intent] = score
+            
+            # 如果找到匹配的意图，返回分数最高的
+            if intent_scores:
+                best_intent = max(intent_scores.items(), key=lambda x: x[1])[0]
+                return best_intent, "task_related"
+        
+        # 如果关键词匹配失败，基于槽位模式推断
+        # 这是一个简单的启发式方法
+        if slot_updates:
+            # 有槽位更新，可能是信息提供类意图
+            # 但由于无法可靠映射，仍返回fallback
+            pass
+        
+        # 默认返回兜底意图
         return fallback_intent, "task_related"
     
     def _check_intent_by_markers(self, domain: str, intent: str, text: str) -> bool:
