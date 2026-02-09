@@ -2,12 +2,18 @@
 TransferTOD数据集适配器
 
 将TransferTOD数据集格式转换为标准化的对话实例格式。
+
+TransferTOD数据集结构:
+- data_root/data/raw_data/clean/  - 干净数据
+- data_root/data/raw_data/noise/  - 噪声数据
+- 每个JSON文件包含多个对话实例
+- dialogue_id格式: "相对路径:实例ID"，例如 "clean/1-hotel/hotel_clean_4.json:1"
 """
 
 import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -25,64 +31,253 @@ class DialogueInstance:
     dialogue_id: str
     domain: str
     turns: List[DialogueTurn]
+    description: str = ""
+    final_state: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     
 class TransferTODAdapter:
     """TransferTOD数据集适配器 - 负责加载和转换TransferTOD格式的对话数据"""
     
     def __init__(self, data_root: str = "./data/TransferTOD"):
+        """
+        初始化TransferTOD适配器
+        
+        Args:
+            data_root: TransferTOD数据集根目录路径
+        """
         self.data_root = Path(data_root)
+        self.raw_data_path = self.data_root / "data" / "raw_data"
         self.dialogue_cache = {}
+        self._all_dialogue_ids = None
         
     def load_dialogue(self, dialogue_id: str, data_type: str = "clean") -> DialogueInstance:
-        """加载单个对话"""
-        cache_key = f"{data_type}_{dialogue_id}"
-        if cache_key in self.dialogue_cache:
-            return self.dialogue_cache[cache_key]
+        """
+        加载单个对话实例
+        
+        Args:
+            dialogue_id: 格式为 "相对路径:实例ID"，例如 "clean/1-hotel/hotel_clean_4.json:1"
+                        或简单的文件路径格式（向后兼容）
+            data_type: 数据类型，用于向后兼容（如果dialogue_id不包含路径信息）
             
-        file_path = self.data_root / data_type / f"{dialogue_id}.json"
+        Returns:
+            标准化的对话实例
+        """
+        # 检查缓存
+        if dialogue_id in self.dialogue_cache:
+            return self.dialogue_cache[dialogue_id]
+        
+        # 解析 dialogue_id
+        if ":" in dialogue_id:
+            # 新格式: "clean/1-hotel/hotel_clean_4.json:1"
+            file_path_str, instance_id_str = dialogue_id.split(":")
+            instance_id = int(instance_id_str)
+            file_path = self.raw_data_path / file_path_str
+        else:
+            # 向后兼容：简单格式（假设在data_type目录下）
+            file_path = self.raw_data_path / data_type / f"{dialogue_id}.json"
+            instance_id = 0  # 默认加载第一个实例
+        
         if not file_path.exists():
             raise FileNotFoundError(f"对话文件不存在: {file_path}")
-            
+        
+        # 加载JSON文件
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            
+        
+        # 查找对应的对话实例
+        raw_dialogue = None
+        if isinstance(data, list):
+            # 数组格式：查找指定ID的实例
+            for item in data:
+                if item.get("id") == instance_id:
+                    raw_dialogue = item
+                    break
+            if raw_dialogue is None and len(data) > 0:
+                # 如果找不到指定ID，使用第一个
+                raw_dialogue = data[0]
+        else:
+            # 单个对象格式
+            raw_dialogue = data
+        
+        if raw_dialogue is None:
+            raise ValueError(f"无法从文件 {file_path} 加载对话实例")
+        
+        # 转换为标准格式
+        dialogue_instance = self._convert_to_standard_format(raw_dialogue, dialogue_id)
+        
+        # 缓存
+        self.dialogue_cache[dialogue_id] = dialogue_instance
+        
+        return dialogue_instance
+    
+    def _convert_to_standard_format(self, raw_dialogue: Dict, dialogue_id: str) -> DialogueInstance:
+        """
+        将TransferTOD原始格式转换为标准格式
+        
+        TransferTOD格式:
+        {
+            "id": 1,
+            "task": "酒店",
+            "extract_slot": 4,
+            "content": [
+                {
+                    "Turn": 0,
+                    "origin_slots": {"姓名": null, "入住日期": null, ...},
+                    "conversations": [
+                        {"from": "user", "value": ""},
+                        {"from": "assistant", "value": "您的名字是什么？..."}
+                    ],
+                    "new_slots": {"姓名": null, "入住日期": null, ...}
+                },
+                ...
+            ]
+        }
+        """
+        domain = raw_dialogue.get("task", "未知")
+        extract_slot = raw_dialogue.get("extract_slot", 0)
+        description = f"{domain}场景对话 (extract_slot={extract_slot})"
+        
         turns = []
-        for turn_data in data.get("turns", []):
-            turn = DialogueTurn(
-                turn_id=turn_data["turn_id"],
-                user_utterance=turn_data["user"],
-                system_utterance=turn_data.get("system", ""),
-                expected_slots=turn_data.get("slots", {})
-            )
-            turns.append(turn)
+        final_state = {}
+        
+        # 遍历每一轮对话
+        for turn_data in raw_dialogue.get("content", []):
+            turn_id = turn_data.get("Turn", 0)
             
-        dialogue = DialogueInstance(
+            # 提取对话文本
+            conversations = turn_data.get("conversations", [])
+            user_utterance = ""
+            assistant_utterance = ""
+            
+            for conv in conversations:
+                if conv.get("from") == "user":
+                    user_utterance = conv.get("value", "")
+                elif conv.get("from") == "assistant":
+                    assistant_utterance = conv.get("value", "")
+            
+            # 提取槽位变化
+            origin_slots = turn_data.get("origin_slots", {})
+            new_slots = turn_data.get("new_slots", {})
+            expected_slots = self._extract_slot_changes(origin_slots, new_slots)
+            
+            # 创建DialogueTurn
+            dialogue_turn = DialogueTurn(
+                turn_id=turn_id,
+                system_utterance=assistant_utterance,
+                user_utterance=user_utterance,
+                expected_slots=expected_slots
+            )
+            turns.append(dialogue_turn)
+            
+            # 更新final_state为最新的槽位状态
+            final_state = new_slots.copy()
+        
+        # 创建DialogueInstance
+        dialogue_instance = DialogueInstance(
             dialogue_id=dialogue_id,
-            domain=data.get("domain", "未知"),
-            turns=turns
+            domain=domain,
+            description=description,
+            turns=turns,
+            final_state=final_state,
+            metadata={
+                "extract_slot": extract_slot,
+                "original_id": raw_dialogue.get("id")
+            }
         )
         
-        self.dialogue_cache[cache_key] = dialogue
-        return dialogue
+        return dialogue_instance
+    
+    def _extract_slot_changes(self, origin_slots: Dict, new_slots: Dict) -> Dict:
+        """
+        提取本轮变化的槽位
+        
+        Args:
+            origin_slots: 本轮开始时的槽位状态
+            new_slots: 本轮结束后的槽位状态
+        
+        Returns:
+            本轮新增或变化的槽位 (只包含非null的值)
+        """
+        changes = {}
+        for key, new_value in new_slots.items():
+            old_value = origin_slots.get(key)
+            # 只记录有变化且新值非null的槽位
+            if new_value != old_value and new_value is not None:
+                changes[key] = new_value
+        return changes
         
     def list_dialogues(self, data_type: str = "clean", domain: Optional[str] = None) -> List[str]:
-        """列出所有对话ID"""
-        data_dir = self.data_root / data_type
+        """
+        列出所有对话ID
+        
+        Args:
+            data_type: 数据类型 ("clean" 或 "noise")
+            domain: 领域过滤，None表示所有领域
+            
+        Returns:
+            对话ID列表，格式为 "相对路径:实例ID"
+        """
+        data_dir = self.raw_data_path / data_type
         if not data_dir.exists():
             return []
             
         dialogue_ids = []
-        for file_path in data_dir.glob("*.json"):
-            dialogue_id = file_path.stem
-            if domain:
-                try:
-                    dialogue = self.load_dialogue(dialogue_id, data_type)
-                    if dialogue.domain == domain:
-                        dialogue_ids.append(dialogue_id)
-                except:
-                    continue
-            else:
-                dialogue_ids.append(dialogue_id)
+        
+        # 遍历所有JSON文件
+        for json_file in data_dir.rglob("*.json"):
+            # 计算相对路径
+            relative_path = json_file.relative_to(self.raw_data_path)
+            
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # 处理列表格式
+                if isinstance(data, list):
+                    for item in data:
+                        instance_id = item.get("id")
+                        if instance_id is not None:
+                            dialogue_id = f"{relative_path}:{instance_id}"
+                            
+                            # 域过滤
+                            if domain:
+                                item_domain = item.get("task", "未知")
+                                if item_domain != domain:
+                                    continue
+                            
+                            dialogue_ids.append(dialogue_id)
+                else:
+                    # 单个对象格式
+                    dialogue_id = str(relative_path)
+                    
+                    # 域过滤
+                    if domain:
+                        item_domain = data.get("task", "未知")
+                        if item_domain != domain:
+                            continue
+                    
+                    dialogue_ids.append(dialogue_id)
+                    
+            except Exception as e:
+                print(f"Warning: 加载文件失败 {json_file}: {e}")
+                continue
                 
         return sorted(dialogue_ids)
+    
+    def get_all_dialogue_ids(self) -> List[str]:
+        """
+        获取所有对话ID列表（clean和noise）
+        
+        Returns:
+            所有对话ID列表
+        """
+        if self._all_dialogue_ids is not None:
+            return self._all_dialogue_ids
+        
+        dialogue_ids = []
+        for data_type in ["clean", "noise"]:
+            dialogue_ids.extend(self.list_dialogues(data_type=data_type))
+        
+        self._all_dialogue_ids = dialogue_ids
+        return dialogue_ids

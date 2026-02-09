@@ -16,7 +16,7 @@ def main():
     parser.add_argument("--domain", type=str, default=None, help="评测的领域")
     parser.add_argument("--limit", type=int, default=None, help="限制对话数量")
     parser.add_argument("--data-type", type=str, default="clean", choices=["clean", "noise"])
-    parser.add_argument("--data-root", type=str, default=".data/TransferTOD/")
+    parser.add_argument("--data-root", type=str, default="./data/TransferTOD")
     
     args = parser.parse_args()
     
