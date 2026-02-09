@@ -58,6 +58,7 @@ class IntentEvaluator:
         self.predictions = []  # [(predicted_intent, inferred_intent), ...]
         self.turn_details = []  # 每轮详细信息
         self.intent_transitions = []  # 意图转换序列
+        self.dialogue_intents = []  # 对话级别的意图预测: [(dialogue_id, predicted_intent, inferred_intent)]
         
         # 加载意图标签加载器
         self.intent_label_loader = intent_label_loader or get_intent_label_loader()
@@ -125,7 +126,7 @@ class IntentEvaluator:
         slot_updates = {k: v for k, v in turn_updates.items() if k != 'intent'}
         
         # 获取领域的兜底意图（所有领域都有"其他"）
-        fallback_intent = self.intent_label_loader.other_intent_name  # "其他"
+        fallback_intent = self.intent_label_loader.get_fallback_intent_name()  # "其他"
         
         # 由于无法可靠地将槽位模式映射到特定的领域意图
         # 我们返回"其他"作为推断意图
@@ -312,6 +313,63 @@ class IntentEvaluator:
         
         return detail
     
+    def add_dialogue_evaluation(
+        self,
+        dialogue_id: str,
+        domain: str,
+        predicted_intent: str,
+        dialogue_slots: Dict[str, Any],
+        user_utterances: List[str] = None
+    ) -> Dict[str, Any]:
+        """
+        添加对话级别的意图评测（新方法）
+        
+        这是一个简化的评测方法：每个对话有一个整体意图，
+        通过对话的完整槽位信息和用户话语推断意图。
+        
+        Args:
+            dialogue_id: 对话ID
+            domain: 领域名称
+            predicted_intent: DST预测的对话意图
+            dialogue_slots: 对话中提取的所有槽位
+            user_utterances: 用户话语列表（可选）
+            
+        Returns:
+            评测详情
+        """
+        # 推断对话的整体意图
+        # 这里可以使用第一轮的推断或整体槽位的推断
+        combined_utterance = ' '.join(user_utterances) if user_utterances else ""
+        inferred_intent, task_relevance = self.infer_intent_from_slots(
+            domain,
+            dialogue_slots,
+            {},  # 对话级别没有previous_state
+            combined_utterance,
+            turn_id=0
+        )
+        
+        # 标准化
+        predicted_normalized = self.normalization_mapping.get(predicted_intent.lower(), predicted_intent.lower())
+        inferred_normalized = self.normalization_mapping.get(inferred_intent.lower(), inferred_intent.lower())
+        
+        # 判断是否正确
+        is_correct = (predicted_normalized == inferred_normalized)
+        
+        # 记录对话级别的意图
+        detail = {
+            'dialogue_id': dialogue_id,
+            'domain': domain,
+            'predicted_intent': predicted_intent,
+            'inferred_intent': inferred_intent,
+            'task_relevance': task_relevance,
+            'correct': is_correct,
+            'dialogue_slots': dialogue_slots.copy()
+        }
+        
+        self.dialogue_intents.append((dialogue_id, predicted_intent, inferred_intent))
+        
+        return detail
+    
     def calculate_metrics(self) -> Dict[str, Any]:
         """
         计算意图评测指标（v2.0 - 增强版）
@@ -375,6 +433,18 @@ class IntentEvaluator:
             intent = d['inferred_intent']
             phase_intent_dist[phase][intent] += 1
         
+        # 对话级别统计（新增）
+        dialogue_metrics = {}
+        if self.dialogue_intents:
+            dialogue_total = len(self.dialogue_intents)
+            dialogue_correct = sum(1 for _, pred, inf in self.dialogue_intents if pred.lower() == inf.lower())
+            dialogue_accuracy = dialogue_correct / dialogue_total if dialogue_total > 0 else 0.0
+            dialogue_metrics = {
+                'dialogue_accuracy': dialogue_accuracy,
+                'total_dialogues': dialogue_total,
+                'correct_dialogues': dialogue_correct
+            }
+        
         return {
             'accuracy': accuracy,
             'total_turns': total,
@@ -388,7 +458,8 @@ class IntentEvaluator:
             'transition_count': len(self.intent_transitions),
             'phase_distribution': dict(phase_dist),
             'task_relevance_stats': dict(task_relevance_dist),
-            'phase_intent_distribution': {k: dict(v) for k, v in phase_intent_dist.items()}
+            'phase_intent_distribution': {k: dict(v) for k, v in phase_intent_dist.items()},
+            'dialogue_metrics': dialogue_metrics
         }
     
     def plot_confusion_matrix(self, output_path: str = "confusion_matrix.png") -> Optional[str]:
@@ -416,7 +487,7 @@ class IntentEvaluator:
             return None
         
         # 使用配置的意图聚合映射
-        intent_mapping = self.intent_config.get_aggregation_mapping()
+        intent_mapping = self.aggregation_mapping
         
         # 聚合混淆矩阵到高层次类别
         aggregated_confusion = defaultdict(lambda: defaultdict(int))
@@ -530,7 +601,7 @@ class IntentEvaluator:
             
             # 使用配置的标准化映射检查
             normalized_predictions = set(
-                self.intent_config.normalize_intent(p) 
+                self.normalization_mapping.get(p.lower(), p.lower())
                 for p in unique_predictions
             )
             
@@ -607,9 +678,140 @@ class IntentEvaluator:
             
             report.append("")
         
+        # 添加对话级别意图评测（如果有）
+        if metrics.get('dialogue_metrics'):
+            dm = metrics['dialogue_metrics']
+            if dm.get('total_dialogues', 0) > 0:
+                report.append("-" * 70)
+                report.append("对话级别意图评测")
+                report.append("-" * 70)
+                report.append(f"总对话数: {dm['total_dialogues']}")
+                report.append(f"正确对话: {dm['correct_dialogues']}")
+                report.append(f"对话意图准确率: {dm['dialogue_accuracy']:.2%}")
+                report.append("")
+                report.append("说明：对话级别评测将整个对话作为一个单元进行意图评测")
+                report.append("")
+        
+        # 添加综合分析总结
+        report.append("=" * 70)
+        report.append("📋 综合分析总结")
+        report.append("=" * 70)
+        report.append("")
+        report.append(self._generate_summary_analysis(metrics))
+        report.append("")
+        
         report.append("=" * 70)
         
         return "\n".join(report)
+    
+    def _generate_summary_analysis(self, metrics: Dict[str, Any]) -> str:
+        """
+        生成综合分析总结
+        
+        Args:
+            metrics: 计算出的评测指标
+            
+        Returns:
+            格式化的分析总结字符串
+        """
+        summary = []
+        
+        # 1. 整体评估
+        summary.append("【整体评估】")
+        accuracy = metrics.get('accuracy', 0.0)
+        total_turns = metrics.get('total_turns', 0)
+        
+        if total_turns == 0:
+            summary.append("  无评测数据")
+            return "\n".join(summary)
+        
+        if accuracy >= 0.8:
+            summary.append(f"  ✅ 意图识别表现优秀（准确率: {accuracy:.1%}）")
+        elif accuracy >= 0.5:
+            summary.append(f"  ⚠️  意图识别表现中等（准确率: {accuracy:.1%}）")
+        elif accuracy > 0:
+            summary.append(f"  ❌ 意图识别表现较差（准确率: {accuracy:.1%}）")
+        else:
+            summary.append(f"  ❌ 意图识别完全失败（准确率: {accuracy:.1%}）")
+        
+        # 2. 主要问题分析
+        summary.append("")
+        summary.append("【主要问题】")
+        
+        if accuracy == 0:
+            predicted_intents = [pred for pred, _ in self.predictions]
+            unique_predictions = set(predicted_intents)
+            normalized_predictions = set(
+                self.normalization_mapping.get(p.lower(), p.lower())
+                for p in unique_predictions
+            )
+            
+            if normalized_predictions == {'unknown'} or len(unique_predictions) == 1:
+                summary.append("  • DST模型未配置意图提取功能")
+                summary.append("  • 所有预测都是相同的默认值")
+            else:
+                summary.append("  • 预测意图与标准意图标签格式不匹配")
+                summary.append(f"  • 发现 {len(unique_predictions)} 种不同的预测意图")
+        elif accuracy < 0.5:
+            # 分析错误模式
+            error_patterns = metrics.get('error_patterns', {})
+            if error_patterns:
+                top_error = list(error_patterns.items())[0]
+                summary.append(f"  • 最常见的错误: 预测为'{top_error[0][0]}'实际为'{top_error[0][1]}'（{top_error[1]}次）")
+        else:
+            summary.append("  • 无重大问题")
+        
+        # 3. 意图分布分析
+        summary.append("")
+        summary.append("【意图分布】")
+        inferred_dist = metrics.get('inferred_distribution', {})
+        predicted_dist = metrics.get('predicted_distribution', {})
+        
+        if inferred_dist:
+            top_inferred = sorted(inferred_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+            summary.append("  推断意图分布:")
+            for intent, count in top_inferred:
+                percentage = count / total_turns * 100
+                summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
+        
+        if predicted_dist and len(predicted_dist) > 1:
+            top_predicted = sorted(predicted_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+            summary.append("  预测意图分布:")
+            for intent, count in top_predicted:
+                percentage = count / total_turns * 100
+                summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
+        
+        # 4. 对话阶段分析
+        phase_dist = metrics.get('phase_distribution', {})
+        if phase_dist:
+            summary.append("")
+            summary.append("【对话阶段分布】")
+            for phase, count in sorted(phase_dist.items(), key=lambda x: x[1], reverse=True):
+                percentage = count / total_turns * 100
+                summary.append(f"  • {phase}: {count}轮 ({percentage:.1f}%)")
+        
+        # 5. 改进建议
+        summary.append("")
+        summary.append("【改进建议】")
+        
+        if accuracy == 0:
+            summary.append("  1. 检查DST配置，确保启用了意图提取功能")
+            summary.append("  2. 确认意图标签格式与配置文件一致")
+            summary.append("  3. 验证意图标准化映射的完整性")
+        elif accuracy < 0.3:
+            summary.append("  1. 重新审视意图推断逻辑，确保符合实际场景")
+            summary.append("  2. 检查意图关键词配置是否准确")
+            summary.append("  3. 考虑增强意图识别的prompt指令")
+        elif accuracy < 0.6:
+            summary.append("  1. 分析混淆矩阵，找出易混淆的意图对")
+            summary.append("  2. 优化关键词和描述，增强意图区分度")
+            summary.append("  3. 考虑引入上下文信息辅助意图判断")
+        else:
+            summary.append("  1. 继续保持当前配置")
+            summary.append("  2. 可以尝试进一步优化细节以提升准确率")
+            summary.append("  3. 关注低频意图的识别效果")
+        
+        return "\n".join(summary)
     
     def reset(self):
         """
@@ -618,4 +820,4 @@ class IntentEvaluator:
         self.predictions = []
         self.turn_details = []
         self.intent_transitions = []
-        self.current_phase = DialoguePhase.OPENING
+        self.dialogue_intents = []
