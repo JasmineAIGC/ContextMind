@@ -50,6 +50,7 @@ class TransferTODAdapter:
         self.raw_data_path = self.data_root / "data" / "raw_data"
         self.dialogue_cache = {}
         self._all_dialogue_ids = None
+        self._schema_cache = {}  # 缓存领域schema
         
     def load_dialogue(self, dialogue_id: str, data_type: str = "clean") -> DialogueInstance:
         """
@@ -281,3 +282,86 @@ class TransferTODAdapter:
         
         self._all_dialogue_ids = dialogue_ids
         return dialogue_ids
+    
+    def get_domain_schema(self, domain: str) -> Dict[str, Any]:
+        """
+        获取指定领域的槽位Schema
+        
+        从该领域的所有对话中自动提取槽位信息。
+        收集所有轮次中出现的槽位，而不仅仅是final_state。
+        
+        Args:
+            domain: 领域名称（如"酒店"、"餐厅"等）
+            
+        Returns:
+            领域的Schema定义
+        """
+        # 检查缓存
+        if domain in self._schema_cache:
+            return self._schema_cache[domain]
+        
+        # 收集该领域的所有槽位
+        slots = set()
+        
+        # 遍历所有对话
+        for dialogue_id in self.get_all_dialogue_ids():
+            try:
+                dialogue = self.load_dialogue(dialogue_id)
+                if dialogue.domain == domain:
+                    # 从所有轮次的expected_slots收集槽位
+                    for turn in dialogue.turns:
+                        slots.update(turn.expected_slots.keys())
+                    # 也从final_state收集槽位
+                    slots.update(dialogue.final_state.keys())
+            except Exception:
+                continue
+        
+        # 构建Schema
+        schema = {
+            "domain": domain,
+            "slots": {}
+        }
+        
+        for slot_name in sorted(slots):
+            schema["slots"][slot_name] = {
+                "type": "string",
+                "description": f"{slot_name}信息"
+            }
+        
+        # 缓存
+        self._schema_cache[domain] = schema
+        
+        return schema
+    
+    def get_dialogues_by_domain(self, domain: str = None, data_type: str = None) -> List[str]:
+        """
+        获取指定领域和数据类型的对话ID列表
+        
+        Args:
+            domain: 领域名称，None表示所有领域
+            data_type: 数据类型，"clean"、"noise" 或 None (所有类型)
+            
+        Returns:
+            符合条件的对话ID列表
+        """
+        matching_ids = []
+        
+        for dialogue_id in self.get_all_dialogue_ids():
+            # 检查数据类型
+            if data_type is not None:
+                if not dialogue_id.startswith(f"{data_type}/"):
+                    continue
+            
+            # 检查领域
+            if domain is not None:
+                try:
+                    dialogue = self.load_dialogue(dialogue_id)
+                    if dialogue.domain == domain:
+                        matching_ids.append(dialogue_id)
+                except Exception:
+                    continue
+            else:
+                # domain=None 表示所有领域
+                matching_ids.append(dialogue_id)
+        
+        return matching_ids
