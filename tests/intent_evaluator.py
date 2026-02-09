@@ -107,10 +107,10 @@ class IntentEvaluator:
         """
         从槽位变化和用户话语推断意图
         
-        重要：只返回JSON配置文件中定义的意图，不能自定义
-        对于无法明确分类的情况，返回"其他"
+        重要：只返回JSON配置文件中定义的意图，优先返回领域定义的具体意图
+        尽量避免返回"其他"，只有在完全无法判断时才返回
         
-        优先使用关键词匹配，其次使用槽位模式分析
+        优先使用关键词匹配，其次使用槽位模式分析，最后使用领域默认意图
         
         Args:
             domain: 对话领域
@@ -130,19 +130,21 @@ class IntentEvaluator:
         # 获取领域的兜底意图（所有领域都有"其他"）
         fallback_intent = self.intent_label_loader.get_fallback_intent_name()  # "其他"
         
-        # 获取该领域的所有意图
+        # 获取该领域的所有意图（排除"其他"）
         domain_intents = self.intent_label_loader.get_domain_intents(domain)
         if not domain_intents:
             return fallback_intent, "task_related"
         
-        # 基于关键词匹配推断意图
+        # 获取非兜底的意图列表
+        non_fallback_intents = [
+            intent for intent in domain_intents 
+            if not self.intent_label_loader.is_fallback_intent(domain, intent)
+        ]
+        
+        # 策略1: 基于关键词匹配推断意图
         if user_utterance:
             intent_scores = {}
-            for intent in domain_intents:
-                # 跳过兜底意图，稍后处理
-                if self.intent_label_loader.is_fallback_intent(domain, intent):
-                    continue
-                
+            for intent in non_fallback_intents:
                 keywords = self.intent_label_loader.get_intent_keywords(domain, intent)
                 score = 0
                 for keyword in keywords:
@@ -157,14 +159,18 @@ class IntentEvaluator:
                 best_intent = max(intent_scores.items(), key=lambda x: x[1])[0]
                 return best_intent, "task_related"
         
-        # 如果关键词匹配失败，基于槽位模式推断
-        # 这是一个简单的启发式方法
-        if slot_updates:
-            # 有槽位更新，可能是信息提供类意图
-            # 但由于无法可靠映射，仍返回fallback
-            pass
+        # 策略2: 如果有槽位更新但无关键词匹配，使用领域的第一个主要意图
+        # 这避免了返回"其他"，而是返回一个合理的默认意图
+        if slot_updates and non_fallback_intents:
+            # 返回领域的第一个非兜底意图作为默认意图
+            # 通常配置文件中第一个意图是该领域最常见的意图
+            return non_fallback_intents[0], "task_related"
         
-        # 默认返回兜底意图
+        # 策略3: 即使没有槽位，如果有用户话语，也返回第一个主要意图
+        if user_utterance and non_fallback_intents:
+            return non_fallback_intents[0], "task_related"
+        
+        # 只有在完全没有信息时才返回兜底意图
         return fallback_intent, "task_related"
     
     def _check_intent_by_markers(self, domain: str, intent: str, text: str) -> bool:

@@ -132,6 +132,10 @@ class DSTTransferTODTest:
         # 上一轮状态（用于意图推断）
         previous_state = {}
         
+        # 收集对话级别意图评测所需数据
+        all_user_utterances = []
+        all_predicted_intents = []
+        
         # 逐轮测试
         for turn in dialogue.turns:
             if verbose:
@@ -146,24 +150,15 @@ class DSTTransferTODTest:
                     user_utterance=turn.user_utterance
                 )
                 
+                # 收集用户话语用于对话级别意图推断
+                all_user_utterances.append(turn.user_utterance)
+                
                 # 获取本轮的turn_updates（包含预测的意图）
                 if self.tracker.dialogue_history:
                     last_turn = self.tracker.dialogue_history[-1]
                     turn_updates = last_turn.turn_updates
                     predicted_intent = turn_updates.get('intent', '未识别')
-                    
-                    # 意图评测：添加本轮评测
-                    total_turns = len(dialogue.turns)
-                    self.intent_evaluator.add_turn_evaluation(
-                        domain=dialogue.domain,  # 添加领域参数
-                        turn_id=turn.turn_id,
-                        predicted_intent=predicted_intent,
-                        turn_updates=turn.expected_slots,  # 使用expected_slots作为ground truth的槽位变化
-                        previous_state=previous_state,
-                        user_utterance=turn.user_utterance,
-                        dialogue_id=dialogue_id,
-                        total_turns=total_turns  # 添加total_turns参数
-                    )
+                    all_predicted_intents.append(predicted_intent)
                     
                     if verbose:
                         # 推断意图用于显示（正确解包tuple）
@@ -223,6 +218,33 @@ class DSTTransferTODTest:
                 print(f"期望状态: {expected}")
                 print(f"提取状态: {extracted_state}")
                 print(f"匹配数: {turn_matched}/{turn_total}")
+        
+        # 对话级别意图评测（在所有轮次处理完成后）
+        # 提取对话级别的预测意图：使用出现频率最高的意图（排除'未识别'）
+        dialogue_predicted_intent = '未识别'
+        if all_predicted_intents:
+            # 统计意图出现频率
+            from collections import Counter
+            intent_counter = Counter([intent for intent in all_predicted_intents if intent != '未识别'])
+            if intent_counter:
+                # 取最常见的意图
+                dialogue_predicted_intent = intent_counter.most_common(1)[0][0]
+            elif all_predicted_intents:
+                # 如果全部都是'未识别'，则使用第一个非'未识别'的，否则使用'未识别'
+                dialogue_predicted_intent = all_predicted_intents[0]
+        
+        # 添加对话级别意图评测
+        self.intent_evaluator.add_dialogue_evaluation(
+            dialogue_id=dialogue_id,
+            domain=dialogue.domain,
+            predicted_intent=dialogue_predicted_intent,
+            dialogue_slots=final_extracted,  # 使用最终提取的槽位
+            user_utterances=all_user_utterances
+        )
+        
+        if verbose:
+            print(f"\n--- 对话级别意图 ---")
+            print(f"对话预测意图: {dialogue_predicted_intent}")
         
         # 计算评估指标（对齐TransferTOD论文）
         slot_accuracy = matched_slots / total_slots if total_slots > 0 else 0.0
@@ -509,10 +531,15 @@ async def main():
         
         # 输出意图评测报告
         print("\n" + "=" * 70)
-        print("🎯 意图评测报告")
+        print("🎯 对话级别意图评测报告")
         print("=" * 70)
         print()
-        print("说明：由于TransferTOD数据集没有显式意图标签，我们通过槽位变化模式推断隐式意图。")
+        print("说明：")
+        print("  - 评测粒度：对话级别（整个多轮对话作为一个评测单元）")
+        print("  - 预测意图提取：取对话中出现最频繁的意图（排除'未识别'）")
+        print("  - 标签意图推断：基于用户所有话语的关键词匹配推断对话整体意图")
+        print("  - 改进策略：尽量避免返回'其他'，优先返回领域定义的具体意图")
+        print("  - TransferTOD数据集无显式意图标注，推断意图仅供参考")
         print()
         print(test.intent_evaluator.get_detailed_report(
             save_confusion_plot=True,
@@ -522,9 +549,8 @@ async def main():
         
         print()
         print("说明：")
-        print("  - Strict JA = 0% 说明模型总是预测了额外的槽位")
-        print("  - Soft JA > 0% 说明模型能找到所有期望槽位（但可能过度预测）")
-        print("  - 如果 Soft JA 高但 Strict JA 低，说明模型倾向于过度预测")
+        print("  - 对话级别意图评测聚焦于整个对话的意图识别能力")
+        print("  - 不对单个轮次的意图做评测，只评测对话整体意图")
         print()
 
 
