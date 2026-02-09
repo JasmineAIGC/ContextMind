@@ -107,8 +107,8 @@ class IntentEvaluator:
         """
         从槽位变化和用户话语推断意图
         
-        重要：只返回JSON配置文件中定义的意图，优先返回领域定义的具体意图
-        尽量避免返回"其他"，只有在完全无法判断时才返回
+        重要：只返回JSON配置文件中定义的意图，绝不返回"其他"作为意图真值
+        意图真值必须是领域定义的具体意图类别（排除"其他"）
         
         优先使用关键词匹配，其次使用槽位模式分析，最后使用领域默认意图
         
@@ -121,7 +121,7 @@ class IntentEvaluator:
             
         Returns:
             (intent, task_relevance) 元组
-            intent: 意图名称（来自JSON配置）
+            intent: 意图名称（来自JSON配置，绝不为"其他"）
             task_relevance: 任务相关性
         """
         # 过滤掉'intent'槽位本身
@@ -170,7 +170,13 @@ class IntentEvaluator:
         if user_utterance and non_fallback_intents:
             return non_fallback_intents[0], "task_related"
         
-        # 只有在完全没有信息时才返回兜底意图
+        # 策略4: 在所有其他情况下，都返回领域的第一个主要意图
+        # 绝不返回"其他"作为推断的意图真值
+        # 这确保意图真值总是领域定义的具体意图类别
+        if non_fallback_intents:
+            return non_fallback_intents[0], "task_related"
+        
+        # 只有在领域没有定义任何具体意图时才返回兜底（理论上不应发生）
         return fallback_intent, "task_related"
     
     def _check_intent_by_markers(self, domain: str, intent: str, text: str) -> bool:
