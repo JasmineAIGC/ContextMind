@@ -732,15 +732,21 @@ class IntentEvaluator:
         report.append("=" * 70)
         report.append("")
         
-        # 总体准确率（仅核心数值）
-        report.append(f"总轮次数: {metrics['total_turns']}")
-        report.append(f"正确轮次: {metrics['correct_turns']}")
-        report.append(f"意图准确率: {metrics['accuracy']:.2%}")
-        report.append("")
+        # 检查是否只有对话级别数据（没有轮次数据）
+        has_dialogue_only = (metrics['total_turns'] == 0 and 
+                            metrics.get('dialogue_metrics', {}).get('total_dialogues', 0) > 0)
         
-        # 添加说明
-        report.append("说明：")
-        report.append("  - 意图准确率: 预测意图与推断意图完全一致的轮次占比")
+        # 如果只有对话级别数据，跳过轮次统计
+        if not has_dialogue_only:
+            # 总体准确率（仅核心数值）
+            report.append(f"总轮次数: {metrics['total_turns']}")
+            report.append(f"正确轮次: {metrics['correct_turns']}")
+            report.append(f"意图准确率: {metrics['accuracy']:.2%}")
+            report.append("")
+            
+            # 添加说明
+            report.append("说明：")
+            report.append("  - 意图准确率: 预测意图与推断意图完全一致的轮次占比")
         
         # 如果准确率为0%，添加诊断信息
         if metrics['accuracy'] == 0 and metrics['total_turns'] > 0:
@@ -996,31 +1002,58 @@ class IntentEvaluator:
         # 3. 意图分布分析
         summary.append("")
         summary.append("【意图分布】")
-        inferred_dist = metrics.get('inferred_distribution', {})
-        predicted_dist = metrics.get('predicted_distribution', {})
         
-        if inferred_dist:
-            top_inferred = sorted(inferred_dist.items(), key=lambda x: x[1], reverse=True)[:3]
-            summary.append("  推断意图分布:")
-            for intent, count in top_inferred:
-                percentage = count / total_turns * 100
-                summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
+        # 优先使用对话级别数据，如果不存在则使用轮次数据
+        if has_dialogue_data and self.dialogue_intents:
+            # 使用对话级别数据
+            inferred_intents = [inf for _, _, inf in self.dialogue_intents]
+            predicted_intents = [pred for _, pred, _ in self.dialogue_intents]
+            total_count = len(self.dialogue_intents)
+            
+            inferred_dist = Counter(inferred_intents)
+            predicted_dist = Counter(predicted_intents)
+            
+            if inferred_dist:
+                top_inferred = sorted(inferred_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+                summary.append("  推断意图分布:")
+                for intent, count in top_inferred:
+                    percentage = count / total_count * 100
+                    summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
+            
+            if predicted_dist and len(predicted_dist) > 1:
+                top_predicted = sorted(predicted_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+                summary.append("  预测意图分布:")
+                for intent, count in top_predicted:
+                    percentage = count / total_count * 100
+                    summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
+        elif total_turns > 0:
+            # 使用轮次级别数据（如果没有对话数据）
+            inferred_dist = metrics.get('inferred_distribution', {})
+            predicted_dist = metrics.get('predicted_distribution', {})
+            
+            if inferred_dist:
+                top_inferred = sorted(inferred_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+                summary.append("  推断意图分布:")
+                for intent, count in top_inferred:
+                    percentage = count / total_turns * 100
+                    summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
+            
+            if predicted_dist and len(predicted_dist) > 1:
+                top_predicted = sorted(predicted_dist.items(), key=lambda x: x[1], reverse=True)[:3]
+                summary.append("  预测意图分布:")
+                for intent, count in top_predicted:
+                    percentage = count / total_turns * 100
+                    summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
         
-        if predicted_dist and len(predicted_dist) > 1:
-            top_predicted = sorted(predicted_dist.items(), key=lambda x: x[1], reverse=True)[:3]
-            summary.append("  预测意图分布:")
-            for intent, count in top_predicted:
-                percentage = count / total_turns * 100
-                summary.append(f"    - {intent}: {count}次 ({percentage:.1f}%)")
-        
-        # 4. 对话阶段分析
-        phase_dist = metrics.get('phase_distribution', {})
-        if phase_dist:
-            summary.append("")
-            summary.append("【对话阶段分布】")
-            for phase, count in sorted(phase_dist.items(), key=lambda x: x[1], reverse=True):
-                percentage = count / total_turns * 100
-                summary.append(f"  • {phase}: {count}轮 ({percentage:.1f}%)")
+        # 4. 对话阶段分析（只在有轮次数据时显示）
+        if total_turns > 0:
+            phase_dist = metrics.get('phase_distribution', {})
+            if phase_dist:
+                summary.append("")
+                summary.append("【对话阶段分布】")
+                for phase, count in sorted(phase_dist.items(), key=lambda x: x[1], reverse=True):
+                    percentage = count / total_turns * 100
+                    summary.append(f"  • {phase}: {count}轮 ({percentage:.1f}%)")
         
         # 5. 改进建议
         summary.append("")
