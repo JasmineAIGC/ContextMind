@@ -648,4 +648,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+        sys.exit(0)  # 成功退出
+    except KeyboardInterrupt:
+        print("\n\n⚠️  用户中断执行")
+        sys.exit(130)  # 标准的中断退出码
+    except Exception as e:
+        print(f"\n\n❌ 执行失败: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)  # 错误退出
