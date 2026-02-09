@@ -28,8 +28,8 @@ class IntentLabelLoader:
             config_path: 意图标签JSON文件路径
         """
         if config_path is None:
-            # 默认路径相对于当前文件
-            config_path = Path(__file__).parent / "configs" / "intent_labels_30_domains_Version2.json"
+            # 使用benchmark中的共享配置
+            config_path = Path(__file__).parent.parent / "benchmark" / "shared" / "configs" / "intent_labels_30_domains_Version2.json"
         
         self.config_path = Path(config_path)
         self.config = self._load_config()

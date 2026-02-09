@@ -44,7 +44,8 @@ class DomainIntentConfigLoader:
     def load(cls, config_path: Optional[str] = None) -> DomainIntentConfig:
         if cls._config is None or config_path:
             if config_path is None:
-                config_path = Path(__file__).parent / "configs" / "intent_labels_30_domains_Version2.json"
+                # 使用benchmark/shared/configs/中的共享配置
+                config_path = Path(__file__).parent.parent.parent / "shared" / "configs" / "intent_labels_30_domains_Version2.json"
             else:
                 config_path = Path(config_path)
                 
