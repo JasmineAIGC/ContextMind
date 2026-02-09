@@ -1,137 +1,224 @@
-python tests/test_dst_transfertod.py --domain 酒店 --data-type clean --limit 10 --data-root .data/TransferTOD/
-📝 日志将自动保存到: logs/evolve_20260205_193258.log
+python benchmark/run_dst_transfertod.py --data-type clean --limit 10 --data-root ./.data/TransferTOD/
+📝 日志将自动保存到: logs/evolve_20260209_152812.log
 ======================================================================
-DST 模式测试 - TransferTOD 数据集 (酒店)
+DST 模式测试 - TransferTOD 数据集
+领域: 所有领域, 数据类型: clean
 ======================================================================
+[2026-02-09 15:28:12] INFO - [benchmark.shared.intent_label_loader] 已加载 30 个领域的意图标签
 
-找到 200 个对话实例
+找到 6000 个对话实例
 限制测试数量: 10
-[2026-02-05 19:33:24] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-05 19:33:24] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
-[2026-02-05 19:33:24] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-05 19:33:29] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=酒店, 动态槽位=True)
-[2026-02-05 19:33:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-05 19:33:29] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 酒店
-[2026-02-05 19:33:29] INFO - [__main__]    动态槽位模式: 启用（接受所有LLM提取的槽位）
-[2026-02-05 19:33:29] INFO - [__main__]    预定义槽位数: 10
-[2026-02-05 19:33:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询酒店星级', '酒店星级': '?'}, 意图=咨询酒店星级
-[2026-02-05 19:33:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '?'}, 意图=预订酒店
-[2026-02-05 19:33:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': '有SPA', '房间类型': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': '有SPA', '房间类型': '吸烟房', '入住时长': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预订酒店', '酒店星级': '1', '身份证号码': '615245196302152958', '酒店类型': '商务', '用户名': '李永阳', '手机号': '1858999495', '入住时间': '傍晚6点', '服务要求': '有SPA', '房间类型': '吸烟房', '入住时长': '5天', '入住日期': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:36] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认入住时长', '入住时长': 'dontcare'}, 意图=确认入住时长
-[2026-02-05 19:33:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时长', '入住时长': '两周', '是否需要吸烟房': 'dontcare'}, 意图=确认入住时长
-[2026-02-05 19:33:37] ERROR - [__main__] 处理轮次 2 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:33:37] ERROR - [__main__] 处理轮次 3 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:33:37] ERROR - [__main__] 处理轮次 4 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:33:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '用户名': '安芷生', '入住时间': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': '344854198707021851', '手机号码': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': '344854198707021851', '手机号码': '1822893173', '酒店类型': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时长': '两周', '是否需要吸烟房': 'dontcare', '酒店服务': '泳池', '入住时间': '8:30 a.m.', '用户名': '安芷生', '身份证号码': '344854198707021851', '手机号码': '1822893173', '酒店类型': '舒适型', '开始日期': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:42] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认入住日期', '入住日期': 'dontcare'}, 意图=确认入住日期
-[2026-02-05 19:33:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时间和日期', '入住日期': '2015/8/3', '入住时间': 'dontcare'}, 意图=确认入住时间和日期
-[2026-02-05 19:33:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '确认入住时间和酒店星级', '入住日期': '2015/8/3', '入住时间': '下午2点左右', '酒店星级': 'dontcare'}, 意图=确认入住时间和酒店星级
-[2026-02-05 19:33:43] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:43] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:44] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:44] ERROR - [__main__] 处理轮次 6 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:45] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:46] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:46] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:47] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认入住时间', '入住时间': 'dontcare'}, 意图=确认入住时间
-[2026-02-05 19:33:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时间和联系方式', '入住时间': '10:00', '手机号': 'dontcare'}, 意图=确认入住时间和联系方式
-[2026-02-05 19:33:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '入住时间': '10:00', '手机号': '1803083395', '酒店星级': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:49] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:49] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:50] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:50] ERROR - [__main__] 处理轮次 6 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:51] ERROR - [__main__] 处理轮次 7 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:52] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:52] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:53] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取用户名', '用户名': 'dontcare'}, 意图=获取用户名
-[2026-02-05 19:33:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取用户名', '用户名': '刘佳诚', '入住时间': 'dontcare'}, 意图=获取用户名
-[2026-02-05 19:33:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '确认入住时间和需求', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '是否需要吸烟房': 'dontcare'}, 意图=确认入住时间和需求
-[2026-02-05 19:33:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '确认入住时间和开始日期', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '开始日期': 'dontcare'}, 意图=确认入住时间和开始日期
-[2026-02-05 19:33:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '确认入住日期和酒店类型', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': 'dontcare'}, 意图=确认入住日期和酒店类型
-[2026-02-05 19:33:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': '1856316172', '身份证号码': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '入住日期': '2018/1/18', '入住时间': '傍晚6点左右', '用户名': '刘佳诚', '酒店类型': '经济型', '酒店服务': '泳池', '手机号': '1856316172', '身份证号码': '569699197308056304', '入住天数': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:33:58] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:33:59] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取手机号', '手机号': 'dontcare'}, 意图=获取手机号
-[2026-02-05 19:34:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取手机号', '手机号': '1887467231', '酒店星级': 'dontcare'}, 意图=获取手机号
-[2026-02-05 19:34:00] ERROR - [__main__] 处理轮次 2 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '确认入住时间和用户名', '入住时间': '下午2点', '用户名': 'dontcare', '手机号': '1887467231', '酒店星级': 'dontcare'}, 意图=确认入住时间和用户名
-[2026-02-05 19:34:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取用户名', '用户名': '胡棚', '手机号': '1887467231', '身份证号码': 'dontcare', '入住时间': '下午2点', '酒店星级': 'dontcare'}, 意图=获取用户名
-[2026-02-05 19:34:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取身份证号码', '用户名': '胡棚', '手机号': '1887467231', '身份证号码': '648980201206203195', '入住时间': '下午2点', '酒店星级': 'dontcare', '酒店服务': 'dontcare'}, 意图=获取身份证号码
-[2026-02-05 19:34:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时间': '下午2点', '手机号': '1887467231', '用户名': '胡棚', '身份证号码': '648980201206203195', '酒店服务': '酒廊', '酒店星级': 'dontcare', '开始日期': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时间': '下午2点', '手机号': '1887467231', '用户名': '胡棚', '身份证号码': '648980201206203195', '酒店服务': '酒廊', '酒店星级': 'dontcare', '入住天数': 'dontcare', '开始日期': '2021.3.23'}, 意图=预订酒店
-[2026-02-05 19:34:04] ERROR - [__main__] 处理轮次 8 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:05] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:06] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取酒店类型', '酒店类型': 'dontcare'}, 意图=获取酒店类型
-[2026-02-05 19:34:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取酒店类型', '酒店类型': '经济型', '是否需要吸烟房': 'dontcare'}, 意图=获取酒店类型
-[2026-02-05 19:34:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '获取酒店类型和吸烟房需求', '酒店类型': '经济型', '身份证号码': 'dontcare'}, 意图=获取酒店类型和吸烟房需求
-[2026-02-05 19:34:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取入住时间和身份证号码', '入住时间': 'dontcare', '身份证号码': '178231195212014167', '酒店类型': '经济型'}, 意图=获取入住时间和身份证号码
-[2026-02-05 19:34:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取入住时间和入住天数', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare'}, 意图=获取入住时间和入住天数
-[2026-02-05 19:34:09] ERROR - [__main__] 处理轮次 5 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '获取用户名和手机号', '用户名': '杨西文', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare', '手机号': 'dontcare'}, 意图=获取用户名和手机号
-[2026-02-05 19:34:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '获取手机号和开始日期', '用户名': '杨西文', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare', '手机号': '17619721584', '开始日期': 'dontcare'}, 意图=获取手机号和开始日期
-[2026-02-05 19:34:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '获取开始日期', '开始日期': '下个月2号', '用户名': '杨西文', '入住时间': '傍晚6点', '身份证号码': '178231195212014167', '酒店类型': '经济型', '入住天数': 'dontcare', '手机号': '17619721584', '酒店星级': 'dontcare'}, 意图=获取开始日期
-[2026-02-05 19:34:12] ERROR - [__main__] 处理轮次 9 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:13] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取手机号', '手机号': 'dontcare'}, 意图=获取手机号
-[2026-02-05 19:34:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取手机号', '手机号': '17618444326', '是否需要吸烟房': 'dontcare'}, 意图=获取手机号
-[2026-02-05 19:34:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '获取酒店星级', '酒店星级': 'dontcare', '手机号': '17618444326'}, 意图=获取酒店星级
-[2026-02-05 19:34:15] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:15] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住时间': 'dontcare', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '有SPA', '酒店服务': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '入住时间': 'dontcare', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA'}, 意图=预订酒店
-[2026-02-05 19:34:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时间': '22年3月23', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA', '入住天数': 'dontcare', '身份证号码': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时间': '22年3月23', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA', '入住天数': 'dontcare', '身份证号码': '642473199302054568', '用户名': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住时间': '22年3月23', '酒店星级': 'dontcare', '手机号': '17618444326', '酒店类型': '豪华型', '酒店服务': 'SPA', '入住天数': 'dontcare', '身份证号码': '642473199302054568', '用户名': '何建超'}, 意图=预订酒店
-[2026-02-05 19:34:20] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取入住时间', '入住时间': 'dontcare'}, 意图=获取入住时间
-[2026-02-05 19:34:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取入住时间和身份证号码', '入住时间': '7 p.m.', '身份证号码': 'dontcare'}, 意图=获取入住时间和身份证号码
-[2026-02-05 19:34:21] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '获取入住时间和身份证号码', '入住时间': '7 p.m.', '身份证号码': '409505197609089601', '酒店类型': 'dontcare'}, 意图=获取入住时间和身份证号码
-[2026-02-05 19:34:21] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:22] ERROR - [__main__] 处理轮次 4 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '确认入住日期', '入住日期': '婚礼办理', '入住时间': '7 p.m.', '身份证号码': '409505197609089601', '酒店星级': 'dontcare', '酒店类型': 'dontcare', '酒店服务': 'dontcare'}, 意图=确认入住日期
-[2026-02-05 19:34:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '确认入住日期', '入住日期': '2022-6-17', '入住时间': '7 p.m.', '身份证号码': '409505197609089601', '是否需要吸烟房': 'dontcare', '酒店星级': 'dontcare', '酒店类型': 'dontcare', '酒店服务': 'dontcare'}, 意图=确认入住日期
-[2026-02-05 19:34:24] ERROR - [__main__] 处理轮次 7 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:34:25] ERROR - [__main__] 处理轮次 8 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:34:26] ERROR - [__main__] 处理轮次 9 时出错: 'bool' object has no attribute 'strip'
-[2026-02-05 19:34:27] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取入住时间', '入住时间': 'dontcare'}, 意图=获取入住时间
-[2026-02-05 19:34:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '确认入住时间和入住天数', '入住时间': '8:30 a.m.', '入住天数': 'dontcare'}, 意图=确认入住时间和入住天数
-[2026-02-05 19:34:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:28] ERROR - [__main__] 处理轮次 3 时出错: 'int' object has no attribute 'strip'
-[2026-02-05 19:34:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': '泳池', '开始日期': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': '泳池', '开始日期': '2019.2.3', '用户名': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '入住时长': '两周', '入住时间': '8:30 a.m.', '酒店星级': 'dontcare', '酒店类型': '舒适型', '手机号': '13307570847', '身份证号码': '166230199612252090', '酒店服务': '泳池', '开始日期': '2019.2.3', '用户名': '杜丽玲', '是否需要吸烟房': 'dontcare'}, 意图=预订酒店
-[2026-02-05 19:34:34] ERROR - [__main__] 处理轮次 10 时出错: 'int' object has no attribute 'strip'
+
+初始化领域: 酒店
+[2026-02-09 15:28:13] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-09 15:28:13] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-09 15:28:13] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-09 15:28:42] WARNING - [contextmind.modes.dst.prompt_manager] Failed to load intent labels: No module named 'tests'
+[2026-02-09 15:28:42] WARNING - [contextmind.modes.dst.prompt_manager] Intent label loader not available, intent prediction disabled for domain: 酒店
+[2026-02-09 15:28:42] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=酒店, 动态槽位=True, 意图预测=True)
+[2026-02-09 15:28:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-09 15:28:42] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 酒店
+[2026-02-09 15:28:42] INFO - [__main__]    动态槽位模式: 启用（接受所有LLM提取的槽位）
+[2026-02-09 15:28:42] INFO - [__main__]    预定义槽位数: 10
+[2026-02-09 15:28:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询酒店星级', '酒店星级': '?'}, 意图=咨询酒店星级
+[2026-02-09 15:28:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '预订酒店', '酒店星级': '1星'}, 意图=预订酒店
+[2026-02-09 15:28:43] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '预订酒店', '酒店星级': '1星', '身份证号': '615245196302152958'}, 意图=预订酒店
+[2026-02-09 15:28:43] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '酒店星级': '1星级', '酒店类型': '商务', '身份证号': '615245196302152958'}, 意图=预订酒店
+[2026-02-09 15:28:43] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预订酒店', '酒店星级': '1星级', '酒店类型': '商务', '姓名': '李永阳', '身份证号': '615245196302152958'}, 意图=预订酒店
+[2026-02-09 15:28:44] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '酒店星级': '1星级', '酒店类型': '商务', '联系人姓名': '李永阳', '联系人电话': '1858999495', '预计入住时间': '?'}, 意图=预订酒店
+[2026-02-09 15:28:44] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '酒店星级': '1星级', '酒店类型': '商务', '客户姓名': '李永阳', '联系电话': '1858999495', '入住时间': '傍晚6点', '服务要求': 'dontcare'}, 意图=预订酒店
+[2026-02-09 15:28:45] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预定酒店', '酒店星级': '1星级', '酒店类型': '商务', '酒店设施': 'SPA', '入住人姓名': '李永阳', '入住人身份证号': '615245196302152958', '入住人手机号': '1858999495', '预计入住时间': '傍晚6点', '是否吸烟房': 'dontcare'}, 意图=预定酒店
+[2026-02-09 15:28:46] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预订酒店', '酒店星级': '1星', '酒店类型': '商务', '酒店设施': '吸烟房, SPA', '入住时间': '傍晚6点', '入住时长': '?'}, 意图=预订酒店
+[2026-02-09 15:28:46] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预订酒店', '酒店星级': '1星', '酒店类型': '商务', '酒店设施': 'SPA', '入住天数': '5天', '入住时间': '傍晚6点', '吸烟房': '需要'}, 意图=预订酒店
+[2026-02-09 15:28:47] INFO - [contextmind.modes.dst.dialogue_state_tracker] 生成模板历史摘要（轮次1-1），保留完整历史（轮次2-11）
+[2026-02-09 15:28:47] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '预订酒店', '酒店类型': '商务', '酒店服务': 'SPA', '酒店星级': '1', '入住日期': '2013/2/14', '入住时间': '傍晚6点', '入住天数': '5天', '是否需要吸烟房': 'True', '姓名': '李永阳', '身份证': '615245196302152958', '手机号': '1858999495'}, 意图=预订酒店
+[2026-02-09 15:28:47] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '了解入住时间', '入住时间': '当天'}, 意图=了解入住时间
+[2026-02-09 15:28:47] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '提供入住时间', '入住时间': '8:30 a.m.'}, 意图=提供入住时间
+[2026-02-09 15:28:47] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询入住时长', '入住时长': '两周'}, 意图=咨询入住时长
+[2026-02-09 15:28:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预定酒店', '入住时间': '8:30 a.m.', '入住时长': '两周', '酒店星级': '5星级'}, 意图=预定酒店
+[2026-02-09 15:28:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预定酒店', '入住时间': '8:30 a.m.', '入住时长': '两周', '酒店星级': '5星级', '酒店类型': '舒适型'}, 意图=预定酒店
+[2026-02-09 15:28:49] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预定酒店', '入住时间': '8:30 a.m.', '入住时长': '两周', '酒店星级': '5星级', '酒店类型': '舒适型', '联系方式': '13307570847'}, 意图=预定酒店
+[2026-02-09 15:28:49] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预定酒店', '入住时间': '8:30 a.m.', '入住时长': '两周', '酒店星级': '5星级', '酒店类型': '舒适型'}, 意图=预定酒店
+[2026-02-09 15:28:50] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '咨询酒店', '入住时长': '两周', '酒店星级': '5星级', '房间类型': '舒适型', '酒店设施': '泳池', '联系方式': '13307570847', '身份证号': '166230199612252090'}, 意图=咨询酒店
+[2026-02-09 15:28:50] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '入住日期': '2019.2.3', '酒店星级': '5', '房型': '舒适型', '设施要求': '泳池', '联系方式': '13307570847', '身份证号': '166230199612252090', '入住时间': '8:30 a.m.'}, 意图=预定酒店
+[2026-02-09 15:28:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '入住日期': '2019.2.3', '入住时长': '两周', '酒店星级': '5星级', '房间类型': '舒适型', '设施要求': '泳池', '联系方式': '13307570847', '姓名': '杜丽玲', '是否需要吸烟房': 'dontcare'}, 意图=预定酒店
+[2026-02-09 15:28:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认和修改信息', '酒店类型': '舒适型', '酒店服务': '泳池', '酒店星级': '5', '入住日期': '2019.2.3', '入住时间': '8:30 a.m.', '入住天数': '两周', '是否需要吸烟房': 'False', '姓名': '杜丽玲', '身份证': '166230199612252090', '手机号': '13307570847', '不抽烟': 'True'}, 意图=确认和修改信息
+[2026-02-09 15:28:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '了解入住时间', '入住时间': '当天'}, 意图=了解入住时间
+[2026-02-09 15:28:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '提供入住时间', '入住时间': '10:00', '酒店类型': 'dontcare'}, 意图=提供入住时间
+[2026-02-09 15:28:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店', '入住时间': '10:00', '酒店类型': '豪华型', '入住时长': '?'}, 意图=咨询酒店
+[2026-02-09 15:28:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询酒店类型', '入住时间': '10:00', '入住时长': '两周', '酒店类型': '豪华型'}, 意图=咨询酒店类型
+[2026-02-09 15:28:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取入住信息', '入住时间': '10:00', '酒店类型': '豪华型', '入住时长': '两周', '身份证号码': '536699197409013495'}, 意图=获取入住信息
+[2026-02-09 15:28:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '咨询酒店', '入住日期': '2023-9-10', '酒店类型': '豪华型', '入住时长': '两周'}, 意图=咨询酒店
+[2026-02-09 15:28:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '咨询酒店', '入住时间': '2023-9-10', '入住时长': '两周', '酒店类型': '豪华型', '服务要求': '请叫我刘聚才'}, 意图=咨询酒店
+[2026-02-09 15:28:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '咨询酒店', '入住时间': '2023-9-10', '入住时长': '两周', '酒店类型': '豪华型', '服务要求': '客房服务', '客户姓名': '刘聚才'}, 意图=咨询酒店
+[2026-02-09 15:28:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '咨询酒店星级', '酒店类型': '豪华型', '入住时长': '两周', '入住日期': '2023-9-10', '客人姓名': '刘聚才', '手机号': '1343445476'}, 意图=咨询酒店星级
+[2026-02-09 15:28:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '入住时间': '2023-9-10', '入住时长': '两周', '酒店类型': '豪华型', '酒店星级': '2', '房间类型': '吸烟房', '客户姓名': '刘聚才', '联系电话': '1343445476'}, 意图=预定酒店
+[2026-02-09 15:28:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认并更新需求', '酒店类型': '豪华型', '酒店服务': '客房服务', '酒店星级': '2', '入住日期': '2023-9-10', '入住时间': '10:00', '入住天数': '两周', '是否需要吸烟房': 'True', '姓名': '刘聚才', '身份证': '536699197409013495', '手机号': '1343445476'}, 意图=确认并更新需求
+[2026-02-09 15:28:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '了解服务要求', '服务要求': 'dontcare'}, 意图=了解服务要求
+[2026-02-09 15:28:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询酒店设施', '设施需求': '泳池'}, 意图=咨询酒店设施
+[2026-02-09 15:28:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店设施', '设施需求': '泳池', '入住时间': '傍晚6点'}, 意图=咨询酒店设施
+[2026-02-09 15:28:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询酒店设施', '设施需求': '泳池', '入住日期': '下个月2号', '入住时间': '傍晚6点', '入住时长': '1天'}, 意图=咨询酒店设施
+[2026-02-09 15:28:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预定酒店', '入住日期': '下个月2号', '入住时间': '傍晚6点', '入住时长': '1个月', '设施要求': '泳池', '房型偏好': 'dontcare', '预定方式': '自动预定'}, 意图=预定酒店
+[2026-02-09 15:28:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '房间类型': '吸烟房', '入住日期': '下个月2号', '入住时长': '1个月', '是否包含泳池': '是'}, 意图=预订酒店
+[2026-02-09 15:28:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '酒店设施': '泳池', '入住时间': '傍晚6点', '入住日期': '下个月2号', '入住时长': '1个月', '房型': '吸烟房', '酒店星级': '3星级'}, 意图=预订酒店
+[2026-02-09 15:28:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预定酒店', '酒店星级': '3星级', '房间类型': '吸烟房', '入住日期': '下个月2号', '入住时间': '傍晚6点', '入住时长': '1个月', '设施要求': '泳池'}, 意图=预定酒店
+[2026-02-09 15:29:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '酒店星级': '3星级', '房间类型': '吸烟房', '入住日期': '下个月2号', '入住时间': '傍晚6点', '预订时长': '1个月', '酒店类型': '经济型'}, 意图=预定酒店
+[2026-02-09 15:29:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预订酒店', '酒店星级': '3', '房间类型': '吸烟房', '入住日期': '下个月2号', '入住时间': '傍晚6点', '入住时长': '1个月', '酒店类型': '经济型', '联系人姓名': '孙扣柱', '联系方式': '17619161893'}, 意图=预订酒店
+[2026-02-09 15:29:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认预订信息', '酒店类型': '经济型', '酒店服务': '泳池', '酒店星级': '3', '入住日期': '下个月2号', '入住时间': '傍晚6点', '入住天数': '1个月', '是否需要吸烟房': 'True', '姓名': '孙扣柱', '身份证': '502327201011129748', '手机号': '17619161893'}, 意图=确认预订信息
+[2026-02-09 15:29:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取预定信息', '预定类型': '开始日期', '日期': '?'}, 意图=获取预定信息
+[2026-02-09 15:29:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '预定房间', '预定日期': '这个月20号'}, 意图=预定房间
+[2026-02-09 15:29:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店', '日期': '这个月20号', '设施要求': '有中餐厅'}, 意图=咨询酒店
+[2026-02-09 15:29:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住日期': '这个月20号', '酒店设施': '有中餐厅'}, 意图=预订酒店
+[2026-02-09 15:29:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询酒店设施', '需求': '有中餐厅', '联系方式': '17666849014', '证件号码': '354790197710134125', '是否需要吸烟房': '?'}, 意图=咨询酒店设施
+[2026-02-09 15:29:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预订酒店', '入住日期': '这个月20号', '联系方式': '17666849014', '身份证号': '354790197710134125', '酒店设施': '有中餐厅', '酒店星级': '不用指定', '房间类型': '非吸烟房'}, 意图=预订酒店
+[2026-02-09 15:29:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预定酒店', '入住日期': '这个月20号', '联系方式': '17666849014', '身份证号': '354790197710134125', '酒店设施': '有中餐厅', '酒店星级': '2星级', '是否吸烟房': '不需要'}, 意图=预定酒店
+[2026-02-09 15:29:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预订酒店', '入住日期': '这个月20号', '酒店设施': '中餐厅', '手机号': '17666849014', '身份证号': '354790197710134125', '吸烟房': '不需要', '酒店星级': '2星级', '姓名': '戚家琪'}, 意图=预订酒店
+[2026-02-09 15:29:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '入住日期': '2023-02-20', '手机号': '17666849014', '身份证号': '354790197710134125', '酒店星级': '2星级', '是否吸烟房': '否', '姓名': '戚家琪', '入住时间': '10:00', '餐饮需求': '有中餐厅'}, 意图=预定酒店
+[2026-02-09 15:29:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '入住日期': '这个月20号', '手机号': '17666849014', '身份证号': '354790197710134125', '酒店设施': '有中餐厅', '吸烟房需求': '否', '酒店星级': '2星级', '称呼': '戚家琪', '酒店类型': '商务', '预定天数': '?'}, 意图=预定酒店
+[2026-02-09 15:29:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认预订信息', '入住天数': '两周'}, 意图=确认预订信息
+[2026-02-09 15:29:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '确认房间类型', '房间类型': '吸烟房'}, 意图=确认房间类型
+[2026-02-09 15:29:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '表达偏好', '偏好': '不抽烟', '房间类型': '非吸烟房'}, 意图=表达偏好
+[2026-02-09 15:29:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '表达兴趣', '姓名': '吴东东', '房间类型': '非吸烟房'}, 意图=表达兴趣
+[2026-02-09 15:29:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预订酒店', '入住天数': '1', '是否吸烟房': '否', '客人姓名': '吴东东'}, 意图=预订酒店
+[2026-02-09 15:29:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询酒店', '入住天数': '1', '是否吸烟房': '否', '客人姓名': '吴东东', '酒店设施': '健身房'}, 意图=咨询酒店
+[2026-02-09 15:29:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '咨询酒店', '酒店设施': '健身房', '酒店类型': '商务', '入住时长': '1天'}, 意图=咨询酒店
+[2026-02-09 15:29:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预订酒店', '入住时长': '1天', '房型偏好': '有健身房', '酒店类型': '商务', '入住时间': '7 p.m.', '姓名': '吴东东', '是否吸烟': '否'}, 意图=预订酒店
+[2026-02-09 15:29:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预定酒店', '入住时长': '1天', '房型偏好': '有健身房', '酒店类型': '商务', '预计入住时间': '19:00左右', '联系方式': '1324963058', '姓名': '吴东东', '服务要求': 'dontcare', '预定开始日期': '?'}, 意图=预定酒店
+[2026-02-09 15:29:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '入住日期': '2021.3.23', '房间类型': '有健身房', '预计入住时间': '7 p.m.', '客户姓名': '吴东东', '联系方式': '1324963058', '酒店类型': '商务'}, 意图=预定酒店
+[2026-02-09 15:29:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '咨询酒店星级', '入住日期': '2021.3.23', '身份证号': '605164201506138934'}, 意图=咨询酒店星级
+[2026-02-09 15:29:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认酒店星级', '酒店星级': '1'}, 意图=确认酒店星级
+[2026-02-09 15:29:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询酒店星级', '酒店星级': '?'}, 意图=咨询酒店星级
+[2026-02-09 15:29:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询酒店', '酒店星级': '4星级'}, 意图=咨询酒店
+[2026-02-09 15:29:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店', '星级': '4星级', '酒店类型': '商务'}, 意图=咨询酒店
+[2026-02-09 15:29:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询酒店', '酒店星级': '4星级', '酒店类型': '商务'}, 意图=咨询酒店
+[2026-02-09 15:29:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '表达身份', '姓名': '南丽萍', '酒店星级': '4星级', '酒店类型': '商务'}, 意图=表达身份
+[2026-02-09 15:29:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '咨询酒店', '酒店星级': '4星级', '酒店类型': '商务', '是否吸烟房': '否'}, 意图=咨询酒店
+[2026-02-09 15:29:12] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预定酒店', '酒店星级': '4星级', '酒店类型': '商务', '是否吸烟房': '否', '客户姓名': '南丽萍', '身份证号': '145592198101081409', '预定天数': '?'}, 意图=预定酒店
+[2026-02-09 15:29:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预定酒店', '酒店星级': '4星级', '酒店类型': '商务', '是否吸烟房': '不需要', '入住天数': '2天', '姓名': '南丽萍', '身份证号': '145592198101081409'}, 意图=预定酒店
+[2026-02-09 15:29:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '酒店星级': '4星级', '酒店类型': '商务', '吸烟房需求': '不需要', '入住天数': '2天', '预计入住时间': '下午2点左右', '姓名': '南丽萍', '身份证号': '145592198101081409'}, 意图=预定酒店
+[2026-02-09 15:29:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '酒店星级': '4星级', '酒店类型': '商务', '吸烟房需求': '不需要', '预定天数': '2天', '预计入住时间': '下午2点左右', '联系方式': '17770934666', '身份证号': '145592198101081409', '开始日期': '?'}, 意图=预定酒店
+[2026-02-09 15:29:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认预订信息', '入住日期': '2013/2/14', '入住天数': '2天', '酒店类型': '商务', '酒店星级': '4', '是否需要吸烟房': 'False', '姓名': '南丽萍', '身份证': '145592198101081409', '手机号': '17770934666'}, 意图=确认预订信息
+[2026-02-09 15:29:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询酒店服务需求', '服务类型': 'dontcare'}, 意图=咨询酒店服务需求
+[2026-02-09 15:29:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询酒店设施', '设施需求': 'SPA'}, 意图=咨询酒店设施
+[2026-02-09 15:29:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店设施', '设施需求': 'SPA', '是否吸烟房': '否'}, 意图=咨询酒店设施
+[2026-02-09 15:29:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询酒店星级', '手机号': '17782803019', '是否需要吸烟房': '否', '酒店设施': 'SPA'}, 意图=咨询酒店星级
+[2026-02-09 15:29:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询酒店星级', '酒店星级': '3星级'}, 意图=咨询酒店星级
+[2026-02-09 15:29:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '咨询酒店', '酒店星级': '3星级', '是否吸烟房': '不需要', '联系方式': '17782803019', '入住时间': '早上9点左右', '预定天数': '?'}, 意图=咨询酒店
+[2026-02-09 15:29:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '咨询酒店', '酒店星级': '3星级', '预定天数': '2天', '是否吸烟房': '不需要', '联系方式': '17782803019', '入住时间': '早上9点左右', '酒店设施': 'SPA'}, 意图=咨询酒店
+[2026-02-09 15:29:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '咨询酒店', '酒店星级': '3星级', '酒店类型': '经济型', '联系方式': '17782803019', '入住天数': '2天', '预计入住时间': '早上9点左右'}, 意图=咨询酒店
+[2026-02-09 15:29:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '咨询酒店', '酒店星级': '3星级', '酒店类型': '经济型', '联系方式': '17782803019', '入住时间': '早上9点左右', '预定天数': '2天'}, 意图=咨询酒店
+[2026-02-09 15:29:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '酒店星级': '3星级', '酒店类型': '经济型', '预定天数': '2天', '入住时间': '早上9点左右', '联系人': '秦若怡', '联系电话': '17782803019', '身份证号': '224406201310217762'}, 意图=预定酒店
+[2026-02-09 15:29:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '预定酒店', '酒店类型': '经济型', '酒店服务': 'SPA', '酒店星级': '3', '入住日期': '8/9/2020', '入住时间': '早上9点', '入住天数': '2', '是否需要吸烟房': 'False', '姓名': '秦若怡', '身份证': '224406201310217762', '手机号': '17782803019'}, 意图=预定酒店
+[2026-02-09 15:29:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '获取入住时间', '入住时间': '?'}, 意图=获取入住时间
+[2026-02-09 15:29:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '提供入住时间', '入住时间': '傍晚6点'}, 意图=提供入住时间
+[2026-02-09 15:29:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店', '入住时间': '傍晚6点', '酒店类型': '度假型'}, 意图=咨询酒店
+[2026-02-09 15:29:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询酒店设施', '酒店类型': '度假型', '酒店星级': '?', '餐饮要求': '西式餐厅'}, 意图=咨询酒店设施
+[2026-02-09 15:29:20] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预定酒店', '入住时间': '傍晚6点', '酒店类型': '度假型', '酒店星级': '1星', '酒店设施': "{'西式餐厅': True}"}, 意图=预定酒店
+[2026-02-09 15:29:21] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预定酒店', '入住时间': '傍晚6点', '酒店类型': '度假型', '酒店设施': '西式餐厅', '酒店星级': '1星级', '身份证号': '624270199103103724'}, 意图=预定酒店
+[2026-02-09 15:29:22] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '预定酒店', '入住时间': '傍晚6点', '酒店类型': '度假型', '酒店设施': '西式餐厅', '酒店星级': '1星级', '住宿天数': '3周', '身份证号': '624270199103103724'}, 意图=预定酒店
+[2026-02-09 15:29:22] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '预定酒店', '入住时间': '傍晚6点', '酒店类型': '度假型', '酒店设施': '西式餐厅', '酒店星级': '1星级', '预定天数': '3周', '用户名': '董宇宁'}, 意图=预定酒店
+[2026-02-09 15:29:23] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '入住时间': '傍晚6点', '酒店类型': '度假型', '酒店设施': '西式餐厅', '酒店星级': '1星级', '预定天数': '3周', '客人姓名': '董宇宁', '身份证号': '624270199103103724', '房间类型': '?'}, 意图=预定酒店
+[2026-02-09 15:29:24] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '入住时间': '傍晚6点', '酒店类型': '度假型', '酒店星级': '1星级', '酒店设施': '西式餐厅', '房间类型': '吸烟房', '预订天数': '3周', '姓名': '董宇宁', '身份证号': '624270199103103724', '手机号': '?'}, 意图=预定酒店
+[2026-02-09 15:29:24] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '确认预订信息', '酒店类型': '度假型', '酒店服务': '西式餐厅', '酒店星级': '1', '入住日期': '21年4月5', '入住时间': '傍晚6点', '入住天数': '3周', '是否需要吸烟房': 'True', '姓名': '董宇宁', '身份证': '624270199103103724', '手机号': '17744724833'}, 意图=确认预订信息
+[2026-02-09 15:29:25] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '询问房间类型偏好', '房间类型': '吸烟房'}, 意图=询问房间类型偏好
+[2026-02-09 15:29:25] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '表达偏好', '偏好': '不抽烟', '房间类型': '不关心'}, 意图=表达偏好
+[2026-02-09 15:29:25] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询酒店类型', '酒店类型': '豪华型'}, 意图=咨询酒店类型
+[2026-02-09 15:29:25] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '预定酒店', '房型': '豪华型', '是否吸烟房': '否', '身份证号': '250197201809162314', '房间类型': '?', '预定天数': '?'}, 意图=预定酒店
+[2026-02-09 15:29:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '预定酒店', '房型': '豪华型', '入住天数': '1个月', '吸烟房需求': '否'}, 意图=预定酒店
+[2026-02-09 15:29:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '预定酒店', '房型': '豪华型', '入住天数': '1个月', '是否吸烟房': '否', '联系方式': '17800391450', '身份证号': '250197201809162314'}, 意图=预定酒店
+[2026-02-09 15:29:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #7: 更新={'intent': '表达兴趣', '酒店类型': '豪华型', '预定天数': '1个月', '联系方式': '17800391450', '姓名': '彭啸', '吸烟房需求': '否', '服务需求': '?'}, 意图=表达兴趣
+[2026-02-09 15:29:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #8: 更新={'intent': '咨询酒店设施', '设施需求': '泳池', '酒店星级': '?'}, 意图=咨询酒店设施
+[2026-02-09 15:29:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #9: 更新={'intent': '预定酒店', '酒店类型': '豪华型', '入住天数': '1个月', '酒店星级': '5星级', '设施要求': '泳池'}, 意图=预定酒店
+[2026-02-09 15:29:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #10: 更新={'intent': '预定酒店', '房间类型': '豪华型', '预定天数': '1个月', '酒店设施': '泳池', '酒店星级': '5星', '入住时间': '早上9点', '身份证号码': '250197201809162314', '手机号码': '17800391450'}, 意图=预定酒店
+[2026-02-09 15:29:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #11: 更新={'intent': '预定房间', '入住日期': '2021.3.23', '入住天数': '1个月', '酒店星级': '5', '酒店类型': '豪华型', '酒店服务': '泳池', '是否需要吸烟房': 'False', '姓名': '彭啸', '身份证': '250197201809162314', '手机号': '17800391450'}, 意图=预定房间
 
 ======================================================================
-📊 测试指标汇总
+📊 测试指标汇总（对齐TransferTOD论文）
 ======================================================================
 
-测试对话数: 10
-平均槽位准确率: 27.00%
-平均 Joint Goal Accuracy: 33.64%
-平均 Precision: 8.34%
-平均 Recall: 27.00%
-平均 F1 Score: 11.32%
+【分领域统计】
+----------------------------------------------------------------------
+
+酒店领域 (对话数: 10):
+  槽位准确率: 48.18%
+  联合准确率-严格: 0.00%
+  联合准确率-软匹配: 60.00%
+  精确率: 41.50%
+  召回率: 88.00%
+  F1分数: 56.19%
+
+
+【整体汇总统计】
+----------------------------------------------------------------------
+总测试对话数: 10
+平均槽位准确率 (Slot Accuracy): 48.18%
+平均联合准确率-严格 (Joint Accuracy Strict): 0.00%
+平均联合准确率-软匹配 (Joint Accuracy Soft): 60.00%
+平均精确率 (Precision): 41.50%
+平均召回率 (Recall): 88.00%
+平均F1分数 (F1 Score): 56.19%
+
+注：指标计算方法已对齐TransferTOD论文
+  - Joint Accuracy Strict: 对话级别（最终状态完全匹配，对齐论文）
+  - Joint Accuracy Soft: 对话级别（所有期望槽位都存在，允许额外槽位）
+  - F1/Precision/Recall: 基于slot-value pairs计算
+
+
+======================================================================
+🎯 对话级别意图评测报告
+======================================================================
+
+说明：
+  - 评测粒度：对话级别（整个多轮对话作为一个评测单元）
+  - 预测意图提取：取对话中出现最频繁的意图（排除'未识别'）
+  - 标签意图推断：基于用户所有话语的关键词匹配推断对话整体意图
+  - 改进策略：尽量避免返回'其他'，优先返回领域定义的具体意图
+  - TransferTOD数据集无显式意图标注，推断意图仅供参考
+
+======================================================================
+意图评测报告 (Intent Evaluation Report)
+======================================================================
+
+总轮次数: 0
+正确轮次: 0
+意图准确率: 0.00%
+
+说明：
+  - 意图准确率: 预测意图与推断意图完全一致的轮次占比
+
+----------------------------------------------------------------------
+对话级别意图评测
+----------------------------------------------------------------------
+总对话数: 10
+正确对话: 2
+对话意图准确率: 20.00%
+
+对话详细列表：
+
+对话ID                 预测意图                 真值意图                 结果        
+----------------------------------------------------------------------
+clean/1-hotel/hotel_clean_1.json:1 预订酒店                 确认预订                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:10 预定酒店                 预订酒店                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:11 咨询酒店                 预订酒店                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:12 咨询酒店设施               确认预订                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:13 预订酒店                 预订酒店                 ✓ 正确      
+clean/1-hotel/hotel_clean_1.json:14 预订酒店                 预订酒店                 ✓ 正确      
+clean/1-hotel/hotel_clean_1.json:15 咨询酒店                 预订酒店                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:16 咨询酒店                 预订酒店                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:17 预定酒店                 预订酒店                 ✗ 错误      
+clean/1-hotel/hotel_clean_1.json:18 预定酒店                 预订酒店                 ✗ 错误      
+
+说明：对话级别评测将整个对话作为一个单元进行意图评测
+
+======================================================================
+📋 综合分析总结
+======================================================================
+
+【整体评估】
+  无评测数据
+
+======================================================================
+
+说明：
+  - 对话级别意图评测聚焦于整个对话的意图识别能力
+  - 不对单个轮次的意图做评测，只评测对话整体意图
