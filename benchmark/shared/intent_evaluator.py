@@ -429,6 +429,7 @@ class IntentEvaluator:
             - 意图转换分析（新增）
             - 对话阶段分析（新增）
             - 任务相关性统计（新增）
+            - 分类指标：精确率、召回率、F1分数（新增）
         """
         # 对话级别统计（优先计算，即使没有轮次数据也可以有对话数据）
         dialogue_metrics = {}
@@ -453,7 +454,18 @@ class IntentEvaluator:
                 'transition_analysis': {},
                 'phase_distribution': {},
                 'task_relevance_stats': {},
-                'dialogue_metrics': dialogue_metrics
+                'dialogue_metrics': dialogue_metrics,
+                'per_class_metrics': {},
+                'macro_metrics': {
+                    'precision': 0.0,
+                    'recall': 0.0,
+                    'f1': 0.0
+                },
+                'micro_metrics': {
+                    'precision': 0.0,
+                    'recall': 0.0,
+                    'f1': 0.0
+                }
             }
         
         # 基础统计
@@ -469,6 +481,61 @@ class IntentEvaluator:
         confusion = defaultdict(lambda: defaultdict(int))
         for pred, inf in self.predictions:
             confusion[inf][pred] += 1
+        
+        # 计算每个类别的精确率、召回率、F1分数
+        per_class_metrics = {}
+        all_intents = set()
+        all_intents.update(pred for pred, _ in self.predictions)
+        all_intents.update(inf for _, inf in self.predictions)
+        
+        for intent in all_intents:
+            # True Positives: 预测为intent且真值也是intent
+            tp = sum(1 for pred, inf in self.predictions 
+                    if pred.lower() == intent.lower() and inf.lower() == intent.lower())
+            # False Positives: 预测为intent但真值不是intent
+            fp = sum(1 for pred, inf in self.predictions 
+                    if pred.lower() == intent.lower() and inf.lower() != intent.lower())
+            # False Negatives: 真值是intent但预测不是intent
+            fn = sum(1 for pred, inf in self.predictions 
+                    if pred.lower() != intent.lower() and inf.lower() == intent.lower())
+            # True Negatives: 预测不是intent且真值也不是intent
+            tn = sum(1 for pred, inf in self.predictions 
+                    if pred.lower() != intent.lower() and inf.lower() != intent.lower())
+            
+            # 支持数（真值中该类别的数量）
+            support = tp + fn
+            
+            # 计算指标
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+            
+            per_class_metrics[intent] = {
+                'precision': precision,
+                'recall': recall,
+                'f1': f1,
+                'support': support,
+                'tp': tp,
+                'fp': fp,
+                'fn': fn
+            }
+        
+        # 计算宏平均（每个类别等权重）
+        if per_class_metrics:
+            macro_precision = sum(m['precision'] for m in per_class_metrics.values()) / len(per_class_metrics)
+            macro_recall = sum(m['recall'] for m in per_class_metrics.values()) / len(per_class_metrics)
+            macro_f1 = sum(m['f1'] for m in per_class_metrics.values()) / len(per_class_metrics)
+        else:
+            macro_precision = macro_recall = macro_f1 = 0.0
+        
+        # 计算微平均（所有样本等权重）
+        total_tp = sum(m['tp'] for m in per_class_metrics.values())
+        total_fp = sum(m['fp'] for m in per_class_metrics.values())
+        total_fn = sum(m['fn'] for m in per_class_metrics.values())
+        
+        micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
+        micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
+        micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0.0
         
         # 错误分析
         errors = [d for d in self.turn_details if not d['correct']]
@@ -508,7 +575,18 @@ class IntentEvaluator:
             'phase_distribution': dict(phase_dist),
             'task_relevance_stats': dict(task_relevance_dist),
             'phase_intent_distribution': {k: dict(v) for k, v in phase_intent_dist.items()},
-            'dialogue_metrics': dialogue_metrics
+            'dialogue_metrics': dialogue_metrics,
+            'per_class_metrics': per_class_metrics,
+            'macro_metrics': {
+                'precision': macro_precision,
+                'recall': macro_recall,
+                'f1': macro_f1
+            },
+            'micro_metrics': {
+                'precision': micro_precision,
+                'recall': micro_recall,
+                'f1': micro_f1
+            }
         }
     
     def plot_confusion_matrix(self, output_path: str = "confusion_matrix.png") -> Optional[str]:
@@ -738,7 +816,69 @@ class IntentEvaluator:
                 report.append(f"正确对话: {dm['correct_dialogues']}")
                 report.append(f"对话意图准确率: {dm['dialogue_accuracy']:.2%}")
                 report.append("")
+                
+                # 添加详细的对话列表
+                report.append("对话详细列表：")
+                report.append("")
+                report.append(f"{'对话ID':<20} {'预测意图':<20} {'真值意图':<20} {'结果':<10}")
+                report.append("-" * 70)
+                
+                for dialogue_id, predicted_intent, inferred_intent in self.dialogue_intents:
+                    is_correct = predicted_intent.lower() == inferred_intent.lower()
+                    result = "✓ 正确" if is_correct else "✗ 错误"
+                    report.append(f"{str(dialogue_id):<20} {predicted_intent:<20} {inferred_intent:<20} {result:<10}")
+                
+                report.append("")
                 report.append("说明：对话级别评测将整个对话作为一个单元进行意图评测")
+                report.append("")
+        
+        # 添加分类指标（精确率、召回率、F1分数）
+        if metrics.get('per_class_metrics') and metrics['total_turns'] > 0:
+            report.append("-" * 70)
+            report.append("分类评测指标")
+            report.append("-" * 70)
+            
+            # 宏平均和微平均
+            macro = metrics.get('macro_metrics', {})
+            micro = metrics.get('micro_metrics', {})
+            
+            report.append("【宏平均指标】(各类别等权重)")
+            report.append(f"  精确率 (Precision): {macro.get('precision', 0):.2%}")
+            report.append(f"  召回率 (Recall): {macro.get('recall', 0):.2%}")
+            report.append(f"  F1分数 (F1 Score): {macro.get('f1', 0):.2%}")
+            report.append("")
+            
+            report.append("【微平均指标】(各样本等权重)")
+            report.append(f"  精确率 (Precision): {micro.get('precision', 0):.2%}")
+            report.append(f"  召回率 (Recall): {micro.get('recall', 0):.2%}")
+            report.append(f"  F1分数 (F1 Score): {micro.get('f1', 0):.2%}")
+            report.append("")
+            
+            # 各意图类别的详细指标
+            per_class = metrics.get('per_class_metrics', {})
+            if per_class:
+                report.append("【各意图类别指标】")
+                report.append("")
+                report.append(f"{'意图类别':<20} {'精确率':<10} {'召回率':<10} {'F1分数':<10} {'支持数':<10}")
+                report.append("-" * 70)
+                
+                # 按支持数排序显示
+                sorted_intents = sorted(per_class.items(), key=lambda x: x[1]['support'], reverse=True)
+                for intent, metrics_data in sorted_intents:
+                    precision = metrics_data['precision']
+                    recall = metrics_data['recall']
+                    f1 = metrics_data['f1']
+                    support = metrics_data['support']
+                    report.append(f"{intent:<20} {precision:<10.2%} {recall:<10.2%} {f1:<10.2%} {support:<10}")
+                
+                report.append("")
+                report.append("说明：")
+                report.append("  - 精确率: 预测为该类别的样本中，真实为该类别的比例")
+                report.append("  - 召回率: 真实为该类别的样本中，被正确预测的比例")
+                report.append("  - F1分数: 精确率和召回率的调和平均")
+                report.append("  - 支持数: 真值中该类别的样本数量")
+                report.append("  - 宏平均: 各类别指标的算术平均（不考虑样本数）")
+                report.append("  - 微平均: 将所有样本混合计算（等同于准确率）")
                 report.append("")
         
         # 添加综合分析总结
