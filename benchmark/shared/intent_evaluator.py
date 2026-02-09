@@ -384,6 +384,18 @@ class IntentEvaluator:
             - 对话阶段分析（新增）
             - 任务相关性统计（新增）
         """
+        # 对话级别统计（优先计算，即使没有轮次数据也可以有对话数据）
+        dialogue_metrics = {}
+        if self.dialogue_intents:
+            dialogue_total = len(self.dialogue_intents)
+            dialogue_correct = sum(1 for _, pred, inf in self.dialogue_intents if pred.lower() == inf.lower())
+            dialogue_accuracy = dialogue_correct / dialogue_total if dialogue_total > 0 else 0.0
+            dialogue_metrics = {
+                'dialogue_accuracy': dialogue_accuracy,
+                'total_dialogues': dialogue_total,
+                'correct_dialogues': dialogue_correct
+            }
+        
         if not self.predictions:
             return {
                 'accuracy': 0.0,
@@ -394,7 +406,8 @@ class IntentEvaluator:
                 'error_analysis': {},
                 'transition_analysis': {},
                 'phase_distribution': {},
-                'task_relevance_stats': {}
+                'task_relevance_stats': {},
+                'dialogue_metrics': dialogue_metrics
             }
         
         # 基础统计
@@ -433,17 +446,7 @@ class IntentEvaluator:
             intent = d['inferred_intent']
             phase_intent_dist[phase][intent] += 1
         
-        # 对话级别统计（新增）
-        dialogue_metrics = {}
-        if self.dialogue_intents:
-            dialogue_total = len(self.dialogue_intents)
-            dialogue_correct = sum(1 for _, pred, inf in self.dialogue_intents if pred.lower() == inf.lower())
-            dialogue_accuracy = dialogue_correct / dialogue_total if dialogue_total > 0 else 0.0
-            dialogue_metrics = {
-                'dialogue_accuracy': dialogue_accuracy,
-                'total_dialogues': dialogue_total,
-                'correct_dialogues': dialogue_correct
-            }
+        # dialogue_metrics已经在开头计算，无需重复
         
         return {
             'accuracy': accuracy,
