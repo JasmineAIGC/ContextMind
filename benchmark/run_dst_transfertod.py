@@ -339,7 +339,7 @@ async def evaluate_with_dst_model(dialogue_ids, adapter, dst_evaluator, intent_e
                     domain=dialogue.domain,
                     turn_id=turn_idx,
                     predicted_intent=predicted_intent,
-                    turn_updates=turn.slot_changes,
+                    turn_updates=turn.expected_slots,
                     previous_state=current_predicted_state,
                     user_utterance=turn.user_utterance,
                     dialogue_id=dialogue_id,
@@ -375,7 +375,7 @@ def evaluate_with_ground_truth(dialogue_ids, adapter, dst_evaluator, intent_eval
             for turn_idx, turn in enumerate(dialogue.turns):
                 # Simulate prediction by using ground truth with some noise
                 # In reality, this should come from your DST model
-                current_state.update(turn.slot_changes)
+                current_state.update(turn.expected_slots)
                 
                 # For demo: add some random errors (10% of the time)
                 import random
@@ -386,14 +386,14 @@ def evaluate_with_ground_truth(dialogue_ids, adapter, dst_evaluator, intent_eval
                     predicted_state[slot_to_corrupt] = predicted_state[slot_to_corrupt] + "_错误"
                 
                 # Get predicted intent (using ground truth for now)
-                predicted_intent = turn.slot_changes.get('intent', '其他')
+                predicted_intent = turn.expected_slots.get('intent', '其他')
                 
                 # Add to intent evaluator  
                 intent_evaluator.add_turn_evaluation(
                     domain=dialogue.domain,
                     turn_id=turn_idx,
                     predicted_intent=predicted_intent,
-                    turn_updates=turn.slot_changes,
+                    turn_updates=turn.expected_slots,
                     previous_state=current_state,
                     user_utterance=turn.user_utterance,
                     dialogue_id=dialogue_id,
