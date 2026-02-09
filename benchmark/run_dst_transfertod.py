@@ -7,11 +7,13 @@ DST on TransferTOD 评测运行器
 - 结果保存（JSON, CSV）
 - 可视化图表生成
 - 详细度控制（--verbose）
+- 意图评测
 """
 
 import argparse
 import json
 import sys
+import asyncio
 from pathlib import Path
 from datetime import datetime
 
@@ -20,6 +22,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.algorithms.dst import DSTEvaluator
+from benchmark.shared.intent_evaluator import IntentEvaluator
+from benchmark.shared.intent_label_loader import get_intent_label_loader
+
+# Import DST model
+from contextmind.modes.dst import DialogueStateTracker, PromptManager
+from contextmind.infra.llm_client import LLMClient
 
 
 def print_header(title: str):
@@ -30,12 +38,14 @@ def print_header(title: str):
     print("=" * width + "\n")
 
 
-def print_metrics_table(metrics_dict: dict, verbose: int = 1):
+def print_metrics_table(metrics_dict: dict, intent_metrics: dict = None, verbose: int = 1):
     """打印指标表格"""
     if verbose == 0:
         # Quiet mode - only show key metrics
         print(f"Slot Accuracy: {metrics_dict['slot_level']['accuracy']:.4f}")
         print(f"Joint Accuracy: {metrics_dict['dialogue_state_level']['joint_accuracy']:.4f}")
+        if intent_metrics:
+            print(f"Intent Accuracy: {intent_metrics.get('intent_accuracy', 0.0):.4f}")
         return
     
     # Normal or verbose mode - show detailed table
@@ -65,6 +75,16 @@ def print_metrics_table(metrics_dict: dict, verbose: int = 1):
     print(f"║   Correct Turns:        {stats['correct_turns']}".ljust(59) + "║")
     
     print("╚" + "═" * 58 + "╝\n")
+    
+    # Show intent metrics if available
+    if intent_metrics and verbose >= 1:
+        print("\n╔" + "═" * 58 + "╗")
+        print("║" + " 意图评测指标 ".center(58) + "║")
+        print("╠" + "═" * 58 + "╣")
+        print(f"║   Intent Accuracy:      {intent_metrics.get('intent_accuracy', 0.0):.4f}".ljust(59) + "║")
+        print(f"║   Total Turns:          {intent_metrics.get('total_turns', 0)}".ljust(59) + "║")
+        print(f"║   Correct Predictions:  {intent_metrics.get('correct_predictions', 0)}".ljust(59) + "║")
+        print("╚" + "═" * 58 + "╝\n")
     
     # Show domain breakdown if available and verbose
     if verbose >= 1 and 'domain_breakdown' in metrics_dict and metrics_dict['domain_breakdown']:
@@ -131,6 +151,8 @@ def main():
                       help='结果输出目录（可选）')
     parser.add_argument('--save-plots', action='store_true',
                       help='生成并保存可视化图表')
+    parser.add_argument('--use-actual-dst', action='store_true',
+                      help='使用实际DST模型进行预测（需要LLM，否则使用ground truth）')
     
     args = parser.parse_args()
     
@@ -140,6 +162,10 @@ def main():
         print(f"领域: {args.domain or '所有'}")
         print(f"数据类型: {args.data_type}")
         print(f"限制数量: {args.limit or '无限制'}")
+        if args.use_actual_dst:
+            print(f"模式: 使用实际DST模型")
+        else:
+            print(f"模式: 使用Ground Truth（快速评测）")
         print()
     
     # Load adapter
@@ -161,50 +187,61 @@ def main():
         print("⚠️  未找到对话数据，请检查数据路径")
         return
     
-    # Initialize evaluator
-    evaluator = DSTEvaluator()
+    # Initialize evaluators
+    dst_evaluator = DSTEvaluator()
+    intent_evaluator = IntentEvaluator()
+    intent_label_loader = get_intent_label_loader()
     
-    # Evaluate dialogues
-    for idx, dialogue_id in enumerate(dialogue_ids, 1):
+    # Initialize DST tracker if using actual model
+    dst_tracker = None
+    if args.use_actual_dst:
         try:
-            dialogue = adapter.load_dialogue(dialogue_id)
-            
-            if args.verbose == 2:  # Debug mode
-                print(f"[{idx}/{len(dialogue_ids)}] 评测对话: {dialogue_id} ({dialogue.domain})")
-            elif args.verbose == 1 and idx % 10 == 0:  # Progress indicator
-                print(f"进度: {idx}/{len(dialogue_ids)} 完成")
-            
-            # For simplicity, we're using final_state as both prediction and ground truth
-            # In real scenario, you would run your DST model here
-            predicted_state = dialogue.final_state
-            ground_truth_state = dialogue.final_state
-            
-            evaluator.add_prediction(
-                predicted=predicted_state,
-                ground_truth=ground_truth_state,
-                domain=dialogue.domain
-            )
-            
-        except Exception as e:
+            # Initialize LLM client
+            llm_client = LLMClient()
             if args.verbose >= 1:
-                print(f"⚠️  评测对话 {dialogue_id} 时出错: {e}")
-            continue
+                print("✅ LLM客户端初始化成功\n")
+        except Exception as e:
+            print(f"⚠️  LLM初始化失败: {e}")
+            print("⚠️  将使用Ground Truth模式")
+            args.use_actual_dst = False
+    
+    # Run evaluation with asyncio if using actual DST
+    if args.use_actual_dst:
+        asyncio.run(evaluate_with_dst_model(
+            dialogue_ids, adapter, dst_evaluator, intent_evaluator,
+            dst_tracker, llm_client, args
+        ))
+    else:
+        evaluate_with_ground_truth(
+            dialogue_ids, adapter, dst_evaluator, intent_evaluator, args
+        )
     
     # Calculate metrics
-    metrics = evaluator.calculate_metrics()
+    metrics = dst_evaluator.calculate_metrics()
     metrics_dict = metrics.to_dict()
+    
+    # Get intent metrics
+    intent_metrics_raw = intent_evaluator.calculate_metrics()
+    intent_metrics_dict = {
+        'intent_accuracy': intent_metrics_raw.get('accuracy', 0.0),
+        'total_turns': intent_metrics_raw.get('total_turns', 0),
+        'correct_predictions': intent_metrics_raw.get('correct_turns', 0)
+    }
     
     # Display metrics
     if args.verbose >= 1:
         print()
         print_header("评测结果")
     
-    print_metrics_table(metrics_dict, args.verbose)
+    print_metrics_table(metrics_dict, intent_metrics_dict, args.verbose)
     
     # Save results if output directory specified
     if args.output_dir:
         output_dir = Path(args.output_dir)
-        save_results(metrics_dict, output_dir, args.verbose)
+        # Merge intent metrics into main metrics
+        full_metrics = metrics_dict.copy()
+        full_metrics['intent_metrics'] = intent_metrics_dict
+        save_results(full_metrics, output_dir, args.verbose)
         
         # Generate plots if requested
         if args.save_plots:
@@ -214,17 +251,19 @@ def main():
                 import matplotlib.pyplot as plt
                 
                 # Create a simple bar chart of metrics
-                fig, ax = plt.subplots(figsize=(10, 6))
-                metrics_names = ['Slot\nAccuracy', 'Precision', 'Recall', 'F1', 'Joint\nAccuracy']
+                fig, ax = plt.subplots(figsize=(12, 6))
+                metrics_names = ['Slot\nAccuracy', 'Precision', 'Recall', 'F1', 'Joint\nAccuracy', 'Intent\nAccuracy']
                 metrics_values = [
                     metrics_dict['slot_level']['accuracy'],
                     metrics_dict['slot_level']['precision'],
                     metrics_dict['slot_level']['recall'],
                     metrics_dict['slot_level']['f1'],
-                    metrics_dict['dialogue_state_level']['joint_accuracy']
+                    metrics_dict['dialogue_state_level']['joint_accuracy'],
+                    intent_metrics_dict.get('intent_accuracy', 0.0)
                 ]
                 
-                bars = ax.bar(metrics_names, metrics_values, color=['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6'])
+                bars = ax.bar(metrics_names, metrics_values, 
+                            color=['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#1abc9c'])
                 ax.set_ylim(0, 1.0)
                 ax.set_ylabel('Score', fontsize=12)
                 ax.set_title('DST Evaluation Metrics', fontsize=14, fontweight='bold')
@@ -254,6 +293,124 @@ def main():
     
     if args.verbose >= 1:
         print("\n评测完成！\n")
+
+
+async def evaluate_with_dst_model(dialogue_ids, adapter, dst_evaluator, intent_evaluator,
+                                   dst_tracker, llm_client, args):
+    """使用实际DST模型进行评测"""
+    for idx, dialogue_id in enumerate(dialogue_ids, 1):
+        try:
+            dialogue = adapter.load_dialogue(dialogue_id)
+            
+            if args.verbose == 2:  # Debug mode
+                print(f"[{idx}/{len(dialogue_ids)}] 评测对话: {dialogue_id} ({dialogue.domain})")
+            elif args.verbose == 1 and idx % 10 == 0:  # Progress indicator
+                print(f"进度: {idx}/{len(dialogue_ids)} 完成")
+            
+            # Initialize DST tracker for this dialogue
+            prompt_manager = PromptManager(
+                domain=dialogue.domain,
+                enable_dynamic_slots=True,
+                enable_intent_prediction=True
+            )
+            tracker = DialogueStateTracker(
+                llm_client=llm_client,
+                prompt_manager=prompt_manager,
+                enable_dynamic_slots=True
+            )
+            
+            # Process each turn
+            current_predicted_state = {}
+            for turn_idx, turn in enumerate(dialogue.turns):
+                # Run DST model
+                predicted_updates = await tracker.process_turn(
+                    system_utterance=turn.system_utterance or "",
+                    user_utterance=turn.user_utterance
+                )
+                
+                # Update cumulative state
+                current_predicted_state.update(predicted_updates)
+                
+                # Get predicted intent if available
+                predicted_intent = predicted_updates.get('intent', '其他')
+                
+                # Add to intent evaluator
+                intent_evaluator.add_turn_evaluation(
+                    domain=dialogue.domain,
+                    turn_id=turn_idx,
+                    predicted_intent=predicted_intent,
+                    turn_updates=turn.slot_changes,
+                    previous_state=current_predicted_state,
+                    user_utterance=turn.user_utterance,
+                    dialogue_id=dialogue_id,
+                    total_turns=len(dialogue.turns)
+                )
+            
+            # Evaluate final state
+            dst_evaluator.add_prediction(
+                predicted=current_predicted_state,
+                ground_truth=dialogue.final_state,
+                domain=dialogue.domain
+            )
+            
+        except Exception as e:
+            if args.verbose >= 1:
+                print(f"⚠️  评测对话 {dialogue_id} 时出错: {e}")
+            continue
+
+
+def evaluate_with_ground_truth(dialogue_ids, adapter, dst_evaluator, intent_evaluator, args):
+    """使用Ground Truth进行快速评测（用于测试评测框架本身）"""
+    for idx, dialogue_id in enumerate(dialogue_ids, 1):
+        try:
+            dialogue = adapter.load_dialogue(dialogue_id)
+            
+            if args.verbose == 2:  # Debug mode
+                print(f"[{idx}/{len(dialogue_ids)}] 评测对话: {dialogue_id} ({dialogue.domain})")
+            elif args.verbose == 1 and idx % 10 == 0:  # Progress indicator
+                print(f"进度: {idx}/{len(dialogue_ids)} 完成")
+            
+            # Simulate turn-by-turn tracking
+            current_state = {}
+            for turn_idx, turn in enumerate(dialogue.turns):
+                # Simulate prediction by using ground truth with some noise
+                # In reality, this should come from your DST model
+                current_state.update(turn.slot_changes)
+                
+                # For demo: add some random errors (10% of the time)
+                import random
+                predicted_state = current_state.copy()
+                if random.random() < 0.1 and predicted_state:
+                    # Randomly corrupt one slot
+                    slot_to_corrupt = random.choice(list(predicted_state.keys()))
+                    predicted_state[slot_to_corrupt] = predicted_state[slot_to_corrupt] + "_错误"
+                
+                # Get predicted intent (using ground truth for now)
+                predicted_intent = turn.slot_changes.get('intent', '其他')
+                
+                # Add to intent evaluator  
+                intent_evaluator.add_turn_evaluation(
+                    domain=dialogue.domain,
+                    turn_id=turn_idx,
+                    predicted_intent=predicted_intent,
+                    turn_updates=turn.slot_changes,
+                    previous_state=current_state,
+                    user_utterance=turn.user_utterance,
+                    dialogue_id=dialogue_id,
+                    total_turns=len(dialogue.turns)
+                )
+            
+            # Evaluate final state (with simulated errors)
+            dst_evaluator.add_prediction(
+                predicted=predicted_state,
+                ground_truth=dialogue.final_state,
+                domain=dialogue.domain
+            )
+            
+        except Exception as e:
+            if args.verbose >= 1:
+                print(f"⚠️  评测对话 {dialogue_id} 时出错: {e}")
+            continue
 
 
 if __name__ == '__main__':
