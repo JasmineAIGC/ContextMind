@@ -94,9 +94,8 @@ class TransferTODAdapter:
                 if item.get("id") == instance_id:
                     raw_dialogue = item
                     break
-            if raw_dialogue is None and len(data) > 0:
-                # 如果找不到指定ID，使用第一个
-                raw_dialogue = data[0]
+            if raw_dialogue is None:
+                raise ValueError(f"在文件 {file_path} 中找不到ID为 {instance_id} 的对话实例")
         else:
             # 单个对象格式
             raw_dialogue = data
@@ -239,7 +238,8 @@ class TransferTODAdapter:
                     for item in data:
                         instance_id = item.get("id")
                         if instance_id is not None:
-                            dialogue_id = f"{relative_path}:{instance_id}"
+                            # Use as_posix() to ensure consistent forward slashes on all platforms
+                            dialogue_id = f"{relative_path.as_posix()}:{instance_id}"
                             
                             # 域过滤
                             if domain:
@@ -356,12 +356,12 @@ class TransferTODAdapter:
             if domain is not None:
                 try:
                     dialogue = self.load_dialogue(dialogue_id)
-                    if dialogue.domain == domain:
-                        matching_ids.append(dialogue_id)
+                    if dialogue.domain != domain:
+                        continue
                 except Exception:
                     continue
-            else:
-                # domain=None 表示所有领域
-                matching_ids.append(dialogue_id)
+            
+            # Both filters passed (or were None), add to results
+            matching_ids.append(dialogue_id)
         
         return matching_ids
