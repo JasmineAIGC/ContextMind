@@ -889,58 +889,6 @@ class IntentEvaluator:
                 
                 report.append("")
         
-        # 添加指标说明
-        report.append("=" * 70)
-        report.append("📊 指标说明")
-        report.append("=" * 70)
-        report.append("")
-        
-        if dialogue_metrics_exist:
-            report.append("【对话意图准确率 (Dialogue Intent Accuracy)】")
-            report.append("  含义：对话级别的意图识别准确率")
-            report.append("  计算：意图完全正确的对话数 / 总对话数")
-            report.append("  说明：衡量整个对话的意图是否被正确识别")
-            report.append("")
-        
-        has_classification_metrics = bool(metrics.get('per_class_metrics'))
-        if has_classification_metrics:
-            report.append("【精确率 (Precision)】")
-            report.append("  含义：模型预测为某个意图的样本中，真正属于该意图的比例")
-            report.append("  计算：TP / (TP + FP)")
-            report.append("  说明：衡量预测结果的准确性，值越高说明误判越少")
-            report.append("")
-            
-            report.append("【召回率 (Recall)】")
-            report.append("  含义：真正属于某个意图的样本中，被模型正确识别的比例")
-            report.append("  计算：TP / (TP + FN)")
-            report.append("  说明：衡量模型的覆盖能力，值越高说明遗漏越少")
-            report.append("")
-            
-            report.append("【F1分数 (F1 Score)】")
-            report.append("  含义：精确率和召回率的调和平均数")
-            report.append("  计算：2 × (Precision × Recall) / (Precision + Recall)")
-            report.append("  说明：综合衡量模型性能，平衡精确率和召回率")
-            report.append("")
-            
-            report.append("【宏平均 (Macro Average)】")
-            report.append("  含义：对每个意图类别分别计算指标，再取平均值")
-            report.append("  特点：每个类别权重相同，不考虑样本数量")
-            report.append("  适用：关注所有意图类别的整体表现，包括低频意图")
-            report.append("")
-            
-            report.append("【微平均 (Micro Average)】")
-            report.append("  含义：将所有意图类别的TP、FP、FN汇总后再计算指标")
-            report.append("  特点：样本多的类别权重更大")
-            report.append("  适用：关注整体样本的识别效果，偏向高频意图")
-            report.append("")
-            
-            report.append("【支持数 (Support)】")
-            report.append("  含义：测试集中该意图类别的真实样本数量")
-            report.append("  说明：用于了解每个意图类别的数据分布")
-            report.append("")
-        
-        report.append("=" * 70)
-        
         return "\n".join(report)
     
     def _generate_summary_analysis(self, metrics: Dict[str, Any]) -> str:
