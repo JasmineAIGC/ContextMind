@@ -175,13 +175,13 @@ class FnCTODTransferTODTest:
                     logger.info(f"\n  轮次 {turn_idx + 1}:")
                     logger.info(f"    用户: {user_input}")
                     logger.info(f"    预测状态: {predicted_state}")
-                    logger.info(f"    实际状态: {turn.belief_state}")
+                    logger.info(f"    实际状态: {turn.expected_slots}")
                 
                 # 评估当前轮的槽位准确性
                 turn_correct = 0
                 turn_total = 0
                 
-                for slot_name, true_value in turn.belief_state.items():
+                for slot_name, true_value in turn.expected_slots.items():
                     turn_total += 1
                     total_slots += 1
                     predicted_value = predicted_state.get(slot_name)
@@ -197,7 +197,7 @@ class FnCTODTransferTODTest:
                 
                 # 检查是否有额外预测的槽位
                 for slot_name, pred_value in predicted_state.items():
-                    if slot_name not in turn.belief_state:
+                    if slot_name not in turn.expected_slots:
                         all_predicted_pairs.add((slot_name, pred_value))
                 
                 # 判断整轮是否完全正确
