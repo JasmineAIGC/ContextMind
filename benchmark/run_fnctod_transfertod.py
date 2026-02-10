@@ -161,6 +161,46 @@ class FnCTODTransferTODTest:
             # 其他类型（字符串、数字、布尔值等）直接返回
             return value
     
+    def _normalize_value(self, value):
+        """
+        规范化槽位值以进行比较
+        
+        处理类型不一致的问题：
+        - 字符串形式的数字转为数字
+        - 字符串形式的布尔值转为布尔值
+        
+        Args:
+            value: 原始槽位值
+            
+        Returns:
+            规范化后的值
+        """
+        if value is None:
+            return None
+        
+        # 如果是字符串，尝试转换为其他类型
+        if isinstance(value, str):
+            # 尝试转为整数
+            try:
+                return int(value)
+            except ValueError:
+                pass
+            
+            # 尝试转为浮点数
+            try:
+                return float(value)
+            except ValueError:
+                pass
+            
+            # 检查布尔值字符串
+            if value.lower() in ('true', 'false'):
+                return value.lower() == 'true'
+            
+            # 保持字符串
+            return value
+        
+        return value
+    
     async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
         """
         测试单个对话
@@ -222,28 +262,55 @@ class FnCTODTransferTODTest:
                 if not predicted_state:
                     logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 predicted_state 数据（LLM可能未正确调用）")
                 
+                # 从预测状态中提取槽位值（去除域前缀）
+                # predicted_state 的键格式：'hotel-酒店星级'
+                # expected_slots 的键格式：'酒店星级'
+                predicted_slots_no_prefix = {}
+                domain_prefix = f"{dialogue.domain}-"
+                for key, value in predicted_state.items():
+                    if key.startswith(domain_prefix):
+                        # 去除域前缀
+                        slot_name = key[len(domain_prefix):]
+                        
+                        if isinstance(value, dict):
+                            # 如果是字典，展开它的内容（无论是否是域名本身）
+                            # 这处理了 LLM 返回嵌套结构的情况，如 'hotel-hotel': {参数...}
+                            for nested_key, nested_value in value.items():
+                                if nested_key not in predicted_slots_no_prefix:
+                                    predicted_slots_no_prefix[nested_key] = nested_value
+                        else:
+                            # 非字典值直接添加（除非是域名本身作为槽位）
+                            if slot_name != dialogue.domain:
+                                predicted_slots_no_prefix[slot_name] = value
+                
                 for slot_name, true_value in turn.expected_slots.items():
                     turn_total += 1
                     total_slots += 1
-                    predicted_value = predicted_state.get(slot_name)
+                    predicted_value = predicted_slots_no_prefix.get(slot_name)
+                    
+                    # 规范化值以进行比较（处理类型不一致问题）
+                    normalized_true_value = self._normalize_value(true_value)
+                    normalized_pred_value = self._normalize_value(predicted_value)
                     
                     # 将值转换为可哈希的形式（处理 dict/list 等不可哈希类型）
-                    hashable_true_value = self._make_value_hashable(true_value)
-                    hashable_pred_value = self._make_value_hashable(predicted_value)
+                    hashable_true_value = self._make_value_hashable(normalized_true_value)
+                    hashable_pred_value = self._make_value_hashable(normalized_pred_value)
                     
                     # 添加到集合用于P/R/F1计算
                     all_ground_truth_pairs.add((slot_name, hashable_true_value))
                     if predicted_value is not None:
                         all_predicted_pairs.add((slot_name, hashable_pred_value))
                     
-                    if predicted_value == true_value:
+                    # 使用规范化后的值进行比较
+                    if normalized_pred_value == normalized_true_value:
                         turn_correct += 1
                         correct_slots += 1
                 
                 # 检查是否有额外预测的槽位
-                for slot_name, pred_value in predicted_state.items():
+                for slot_name, pred_value in predicted_slots_no_prefix.items():
                     if slot_name not in turn.expected_slots:
-                        hashable_pred_value = self._make_value_hashable(pred_value)
+                        normalized_pred_value = self._normalize_value(pred_value)
+                        hashable_pred_value = self._make_value_hashable(normalized_pred_value)
                         all_predicted_pairs.add((slot_name, hashable_pred_value))
                 
                 # 判断整轮是否完全正确
