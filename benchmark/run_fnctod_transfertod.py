@@ -663,7 +663,6 @@ if __name__ == "__main__":
     try:
         main()
         print("\n" + "=" * 80)
-        print("✅ 脚本执行完成 - Version 2024-02-10-v2")
         print("=" * 80)
         sys.exit(0)
     except KeyboardInterrupt:
@@ -673,6 +672,5 @@ if __name__ == "__main__":
         print(f"\n\n❌ 执行失败: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
-        print("\n💡 提示: 这是新版本的脚本 (2024-02-10-v2)")
         print("如果你看到这个错误，说明脚本正确加载但执行时遇到问题")
         sys.exit(1)
