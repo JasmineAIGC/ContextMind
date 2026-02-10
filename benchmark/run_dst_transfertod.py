@@ -519,14 +519,9 @@ def main():
         summary_lines.append(intent_report)
         summary_lines.append("")
         
-        # 将汇总结果同时输出到终端和日志文件
+        # 输出指标汇总（使用 print）
         summary_text = "\n".join(summary_lines)
         print(summary_text)
-        
-        # 同时输出到日志文件（使用INFO级别）
-        for line in summary_lines:
-            if line:  # 跳过空行
-                logger.info(line)
         
         # 问题5修复：将指标结果保存到文件
         output_dir = Path("benchmark_results")
