@@ -192,9 +192,10 @@ class FnCTODTransferTODTest:
             except ValueError:
                 pass
             
-            # 检查布尔值字符串
-            if value.lower() in ('true', 'false'):
-                return value.lower() == 'true'
+            # 检查布尔值字符串（先确认是字符串类型）
+            value_lower = value.lower()
+            if value_lower in ('true', 'false'):
+                return value_lower == 'true'
             
             # 保持字符串
             return value
@@ -265,6 +266,9 @@ class FnCTODTransferTODTest:
                 # 从预测状态中提取槽位值（去除域前缀）
                 # predicted_state 的键格式：'hotel-酒店星级'
                 # expected_slots 的键格式：'酒店星级'
+                #
+                # 注意：这里假设键格式为 'domain-slotname'，其中域名和槽位名用单个连字符分隔
+                # 如果域名本身包含连字符，可能需要更复杂的解析逻辑
                 predicted_slots_no_prefix = {}
                 domain_prefix = f"{dialogue.domain}-"
                 for key, value in predicted_state.items():
@@ -278,8 +282,14 @@ class FnCTODTransferTODTest:
                             for nested_key, nested_value in value.items():
                                 if nested_key not in predicted_slots_no_prefix:
                                     predicted_slots_no_prefix[nested_key] = nested_value
+                                else:
+                                    # 记录重复键（顶级和嵌套中都存在的槽位）
+                                    # 优先使用顶级值（已存在的值）
+                                    logger.debug(f"槽位 '{nested_key}' 在顶级和嵌套字典中都存在，使用顶级值")
                         else:
-                            # 非字典值直接添加（除非是域名本身作为槽位）
+                            # 非字典值直接添加
+                            # 排除域名本身作为槽位的情况（如 'hotel-hotel' 的值不是字典时）
+                            # 这种情况很少见，通常 'domain-domain' 的值应该是包含参数的字典
                             if slot_name != dialogue.domain:
                                 predicted_slots_no_prefix[slot_name] = value
                 
