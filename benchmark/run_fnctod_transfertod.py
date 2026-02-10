@@ -21,6 +21,7 @@ print()
 
 import asyncio
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
@@ -143,7 +144,6 @@ class FnCTODTransferTODTest:
             return None
         elif isinstance(value, (dict, list)):
             # 将字典或列表转换为JSON字符串，保证一致性
-            import json
             return json.dumps(value, sort_keys=True, ensure_ascii=False)
         else:
             # 其他类型（字符串、数字、布尔值等）直接返回
@@ -214,7 +214,7 @@ class FnCTODTransferTODTest:
                     
                     # 添加到集合用于P/R/F1计算
                     all_ground_truth_pairs.add((slot_name, hashable_true_value))
-                    if hashable_pred_value is not None:
+                    if predicted_value is not None:
                         all_predicted_pairs.add((slot_name, hashable_pred_value))
                     
                     if predicted_value == true_value:
