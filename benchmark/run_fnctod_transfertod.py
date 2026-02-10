@@ -127,6 +127,28 @@ class FnCTODTransferTODTest:
         
         return domain_spec
     
+    def _make_value_hashable(self, value):
+        """
+        将槽位值转换为可哈希的形式
+        
+        用于处理字典、列表等不可哈希的类型，以便可以添加到集合中。
+        
+        Args:
+            value: 槽位值（可能是任何类型）
+            
+        Returns:
+            可哈希的值（字符串、数字、None等）
+        """
+        if value is None:
+            return None
+        elif isinstance(value, (dict, list)):
+            # 将字典或列表转换为JSON字符串，保证一致性
+            import json
+            return json.dumps(value, sort_keys=True, ensure_ascii=False)
+        else:
+            # 其他类型（字符串、数字、布尔值等）直接返回
+            return value
+    
     async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
         """
         测试单个对话
@@ -186,10 +208,14 @@ class FnCTODTransferTODTest:
                     total_slots += 1
                     predicted_value = predicted_state.get(slot_name)
                     
+                    # 将值转换为可哈希的形式（处理 dict/list 等不可哈希类型）
+                    hashable_true_value = self._make_value_hashable(true_value)
+                    hashable_pred_value = self._make_value_hashable(predicted_value)
+                    
                     # 添加到集合用于P/R/F1计算
-                    all_ground_truth_pairs.add((slot_name, true_value))
-                    if predicted_value:
-                        all_predicted_pairs.add((slot_name, predicted_value))
+                    all_ground_truth_pairs.add((slot_name, hashable_true_value))
+                    if hashable_pred_value is not None:
+                        all_predicted_pairs.add((slot_name, hashable_pred_value))
                     
                     if predicted_value == true_value:
                         turn_correct += 1
@@ -198,7 +224,8 @@ class FnCTODTransferTODTest:
                 # 检查是否有额外预测的槽位
                 for slot_name, pred_value in predicted_state.items():
                     if slot_name not in turn.expected_slots:
-                        all_predicted_pairs.add((slot_name, pred_value))
+                        hashable_pred_value = self._make_value_hashable(pred_value)
+                        all_predicted_pairs.add((slot_name, hashable_pred_value))
                 
                 # 判断整轮是否完全正确
                 if turn_total > 0 and turn_correct == turn_total:
