@@ -648,10 +648,12 @@ class IntentEvaluator:
         
         # 计算宏平均和微平均
         if per_class_metrics:
+            # 宏平均：对每个类别的指标求平均（每个类别权重相同）
             macro_precision = sum(m['precision'] for m in per_class_metrics.values()) / len(per_class_metrics)
             macro_recall = sum(m['recall'] for m in per_class_metrics.values()) / len(per_class_metrics)
             macro_f1 = sum(m['f1'] for m in per_class_metrics.values()) / len(per_class_metrics)
             
+            # 微平均：全局计算TP/FP/FN（样本多的类别权重更大）
             total_tp = sum(m['tp'] for m in per_class_metrics.values())
             total_fp = sum(m['fp'] for m in per_class_metrics.values())
             total_fn = sum(m['fn'] for m in per_class_metrics.values())
@@ -659,6 +661,11 @@ class IntentEvaluator:
             micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
             micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
             micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0.0
+            
+            # 注意：在意图分类中，每个样本必须分配一个类别，因此：
+            # total_tp + total_fp = 预测总数 = 样本总数
+            # total_tp + total_fn = 真实总数 = 样本总数
+            # 所以 micro_precision = micro_recall = micro_f1（这是正常现象）
         else:
             macro_precision = macro_recall = macro_f1 = 0.0
             micro_precision = micro_recall = micro_f1 = 0.0
@@ -866,6 +873,7 @@ class IntentEvaluator:
             report.append(f"  精确率 (Precision):  {micro.get('precision', 0):.2%}")
             report.append(f"  召回率 (Recall):     {micro.get('recall', 0):.2%}")
             report.append(f"  F1分数 (F1 Score):   {micro.get('f1', 0):.2%}")
+            report.append("  （注：在单标签分类中，微平均的精确率、召回率和F1通常相等，这是正常现象）")
             report.append("")
             
             # 各意图类别的详细指标
@@ -948,6 +956,16 @@ class IntentEvaluator:
             summary.append("【分类指标】")
             summary.append(f"  宏平均F1: {macro.get('f1', 0):.1%}")
             summary.append(f"  微平均F1: {micro.get('f1', 0):.1%}")
+            
+            # 分析宏平均和微平均的差异
+            macro_f1 = macro.get('f1', 0)
+            micro_f1 = micro.get('f1', 0)
+            if abs(macro_f1 - micro_f1) > 0.05:  # 差异超过5%
+                diff_percentage = abs(macro_f1 - micro_f1) * 100
+                if macro_f1 < micro_f1:
+                    summary.append(f"  （注：宏平均低于微平均 {diff_percentage:.1f}%，说明少数类别性能较差）")
+                else:
+                    summary.append(f"  （注：宏平均高于微平均 {diff_percentage:.1f}%，说明多数类别性能较差）")
         
         # 2. 主要问题分析
         summary.append("")
