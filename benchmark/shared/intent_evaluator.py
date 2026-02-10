@@ -593,6 +593,89 @@ class IntentEvaluator:
             }
         
         if not self.predictions:
+            # 如果没有轮次级别数据，但有对话级别数据，计算对话级别的per_class_metrics
+            if self.dialogue_intents:
+                # 计算对话级别的per_class_metrics
+                per_class_metrics = {}
+                all_intents = set()
+                all_intents.update(pred for _, pred, _ in self.dialogue_intents)
+                all_intents.update(inf for _, _, inf in self.dialogue_intents)
+                
+                for intent in all_intents:
+                    tp = fp = fn = 0
+                    intent_normalized = self._normalize_for_comparison(intent)
+                    
+                    for _, pred, inf in self.dialogue_intents:
+                        pred_normalized = self._normalize_for_comparison(pred)
+                        inf_normalized = self._normalize_for_comparison(inf)
+                        
+                        pred_match = pred_normalized == intent_normalized
+                        inf_match = inf_normalized == intent_normalized
+                        
+                        if pred_match and inf_match:
+                            tp += 1
+                        elif pred_match and not inf_match:
+                            fp += 1
+                        elif not pred_match and inf_match:
+                            fn += 1
+                    
+                    support = tp + fn
+                    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+                    
+                    per_class_metrics[intent] = {
+                        'precision': precision,
+                        'recall': recall,
+                        'f1': f1,
+                        'support': support,
+                        'tp': tp,
+                        'fp': fp,
+                        'fn': fn
+                    }
+                
+                # 计算宏平均和微平均
+                if per_class_metrics:
+                    macro_precision = sum(m['precision'] for m in per_class_metrics.values()) / len(per_class_metrics)
+                    macro_recall = sum(m['recall'] for m in per_class_metrics.values()) / len(per_class_metrics)
+                    macro_f1 = sum(m['f1'] for m in per_class_metrics.values()) / len(per_class_metrics)
+                    
+                    total_tp = sum(m['tp'] for m in per_class_metrics.values())
+                    total_fp = sum(m['fp'] for m in per_class_metrics.values())
+                    total_fn = sum(m['fn'] for m in per_class_metrics.values())
+                    
+                    micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
+                    micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
+                    micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0.0
+                else:
+                    macro_precision = macro_recall = macro_f1 = 0.0
+                    micro_precision = micro_recall = micro_f1 = 0.0
+                
+                return {
+                    'accuracy': 0.0,
+                    'total_turns': 0,
+                    'correct_turns': 0,
+                    'intent_distribution': {},
+                    'confusion_matrix': {},
+                    'error_analysis': {},
+                    'transition_analysis': {},
+                    'phase_distribution': {},
+                    'task_relevance_stats': {},
+                    'dialogue_metrics': dialogue_metrics,
+                    'per_class_metrics': per_class_metrics,
+                    'macro_metrics': {
+                        'precision': macro_precision,
+                        'recall': macro_recall,
+                        'f1': macro_f1
+                    },
+                    'micro_metrics': {
+                        'precision': micro_precision,
+                        'recall': micro_recall,
+                        'f1': micro_f1
+                    }
+                }
+            
+            # 没有任何数据的情况
             return {
                 'accuracy': 0.0,
                 'total_turns': 0,
