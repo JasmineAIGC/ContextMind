@@ -74,6 +74,17 @@ class FnCTODTransferTODTest:
             logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             logger.error(f"❌ LLM客户端初始化失败: {e}")
+            print(f"\n{'='*70}")
+            print(f"❌ 错误: 无法初始化LLM客户端")
+            print(f"{'='*70}")
+            print(f"原因: {e}")
+            print(f"\nFnCTOD 模式需要 LLM 来提取槽位信息。")
+            print(f"请确保:")
+            print(f"  1. 已安装 OpenAI 包: pip install openai")
+            print(f"  2. 已设置API密钥环境变量 (如 QWEN3_API_KEY 或 OPENAI_API_KEY)")
+            print(f"  3. API密钥有效且有足够的配额")
+            print(f"\n提示: 如果没有LLM访问权限，所有指标将为 0.00%")
+            print(f"{'='*70}\n")
             raise
         
         # 获取领域schema
