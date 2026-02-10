@@ -1,8 +1,25 @@
 # TransferTOD Schema 提取故障排查指南
 
-## 问题：某些域未被提取
+## 重要提示：默认行为已更新 ✅
 
-如果在提取 TransferTOD schemas 时发现某些域显示为"数据集中不可用"，请按照以下步骤排查。
+**从最新版本开始，默认行为已更改：**
+- ✅ **默认：只提取数据集中实际存在的域**（不会显示"不可用"）
+- 这是推荐的使用方式，避免看到"数据集中不可用"的提示
+- 如果您的数据集有 24 个域，就会提取 24 个域
+
+**如果您想尝试提取标准 30 域列表：**
+```bash
+python benchmark/extract_transfertod_schemas.py \
+    --data-root .data/TransferTOD/ \
+    --use-standard-list
+```
+这将尝试提取所有 30 个标准域，对于不存在的域会显示"⚠️ 数据集中不可用"。
+
+---
+
+## 问题：某些域未被提取（使用 --use-standard-list 时）
+
+如果使用 `--use-standard-list` 参数时发现某些域显示为"数据集中不可用"，请按照以下步骤排查。
 
 ### 步骤 1：运行诊断模式
 
@@ -86,25 +103,27 @@ for domain in standard_domains:
 
 **解决方案：** 
 
+✅ **推荐：使用默认模式（不使用 --use-standard-list）**
+```bash
+# 不需要任何特殊参数，直接运行
+python benchmark/extract_transfertod_schemas.py \
+    --data-root .data/TransferTOD/ \
+    --output schemas.json
+```
+这将只提取数据集中实际存在的 24 个域，不会显示"不可用"的提示。
+
+**其他选项：**
+
 **选项 1：** 从标准列表中移除这些域
 ```python
 # 更新 get_transfertod_30_domains() 方法
 # 只列出数据集中实际存在的 24 个域
 ```
 
-**选项 2：** 标记为可选域
-```python
-# 添加可用域检查
-AVAILABLE_DOMAINS = [
-    "保洁", "健身房", "医院", "博物馆", "培训班", "外卖", 
-    "家电维修", "度假村", "律师", "快递", "搬家", "景点", 
-    "洗衣", "火车票", "牙医", "电影", "电话卡", "租房", 
-    "租车", "美容院", "购物", "送水", "邮轮", "酒店"
-]
-
-# 在提取时只处理可用的域
-for domain in AVAILABLE_DOMAINS:
-    # 提取逻辑
+**选项 2：** 继续使用 --use-standard-list 但接受某些域不可用
+```bash
+# 输出会包含"⚠️ 数据集中不可用"的提示
+# 这对于文档目的可能有用（显示哪些域缺失）
 ```
 
 **选项 3：** 补充缺失的数据
