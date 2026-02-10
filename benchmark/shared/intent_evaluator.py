@@ -605,9 +605,11 @@ class IntentEvaluator:
                 }
             }
         
-        # 基础统计
+        # 基础统计（使用标准化映射进行比较，与turn-level评测一致）
         total = len(self.predictions)
-        correct = sum(1 for pred, inf in self.predictions if pred.lower() == inf.lower())
+        correct = sum(1 for pred, inf in self.predictions 
+                     if self.normalization_mapping.get(pred.lower(), pred.lower()) == 
+                        self.normalization_mapping.get(inf.lower(), inf.lower()))
         accuracy = correct / total if total > 0 else 0.0
         
         # 意图分布
@@ -626,18 +628,22 @@ class IntentEvaluator:
         all_intents.update(inf for _, inf in self.predictions)
         
         for intent in all_intents:
-            # True Positives: 预测为intent且真值也是intent
-            tp = sum(1 for pred, inf in self.predictions 
-                    if pred.lower() == intent.lower() and inf.lower() == intent.lower())
-            # False Positives: 预测为intent但真值不是intent
-            fp = sum(1 for pred, inf in self.predictions 
-                    if pred.lower() == intent.lower() and inf.lower() != intent.lower())
-            # False Negatives: 真值是intent但预测不是intent
-            fn = sum(1 for pred, inf in self.predictions 
-                    if pred.lower() != intent.lower() and inf.lower() == intent.lower())
-            # True Negatives: 预测不是intent且真值也不是intent
-            tn = sum(1 for pred, inf in self.predictions 
-                    if pred.lower() != intent.lower() and inf.lower() != intent.lower())
+            # 使用标准化映射进行比较（与整体accuracy一致）
+            tp = fp = fn = 0
+            for pred, inf in self.predictions:
+                pred_normalized = self.normalization_mapping.get(pred.lower(), pred.lower())
+                inf_normalized = self.normalization_mapping.get(inf.lower(), inf.lower())
+                intent_normalized = self.normalization_mapping.get(intent.lower(), intent.lower())
+                
+                pred_match = pred_normalized == intent_normalized
+                inf_match = inf_normalized == intent_normalized
+                
+                if pred_match and inf_match:
+                    tp += 1
+                elif pred_match and not inf_match:
+                    fp += 1
+                elif not pred_match and inf_match:
+                    fn += 1
             
             # 支持数（真值中该类别的数量）
             support = tp + fn
