@@ -39,12 +39,14 @@ class DialogueInstance:
 class TransferTODAdapter:
     """TransferTOD数据集适配器 - 负责加载和转换TransferTOD格式的对话数据"""
     
-    def __init__(self, data_root: str = "./data/TransferTOD"):
+    def __init__(self, data_root: str = "./data/TransferTOD", schemas_file: str = None):
         """
         初始化TransferTOD适配器
         
         Args:
             data_root: TransferTOD数据集根目录路径
+            schemas_file: 可选的预加载schemas JSON文件路径
+                         如果提供，将从文件加载schemas而不是扫描数据集
         """
         self.data_root = Path(data_root)
         self.raw_data_path = self.data_root / "data" / "raw_data"
@@ -52,6 +54,10 @@ class TransferTODAdapter:
         self._all_dialogue_ids = None
         self._schema_cache = {}  # 缓存领域schema
         self._available_domains = None  # 缓存可用的域列表
+        
+        # 如果提供了schemas文件，预加载所有schemas
+        if schemas_file:
+            self.load_schemas_from_file(schemas_file)
         
     def load_dialogue(self, dialogue_id: str, data_type: str = "clean") -> DialogueInstance:
         """
@@ -470,3 +476,54 @@ class TransferTODAdapter:
             "牙医", "理发店", "电影", "电话卡", "租房", "租车", "美容院", "购物",
             "送水", "邮轮", "酒店", "音乐会", "餐厅"
         ]
+    
+    def load_schemas_from_file(self, schemas_file: str):
+        """
+        从JSON文件加载所有域的schemas
+        
+        这个方法允许使用预先生成的schemas文件，而不是每次都扫描数据集。
+        这对于加速测试和使用一致的schema定义非常有用。
+        
+        Args:
+            schemas_file: schemas JSON文件路径
+                         文件格式应该是 extract_transfertod_schemas.py 生成的格式
+        
+        Raises:
+            FileNotFoundError: 如果文件不存在
+            json.JSONDecodeError: 如果JSON格式错误
+            ValueError: 如果文件格式不正确
+        
+        Example:
+            adapter = TransferTODAdapter("./data/TransferTOD", 
+                                        schemas_file="transfertod_schemas.json")
+            # 现在所有 get_domain_schema() 调用都会使用预加载的schemas
+        """
+        import json
+        from pathlib import Path
+        
+        schemas_path = Path(schemas_file)
+        if not schemas_path.exists():
+            raise FileNotFoundError(f"Schemas文件不存在: {schemas_file}")
+        
+        with open(schemas_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # 验证文件格式
+        if "domains" not in data:
+            raise ValueError(f"Schemas文件格式错误: 缺少 'domains' 字段")
+        
+        # 加载所有domains的schemas到缓存
+        domains_data = data["domains"]
+        for domain_name, schema in domains_data.items():
+            # 验证schema包含必要字段
+            if "slots" not in schema:
+                print(f"警告: 域 '{domain_name}' 的schema缺少 'slots' 字段，跳过")
+                continue
+            
+            # 存入缓存
+            self._schema_cache[domain_name] = schema
+        
+        print(f"✅ 从文件加载了 {len(self._schema_cache)} 个域的schemas: {schemas_file}")
+        
+        # 更新可用域列表
+        self._available_domains = sorted(list(self._schema_cache.keys()))

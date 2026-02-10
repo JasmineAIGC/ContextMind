@@ -46,14 +46,15 @@ class FnCTODTransferTODTest:
     FnCTOD模式 - TransferTOD测试类
     """
     
-    def __init__(self, data_root: str = "./data/TransferTOD"):
+    def __init__(self, data_root: str = "./data/TransferTOD", schemas_file: str = None):
         """
         初始化测试
         
         Args:
             data_root: TransferTOD数据集根目录
+            schemas_file: 可选的预加载schemas JSON文件路径
         """
-        self.adapter = TransferTODAdapter(data_root)
+        self.adapter = TransferTODAdapter(data_root, schemas_file=schemas_file)
         self.llm_client = None
         self.tracker = None
         self.intent_evaluator = IntentEvaluator()  # 意图评测器
@@ -270,6 +271,10 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="限制测试对话数量")
     parser.add_argument("--data-type", type=str, default="clean", choices=["clean", "noise"], help="数据类型")
     parser.add_argument("--data-root", type=str, default="./data/TransferTOD/", help="数据集根目录")
+    parser.add_argument("--schemas-file", type=str, default=None, 
+                       help="预加载的schemas JSON文件路径（可选）。"
+                            "使用此选项可以加速测试并确保schema一致性。"
+                            "文件应由 extract_transfertod_schemas.py 生成。")
     parser.add_argument("--verbose", action="store_true", help="输出详细日志")
     parser.add_argument("--no-verbose", dest="verbose", action="store_false", help="不输出详细日志")
     parser.set_defaults(verbose=False)
@@ -288,8 +293,12 @@ def main():
     print(f"脚本版本: 2024-02-10 (完整评测版本)")
     print(f"{'=' * 70}\n")
     
+    # 显示schemas文件信息（如果提供）
+    if args.schemas_file:
+        print(f"📁 使用预加载的schemas文件: {args.schemas_file}\n")
+    
     # 初始化测试
-    test = FnCTODTransferTODTest(data_root=args.data_root)
+    test = FnCTODTransferTODTest(data_root=args.data_root, schemas_file=args.schemas_file)
     
     # 获取对话列表
     try:
