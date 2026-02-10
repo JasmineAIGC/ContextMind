@@ -257,20 +257,39 @@ class FnCTODTransferTODTest:
                 turn_total = 0
                 
                 # 检查是否有数据（用于诊断指标为0的问题）
-                # 这些警告在非verbose模式下也会显示，帮助用户诊断问题
-                if not turn.expected_slots:
-                    logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 expected_slots 数据")
+                # 诊断：只在有数据但为空时警告
+                if turn.expected_slots is not None and len(turn.expected_slots) > 0:
+                    pass  # 有数据，正常
+                elif turn.expected_slots is None:
+                    logger.warning(f"⚠️ 轮次 {turn_idx + 1} expected_slots 为 None")
+                # 空字典是正常的（该轮没有槽位变化），不需要警告
+                
                 if not predicted_state:
                     logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 predicted_state 数据（LLM可能未正确调用）")
                 
                 # 从预测状态中提取槽位值（去除域前缀）
-                # predicted_state 的键格式：'hotel-酒店星级'
-                # expected_slots 的键格式：'酒店星级'
+                # predicted_state 的键格式：'hotel-酒店星级' (LLM使用英文域名)
+                # expected_slots 的键格式：'酒店星级' (数据集使用中文)
                 #
-                # 注意：这里假设键格式为 'domain-slotname'，其中域名和槽位名用单个连字符分隔
-                # 如果域名本身包含连字符，可能需要更复杂的解析逻辑
+                # 问题：dialogue.domain 是中文 "酒店"，但 predicted_state 的键使用英文 "hotel"
+                # 解决：动态检测实际使用的域前缀
                 predicted_slots_no_prefix = {}
-                domain_prefix = f"{dialogue.domain}-"
+                
+                # 动态检测域前缀：从第一个键中提取
+                # 键格式：'domain-slotname'，找到第一个连字符前的部分
+                detected_domain_prefix = None
+                if predicted_state:
+                    for key in predicted_state.keys():
+                        if '-' in key:
+                            detected_domain_prefix = key.split('-', 1)[0] + '-'
+                            break
+                
+                if detected_domain_prefix:
+                    domain_prefix = detected_domain_prefix
+                else:
+                    # 如果无法检测，尝试使用dialogue.domain（可能不准确）
+                    domain_prefix = f"{dialogue.domain}-"
+                    
                 for key, value in predicted_state.items():
                     if key.startswith(domain_prefix):
                         # 去除域前缀
@@ -288,10 +307,8 @@ class FnCTODTransferTODTest:
                                     logger.debug(f"槽位 '{nested_key}' 在顶级和嵌套字典中都存在，使用顶级值")
                         else:
                             # 非字典值直接添加
-                            # 排除域名本身作为槽位的情况（如 'hotel-hotel' 的值不是字典时）
-                            # 这种情况很少见，通常 'domain-domain' 的值应该是包含参数的字典
-                            if slot_name != dialogue.domain:
-                                predicted_slots_no_prefix[slot_name] = value
+                            # 不排除任何槽位，因为域前缀已经被移除
+                            predicted_slots_no_prefix[slot_name] = value
                 
                 for slot_name, true_value in turn.expected_slots.items():
                     turn_total += 1
@@ -379,8 +396,10 @@ class FnCTODTransferTODTest:
                 user_utterances=all_user_utterances
             )
         
+        # 输出评测结果（添加分隔线以区分警告和结果）
         if verbose:
-            logger.info(f"\n  评测结果:")
+            logger.info("  " + "-" * 50)
+            logger.info("  评测结果:")
             logger.info(f"    槽位准确率: {slot_accuracy * 100:.2f}%")
             logger.info(f"    联合准确率: {joint_accuracy * 100:.2f}%")
             logger.info(f"    精确率: {precision * 100:.2f}%")
@@ -580,10 +599,7 @@ def main():
         summary_lines.append(intent_report)
         summary_lines.append("")
         
-        # 输出到终端和日志
-        summary_text = "\n".join(summary_lines)
-        print(summary_text)
-        
+        # 输出到日志（不用 print，避免重复）
         for line in summary_lines:
             if line:
                 logger.info(line)
@@ -594,6 +610,8 @@ def main():
         
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         metrics_file = output_dir / f"fnctod_transfertod_metrics_{timestamp}.txt"
+        
+        summary_text = "\n".join(summary_lines)
         
         with open(metrics_file, 'w', encoding='utf-8') as f:
             f.write("=" * 70 + "\n")
