@@ -18,11 +18,73 @@ try:
     import matplotlib
     matplotlib.use('Agg')  # 使用非GUI后端
     import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
     import seaborn as sns
     
-    # 配置中文字体支持
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'WenQuanYi Micro Hei']
-    plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    def _setup_chinese_fonts():
+        """
+        配置中文字体支持
+        
+        尝试多种方式确保中文字符能正确显示：
+        1. 检查是否有 Noto Sans CJK 字体
+        2. 如果没有，尝试下载安装
+        3. 配置 matplotlib 使用合适的字体
+        """
+        import os
+        import urllib.request
+        from pathlib import Path
+        
+        # 重新加载字体缓存
+        fm._load_fontmanager(try_read_cache=False)
+        
+        # 检查是否已有 Noto Sans CJK 字体
+        has_noto_cjk = False
+        for font in fm.fontManager.ttflist:
+            if 'Noto Sans CJK' in font.name:
+                has_noto_cjk = True
+                break
+        
+        # 如果没有 Noto Sans CJK，尝试下载安装
+        if not has_noto_cjk:
+            try:
+                font_dir = Path.home() / '.fonts'
+                font_dir.mkdir(exist_ok=True)
+                font_path = font_dir / 'NotoSansCJKsc-Regular.otf'
+                
+                if not font_path.exists():
+                    print("下载 Noto Sans CJK 字体以支持中文显示...")
+                    url = 'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf'
+                    urllib.request.urlretrieve(url, font_path)
+                    
+                    # 刷新字体缓存
+                    import subprocess
+                    try:
+                        subprocess.run(['fc-cache', '-f'], check=False, capture_output=True)
+                    except:
+                        pass
+                    
+                    # 重新加载 matplotlib 字体缓存
+                    fm._load_fontmanager(try_read_cache=False)
+                    print("字体下载完成")
+            except Exception as e:
+                print(f"警告: 无法下载中文字体: {e}")
+                print("将使用系统默认字体，中文可能无法正确显示")
+        
+        # 配置字体优先级列表
+        # Noto Sans CJK SC: 支持简体中文的高质量开源字体
+        # 其他字体作为后备选项
+        plt.rcParams['font.sans-serif'] = [
+            'Noto Sans CJK SC',
+            'Noto Sans CJK JP', 
+            'WenQuanYi Micro Hei',
+            'SimHei',
+            'DejaVu Sans',
+            'Arial Unicode MS'
+        ]
+        plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+    
+    # 执行字体配置
+    _setup_chinese_fonts()
     
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -660,7 +722,14 @@ class IntentEvaluator:
         plt.figure(figsize=figsize)
         
         # 确保字体配置应用到当前图表
-        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'WenQuanYi Micro Hei']
+        plt.rcParams['font.sans-serif'] = [
+            'Noto Sans CJK SC',
+            'Noto Sans CJK JP',
+            'WenQuanYi Micro Hei',
+            'SimHei',
+            'DejaVu Sans',
+            'Arial Unicode MS'
+        ]
         plt.rcParams['axes.unicode_minus'] = False
         
         # 使用seaborn绘制热图
