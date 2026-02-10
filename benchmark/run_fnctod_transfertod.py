@@ -3,7 +3,6 @@
 
 import argparse
 from datasets.transfertod.adapter import TransferTODAdapter
-from algorithms.fnctod import FnCTODEvaluator
 
 
 def main():
@@ -11,7 +10,7 @@ def main():
     parser.add_argument("--domain", type=str, default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--data-type", type=str, default="clean")
-    parser.add_argument("--data-root", type=str, default=".data/TransferTOD/")
+    parser.add_argument("--data-root", type=str, default="./data/TransferTOD/")
     
     args = parser.parse_args()
     

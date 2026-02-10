@@ -14,7 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 # 添加项目根目录到Python路径
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -118,16 +118,12 @@ class DSTTransferTODTest:
         total_slots = 0
         matched_slots = 0
         total_turns = 0
-        perfect_turns = 0
         
         all_expected = []
         all_extracted = []
         
         # 维护累积的期望状态（用于正确比较）
         cumulative_expected_state = {}
-        
-        # 初始化最终提取状态（防止空对话情况）
-        final_extracted_state = {}
         
         # 上一轮状态（用于意图推断）
         previous_state = {}
@@ -189,30 +185,22 @@ class DSTTransferTODTest:
             matched_slots += turn_matched
             total_turns += 1
             
-            if turn_total == 0 or turn_matched == turn_total:
-                perfect_turns += 1
-            
             all_expected.append(expected)
             all_extracted.append(extracted_state)
-            
-            # 保存最终提取状态
-            final_extracted_state = extracted_state
             
             if verbose:
                 print(f"期望状态: {expected}")
                 print(f"提取状态: {extracted_state}")
                 print(f"匹配数: {turn_matched}/{turn_total}")
         
-        # 计算最终提取状态（在使用前定义）
-        # 使用tracker的current_state作为最终状态（更可靠）
-        final_extracted = self.tracker.current_state if hasattr(self, 'tracker') else final_extracted_state
+        # 使用tracker的current_state作为最终状态
+        final_extracted = self.tracker.current_state
         
         # 对话级别意图评测（在所有轮次处理完成后）
         # 提取对话级别的预测意图：使用出现频率最高的意图（排除'未识别'）
         dialogue_predicted_intent = '未识别'
         if all_predicted_intents:
             # 统计意图出现频率
-            from collections import Counter
             intent_counter = Counter([intent for intent in all_predicted_intents if intent != '未识别'])
             if intent_counter:
                 # 取最常见的意图
@@ -374,46 +362,6 @@ class DSTTransferTODTest:
         
         return precision, recall, f1
     
-    def _calculate_prf(self, expected_list: List[Dict], extracted_list: List[Dict]) -> Tuple[float, float, float]:
-        """
-        计算Precision、Recall和F1 Score
-        
-        Args:
-            expected_list: 期望槽位列表
-            extracted_list: 提取槽位列表
-            
-        Returns:
-            (precision, recall, f1)
-        """
-        true_positive = 0
-        false_positive = 0
-        false_negative = 0
-        
-        for expected, extracted in zip(expected_list, extracted_list):
-            for slot, value in expected.items():
-                # 转换为字符串进行比较
-                expected_value_str = str(value) if value is not None else None
-                extracted_value_str = str(extracted.get(slot)) if extracted.get(slot) is not None else None
-                
-                if slot in extracted and expected_value_str == extracted_value_str:
-                    true_positive += 1
-                else:
-                    false_negative += 1
-            
-            for slot, value in extracted.items():
-                # 转换为字符串进行比较
-                expected_value_str = str(expected.get(slot)) if expected.get(slot) is not None else None
-                extracted_value_str = str(value) if value is not None else None
-                
-                if slot not in expected or expected_value_str != extracted_value_str:
-                    false_positive += 1
-        
-        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0.0
-        recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) > 0 else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-        
-        return precision, recall, f1
-
 
 def main():
     """主函数"""

@@ -68,6 +68,11 @@ class DSTEvaluator:
         correct_turns = 0
         domain_stats = {}
         
+        # For precision/recall/F1 calculation
+        true_positives = 0
+        false_positives = 0
+        false_negatives = 0
+        
         for pred, gt, domain in zip(self.predictions, self.ground_truths, self.domains):
             if domain not in domain_stats:
                 domain_stats[domain] = {"total": 0, "correct": 0, "exact_match": 0, "turns": 0}
@@ -88,8 +93,17 @@ class DSTEvaluator:
                 if pred_val == gt_val:
                     correct_slots += 1
                     domain_stats[domain]["correct"] += 1
+                    # True positive: predicted and ground truth match
+                    if pred_val != "":
+                        true_positives += 1
                 else:
                     turn_correct = False
+                    # False positive: predicted but incorrect
+                    if pred_val != "":
+                        false_positives += 1
+                    # False negative: should have predicted but didn't or predicted wrong
+                    if gt_val != "":
+                        false_negatives += 1
             
             if turn_correct:
                 correct_turns += 1
@@ -97,6 +111,11 @@ class DSTEvaluator:
         
         slot_accuracy = correct_slots / total_slots if total_slots > 0 else 0.0
         joint_accuracy = correct_turns / total_turns if total_turns > 0 else 0.0
+        
+        # Calculate precision, recall, F1
+        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0.0
+        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         
         domain_metrics = {}
         for domain, stats in domain_stats.items():
@@ -108,9 +127,9 @@ class DSTEvaluator:
         
         return DSTMetrics(
             slot_accuracy=slot_accuracy,
-            slot_precision=slot_accuracy,
-            slot_recall=slot_accuracy,
-            slot_f1=slot_accuracy,
+            slot_precision=precision,
+            slot_recall=recall,
+            slot_f1=f1,
             joint_accuracy=joint_accuracy,
             joint_accuracy_strict=joint_accuracy,
             total_slots=total_slots,
