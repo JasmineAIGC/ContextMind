@@ -262,6 +262,8 @@ def main():
     
     print(f"\n{'=' * 70}")
     print(f"=== FnCTOD on TransferTOD 评测 ===")
+    print(f"{'=' * 70}")
+    print(f"脚本版本: 2024-02-10 (完整评测版本)")
     print(f"{'=' * 70}\n")
     
     # 初始化测试
@@ -289,9 +291,17 @@ def main():
     
     # 初始化FnCTOD tracker
     if args.domain:
-        test.initialize(args.domain)
+        print(f"\n初始化领域: {args.domain}")
+        try:
+            test.initialize(args.domain)
+        except Exception as e:
+            print(f"❌ 初始化FnCTOD tracker失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return
     
     # 批量测试
+    print(f"\n开始评测...")
     all_metrics = []
     domain_metrics = defaultdict(list)
     current_domain = None
@@ -301,15 +311,22 @@ def main():
     asyncio.set_event_loop(loop)
     
     try:
-        for dialogue_id in dialogue_ids:
+        for idx, dialogue_id in enumerate(dialogue_ids, 1):
+            print(f"\n处理对话 {idx}/{len(dialogue_ids)}: {dialogue_id}")
             try:
                 # 如果没有指定domain，需要为每个对话的domain初始化tracker
                 if not args.domain:
                     dialogue = test.adapter.load_dialogue(dialogue_id)
                     if dialogue.domain != current_domain:
                         current_domain = dialogue.domain
-                        print(f"\n初始化领域: {current_domain}")
-                        test.initialize(current_domain)
+                        print(f"\n切换领域: {current_domain}")
+                        try:
+                            test.initialize(current_domain)
+                        except Exception as e:
+                            print(f"❌ 初始化领域 {current_domain} 失败: {e}")
+                            import traceback
+                            traceback.print_exc()
+                            continue
                 else:
                     current_domain = args.domain
                 
@@ -317,12 +334,20 @@ def main():
                 metrics = loop.run_until_complete(test.test_dialogue(dialogue_id, verbose=args.verbose))
                 all_metrics.append(metrics)
                 domain_metrics[current_domain].append(metrics)
+                print(f"✅ 对话 {dialogue_id} 评测完成")
             except Exception as e:
                 logger.error(f"测试对话 {dialogue_id} 失败: {e}")
+                print(f"❌ 测试对话 {dialogue_id} 失败: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
     finally:
         if not loop.is_closed():
             loop.close()
+    
+    print(f"\n{'=' * 70}")
+    print(f"评测循环完成，收集到 {len(all_metrics)} 个对话的指标")
+    print(f"{'=' * 70}")
     
     # 输出汇总指标
     if all_metrics:
@@ -433,6 +458,13 @@ def main():
         
         print(f"\n✅ 评测结果已保存到: {metrics_file}")
         logger.info(f"评测结果已保存到: {metrics_file}")
+    else:
+        print(f"\n⚠️  警告: 没有收集到任何评测指标")
+        print(f"可能的原因:")
+        print(f"  1. 所有对话处理都失败了")
+        print(f"  2. FnCTOD tracker初始化失败")
+        print(f"  3. 数据格式不兼容")
+        print(f"\n请使用 --verbose 参数查看详细日志")
 
 
 if __name__ == "__main__":
