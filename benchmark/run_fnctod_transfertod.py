@@ -22,6 +22,7 @@ print()
 import asyncio
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
@@ -203,6 +204,12 @@ class FnCTODTransferTODTest:
                 turn_correct = 0
                 turn_total = 0
                 
+                # Debug: 检查是否有数据
+                if not turn.expected_slots:
+                    logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 expected_slots 数据")
+                if not predicted_state:
+                    logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 predicted_state 数据")
+                
                 for slot_name, true_value in turn.expected_slots.items():
                     turn_total += 1
                     total_slots += 1
@@ -245,6 +252,11 @@ class FnCTODTransferTODTest:
         tp = len(all_predicted_pairs & all_ground_truth_pairs)
         fp = len(all_predicted_pairs - all_ground_truth_pairs)
         fn = len(all_ground_truth_pairs - all_predicted_pairs)
+        
+        # Debug: 输出集合大小以诊断问题
+        logger.debug(f"Ground truth pairs: {len(all_ground_truth_pairs)}")
+        logger.debug(f"Predicted pairs: {len(all_predicted_pairs)}")
+        logger.debug(f"TP: {tp}, FP: {fp}, FN: {fn}")
         
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
@@ -313,6 +325,10 @@ def main():
         setup_logging(LogLevel.DEBUG)
     else:
         setup_logging(LogLevel.WARNING)
+    
+    # 禁用 matplotlib 的 DEBUG 日志以避免字体查找信息污染输出
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
     
     print(f"\n{'=' * 70}")
     print(f"=== FnCTOD on TransferTOD 评测 ===")
