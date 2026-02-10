@@ -27,8 +27,9 @@ try:
         
         尝试多种方式确保中文字符能正确显示：
         1. 检查是否有 Noto Sans CJK 字体
-        2. 如果没有，尝试下载安装
-        3. 配置 matplotlib 使用合适的字体
+        2. 如果没有，从项目或用户目录加载
+        3. 如果都没有，尝试下载安装
+        4. 配置 matplotlib 使用合适的字体
         """
         import os
         import urllib.request
@@ -44,17 +45,37 @@ try:
                 has_noto_cjk = True
                 break
         
-        # 如果没有 Noto Sans CJK，尝试下载安装
+        # 如果没有 Noto Sans CJK，尝试从文件加载或下载
         if not has_noto_cjk:
             try:
-                font_dir = Path.home() / '.fonts'
-                font_dir.mkdir(exist_ok=True)
-                font_path = font_dir / 'NotoSansCJKsc-Regular.otf'
+                # 优先检查项目目录
+                project_font_path = Path(__file__).parent.parent.parent / 'resources' / 'fonts' / 'NotoSansCJKsc-Regular.otf'
                 
-                if not font_path.exists():
+                # 备选用户目录
+                user_font_dir = Path.home() / '.fonts'
+                user_font_path = user_font_dir / 'NotoSansCJKsc-Regular.otf'
+                
+                # 确定使用哪个字体路径
+                font_path = None
+                if project_font_path.exists():
+                    font_path = project_font_path
+                    print(f"使用项目字体: {project_font_path}")
+                elif user_font_path.exists():
+                    font_path = user_font_path
+                    print(f"使用用户字体: {user_font_path}")
+                else:
+                    # 需要下载字体
+                    user_font_dir.mkdir(exist_ok=True)
+                    font_path = user_font_path
                     print("下载 Noto Sans CJK 字体以支持中文显示...")
+                    print(f"提示: 您也可以手动下载字体到 {project_font_path} 以避免每次下载")
                     url = 'https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf'
                     urllib.request.urlretrieve(url, font_path)
+                    print("字体下载完成")
+                
+                # 注册字体到 matplotlib
+                if font_path and font_path.exists():
+                    fm.fontManager.addfont(str(font_path))
                     
                     # 刷新字体缓存
                     import subprocess
@@ -65,9 +86,9 @@ try:
                     
                     # 重新加载 matplotlib 字体缓存
                     fm._load_fontmanager(try_read_cache=False)
-                    print("字体下载完成")
+                    
             except Exception as e:
-                print(f"警告: 无法下载中文字体: {e}")
+                print(f"警告: 无法加载中文字体: {e}")
                 print("将使用系统默认字体，中文可能无法正确显示")
         
         # 配置字体优先级列表

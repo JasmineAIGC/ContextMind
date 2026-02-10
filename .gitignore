@@ -54,3 +54,7 @@ temp/
 # OS
 .DS_Store
 Thumbs.db
+
+# Fonts (large binary files)
+resources/fonts/*.otf
+resources/fonts/*.ttf
