@@ -429,12 +429,9 @@ def main():
     domain_metrics = defaultdict(list)  # 按领域分组的指标
     current_domain = None
     
-    # 获取或创建事件循环
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    # 创建新的事件循环（避免 DeprecationWarning）
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     
     try:
         for dialogue_id in dialogue_ids:

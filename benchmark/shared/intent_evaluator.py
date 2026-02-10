@@ -871,17 +871,27 @@ class IntentEvaluator:
         
         # 如果只有对话级别数据，跳过轮次统计
         if not has_dialogue_only:
-            # 总体准确率（仅核心数值）
+            # 总体指标（核心数值）
             report.append(f"总轮次数: {metrics['total_turns']}")
             report.append(f"正确轮次: {metrics['correct_turns']}")
-            report.append(f"意图准确率: {metrics['accuracy']:.2%}")
             report.append("")
             
-            # 添加说明
-            report.append("说明：")
-            report.append("  - 意图准确率: 预测意图与推断意图完全一致的轮次占比")
+            # 核心评测指标
+            report.append("【核心指标】")
+            report.append(f"  准确率 (Accuracy):   {metrics['accuracy']:.2%}")
+            
+            # 添加宏平均和微平均指标
+            macro = metrics.get('macro_metrics', {})
+            micro = metrics.get('micro_metrics', {})
+            
+            if macro and macro.get('precision', 0) > 0:
+                report.append(f"  精确率 (Precision):  {macro.get('precision', 0):.2%}")
+                report.append(f"  召回率 (Recall):     {macro.get('recall', 0):.2%}")
+                report.append(f"  F1分数 (F1 Score):   {macro.get('f1', 0):.2%}")
+            
+            report.append("")
         
-        # 如果准确率为0%，添加诊断信息
+        # 如果准确率为0%，添加诊断信息（简化版）
         if metrics['accuracy'] == 0 and metrics['total_turns'] > 0:
             # 检查是否所有预测都是'未识别'或'unknown'
             predicted_intents = [pred for pred, _ in self.predictions]
@@ -895,54 +905,13 @@ class IntentEvaluator:
             
             report.append("")
             if normalized_predictions == {'unknown'}:
-                # 所有预测都是'未识别'，说明DST未配置意图提取
-                # 显示推断的意图样本
-                inferred_intents = [inf for _, inf in self.predictions]
-                unique_inferred = sorted(set(inferred_intents))
-                inferred_sample = ', '.join(unique_inferred[:5])
-                
-                report.append("❌ 诊断结果：DST未配置意图提取功能")
-                report.append("")
-                report.append("说明：")
-                report.append(f"  - 所有 {metrics['total_turns']} 轮对话的预测意图都是'未识别'")
-                report.append("  - 这说明DST Tracker未开启意图提取功能")
-                report.append(f"  - 而从槽位推断的意图有: {inferred_sample}")
-                report.append("  - 因此无法进行有效的意图评测对比")
-                report.append("")
-                report.append("建议：")
-                report.append("  1. 在DST的prompt中添加意图提取指令")
-                report.append("  2. 或者跳过意图评测（专注于槽位提取评测）")
-                report.append("  3. 意图评测功能仅在DST配置了意图提取时才有意义")
+                # 所有预测都是'未识别'
+                report.append("❌ 诊断: DST未配置意图提取功能（所有预测都是'未识别'）")
             else:
                 # 有不同的预测，但准确率仍为0%
-                # 检查是否是任务特定的描述（而非标准意图类型）
-                is_task_specific = any(
-                    len(p) > 6 or any(keyword in p for keyword in ['入住', '预订', '取消', '咨询', '了解', '告知', '房间', '酒店', '餐厅'])
-                    for p in unique_predictions
-                )
-                
-                if is_task_specific:
-                    report.append("❌ 诊断结果：DST输出的是任务特定描述，非标准意图类型")
-                    report.append("")
-                    report.append("说明：")
-                    report.append(f"  - DST预测了 {len(unique_predictions)} 种不同的描述")
-                    unique_sample = ', '.join(sorted(unique_predictions)[:5])
-                    report.append(f"  - 示例: {unique_sample}")
-                    report.append("  - 这些是针对具体槽位的任务描述，而非通用意图类型")
-                    report.append("  - 标准意图类型应该是: provide_info, request_info, confirm_info等")
-                    report.append("")
-                    report.append("建议：")
-                    report.append("  1. 修改DST prompt，使用标准意图分类（如provide_info, request_info）")
-                    report.append("  2. 或将任务描述映射到标准意图类型")
-                    report.append("  3. 当前评测框架期望的是抽象的意图类型，而非具体的任务描述")
-                else:
-                    report.append("⚠️  提示：意图准确率为0%可能的原因：")
-                    report.append("  1. DST意图格式与推断意图格式不匹配")
-                    report.append(f"     - DST预测的意图类型: {', '.join(sorted(unique_predictions)[:5])}")
-                    report.append("     - 需要确保意图名称格式一致（支持中英文映射）")
-                    report.append("  2. 检查意图标准化映射是否完整")
-        
-        report.append("")
+                report.append(f"⚠️  诊断: 意图格式不匹配（发现{len(unique_predictions)}种预测意图，但无匹配）")
+            
+            report.append("")
         
         # 混淆矩阵 - 仅保存图表，不打印
         if metrics['confusion_matrix']:
@@ -977,15 +946,8 @@ class IntentEvaluator:
                 report.append(f"正确对话: {dm['correct_dialogues']}")
                 report.append(f"对话意图准确率: {dm['dialogue_accuracy']:.2%}")
                 report.append("")
-                
-                # 需求2: 移除详细对话列表，只保留汇总指标
-                # 详细列表已在每个对话评测时输出，此处不再重复
-                
-                report.append("说明：对话级别评测将整个对话作为一个单元进行意图评测")
-                report.append("")
         
-        # 问题2修复：添加分类指标（精确率、召回率、F1分数）
-        # 对于对话级别评测也要显示分类指标
+        # 分类评测指标（精简版）
         dialogue_metrics_exist = metrics.get('dialogue_metrics', {}).get('total_dialogues', 0) > 0
         if metrics.get('per_class_metrics') and (metrics['total_turns'] > 0 or dialogue_metrics_exist):
             report.append("-" * 70)
@@ -996,16 +958,12 @@ class IntentEvaluator:
             macro = metrics.get('macro_metrics', {})
             micro = metrics.get('micro_metrics', {})
             
-            report.append("【宏平均指标】(各类别等权重)")
-            report.append(f"  精确率 (Precision): {macro.get('precision', 0):.2%}")
-            report.append(f"  召回率 (Recall): {macro.get('recall', 0):.2%}")
-            report.append(f"  F1分数 (F1 Score): {macro.get('f1', 0):.2%}")
+            report.append("【宏平均指标】")
+            report.append(f"  精确率: {macro.get('precision', 0):.2%}  召回率: {macro.get('recall', 0):.2%}  F1分数: {macro.get('f1', 0):.2%}")
             report.append("")
             
-            report.append("【微平均指标】(各样本等权重)")
-            report.append(f"  精确率 (Precision): {micro.get('precision', 0):.2%}")
-            report.append(f"  召回率 (Recall): {micro.get('recall', 0):.2%}")
-            report.append(f"  F1分数 (F1 Score): {micro.get('f1', 0):.2%}")
+            report.append("【微平均指标】")
+            report.append(f"  精确率: {micro.get('precision', 0):.2%}  召回率: {micro.get('recall', 0):.2%}  F1分数: {micro.get('f1', 0):.2%}")
             report.append("")
             
             # 各意图类别的详细指标
@@ -1026,22 +984,6 @@ class IntentEvaluator:
                     report.append(f"{intent:<20} {precision:<10.2%} {recall:<10.2%} {f1:<10.2%} {support:<10}")
                 
                 report.append("")
-                report.append("说明：")
-                report.append("  - 精确率: 预测为该类别的样本中，真实为该类别的比例")
-                report.append("  - 召回率: 真实为该类别的样本中，被正确预测的比例")
-                report.append("  - F1分数: 精确率和召回率的调和平均")
-                report.append("  - 支持数: 真值中该类别的样本数量")
-                report.append("  - 宏平均: 各类别指标的算术平均（不考虑样本数）")
-                report.append("  - 微平均: 将所有样本混合计算（等同于准确率）")
-                report.append("")
-        
-        # 添加综合分析总结
-        report.append("=" * 70)
-        report.append("📋 综合分析总结")
-        report.append("=" * 70)
-        report.append("")
-        report.append(self._generate_summary_analysis(metrics))
-        report.append("")
         
         report.append("=" * 70)
         
