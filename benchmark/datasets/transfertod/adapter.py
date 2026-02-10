@@ -500,6 +500,9 @@ class TransferTODAdapter:
         """
         import json
         from pathlib import Path
+        from contextmind.infra.logger import get_logger
+        
+        logger = get_logger(__name__)
         
         schemas_path = Path(schemas_file)
         if not schemas_path.exists():
@@ -517,12 +520,13 @@ class TransferTODAdapter:
         for domain_name, schema in domains_data.items():
             # 验证schema包含必要字段
             if "slots" not in schema:
-                print(f"警告: 域 '{domain_name}' 的schema缺少 'slots' 字段，跳过")
+                logger.warning(f"域 '{domain_name}' 的schema缺少 'slots' 字段，跳过")
                 continue
             
             # 存入缓存
             self._schema_cache[domain_name] = schema
         
+        logger.info(f"从文件加载了 {len(self._schema_cache)} 个域的schemas: {schemas_file}")
         print(f"✅ 从文件加载了 {len(self._schema_cache)} 个域的schemas: {schemas_file}")
         
         # 更新可用域列表
