@@ -281,10 +281,6 @@ class FnCTODTransferTODTest:
                     logger.info(f"    预测状态: {predicted_state}")
                     logger.info(f"    实际状态: {turn.expected_slots}")
                 
-                # 评估当前轮的槽位准确性
-                turn_correct = 0
-                turn_total = 0
-                
                 # 检查是否有数据（用于诊断指标为0的问题）
                 # 诊断：只在有数据但为空时警告
                 if turn.expected_slots is not None and len(turn.expected_slots) > 0:
@@ -339,12 +335,35 @@ class FnCTODTransferTODTest:
                             # 不排除任何槽位，因为域前缀已经被移除
                             predicted_slots_no_prefix[slot_name] = value
                 
-                for slot_name, true_value in turn.expected_slots.items():
-                    turn_total += 1
-                    total_slots += 1
+                # 更新累积的期望状态（合并本轮的变化）
+                cumulative_expected_state.update(turn.expected_slots)
+                
+                # 评估当前轮的槽位准确性（基于累积状态，与DST一致）
+                # 这样可以确保 slot_accuracy 不同于 recall
+                turn_total = len(cumulative_expected_state)  # 所有累积的槽位
+                turn_matched = 0
+                total_slots += turn_total
+                
+                for slot_name, expected_value in cumulative_expected_state.items():
                     predicted_value = predicted_slots_no_prefix.get(slot_name)
                     
                     # 规范化值以进行比较（处理类型不一致问题）
+                    normalized_expected = self._normalize_value(expected_value)
+                    normalized_pred = self._normalize_value(predicted_value)
+                    
+                    # 转换为字符串进行比较（与DST一致）
+                    expected_str = str(normalized_expected) if normalized_expected is not None else None
+                    pred_str = str(normalized_pred) if normalized_pred is not None else None
+                    
+                    if expected_str == pred_str:
+                        turn_matched += 1
+                        correct_slots += 1
+                
+                # 为P/R/F1计算收集slot-value pairs（只基于本轮的expected_slots）
+                for slot_name, true_value in turn.expected_slots.items():
+                    predicted_value = predicted_slots_no_prefix.get(slot_name)
+                    
+                    # 规范化值
                     normalized_true_value = self._normalize_value(true_value)
                     normalized_pred_value = self._normalize_value(predicted_value)
                     
@@ -356,11 +375,6 @@ class FnCTODTransferTODTest:
                     all_ground_truth_pairs.add((slot_name, hashable_true_value))
                     if predicted_value is not None:
                         all_predicted_pairs.add((slot_name, hashable_pred_value))
-                    
-                    # 使用规范化后的值进行比较
-                    if normalized_pred_value == normalized_true_value:
-                        turn_correct += 1
-                        correct_slots += 1
                 
                 # 检查是否有额外预测的槽位
                 for slot_name, pred_value in predicted_slots_no_prefix.items():
@@ -369,12 +383,9 @@ class FnCTODTransferTODTest:
                         hashable_pred_value = self._make_value_hashable(normalized_pred_value)
                         all_predicted_pairs.add((slot_name, hashable_pred_value))
                 
-                # 判断整轮是否完全正确
-                if turn_total > 0 and turn_correct == turn_total:
+                # 判断整轮是否完全正确（基于累积状态）
+                if turn_total > 0 and turn_matched == turn_total:
                     correct_turns += 1
-                
-                # 更新累积的期望状态（合并本轮的变化）
-                cumulative_expected_state.update(turn.expected_slots)
                     
             except Exception as e:
                 logger.error(f"处理轮次 {turn_idx + 1} 时出错: {e}")
