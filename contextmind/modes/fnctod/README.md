@@ -579,9 +579,6 @@ print(result['state'])
 # 输出: {'restaurant_name': '海底捞', 'reservation_date': '2026-02-11', 
 #        'reservation_time': '19:00', 'party_size': 4}
 ```
-#   '状态更新': 0.02
-# }
-```
 
 ## Function Call格式
 
