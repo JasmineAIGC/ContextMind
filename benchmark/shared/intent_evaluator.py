@@ -106,6 +106,18 @@ class IntentEvaluator:
                     if keywords:
                         self._marker_cache[domain][intent] = keywords
     
+    def _normalize_for_comparison(self, intent: str) -> str:
+        """
+        标准化意图用于比较
+        
+        Args:
+            intent: 原始意图字符串
+            
+        Returns:
+            标准化后的意图
+        """
+        return self.normalization_mapping.get(intent.lower(), intent.lower())
+    
     def _build_intent_normalization_mapping(self) -> Dict[str, str]:
         """
         从配置文件动态构建意图标准化映射
@@ -608,8 +620,7 @@ class IntentEvaluator:
         # 基础统计（使用标准化映射进行比较，与turn-level评测一致）
         total = len(self.predictions)
         correct = sum(1 for pred, inf in self.predictions 
-                     if self.normalization_mapping.get(pred.lower(), pred.lower()) == 
-                        self.normalization_mapping.get(inf.lower(), inf.lower()))
+                     if self._normalize_for_comparison(pred) == self._normalize_for_comparison(inf))
         accuracy = correct / total if total > 0 else 0.0
         
         # 意图分布
@@ -630,10 +641,11 @@ class IntentEvaluator:
         for intent in all_intents:
             # 使用标准化映射进行比较（与整体accuracy一致）
             tp = fp = fn = 0
+            intent_normalized = self._normalize_for_comparison(intent)
+            
             for pred, inf in self.predictions:
-                pred_normalized = self.normalization_mapping.get(pred.lower(), pred.lower())
-                inf_normalized = self.normalization_mapping.get(inf.lower(), inf.lower())
-                intent_normalized = self.normalization_mapping.get(intent.lower(), intent.lower())
+                pred_normalized = self._normalize_for_comparison(pred)
+                inf_normalized = self._normalize_for_comparison(inf)
                 
                 pred_match = pred_normalized == intent_normalized
                 inf_match = inf_normalized == intent_normalized

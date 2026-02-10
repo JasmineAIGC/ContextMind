@@ -90,19 +90,23 @@ class DSTEvaluator:
                 pred_val = str(pred.get(slot, "")) if pred.get(slot) is not None else ""
                 gt_val = str(gt.get(slot, "")) if gt.get(slot) is not None else ""
                 
+                # Count slots in prediction and ground truth
+                has_pred = slot in pred and pred.get(slot) is not None
+                has_gt = slot in gt and gt.get(slot) is not None
+                
                 if pred_val == gt_val:
                     correct_slots += 1
                     domain_stats[domain]["correct"] += 1
-                    # True positive: predicted and ground truth match
-                    if pred_val != "":
+                    # True positive: both exist and match
+                    if has_pred and has_gt:
                         true_positives += 1
                 else:
                     turn_correct = False
-                    # False positive: predicted but incorrect
-                    if pred_val != "":
+                    # False positive: predicted something but it's wrong or shouldn't exist
+                    if has_pred:
                         false_positives += 1
                     # False negative: should have predicted but didn't or predicted wrong
-                    if gt_val != "":
+                    if has_gt:
                         false_negatives += 1
             
             if turn_correct:
