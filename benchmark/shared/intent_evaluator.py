@@ -59,10 +59,8 @@ try:
                 font_path = None
                 if project_font_path.exists():
                     font_path = project_font_path
-                    print(f"使用项目字体: {project_font_path}")
                 elif user_font_path.exists():
                     font_path = user_font_path
-                    print(f"使用用户字体: {user_font_path}")
                 else:
                     # 需要下载字体
                     user_font_dir.mkdir(exist_ok=True)
