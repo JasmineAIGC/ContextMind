@@ -13,11 +13,6 @@ FnCTOD模式 - TransferTOD数据集评测脚本
 # 版本标识 - 如果你看到这行输出，说明你在运行新版本的脚本
 # VERSION: 2024-02-10-v3 (Fixed FunctionParameter initialization)
 # ============================================================================
-print("=" * 80)
-print("🔍 FnCTOD Evaluation Script - Version 2024-02-10-v3")
-print("=" * 80)
-print("✅ 正在加载完整评测实现（已修复FunctionParameter错误）...")
-print()
 
 import asyncio
 import argparse
