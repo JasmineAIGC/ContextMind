@@ -354,7 +354,8 @@ class TransferTODAdapter:
             # 如果有示例值，添加到描述中
             example_values = list(info["values"])[:3]  # 最多3个示例
             if example_values:
-                examples_str = "、".join(example_values)
+                # 使用逗号分隔，更通用
+                examples_str = ", ".join(example_values)
                 description += f"（如：{examples_str}）"
             
             schema["slots"][slot_name] = {
@@ -456,6 +457,9 @@ class TransferTODAdapter:
         
         这些域来自TransferTOD项目定义：
         https://github.com/KongLongGeFDU/TransferTOD
+        
+        注意：域名称使用中文，与TransferTOD数据集保持一致。
+        此列表来源于 benchmark/shared/configs/intent_labels_30_domains_Version2.json
         
         Returns:
             30个域的中文名称列表

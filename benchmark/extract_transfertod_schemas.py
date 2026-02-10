@@ -106,13 +106,20 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
         }
         
         # 写入文件
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=2)
-        
-        if verbose:
-            print(f"✅ Schema 已保存到: {output_path}")
-            print(f"   文件大小: {output_path.stat().st_size / 1024:.1f} KB")
-            print()
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(output_data, f, ensure_ascii=False, indent=2)
+            
+            if verbose:
+                print(f"✅ Schema 已保存到: {output_path}")
+                print(f"   文件大小: {output_path.stat().st_size / 1024:.1f} KB")
+                print()
+        except IOError as e:
+            print(f"❌ 无法写入文件: {e}")
+            if verbose:
+                import traceback
+                traceback.print_exc()
+            raise
     
     return all_schemas
 
