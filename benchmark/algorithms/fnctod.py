@@ -89,12 +89,14 @@ class FnCTODEvaluator:
                 
                 # Normalize values to strings for comparison
                 # Handle None, int, bool, and string types
-                pred_val = str(pred.get(slot, "")) if pred.get(slot) is not None else ""
-                gt_val = str(gt.get(slot, "")) if gt.get(slot) is not None else ""
+                pred_raw = pred.get(slot)
+                gt_raw = gt.get(slot)
+                pred_val = str(pred_raw) if pred_raw is not None else ""
+                gt_val = str(gt_raw) if gt_raw is not None else ""
                 
                 # Count slots in prediction and ground truth
-                has_pred = slot in pred and pred.get(slot) is not None
-                has_gt = slot in gt and gt.get(slot) is not None
+                has_pred = slot in pred and pred_raw is not None
+                has_gt = slot in gt and gt_raw is not None
                 
                 if pred_val == gt_val:
                     correct_slots += 1
@@ -137,7 +139,7 @@ class FnCTODEvaluator:
             slot_recall=recall,
             slot_f1=f1,
             joint_accuracy=joint_accuracy,
-            joint_accuracy_strict=joint_accuracy,
+            joint_accuracy_strict=joint_accuracy,  # Same as joint_accuracy for consistency with DST
             total_slots=total_slots,
             correct_slots=correct_slots,
             total_turns=total_turns,
