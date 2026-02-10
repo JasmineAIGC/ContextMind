@@ -51,6 +51,7 @@ class TransferTODAdapter:
         self.dialogue_cache = {}
         self._all_dialogue_ids = None
         self._schema_cache = {}  # 缓存领域schema
+        self._available_domains = None  # 缓存可用的域列表
         
     def load_dialogue(self, dialogue_id: str, data_type: str = "clean") -> DialogueInstance:
         """
@@ -290,42 +291,77 @@ class TransferTODAdapter:
         从该领域的所有对话中自动提取槽位信息。
         收集所有轮次中出现的槽位，而不仅仅是final_state。
         
+        这是从TransferTOD数据集获取域-槽位预定义信息的核心方法。
+        
         Args:
             domain: 领域名称（如"酒店"、"餐厅"等）
             
         Returns:
-            领域的Schema定义
+            领域的Schema定义，包含：
+            - domain: 领域名称
+            - description: 领域描述
+            - slots: 槽位定义字典
         """
         # 检查缓存
         if domain in self._schema_cache:
             return self._schema_cache[domain]
         
-        # 收集该领域的所有槽位
-        slots = set()
+        # 收集该领域的所有槽位和示例值
+        slots_info = {}  # {slot_name: {"values": set(), "count": int}}
         
         # 遍历所有对话
+        dialogue_count = 0
         for dialogue_id in self.get_all_dialogue_ids():
             try:
                 dialogue = self.load_dialogue(dialogue_id)
                 if dialogue.domain == domain:
+                    dialogue_count += 1
                     # 从所有轮次的expected_slots收集槽位
                     for turn in dialogue.turns:
-                        slots.update(turn.expected_slots.keys())
+                        for slot_name, slot_value in turn.expected_slots.items():
+                            if slot_name not in slots_info:
+                                slots_info[slot_name] = {"values": set(), "count": 0}
+                            if slot_value:  # 只记录非空值
+                                slots_info[slot_name]["values"].add(str(slot_value))
+                                slots_info[slot_name]["count"] += 1
                     # 也从final_state收集槽位
-                    slots.update(dialogue.final_state.keys())
+                    for slot_name, slot_value in dialogue.final_state.items():
+                        if slot_name not in slots_info:
+                            slots_info[slot_name] = {"values": set(), "count": 0}
+                        if slot_value:
+                            slots_info[slot_name]["values"].add(str(slot_value))
             except Exception:
                 continue
         
         # 构建Schema
         schema = {
             "domain": domain,
-            "slots": {}
+            "description": f"{domain}领域的对话任务处理",
+            "slots": {},
+            "metadata": {
+                "dialogue_count": dialogue_count,
+                "slot_count": len(slots_info),
+                "source": "TransferTOD数据集自动提取"
+            }
         }
         
-        for slot_name in sorted(slots):
+        # 为每个槽位生成描述
+        for slot_name in sorted(slots_info.keys()):
+            info = slots_info[slot_name]
+            # 创建更详细的描述
+            description = f"{slot_name}"
+            
+            # 如果有示例值，添加到描述中
+            example_values = list(info["values"])[:3]  # 最多3个示例
+            if example_values:
+                examples_str = "、".join(example_values)
+                description += f"（如：{examples_str}）"
+            
             schema["slots"][slot_name] = {
                 "type": "string",
-                "description": f"{slot_name}信息"
+                "description": description,
+                "occurrence_count": info["count"],
+                "example_values": example_values
             }
         
         # 缓存
@@ -365,3 +401,68 @@ class TransferTODAdapter:
             matching_ids.append(dialogue_id)
         
         return matching_ids
+    
+    def get_all_domains(self) -> List[str]:
+        """
+        获取数据集中所有可用的领域列表
+        
+        从实际对话数据中提取所有唯一的领域名称。
+        
+        Returns:
+            领域名称列表（已排序）
+        """
+        if self._available_domains is not None:
+            return self._available_domains
+        
+        domains = set()
+        
+        # 遍历所有对话，收集唯一的领域
+        for dialogue_id in self.get_all_dialogue_ids():
+            try:
+                dialogue = self.load_dialogue(dialogue_id)
+                domains.add(dialogue.domain)
+            except Exception:
+                continue
+        
+        self._available_domains = sorted(list(domains))
+        return self._available_domains
+    
+    def get_all_domain_schemas(self) -> Dict[str, Dict[str, Any]]:
+        """
+        获取所有领域的Schema定义
+        
+        遍历所有可用领域，为每个领域生成Schema。
+        这是从TransferTOD数据集获取30个域的预定义函数信息的主要方法。
+        
+        Returns:
+            字典，键为领域名称，值为该领域的Schema定义
+        """
+        all_schemas = {}
+        
+        for domain in self.get_all_domains():
+            try:
+                schema = self.get_domain_schema(domain)
+                all_schemas[domain] = schema
+            except Exception as e:
+                print(f"警告: 无法获取领域 '{domain}' 的schema: {e}")
+                continue
+        
+        return all_schemas
+    
+    @staticmethod
+    def get_transfertod_30_domains() -> List[str]:
+        """
+        获取TransferTOD项目的30个标准域列表
+        
+        这些域来自TransferTOD项目定义：
+        https://github.com/KongLongGeFDU/TransferTOD
+        
+        Returns:
+            30个域的中文名称列表
+        """
+        return [
+            "保洁", "健身房", "医院", "博物馆", "培训班", "外卖", "家电维修", "度假村",
+            "律师", "快递", "打印", "搬家", "摄影", "景点", "机票", "洗衣", "火车票",
+            "牙医", "理发店", "电影", "电话卡", "租房", "租车", "美容院", "购物",
+            "送水", "邮轮", "酒店", "音乐会", "餐厅"
+        ]
