@@ -506,7 +506,6 @@ def main():
     print(f"\n{'=' * 70}")
     print(f"=== FnCTOD on TransferTOD 评测 ===")
     print(f"{'=' * 70}")
-    print(f"脚本版本: 2024-02-10 (完整评测版本)")
     print(f"{'=' * 70}\n")
     
     # 显示schemas文件信息（如果提供）
