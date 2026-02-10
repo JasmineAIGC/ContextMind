@@ -11,12 +11,12 @@ FnCTOD模式 - TransferTOD数据集评测脚本
 
 # ============================================================================
 # 版本标识 - 如果你看到这行输出，说明你在运行新版本的脚本
-# VERSION: 2024-02-10-v2 (Full Evaluation Implementation)
+# VERSION: 2024-02-10-v3 (Fixed FunctionParameter initialization)
 # ============================================================================
 print("=" * 80)
-print("🔍 FnCTOD Evaluation Script - Version 2024-02-10-v2")
+print("🔍 FnCTOD Evaluation Script - Version 2024-02-10-v3")
 print("=" * 80)
-print("✅ 正在加载完整评测实现...")
+print("✅ 正在加载完整评测实现（已修复FunctionParameter错误）...")
 print()
 
 import asyncio
@@ -34,7 +34,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
-from contextmind.modes.fnctod.data_models import DomainSpec, FunctionParameter
+from contextmind.modes.fnctod.data_models import DomainSpec, FunctionParameter, ParameterType
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -112,7 +112,7 @@ class FnCTODTransferTODTest:
             param = FunctionParameter(
                 name=slot_name,
                 description=slot_info.get("description", slot_name),
-                type="string",  # TransferTOD中大多数槽位是字符串
+                param_type=ParameterType.STRING,  # TransferTOD中大多数槽位是字符串
                 required=False  # 一般槽位都是可选的
             )
             parameters.append(param)
@@ -337,6 +337,12 @@ def main():
                             import traceback
                             traceback.print_exc()
                             continue
+                        
+                        # 检查tracker是否成功初始化
+                        if test.tracker is None:
+                            print(f"❌ 由于初始化失败，跳过剩余 {len(dialogue_ids) - i} 个对话")
+                            print(f"请检查领域 '{current_domain}' 的schema配置")
+                            break
                 else:
                     current_domain = args.domain
                 
