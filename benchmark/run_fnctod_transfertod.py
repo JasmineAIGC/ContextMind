@@ -225,13 +225,17 @@ class FnCTODTransferTODTest:
         # 添加意图评测（对话级别）
         if dialogue.turns:
             # 获取最终的对话状态（FnCTOD tracker维护的累积状态）
+            # tracker.current_state 在处理每一轮后累积更新，这里获取的是处理完所有轮次后的最终状态
             final_extracted = self.tracker.current_state.copy()
             
             # 从FnCTOD响应中获取预测的意图
-            # 这里我们使用领域名称作为意图的简化版本
+            # 注意：当前 FnCTOD 实现主要关注槽位填充，不直接预测意图
+            # 这里使用领域名称作为预测意图的占位符
+            # 真实的意图会由 IntentEvaluator 从槽位信息自动推断
             predicted_intent = dialogue.domain
             
             # 调用add_dialogue_evaluation，让它从槽位信息推断真值意图
+            # IntentEvaluator 会基于 dialogue_slots 和 user_utterances 推断实际意图
             self.intent_evaluator.add_dialogue_evaluation(
                 dialogue_id=dialogue_id,
                 domain=dialogue.domain,
