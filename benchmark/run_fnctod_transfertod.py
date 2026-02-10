@@ -202,6 +202,32 @@ class FnCTODTransferTODTest:
         
         return value
     
+    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict, mode: str = 'strict') -> float:
+        """
+        计算Joint Accuracy（对话级别）- 支持strict和soft两种模式
+        
+        Args:
+            expected: 期望的最终状态
+            extracted: 提取的最终状态
+            mode: 'strict' (完全匹配) 或 'soft' (期望槽位都存在即可)
+            
+        Returns:
+            1.0 if匹配, 0.0 otherwise
+        """
+        # 转换为slot-value pairs的集合进行比较
+        expected_pairs = set([(k, str(v)) for k, v in expected.items() if v is not None])
+        extracted_pairs = set([(k, str(v)) for k, v in extracted.items() if v is not None])
+        
+        # 根据模式计算
+        if mode == 'strict':
+            # Strict模式: 完全匹配
+            return 1.0 if expected_pairs == extracted_pairs else 0.0
+        elif mode == 'soft':
+            # Soft模式: 所有期望的槽位都被正确提取（允许额外槽位）
+            return 1.0 if expected_pairs.issubset(extracted_pairs) else 0.0
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'strict' or 'soft'")
+    
     async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
         """
         测试单个对话
@@ -229,6 +255,9 @@ class FnCTODTransferTODTest:
         correct_slots = 0
         total_slots = 0
         correct_turns = 0
+        
+        # 维护累积的期望状态（用于计算联合准确率）
+        cumulative_expected_state = {}
         
         # 收集所有槽位值对（用于计算precision/recall）
         all_predicted_pairs = set()
@@ -343,6 +372,9 @@ class FnCTODTransferTODTest:
                 # 判断整轮是否完全正确
                 if turn_total > 0 and turn_correct == turn_total:
                     correct_turns += 1
+                
+                # 更新累积的期望状态（合并本轮的变化）
+                cumulative_expected_state.update(turn.expected_slots)
                     
             except Exception as e:
                 logger.error(f"处理轮次 {turn_idx + 1} 时出错: {e}")
@@ -351,8 +383,36 @@ class FnCTODTransferTODTest:
         # 计算指标
         slot_accuracy = correct_slots / total_slots if total_slots > 0 else 0
         
-        # 联合准确率（所有轮次都完全正确）
-        joint_accuracy = 1.0 if correct_turns == len(dialogue.turns) and len(dialogue.turns) > 0 else 0.0
+        # 获取最终的对话状态（FnCTOD tracker维护的累积状态）
+        final_extracted = self.tracker.current_state.copy()
+        
+        # 计算两种联合准确率（基于最终状态）
+        # 需要从final_extracted中去除域前缀，以便与cumulative_expected_state比较
+        final_extracted_no_prefix = {}
+        if final_extracted:
+            # 动态检测域前缀
+            detected_domain_prefix = None
+            for key in final_extracted.keys():
+                if '-' in key:
+                    detected_domain_prefix = key.split('-', 1)[0] + '-'
+                    break
+            
+            if detected_domain_prefix:
+                for key, value in final_extracted.items():
+                    if key.startswith(detected_domain_prefix):
+                        slot_name = key[len(detected_domain_prefix):]
+                        if isinstance(value, dict):
+                            # 展开嵌套字典
+                            for nested_key, nested_value in value.items():
+                                if nested_key not in final_extracted_no_prefix:
+                                    final_extracted_no_prefix[nested_key] = nested_value
+                        else:
+                            final_extracted_no_prefix[slot_name] = value
+            else:
+                final_extracted_no_prefix = final_extracted
+        
+        joint_accuracy_strict = self._calculate_joint_accuracy(cumulative_expected_state, final_extracted_no_prefix, mode='strict')
+        joint_accuracy_soft = self._calculate_joint_accuracy(cumulative_expected_state, final_extracted_no_prefix, mode='soft')
         
         # 计算 Precision, Recall, F1
         tp = len(all_predicted_pairs & all_ground_truth_pairs)
@@ -376,10 +436,6 @@ class FnCTODTransferTODTest:
         
         # 添加意图评测（对话级别）
         if dialogue.turns:
-            # 获取最终的对话状态（FnCTOD tracker维护的累积状态）
-            # tracker.current_state 在处理每一轮后累积更新，这里获取的是处理完所有轮次后的最终状态
-            final_extracted = self.tracker.current_state.copy()
-            
             # 从FnCTOD响应中获取预测的意图
             # 注意：当前 FnCTOD 实现主要关注槽位填充，不直接预测意图
             # 这里使用领域名称作为预测意图的占位符
@@ -392,7 +448,7 @@ class FnCTODTransferTODTest:
                 dialogue_id=dialogue_id,
                 domain=dialogue.domain,
                 predicted_intent=predicted_intent,
-                dialogue_slots=final_extracted,  # 使用最终提取的槽位
+                dialogue_slots=final_extracted_no_prefix,  # 使用去除前缀的最终提取槽位
                 user_utterances=all_user_utterances
             )
         
@@ -401,7 +457,8 @@ class FnCTODTransferTODTest:
             logger.info("  " + "-" * 50)
             logger.info("  评测结果:")
             logger.info(f"    槽位准确率: {slot_accuracy * 100:.2f}%")
-            logger.info(f"    联合准确率: {joint_accuracy * 100:.2f}%")
+            logger.info(f"    联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
+            logger.info(f"    联合准确率-软匹配 (Joint Accuracy Soft): {joint_accuracy_soft * 100:.2f}%")
             logger.info(f"    精确率: {precision * 100:.2f}%")
             logger.info(f"    召回率: {recall * 100:.2f}%")
             logger.info(f"    F1分数: {f1 * 100:.2f}%")
@@ -409,7 +466,9 @@ class FnCTODTransferTODTest:
         return {
             "dialogue_id": dialogue_id,
             "slot_accuracy": slot_accuracy,
-            "joint_accuracy": joint_accuracy,
+            "joint_accuracy": joint_accuracy_strict,  # 默认使用严格模式
+            "joint_accuracy_strict": joint_accuracy_strict,
+            "joint_accuracy_soft": joint_accuracy_soft,
             "precision": precision,
             "recall": recall,
             "f1": f1,
@@ -556,14 +615,16 @@ def main():
             summary_lines.append("-" * 70)
             for domain, metrics_list in sorted(domain_metrics.items()):
                 avg_slot_acc = sum(m["slot_accuracy"] for m in metrics_list) / len(metrics_list)
-                avg_ja = sum(m["joint_accuracy"] for m in metrics_list) / len(metrics_list)
+                avg_ja_strict = sum(m["joint_accuracy_strict"] for m in metrics_list) / len(metrics_list)
+                avg_ja_soft = sum(m["joint_accuracy_soft"] for m in metrics_list) / len(metrics_list)
                 avg_precision = sum(m["precision"] for m in metrics_list) / len(metrics_list)
                 avg_recall = sum(m["recall"] for m in metrics_list) / len(metrics_list)
                 avg_f1 = sum(m["f1"] for m in metrics_list) / len(metrics_list)
                 
                 summary_lines.append(f"\n{domain}领域 (对话数: {len(metrics_list)}):")
                 summary_lines.append(f"  槽位准确率: {avg_slot_acc * 100:.2f}%")
-                summary_lines.append(f"  联合准确率: {avg_ja * 100:.2f}%")
+                summary_lines.append(f"  联合准确率-严格: {avg_ja_strict * 100:.2f}%")
+                summary_lines.append(f"  联合准确率-软匹配: {avg_ja_soft * 100:.2f}%")
                 summary_lines.append(f"  精确率: {avg_precision * 100:.2f}%")
                 summary_lines.append(f"  召回率: {avg_recall * 100:.2f}%")
                 summary_lines.append(f"  F1分数: {avg_f1 * 100:.2f}%")
@@ -571,7 +632,8 @@ def main():
         
         # 汇总统计
         avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
-        avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy_strict = sum(m["joint_accuracy_strict"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy_soft = sum(m["joint_accuracy_soft"] for m in all_metrics) / len(all_metrics)
         avg_precision = sum(m["precision"] for m in all_metrics) / len(all_metrics)
         avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
         avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
@@ -580,7 +642,8 @@ def main():
         summary_lines.append("-" * 70)
         summary_lines.append(f"总测试对话数: {len(all_metrics)}")
         summary_lines.append(f"平均槽位准确率 (Slot Accuracy): {avg_slot_accuracy * 100:.2f}%")
-        summary_lines.append(f"平均联合准确率 (Joint Accuracy): {avg_joint_accuracy * 100:.2f}%")
+        summary_lines.append(f"平均联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy_strict * 100:.2f}%")
+        summary_lines.append(f"平均联合准确率-软匹配 (Joint Accuracy Soft): {avg_joint_accuracy_soft * 100:.2f}%")
         summary_lines.append(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
         summary_lines.append(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
         summary_lines.append(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
