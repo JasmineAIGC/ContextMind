@@ -22,7 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 
 
-def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool = True):
+def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool = True, show_diagnostics: bool = False):
     """
     从 TransferTOD 数据集提取所有域的 Schema
     
@@ -30,6 +30,7 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
         data_root: TransferTOD 数据集根目录
         output_file: 输出文件路径（可选）
         verbose: 是否显示详细信息
+        show_diagnostics: 是否显示诊断信息（查找缺失域）
     """
     adapter = TransferTODAdapter(data_root)
     
@@ -47,9 +48,36 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
         print()
     
     # 获取实际可用的域
-    available_domains = adapter.get_all_domains()
+    available_domains = adapter.get_all_domains(verbose=show_diagnostics)
     if verbose:
         print(f"数据集中可用域数量: {len(available_domains)}")
+        print()
+        
+    # 显示诊断信息
+    if show_diagnostics:
+        print("=" * 80)
+        print("诊断信息：数据集中的所有域")
+        print("=" * 80)
+        print(f"数据集中实际发现的域（共 {len(available_domains)} 个）：")
+        for i, domain in enumerate(available_domains, 1):
+            print(f"  {i:2d}. {domain}")
+        print()
+        
+        # 找出缺失的域
+        missing_domains = set(standard_domains) - set(available_domains)
+        if missing_domains:
+            print(f"标准列表中但数据集中未找到的域（共 {len(missing_domains)} 个）：")
+            for domain in sorted(missing_domains):
+                print(f"  - {domain}")
+        print()
+        
+        # 找出多余的域
+        extra_domains = set(available_domains) - set(standard_domains)
+        if extra_domains:
+            print(f"数据集中有但标准列表中没有的域（共 {len(extra_domains)} 个）：")
+            for domain in sorted(extra_domains):
+                print(f"  + {domain}")
+        print("=" * 80)
         print()
     
     # 提取所有域的 Schema
@@ -195,6 +223,11 @@ def main():
         action="store_true",
         help="静默模式，不显示详细信息"
     )
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="显示诊断信息，帮助查找缺失的域"
+    )
     
     args = parser.parse_args()
     
@@ -219,7 +252,8 @@ def main():
         extract_all_schemas(
             data_root=args.data_root,
             output_file=args.output,
-            verbose=not args.quiet
+            verbose=not args.quiet,
+            show_diagnostics=args.diagnostics
         )
 
 

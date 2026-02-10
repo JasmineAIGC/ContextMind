@@ -409,11 +409,14 @@ class TransferTODAdapter:
         
         return matching_ids
     
-    def get_all_domains(self) -> List[str]:
+    def get_all_domains(self, verbose: bool = False) -> List[str]:
         """
         获取数据集中所有可用的领域列表
         
         从实际对话数据中提取所有唯一的领域名称。
+        
+        Args:
+            verbose: 是否显示详细的扫描信息
         
         Returns:
             领域名称列表（已排序）
@@ -422,14 +425,25 @@ class TransferTODAdapter:
             return self._available_domains
         
         domains = set()
+        error_count = 0
         
         # 遍历所有对话，收集唯一的领域
-        for dialogue_id in self.get_all_dialogue_ids():
+        dialogue_ids = self.get_all_dialogue_ids()
+        if verbose:
+            print(f"扫描 {len(dialogue_ids)} 个对话以查找所有域...")
+        
+        for dialogue_id in dialogue_ids:
             try:
                 dialogue = self.load_dialogue(dialogue_id)
                 domains.add(dialogue.domain)
-            except Exception:
+            except Exception as e:
+                error_count += 1
+                if verbose:
+                    print(f"  警告: 无法加载对话 {dialogue_id}: {e}")
                 continue
+        
+        if verbose and error_count > 0:
+            print(f"  跳过了 {error_count} 个无法加载的对话")
         
         self._available_domains = sorted(list(domains))
         return self._available_domains
