@@ -599,10 +599,9 @@ def main():
         summary_lines.append(intent_report)
         summary_lines.append("")
         
-        # 输出到日志（不用 print，避免重复）
+        # 输出指标汇总（使用 print）
         for line in summary_lines:
-            if line:
-                logger.info(line)
+            print(line)
         
         # 保存结果到文件
         output_dir = Path("benchmark_results")
