@@ -317,6 +317,38 @@ python benchmark/extract_transfertod_schemas.py \
 3. **中文域名**：所有域名使用中文，与 TransferTOD 项目保持一致
 4. **Schema 缓存**：Adapter 会自动缓存已提取的 Schema，避免重复计算
 
+## 故障排查
+
+### 缺失域问题
+
+如果提取时发现某些域显示为"数据集中不可用"：
+
+```bash
+⚠️ 打印 - 数据集中不可用
+⚠️ 摄影 - 数据集中不可用
+```
+
+**解决步骤：**
+
+1. **运行诊断模式**查找原因：
+   ```bash
+   python benchmark/extract_transfertod_schemas.py \
+       --data-root .data/TransferTOD/ \
+       --diagnostics
+   ```
+
+2. **查看完整的故障排查指南**：
+   - 参考 `benchmark/TROUBLESHOOTING_SCHEMAS.md`
+   - 包含详细的诊断步骤和解决方案
+   - 覆盖域名不匹配、数据缺失等常见情况
+
+3. **可能的原因**：
+   - 域名在数据集中使用了不同的名称
+   - 某些域的数据确实不在数据集中
+   - 数据文件格式或路径问题
+
+更多详情请查看：[Schema 提取故障排查指南](../../TROUBLESHOOTING_SCHEMAS.md)
+
 ## 相关文件
 
 - `benchmark/datasets/transfertod/adapter.py` - TransferTOD 适配器主文件
