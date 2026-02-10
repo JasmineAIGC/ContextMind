@@ -79,7 +79,7 @@ class FnCTODTransferTODTest:
             print(f"{'='*70}")
             print(f"原因: {e}")
             print(f"\nFnCTOD 模式需要 LLM 来提取槽位信息。")
-            print(f"请确保:")
+            print(f"请确认:")
             print(f"  1. 已安装 OpenAI 包: pip install openai")
             print(f"  2. 已设置API密钥环境变量 (如 QWEN3_API_KEY 或 OPENAI_API_KEY)")
             print(f"  3. API密钥有效且有足够的配额")
@@ -215,11 +215,12 @@ class FnCTODTransferTODTest:
                 turn_correct = 0
                 turn_total = 0
                 
-                # Debug: 检查是否有数据
+                # 检查是否有数据（用于诊断指标为0的问题）
+                # 这些警告在非verbose模式下也会显示，帮助用户诊断问题
                 if not turn.expected_slots:
                     logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 expected_slots 数据")
                 if not predicted_state:
-                    logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 predicted_state 数据")
+                    logger.warning(f"⚠️ 轮次 {turn_idx + 1} 没有 predicted_state 数据（LLM可能未正确调用）")
                 
                 for slot_name, true_value in turn.expected_slots.items():
                     turn_total += 1
@@ -264,10 +265,16 @@ class FnCTODTransferTODTest:
         fp = len(all_predicted_pairs - all_ground_truth_pairs)
         fn = len(all_ground_truth_pairs - all_predicted_pairs)
         
-        # Debug: 输出集合大小以诊断问题
-        logger.debug(f"Ground truth pairs: {len(all_ground_truth_pairs)}")
-        logger.debug(f"Predicted pairs: {len(all_predicted_pairs)}")
-        logger.debug(f"TP: {tp}, FP: {fp}, FN: {fn}")
+        # 诊断信息：如果指标为0，记录详细信息帮助排查
+        if len(all_ground_truth_pairs) == 0 or len(all_predicted_pairs) == 0:
+            logger.warning(f"⚠️ 对话 {dialogue_id} 的集合为空:")
+            logger.warning(f"   Ground truth pairs: {len(all_ground_truth_pairs)}")
+            logger.warning(f"   Predicted pairs: {len(all_predicted_pairs)}")
+            logger.warning(f"   这通常表示 LLM 未正确提取槽位信息")
+        else:
+            logger.debug(f"Ground truth pairs: {len(all_ground_truth_pairs)}")
+            logger.debug(f"Predicted pairs: {len(all_predicted_pairs)}")
+            logger.debug(f"TP: {tp}, FP: {fp}, FN: {fn}")
         
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
