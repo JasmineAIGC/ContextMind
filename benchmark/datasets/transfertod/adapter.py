@@ -471,25 +471,42 @@ class TransferTODAdapter:
         return all_schemas
     
     @staticmethod
-    def get_transfertod_30_domains() -> List[str]:
+    @staticmethod
+    def get_transfertod_domains() -> List[str]:
         """
-        获取TransferTOD项目的30个标准域列表
+        获取TransferTOD数据集的标准域列表
         
-        这些域来自TransferTOD项目定义：
-        https://github.com/KongLongGeFDU/TransferTOD
+        注意：此列表基于实际数据集中存在的域。
+        TransferTOD数据集包含24个任务型对话域。
+        域名称使用中文，与TransferTOD数据集保持一致。
         
-        注意：域名称使用中文，与TransferTOD数据集保持一致。
-        此列表来源于 benchmark/shared/configs/intent_labels_30_domains_Version2.json
+        以下6个域在原始定义中存在但数据集中不可用，已从列表中移除：
+        - 打印、摄影、机票、理发店、音乐会、餐厅
         
         Returns:
-            30个域的中文名称列表
+            包含24个域名的列表
         """
         return [
             "保洁", "健身房", "医院", "博物馆", "培训班", "外卖", "家电维修", "度假村",
-            "律师", "快递", "打印", "搬家", "摄影", "景点", "机票", "洗衣", "火车票",
-            "牙医", "理发店", "电影", "电话卡", "租房", "租车", "美容院", "购物",
-            "送水", "邮轮", "酒店", "音乐会", "餐厅"
+            "律师", "快递", "搬家", "景点", "洗衣", "火车票",
+            "牙医", "电影", "电话卡", "租房", "租车", "美容院", "购物",
+            "送水", "邮轮", "酒店"
         ]
+    
+    @staticmethod
+    def get_transfertod_30_domains() -> List[str]:
+        """
+        获取TransferTOD项目的标准域列表（已弃用）
+        
+        已弃用：使用 get_transfertod_domains() 代替
+        
+        注意：TransferTOD数据集实际只有24个域，不是30个。
+        此方法保留用于向后兼容，返回与 get_transfertod_domains() 相同的结果。
+        
+        Returns:
+            包含24个域名的列表
+        """
+        return TransferTODAdapter.get_transfertod_domains()
     
     def load_schemas_from_file(self, schemas_file: str):
         """

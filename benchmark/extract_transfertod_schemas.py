@@ -5,19 +5,15 @@
 这个脚本从 TransferTOD 数据集获取域的槽位定义，用于 FnCTOD 模式的函数预定义。
 
 重要说明:
-  - 默认情况下，脚本只提取数据集中实际存在的域
-  - 如果数据集不完整（缺少某些域），这些域不会被提取
-  - 使用 --use-standard-list 参数可以尝试提取所有30个标准域（会显示"不可用"的域）
-  - 使用 --diagnostics 参数可以查看哪些域缺失
+  - TransferTOD 数据集包含 24 个任务型对话域
+  - 默认情况下，脚本提取数据集中实际存在的所有域
+  - 使用 --diagnostics 参数可以查看详细的域信息
 
 使用方法:
     # 提取数据集中实际存在的所有域（推荐）
     python benchmark/extract_transfertod_schemas.py --data-root ./data/TransferTOD
     
-    # 尝试提取标准30域（会显示缺失的域）
-    python benchmark/extract_transfertod_schemas.py --data-root ./data/TransferTOD --use-standard-list
-    
-    # 查看诊断信息（找出缺失的域）
+    # 查看诊断信息（查看域列表详情）
     python benchmark/extract_transfertod_schemas.py --data-root ./data/TransferTOD --diagnostics
     
     # 保存到文件
@@ -36,7 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 
 
-def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool = True, show_diagnostics: bool = False, use_standard_list: bool = False):
+def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool = True, show_diagnostics: bool = False):
     """
     从 TransferTOD 数据集提取所有域的 Schema
     
@@ -44,8 +40,7 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
         data_root: TransferTOD 数据集根目录
         output_file: 输出文件路径（可选）
         verbose: 是否显示详细信息
-        show_diagnostics: 是否显示诊断信息（查找缺失域）
-        use_standard_list: 是否使用标准30域列表（默认False，只提取实际存在的域）
+        show_diagnostics: 是否显示诊断信息（查看域列表详情）
     """
     adapter = TransferTODAdapter(data_root)
     
@@ -56,55 +51,40 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
         print(f"数据路径: {data_root}")
         print()
     
+    # 获取标准域列表（24个域）
+    standard_domains = TransferTODAdapter.get_transfertod_domains()
+    
     # 获取实际可用的域
     available_domains = adapter.get_all_domains(verbose=show_diagnostics)
     if verbose:
+        print(f"TransferTOD 标准域数量: {len(standard_domains)}")
         print(f"数据集中可用域数量: {len(available_domains)}")
         print()
     
-    # 决定使用哪个域列表进行提取
-    if use_standard_list:
-        # 使用标准的 30 个域列表（可能包含数据集中不存在的域）
-        standard_domains = TransferTODAdapter.get_transfertod_30_domains()
-        domains_to_extract = standard_domains
-        if verbose:
-            print(f"使用 TransferTOD 标准域列表 ({len(standard_domains)} 个域)")
-            print()
-    else:
-        # 只提取实际存在的域（推荐，避免显示"不可用"）
-        domains_to_extract = available_domains
-        if verbose:
-            print(f"仅提取数据集中实际存在的域 ({len(available_domains)} 个域)")
-            print()
+    # 使用实际可用的域进行提取
+    domains_to_extract = available_domains
         
     # 显示诊断信息
-    if show_diagnostics or use_standard_list:
-        # 当使用标准列表时，总是显示对比信息
-        standard_domains = TransferTODAdapter.get_transfertod_30_domains()
+    if show_diagnostics:
         print("=" * 80)
-        print("诊断信息：域对比分析")
+        print("诊断信息：域列表详情")
         print("=" * 80)
         print(f"TransferTOD 标准域列表: {len(standard_domains)} 个")
         print(f"数据集中实际发现的域: {len(available_domains)} 个")
         print()
         
-        if show_diagnostics:
-            print(f"数据集中实际发现的域（共 {len(available_domains)} 个）：")
-            for i, domain in enumerate(available_domains, 1):
-                print(f"  {i:2d}. {domain}")
-            print()
+        print(f"数据集中实际发现的域（共 {len(available_domains)} 个）：")
+        for i, domain in enumerate(available_domains, 1):
+            print(f"  {i:2d}. {domain}")
+        print()
         
-        # 找出缺失的域
+        # 检查标准域与实际域的差异
         missing_domains = set(standard_domains) - set(available_domains)
         if missing_domains:
             print(f"⚠️  标准列表中但数据集中未找到的域（共 {len(missing_domains)} 个）：")
             for domain in sorted(missing_domains):
                 print(f"  - {domain}")
             print()
-            if not use_standard_list:
-                print("💡 提示: 这些域不会被提取（数据集中不存在）")
-                print("   如果要在输出中包含这些域，请使用 --use-standard-list 参数")
-                print()
         
         # 找出多余的域
         extra_domains = set(available_domains) - set(standard_domains)
@@ -113,6 +93,11 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
             for domain in sorted(extra_domains):
                 print(f"  + {domain}")
             print()
+        
+        if not missing_domains and not extra_domains:
+            print("✅ 标准域列表与数据集完全匹配")
+            print()
+        
         print("=" * 80)
         print()
     
@@ -123,21 +108,17 @@ def extract_all_schemas(data_root: str, output_file: str = None, verbose: bool =
     
     all_schemas = {}
     for i, domain in enumerate(domains_to_extract, 1):
-        if domain in available_domains:
-            try:
-                schema = adapter.get_domain_schema(domain)
-                all_schemas[domain] = schema
-                
-                if verbose:
-                    slot_count = len(schema.get('slots', {}))
-                    dialogue_count = schema.get('metadata', {}).get('dialogue_count', 0)
-                    print(f"{i:2d}. ✅ {domain:8s} - {slot_count:2d} 个槽位, {dialogue_count:4d} 个对话")
-            except Exception as e:
-                if verbose:
-                    print(f"{i:2d}. ❌ {domain:8s} - 提取失败: {e}")
-        else:
+        try:
+            schema = adapter.get_domain_schema(domain)
+            all_schemas[domain] = schema
+            
             if verbose:
-                print(f"{i:2d}. ⚠️  {domain:8s} - 数据集中不可用")
+                slot_count = len(schema.get('slots', {}))
+                dialogue_count = schema.get('metadata', {}).get('dialogue_count', 0)
+                print(f"{i:2d}. ✅ {domain:8s} - {slot_count:2d} 个槽位, {dialogue_count:4d} 个对话")
+        except Exception as e:
+            if verbose:
+                print(f"{i:2d}. ❌ {domain:8s} - 提取失败: {e}")
     
     if verbose:
         print("-" * 80)
@@ -262,12 +243,7 @@ def main():
     parser.add_argument(
         "--diagnostics",
         action="store_true",
-        help="显示诊断信息，帮助查找缺失的域"
-    )
-    parser.add_argument(
-        "--use-standard-list",
-        action="store_true",
-        help="使用 TransferTOD 标准30域列表（而不是只提取实际存在的域）"
+        help="显示诊断信息，查看域列表详情"
     )
     
     args = parser.parse_args()
@@ -291,12 +267,11 @@ def main():
     else:
         # 提取所有域的 Schema
         extract_all_schemas(
-            data_root=args.data_root,
-            output_file=args.output,
-            verbose=not args.quiet,
-            show_diagnostics=args.diagnostics,
-            use_standard_list=args.use_standard_list
-        )
+        data_root=args.data_root,
+        output_file=args.output,
+        verbose=not args.quiet,
+        show_diagnostics=args.diagnostics
+    )
 
 
 if __name__ == "__main__":
