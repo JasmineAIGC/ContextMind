@@ -158,8 +158,12 @@ class FnCTODTransferTODTest:
         all_predicted_pairs = set()
         all_ground_truth_pairs = set()
         
+        # 收集用户话语用于意图评测
+        all_user_utterances = []
+        
         for turn_idx, turn in enumerate(dialogue.turns):
             user_input = turn.user_utterance
+            all_user_utterances.append(user_input)
             
             # 调用FnCTOD进行状态追踪
             try:
@@ -219,17 +223,21 @@ class FnCTODTransferTODTest:
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
         
         # 添加意图评测（对话级别）
-        # 获取对话的整体意图（使用第一个轮次的意图作为对话意图）
         if dialogue.turns:
+            # 获取最终的对话状态（FnCTOD tracker维护的累积状态）
+            final_extracted = self.tracker.current_state.copy()
+            
             # 从FnCTOD响应中获取预测的意图
             # 这里我们使用领域名称作为意图的简化版本
             predicted_intent = dialogue.domain
-            ground_truth_intent = dialogue.domain
             
+            # 调用add_dialogue_evaluation，让它从槽位信息推断真值意图
             self.intent_evaluator.add_dialogue_evaluation(
                 dialogue_id=dialogue_id,
+                domain=dialogue.domain,
                 predicted_intent=predicted_intent,
-                ground_truth_intent=ground_truth_intent
+                dialogue_slots=final_extracted,  # 使用最终提取的槽位
+                user_utterances=all_user_utterances
             )
         
         if verbose:
