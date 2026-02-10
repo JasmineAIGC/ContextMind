@@ -884,7 +884,8 @@ class IntentEvaluator:
             macro = metrics.get('macro_metrics', {})
             micro = metrics.get('micro_metrics', {})
             
-            if macro and macro.get('precision', 0) > 0:
+            # Always show P/R/F1 if macro metrics exist
+            if macro:
                 report.append(f"  精确率 (Precision):  {macro.get('precision', 0):.2%}")
                 report.append(f"  召回率 (Recall):     {macro.get('recall', 0):.2%}")
                 report.append(f"  F1分数 (F1 Score):   {macro.get('f1', 0):.2%}")
@@ -959,11 +960,15 @@ class IntentEvaluator:
             micro = metrics.get('micro_metrics', {})
             
             report.append("【宏平均指标】")
-            report.append(f"  精确率: {macro.get('precision', 0):.2%}  召回率: {macro.get('recall', 0):.2%}  F1分数: {macro.get('f1', 0):.2%}")
+            report.append(f"  精确率 (Precision):  {macro.get('precision', 0):.2%}")
+            report.append(f"  召回率 (Recall):     {macro.get('recall', 0):.2%}")
+            report.append(f"  F1分数 (F1 Score):   {macro.get('f1', 0):.2%}")
             report.append("")
             
             report.append("【微平均指标】")
-            report.append(f"  精确率: {micro.get('precision', 0):.2%}  召回率: {micro.get('recall', 0):.2%}  F1分数: {micro.get('f1', 0):.2%}")
+            report.append(f"  精确率 (Precision):  {micro.get('precision', 0):.2%}")
+            report.append(f"  召回率 (Recall):     {micro.get('recall', 0):.2%}")
+            report.append(f"  F1分数 (F1 Score):   {micro.get('f1', 0):.2%}")
             report.append("")
             
             # 各意图类别的详细指标
