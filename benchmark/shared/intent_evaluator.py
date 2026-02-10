@@ -54,9 +54,6 @@ class IntentEvaluator:
         Args:
             intent_label_loader: 意图标签加载器对象，如果为None则加载默认配置
         """
-        self.predictions = []  # [(predicted_intent, inferred_intent), ...]
-        self.turn_details = []  # 每轮详细信息
-        self.intent_transitions = []  # 意图转换序列
         self.dialogue_intents = []  # 对话级别的意图预测: [(dialogue_id, predicted_intent, inferred_intent)]
         
         # 加载意图标签加载器
@@ -411,82 +408,6 @@ class IntentEvaluator:
         # 默认槽位填充
         return "slot_filling"
     
-    def add_turn_evaluation(
-        self,
-        domain: str,  # 新增：领域参数
-        turn_id: int,
-        predicted_intent: str,
-        turn_updates: Dict[str, Any],
-        previous_state: Dict[str, Any],
-        user_utterance: str = "",
-        dialogue_id: str = "",
-        total_turns: int = 0
-    ) -> Dict[str, Any]:
-        """
-        添加一轮对话的意图评测（v2.0）
-        
-        Args:
-            domain: 领域名称
-            turn_id: 轮次ID
-            predicted_intent: DST预测的意图
-            turn_updates: 槽位更新
-            previous_state: 之前的状态
-            user_utterance: 用户话语
-            dialogue_id: 对话ID
-            total_turns: 总轮次数
-            
-        Returns:
-            评测详情
-        """
-        # 推断ground truth意图（返回意图类型和任务相关性）
-        inferred_intent, task_relevance = self.infer_intent_from_slots(
-            domain,
-            turn_updates, 
-            previous_state,
-            user_utterance,
-            turn_id
-        )
-        
-        # 推断对话阶段
-        dialogue_phase = self.infer_dialogue_phase(
-            turn_id,
-            turn_updates,
-            previous_state,
-            total_turns
-        )
-        
-        # 使用配置的标准化映射
-        predicted_intent = predicted_intent or "unknown"
-        predicted_normalized = self.normalization_mapping.get(predicted_intent.lower(), predicted_intent.lower())
-        inferred_normalized = self.normalization_mapping.get(inferred_intent.lower(), inferred_intent.lower())
-        
-        # 判断是否正确（使用标准化后的值）
-        is_correct = (predicted_normalized == inferred_normalized)
-        
-        # 记录意图转换
-        if self.turn_details:
-            previous_intent = self.turn_details[-1]['inferred_intent']
-            transition = (previous_intent, inferred_intent)
-            self.intent_transitions.append(transition)
-        
-        # 记录详情
-        detail = {
-            'dialogue_id': dialogue_id,
-            'turn_id': turn_id,
-            'predicted_intent': predicted_intent,
-            'inferred_intent': inferred_intent,
-            'task_relevance': task_relevance,
-            'dialogue_phase': dialogue_phase,
-            'correct': is_correct,
-            'turn_updates': turn_updates.copy(),
-            'user_utterance': user_utterance
-        }
-        
-        self.turn_details.append(detail)
-        self.predictions.append((predicted_intent, inferred_intent))
-        
-        return detail
-    
     def add_dialogue_evaluation(
         self,
         dialogue_id: str,
@@ -562,20 +483,16 @@ class IntentEvaluator:
     
     def calculate_metrics(self) -> Dict[str, Any]:
         """
-        计算意图评测指标（v2.0 - 增强版）
+        计算意图评测指标（仅对话级别）
         
         Returns:
             评测指标字典，包括：
-            - 基础准确率
+            - 对话级别准确率
             - 意图分布
             - 混淆矩阵
-            - 错误分析
-            - 意图转换分析（新增）
-            - 对话阶段分析（新增）
-            - 任务相关性统计（新增）
-            - 分类指标：精确率、召回率、F1分数（新增）
+            - 分类指标：精确率、召回率、F1分数
         """
-        # 对话级别统计（优先计算，即使没有轮次数据也可以有对话数据）
+        # 对话级别统计
         dialogue_metrics = {}
         if self.dialogue_intents:
             dialogue_total = len(self.dialogue_intents)
@@ -592,101 +509,10 @@ class IntentEvaluator:
                 'correct_dialogues': dialogue_correct
             }
         
-        if not self.predictions:
-            # 如果没有轮次级别数据，但有对话级别数据，计算对话级别的per_class_metrics
-            if self.dialogue_intents:
-                # 计算对话级别的per_class_metrics
-                per_class_metrics = {}
-                all_intents = set()
-                all_intents.update(pred for _, pred, _ in self.dialogue_intents)
-                all_intents.update(inf for _, _, inf in self.dialogue_intents)
-                
-                for intent in all_intents:
-                    tp = fp = fn = 0
-                    intent_normalized = self._normalize_for_comparison(intent)
-                    
-                    for _, pred, inf in self.dialogue_intents:
-                        pred_normalized = self._normalize_for_comparison(pred)
-                        inf_normalized = self._normalize_for_comparison(inf)
-                        
-                        pred_match = pred_normalized == intent_normalized
-                        inf_match = inf_normalized == intent_normalized
-                        
-                        if pred_match and inf_match:
-                            tp += 1
-                        elif pred_match and not inf_match:
-                            fp += 1
-                        elif not pred_match and inf_match:
-                            fn += 1
-                    
-                    support = tp + fn
-                    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-                    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-                    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-                    
-                    per_class_metrics[intent] = {
-                        'precision': precision,
-                        'recall': recall,
-                        'f1': f1,
-                        'support': support,
-                        'tp': tp,
-                        'fp': fp,
-                        'fn': fn
-                    }
-                
-                # 计算宏平均和微平均
-                if per_class_metrics:
-                    macro_precision = sum(m['precision'] for m in per_class_metrics.values()) / len(per_class_metrics)
-                    macro_recall = sum(m['recall'] for m in per_class_metrics.values()) / len(per_class_metrics)
-                    macro_f1 = sum(m['f1'] for m in per_class_metrics.values()) / len(per_class_metrics)
-                    
-                    total_tp = sum(m['tp'] for m in per_class_metrics.values())
-                    total_fp = sum(m['fp'] for m in per_class_metrics.values())
-                    total_fn = sum(m['fn'] for m in per_class_metrics.values())
-                    
-                    micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
-                    micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
-                    micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0.0
-                else:
-                    macro_precision = macro_recall = macro_f1 = 0.0
-                    micro_precision = micro_recall = micro_f1 = 0.0
-                
-                return {
-                    'accuracy': 0.0,
-                    'total_turns': 0,
-                    'correct_turns': 0,
-                    'intent_distribution': {},
-                    'confusion_matrix': {},
-                    'error_analysis': {},
-                    'transition_analysis': {},
-                    'phase_distribution': {},
-                    'task_relevance_stats': {},
-                    'dialogue_metrics': dialogue_metrics,
-                    'per_class_metrics': per_class_metrics,
-                    'macro_metrics': {
-                        'precision': macro_precision,
-                        'recall': macro_recall,
-                        'f1': macro_f1
-                    },
-                    'micro_metrics': {
-                        'precision': micro_precision,
-                        'recall': micro_recall,
-                        'f1': micro_f1
-                    }
-                }
-            
-            # 没有任何数据的情况
+        # 如果没有对话数据，返回空指标
+        if not self.dialogue_intents:
             return {
-                'accuracy': 0.0,
-                'total_turns': 0,
-                'correct_turns': 0,
-                'intent_distribution': {},
-                'confusion_matrix': {},
-                'error_analysis': {},
-                'transition_analysis': {},
-                'phase_distribution': {},
-                'task_relevance_stats': {},
-                'dialogue_metrics': dialogue_metrics,
+                'dialogue_metrics': {},
                 'per_class_metrics': {},
                 'macro_metrics': {
                     'precision': 0.0,
@@ -700,33 +526,17 @@ class IntentEvaluator:
                 }
             }
         
-        # 基础统计（使用标准化映射进行比较，与turn-level评测一致）
-        total = len(self.predictions)
-        correct = sum(1 for pred, inf in self.predictions 
-                     if self._normalize_for_comparison(pred) == self._normalize_for_comparison(inf))
-        accuracy = correct / total if total > 0 else 0.0
-        
-        # 意图分布
-        predicted_dist = Counter(pred for pred, _ in self.predictions)
-        inferred_dist = Counter(inf for _, inf in self.predictions)
-        
-        # 混淆矩阵
-        confusion = defaultdict(lambda: defaultdict(int))
-        for pred, inf in self.predictions:
-            confusion[inf][pred] += 1
-        
-        # 计算每个类别的精确率、召回率、F1分数
+        # 计算对话级别的per_class_metrics
         per_class_metrics = {}
         all_intents = set()
-        all_intents.update(pred for pred, _ in self.predictions)
-        all_intents.update(inf for _, inf in self.predictions)
+        all_intents.update(pred for _, pred, _ in self.dialogue_intents)
+        all_intents.update(inf for _, _, inf in self.dialogue_intents)
         
         for intent in all_intents:
-            # 使用标准化映射进行比较（与整体accuracy一致）
             tp = fp = fn = 0
             intent_normalized = self._normalize_for_comparison(intent)
             
-            for pred, inf in self.predictions:
+            for _, pred, inf in self.dialogue_intents:
                 pred_normalized = self._normalize_for_comparison(pred)
                 inf_normalized = self._normalize_for_comparison(inf)
                 
@@ -740,10 +550,7 @@ class IntentEvaluator:
                 elif not pred_match and inf_match:
                     fn += 1
             
-            # 支持数（真值中该类别的数量）
             support = tp + fn
-            
-            # 计算指标
             precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
             recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
@@ -758,61 +565,24 @@ class IntentEvaluator:
                 'fn': fn
             }
         
-        # 计算宏平均（每个类别等权重）
+        # 计算宏平均和微平均
         if per_class_metrics:
             macro_precision = sum(m['precision'] for m in per_class_metrics.values()) / len(per_class_metrics)
             macro_recall = sum(m['recall'] for m in per_class_metrics.values()) / len(per_class_metrics)
             macro_f1 = sum(m['f1'] for m in per_class_metrics.values()) / len(per_class_metrics)
+            
+            total_tp = sum(m['tp'] for m in per_class_metrics.values())
+            total_fp = sum(m['fp'] for m in per_class_metrics.values())
+            total_fn = sum(m['fn'] for m in per_class_metrics.values())
+            
+            micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
+            micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
+            micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0.0
         else:
             macro_precision = macro_recall = macro_f1 = 0.0
-        
-        # 计算微平均（所有样本等权重）
-        total_tp = sum(m['tp'] for m in per_class_metrics.values())
-        total_fp = sum(m['fp'] for m in per_class_metrics.values())
-        total_fn = sum(m['fn'] for m in per_class_metrics.values())
-        
-        micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
-        micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
-        micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0.0
-        
-        # 错误分析
-        errors = [d for d in self.turn_details if not d['correct']]
-        error_patterns = Counter(
-            (d['predicted_intent'], d['inferred_intent']) for d in errors
-        )
-        
-        # 意图转换分析（新增）
-        transition_stats = Counter(self.intent_transitions)
-        
-        # 对话阶段分布（新增）
-        phase_dist = Counter(d['dialogue_phase'] for d in self.turn_details)
-        
-        # 任务相关性统计（新增）
-        task_relevance_dist = Counter(d.get('task_relevance', 'unknown') for d in self.turn_details)
-        
-        # 按阶段的意图分布（新增）
-        phase_intent_dist = defaultdict(Counter)
-        for d in self.turn_details:
-            phase = d['dialogue_phase']
-            intent = d['inferred_intent']
-            phase_intent_dist[phase][intent] += 1
-        
-        # dialogue_metrics已经在开头计算，无需重复
+            micro_precision = micro_recall = micro_f1 = 0.0
         
         return {
-            'accuracy': accuracy,
-            'total_turns': total,
-            'correct_turns': correct,
-            'predicted_distribution': dict(predicted_dist),
-            'inferred_distribution': dict(inferred_dist),
-            'confusion_matrix': {k: dict(v) for k, v in confusion.items()},
-            'error_patterns': dict(error_patterns.most_common(10)),
-            'error_count': len(errors),
-            'transition_stats': dict(transition_stats.most_common(15)),
-            'transition_count': len(self.intent_transitions),
-            'phase_distribution': dict(phase_dist),
-            'task_relevance_stats': dict(task_relevance_dist),
-            'phase_intent_distribution': {k: dict(v) for k, v in phase_intent_dist.items()},
             'dialogue_metrics': dialogue_metrics,
             'per_class_metrics': per_class_metrics,
             'macro_metrics': {
@@ -829,15 +599,18 @@ class IntentEvaluator:
     
     def plot_confusion_matrix(self, output_path: str = "confusion_matrix.png") -> Optional[str]:
         """
-        生成混淆矩阵可视化图表（优化版：聚合到高层次意图类别）
+        生成混淆矩阵可视化图表（基于对话级别数据）
         
         Args:
             output_path: 输出图片的路径
             
         Returns:
-            保存的图片路径，如果matplotlib不可用则返回None
+            保存的图片路径，如果matplotlib不可用或无数据则返回None
         """
         if not MATPLOTLIB_AVAILABLE:
+            return None
+        
+        if not self.dialogue_intents:
             return None
         
         # 抑制matplotlib字体警告（避免CJK字符缺失警告）
@@ -845,8 +618,10 @@ class IntentEvaluator:
         warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
         warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
         
-        metrics = self.calculate_metrics()
-        confusion = metrics['confusion_matrix']
+        # 从对话级别数据构建混淆矩阵
+        confusion = defaultdict(lambda: defaultdict(int))
+        for _, pred, inf in self.dialogue_intents:
+            confusion[inf][pred] += 1
         
         if not confusion:
             return None
@@ -930,7 +705,7 @@ class IntentEvaluator:
         include_confusion_matrix: bool = True
     ) -> str:
         """
-        生成简化的评测报告（仅数值结果）
+        生成对话级别意图评测报告
         
         Args:
             save_confusion_plot: 是否保存混淆矩阵图表
@@ -938,7 +713,7 @@ class IntentEvaluator:
             include_confusion_matrix: 是否在报告中包含混淆矩阵文本（默认True）
             
         Returns:
-            格式化的报告字符串，仅包括核心数值
+            格式化的报告字符串
         """
         metrics = self.calculate_metrics()
         
@@ -948,57 +723,20 @@ class IntentEvaluator:
         report.append("=" * 70)
         report.append("")
         
-        # 检查是否只有对话级别数据（没有轮次数据）
-        has_dialogue_only = (metrics['total_turns'] == 0 and 
-                            metrics.get('dialogue_metrics', {}).get('total_dialogues', 0) > 0)
-        
-        # 如果只有对话级别数据，跳过轮次统计
-        if not has_dialogue_only:
-            # 总体指标（核心数值）
-            report.append(f"总轮次数: {metrics['total_turns']}")
-            report.append(f"正确轮次: {metrics['correct_turns']}")
-            report.append("")
-            
-            # 核心评测指标
-            report.append("【核心指标】")
-            report.append(f"  准确率 (Accuracy):   {metrics['accuracy']:.2%}")
-            
-            # 添加宏平均和微平均指标
-            macro = metrics.get('macro_metrics', {})
-            micro = metrics.get('micro_metrics', {})
-            
-            # Always show P/R/F1 if macro metrics exist
-            if macro:
-                report.append(f"  精确率 (Precision):  {macro.get('precision', 0):.2%}")
-                report.append(f"  召回率 (Recall):     {macro.get('recall', 0):.2%}")
-                report.append(f"  F1分数 (F1 Score):   {macro.get('f1', 0):.2%}")
-            
-            report.append("")
-        
-        # 如果准确率为0%，添加诊断信息（简化版）
-        if metrics['accuracy'] == 0 and metrics['total_turns'] > 0:
-            # 检查是否所有预测都是'未识别'或'unknown'
-            predicted_intents = [pred for pred, _ in self.predictions]
-            unique_predictions = set(predicted_intents)
-            
-            # 使用配置的标准化映射检查
-            normalized_predictions = set(
-                self.normalization_mapping.get(p.lower(), p.lower())
-                for p in unique_predictions
-            )
-            
-            report.append("")
-            if normalized_predictions == {'unknown'}:
-                # 所有预测都是'未识别'
-                report.append("❌ 诊断: DST未配置意图提取功能（所有预测都是'未识别'）")
-            else:
-                # 有不同的预测，但准确率仍为0%
-                report.append(f"⚠️  诊断: 意图格式不匹配（发现{len(unique_predictions)}种预测意图，但无匹配）")
-            
-            report.append("")
+        # 对话级别意图评测
+        if metrics.get('dialogue_metrics'):
+            dm = metrics['dialogue_metrics']
+            if dm.get('total_dialogues', 0) > 0:
+                report.append("-" * 70)
+                report.append("对话级别意图评测")
+                report.append("-" * 70)
+                report.append(f"总对话数: {dm['total_dialogues']}")
+                report.append(f"正确对话: {dm['correct_dialogues']}")
+                report.append(f"对话意图准确率: {dm['dialogue_accuracy']:.2%}")
+                report.append("")
         
         # 混淆矩阵 - 仅保存图表，不打印
-        if metrics['confusion_matrix']:
+        if self.dialogue_intents:
             report.append("-" * 70)
             report.append("混淆矩阵 (Confusion Matrix)")
             report.append("-" * 70)
@@ -1019,21 +757,9 @@ class IntentEvaluator:
             
             report.append("")
         
-        # 添加对话级别意图评测（如果有）
-        if metrics.get('dialogue_metrics'):
-            dm = metrics['dialogue_metrics']
-            if dm.get('total_dialogues', 0) > 0:
-                report.append("-" * 70)
-                report.append("对话级别意图评测")
-                report.append("-" * 70)
-                report.append(f"总对话数: {dm['total_dialogues']}")
-                report.append(f"正确对话: {dm['correct_dialogues']}")
-                report.append(f"对话意图准确率: {dm['dialogue_accuracy']:.2%}")
-                report.append("")
-        
-        # 分类评测指标（精简版）
+        # 分类评测指标
         dialogue_metrics_exist = metrics.get('dialogue_metrics', {}).get('total_dialogues', 0) > 0
-        if metrics.get('per_class_metrics') and (metrics['total_turns'] > 0 or dialogue_metrics_exist):
+        if metrics.get('per_class_metrics') and dialogue_metrics_exist:
             report.append("-" * 70)
             report.append("分类评测指标")
             report.append("-" * 70)
@@ -1247,7 +973,4 @@ class IntentEvaluator:
         """
         重置评测器状态
         """
-        self.predictions = []
-        self.turn_details = []
-        self.intent_transitions = []
         self.dialogue_intents = []
