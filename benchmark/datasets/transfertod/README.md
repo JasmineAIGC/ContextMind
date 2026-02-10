@@ -75,19 +75,36 @@ TransferTOD 包含以下 30 个域：
 
 ### 2. 提取所有域的 Schema
 
-使用提供的脚本提取所有 30 个域的预定义函数信息：
+使用提供的脚本提取域的预定义函数信息：
 
 ```bash
-# 提取所有域的 Schema 并保存到文件
+# 提取数据集中实际存在的所有域（推荐）
 python benchmark/extract_transfertod_schemas.py \
     --data-root ./data/TransferTOD \
     --output transfertod_schemas.json
+
+# 尝试提取标准 30 域列表（会显示缺失的域）
+python benchmark/extract_transfertod_schemas.py \
+    --data-root ./data/TransferTOD \
+    --output transfertod_schemas.json \
+    --use-standard-list
 
 # 查看特定域的详细信息
 python benchmark/extract_transfertod_schemas.py \
     --data-root ./data/TransferTOD \
     --domain 酒店
+
+# 运行诊断，查看哪些域缺失
+python benchmark/extract_transfertod_schemas.py \
+    --data-root ./data/TransferTOD \
+    --diagnostics
 ```
+
+**重要说明：**
+- 默认情况下，脚本只提取数据集中实际存在的域
+- 如果数据集不完整（如只有 24 个域而不是 30 个），这是正常的
+- 使用 `--diagnostics` 可以查看哪些标准域缺失
+- 使用 `--use-standard-list` 可以尝试提取所有 30 个标准域（会显示"不可用"的域）
 
 ### 3. 在 FnCTOD 中使用
 
