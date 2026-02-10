@@ -9,6 +9,16 @@ FnCTOD模式 - TransferTOD数据集评测脚本
     python benchmark/run_fnctod_transfertod.py --domain 酒店 --data-type clean --limit 10
 """
 
+# ============================================================================
+# 版本标识 - 如果你看到这行输出，说明你在运行新版本的脚本
+# VERSION: 2024-02-10-v2 (Full Evaluation Implementation)
+# ============================================================================
+print("=" * 80)
+print("🔍 FnCTOD Evaluation Script - Version 2024-02-10-v2")
+print("=" * 80)
+print("✅ 正在加载完整评测实现...")
+print()
+
 import asyncio
 import argparse
 import sys
@@ -470,6 +480,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+        print("\n" + "=" * 80)
+        print("✅ 脚本执行完成 - Version 2024-02-10-v2")
+        print("=" * 80)
         sys.exit(0)
     except KeyboardInterrupt:
         print("\n\n⚠️  用户中断执行")
@@ -478,4 +491,6 @@ if __name__ == "__main__":
         print(f"\n\n❌ 执行失败: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
+        print("\n💡 提示: 这是新版本的脚本 (2024-02-10-v2)")
+        print("如果你看到这个错误，说明脚本正确加载但执行时遇到问题")
         sys.exit(1)
