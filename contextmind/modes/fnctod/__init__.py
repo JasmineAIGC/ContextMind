@@ -32,7 +32,7 @@ FnCTOD Module - Function Calling for Task-Oriented Dialogue
 """
 
 # 数据模型
-from .data_models import FunctionCall, DomainSpec, FunctionParameter
+from .data_models import FunctionCall, DomainSpec, FunctionParameter, ParameterType
 
 # 核心组件
 from .function_manager import FunctionManager
@@ -54,6 +54,7 @@ __all__ = [
     'FunctionCall',
     'DomainSpec',
     'FunctionParameter',
+    'ParameterType',  # Added ParameterType to exports
     # Schema functions
     'get_chat_function_schema',
     'get_callcenter_function_schema',
