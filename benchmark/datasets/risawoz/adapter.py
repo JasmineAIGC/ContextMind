@@ -31,6 +31,7 @@ class DialogueTurn:
     user_utterance: str
     system_utterance: str
     expected_slots: Dict[str, str]  # belief state for this turn
+    user_intents: List[List[str]] = field(default_factory=list)  # user_acts: [[intent, domain, slot, value], ...]
     
 
 @dataclass  
@@ -299,12 +300,23 @@ class RiSAWOZAdapter:
             # 更新累积状态
             cumulative_state.update(turn_belief_state)
             
+            # 提取用户意图 (user_acts)
+            user_intents = []
+            if "user_acts" in turn_data:
+                user_acts_data = turn_data["user_acts"]
+                if isinstance(user_acts_data, list):
+                    for act in user_acts_data:
+                        if isinstance(act, list) and len(act) >= 2:
+                            # user_acts格式: [intent, domain, slot, value]
+                            user_intents.append(act)
+            
             # 创建对话轮次（使用累积状态作为expected_slots）
             turn = DialogueTurn(
                 turn_id=turn_id,
                 user_utterance=user_utterance,
                 system_utterance=system_utterance,
-                expected_slots=cumulative_state.copy()
+                expected_slots=cumulative_state.copy(),
+                user_intents=user_intents
             )
             turns.append(turn)
         

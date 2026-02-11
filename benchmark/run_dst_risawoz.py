@@ -95,6 +95,58 @@ class DSTRiSAWOZTest:
         logger.info(f"✅ DST模式初始化完成 - 领域: {domain}")
         logger.info(f"   动态槽位模式: 启用")
     
+    def _extract_dialogue_intent(self, dialogue: 'DialogueInstance') -> str:
+        """
+        从对话的user_acts中提取对话级别的意图
+        
+        策略：
+        1. 优先选择最后一个有实际槽位的Inform意图
+        2. 其次选择Request意图
+        3. 再选择其他非General/Greeting的意图
+        4. 最后使用Greeting或General
+        
+        Args:
+            dialogue: 对话实例
+            
+        Returns:
+            提取的对话意图，如果没有找到返回空字符串
+        """
+        # 收集所有意图，按优先级分类
+        inform_intents = []
+        request_intents = []
+        other_intents = []
+        general_intents = []
+        
+        for turn in dialogue.turns:
+            for intent_info in turn.user_intents:
+                if len(intent_info) >= 2:
+                    intent = intent_info[0]  # [intent, domain, slot, value]
+                    
+                    if not intent:  # 跳过空意图
+                        continue
+                    
+                    # 分类
+                    if intent == "Inform":
+                        inform_intents.append(intent)
+                    elif intent == "Request":
+                        request_intents.append(intent)
+                    elif intent in ["General", "Greeting", "Bye"]:
+                        general_intents.append(intent)
+                    else:
+                        other_intents.append(intent)
+        
+        # 按优先级选择
+        if inform_intents:
+            return inform_intents[-1]  # 最后一个Inform
+        elif request_intents:
+            return request_intents[-1]  # 最后一个Request
+        elif other_intents:
+            return other_intents[-1]  # 最后一个其他意图
+        elif general_intents:
+            return general_intents[-1]  # 最后一个通用意图
+        else:
+            return ""  # 没有找到任何意图
+    
     async def test_dialogue(self, dialogue_id: str, split: str = "val", verbose: bool = True) -> Dict[str, Any]:
         """
         测试单个对话
@@ -213,12 +265,15 @@ class DSTRiSAWOZTest:
         # 计算Precision/Recall/F1（基于slot-value pairs）
         precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
         
-        # 4. 意图评测（从槽位信息推断意图）
+        # 4. 意图评测（使用从user_acts提取的意图）
+        # 从对话中提取实际的用户意图
+        dialogue_intent = self._extract_dialogue_intent(dialogue)
+        
         # 添加到意图评测器 - 使用提取的槽位而非期望槽位
         self.intent_evaluator.add_dialogue_evaluation(
             dialogue_id=dialogue_id,
             domain=dialogue.domain,
-            predicted_intent="",  # RiSAWOZ没有显式意图预测，让evaluator从槽位推断
+            predicted_intent=dialogue_intent,  # 使用从user_acts提取的意图
             dialogue_slots=final_extracted,  # 修复：使用提取的槽位
             user_utterances=[turn.user_utterance for turn in dialogue.turns]
         )
