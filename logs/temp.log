@@ -1,0 +1,186 @@
+python benchmark/run_dst_risawoz.py --val-file .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json  --limit 10
+📝 日志将自动保存到: logs/evolve_20260211_161005.log
+[2026-02-11 16:10:05] INFO - [__main__] 根据文件路径自动设置 split=val
+[2026-02-11 16:10:05] INFO - [__main__] 数据根目录: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST
+[2026-02-11 16:10:05] INFO - [__main__] 数据划分: val
+[2026-02-11 16:10:05] INFO - [__main__] 文件映射: {'train': 'train.json', 'val': 'dst_all_test600_new.json', 'test': 'test.json'}
+[2026-02-11 16:10:05] INFO - [__main__] 将要加载的数据文件: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json
+[2026-02-11 16:10:05] INFO - [benchmark.shared.intent_label_loader] 已加载 30 个领域的意图标签
+[2026-02-11 16:10:05] INFO - [__main__] 找到 10 个对话实例
+[2026-02-11 16:10:05] INFO - [__main__] 限制测试数量: 10
+[2026-02-11 16:10:05] INFO - [__main__] 
+处理对话 1/10: 0
+[2026-02-11 16:10:05] INFO - [__main__] 切换到领域: 未知
+[2026-02-11 16:10:05] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-11 16:10:05] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-11 16:10:05] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-11 16:10:05] INFO - [benchmark.shared.intent_label_loader] 已加载 30 个领域的意图标签
+[2026-02-11 16:10:05] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+[2026-02-11 16:10:05] WARNING - [contextmind.modes.dst.prompt_manager] No intents found for domain: 未知
+[2026-02-11 16:10:05] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=未知, 动态槽位=True, 意图预测=True)
+[2026-02-11 16:10:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-11 16:10:05] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 未知
+[2026-02-11 16:10:05] INFO - [__main__]    动态槽位模式: 启用
+[2026-02-11 16:10:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游建议', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:07] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:07] INFO - [__main__] ✅ 对话 0 评测完成
+[2026-02-11 16:10:07] INFO - [__main__] 
+处理对话 2/10: 1
+[2026-02-11 16:10:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游建议', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:08] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:08] INFO - [__main__] ✅ 对话 1 评测完成
+[2026-02-11 16:10:08] INFO - [__main__] 
+处理对话 3/10: 2
+[2026-02-11 16:10:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:09] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游建议', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:10] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:10] INFO - [__main__] ✅ 对话 2 评测完成
+[2026-02-11 16:10:10] INFO - [__main__] 
+处理对话 4/10: 3
+[2026-02-11 16:10:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:10] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游建议', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:11] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:11] INFO - [__main__] ✅ 对话 3 评测完成
+[2026-02-11 16:10:11] INFO - [__main__] 
+处理对话 5/10: 4
+[2026-02-11 16:10:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:11] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:12] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:12] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:12] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:12] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:12] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:12] INFO - [__main__] ✅ 对话 4 评测完成
+[2026-02-11 16:10:12] INFO - [__main__] 
+处理对话 6/10: 5
+[2026-02-11 16:10:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:13] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:14] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:14] INFO - [__main__] ✅ 对话 5 评测完成
+[2026-02-11 16:10:14] INFO - [__main__] 
+处理对话 7/10: 6
+[2026-02-11 16:10:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:14] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:15] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:15] INFO - [__main__] ✅ 对话 6 评测完成
+[2026-02-11 16:10:15] INFO - [__main__] 
+处理对话 8/10: 7
+[2026-02-11 16:10:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:15] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:16] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:16] INFO - [__main__] ✅ 对话 7 评测完成
+[2026-02-11 16:10:16] INFO - [__main__] 
+处理对话 9/10: 8
+[2026-02-11 16:10:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:16] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:17] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:17] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:17] INFO - [__main__] ✅ 对话 8 评测完成
+[2026-02-11 16:10:17] INFO - [__main__] 
+处理对话 10/10: 9
+[2026-02-11 16:10:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '空对话', '问题类型': '无'}, 意图=空对话
+[2026-02-11 16:10:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '开始对话', '对话状态': '初始化'}, 意图=开始对话
+[2026-02-11 16:10:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:18] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '寻求建议', '主题': '旅行目的地', '偏好': '海边', '时间': '暑假'}, 意图=寻求建议
+[2026-02-11 16:10:19] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '表达需求', '需求类型': '旅游建议', '目的地': '日本', '时间': '暑假'}, 意图=表达需求
+[2026-02-11 16:10:19] WARNING - [benchmark.shared.intent_label_loader] 领域 '未知' 在意图标签中未找到
+警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
+[2026-02-11 16:10:19] INFO - [__main__] ✅ 对话 9 评测完成
+
+======================================================================
+📊 测试指标汇总（对齐TransferTOD论文）
+======================================================================
+
+数据集划分: val
+领域: 所有领域
+对话数: 10
+
+【整体汇总统计】
+----------------------------------------------------------------------
+总测试对话数: 10
+平均槽位准确率 (Slot Accuracy): 0.00%
+平均联合准确率-严格 (Joint Accuracy Strict): 0.00%
+平均联合准确率-软匹配 (Joint Accuracy Soft): 100.00%
+平均精确率 (Precision): 0.00%
+平均召回率 (Recall): 0.00%
+平均F1分数 (F1 Score): 0.00%
+
+
+======================================================================
+🎯 对话级别意图评测报告
+======================================================================
+
+======================================================================
+意图评测报告 (Intent Evaluation Report)
+======================================================================
+
+----------------------------------------------------------------------
+对话级别意图评测
+----------------------------------------------------------------------
+总对话数: 10
+正确对话: 10
+对话意图准确率: 100.00%
+
+----------------------------------------------------------------------
+混淆矩阵 (Confusion Matrix)
+----------------------------------------------------------------------
+
+----------------------------------------------------------------------
+分类评测指标
+----------------------------------------------------------------------
+【宏平均指标】
+  精确率 (Precision):  100.00%
+  召回率 (Recall):     100.00%
+  F1分数 (F1 Score):   100.00%
+
+【微平均指标】
+  精确率 (Precision):  100.00%
+  召回率 (Recall):     100.00%
+  F1分数 (F1 Score):   100.00%
+  （注：在单标签分类中，微平均的精确率、召回率和F1通常相等，这是正常现象）
+
+【各意图类别指标】
+
+意图类别                 精确率        召回率        F1分数       支持数       
+----------------------------------------------------------------------
+其他                   100.00%    100.00%    100.00%    10        
