@@ -211,13 +211,28 @@ class RiSAWOZAdapter:
         else:
             raise ValueError(f"不支持的对话数据格式: {type(dialogue_data)}")
         
-        # 提取领域信息
+        # 提取领域信息 - 支持多种方式
         domains = set()
+        
+        # 方式1: 从对话级别的domains字段获取
+        if isinstance(dialogue_data, dict) and "domains" in dialogue_data:
+            dialogue_domains = dialogue_data.get("domains", [])
+            if isinstance(dialogue_domains, list):
+                domains.update(dialogue_domains)
+        
+        # 方式2: 从每个turn的domain字段获取
+        for turn_data in dialogue_turns:
+            if "domain" in turn_data and turn_data["domain"]:
+                domains.add(turn_data["domain"])
+        
+        # 方式3: 从belief_state中提取（旧格式兼容）
         for turn_data in dialogue_turns:
             if "belief_state" in turn_data:
-                for belief in turn_data["belief_state"]:
-                    if "domain" in belief:
-                        domains.add(belief["domain"])
+                belief_state_data = turn_data["belief_state"]
+                if isinstance(belief_state_data, list):
+                    for belief in belief_state_data:
+                        if isinstance(belief, dict) and "domain" in belief:
+                            domains.add(belief["domain"])
         
         # 使用第一个领域作为主领域（如果有多个领域则记录在metadata中）
         # 如果没有找到领域，使用"通用"作为默认领域（RiSAWOZ有"通用"领域）
@@ -233,22 +248,53 @@ class RiSAWOZAdapter:
             turn_id = turn_data.get("turn_id", len(turns))
             
             # 提取用户和系统话语
-            user_utterance = turn_data.get("user_utterance", "")
-            system_utterance = turn_data.get("system_utterance", "")
+            # 支持多种字段名：transcript/user_utterance, system_transcript/system_utterance
+            user_utterance = turn_data.get("transcript") or turn_data.get("user_utterance", "")
+            system_utterance = turn_data.get("system_transcript") or turn_data.get("system_utterance", "")
             
-            # 解析belief state
+            # 解析belief state - 支持两种格式
             turn_belief_state = {}
             if "belief_state" in turn_data:
-                for belief in turn_data["belief_state"]:
-                    # RiSAWOZ格式: {"domain": "景点", "slot": "名称", "value": "故宫"}
-                    slot_domain = belief.get("domain", "")
-                    slot_name = belief.get("slot", "")
-                    slot_value = belief.get("value", "")
+                belief_state_data = turn_data["belief_state"]
+                
+                if isinstance(belief_state_data, list) and len(belief_state_data) > 0:
+                    # 检查第一个元素的格式
+                    first_item = belief_state_data[0]
                     
-                    if slot_name and slot_value:
-                        # 使用"领域-槽位"格式作为key
-                        slot_key = f"{slot_domain}-{slot_name}" if slot_domain else slot_name
-                        turn_belief_state[slot_key] = slot_value
+                    if isinstance(first_item, dict) and "slots" in first_item:
+                        # 格式1: [{'slots': [[slot-key, value], ...], 'act': 'act_type'}, ...]
+                        # 这是 risawoz_test.json 的格式
+                        for belief_item in belief_state_data:
+                            slots = belief_item.get("slots", [])
+                            for slot_pair in slots:
+                                if isinstance(slot_pair, list) and len(slot_pair) >= 2:
+                                    slot_key = slot_pair[0]  # 已经是 "领域-槽位" 格式
+                                    slot_value = slot_pair[1]
+                                    if slot_key and slot_value:
+                                        turn_belief_state[slot_key] = slot_value
+                    elif isinstance(first_item, dict) and "domain" in first_item:
+                        # 格式2: [{"domain": "景点", "slot": "名称", "value": "故宫"}, ...]
+                        # 这是旧的格式
+                        for belief in belief_state_data:
+                            slot_domain = belief.get("domain", "")
+                            slot_name = belief.get("slot", "")
+                            slot_value = belief.get("value", "")
+                            
+                            if slot_name and slot_value:
+                                # 使用"领域-槽位"格式作为key
+                                slot_key = f"{slot_domain}-{slot_name}" if slot_domain else slot_name
+                                turn_belief_state[slot_key] = slot_value
+            
+            # 也可以从turn_label获取 (如果belief_state为空)
+            if not turn_belief_state and "turn_label" in turn_data:
+                turn_label = turn_data["turn_label"]
+                if isinstance(turn_label, list):
+                    for label_pair in turn_label:
+                        if isinstance(label_pair, list) and len(label_pair) >= 2:
+                            slot_key = label_pair[0]
+                            slot_value = label_pair[1]
+                            if slot_key and slot_value:
+                                turn_belief_state[slot_key] = slot_value
             
             # 更新累积状态
             cumulative_state.update(turn_belief_state)
@@ -272,7 +318,9 @@ class RiSAWOZAdapter:
             metadata={
                 "all_domains": list(domains),
                 "goal": goal_info,
-                "original_id": dialogue_data.get("dialogue_id", dialogue_id) if isinstance(dialogue_data, dict) else dialogue_id
+                "original_id": (dialogue_data.get("dialogue_idx") or 
+                               dialogue_data.get("dialogue_id") or 
+                               dialogue_id) if isinstance(dialogue_data, dict) else dialogue_id
             }
         )
         
@@ -307,9 +355,9 @@ class RiSAWOZAdapter:
                 if 0 <= idx < len(data):
                     dialogue_data = data[idx]
             else:
-                # 按dialogue_id查找
+                # 按dialogue_id或dialogue_idx查找
                 for item in data:
-                    if item.get("dialogue_id") == dialogue_id:
+                    if item.get("dialogue_id") == dialogue_id or item.get("dialogue_idx") == dialogue_id:
                         dialogue_data = item
                         break
         elif isinstance(data, dict):
