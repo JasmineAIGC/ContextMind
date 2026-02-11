@@ -97,7 +97,48 @@ class RiSAWOZAdapter:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # 验证数据格式
+        self._validate_data_format(data, file_path)
+        
         return data
+    
+    def _validate_data_format(self, data: Any, file_path: Path):
+        """
+        验证数据格式是否适用于 DST 评测
+        
+        检测常见的错误格式并给出清晰的错误提示。
+        """
+        if not isinstance(data, (list, dict)):
+            return
+        
+        # 检查是否为 NLU 标注数据格式
+        if isinstance(data, list) and len(data) > 0:
+            first_item = data[0]
+            
+            # NLU 格式: [[tokens], [labels], [intents], [parsed_intents], []]
+            if isinstance(first_item, list) and len(first_item) >= 4:
+                # 检查是否所有前4个元素都是列表（NLU格式的特征）
+                if all(isinstance(x, list) for x in first_item[:4]):
+                    raise ValueError(
+                        f"\n{'='*70}\n"
+                        f"❌ 错误：检测到 NLU 标注数据格式\n"
+                        f"{'='*70}\n\n"
+                        f"文件: {file_path}\n\n"
+                        f"检测到的格式:\n"
+                        f"  - 嵌套列表结构\n"
+                        f"  - 包含 tokens, labels, intents（NLU 任务数据）\n\n"
+                        f"此格式用于 NLU 任务（意图识别、实体提取），不适用于 DST（对话状态追踪）评测。\n\n"
+                        f"DST 评测需要的数据格式:\n"
+                        f"  - 包含 'dialogue' 字段（对话轮次列表）\n"
+                        f"  - 包含 'belief_state' 字段（槽位状态）\n"
+                        f"  - 每个对话应该是一个字典，包含多个轮次\n\n"
+                        f"请使用正确的 DST 格式数据，通常文件名为:\n"
+                        f"  - train.json (训练集)\n"
+                        f"  - val.json (验证集)\n"
+                        f"  - test.json (测试集)\n\n"
+                        f"参考 RiSAWOZ GitHub: https://github.com/terryqj0107/RiSAWOZ\n"
+                        f"{'='*70}\n"
+                    )
     
     def _parse_dialogue_data(self, dialogue_data: Dict, dialogue_id: str) -> DialogueInstance:
         """
