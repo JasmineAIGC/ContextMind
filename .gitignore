@@ -20,7 +20,7 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Virtual Environment
 venv/
 ENV/
 env/
@@ -34,27 +34,15 @@ env/
 
 # Logs
 *.log
-log.txt
-logs/
+logs/*.log
 
 # Environment
 .env
 .env.local
 
-# Data
-# data/
-*.db
-*.sqlite
-
-# Temporary
-tmp/
-temp/
-*.tmp
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Fonts (large binary files)
-resources/fonts/*.otf
-resources/fonts/*.ttf
+# Project specific
+benchmark_results/
