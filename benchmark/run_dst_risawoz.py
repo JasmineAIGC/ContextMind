@@ -267,9 +267,7 @@ class DSTRiSAWOZTest:
             if verbose:
                 print(f"期望状态: {expected_state}")
                 print(f"提取状态: {extracted_state}")
-                print(f"槽位匹配: {turn_correct_slots}/{turn_total_slots}")
-                print(f"严格匹配: {'是' if turn_exact_match_strict else '否'}")
-                print(f"软匹配: {'是' if turn_exact_match_soft else '否'}")
+                print(f"匹配数: {turn_correct_slots}/{turn_total_slots}")
         
         # 计算RiSAWOZ评测指标（对齐TransferTOD）
         # 1. Slot Accuracy (turn-level)
@@ -305,6 +303,7 @@ class DSTRiSAWOZTest:
             print("📊 对话评测结果")
             print("=" * 70)
             
+            # 1. 槽位评测结果（与TransferTOD一致）
             print("\n【槽位评测结果】")
             print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
             print(f"联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
@@ -313,30 +312,35 @@ class DSTRiSAWOZTest:
             print(f"召回率 (Recall): {recall * 100:.2f}%")
             print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
             
-            print(f"\n【最终状态比较】")
-            print(f"期望状态: {final_expected}")
-            print(f"提取状态: {final_extracted}")
+            # 最终状态显示（与TransferTOD一致）
+            print(f"\n最终期望状态: {final_expected}")
+            print(f"最终提取状态: {final_extracted}")
             
-            # 显示标准化后的状态用于调试
-            norm_expected = self._normalize_state_dict(final_expected, dialogue.domain)
-            norm_extracted = self._normalize_state_dict(final_extracted, dialogue.domain)
-            print(f"\n【标准化后状态】（用于比较）")
-            print(f"标准化期望: {norm_expected}")
-            print(f"标准化提取: {norm_extracted}")
+            # 2. 意图评测结果（与TransferTOD一致）
+            # 推断真值意图（从intent_evaluator）
+            inferred_intent, _ = self.intent_evaluator.infer_intent_from_slots(
+                domain=dialogue.domain,
+                turn_updates={},
+                previous_state={},
+                user_utterance=' '.join([turn.user_utterance for turn in dialogue.turns])
+            )
             
-            # 显示匹配和未匹配的槽位
-            matched = set(norm_expected.items()) & set(norm_extracted.items())
-            missing = set(norm_expected.items()) - set(norm_extracted.items())
-            extra = set(norm_extracted.items()) - set(norm_expected.items())
+            print("\n【意图评测结果】")
+            print(f"预测意图: {dialogue_intent}")
+            print(f"真值意图: {inferred_intent}")
             
-            if matched:
-                print(f"\n✅ 匹配槽位 ({len(matched)}): {dict(matched)}")
-            if missing:
-                print(f"❌ 缺失槽位 ({len(missing)}): {dict(missing)}")
-            if extra:
-                print(f"⚠️  额外槽位 ({len(extra)}): {dict(extra)}")
-            
+            # 使用标准化映射进行比较
+            norm_predicted = self.intent_evaluator.normalization_mapping.get(
+                dialogue_intent.lower(), dialogue_intent.lower()
+            )
+            norm_inferred = self.intent_evaluator.normalization_mapping.get(
+                inferred_intent.lower(), inferred_intent.lower()
+            )
+            is_correct = norm_predicted == norm_inferred
+            result = "✓ 正确" if is_correct else "✗ 错误"
+            print(f"评测结果: {result}")
             print("=" * 70)
+            print()  # 添加空行分隔不同对话
         
         return {
             "dialogue_id": dialogue_id,
