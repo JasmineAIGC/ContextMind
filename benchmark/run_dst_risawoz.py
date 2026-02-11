@@ -1,0 +1,417 @@
+#!/usr/bin/env python3
+"""
+DST模式 - RiSAWOZ数据集评测脚本
+
+使用RiSAWOZ数据集测试DialogueStateTracker的槽位提取能力。
+参考DST模式在TransferTOD的实现，但使用RiSAWOZ一致的评测指标。
+
+使用方式:
+    python benchmark/run_dst_risawoz.py
+    python benchmark/run_dst_risawoz.py --domain 景点 --split val --limit 10
+"""
+
+import asyncio
+import argparse
+import sys
+from pathlib import Path
+from typing import Dict, List, Any, Tuple
+from collections import defaultdict, Counter
+
+# 添加项目根目录到Python路径
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter
+from benchmark.shared.intent_evaluator import IntentEvaluator
+from contextmind.modes.dst import DialogueStateTracker, PromptManager
+from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.logger import get_logger, setup_logging, LogLevel
+
+logger = get_logger(__name__)
+
+
+class DSTRiSAWOZTest:
+    """
+    DST模式 - RiSAWOZ测试类
+    """
+    
+    def __init__(self, data_root: str = "./data/RiSAWOZ"):
+        """
+        初始化测试
+        
+        Args:
+            data_root: RiSAWOZ数据集根目录
+        """
+        self.adapter = RiSAWOZAdapter(data_root)
+        self.llm_client = None
+        self.tracker = None
+        self.intent_evaluator = IntentEvaluator()  # 意图评测器
+        
+    def initialize(self, domain: str):
+        """
+        初始化DST追踪器
+        
+        Args:
+            domain: 领域名称
+        """
+        # 创建LLM客户端
+        try:
+            self.llm_client = SimpleLLMClient()
+            logger.info("✅ LLM客户端初始化成功")
+        except Exception as e:
+            logger.error(f"❌ LLM客户端初始化失败: {e}")
+            raise
+        
+        # 获取领域schema
+        schema = self.adapter.get_domain_schema(domain)
+        
+        # 创建PromptManager（启用动态槽位）
+        pm = PromptManager(
+            domain=domain,
+            enable_dynamic_slots=True
+        )
+        
+        # 可选：添加槽位定义作为指导
+        for slot_name, slot_info in schema.get("slots", {}).items():
+            pm.add_slot(slot_name, slot_info.get("description", slot_name))
+        
+        # 创建DialogueStateTracker
+        self.tracker = DialogueStateTracker(
+            llm_client=self.llm_client,
+            prompt_manager=pm,
+            max_history_turns=10,
+            enable_history_summary=True,
+            use_llm_summary=False
+        )
+        
+        logger.info(f"✅ DST模式初始化完成 - 领域: {domain}")
+        logger.info(f"   动态槽位模式: 启用")
+    
+    async def test_dialogue(self, dialogue_id: str, split: str = "val", verbose: bool = True) -> Dict[str, Any]:
+        """
+        测试单个对话
+        
+        Args:
+            dialogue_id: 对话ID
+            split: 数据集划分
+            verbose: 是否输出详细信息
+            
+        Returns:
+            测试指标
+        """
+        # 加载对话
+        dialogue = self.adapter.load_dialogue(dialogue_id, split=split)
+        
+        if verbose:
+            print("\n" + "=" * 60)
+            print(f"测试对话: {dialogue_id}")
+            print(f"领域: {dialogue.domain}")
+            print(f"轮次数: {len(dialogue.turns)}")
+            print("=" * 60)
+        
+        # 重置追踪器状态
+        self.tracker.current_state = {}
+        self.tracker.dialogue_history = []
+        
+        # RiSAWOZ评测指标（与官方指标一致）
+        total_slots = 0
+        correct_slots = 0
+        total_turns = len(dialogue.turns)
+        correct_turns = 0  # Joint Accuracy
+        
+        # 收集所有轮次的预测和真实状态（用于计算turn-level指标）
+        all_turn_predictions = []
+        all_turn_ground_truths = []
+        
+        # 逐轮测试
+        for turn in dialogue.turns:
+            if verbose:
+                print(f"\n--- 轮次 {turn.turn_id} ---")
+                print(f"系统: {turn.system_utterance[:80]}...")
+                print(f"用户: {turn.user_utterance[:80]}...")
+            
+            # 调用DST
+            try:
+                extracted_state = await self.tracker.process_turn(
+                    system_utterance=turn.system_utterance,
+                    user_utterance=turn.user_utterance
+                )
+            except Exception as e:
+                logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
+                extracted_state = {}
+            
+            # 获取期望状态（RiSAWOZ使用累积的belief state）
+            expected_state = turn.expected_slots
+            
+            # 计算本轮的槽位准确率
+            turn_correct_slots = 0
+            turn_total_slots = len(expected_state)
+            turn_exact_match = True  # 本轮是否完全匹配
+            
+            # 比较每个槽位
+            for slot_key, expected_value in expected_state.items():
+                extracted_value = extracted_state.get(slot_key)
+                
+                # 值比较（转换为字符串）
+                expected_str = str(expected_value) if expected_value is not None else ""
+                extracted_str = str(extracted_value) if extracted_value is not None else ""
+                
+                if expected_str == extracted_str:
+                    turn_correct_slots += 1
+                else:
+                    turn_exact_match = False
+            
+            # 检查是否有多余的槽位（影响exact match）
+            for slot_key in extracted_state:
+                if slot_key not in expected_state:
+                    turn_exact_match = False
+            
+            total_slots += turn_total_slots
+            correct_slots += turn_correct_slots
+            
+            if turn_exact_match:
+                correct_turns += 1
+            
+            # 记录本轮的预测和真实状态
+            all_turn_predictions.append(extracted_state)
+            all_turn_ground_truths.append(expected_state)
+            
+            if verbose:
+                print(f"期望状态: {expected_state}")
+                print(f"提取状态: {extracted_state}")
+                print(f"槽位匹配: {turn_correct_slots}/{turn_total_slots}")
+                print(f"完全匹配: {'是' if turn_exact_match else '否'}")
+        
+        # 计算RiSAWOZ评测指标
+        # 1. Slot Accuracy (turn-level)
+        slot_accuracy = correct_slots / total_slots if total_slots > 0 else 0.0
+        
+        # 2. Joint Accuracy (turn-level)
+        joint_accuracy = correct_turns / total_turns if total_turns > 0 else 0.0
+        
+        # 3. 使用最终状态计算dialogue-level指标
+        final_extracted = self.tracker.current_state
+        final_expected = dialogue.final_state
+        
+        # 计算Precision/Recall/F1（基于slot-value pairs）
+        precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
+        
+        if verbose:
+            print("\n" + "=" * 70)
+            print("📊 RiSAWOZ评测结果")
+            print("=" * 70)
+            
+            print("\n【槽位级别指标 (Turn-level)】")
+            print(f"槽位准确率 (Slot Accuracy): {slot_accuracy * 100:.2f}%")
+            print(f"  - 正确槽位数: {correct_slots}/{total_slots}")
+            
+            print("\n【对话状态级别指标 (Turn-level)】")
+            print(f"联合准确率 (Joint Accuracy): {joint_accuracy * 100:.2f}%")
+            print(f"  - 完全匹配轮数: {correct_turns}/{total_turns}")
+            
+            print("\n【对话级别指标 (Dialogue-level)】")
+            print(f"精确率 (Precision): {precision * 100:.2f}%")
+            print(f"召回率 (Recall): {recall * 100:.2f}%")
+            print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
+            
+            print(f"\n最终期望状态: {final_expected}")
+            print(f"最终提取状态: {final_extracted}")
+            print("=" * 70)
+        
+        return {
+            "dialogue_id": dialogue_id,
+            "domain": dialogue.domain,
+            "slot_accuracy": slot_accuracy,
+            "joint_accuracy": joint_accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "total_slots": total_slots,
+            "correct_slots": correct_slots,
+            "total_turns": total_turns,
+            "correct_turns": correct_turns,
+            "final_expected": final_expected,
+            "final_extracted": final_extracted
+        }
+    
+    def _calculate_prf_pairs(self, expected: Dict, extracted: Dict) -> Tuple[float, float, float]:
+        """
+        计算Precision/Recall/F1（基于slot-value pairs）
+        
+        Args:
+            expected: 期望状态
+            extracted: 提取状态
+            
+        Returns:
+            (precision, recall, f1)
+        """
+        # 转换为slot-value pairs集合
+        expected_pairs = set()
+        for slot, value in expected.items():
+            if value is not None:
+                expected_pairs.add((slot, str(value)))
+        
+        extracted_pairs = set()
+        for slot, value in extracted.items():
+            if value is not None:
+                extracted_pairs.add((slot, str(value)))
+        
+        # 计算TP/FP/FN
+        tp = len(expected_pairs & extracted_pairs)
+        fp = len(extracted_pairs - expected_pairs)
+        fn = len(expected_pairs - extracted_pairs)
+        
+        # 计算P/R/F1
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        
+        return precision, recall, f1
+    
+    async def run_evaluation(self, domain: str = None, split: str = "val", limit: int = None):
+        """
+        运行完整评测
+        
+        Args:
+            domain: 领域名称（如果为None则评测所有领域）
+            split: 数据集划分
+            limit: 限制测试数量
+        """
+        # 初始化追踪器
+        test_domain = domain if domain else "通用"
+        self.initialize(test_domain)
+        
+        # 获取对话列表
+        dialogue_ids = self.adapter.get_dialogues_by_domain(domain, split=split)
+        
+        if limit:
+            dialogue_ids = dialogue_ids[:limit]
+        
+        logger.info(f"找到 {len(dialogue_ids)} 个对话实例")
+        if limit:
+            logger.info(f"限制测试数量: {limit}")
+        
+        # 运行测试
+        all_metrics = []
+        for idx, dialogue_id in enumerate(dialogue_ids):
+            logger.info(f"\n处理对话 {idx+1}/{len(dialogue_ids)}: {dialogue_id}")
+            
+            try:
+                metrics = await self.test_dialogue(dialogue_id, split=split, verbose=False)
+                all_metrics.append(metrics)
+            except Exception as e:
+                logger.error(f"❌ 对话 {dialogue_id} 评测失败: {e}")
+                continue
+            
+            logger.info(f"✅ 对话 {dialogue_id} 评测完成")
+        
+        # 计算总体指标
+        self._print_summary(all_metrics, split, domain)
+    
+    def _print_summary(self, all_metrics: List[Dict], split: str, domain: str = None):
+        """
+        打印评测汇总
+        
+        Args:
+            all_metrics: 所有对话的评测指标
+            split: 数据集划分
+            domain: 领域名称
+        """
+        if not all_metrics:
+            print("\n⚠️  没有成功评测的对话")
+            return
+        
+        summary_lines = []
+        summary_lines.append("")
+        summary_lines.append("📊 RiSAWOZ DST 评测指标汇总")
+        summary_lines.append("=" * 70)
+        summary_lines.append(f"\n数据集划分: {split}")
+        summary_lines.append(f"领域: {domain if domain else '所有领域'}")
+        summary_lines.append(f"对话数: {len(all_metrics)}")
+        
+        # 计算平均指标
+        avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_precision = sum(m["precision"] for m in all_metrics) / len(all_metrics)
+        avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
+        avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
+        
+        total_slots = sum(m["total_slots"] for m in all_metrics)
+        correct_slots = sum(m["correct_slots"] for m in all_metrics)
+        total_turns = sum(m["total_turns"] for m in all_metrics)
+        correct_turns = sum(m["correct_turns"] for m in all_metrics)
+        
+        summary_lines.append("\n【核心指标】")
+        summary_lines.append("-" * 70)
+        summary_lines.append(f"槽位准确率 (Slot Accuracy):  {avg_slot_accuracy * 100:.2f}%")
+        summary_lines.append(f"联合准确率 (Joint Accuracy):  {avg_joint_accuracy * 100:.2f}%")
+        summary_lines.append(f"精确率 (Precision):          {avg_precision * 100:.2f}%")
+        summary_lines.append(f"召回率 (Recall):             {avg_recall * 100:.2f}%")
+        summary_lines.append(f"F1分数 (F1 Score):           {avg_f1 * 100:.2f}%")
+        
+        summary_lines.append("\n【详细统计】")
+        summary_lines.append("-" * 70)
+        summary_lines.append(f"总槽位数: {total_slots}")
+        summary_lines.append(f"正确槽位数: {correct_slots}")
+        summary_lines.append(f"总轮次数: {total_turns}")
+        summary_lines.append(f"完全匹配轮次数: {correct_turns}")
+        
+        # 按领域统计
+        domain_metrics = defaultdict(list)
+        for m in all_metrics:
+            domain_metrics[m["domain"]].append(m)
+        
+        if len(domain_metrics) > 1:
+            summary_lines.append("\n【分领域统计】")
+            summary_lines.append("-" * 70)
+            for d, metrics in sorted(domain_metrics.items()):
+                d_slot_acc = sum(m["slot_accuracy"] for m in metrics) / len(metrics)
+                d_joint_acc = sum(m["joint_accuracy"] for m in metrics) / len(metrics)
+                d_f1 = sum(m["f1"] for m in metrics) / len(metrics)
+                summary_lines.append(f"\n{d} (对话数: {len(metrics)}):")
+                summary_lines.append(f"  槽位准确率: {d_slot_acc * 100:.2f}%")
+                summary_lines.append(f"  联合准确率: {d_joint_acc * 100:.2f}%")
+                summary_lines.append(f"  F1分数: {d_f1 * 100:.2f}%")
+        
+        summary_lines.append("\n" + "=" * 70)
+        
+        # 输出汇总（使用 print）
+        for line in summary_lines:
+            print(line)
+
+
+async def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(description="DST模式 - RiSAWOZ数据集评测")
+    parser.add_argument("--data-root", type=str, default="./data/RiSAWOZ",
+                       help="RiSAWOZ数据集根目录")
+    parser.add_argument("--domain", type=str, default=None,
+                       help="指定评测的领域（如：景点、酒店、餐厅等）")
+    parser.add_argument("--split", type=str, default="val", choices=["train", "val", "test"],
+                       help="数据集划分")
+    parser.add_argument("--limit", type=int, default=None,
+                       help="限制测试对话数量")
+    parser.add_argument("--verbose", action="store_true",
+                       help="输出详细信息")
+    parser.add_argument("--log-level", type=str, default="INFO",
+                       choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                       help="日志级别")
+    
+    args = parser.parse_args()
+    
+    # 设置日志
+    setup_logging(LogLevel[args.log_level])
+    
+    # 创建测试实例
+    test = DSTRiSAWOZTest(data_root=args.data_root)
+    
+    # 运行评测
+    await test.run_evaluation(
+        domain=args.domain,
+        split=args.split,
+        limit=args.limit
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
