@@ -12,6 +12,7 @@ DST模式 - RiSAWOZ数据集评测脚本
 
 import asyncio
 import argparse
+import datetime
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
@@ -292,7 +293,7 @@ class DSTRiSAWOZTest:
             mode: 'strict' (完全匹配) 或 'soft' (期望槽位都存在即可)
             
         Returns:
-            1.0 if匹配, 0.0 otherwise
+            1.0 if matched, 0.0 otherwise
         """
         # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
         expected_pairs = set([(k, str(v)) for k, v in expected.items() if v is not None])
@@ -565,7 +566,6 @@ async def main():
         output_dir.mkdir(exist_ok=True)
         
         # 生成带时间戳的文件名
-        import datetime
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         metrics_file = output_dir / f"dst_risawoz_metrics_{timestamp}.txt"
         
