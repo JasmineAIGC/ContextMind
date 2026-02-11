@@ -1,143 +1,135 @@
-python benchmark/run_dst_risawoz.py --val-file .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json  --limit 10
-📝 日志将自动保存到: logs/evolve_20260211_170025.log
-[2026-02-11 17:00:25] INFO - [__main__] 根据文件路径自动设置 split=val
-[2026-02-11 17:00:25] INFO - [__main__] 数据根目录: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST
-[2026-02-11 17:00:25] INFO - [__main__] 数据划分: val
-[2026-02-11 17:00:25] INFO - [__main__] 文件映射: {'train': 'train.json', 'val': 'dst_all_test600_new.json', 'test': 'test.json'}
-[2026-02-11 17:00:25] INFO - [__main__] 将要加载的数据文件: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json
-[2026-02-11 17:00:25] INFO - [benchmark.shared.intent_label_loader] 已加载 13 个领域的意图标签
-[2026-02-11 17:00:26] INFO - [__main__] 找到 10 个对话实例
-[2026-02-11 17:00:26] INFO - [__main__] 限制测试数量: 10
-[2026-02-11 17:00:26] INFO - [__main__] 
+python benchmark/run_dst_risawoz.py --test-file .data/R
+iSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json  --limit 10
+📝 日志将自动保存到: logs/evolve_20260211_171648.log
+[2026-02-11 17:16:48] INFO - [__main__] 检测到完整路径，使用: data_root=.data/RiSAWOZ/RiSAWOZ-data/task2-data-DST, test_file=dst_all_test600_new.json
+[2026-02-11 17:16:48] INFO - [__main__] 根据文件路径自动设置 split=test
+[2026-02-11 17:16:48] INFO - [__main__] 数据根目录: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST
+[2026-02-11 17:16:48] INFO - [__main__] 数据划分: test
+[2026-02-11 17:16:48] INFO - [__main__] 文件映射: {'train': 'train.json', 'val': 'val.json', 'test': 'dst_all_test600_new.json'}
+[2026-02-11 17:16:48] INFO - [__main__] 将要加载的数据文件: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json
+[2026-02-11 17:16:48] INFO - [benchmark.shared.intent_label_loader] 已加载 13 个领域的意图标签
+[2026-02-11 17:16:48] INFO - [__main__] 找到 10 个对话实例
+[2026-02-11 17:16:48] INFO - [__main__] 限制测试数量: 10
+[2026-02-11 17:16:48] INFO - [__main__] 
 处理对话 1/10: 0
-[2026-02-11 17:00:26] INFO - [__main__] 切换到领域: 通用
-[2026-02-11 17:00:26] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-11 17:00:26] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
-[2026-02-11 17:00:26] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-11 17:00:26] INFO - [contextmind.modes.dst.prompt_manager] Loaded 5 intents for domain: 通用
-[2026-02-11 17:00:26] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=通用, 动态槽位=True, 意图预测=True)
-[2026-02-11 17:00:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-11 17:00:26] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 通用
-[2026-02-11 17:00:26] INFO - [__main__]    动态槽位模式: 启用
-[2026-02-11 17:00:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '寻求推荐', '地点': '苏州', '活动类型': '游玩'}, 意图=寻求推荐
-[2026-02-11 17:00:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '地点': '昆山', '人群': '朋友', '消费水平': '高'}, 意图=推荐
-[2026-02-11 17:00:26] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '周庄古镇', '关注点': '特色'}, 意图=咨询产品
-[2026-02-11 17:00:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取信息', '地点': '周庄古镇', '特点': '小桥流水、双桥水巷、摇橹船、沈万三的足迹', '消费水平': '贵点', '区域': '昆山'}, 意图=获取信息
-[2026-02-11 17:00:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询地点', '地点': '周庄古镇', '交通方式': '地铁', '关注点': '直达'}, 意图=咨询地点
-[2026-02-11 17:00:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢推荐', '感谢对象': '系统', '结束对话': '再见'}, 意图=感谢推荐
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:27] INFO - [__main__] ✅ 对话 0 评测完成
-[2026-02-11 17:00:27] INFO - [__main__] 
+[2026-02-11 17:16:48] INFO - [__main__] 切换到领域: 通用
+[2026-02-11 17:16:48] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-11 17:16:48] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-11 17:16:48] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-11 17:16:48] INFO - [contextmind.modes.dst.prompt_manager] Loaded 5 intents for domain: 通用
+[2026-02-11 17:16:48] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=通用, 动态槽位=True, 意图预测=True)
+[2026-02-11 17:16:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-11 17:16:48] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 通用
+[2026-02-11 17:16:48] INFO - [__main__]    动态槽位模式: 启用
+[2026-02-11 17:16:48] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '寻求推荐', '地点': '苏州', '活动类型': '游玩'}, 意图=寻求推荐
+[2026-02-11 17:16:49] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '地点': '昆山', '人群': '朋友', '消费水平': '高'}, 意图=推荐
+[2026-02-11 17:16:49] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '周庄古镇', '关注点': '特色'}, 意图=咨询产品
+[2026-02-11 17:16:49] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取信息', '地点': '周庄古镇', '特点': "['小桥流水', '双桥水巷', '摇橹船', '沈万三的足迹']", '消费水平': '贵点', '兴趣类型': '适合朋友游玩'}, 意图=获取信息
+[2026-02-11 17:16:50] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询地点', '地点': '周庄古镇', '交通方式': '地铁', '关注点': '可达性'}, 意图=咨询地点
+[2026-02-11 17:16:50] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢推荐', '感谢对象': '系统', '结束对话': '再见'}, 意图=感谢推荐
+[2026-02-11 17:16:50] INFO - [__main__] ✅ 对话 0 评测完成
+[2026-02-11 17:16:50] INFO - [__main__] 
 处理对话 2/10: 1
-[2026-02-11 17:00:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '景区名称': '金鸡湖', '特点需求': '了解'}, 意图=咨询景点
-[2026-02-11 17:00:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取信息', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美'}, 意图=获取信息
-[2026-02-11 17:00:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '购票电话'}, 意图=咨询产品
-[2026-02-11 17:00:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询开放时间', '景点名称': '金鸡湖景区', '联系方式': '400-7558558'}, 意图=咨询开放时间
-[2026-02-11 17:00:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询景点信息', '景点名称': '金鸡湖景区', '查询内容': "['购票电话', '开放时间']"}, 意图=咨询景点信息
-[2026-02-11 17:00:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye', '感谢': '谢谢', '告别': '再见'}, 意图=Bye
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:29] INFO - [__main__] ✅ 对话 1 评测完成
-[2026-02-11 17:00:29] INFO - [__main__] 
+[2026-02-11 17:16:50] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '景区名称': '金鸡湖', '特点需求': '了解'}, 意图=咨询景点
+[2026-02-11 17:16:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取信息', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美'}, 意图=获取信息
+[2026-02-11 17:16:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '购票电话'}, 意图=咨询产品
+[2026-02-11 17:16:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询开放时间', '景点名称': '金鸡湖景区', '联系方式': '400-7558558'}, 意图=咨询开放时间
+[2026-02-11 17:16:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '开放时间和购票信息'}, 意图=咨询产品
+[2026-02-11 17:16:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye', '感谢': '谢谢', '告别': '再见'}, 意图=Bye
+[2026-02-11 17:16:51] INFO - [__main__] ✅ 对话 1 评测完成
+[2026-02-11 17:16:51] INFO - [__main__] 
 处理对话 3/10: 2
-[2026-02-11 17:00:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '景点名称': '灵岩山景区'}, 意图=查询地址
-[2026-02-11 17:00:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': '评分'}, 意图=查询景点信息
-[2026-02-11 17:00:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '评分': '4.3分', '情感态度': '不满'}, 意图=查询景点信息
-[2026-02-11 17:00:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询信息', '查询类型': '景点门票价格', '景点名称': '灵岩山景区'}, 意图=查询信息
-[2026-02-11 17:00:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '地址': '苏州市吴中区木渎古镇山塘街市梢', '评分': '4.3分', '门票价格': '免费'}, 意图=查询景点信息
-[2026-02-11 17:00:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye'}, 意图=Bye
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:30] INFO - [__main__] ✅ 对话 2 评测完成
-[2026-02-11 17:00:30] INFO - [__main__] 
+[2026-02-11 17:16:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '景点名称': '灵岩山景区'}, 意图=查询地址
+[2026-02-11 17:16:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': '评分'}, 意图=查询景点信息
+[2026-02-11 17:16:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '评分': '4.3分', '情感态度': '不满'}, 意图=查询景点信息
+[2026-02-11 17:16:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询信息', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']"}, 意图=查询信息
+[2026-02-11 17:16:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '地址': '苏州市吴中区木渎古镇山塘街市梢', '评分': '4.3分', '门票价格': '免费'}, 意图=查询景点信息
+[2026-02-11 17:16:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye'}, 意图=Bye
+[2026-02-11 17:16:54] INFO - [__main__] ✅ 对话 2 评测完成
+[2026-02-11 17:16:54] INFO - [__main__] 
 处理对话 4/10: 3
-[2026-02-11 17:00:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '地点': '苏州', '类型': '学校', '人物关系': '朋友'}, 意图=咨询景点
-[2026-02-11 17:00:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询景点', '地点': '苏州', '类型': '校园景点', '预算': '便宜'}, 意图=咨询景点
-[2026-02-11 17:00:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '苏州大学', '交通方式': '地铁'}, 意图=咨询产品
-[2026-02-11 17:00:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '?'}, 意图=咨询景点
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询景点', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '全天', '景点特点': '?'}, 意图=咨询景点
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢', '感谢对象': '系统', '对话结束': 'bye'}, 意图=感谢
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:32] INFO - [__main__] ✅ 对话 3 评测完成
-[2026-02-11 17:00:32] INFO - [__main__] 
+[2026-02-11 17:16:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '地点': '苏州', '类型': '学校', '人物关系': '朋友'}, 意图=咨询景点
+[2026-02-11 17:16:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询景点', '地点': '苏州', '类型': '校园景点', '预算': '便宜'}, 意图=咨询景点
+[2026-02-11 17:16:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '苏州大学', '交通方式': '地铁'}, 意图=咨询产品
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '?'}, 意图=咨询景点
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询景点', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '全天', '景点特点': '?'}, 意图=咨询景点
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye', '感谢': '耐心解答'}, 意图=Bye
+[2026-02-11 17:16:55] INFO - [__main__] ✅ 对话 3 评测完成
+[2026-02-11 17:16:55] INFO - [__main__] 
 处理对话 5/10: 4
-[2026-02-11 17:00:32] INFO - [__main__] 切换到领域: 旅游景点
-[2026-02-11 17:00:32] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-11 17:00:32] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
-[2026-02-11 17:00:32] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.prompt_manager] Loaded 6 intents for domain: 旅游景点
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=旅游景点, 动态槽位=True, 意图预测=True)
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-11 17:00:32] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 旅游景点
-[2026-02-11 17:00:32] INFO - [__main__]    动态槽位模式: 启用
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州吴中区', '类型': '景点'}, 意图=推荐
-[2026-02-11 17:00:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '游玩人数': '朋友', '预算': '中等'}, 意图=推荐
-[2026-02-11 17:00:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '信息类型': '门票价格'}, 意图=咨询产品
-[2026-02-11 17:00:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '信息类型': '门票价格和地址'}, 意图=咨询产品
-[2026-02-11 17:00:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '具体需求': '门票价格、地址、联系电话'}, 意图=咨询产品
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '请求帮助', '景点名称': '天平山景区', '门票价格': '30元', '地址': '苏州市吴中区灵天路', '联系电话': '0512-66387422'}, 意图=请求帮助
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:34] INFO - [__main__] ✅ 对话 4 评测完成
-[2026-02-11 17:00:34] INFO - [__main__] 
+[2026-02-11 17:16:55] INFO - [__main__] 切换到领域: 旅游景点
+[2026-02-11 17:16:55] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-11 17:16:55] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-11 17:16:55] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.prompt_manager] Loaded 6 intents for domain: 旅游景点
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=旅游景点, 动态槽位=True, 意图预测=True)
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-11 17:16:55] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 旅游景点
+[2026-02-11 17:16:55] INFO - [__main__]    动态槽位模式: 启用
+[2026-02-11 17:16:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州吴中区', '类型': '景点'}, 意图=推荐
+[2026-02-11 17:16:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '游玩人数': '朋友', '预算': '中等'}, 意图=推荐
+[2026-02-11 17:16:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '信息类型': '门票价格'}, 意图=咨询产品
+[2026-02-11 17:16:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '门票价格': '30元', '具体位置': '?'}, 意图=咨询产品
+[2026-02-11 17:16:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '具体需求': '门票价格、地址、联系电话'}, 意图=咨询产品
+[2026-02-11 17:16:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '请求帮助', '景点名称': '天平山景区', '门票价格': '30元', '地址': '苏州市吴中区灵天路', '联系电话': '0512-66387422'}, 意图=请求帮助
+[2026-02-11 17:16:57] INFO - [__main__] ✅ 对话 4 评测完成
+[2026-02-11 17:16:57] INFO - [__main__] 
 处理对话 6/10: 5
-[2026-02-11 17:00:34] INFO - [__main__] 切换到领域: 通用
-[2026-02-11 17:00:34] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-11 17:00:34] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
-[2026-02-11 17:00:34] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.prompt_manager] Loaded 5 intents for domain: 通用
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=通用, 动态槽位=True, 意图预测=True)
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-11 17:00:34] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 通用
-[2026-02-11 17:00:34] INFO - [__main__]    动态槽位模式: 启用
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '吴江', '对象': '朋友', '活动类型': '出游', '预算': '贵点'}, 意图=推荐
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询产品', '景点名称': '同里古镇', '评分': '?'}, 意图=咨询产品
-[2026-02-11 17:00:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询景点信息', '景点名称': '同里古镇', '信息类型': "['评分', '门票价格']"}, 意图=咨询景点信息
-[2026-02-11 17:00:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点', '地点': '同里古镇', '关注点': "['评分', '门票价格', '交通便利性']"}, 意图=咨询景点
-[2026-02-11 17:00:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': 'Bye', '感谢': '谢谢', '告别方式': '再见'}, 意图=Bye
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:35] INFO - [__main__] ✅ 对话 5 评测完成
-[2026-02-11 17:00:35] INFO - [__main__] 
+[2026-02-11 17:16:57] INFO - [__main__] 切换到领域: 通用
+[2026-02-11 17:16:57] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-11 17:16:57] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-11 17:16:57] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-11 17:16:57] INFO - [contextmind.modes.dst.prompt_manager] Loaded 5 intents for domain: 通用
+[2026-02-11 17:16:57] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=通用, 动态槽位=True, 意图预测=True)
+[2026-02-11 17:16:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-11 17:16:57] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 通用
+[2026-02-11 17:16:57] INFO - [__main__]    动态槽位模式: 启用
+[2026-02-11 17:16:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '吴江', '对象': '朋友', '活动类型': '出游', '预算': '贵点'}, 意图=推荐
+[2026-02-11 17:16:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询产品', '景点名称': '同里古镇', '评分': '?'}, 意图=咨询产品
+[2026-02-11 17:16:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询景点信息', '景点名称': '同里古镇', '信息类型': "['评分', '门票价格']"}, 意图=咨询景点信息
+[2026-02-11 17:16:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点', '地点': '同里古镇', '关注点': "['评分', '门票价格', '交通便利性']"}, 意图=咨询景点
+[2026-02-11 17:16:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': 'Bye', '感谢': '谢谢', '告别方式': '再见'}, 意图=Bye
+[2026-02-11 17:16:58] INFO - [__main__] ✅ 对话 5 评测完成
+[2026-02-11 17:16:58] INFO - [__main__] 
 处理对话 7/10: 6
-[2026-02-11 17:00:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州', '类型': '山水景区', '消费水平': '中等'}, 意图=推荐
-[2026-02-11 17:00:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询价格', '景点名称': '天平山景区', '消费水平': '中等'}, 意图=咨询价格
-[2026-02-11 17:00:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': '?'}, 意图=咨询产品
-[2026-02-11 17:00:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '?'}, 意图=咨询产品
-[2026-02-11 17:00:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢与告别', '感谢对象': '系统', '告别方式': '再见'}, 意图=感谢与告别
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:37] INFO - [__main__] ✅ 对话 6 评测完成
-[2026-02-11 17:00:37] INFO - [__main__] 
+[2026-02-11 17:16:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州', '类型': '山水景区', '消费水平': '中等'}, 意图=推荐
+[2026-02-11 17:16:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '具体需求': '门票价格'}, 意图=咨询产品
+[2026-02-11 17:17:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': '?'}, 意图=咨询产品
+[2026-02-11 17:17:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色活动': "['赏红枫', '体验爬山乐趣']", '联系方式': '?'}, 意图=咨询产品
+[2026-02-11 17:17:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢与告别', '感谢对象': '系统', '告别方式': '再见'}, 意图=感谢与告别
+[2026-02-11 17:17:01] INFO - [__main__] ✅ 对话 6 评测完成
+[2026-02-11 17:17:01] INFO - [__main__] 
 处理对话 8/10: 7
-[2026-02-11 17:00:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '地点': '苏州太湖国家湿地公园'}, 意图=查询地址
-[2026-02-11 17:00:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询开放时间', '地点': '苏州太湖国家湿地公园'}, 意图=查询开放时间
-[2026-02-11 17:00:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询信息', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']"}, 意图=查询信息
-[2026-02-11 17:00:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取信息', '地点': '苏州太湖国家湿地公园', '开放时间': '09:00到16:30', '联系方式': '0512-66918088'}, 意图=获取信息
-[2026-02-11 17:00:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': 'Bye'}, 意图=Bye
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:38] INFO - [__main__] ✅ 对话 7 评测完成
-[2026-02-11 17:00:38] INFO - [__main__] 
+[2026-02-11 17:17:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '地点': '苏州太湖国家湿地公园'}, 意图=查询地址
+[2026-02-11 17:17:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询开放时间', '地点': '苏州太湖国家湿地公园'}, 意图=查询开放时间
+[2026-02-11 17:17:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询信息', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']"}, 意图=查询信息
+[2026-02-11 17:17:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取信息', '地点': '苏州太湖国家湿地公园', '开放时间': '09:00到16:30', '联系电话': '0512-66918088'}, 意图=获取信息
+[2026-02-11 17:17:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': 'Bye'}, 意图=Bye
+[2026-02-11 17:17:04] INFO - [__main__] ✅ 对话 7 评测完成
+[2026-02-11 17:17:04] INFO - [__main__] 
 处理对话 9/10: 8
-[2026-02-11 17:00:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '寻求推荐', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区'}, 意图=寻求推荐
-[2026-02-11 17:00:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询地址', '景点名称': '石湖景区'}, 意图=咨询地址
-[2026-02-11 17:00:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?'}, 意图=咨询产品
-[2026-02-11 17:00:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '石湖景区', '具体需求': '了解景点特点'}, 意图=咨询产品
-[2026-02-11 17:00:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢', '感谢对象': '客服', '景点名称': '石湖景区'}, 意图=感谢
-[2026-02-11 17:00:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '结束对话', '感谢': '谢谢', '告别': '再见'}, 意图=结束对话
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:39] INFO - [__main__] ✅ 对话 8 评测完成
-[2026-02-11 17:00:39] INFO - [__main__] 
+[2026-02-11 17:17:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '寻求推荐', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区'}, 意图=寻求推荐
+[2026-02-11 17:17:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询地址', '景点名称': '石湖景区'}, 意图=咨询地址
+[2026-02-11 17:17:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?'}, 意图=咨询产品
+[2026-02-11 17:17:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '石湖景区', '具体需求': '了解景点特点'}, 意图=咨询产品
+[2026-02-11 17:17:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢', '感谢对象': '客服', '景点名称': '石湖景区'}, 意图=感谢
+[2026-02-11 17:17:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '结束对话', '感谢': '谢谢', '告别': '再见'}, 意图=结束对话
+[2026-02-11 17:17:06] INFO - [__main__] ✅ 对话 8 评测完成
+[2026-02-11 17:17:06] INFO - [__main__] 
 处理对话 10/10: 9
-[2026-02-11 17:00:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询旅游', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等'}, 意图=咨询旅游
-[2026-02-11 17:00:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询交通', '目的地': '洞庭东山', '交通方式': '地铁'}, 意图=咨询交通
-[2026-02-11 17:00:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询地点信息', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '电话'}, 意图=咨询地点信息
-[2026-02-11 17:00:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询地点', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare'}, 意图=查询地点
-[2026-02-11 17:00:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢', '感谢对象': '系统', '信息来源': '系统提供的信息'}, 意图=感谢
-[2026-02-11 17:00:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye'}, 意图=Bye
-警告: 预测意图 '' (标准化后: '') 不在预定义列表中，使用兜底意图
-[2026-02-11 17:00:41] INFO - [__main__] ✅ 对话 9 评测完成
+[2026-02-11 17:17:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询旅游', '目的地': '苏州吴中区', '活动类型': '家庭亲子游玩', '消费水平': '中等'}, 意图=咨询旅游
+[2026-02-11 17:17:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询交通', '地点': '洞庭东山', '交通方式': '地铁'}, 意图=查询交通
+[2026-02-11 17:17:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询地点信息', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '电话'}, 意图=咨询地点信息
+[2026-02-11 17:17:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询地点', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare'}, 意图=查询地点
+[2026-02-11 17:17:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢', '感谢对象': '系统', '信息来源': '系统提供的信息'}, 意图=感谢
+[2026-02-11 17:17:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye'}, 意图=Bye
+[2026-02-11 17:17:07] INFO - [__main__] ✅ 对话 9 评测完成
 
 ======================================================================
 📊 测试指标汇总（对齐TransferTOD论文）
 ======================================================================
 
-数据集划分: val
+数据集划分: test
 领域: 所有领域
 对话数: 10
 
@@ -184,8 +176,8 @@ python benchmark/run_dst_risawoz.py --val-file .data/RiSAWOZ/RiSAWOZ-data/task2-
 对话级别意图评测
 ----------------------------------------------------------------------
 总对话数: 10
-正确对话: 1
-对话意图准确率: 10.00%
+正确对话: 0
+对话意图准确率: 0.00%
 
 ----------------------------------------------------------------------
 混淆矩阵 (Confusion Matrix)
@@ -195,14 +187,14 @@ python benchmark/run_dst_risawoz.py --val-file .data/RiSAWOZ/RiSAWOZ-data/task2-
 分类评测指标
 ----------------------------------------------------------------------
 【宏平均指标】
-  精确率 (Precision):  5.00%
-  召回率 (Recall):     50.00%
-  F1分数 (F1 Score):   9.09%
+  精确率 (Precision):  0.00%
+  召回率 (Recall):     0.00%
+  F1分数 (F1 Score):   0.00%
 
 【微平均指标】
-  精确率 (Precision):  10.00%
-  召回率 (Recall):     10.00%
-  F1分数 (F1 Score):   10.00%
+  精确率 (Precision):  0.00%
+  召回率 (Recall):     0.00%
+  F1分数 (F1 Score):   0.00%
   （注：在单标签分类中，微平均的精确率、召回率和F1通常相等，这是正常现象）
 
 【各意图类别指标】
@@ -210,4 +202,5 @@ python benchmark/run_dst_risawoz.py --val-file .data/RiSAWOZ/RiSAWOZ-data/task2-
 意图类别                 精确率        召回率        F1分数       支持数       
 ----------------------------------------------------------------------
 Bye                  0.00%      0.00%      0.00%      9         
-General              10.00%     100.00%    18.18%     1         
+General              0.00%      0.00%      0.00%      1         
+Inform               0.00%      0.00%      0.00%      0         
