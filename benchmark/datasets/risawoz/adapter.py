@@ -48,17 +48,27 @@ class RiSAWOZAdapter:
     数据格式类似MultiWOZ，包含完整的belief state标注。
     """
     
-    def __init__(self, data_root: str = "./data/RiSAWOZ"):
+    def __init__(self, data_root: str = "./data/RiSAWOZ", file_mapping: Dict[str, str] = None):
         """
         初始化RiSAWOZ适配器
         
         Args:
             data_root: RiSAWOZ数据集根目录路径
+            file_mapping: 自定义文件名映射 (可选)
+                默认: {"train": "train.json", "val": "val.json", "test": "test.json"}
+                示例: {"train": "train_data.json", "val": "val_data.json", "test": "test_data.json_all"}
         """
         self.data_root = Path(data_root)
         self.dialogue_cache = {}
         self._all_dialogues_data = None
         self._dialogue_ids = None
+        
+        # 文件映射：默认值或自定义
+        self.file_mapping = file_mapping or {
+            "train": "train.json",
+            "val": "val.json",
+            "test": "test.json"
+        }
         
         # RiSAWOZ的12个领域
         self.domains = [
@@ -77,7 +87,9 @@ class RiSAWOZAdapter:
         Returns:
             JSON数据字典
         """
-        file_path = self.data_root / f"{split}.json"
+        # 使用file_mapping获取实际文件名
+        filename = self.file_mapping.get(split, f"{split}.json")
+        file_path = self.data_root / filename
         
         if not file_path.exists():
             raise FileNotFoundError(f"数据文件不存在: {file_path}")

@@ -35,14 +35,15 @@ class DSTRiSAWOZTest:
     DST模式 - RiSAWOZ测试类
     """
     
-    def __init__(self, data_root: str = "./data/RiSAWOZ"):
+    def __init__(self, data_root: str = "./data/RiSAWOZ", file_mapping: Dict[str, str] = None):
         """
         初始化测试
         
         Args:
             data_root: RiSAWOZ数据集根目录
+            file_mapping: 自定义文件名映射 (可选)
         """
-        self.adapter = RiSAWOZAdapter(data_root)
+        self.adapter = RiSAWOZAdapter(data_root, file_mapping=file_mapping)
         self.llm_client = None
         self.tracker = None
         self.intent_evaluator = IntentEvaluator()  # 意图评测器
@@ -429,13 +430,28 @@ async def main():
                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                        help="日志级别")
     
+    # 自定义文件名参数
+    parser.add_argument("--train-file", type=str, default="train.json",
+                       help="训练集文件名（默认：train.json）")
+    parser.add_argument("--val-file", type=str, default="val.json",
+                       help="验证集文件名（默认：val.json）")
+    parser.add_argument("--test-file", type=str, default="test.json",
+                       help="测试集文件名（默认：test.json）")
+    
     args = parser.parse_args()
     
     # 设置日志
     setup_logging(LogLevel[args.log_level])
     
-    # 创建测试实例
-    test = DSTRiSAWOZTest(data_root=args.data_root)
+    # 创建文件映射
+    file_mapping = {
+        "train": args.train_file,
+        "val": args.val_file,
+        "test": args.test_file
+    }
+    
+    # 创建测试实例（使用自定义文件映射）
+    test = DSTRiSAWOZTest(data_root=args.data_root, file_mapping=file_mapping)
     
     # 运行评测
     await test.run_evaluation(
