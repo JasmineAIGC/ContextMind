@@ -206,6 +206,10 @@ class DSTRiSAWOZTest:
         all_turn_predictions = []
         all_turn_ground_truths = []
         
+        # Turn-level意图评测（RiSAWOZ每一轮都有意图）
+        turn_intent_correct = 0
+        turn_intent_total = 0
+        
         # 逐轮测试
         for turn in dialogue.turns:
             if verbose:
@@ -279,6 +283,36 @@ class DSTRiSAWOZTest:
             all_turn_predictions.append(extracted_state)
             all_turn_ground_truths.append(expected_state)
             
+            # Turn-level意图评测（RiSAWOZ每轮都有意图）
+            if turn.user_intents:
+                # 从user_intents提取本轮的真实意图（取第一个非空意图）
+                turn_true_intent = ""
+                for intent_info in turn.user_intents:
+                    if len(intent_info) >= 1 and intent_info[0]:
+                        turn_true_intent = intent_info[0]
+                        break
+                
+                # 从提取的槽位推断意图
+                turn_inferred_intent, _ = self.intent_evaluator.infer_intent_from_slots(
+                    domain=dialogue.domain,
+                    turn_updates=extracted_state,
+                    previous_state={},
+                    user_utterance=turn.user_utterance,
+                    turn_id=turn.turn_id
+                )
+                
+                # 标准化并比较
+                turn_true_normalized = self.intent_evaluator.normalize_intent(turn_true_intent, dialogue.domain)
+                turn_inferred_normalized = self.intent_evaluator.normalize_intent(turn_inferred_intent, dialogue.domain)
+                
+                if turn_true_normalized.lower() == turn_inferred_normalized.lower():
+                    turn_intent_correct += 1
+                turn_intent_total += 1
+                
+                if verbose:
+                    intent_match_str = "✓" if turn_true_normalized.lower() == turn_inferred_normalized.lower() else "✗"
+                    print(f"轮次意图: {turn_true_intent} -> {turn_inferred_intent} {intent_match_str}")
+            
             if verbose:
                 print(f"期望状态: {expected_state}")
                 print(f"提取状态: {extracted_state}")
@@ -300,18 +334,8 @@ class DSTRiSAWOZTest:
         # 计算Precision/Recall/F1（基于slot-value pairs）
         precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted, domain=dialogue.domain)
         
-        # 4. 意图评测（使用从user_acts提取的意图）
-        # 从对话中提取实际的用户意图
-        dialogue_intent = self._extract_dialogue_intent(dialogue)
-        
-        # 添加到意图评测器 - 使用提取的槽位而非期望槽位
-        self.intent_evaluator.add_dialogue_evaluation(
-            dialogue_id=dialogue_id,
-            domain=dialogue.domain,
-            predicted_intent=dialogue_intent,  # 使用从user_acts提取的意图
-            dialogue_slots=final_extracted,  # 修复：使用提取的槽位
-            user_utterances=[turn.user_utterance for turn in dialogue.turns]
-        )
+        # 4. Turn-level意图准确率（RiSAWOZ特有）
+        turn_intent_accuracy = turn_intent_correct / turn_intent_total if turn_intent_total > 0 else 0.0
         
         if verbose:
             print("\n" + "=" * 70)
@@ -331,29 +355,10 @@ class DSTRiSAWOZTest:
             print(f"\n最终期望状态: {final_expected}")
             print(f"最终提取状态: {final_extracted}")
             
-            # 2. 意图评测结果（与TransferTOD一致）
-            # 推断真值意图（从intent_evaluator）
-            inferred_intent, _ = self.intent_evaluator.infer_intent_from_slots(
-                domain=dialogue.domain,
-                turn_updates={},
-                previous_state={},
-                user_utterance=' '.join([turn.user_utterance for turn in dialogue.turns])
-            )
-            
-            print("\n【意图评测结果】")
-            print(f"预测意图: {dialogue_intent}")
-            print(f"真值意图: {inferred_intent}")
-            
-            # 使用标准化映射进行比较
-            norm_predicted = self.intent_evaluator.normalization_mapping.get(
-                dialogue_intent.lower(), dialogue_intent.lower()
-            )
-            norm_inferred = self.intent_evaluator.normalization_mapping.get(
-                inferred_intent.lower(), inferred_intent.lower()
-            )
-            is_correct = norm_predicted == norm_inferred
-            result = "✓ 正确" if is_correct else "✗ 错误"
-            print(f"评测结果: {result}")
+            # 2. Turn-level意图评测结果（RiSAWOZ特有）
+            print("\n【轮次级别意图评测结果】")
+            print(f"意图准确率 (Turn Intent Accuracy): {turn_intent_accuracy * 100:.2f}%")
+            print(f"正确轮次数: {turn_intent_correct}/{turn_intent_total}")
             print("=" * 70)
             print()  # 添加空行分隔不同对话
         
@@ -370,6 +375,9 @@ class DSTRiSAWOZTest:
             "correct_slots": correct_slots,
             "total_turns": total_turns,
             "matched_slots": correct_slots,  # 添加matched_slots以对齐TransferTOD
+            "turn_intent_accuracy": turn_intent_accuracy,  # Turn-level意图准确率
+            "turn_intent_correct": turn_intent_correct,
+            "turn_intent_total": turn_intent_total,
         }
     
     def _normalize_slot_key(self, slot_key: str, domain: str) -> str:
@@ -710,23 +718,19 @@ class DSTRiSAWOZTest:
         summary_lines.append(f"平均精确率 (Precision): {avg_precision * 100:.2f}%")
         summary_lines.append(f"平均召回率 (Recall): {avg_recall * 100:.2f}%")
         summary_lines.append(f"平均F1分数 (F1 Score): {avg_f1 * 100:.2f}%")
+        
+        # Turn-level意图准确率（RiSAWOZ特有）
+        if all_metrics and "turn_intent_accuracy" in all_metrics[0]:
+            total_turn_intent_correct = sum(m.get("turn_intent_correct", 0) for m in all_metrics)
+            total_turn_intent_total = sum(m.get("turn_intent_total", 0) for m in all_metrics)
+            avg_turn_intent_accuracy = total_turn_intent_correct / total_turn_intent_total if total_turn_intent_total > 0 else 0.0
+            summary_lines.append(f"平均轮次意图准确率 (Turn Intent Accuracy): {avg_turn_intent_accuracy * 100:.2f}%")
+            summary_lines.append(f"总轮次数: {total_turn_intent_total}, 正确轮次数: {total_turn_intent_correct}")
         summary_lines.append("")
         
         # 输出汇总（使用 print）
         for line in summary_lines:
             print(line)
-        
-        # 输出意图评测结果
-        print("\n" + "=" * 70)
-        print("🎯 对话级别意图评测报告")
-        print("=" * 70)
-        print("")
-        intent_report = self.intent_evaluator.get_detailed_report(
-            save_confusion_plot=False,  # RiSAWOZ不保存混淆矩阵
-            include_confusion_matrix=False
-        )
-        print(intent_report)
-        print("")
         
         # 返回汇总数据，用于保存到文件
         summary_text = "\n".join(summary_lines)
