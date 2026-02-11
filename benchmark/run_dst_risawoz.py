@@ -28,6 +28,7 @@ from benchmark.shared.intent_label_loader import IntentLabelLoader
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
+from contextmind.infra.embedding import get_embedding_client, calculate_embedding_similarity
 
 logger = get_logger(__name__)
 
@@ -37,13 +38,16 @@ class DSTRiSAWOZTest:
     DST模式 - RiSAWOZ测试类
     """
     
-    def __init__(self, data_root: str = "./data/RiSAWOZ", file_mapping: Dict[str, str] = None):
+    def __init__(self, data_root: str = "./data/RiSAWOZ", file_mapping: Dict[str, str] = None, 
+                 use_semantic_match: bool = False, semantic_threshold: float = 0.85):
         """
         初始化测试
         
         Args:
             data_root: RiSAWOZ数据集根目录
             file_mapping: 自定义文件名映射 (可选)
+            use_semantic_match: 是否使用语义embedding匹配
+            semantic_threshold: 语义相似度阈值 (0-1)
         """
         self.adapter = RiSAWOZAdapter(data_root, file_mapping=file_mapping)
         self.llm_client = None
@@ -53,6 +57,24 @@ class DSTRiSAWOZTest:
         risawoz_intent_config = Path(__file__).parent / "shared" / "configs" / "intent_labels_risawoz.json"
         self.intent_label_loader = IntentLabelLoader(str(risawoz_intent_config))
         self.intent_evaluator = IntentEvaluator(intent_label_loader=self.intent_label_loader)  # 意图评测器
+        
+        # 语义匹配配置
+        self.use_semantic_match = use_semantic_match
+        self.semantic_threshold = semantic_threshold
+        self.embedding_client = None
+        
+        # 如果启用语义匹配，初始化embedding客户端
+        if use_semantic_match:
+            try:
+                self.embedding_client = get_embedding_client()
+                if self.embedding_client and self.embedding_client.embedding_supported:
+                    logger.info(f"✅ 语义匹配已启用 - 相似度阈值: {semantic_threshold}")
+                else:
+                    logger.warning("⚠️  Embedding客户端不可用，将回退到字符串匹配")
+                    self.use_semantic_match = False
+            except Exception as e:
+                logger.warning(f"⚠️  Embedding客户端初始化失败: {e}，将回退到字符串匹配")
+                self.use_semantic_match = False
         
     def initialize(self, domain: str):
         """
@@ -384,9 +406,62 @@ class DSTRiSAWOZTest:
                 normalized[norm_key] = norm_value
         return normalized
     
+    def _semantic_value_match(self, value1: str, value2: str, threshold: float = None) -> Tuple[bool, float, str]:
+        """
+        使用语义embedding判断两个值是否匹配（支持三级匹配策略）
+        
+        Args:
+            value1: 值1
+            value2: 值2
+            threshold: 相似度阈值（默认使用self.semantic_threshold）
+            
+        Returns:
+            (is_match, similarity_score, match_method)
+            - is_match: 是否匹配
+            - similarity_score: 相似度分数（0-1，字符串匹配为1.0或0.0）
+            - match_method: 匹配方法 ('exact', 'normalized', 'semantic', 'none')
+        """
+        if threshold is None:
+            threshold = self.semantic_threshold
+        
+        # 策略1: 精确匹配（最快）
+        if value1 == value2:
+            return True, 1.0, 'exact'
+        
+        # 策略2: 标准化匹配（去除空格、大小写）
+        norm1 = self._normalize_value(value1)
+        norm2 = self._normalize_value(value2)
+        if norm1 == norm2:
+            return True, 1.0, 'normalized'
+        
+        # 策略3: 语义embedding匹配
+        if self.use_semantic_match and self.embedding_client:
+            try:
+                # 生成embedding
+                emb1 = self.embedding_client.generate_embedding(value1)
+                emb2 = self.embedding_client.generate_embedding(value2)
+                
+                if emb1 and emb2:
+                    # 计算相似度
+                    similarity, success = calculate_embedding_similarity(emb1, emb2)
+                    
+                    if success:
+                        # 判断是否超过阈值
+                        is_match = similarity >= threshold
+                        return is_match, similarity, 'semantic'
+                    else:
+                        logger.debug(f"[语义匹配] 相似度计算失败")
+                else:
+                    logger.debug(f"[语义匹配] Embedding生成失败: {value1} vs {value2}")
+            except Exception as e:
+                logger.debug(f"[语义匹配] 异常: {e}")
+        
+        # 所有策略都失败
+        return False, 0.0, 'none'
+    
     def _calculate_prf_pairs(self, expected: Dict, extracted: Dict, domain: str = "") -> Tuple[float, float, float]:
         """
-        计算Precision/Recall/F1（基于slot-value pairs）
+        计算Precision/Recall/F1（基于slot-value pairs，支持语义匹配）
         
         Args:
             expected: 期望状态
@@ -396,26 +471,40 @@ class DSTRiSAWOZTest:
         Returns:
             (precision, recall, f1)
         """
-        # 标准化状态字典
-        if domain:
-            expected = self._normalize_state_dict(expected, domain)
-            extracted = self._normalize_state_dict(extracted, domain)
+        # 首先标准化slot keys（确保都有domain前缀）
+        norm_expected = {}
+        norm_extracted = {}
         
-        # 转换为slot-value pairs集合
-        expected_pairs = set()
-        for slot, value in expected.items():
+        for key, value in expected.items():
+            norm_key = self._normalize_slot_key(key, domain) if domain else key
             if value:
-                expected_pairs.add((slot, value))
+                norm_expected[norm_key] = str(value)
         
-        extracted_pairs = set()
-        for slot, value in extracted.items():
+        for key, value in extracted.items():
+            norm_key = self._normalize_slot_key(key, domain) if domain else key
             if value:
-                extracted_pairs.add((slot, value))
+                norm_extracted[norm_key] = str(value)
         
-        # 计算TP/FP/FN
-        tp = len(expected_pairs & extracted_pairs)
-        fp = len(extracted_pairs - expected_pairs)
-        fn = len(expected_pairs - extracted_pairs)
+        # 计算TP: 期望和提取中都存在，且值匹配的槽位
+        tp = 0
+        matched_extracted_keys = set()
+        
+        for exp_key, exp_value in norm_expected.items():
+            if exp_key in norm_extracted:
+                ext_value = norm_extracted[exp_key]
+                # 使用语义匹配判断值是否相同
+                is_match, similarity, method = self._semantic_value_match(exp_value, ext_value)
+                if is_match:
+                    tp += 1
+                    matched_extracted_keys.add(exp_key)
+                    if method == 'semantic':
+                        logger.debug(f"[P/R/F1] 语义匹配成功: {exp_key} = '{exp_value}' ≈ '{ext_value}' (相似度: {similarity:.3f})")
+        
+        # FP: 提取中存在但不在期望中的槽位，或值不匹配的槽位
+        fp = len(norm_extracted) - tp
+        
+        # FN: 期望中存在但提取中缺失或值不匹配的槽位
+        fn = len(norm_expected) - tp
         
         # 计算P/R/F1
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
@@ -426,42 +515,54 @@ class DSTRiSAWOZTest:
     
     def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict, domain: str = "", mode: str = 'strict') -> float:
         """
-        计算Joint Accuracy（对话级别）- 对齐TransferTOD论文
+        计算Joint Accuracy（对话级别，支持语义匹配）- 对齐TransferTOD论文
         
         Args:
             expected: 期望的最终状态
             extracted: 提取的最终状态
-            domain: 领域名称（用于标准化）
+            domain: 领域名称（用于标准化slot keys）
             mode: 'strict' (完全匹配) 或 'soft' (期望槽位都存在即可)
             
         Returns:
             1.0 if matched, 0.0 otherwise
         """
-        # 标准化状态字典
-        if domain:
-            expected = self._normalize_state_dict(expected, domain)
-            extracted = self._normalize_state_dict(extracted, domain)
+        # 首先标准化slot keys（确保都有domain前缀）
+        norm_expected = {}
+        norm_extracted = {}
         
-        # 转换为slot-value pairs的集合进行比较
-        expected_pairs = set([(k, v) for k, v in expected.items() if v])
-        extracted_pairs = set([(k, v) for k, v in extracted.items() if v])
+        for key, value in expected.items():
+            norm_key = self._normalize_slot_key(key, domain) if domain else key
+            if value:
+                norm_expected[norm_key] = str(value)
         
-        # DEBUG: Log mismatch details
-        if expected_pairs != extracted_pairs:
-            logger.debug(f"JA Mismatch - Expected: {expected_pairs}, Extracted: {extracted_pairs}")
-            logger.debug(f"  Missing: {expected_pairs - extracted_pairs}")
-            logger.debug(f"  Extra: {extracted_pairs - expected_pairs}")
+        for key, value in extracted.items():
+            norm_key = self._normalize_slot_key(key, domain) if domain else key
+            if value:
+                norm_extracted[norm_key] = str(value)
         
-        # 根据模式计算
+        # 检查所有期望的槽位是否都在提取结果中且值匹配（使用语义匹配）
+        for exp_key, exp_value in norm_expected.items():
+            if exp_key not in norm_extracted:
+                logger.debug(f"[Joint Acc] 缺失槽位: {exp_key}")
+                return 0.0  # 缺失槽位
+            
+            ext_value = norm_extracted[exp_key]
+            is_match, similarity, method = self._semantic_value_match(exp_value, ext_value)
+            
+            if not is_match:
+                logger.debug(f"[Joint Acc] 槽位值不匹配: {exp_key} = '{exp_value}' vs '{ext_value}'")
+                return 0.0  # 值不匹配
+            elif method == 'semantic':
+                logger.debug(f"[Joint Acc] 语义匹配成功: {exp_key} = '{exp_value}' ≈ '{ext_value}' (相似度: {similarity:.3f})")
+        
+        # strict模式：检查是否有额外的槽位
         if mode == 'strict':
-            # Strict模式: 完全匹配（对齐TransferTOD论文）
-            return 1.0 if expected_pairs == extracted_pairs else 0.0
-        elif mode == 'soft':
-            # Soft模式: 所有期望的槽位都被正确提取（允许额外槽位）
-            # 适用于模型可能过度预测的情况
-            return 1.0 if expected_pairs.issubset(extracted_pairs) else 0.0
-        else:
-            raise ValueError(f"Unknown mode: {mode}. Use 'strict' or 'soft'")
+            if len(norm_extracted) > len(norm_expected):
+                logger.debug(f"[Joint Acc] Strict模式下有额外槽位: {set(norm_extracted.keys()) - set(norm_expected.keys())}")
+                return 0.0  # 有额外槽位
+        
+        # 所有检查都通过
+        return 1.0
     
     async def run_evaluation(self, domain: str = None, split: str = "val", limit: int = None, verbose: bool = True):
         """
@@ -630,6 +731,12 @@ async def main():
                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                        help="日志级别")
     
+    # 语义匹配参数
+    parser.add_argument("--use-semantic-match", action="store_true",
+                       help="启用语义embedding匹配（需要配置EMBEDDING_MODEL）")
+    parser.add_argument("--semantic-threshold", type=float, default=0.85,
+                       help="语义相似度阈值（0-1，默认：0.85）")
+    
     # 自定义文件名参数
     parser.add_argument("--train-file", type=str, default="train.json",
                        help="训练集文件名（默认：train.json）")
@@ -700,6 +807,9 @@ async def main():
     logger.info(f"数据根目录: {data_root}")
     logger.info(f"数据划分: {args.split}")
     logger.info(f"文件映射: {file_mapping}")
+    logger.info(f"语义匹配: {'启用' if args.use_semantic_match else '禁用'}")
+    if args.use_semantic_match:
+        logger.info(f"相似度阈值: {args.semantic_threshold}")
     
     # 验证将要使用的数据文件是否存在
     expected_file = Path(data_root) / file_mapping.get(args.split, f"{args.split}.json")
@@ -728,8 +838,13 @@ async def main():
         print(error_msg, file=sys.stderr)
         sys.exit(1)
     
-    # 创建测试实例（使用自定义文件映射）
-    test = DSTRiSAWOZTest(data_root=data_root, file_mapping=file_mapping)
+    # 创建测试实例（使用自定义文件映射和语义匹配参数）
+    test = DSTRiSAWOZTest(
+        data_root=data_root, 
+        file_mapping=file_mapping,
+        use_semantic_match=args.use_semantic_match,
+        semantic_threshold=args.semantic_threshold
+    )
     
     # 运行评测
     summary_text, all_metrics = await test.run_evaluation(
