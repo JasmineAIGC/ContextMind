@@ -226,29 +226,44 @@ class DSTRiSAWOZTest:
             # 获取期望状态（RiSAWOZ使用累积的belief state）
             expected_state = turn.expected_slots
             
-            # 计算本轮的槽位准确率
+            # 计算本轮的槽位准确率（使用语义匹配）
             turn_correct_slots = 0
             turn_total_slots = len(expected_state)
             turn_exact_match_strict = True  # 本轮是否完全匹配（严格）
             turn_exact_match_soft = True    # 本轮是否软匹配（允许额外槽位）
             
-            # 比较每个槽位
-            for slot_key, expected_value in expected_state.items():
-                extracted_value = extracted_state.get(slot_key)
+            # 标准化expected_state和extracted_state的key（添加domain前缀）
+            norm_expected = {}
+            norm_extracted = {}
+            
+            for key, value in expected_state.items():
+                norm_key = self._normalize_slot_key(key, dialogue.domain)
+                if value:
+                    norm_expected[norm_key] = str(value)
+            
+            for key, value in extracted_state.items():
+                norm_key = self._normalize_slot_key(key, dialogue.domain)
+                if value:
+                    norm_extracted[norm_key] = str(value)
+            
+            # 比较每个槽位（使用语义匹配）
+            for exp_key, exp_value in norm_expected.items():
+                ext_value = norm_extracted.get(exp_key, "")
                 
-                # 值比较（转换为字符串）
-                expected_str = str(expected_value) if expected_value is not None else ""
-                extracted_str = str(extracted_value) if extracted_value is not None else ""
+                # 使用语义匹配
+                is_match, similarity, method = self._semantic_value_match(exp_value, ext_value)
                 
-                if expected_str == extracted_str:
+                if is_match:
                     turn_correct_slots += 1
+                    if verbose and method == 'semantic':
+                        logger.debug(f"[Turn {turn.turn_id}] 语义匹配: {exp_key} = '{exp_value}' ≈ '{ext_value}' (相似度: {similarity:.3f})")
                 else:
                     turn_exact_match_strict = False
                     turn_exact_match_soft = False  # 期望槽位不正确，软匹配也失败
             
             # 检查是否有多余的槽位（只影响严格匹配）
-            for slot_key in extracted_state:
-                if slot_key not in expected_state:
+            for slot_key in norm_extracted:
+                if slot_key not in norm_expected:
                     turn_exact_match_strict = False  # 有额外槽位，严格匹配失败
                     # 软匹配不受影响
             
