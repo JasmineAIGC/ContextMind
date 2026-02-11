@@ -259,11 +259,11 @@ class DSTRiSAWOZTest:
         
         # 3. Joint Accuracy (dialogue-level) - 对齐TransferTOD论文
         # 使用最终状态而非turn-level统计，与TransferTOD保持一致
-        joint_accuracy_strict = self._calculate_joint_accuracy(final_expected, final_extracted, mode='strict')
-        joint_accuracy_soft = self._calculate_joint_accuracy(final_expected, final_extracted, mode='soft')
+        joint_accuracy_strict = self._calculate_joint_accuracy(final_expected, final_extracted, domain=dialogue.domain, mode='strict')
+        joint_accuracy_soft = self._calculate_joint_accuracy(final_expected, final_extracted, domain=dialogue.domain, mode='soft')
         
         # 计算Precision/Recall/F1（基于slot-value pairs）
-        precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
+        precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted, domain=dialogue.domain)
         
         # 4. 意图评测（使用从user_acts提取的意图）
         # 从对话中提取实际的用户意图
@@ -291,8 +291,29 @@ class DSTRiSAWOZTest:
             print(f"召回率 (Recall): {recall * 100:.2f}%")
             print(f"F1分数 (F1 Score): {f1 * 100:.2f}%")
             
-            print(f"\n最终期望状态: {final_expected}")
-            print(f"最终提取状态: {final_extracted}")
+            print(f"\n【最终状态比较】")
+            print(f"期望状态: {final_expected}")
+            print(f"提取状态: {final_extracted}")
+            
+            # 显示标准化后的状态用于调试
+            norm_expected = self._normalize_state_dict(final_expected, dialogue.domain)
+            norm_extracted = self._normalize_state_dict(final_extracted, dialogue.domain)
+            print(f"\n【标准化后状态】（用于比较）")
+            print(f"标准化期望: {norm_expected}")
+            print(f"标准化提取: {norm_extracted}")
+            
+            # 显示匹配和未匹配的槽位
+            matched = set(norm_expected.items()) & set(norm_extracted.items())
+            missing = set(norm_expected.items()) - set(norm_extracted.items())
+            extra = set(norm_extracted.items()) - set(norm_expected.items())
+            
+            if matched:
+                print(f"\n✅ 匹配槽位 ({len(matched)}): {dict(matched)}")
+            if missing:
+                print(f"❌ 缺失槽位 ({len(missing)}): {dict(missing)}")
+            if extra:
+                print(f"⚠️  额外槽位 ({len(extra)}): {dict(extra)}")
+            
             print("=" * 70)
         
         return {
@@ -310,27 +331,86 @@ class DSTRiSAWOZTest:
             "matched_slots": correct_slots,  # 添加matched_slots以对齐TransferTOD
         }
     
-    def _calculate_prf_pairs(self, expected: Dict, extracted: Dict) -> Tuple[float, float, float]:
+    def _normalize_slot_key(self, slot_key: str, domain: str) -> str:
+        """
+        标准化槽位键：确保包含领域前缀
+        
+        Args:
+            slot_key: 原始槽位键
+            domain: 领域名称
+            
+        Returns:
+            标准化后的槽位键
+        """
+        # 如果已经有领域前缀，直接返回
+        if '-' in slot_key:
+            return slot_key
+        # 否则添加领域前缀
+        return f"{domain}-{slot_key}"
+    
+    def _normalize_value(self, value: str) -> str:
+        """
+        标准化槽位值：去除空格、统一格式
+        
+        Args:
+            value: 原始值
+            
+        Returns:
+            标准化后的值
+        """
+        if value is None:
+            return ""
+        # 转换为字符串并去除所有空格
+        normalized = str(value).replace(" ", "").replace(" ", "")  # 移除中英文空格
+        return normalized.lower()  # 转小写以忽略大小写差异
+    
+    def _normalize_state_dict(self, state: Dict, domain: str) -> Dict:
+        """
+        标准化状态字典：统一槽位键和值的格式
+        
+        Args:
+            state: 原始状态字典
+            domain: 领域名称
+            
+        Returns:
+            标准化后的状态字典
+        """
+        normalized = {}
+        for key, value in state.items():
+            # 标准化键和值
+            norm_key = self._normalize_slot_key(key, domain)
+            norm_value = self._normalize_value(value)
+            if norm_value:  # 只保留非空值
+                normalized[norm_key] = norm_value
+        return normalized
+    
+    def _calculate_prf_pairs(self, expected: Dict, extracted: Dict, domain: str = "") -> Tuple[float, float, float]:
         """
         计算Precision/Recall/F1（基于slot-value pairs）
         
         Args:
             expected: 期望状态
             extracted: 提取状态
+            domain: 领域名称（用于标准化）
             
         Returns:
             (precision, recall, f1)
         """
+        # 标准化状态字典
+        if domain:
+            expected = self._normalize_state_dict(expected, domain)
+            extracted = self._normalize_state_dict(extracted, domain)
+        
         # 转换为slot-value pairs集合
         expected_pairs = set()
         for slot, value in expected.items():
-            if value is not None:
-                expected_pairs.add((slot, str(value)))
+            if value:
+                expected_pairs.add((slot, value))
         
         extracted_pairs = set()
         for slot, value in extracted.items():
-            if value is not None:
-                extracted_pairs.add((slot, str(value)))
+            if value:
+                extracted_pairs.add((slot, value))
         
         # 计算TP/FP/FN
         tp = len(expected_pairs & extracted_pairs)
@@ -344,21 +424,27 @@ class DSTRiSAWOZTest:
         
         return precision, recall, f1
     
-    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict, mode: str = 'strict') -> float:
+    def _calculate_joint_accuracy(self, expected: Dict, extracted: Dict, domain: str = "", mode: str = 'strict') -> float:
         """
         计算Joint Accuracy（对话级别）- 对齐TransferTOD论文
         
         Args:
             expected: 期望的最终状态
             extracted: 提取的最终状态
+            domain: 领域名称（用于标准化）
             mode: 'strict' (完全匹配) 或 'soft' (期望槽位都存在即可)
             
         Returns:
             1.0 if matched, 0.0 otherwise
         """
-        # 转换为slot-value pairs的集合进行比较（对齐TransferTOD论文）
-        expected_pairs = set([(k, str(v)) for k, v in expected.items() if v is not None])
-        extracted_pairs = set([(k, str(v)) for k, v in extracted.items() if v is not None])
+        # 标准化状态字典
+        if domain:
+            expected = self._normalize_state_dict(expected, domain)
+            extracted = self._normalize_state_dict(extracted, domain)
+        
+        # 转换为slot-value pairs的集合进行比较
+        expected_pairs = set([(k, v) for k, v in expected.items() if v])
+        extracted_pairs = set([(k, v) for k, v in extracted.items() if v])
         
         # DEBUG: Log mismatch details
         if expected_pairs != extracted_pairs:
