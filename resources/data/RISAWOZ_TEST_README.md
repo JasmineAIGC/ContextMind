@@ -43,11 +43,25 @@
 
 #### 3. intents (意图列表)
 - **类型**: `List[str]`
-- **说明**: 该轮次涉及的意图，格式为 `"意图类型+领域+槽位+槽位值"`
-- **格式**: 用 `+` 分隔四个部分
+- **说明**: 该轮次涉及的意图，格式为 `"意图+领域+槽位+值"`
+- **格式**: 用 `+` 分隔四个部分，空白部分保留空字符串
+- **标签结构**:
+  ```
+  意图+领域+槽位+值
+  ```
 - **示例**: 
-  - `"Greeting+旅游景点++"`（问候，旅游景点领域，无槽位）
-  - `"General+旅游景点++"`（一般询问，旅游景点领域）
+  - `"Greeting+旅游景点++"`（问候，旅游景点领域，无槽位，无值）
+  - `"Request+旅游景点+区域+"`（请求，旅游景点领域，区域槽位，无值）
+  - `"Inform+酒店+名称+希尔顿"`（告知，酒店领域，名称槽位，值为希尔顿）
+
+**标签格式详解**:
+
+| 标签字符串 | 意图 | 领域 | 槽位 | 值 | 说明 |
+|-----------|------|------|------|-----|------|
+| `"Greeting+旅游景点++"` | Greeting | 旅游景点 | (空) | (空) | 问候语 |
+| `"Request+旅游景点+区域+"` | Request | 旅游景点 | 区域 | (空) | 请求区域信息 |
+| `"Inform+酒店+名称+希尔顿"` | Inform | 酒店 | 名称 | 希尔顿 | 告知酒店名称 |
+| `"General+通用++"` | General | 通用 | (空) | (空) | 一般对话 |
 
 #### 4. parsed_intents (解析后的意图)
 - **类型**: `List[List[str]]`
@@ -178,6 +192,56 @@ for i, record in enumerate(data):
     print(f"  实体: {entities}")
     print(f"  意图: {intents}")
     print()
+```
+
+### 使用标签解析器
+
+我们提供了专门的标签解析工具来处理 "意图+领域+槽位+值" 格式：
+
+```python
+from benchmark.datasets.risawoz.label_parser import RiSAWOZLabelParser
+
+# 读取数据
+import json
+with open('resources/data/risawoz_test.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+# 处理第一条记录
+record = data[0]
+intent_strings = record[2]  # 意图字符串列表
+
+# 解析意图标签
+labels = RiSAWOZLabelParser.parse_labels(intent_strings)
+
+# 打印解析结果
+for label in labels:
+    print(f"意图: {label.intent}")
+    print(f"领域: {label.domain}")
+    print(f"槽位: {label.slot if label.has_slot() else '无'}")
+    print(f"值: {label.value if label.has_value() else '无'}")
+    print(f"完整: {label}")
+    print()
+
+# 提取槽位-值对
+slots = RiSAWOZLabelParser.extract_slot_values(labels)
+print(f"槽位-值对: {slots}")
+```
+
+**输出示例**:
+```
+意图: Greeting
+领域: 旅游景点
+槽位: 无
+值: 无
+完整: Greeting - 旅游景点
+
+意图: General
+领域: 旅游景点
+槽位: 无
+值: 无
+完整: General - 旅游景点
+
+槽位-值对: {}
 ```
 
 ## 相关资源
