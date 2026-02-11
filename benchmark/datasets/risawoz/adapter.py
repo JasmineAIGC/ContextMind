@@ -15,7 +15,7 @@ RiSAWOZ数据集结构:
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, field
 from collections import defaultdict
 
@@ -104,95 +104,100 @@ class RiSAWOZAdapter:
         解析单个对话数据
         
         Args:
-            dialogue_data: 原始对话数据字典
+            dialogue_data: 原始对话数据（可以是字典或列表）
             dialogue_id: 对话ID
             
         Returns:
             标准化的对话实例
         """
-        # RiSAWOZ数据格式
+        # RiSAWOZ数据格式支持两种：
+        # 格式1 (标准格式):
         # {
         #   "dialogue_id": "xxx",
         #   "goal": {...},
-        #   "dialogue": [
-        #     {
-        #       "turn_id": 0,
-        #       "user_utterance": "...",
-        #       "system_utterance": "...",
-        #       "belief_state": [
-        #         {
-        #           "domain": "景点",
-        #           "slot": "名称",
-        #           "value": "故宫"
-        #         },
-        #         ...
-        #       ]
-        #     },
-        #     ...
-        #   ]
+        #   "dialogue": [...]
         # }
+        # 格式2 (简化格式, task1-data):
+        # [
+        #   {
+        #     "turn_id": 0,
+        #     "user_utterance": "...",
+        #     "belief_state": [...]
+        #   },
+        #   ...
+        # ]
         
         turns = []
         cumulative_state = {}  # 累积的belief state
         
+        # 检测数据格式并规范化
+        if isinstance(dialogue_data, list):
+            # 格式2：直接是对话轮次列表
+            dialogue_turns = dialogue_data
+            goal_info = {}
+        elif isinstance(dialogue_data, dict):
+            # 格式1：标准字典格式
+            dialogue_turns = dialogue_data.get("dialogue", [])
+            goal_info = dialogue_data.get("goal", {})
+        else:
+            raise ValueError(f"不支持的对话数据格式: {type(dialogue_data)}")
+        
         # 提取领域信息
         domains = set()
-        if "dialogue" in dialogue_data:
-            for turn_data in dialogue_data["dialogue"]:
-                if "belief_state" in turn_data:
-                    for belief in turn_data["belief_state"]:
-                        if "domain" in belief:
-                            domains.add(belief["domain"])
+        for turn_data in dialogue_turns:
+            if "belief_state" in turn_data:
+                for belief in turn_data["belief_state"]:
+                    if "domain" in belief:
+                        domains.add(belief["domain"])
         
         # 使用第一个领域作为主领域（如果有多个领域则记录在metadata中）
         domain = list(domains)[0] if domains else "未知"
         
         # 解析对话轮次
-        if "dialogue" in dialogue_data:
-            for turn_data in dialogue_data["dialogue"]:
-                turn_id = turn_data.get("turn_id", len(turns))
-                
-                # 提取用户和系统话语
-                user_utterance = turn_data.get("user_utterance", "")
-                system_utterance = turn_data.get("system_utterance", "")
-                
-                # 解析belief state
-                turn_belief_state = {}
-                if "belief_state" in turn_data:
-                    for belief in turn_data["belief_state"]:
-                        # RiSAWOZ格式: {"domain": "景点", "slot": "名称", "value": "故宫"}
-                        slot_domain = belief.get("domain", "")
-                        slot_name = belief.get("slot", "")
-                        slot_value = belief.get("value", "")
-                        
-                        if slot_name and slot_value:
-                            # 使用"领域-槽位"格式作为key
-                            slot_key = f"{slot_domain}-{slot_name}" if slot_domain else slot_name
-                            turn_belief_state[slot_key] = slot_value
-                
-                # 更新累积状态
-                cumulative_state.update(turn_belief_state)
-                
-                # 创建对话轮次（使用累积状态作为expected_slots）
-                turn = DialogueTurn(
-                    turn_id=turn_id,
-                    user_utterance=user_utterance,
-                    system_utterance=system_utterance,
-                    expected_slots=cumulative_state.copy()
-                )
-                turns.append(turn)
+        for turn_data in dialogue_turns:
+            turn_id = turn_data.get("turn_id", len(turns))
+            
+            # 提取用户和系统话语
+            user_utterance = turn_data.get("user_utterance", "")
+            system_utterance = turn_data.get("system_utterance", "")
+            
+            # 解析belief state
+            turn_belief_state = {}
+            if "belief_state" in turn_data:
+                for belief in turn_data["belief_state"]:
+                    # RiSAWOZ格式: {"domain": "景点", "slot": "名称", "value": "故宫"}
+                    slot_domain = belief.get("domain", "")
+                    slot_name = belief.get("slot", "")
+                    slot_value = belief.get("value", "")
+                    
+                    if slot_name and slot_value:
+                        # 使用"领域-槽位"格式作为key
+                        slot_key = f"{slot_domain}-{slot_name}" if slot_domain else slot_name
+                        turn_belief_state[slot_key] = slot_value
+            
+            # 更新累积状态
+            cumulative_state.update(turn_belief_state)
+            
+            # 创建对话轮次（使用累积状态作为expected_slots）
+            turn = DialogueTurn(
+                turn_id=turn_id,
+                user_utterance=user_utterance,
+                system_utterance=system_utterance,
+                expected_slots=cumulative_state.copy()
+            )
+            turns.append(turn)
         
         # 创建对话实例
         dialogue = DialogueInstance(
             dialogue_id=dialogue_id,
             domain=domain,
             turns=turns,
-            description=dialogue_data.get("goal", {}).get("description", ""),
+            description=goal_info.get("description", "") if isinstance(goal_info, dict) else "",
             final_state=cumulative_state.copy(),
             metadata={
                 "all_domains": list(domains),
-                "goal": dialogue_data.get("goal", {}),
-                "original_id": dialogue_data.get("dialogue_id", dialogue_id)
+                "goal": goal_info,
+                "original_id": dialogue_data.get("dialogue_id", dialogue_id) if isinstance(dialogue_data, dict) else dialogue_id
             }
         )
         
