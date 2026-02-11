@@ -385,7 +385,7 @@ class DSTRiSAWOZTest:
         """
         if not all_metrics:
             print("\n⚠️  没有成功评测的对话")
-            return
+            return "", []
         
         summary_lines = []
         summary_lines.append("")
@@ -548,6 +548,38 @@ async def main():
         "val": val_file,
         "test": test_file
     }
+    
+    # 显示解析后的配置信息
+    logger.info(f"数据根目录: {data_root}")
+    logger.info(f"数据划分: {args.split}")
+    logger.info(f"文件映射: {file_mapping}")
+    
+    # 验证将要使用的数据文件是否存在
+    expected_file = Path(data_root) / file_mapping.get(args.split, f"{args.split}.json")
+    logger.info(f"将要加载的数据文件: {expected_file}")
+    
+    if not expected_file.exists():
+        error_msg = (
+            f"\n{'='*70}\n"
+            f"❌ 错误：数据文件不存在\n"
+            f"{'='*70}\n\n"
+            f"文件路径: {expected_file.absolute()}\n"
+            f"数据根目录: {Path(data_root).absolute()}\n"
+            f"文件名: {file_mapping.get(args.split)}\n"
+            f"数据划分: {args.split}\n\n"
+            f"请检查：\n"
+            f"1. 文件路径是否正确\n"
+            f"2. 文件是否存在于指定位置\n"
+            f"3. 当前工作目录: {Path.cwd()}\n\n"
+            f"提示：\n"
+            f"- 如果使用相对路径，请确保从正确的目录运行脚本\n"
+            f"- 建议使用绝对路径以避免路径问题\n"
+            f"- 使用 --val-file 时，请提供完整的文件路径\n"
+            f"{'='*70}\n"
+        )
+        logger.error(error_msg)
+        print(error_msg, file=sys.stderr)
+        sys.exit(1)
     
     # 创建测试实例（使用自定义文件映射）
     test = DSTRiSAWOZTest(data_root=data_root, file_mapping=file_mapping)
