@@ -1,5 +1,70 @@
 # RiSAWOZ 数据集设置指南
 
+## ⚠️ 重要：数据格式说明
+
+RiSAWOZ 数据集有**两种不同的格式**，用于不同的任务：
+
+### 1. DST 格式（对话状态追踪）✅
+
+**文件名**: `train.json`, `val.json`, `test.json`
+
+**用途**: 对话状态追踪（DST）评测
+
+**格式**:
+```json
+{
+  "dialogue_id": "xxx",
+  "dialogue": [
+    {
+      "turn_id": 0,
+      "user_utterance": "我想找一个景点",
+      "belief_state": [
+        {"domain": "景点", "slot": "类型", "value": "博物馆"}
+      ]
+    }
+  ]
+}
+```
+
+**适用于**: `run_dst_risawoz.py` 评测脚本 ✅
+
+### 2. NLU 格式（自然语言理解）❌
+
+**文件名**: `task1-data/test.json` 或其他 NLU 标注文件
+
+**用途**: NLU 任务（意图识别、实体提取）
+
+**格式**:
+```json
+[
+  [
+    ["你", "好"],           // tokens
+    ["O", "O"],            // NER labels  
+    ["Greeting+景点++"],   // intents
+    [...],                 // parsed
+    []                     // extra
+  ]
+]
+```
+
+**适用于**: NLU 评测，**不适用于** `run_dst_risawoz.py` ❌
+
+### 如何区分？
+
+- **DST 格式**: 字典或字典列表，包含 `dialogue`, `belief_state` 字段
+- **NLU 格式**: 嵌套列表，包含 tokens, labels, intents
+
+### 如果使用错误的格式？
+
+运行 DST 评测时使用 NLU 格式数据会导致：
+```
+❌ 错误：检测到 NLU 标注数据格式
+此格式用于 NLU 任务，不适用于 DST 评测。
+请使用 train.json, val.json, test.json 等 DST 格式文件。
+```
+
+---
+
 ## 快速回答
 
 **用户问题**: RiSAWOZ 数据集都是zip 文件，我解压到原路径，代码里的访问路径需要特殊处理吗？或者我需要把数据结构做什么处理？
