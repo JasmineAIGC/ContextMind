@@ -300,10 +300,6 @@ class DSTRiSAWOZTest:
             split: 数据集划分
             limit: 限制测试数量
         """
-        # 初始化追踪器
-        test_domain = domain if domain else "通用"
-        self.initialize(test_domain)
-        
         # 获取对话列表
         dialogue_ids = self.adapter.get_dialogues_by_domain(domain, split=split)
         
@@ -314,16 +310,36 @@ class DSTRiSAWOZTest:
         if limit:
             logger.info(f"限制测试数量: {limit}")
         
+        # 如果指定了领域，初始化该领域的追踪器
+        if domain:
+            self.initialize(domain)
+        
         # 运行测试
         all_metrics = []
+        current_domain = domain  # 跟踪当前初始化的领域
+        
         for idx, dialogue_id in enumerate(dialogue_ids):
             logger.info(f"\n处理对话 {idx+1}/{len(dialogue_ids)}: {dialogue_id}")
             
             try:
+                # 如果没有指定领域，需要为每个对话的领域动态初始化
+                if not domain:
+                    # 先加载对话获取其领域
+                    dialogue = self.adapter.load_dialogue(dialogue_id, split=split)
+                    dialogue_domain = dialogue.domain
+                    
+                    # 如果领域变化，重新初始化追踪器
+                    if dialogue_domain != current_domain:
+                        logger.info(f"切换到领域: {dialogue_domain}")
+                        self.initialize(dialogue_domain)
+                        current_domain = dialogue_domain
+                
                 metrics = await self.test_dialogue(dialogue_id, split=split, verbose=False)
                 all_metrics.append(metrics)
             except Exception as e:
                 logger.error(f"❌ 对话 {dialogue_id} 评测失败: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 continue
             
             logger.info(f"✅ 对话 {dialogue_id} 评测完成")
@@ -443,15 +459,43 @@ async def main():
     # 设置日志
     setup_logging(LogLevel[args.log_level])
     
+    # 处理文件路径参数
+    # 如果用户提供的是完整路径（包含目录），需要分离目录和文件名
+    data_root = args.data_root
+    train_file = args.train_file
+    val_file = args.val_file
+    test_file = args.test_file
+    
+    # 检查test-file是否包含路径
+    test_path = Path(args.test_file)
+    if len(test_path.parts) > 1:  # 包含目录
+        # 提取目录和文件名
+        data_root = str(test_path.parent)
+        test_file = test_path.name
+        logger.info(f"检测到完整路径，使用: data_root={data_root}, test_file={test_file}")
+    
+    # 同样处理 train-file 和 val-file
+    train_path = Path(args.train_file)
+    if len(train_path.parts) > 1:
+        if data_root != args.data_root:
+            logger.warning(f"train-file 路径 {args.train_file} 与 test-file 路径不一致，使用 test-file 的目录")
+        train_file = train_path.name
+    
+    val_path = Path(args.val_file)
+    if len(val_path.parts) > 1:
+        if data_root != args.data_root:
+            logger.warning(f"val-file 路径 {args.val_file} 与 test-file 路径不一致，使用 test-file 的目录")
+        val_file = val_path.name
+    
     # 创建文件映射
     file_mapping = {
-        "train": args.train_file,
-        "val": args.val_file,
-        "test": args.test_file
+        "train": train_file,
+        "val": val_file,
+        "test": test_file
     }
     
     # 创建测试实例（使用自定义文件映射）
-    test = DSTRiSAWOZTest(data_root=args.data_root, file_mapping=file_mapping)
+    test = DSTRiSAWOZTest(data_root=data_root, file_mapping=file_mapping)
     
     # 运行评测
     await test.run_evaluation(
