@@ -223,9 +223,16 @@ class DSTRiSAWOZTest:
                     system_utterance=turn.system_utterance,
                     user_utterance=turn.user_utterance
                 )
+                # 获取本轮的更新（从tracker的dialogue_history中获取最后一轮）
+                if self.tracker.dialogue_history:
+                    last_turn = self.tracker.dialogue_history[-1]
+                    turn_updates = last_turn.turn_updates if last_turn.turn_updates else {}
+                else:
+                    turn_updates = {}
             except Exception as e:
                 logger.error(f"处理轮次 {turn.turn_id} 时出错: {e}")
                 extracted_state = {}
+                turn_updates = {}
             
             # 获取期望状态（RiSAWOZ使用累积的belief state）
             expected_state = turn.expected_slots
@@ -237,6 +244,7 @@ class DSTRiSAWOZTest:
             turn_exact_match_soft = True    # 本轮是否软匹配（允许额外槽位）
             
             # 标准化expected_state和extracted_state的key（添加domain前缀）
+            # 同时过滤掉 'intent' 字段，因为那不是真正的槽位
             norm_expected = {}
             norm_extracted = {}
             
@@ -246,6 +254,9 @@ class DSTRiSAWOZTest:
                     norm_expected[norm_key] = str(value)
             
             for key, value in extracted_state.items():
+                # 跳过 intent 字段
+                if key == 'intent':
+                    continue
                 norm_key = self._normalize_slot_key(key, dialogue.domain)
                 if value:
                     norm_extracted[norm_key] = str(value)
@@ -254,16 +265,22 @@ class DSTRiSAWOZTest:
             for exp_key, exp_value in norm_expected.items():
                 ext_value = norm_extracted.get(exp_key, "")
                 
-                # 使用语义匹配
-                is_match, similarity, method = self._semantic_value_match(exp_value, ext_value)
-                
-                if is_match:
-                    turn_correct_slots += 1
-                    if verbose and method == 'semantic':
-                        logger.debug(f"[Turn {turn.turn_id}] 语义匹配: {exp_key} = '{exp_value}' ≈ '{ext_value}' (相似度: {similarity:.3f})")
+                # 只有在两个值都非空时才进行语义匹配
+                if exp_value and ext_value:
+                    # 使用语义匹配
+                    is_match, similarity, method = self._semantic_value_match(exp_value, ext_value)
+                    
+                    if is_match:
+                        turn_correct_slots += 1
+                        if verbose and method == 'semantic':
+                            logger.debug(f"[Turn {turn.turn_id}] 语义匹配: {exp_key} = '{exp_value}' ≈ '{ext_value}' (相似度: {similarity:.3f})")
+                    else:
+                        turn_exact_match_strict = False
+                        turn_exact_match_soft = False  # 期望槽位不正确，软匹配也失败
                 else:
+                    # 如果任一值为空，则不匹配
                     turn_exact_match_strict = False
-                    turn_exact_match_soft = False  # 期望槽位不正确，软匹配也失败
+                    turn_exact_match_soft = False
             
             # 检查是否有多余的槽位（只影响严格匹配）
             for slot_key in norm_extracted:
@@ -292,10 +309,13 @@ class DSTRiSAWOZTest:
                         turn_true_intent = intent_info[0]
                         break
                 
-                # 从提取的槽位推断意图
+                # 从本轮的槽位更新（而非累积状态）推断意图
+                # 过滤掉'intent'字段本身，只使用槽位信息
+                turn_updates_for_intent = {k: v for k, v in turn_updates.items() if k != 'intent'}
+                
                 turn_inferred_intent, _ = self.intent_evaluator.infer_intent_from_slots(
                     domain=dialogue.domain,
-                    turn_updates=extracted_state,
+                    turn_updates=turn_updates_for_intent,
                     previous_state={},
                     user_utterance=turn.user_utterance,
                     turn_id=turn.turn_id
@@ -451,6 +471,10 @@ class DSTRiSAWOZTest:
         if threshold is None:
             threshold = self.semantic_threshold
         
+        # 检查空值
+        if not value1 or not value2:
+            return False, 0.0, 'none'
+        
         # 策略1: 精确匹配（最快）
         if value1 == value2:
             return True, 1.0, 'exact'
@@ -499,6 +523,7 @@ class DSTRiSAWOZTest:
             (precision, recall, f1)
         """
         # 首先标准化slot keys（确保都有domain前缀）
+        # 同时过滤掉 'intent' 字段
         norm_expected = {}
         norm_extracted = {}
         
@@ -508,6 +533,9 @@ class DSTRiSAWOZTest:
                 norm_expected[norm_key] = str(value)
         
         for key, value in extracted.items():
+            # 跳过 intent 字段，因为那不是真正的槽位
+            if key == 'intent':
+                continue
             norm_key = self._normalize_slot_key(key, domain) if domain else key
             if value:
                 norm_extracted[norm_key] = str(value)
@@ -554,6 +582,7 @@ class DSTRiSAWOZTest:
             1.0 if matched, 0.0 otherwise
         """
         # 首先标准化slot keys（确保都有domain前缀）
+        # 同时过滤掉 'intent' 字段
         norm_expected = {}
         norm_extracted = {}
         
@@ -563,6 +592,9 @@ class DSTRiSAWOZTest:
                 norm_expected[norm_key] = str(value)
         
         for key, value in extracted.items():
+            # 跳过 intent 字段，因为那不是真正的槽位
+            if key == 'intent':
+                continue
             norm_key = self._normalize_slot_key(key, domain) if domain else key
             if value:
                 norm_extracted[norm_key] = str(value)
