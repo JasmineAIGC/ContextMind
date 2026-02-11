@@ -220,7 +220,8 @@ class RiSAWOZAdapter:
                         domains.add(belief["domain"])
         
         # 使用第一个领域作为主领域（如果有多个领域则记录在metadata中）
-        domain = list(domains)[0] if domains else "未知"
+        # 如果没有找到领域，使用"通用"作为默认领域（RiSAWOZ有"通用"领域）
+        domain = list(domains)[0] if domains else "通用"
         
         # 解析对话轮次
         for turn_data in dialogue_turns:

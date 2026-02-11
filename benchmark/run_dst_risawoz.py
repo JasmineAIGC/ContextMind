@@ -24,6 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
+from benchmark.shared.intent_label_loader import IntentLabelLoader
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -47,7 +48,11 @@ class DSTRiSAWOZTest:
         self.adapter = RiSAWOZAdapter(data_root, file_mapping=file_mapping)
         self.llm_client = None
         self.tracker = None
-        self.intent_evaluator = IntentEvaluator()  # 意图评测器
+        
+        # 使用RiSAWOZ专用的意图标签配置
+        risawoz_intent_config = Path(__file__).parent / "shared" / "configs" / "intent_labels_risawoz.json"
+        self.intent_label_loader = IntentLabelLoader(str(risawoz_intent_config))
+        self.intent_evaluator = IntentEvaluator(intent_label_loader=self.intent_label_loader)  # 意图评测器
         
     def initialize(self, domain: str):
         """
@@ -67,10 +72,11 @@ class DSTRiSAWOZTest:
         # 获取领域schema
         schema = self.adapter.get_domain_schema(domain)
         
-        # 创建PromptManager（启用动态槽位）
+        # 创建PromptManager（启用动态槽位，使用RiSAWOZ意图配置）
         pm = PromptManager(
             domain=domain,
-            enable_dynamic_slots=True
+            enable_dynamic_slots=True,
+            intent_label_loader=self.intent_label_loader
         )
         
         # 可选：添加槽位定义作为指导

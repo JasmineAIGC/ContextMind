@@ -72,7 +72,8 @@ class PromptManager:
                  template_style: str = "structured",
                  max_context_length: Optional[int] = None,
                  custom_template: Optional[str] = None,
-                 enable_intent_prediction: bool = True):
+                 enable_intent_prediction: bool = True,
+                 intent_label_loader = None):
         """
         初始化提示词管理器
         
@@ -85,6 +86,7 @@ class PromptManager:
             max_context_length: 最大上下文长度（自动根据LLM格式设置）
             custom_template: 自定义提示词模板（如果提供，将替代默认生成的模板）
             enable_intent_prediction: 是否启用基于领域的意图预测（默认True）
+            intent_label_loader: 自定义意图标签加载器（可选，用于不同数据集）
         """
         self.domain = domain
         self.enable_dynamic_slots = enable_dynamic_slots
@@ -93,6 +95,7 @@ class PromptManager:
         self.template_style = template_style
         self.custom_template = custom_template
         self.enable_intent_prediction = enable_intent_prediction
+        self.intent_label_loader = intent_label_loader  # 保存自定义加载器
         
         # 根据LLM格式设置默认上下文长度
         if max_context_length is None:
@@ -115,7 +118,8 @@ class PromptManager:
         """
         从intent_labels配置文件中加载领域特定的意图列表
         """
-        loader = _get_intent_label_loader()
+        # 优先使用自定义的intent_label_loader
+        loader = self.intent_label_loader if self.intent_label_loader is not None else _get_intent_label_loader()
         if loader is None:
             logger.warning(f"Intent label loader not available, intent prediction disabled for domain: {self.domain}")
             return
@@ -140,7 +144,8 @@ class PromptManager:
         if not self.enable_intent_prediction or not self.domain_intents:
             return ""
         
-        loader = _get_intent_label_loader()
+        # 优先使用自定义的intent_label_loader
+        loader = self.intent_label_loader if self.intent_label_loader is not None else _get_intent_label_loader()
         if loader is None:
             return ""
         
