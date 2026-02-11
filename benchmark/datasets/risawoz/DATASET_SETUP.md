@@ -49,6 +49,114 @@ ls ./data/RiSAWOZ/
 python benchmark/run_dst_risawoz.py
 ```
 
+## 使用 task1-data-NLU.zip（重要！）
+
+如果你下载的是 **task1-data-NLU.zip**，解压后会得到以下文件：
+
+```
+test_data.json_all
+test_data.json_multi
+test_data.json_single
+train_data.json
+val_data.json
+```
+
+### 文件说明
+
+| 原文件名 | 说明 | 需要重命名为 |
+|---------|------|------------|
+| `train_data.json` | 训练集（~8000对话） | `train.json` ✅ |
+| `val_data.json` | 验证集（~1500对话） | `val.json` ✅ |
+| `test_data.json_all` | 完整测试集（单+多领域） | `test.json` ✅ (推荐) |
+| `test_data.json_single` | 单领域对话测试集 | 可选 |
+| `test_data.json_multi` | 多领域对话测试集 | 可选 |
+
+### 快速设置（5步）
+
+```bash
+# 步骤1: 创建目录
+mkdir -p ./data/RiSAWOZ
+
+# 步骤2: 解压
+unzip task1-data-NLU.zip -d ./data/RiSAWOZ/
+
+# 步骤3: 进入目录并重命名
+cd ./data/RiSAWOZ
+mv train_data.json train.json
+mv val_data.json val.json
+mv test_data.json_all test.json
+
+# 步骤4: 验证
+ls
+# 应该看到: train.json  val.json  test.json  test_data.json_multi  test_data.json_single
+
+# 步骤5: 运行评测
+cd ../..
+python benchmark/run_dst_risawoz.py
+```
+
+### 一键命令
+
+```bash
+mkdir -p ./data/RiSAWOZ && \
+unzip task1-data-NLU.zip -d ./data/RiSAWOZ/ && \
+cd ./data/RiSAWOZ && \
+mv train_data.json train.json && \
+mv val_data.json val.json && \
+mv test_data.json_all test.json && \
+cd ../.. && \
+python benchmark/run_dst_risawoz.py
+```
+
+### 为什么需要重命名？
+
+代码期望的文件名格式：
+
+```python
+# benchmark/datasets/risawoz/adapter.py 第80行
+file_path = self.data_root / f"{split}.json"
+
+# 期望: train.json, val.json, test.json
+# 实际: train_data.json, val_data.json, test_data.json_*
+# ❌ 不匹配，必须重命名！
+```
+
+### 选择不同的测试集
+
+**使用单领域测试集**（分析单领域性能）:
+```bash
+cd ./data/RiSAWOZ
+mv test.json test_all.json.bak  # 备份
+mv test_data.json_single test.json
+cd ../..
+python benchmark/run_dst_risawoz.py --split test
+```
+
+**使用多领域测试集**（分析多领域性能）:
+```bash
+cd ./data/RiSAWOZ
+mv test.json test_all.json.bak  # 备份
+mv test_data.json_multi test.json
+cd ../..
+python benchmark/run_dst_risawoz.py --split test
+```
+
+**恢复完整测试集**:
+```bash
+cd ./data/RiSAWOZ
+mv test_all.json.bak test.json
+```
+
+### 测试集对比
+
+| 测试集 | 对话类型 | 适用场景 | 推荐度 |
+|-------|---------|---------|-------|
+| `test_data.json_all` | 单+多领域 | 标准评测（最全面） | ⭐⭐⭐⭐⭐ |
+| `test_data.json_single` | 仅单领域 | 单领域性能分析 | ⭐⭐⭐ |
+| `test_data.json_multi` | 仅多领域 | 多领域性能分析 | ⭐⭐⭐ |
+
+**建议**: 默认使用 `test_data.json_all`（完整测试集）
+
 ## 详细说明
 
 ### 标准目录结构
@@ -356,6 +464,80 @@ print("验证完成!")
 ```bash
 # 限制测试数量，快速验证
 python benchmark/run_dst_risawoz.py --limit 5 --verbose
+```
+
+### Q7: 如何使用 task1-data-NLU.zip？
+
+**问题**: 解压 `task1-data-NLU.zip` 后得到 `train_data.json`, `val_data.json`, `test_data.json_all` 等文件，怎么办？
+
+**解决**: 需要重命名文件！
+
+```bash
+# 快速设置
+mkdir -p ./data/RiSAWOZ
+unzip task1-data-NLU.zip -d ./data/RiSAWOZ/
+cd ./data/RiSAWOZ
+mv train_data.json train.json
+mv val_data.json val.json
+mv test_data.json_all test.json
+cd ../..
+python benchmark/run_dst_risawoz.py
+```
+
+详见上面的"使用 task1-data-NLU.zip"章节。
+
+### Q8: 应该使用哪个测试集（all/single/multi）？
+
+**问题**: task1-data-NLU.zip 包含3个测试文件，用哪个？
+
+**答案**:
+- **默认推荐**: `test_data.json_all`（完整测试集，最全面）
+- **单领域分析**: `test_data.json_single`（只包含单领域对话）
+- **多领域分析**: `test_data.json_multi`（只包含多领域对话）
+
+**标准评测**: 使用 `test_data.json_all`
+
+### Q9: 可以不重命名直接使用吗？
+
+**问题**: 能不能修改代码来支持 `train_data.json` 这样的文件名？
+
+**答案**: ❌ 不建议
+
+原因:
+1. 代码硬编码期望 `{split}.json` 格式
+2. 重命名文件更简单（3个 `mv` 命令）
+3. 修改代码会影响其他用户
+
+**建议**: 按照文档重命名文件即可。
+
+### Q10: 如何同时保留所有测试集？
+
+**问题**: 我想保留 `test_data.json_all`, `test_data.json_single`, `test_data.json_multi`，并灵活切换？
+
+**方法1: 使用软链接**:
+```bash
+cd ./data/RiSAWOZ
+# 默认使用 all
+ln -s test_data.json_all test.json
+
+# 切换到 single
+rm test.json
+ln -s test_data.json_single test.json
+
+# 切换到 multi
+rm test.json
+ln -s test_data.json_multi test.json
+```
+
+**方法2: 使用备份和重命名**:
+```bash
+# 切换到 single
+mv test.json test_all.json.bak
+mv test_data.json_single test.json
+
+# 恢复 all
+mv test.json test_single.json.bak
+mv test_all.json.bak test.json
 ```
 
 ## 数据集信息
