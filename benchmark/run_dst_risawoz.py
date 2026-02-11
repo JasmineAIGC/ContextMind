@@ -210,9 +210,9 @@ class DSTRiSAWOZTest:
         self.intent_evaluator.add_dialogue_evaluation(
             dialogue_id=dialogue_id,
             domain=dialogue.domain,
+            predicted_intent="",  # RiSAWOZ没有显式意图预测，让evaluator从槽位推断
             dialogue_slots=final_expected,
-            user_utterances=[turn.user_utterance for turn in dialogue.turns],
-            predicted_state=final_extracted
+            user_utterances=[turn.user_utterance for turn in dialogue.turns]
         )
         
         if verbose:
