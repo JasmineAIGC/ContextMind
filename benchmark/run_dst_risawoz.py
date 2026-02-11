@@ -468,24 +468,42 @@ async def main():
     
     # 检查test-file是否包含路径
     test_path = Path(args.test_file)
+    train_path = Path(args.train_file)
+    val_path = Path(args.val_file)
+    
+    # 检测哪个文件使用了完整路径
+    detected_split = None
+    
     if len(test_path.parts) > 1:  # 包含目录
         # 提取目录和文件名
         data_root = str(test_path.parent)
         test_file = test_path.name
+        detected_split = "test"
         logger.info(f"检测到完整路径，使用: data_root={data_root}, test_file={test_file}")
     
     # 同样处理 train-file 和 val-file
-    train_path = Path(args.train_file)
     if len(train_path.parts) > 1:
         if data_root != args.data_root:
             logger.warning(f"train-file 路径 {args.train_file} 与 test-file 路径不一致，使用 test-file 的目录")
+        else:
+            data_root = str(train_path.parent)
         train_file = train_path.name
+        if not detected_split:
+            detected_split = "train"
     
-    val_path = Path(args.val_file)
     if len(val_path.parts) > 1:
         if data_root != args.data_root:
             logger.warning(f"val-file 路径 {args.val_file} 与 test-file 路径不一致，使用 test-file 的目录")
+        else:
+            data_root = str(val_path.parent)
         val_file = val_path.name
+        if not detected_split:
+            detected_split = "val"
+    
+    # 如果检测到文件路径且用户没有明确指定 split，自动设置 split
+    if detected_split and args.split == "val":  # "val" 是默认值
+        args.split = detected_split
+        logger.info(f"根据文件路径自动设置 split={detected_split}")
     
     # 创建文件映射
     file_mapping = {
