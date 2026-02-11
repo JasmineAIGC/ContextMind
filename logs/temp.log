@@ -1,126 +1,885 @@
-python benchmark/run_dst_risawoz.py --test-file .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json  --limit 10 --use-semantic-match
-📝 日志将自动保存到: logs/evolve_20260211_174449.log
-[2026-02-11 17:44:49] INFO - [__main__] 检测到完整路径，使用: data_root=.data/RiSAWOZ/RiSAWOZ-data/task2-data-DST, test_file=dst_all_test600_new.json
-[2026-02-11 17:44:49] INFO - [__main__] 根据文件路径自动设置 split=test
-[2026-02-11 17:44:49] INFO - [__main__] 数据根目录: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST
-[2026-02-11 17:44:49] INFO - [__main__] 数据划分: test
-[2026-02-11 17:44:49] INFO - [__main__] 文件映射: {'train': 'train.json', 'val': 'val.json', 'test': 'dst_all_test600_new.json'}
-[2026-02-11 17:44:49] INFO - [__main__] 语义匹配: 启用
-[2026-02-11 17:44:49] INFO - [__main__] 相似度阈值: 0.85
-[2026-02-11 17:44:49] INFO - [__main__] 将要加载的数据文件: .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json
-[2026-02-11 17:44:49] INFO - [benchmark.shared.intent_label_loader] 已加载 13 个领域的意图标签
-[2026-02-11 17:44:49] INFO - [contextmind.infra.embedding] [EmbeddingConfig] 使用本地 embedding 模型: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-[2026-02-11 17:44:49] INFO - [contextmind.infra.embedding] [EmbeddingClient] 正在加载本地模型: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-[2026-02-11 17:44:49] INFO - Use pytorch device_name: cuda:0
-[2026-02-11 17:44:49] INFO - Load pretrained SentenceTransformer: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-Loading weights: 100%|███████████████████████████████████| 391/391 [00:00<00:00, 8018.09it/s, Materializing param=pooler.dense.weight]
-BertModel LOAD REPORT from: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-Key                     | Status     |  | 
-------------------------+------------+--+-
-embeddings.position_ids | UNEXPECTED |  | 
+python benchmark/run_dst_risawoz.py --test-file .data/RiSAWOZ/RiSAWOZ-data/task2-data-DST/dst_all_test600_new.json  --limit 10 --use-semantic-match --verbose
 
-Notes:
-- UNEXPECTED    :can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-[2026-02-11 17:44:51] INFO - [contextmind.infra.embedding] [EmbeddingClient] 本地模型加载成功 - bge-large-zh-v1.5
-[2026-02-11 17:44:51] INFO - [__main__] ✅ 语义匹配已启用 - 相似度阈值: 0.85
-[2026-02-11 17:44:51] INFO - [__main__] 找到 10 个对话实例
-[2026-02-11 17:44:51] INFO - [__main__] 限制测试数量: 10
-[2026-02-11 17:44:51] INFO - [__main__] 
-处理对话 1/10: 0
-[2026-02-11 17:44:51] INFO - [__main__] 切换到领域: 旅游景点
-[2026-02-11 17:44:51] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
-[2026-02-11 17:44:51] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
-[2026-02-11 17:44:51] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-02-11 17:44:51] INFO - [contextmind.modes.dst.prompt_manager] Loaded 6 intents for domain: 旅游景点
-[2026-02-11 17:44:51] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=旅游景点, 动态槽位=True, 意图预测=True)
-[2026-02-11 17:44:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-02-11 17:44:51] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 旅游景点
-[2026-02-11 17:44:51] INFO - [__main__]    动态槽位模式: 启用
-[2026-02-11 17:44:51] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州', '活动类型': '游玩'}, 意图=推荐
-[2026-02-11 17:44:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '地点': '昆山', '人群': '朋友', '消费水平': '高'}, 意图=推荐
-[2026-02-11 17:44:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '询问特色', '地点': '周庄古镇'}, 意图=询问特色
-[2026-02-11 17:44:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '推荐', '地点': '周庄古镇', '区域': '昆山', '消费水平': '贵点', '伴随人群': '朋友'}, 意图=推荐
-[2026-02-11 17:44:52] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询景点', '景点名称': '周庄古镇', '所在区域': '昆山', '消费水平': '贵', '活动类型': '游玩', '详细信息需求': '地址和交通方式'}, 意图=咨询景点
-[2026-02-11 17:44:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢推荐', '感谢对象': '系统', '结束对话': '再见'}, 意图=感谢推荐
-[2026-02-11 17:44:53] INFO - [__main__] ✅ 对话 0 评测完成
-[2026-02-11 17:44:53] INFO - [__main__] 
-处理对话 2/10: 1
-[2026-02-11 17:44:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '景区名称': '金鸡湖景区', '特点': '了解'}, 意图=咨询景点
-[2026-02-11 17:44:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '景区名称': '金鸡湖景区', '用户感受': '期待'}, 意图=推荐
-[2026-02-11 17:44:53] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '购票电话'}, 意图=咨询产品
-[2026-02-11 17:44:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询开放时间', '景点名称': '金鸡湖景区', '联系方式': '400 - 7558558'}, 意图=咨询开放时间
-[2026-02-11 17:44:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '开放时间'}, 意图=咨询产品
-[2026-02-11 17:44:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '购票信息和开放时间'}, 意图=咨询产品
-[2026-02-11 17:44:54] INFO - [__main__] ✅ 对话 1 评测完成
-[2026-02-11 17:44:54] INFO - [__main__] 
+
+============================================================
+测试对话: 1
+领域: 通用
+轮次数: 6
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 和 朋友 一 起来 苏州 出差 ， 顺便 想 去 金鸡湖 景区 逛一逛 ， 你 能 给 我 介绍 下 这个 景区 的 特点 吗 ？...
+[2026-02-11 18:07:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '景区名称': '金鸡湖', '特点需求': '了解'}, 意图=咨询景点
+[2026-02-11 18:07:27] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+提取状态: {'intent': '咨询景点', '景区名称': '金鸡湖', '特点需求': '了解'}
+匹配数: 0/1
+
+--- 轮次 1 ---
+系统: 好 的 ， 这个 景点 的 特点 是 看 东方 之门 等 高楼 ， 坐 摩天轮 ， 乘船 夜游 ， 感受 苏州 现代化 的 一面 。...
+用户: 听 着 就 特别 美 ， 我 有些 迫不及待 的 想 去 了 呢 。...
+[2026-02-11 18:07:27] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '获取信息', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美'}, 意图=获取信息
+[2026-02-11 18:07:27] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+提取状态: {'intent': '获取信息', '景区名称': '金鸡湖', '特点需求': '了解', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美'}
+匹配数: 0/1
+
+--- 轮次 2 ---
+系统: 是 的 ， 这个 景点 确实 很 美 ， 我 个人 也 比较 喜欢 这个 景点 。...
+用户: 这个 景点 的 购票 电话 是 多少 呢 ？ 我 想 打电话 预定 门票 。...
+[2026-02-11 18:07:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '购票电话'}, 意图=咨询产品
+[2026-02-11 18:07:28] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+提取状态: {'intent': '咨询产品', '景区名称': '金鸡湖', '特点需求': '了解', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美', '具体需求': '购票电话'}
+匹配数: 0/1
+
+--- 轮次 3 ---
+系统: 您 记好 ， 这个 景点 的 电话 是 400 - 7558558 。...
+用户: 好 的 ， 那 这个 景点 都 什么 时间 开放 呢 ？...
+[2026-02-11 18:07:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询开放时间', '景点名称': '金鸡湖景区', '联系方式': '400-7558558'}, 意图=咨询开放时间
+[2026-02-11 18:07:28] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+提取状态: {'intent': '咨询开放时间', '景区名称': '金鸡湖', '特点需求': '了解', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美', '具体需求': '购票电话', '联系方式': '400-7558558'}
+匹配数: 0/1
+
+--- 轮次 4 ---
+系统: 稍 等 ， 为 您 查询 到 这个 景点 是 全天 开放 的 。...
+用户: 太好了 ， 全天 都 可以 ， 那 我 随时 都 能 去 ， 太 方便 了 。...
+[2026-02-11 18:07:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '金鸡湖景区', '具体需求': '开放时间和购票信息'}, 意图=咨询产品
+[2026-02-11 18:07:28] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+提取状态: {'intent': '咨询产品', '景区名称': '金鸡湖', '特点需求': '了解', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美', '具体需求': '开放时间和购票信息', '联系方式': '400-7558558'}
+匹配数: 0/1
+
+--- 轮次 5 ---
+系统: 是 很 方便 的 ， 请问 您 还有 其他 问题 吗 ？...
+用户: 没有 其他 问题 了 ， 谢谢 你 ， 再见 。...
+[2026-02-11 18:07:28] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye', '感谢': '谢谢', '告别': '再见'}, 意图=Bye
+[2026-02-11 18:07:28] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+提取状态: {'intent': 'Bye', '景区名称': '金鸡湖', '特点需求': '了解', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美', '具体需求': '开放时间和购票信息', '联系方式': '400-7558558', '感谢': '谢谢', '告别': '再见'}
+匹配数: 0/1
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-名称': '金鸡湖 景区'}
+最终提取状态: {'intent': 'Bye', '景区名称': '金鸡湖', '特点需求': '了解', '景点名称': '金鸡湖景区', '景点特点': "['看东方之门等高楼', '坐摩天轮', '乘船夜游']", '用户感受': '特别美', '具体需求': '开放时间和购票信息', '联系方式': '400-7558558', '感谢': '谢谢', '告别': '再见'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 16.67%
+正确轮次数: 1/6
+======================================================================
+
+[2026-02-11 18:07:28] INFO - [__main__] ✅ 对话 1 评测完成
+[2026-02-11 18:07:28] INFO - [__main__] 
 处理对话 3/10: 2
-[2026-02-11 17:44:54] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '景点名称': '灵岩山景区'}, 意图=查询地址
-[2026-02-11 17:44:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': '评分'}, 意图=查询景点信息
-[2026-02-11 17:44:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '评分': '4.3分', '情感态度': '不满'}, 意图=查询景点信息
-[2026-02-11 17:44:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询门票价格', '景点名称': '灵岩山景区', '评分': '4.3分'}, 意图=查询门票价格
-[2026-02-11 17:44:55] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '查询信息', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']"}, 意图=查询信息
-[2026-02-11 17:44:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '查询信息', '查询类型': '地址', '景点名称': '灵岩山景区', '评分': '4.3分', '门票价格': '免费'}, 意图=查询信息
-[2026-02-11 17:44:56] INFO - [__main__] ✅ 对话 2 评测完成
-[2026-02-11 17:44:56] INFO - [__main__] 
+
+============================================================
+测试对话: 2
+领域: 通用
+轮次数: 6
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 和 朋友 一 起来 苏州 出差 ， 顺便 想 去 灵岩山 景区 逛一逛 ， 能 不能 帮 我 查询 下 这个 景点 的 地址 呢 ？...
+[2026-02-11 18:07:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '景点名称': '灵岩山景区'}, 意图=查询地址
+[2026-02-11 18:07:29] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-名称': '灵岩山 景区'}
+提取状态: {'intent': '查询地址', '景点名称': '灵岩山景区'}
+匹配数: 0/1
+
+--- 轮次 1 ---
+系统: 没 问题 的 ， 稍 等 会 ， 地址 就 在 苏州市 吴中区 木渎 古镇 山塘 街市 梢 。...
+用户: 那 这个 景点 的 评分 怎么样 呢 ？...
+[2026-02-11 18:07:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': '评分'}, 意图=查询景点信息
+[2026-02-11 18:07:29] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-名称': '灵岩山 景区'}
+提取状态: {'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': '评分'}
+匹配数: 0/1
+
+--- 轮次 2 ---
+系统: 评分 是 4.3 分 。...
+用户: 才 4.3 分 啊 ， 那 有点 低 ， 呵呵 。...
+[2026-02-11 18:07:29] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '评分': '4.3分', '情感态度': '不满'}, 意图=查询景点信息
+[2026-02-11 18:07:29] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-名称': '灵岩山 景区'}
+提取状态: {'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': '评分', '评分': '4.3分', '情感态度': '不满'}
+匹配数: 0/1
+
+--- 轮次 3 ---
+系统: 有点 低 ， 不过 您 可以 试试看 ， 毕竟 有时候 评分 也 不是 特别 准 的 。...
+用户: 说 的 也 是 ， 我 先 去 看看 再说 ， 帮 我 查询 下 这个 景点 的 门票 的 价格 好 吗 ？...
+[2026-02-11 18:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询信息', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']"}, 意图=查询信息
+[2026-02-11 18:07:30] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-名称': '灵岩山 景区'}
+提取状态: {'intent': '查询信息', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']", '评分': '4.3分', '情感态度': '不满'}
+匹配数: 0/1
+
+--- 轮次 4 ---
+系统: 好 的 ， 稍 等 哦 ， 这个 景点 是 不 收费 的 。...
+用户: 太好了 ， 还 能 免费 看 景点 ， 我 真是太 开心 了 。...
+[2026-02-11 18:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '查询景点信息', '景点名称': '灵岩山景区', '地址': '苏州市吴中区木渎古镇山塘街市梢', '评分': '4.3分', '门票价格': '免费'}, 意图=查询景点信息
+[2026-02-11 18:07:30] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-名称': '灵岩山 景区'}
+提取状态: {'intent': '查询景点信息', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']", '评分': '4.3分', '情感态度': '不满', '地址': '苏州市吴中区木渎古镇山塘街市梢', '门票价格': '免费'}
+匹配数: 0/1
+
+--- 轮次 5 ---
+系统: 是 呀 ， 挺不错 的 呢 ， 您 还有 其他 问题 吗 ？...
+用户: 没有 了 ， 谢谢 你 ， 再见 。...
+[2026-02-11 18:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye'}, 意图=Bye
+[2026-02-11 18:07:30] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-名称': '灵岩山 景区'}
+提取状态: {'intent': 'Bye', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']", '评分': '4.3分', '情感态度': '不满', '地址': '苏州市吴中区木渎古镇山塘街市梢', '门票价格': '免费'}
+匹配数: 0/1
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-名称': '灵岩山 景区'}
+最终提取状态: {'intent': 'Bye', '景点名称': '灵岩山景区', '信息类型': "['地址', '评分', '门票价格']", '评分': '4.3分', '情感态度': '不满', '地址': '苏州市吴中区木渎古镇山塘街市梢', '门票价格': '免费'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 16.67%
+正确轮次数: 1/6
+======================================================================
+
+[2026-02-11 18:07:30] INFO - [__main__] ✅ 对话 2 评测完成
+[2026-02-11 18:07:30] INFO - [__main__] 
 处理对话 4/10: 3
-[2026-02-11 17:44:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州', '类型': '学校景点'}, 意图=推荐
-[2026-02-11 17:44:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': 'Recommend', 'location_type': '校园', 'budget': '便宜'}, 意图=Recommend
-[2026-02-11 17:44:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询交通', '景点名称': '苏州大学', '交通方式': '地铁'}, 意图=查询交通
-[2026-02-11 17:44:56] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询开放时间', '景点名称': '苏州大学', '交通方式': '地铁'}, 意图=咨询开放时间
-[2026-02-11 17:44:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '苏州大学', '价格偏好': '便宜', '开放时间': '全天', '特点': '?', '交通方式': '地铁'}, 意图=咨询产品
-[2026-02-11 17:44:57] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢', '景点名称': '苏州大学', '地理位置': '古城苏州', '开放时间': '全天开放', '特点': '国家211工程重点建设高校，前身创建于1900年光绪年间'}, 意图=感谢
-[2026-02-11 17:44:57] INFO - [__main__] ✅ 对话 3 评测完成
-[2026-02-11 17:44:57] INFO - [__main__] 
+
+============================================================
+测试对话: 3
+领域: 通用
+轮次数: 6
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 是 苏州人 ， 不 不怎么 出去玩 ， 我 朋友 来 苏州 找 我 ， 我 准备 带 他 逛逛 学校 这种 景点 ， 有 推荐 的 吗 ？...
+[2026-02-11 18:07:30] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询景点', '地点': '苏州', '类型': '学校', '人物关系': '朋友'}, 意图=咨询景点
+[2026-02-11 18:07:30] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-景点类型': '学校 校园'}
+提取状态: {'intent': '咨询景点', '地点': '苏州', '类型': '学校', '人物关系': '朋友'}
+匹配数: 0/1
+
+--- 轮次 1 ---
+系统: 好 的 ， 您 希望 找个 便宜 点 的 还是 贵点 的 校园 景点 呢 ？...
+用户: 我 希望 是 便宜 点 的 。...
+[2026-02-11 18:07:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询景点', '地点': '苏州', '类型': '校园景点', '预算': '便宜'}, 意图=咨询景点
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-景点类型': '学校 校园', '旅游景点-消费': '便宜'}
+提取状态: {'intent': '咨询景点', '地点': '苏州', '类型': '校园景点', '人物关系': '朋友', '预算': '便宜'}
+匹配数: 0/2
+
+--- 轮次 2 ---
+系统: 好 的 ， 这 就 为 您 查询 啊 ， 为 您 查询 到 苏州大学 就 可以 。...
+用户: 好 的 ， 这所 大学 附近 有 地铁口 吗 ？ 我 想 坐地铁 去 呢 。...
+[2026-02-11 18:07:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '苏州大学', '交通方式': '地铁'}, 意图=咨询产品
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-景点类型': '学校 校园', '旅游景点-消费': '便宜', '旅游景点-名称': '苏州大学'}
+提取状态: {'intent': '咨询产品', '地点': '苏州', '类型': '校园景点', '人物关系': '朋友', '预算': '便宜', '景点名称': '苏州大学', '交通方式': '地铁'}
+匹配数: 0/3
+
+--- 轮次 3 ---
+系统: 有 地铁 能 直接 到 这个 大学 的 。...
+用户: 那 太好了 ， 这所 大学 什么 时候 开放 呢 ？...
+[2026-02-11 18:07:31] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '?'}, 意图=咨询景点
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:31] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-景点类型': '学校 校园', '旅游景点-消费': '便宜', '旅游景点-名称': '苏州大学'}
+提取状态: {'intent': '咨询景点', '地点': '苏州', '类型': '校园景点', '人物关系': '朋友', '预算': '便宜', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '?'}
+匹配数: 0/3
+
+--- 轮次 4 ---
+系统: 这所 大学 是 全天 开放 的 。 随时 都 可以 去 的 。...
+用户: 那 挺 好 ， 我 可以 自由 安排 时间 了 ， 这所 大学 有 啥 特点 呢 ？...
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询景点', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '全天', '景点特点': '?'}, 意图=咨询景点
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-景点类型': '学校 校园', '旅游景点-消费': '便宜', '旅游景点-名称': '苏州大学'}
+提取状态: {'intent': '咨询景点', '地点': '苏州', '类型': '校园景点', '人物关系': '朋友', '预算': '便宜', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '全天', '景点特点': '?'}
+匹配数: 0/3
+
+--- 轮次 5 ---
+系统: 特点 是 苏州大学 坐落于 古城 苏州 ， 是 国家 211 工程 重点 建设 高校 ， 其 前身 为 创建 于 1900 年 光绪年间 的 东吴大学 。...
+用户: 好 的 ， 十分 感谢 你 的 耐心 解答 ， 拜拜 。...
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye', '感谢': '耐心解答'}, 意图=Bye
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-景点类型': '学校 校园', '旅游景点-消费': '便宜', '旅游景点-名称': '苏州大学'}
+提取状态: {'intent': 'Bye', '地点': '苏州', '类型': '校园景点', '人物关系': '朋友', '预算': '便宜', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '全天', '景点特点': '?', '感谢': '耐心解答'}
+匹配数: 0/3
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-景点类型': '学校 校园', '旅游景点-消费': '便宜', '旅游景点-名称': '苏州大学'}
+最终提取状态: {'intent': 'Bye', '地点': '苏州', '类型': '校园景点', '人物关系': '朋友', '预算': '便宜', '景点名称': '苏州大学', '交通方式': '地铁', '开放时间': '全天', '景点特点': '?', '感谢': '耐心解答'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 16.67%
+正确轮次数: 1/6
+======================================================================
+
+[2026-02-11 18:07:32] INFO - [__main__] ✅ 对话 3 评测完成
+[2026-02-11 18:07:32] INFO - [__main__] 
 处理对话 5/10: 4
-[2026-02-11 17:44:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州吴中区', '类型': '景点'}, 意图=推荐
-[2026-02-11 17:44:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '游玩人数': '朋友', '预算': '中等'}, 意图=推荐
-[2026-02-11 17:44:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '信息类型': '门票价格'}, 意图=咨询产品
-[2026-02-11 17:44:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '门票价格': '30元', '具体位置': '?'}, 意图=咨询产品
-[2026-02-11 17:44:58] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '具体需求': '门票价格、地址、联系电话'}, 意图=咨询产品
-[2026-02-11 17:44:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '请求帮助', '景点名称': '天平山景区', '门票价格': '30元', '地址': '苏州市吴中区灵天路', '联系电话': '0512-66387422', '游玩方式': '与朋友一起'}, 意图=请求帮助
-[2026-02-11 17:44:59] INFO - [__main__] ✅ 对话 4 评测完成
-[2026-02-11 17:44:59] INFO - [__main__] 
+[2026-02-11 18:07:32] INFO - [__main__] 切换到领域: 旅游景点
+[2026-02-11 18:07:32] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-11 18:07:32] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-11 18:07:32] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.prompt_manager] Loaded 6 intents for domain: 旅游景点
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=旅游景点, 动态槽位=True, 意图预测=True)
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-11 18:07:32] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 旅游景点
+[2026-02-11 18:07:32] INFO - [__main__]    动态槽位模式: 启用
+
+============================================================
+测试对话: 4
+领域: 旅游景点
+轮次数: 6
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 您好 ， 我 是 外地 来 苏州旅游 的 ， 现在 在 吴中区 ， 能 帮 我 推荐 几个 好玩 的 景点 吗 ？...
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州吴中区', '类型': '景点'}, 意图=推荐
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> General ✗
+期望状态: {'旅游景点-区域': '吴中区'}
+提取状态: {'intent': '推荐', '地点': '苏州吴中区', '类型': '景点'}
+匹配数: 0/1
+
+--- 轮次 1 ---
+系统: 您好 ， 吴中区 景点 还 真不少 ， 请问 您 想 找 什样 的 景点 呢 ， 是 您 自己 去 还是 和 朋友 一起 玩 ？...
+用户: 我 是 和 几个 朋友 一起 去 玩 ， 帮 我 找 找 适合 大家 一起 玩 的 地方 吧 ， 价位 别太高 ， 中等水平 的 就 行 。...
+[2026-02-11 18:07:32] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '推荐', '游玩人数': '朋友', '预算': '中等'}, 意图=推荐
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:32] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> General ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '中等'}
+提取状态: {'intent': '推荐', '地点': '苏州吴中区', '类型': '景点', '游玩人数': '朋友', '预算': '中等'}
+匹配数: 0/3
+
+--- 轮次 2 ---
+系统: 帮 您 找到 了 两个 价位 中等 的 景点 ， 天平山 景区 和 穹窿 山 景区 ， 都 是 山水 景区 ， 您 可以 了解 一下 。...
+用户: 嗯 ， 听 朋友 说 天平山 景区 不错 ， 帮 我 看看 这个 景点 的 门票价格 是 多少 。...
+[2026-02-11 18:07:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '信息类型': '门票价格'}, 意图=咨询产品
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> General ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区'}
+提取状态: {'intent': '咨询产品', '地点': '苏州吴中区', '类型': '景点', '游玩人数': '朋友', '预算': '中等', '景点名称': '天平山景区', '信息类型': '门票价格'}
+匹配数: 0/4
+
+--- 轮次 3 ---
+系统: 这个 景点 的 门票价格 是 30 元 每位 ， 几个 朋友 一起 去 玩 的话 也 花 不了 多少 钱 ， 性价比 挺 高 的 还是 。...
+用户: 嗯 ， 这个 价位 还是 可以 接受 的 ， 这个 景点 的 具体地址 在 哪里 ？...
+[2026-02-11 18:07:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '门票价格': '30元', '具体位置': '?'}, 意图=咨询产品
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> General ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区'}
+提取状态: {'intent': '咨询产品', '地点': '苏州吴中区', '类型': '景点', '游玩人数': '朋友', '预算': '中等', '景点名称': '天平山景区', '信息类型': '门票价格', '门票价格': '30元', '具体位置': '?'}
+匹配数: 0/4
+
+--- 轮次 4 ---
+系统: 这个 景点 是 在 苏州市 吴中区 灵天路 。...
+用户: 好 的 ， 再 帮 我 查查 景点 的 联系电话 吧 ， 我 去 之前 提前 咨询 一下 具体情况 ， 好 提前 做个 准备 。...
+[2026-02-11 18:07:33] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '具体需求': '门票价格、地址、联系电话'}, 意图=咨询产品
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:33] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> General ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区'}
+提取状态: {'intent': '咨询产品', '地点': '苏州吴中区', '类型': '景点', '游玩人数': '朋友', '预算': '中等', '景点名称': '天平山景区', '信息类型': '门票价格', '门票价格': '30元', '具体位置': '?', '具体需求': '门票价格、地址、联系电话'}
+匹配数: 0/4
+
+--- 轮次 5 ---
+系统: 嗯 ， 对 ， 提前 咨询 好 这些 更 稳妥 些 。 这个 景点 的 电话 是 0512 - 66387422 。...
+用户: 好 的 好 的 ， 了解 啦 ， 感谢您 的 耐心 解答 。...
+[2026-02-11 18:07:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '请求帮助', '景点名称': '天平山景区', '门票价格': '30元', '地址': '苏州市吴中区灵天路', '联系电话': '0512-66387422', '游玩方式': '与朋友一起'}, 意图=请求帮助
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> General ✓
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区'}
+提取状态: {'intent': '请求帮助', '地点': '苏州吴中区', '类型': '景点', '游玩人数': '朋友', '预算': '中等', '景点名称': '天平山景区', '信息类型': '门票价格', '门票价格': '30元', '具体位置': '?', '具体需求': '门票价格、地址、联系电话', '地址': '苏州市吴中区灵天路', '联系电话': '0512-66387422', '游玩方式': '与朋友一起'}
+匹配数: 0/4
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区'}
+最终提取状态: {'intent': '请求帮助', '地点': '苏州吴中区', '类型': '景点', '游玩人数': '朋友', '预算': '中等', '景点名称': '天平山景区', '信息类型': '门票价格', '门票价格': '30元', '具体位置': '?', '具体需求': '门票价格、地址、联系电话', '地址': '苏州市吴中区灵天路', '联系电话': '0512-66387422', '游玩方式': '与朋友一起'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 16.67%
+正确轮次数: 1/6
+======================================================================
+
+[2026-02-11 18:07:34] INFO - [__main__] ✅ 对话 4 评测完成
+[2026-02-11 18:07:34] INFO - [__main__] 
 处理对话 6/10: 5
-[2026-02-11 17:44:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '吴江', '对象': '朋友', '预算': '贵点'}, 意图=推荐
-[2026-02-11 17:44:59] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询信息', '地点': '同里古镇', '评分': '?'}, 意图=咨询信息
-[2026-02-11 17:45:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询景点信息', '景点名称': '同里古镇', '信息类型': "['评分', '门票价格']"}, 意图=咨询景点信息
-[2026-02-11 17:45:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点详情', '景点名称': '同里古镇', '交通方式': '地铁', '预算等级': '贵'}, 意图=咨询景点详情
-[2026-02-11 17:45:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢与告别', '感谢对象': '系统', '告别方式': '再见'}, 意图=感谢与告别
-[2026-02-11 17:45:00] INFO - [__main__] ✅ 对话 5 评测完成
-[2026-02-11 17:45:00] INFO - [__main__] 
+[2026-02-11 18:07:34] INFO - [__main__] 切换到领域: 通用
+[2026-02-11 18:07:34] INFO - [contextmind.infra.llm_client] [LLM Client] 正在初始化，model: Qwen2.5-7B-Instruct
+[2026-02-11 18:07:34] INFO - [contextmind.infra.llm_client] [LLM Client] 初始化成功
+[2026-02-11 18:07:34] INFO - [__main__] ✅ LLM客户端初始化成功
+[2026-02-11 18:07:34] INFO - [contextmind.modes.dst.prompt_manager] Loaded 5 intents for domain: 通用
+[2026-02-11 18:07:34] INFO - [contextmind.modes.dst.prompt_manager] 初始化PromptManager (领域=通用, 动态槽位=True, 意图预测=True)
+[2026-02-11 18:07:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
+[2026-02-11 18:07:34] INFO - [__main__] ✅ DST模式初始化完成 - 领域: 通用
+[2026-02-11 18:07:34] INFO - [__main__]    动态槽位模式: 启用
+
+============================================================
+测试对话: 5
+领域: 通用
+轮次数: 5
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 是 外地 来 苏州旅游 的 ， 想 在 吴江 找个 适合 朋友 出游 的 地方 玩 ， 麻烦 推荐 一个 吧 ， 贵点 的 。...
+[2026-02-11 18:07:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '吴江', '对象': '朋友', '活动类型': '出游', '预算': '贵点'}, 意图=推荐
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-区域': '吴江', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '偏贵'}
+提取状态: {'intent': '推荐', '地点': '吴江', '对象': '朋友', '活动类型': '出游', '预算': '贵点'}
+匹配数: 0/3
+
+--- 轮次 1 ---
+系统: 好 的 ， 这边 帮 您 推荐 同 里 古镇 。...
+用户: 好 的 ， 这边 评分 怎么样 ？...
+[2026-02-11 18:07:34] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询产品', '景点名称': '同里古镇', '评分': '?'}, 意图=咨询产品
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:34] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-区域': '吴江', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '偏贵', '旅游景点-名称': '同 里 古镇'}
+提取状态: {'intent': '咨询产品', '地点': '吴江', '对象': '朋友', '活动类型': '出游', '预算': '贵点', '景点名称': '同里古镇', '评分': '?'}
+匹配数: 0/4
+
+--- 轮次 2 ---
+系统: 评分 是 4.5 分 。...
+用户: 好 的 ， 那 门票 是 多少 钱 呢 ？...
+[2026-02-11 18:07:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询景点', '景点名称': '同里古镇', '关注点': "['评分', '门票价格']"}, 意图=咨询景点
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-区域': '吴江', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '偏贵', '旅游景点-名称': '同 里 古镇'}
+提取状态: {'intent': '咨询景点', '地点': '吴江', '对象': '朋友', '活动类型': '出游', '预算': '贵点', '景点名称': '同里古镇', '评分': '?', '关注点': "['评分', '门票价格']"}
+匹配数: 0/4
+
+--- 轮次 3 ---
+系统: 门票 100 元 。...
+用户: 地铁 能 到 吗 ？ 这样 能 方便 些 。...
+[2026-02-11 18:07:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询景点', '地点': '同里古镇', '关注点': "['评分', '门票价格', '交通便利性']"}, 意图=咨询景点
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-区域': '吴江', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '偏贵', '旅游景点-名称': '同 里 古镇'}
+提取状态: {'intent': '咨询景点', '地点': '同里古镇', '对象': '朋友', '活动类型': '出游', '预算': '贵点', '景点名称': '同里古镇', '评分': '?', '关注点': "['评分', '门票价格', '交通便利性']"}
+匹配数: 0/4
+
+--- 轮次 4 ---
+系统: 很 抱歉 ， 地铁 不 直达 。...
+用户: 哦 哦 ， 好 吧 ， 还是 谢谢 了 ， 再见 ！...
+[2026-02-11 18:07:35] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': 'Bye', '感谢': '谢谢', '告别方式': '再见'}, 意图=Bye
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:35] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-区域': '吴江', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '偏贵', '旅游景点-名称': '同 里 古镇'}
+提取状态: {'intent': 'Bye', '地点': '同里古镇', '对象': '朋友', '活动类型': '出游', '预算': '贵点', '景点名称': '同里古镇', '评分': '?', '关注点': "['评分', '门票价格', '交通便利性']", '感谢': '谢谢', '告别方式': '再见'}
+匹配数: 0/4
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-区域': '吴江', '旅游景点-最适合人群': '朋友 出游', '旅游景点-消费': '偏贵', '旅游景点-名称': '同 里 古镇'}
+最终提取状态: {'intent': 'Bye', '地点': '同里古镇', '对象': '朋友', '活动类型': '出游', '预算': '贵点', '景点名称': '同里古镇', '评分': '?', '关注点': "['评分', '门票价格', '交通便利性']", '感谢': '谢谢', '告别方式': '再见'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 20.00%
+正确轮次数: 1/5
+======================================================================
+
+[2026-02-11 18:07:35] INFO - [__main__] ✅ 对话 5 评测完成
+[2026-02-11 18:07:35] INFO - [__main__] 
 处理对话 7/10: 6
-[2026-02-11 17:45:00] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州', '场景': '山水景区', '消费水平': '中等'}, 意图=推荐
-[2026-02-11 17:45:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询价格', '景区名称': '天平山景区', '消费水平': '中等'}, 意图=咨询价格
-[2026-02-11 17:45:01] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': '?'}, 意图=咨询产品
-[2026-02-11 17:45:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '?'}, 意图=咨询产品
-[2026-02-11 17:45:02] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '0512-66387422'}, 意图=咨询产品
-[2026-02-11 17:45:02] INFO - [__main__] ✅ 对话 6 评测完成
-[2026-02-11 17:45:02] INFO - [__main__] 
+
+============================================================
+测试对话: 6
+领域: 通用
+轮次数: 5
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 想 和 朋友 在 苏州 找个 山水 景区 玩玩 ， 你 能 给 推荐 一个 消费水平 中等 的 地方 吗 ？...
+[2026-02-11 18:07:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州', '类型': '山水景区', '消费水平': '中等'}, 意图=推荐
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-景点类型': '山水 景区', '旅游景点-消费': '中等'}
+提取状态: {'intent': '推荐', '地点': '苏州', '类型': '山水景区', '消费水平': '中等'}
+匹配数: 0/2
+
+--- 轮次 1 ---
+系统: 好 的 ， 推荐 您 去 天平山 景区 ， 就 在 苏州市 吴中区 灵天路 。...
+用户: 这个 地方 门票 要 多少 钱 啊 ？...
+[2026-02-11 18:07:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '具体需求': '门票价格'}, 意图=咨询产品
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-景点类型': '山水 景区', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区', '旅游景点-区域': '吴中区'}
+提取状态: {'intent': '咨询产品', '地点': '苏州', '类型': '山水景区', '消费水平': '中等', '景区名称': '天平山景区', '具体需求': '门票价格'}
+匹配数: 0/4
+
+--- 轮次 2 ---
+系统: 门票 要 30 元 ， 经济 实惠 。...
+用户: 那 这个 地方 有 什么 特色 吗 ？...
+[2026-02-11 18:07:36] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': '?'}, 意图=咨询产品
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:36] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-景点类型': '山水 景区', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区', '旅游景点-区域': '吴中区'}
+提取状态: {'intent': '咨询产品', '地点': '苏州', '类型': '山水景区', '消费水平': '中等', '景区名称': '天平山景区', '具体需求': '门票价格', '景点名称': '天平山景区', '门票价格': '30元', '特色': '?'}
+匹配数: 0/4
+
+--- 轮次 3 ---
+系统: 这里 是 范仲淹 先祖 归葬 地 ， 有 浓郁 的 人文 历史 气息 ； 同时 ， 山区 的 乱石 路 可以 让 您 更好 地 体验 爬山 乐趣 。 此外 ， ...
+用户: 最后 再 问 一下 ， 景区 的 电话 是 多少 呢 ？...
+[2026-02-11 18:07:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景区名称': '天平山景区', '消费水平': '中等', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '?'}, 意图=咨询产品
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-景点类型': '山水 景区', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区', '旅游景点-区域': '吴中区'}
+提取状态: {'intent': '咨询产品', '地点': '苏州', '类型': '山水景区', '消费水平': '中等', '景区名称': '天平山景区', '具体需求': '门票价格', '景点名称': '天平山景区', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '?'}
+匹配数: 0/4
+
+--- 轮次 4 ---
+系统: 0512 - 66387422 。...
+用户: 好 的 ， 谢谢 你 了 ， 再见 。...
+[2026-02-11 18:07:37] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢与告别', '感谢对象': '系统', '告别方式': '再见'}, 意图=感谢与告别
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:37] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-景点类型': '山水 景区', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区', '旅游景点-区域': '吴中区'}
+提取状态: {'intent': '感谢与告别', '地点': '苏州', '类型': '山水景区', '消费水平': '中等', '景区名称': '天平山景区', '具体需求': '门票价格', '景点名称': '天平山景区', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '?', '感谢对象': '系统', '告别方式': '再见'}
+匹配数: 0/4
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-景点类型': '山水 景区', '旅游景点-消费': '中等', '旅游景点-名称': '天平山 景区', '旅游景点-区域': '吴中区'}
+最终提取状态: {'intent': '感谢与告别', '地点': '苏州', '类型': '山水景区', '消费水平': '中等', '景区名称': '天平山景区', '具体需求': '门票价格', '景点名称': '天平山景区', '门票价格': '30元', '特色': "['范仲淹先祖归葬地', '山区的乱石路', '11月中下旬可赏红枫']", '联系方式': '?', '感谢对象': '系统', '告别方式': '再见'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 20.00%
+正确轮次数: 1/5
+======================================================================
+
+[2026-02-11 18:07:37] INFO - [__main__] ✅ 对话 6 评测完成
+[2026-02-11 18:07:37] INFO - [__main__] 
 处理对话 8/10: 7
-[2026-02-11 17:45:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '地点': '苏州太湖国家湿地公园'}, 意图=查询地址
-[2026-02-11 17:45:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询开放时间', '地点': '苏州太湖国家湿地公园'}, 意图=咨询开放时间
-[2026-02-11 17:45:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询信息', '信息类型': "['地址', '开放时间', '电话']", '地点': '苏州太湖国家湿地公园'}, 意图=查询信息
-[2026-02-11 17:45:03] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取信息', '地点': '苏州太湖国家湿地公园', '开放时间': '09:00到16:30', '联系电话': '0512-66918088'}, 意图=获取信息
-[2026-02-11 17:45:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取信息', '地点': '苏州太湖国家湿地公园', '开放时间': '09:00到16:30', '联系电话': '0512-66918088', '感谢': 'yes'}, 意图=获取信息
-[2026-02-11 17:45:04] INFO - [__main__] ✅ 对话 7 评测完成
-[2026-02-11 17:45:04] INFO - [__main__] 
+
+============================================================
+测试对话: 7
+领域: 通用
+轮次数: 5
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 嗨 ， 你好 呀 ， 我 和 好 姐妹 一 起来 这里 出差 ， 周末 有 时间 想 去 苏州 太湖 国家 湿地 公园 去 逛逛 ， 不 知道 地址 在 哪 ，...
+[2026-02-11 18:07:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '查询地址', '地点': '苏州太湖国家湿地公园'}, 意图=查询地址
+[2026-02-11 18:07:38] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-名称': '苏州 太湖 国家 湿地 公园'}
+提取状态: {'intent': '查询地址', '地点': '苏州太湖国家湿地公园'}
+匹配数: 0/1
+
+--- 轮次 1 ---
+系统: 您好 ， 这个 公园 在 苏州市 高新区 镇湖 绣品 街 1 号 。...
+用户: 具体 都 什么 时间 开放 呢 ？...
+[2026-02-11 18:07:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询开放时间', '地点': '苏州太湖国家湿地公园'}, 意图=查询开放时间
+[2026-02-11 18:07:38] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-名称': '苏州 太湖 国家 湿地 公园'}
+提取状态: {'intent': '查询开放时间', '地点': '苏州太湖国家湿地公园'}
+匹配数: 0/1
+
+--- 轮次 2 ---
+系统: 景点 在 09 : 00 到 16 : 30 开放 。...
+用户: 哦 ！ 再 帮 我 查看 一下 电话号码 吧 ！...
+[2026-02-11 18:07:38] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '查询信息', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']"}, 意图=查询信息
+[2026-02-11 18:07:38] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-名称': '苏州 太湖 国家 湿地 公园'}
+提取状态: {'intent': '查询信息', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']"}
+匹配数: 0/1
+
+--- 轮次 3 ---
+系统: 好 的 ， 电话号码 是 0512 - 66918088 。...
+用户: 好 的 ， 都 记下 了 ， 谢谢 你 啊 。...
+[2026-02-11 18:07:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '获取信息', '地点': '苏州太湖国家湿地公园', '开放时间': '09:00到16:30', '联系电话': '0512-66918088'}, 意图=获取信息
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-名称': '苏州 太湖 国家 湿地 公园'}
+提取状态: {'intent': '获取信息', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']", '开放时间': '09:00到16:30', '联系电话': '0512-66918088'}
+匹配数: 0/1
+
+--- 轮次 4 ---
+系统: 不用 客气 ， 还有 什么 需要 了解 的 吗 ？...
+用户: 啊 ， 没有 啦 ， 拜拜 ！...
+[2026-02-11 18:07:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': 'Bye'}, 意图=Bye
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-名称': '苏州 太湖 国家 湿地 公园'}
+提取状态: {'intent': 'Bye', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']", '开放时间': '09:00到16:30', '联系电话': '0512-66918088'}
+匹配数: 0/1
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-名称': '苏州 太湖 国家 湿地 公园'}
+最终提取状态: {'intent': 'Bye', '地点': '苏州太湖国家湿地公园', '信息类型': "['地址', '开放时间', '电话']", '开放时间': '09:00到16:30', '联系电话': '0512-66918088'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 20.00%
+正确轮次数: 1/5
+======================================================================
+
+[2026-02-11 18:07:39] INFO - [__main__] ✅ 对话 7 评测完成
+[2026-02-11 18:07:39] INFO - [__main__] 
 处理对话 9/10: 8
-[2026-02-11 17:45:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '推荐', '地点': '苏州吴中区', '交通方式': '地铁', '景观类型': '山水', '对象': '我和女朋友'}, 意图=推荐
-[2026-02-11 17:45:04] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询地址', '景点名称': '石湖景区'}, 意图=咨询地址
-[2026-02-11 17:45:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景区名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?'}, 意图=咨询产品
-[2026-02-11 17:45:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景区名称': '石湖景区', '具体需求': '了解特点'}, 意图=咨询产品
-[2026-02-11 17:45:05] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '推荐', '景点名称': '石湖景区', '地点': '苏州市吴中区', '联系方式': '0512-65646668', '景点特点': '山水相依、峰峦重叠，领略苏州的山水文化底蕴'}, 意图=推荐
-[2026-02-11 17:45:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢推荐', '景区名称': '石湖景区', '景区地址': '苏州市吴中区友新路333号', '景区电话': '0512-65646668', '景区特点': '赏石湖胜景，看山水相依、峰峦重叠，领略苏州的山水文化底蕴'}, 意图=感谢推荐
-[2026-02-11 17:45:06] INFO - [__main__] ✅ 对话 8 评测完成
-[2026-02-11 17:45:06] INFO - [__main__] 
+
+============================================================
+测试对话: 8
+领域: 通用
+轮次数: 6
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 和 我 女朋友 来 苏州 旅行 ， 准备 先 去 吴中区 玩玩儿 ， 我们 想 找个 可以 地铁 直达 的 山水 景区 逛逛 ， 又 不 知道 哪...
+[2026-02-11 18:07:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '寻求推荐', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区'}, 意图=寻求推荐
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区'}
+提取状态: {'intent': '寻求推荐', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区'}
+匹配数: 0/3
+
+--- 轮次 1 ---
+系统: 您好 ， 欢迎 来到 美丽 的 苏州 旅行 ， 石湖 景区 的 风景 很 美 ， 推荐 您 二位 去 逛逛 。...
+用户: 好 呀 ， 请问 这个 景点 的 地址 在 哪里 呢 ？...
+[2026-02-11 18:07:39] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '咨询地址', '景点名称': '石湖景区'}, 意图=咨询地址
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:39] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区', '旅游景点-名称': '石湖 景区'}
+提取状态: {'intent': '咨询地址', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区', '景点名称': '石湖景区'}
+匹配数: 0/4
+
+--- 轮次 2 ---
+系统: 这个 景点 位于 苏州市 吴中区 友 新路 333 号 。...
+用户: 嗯 嗯 ， 请问 景区 的 订票 电话 是 多少 号 啊 ？...
+[2026-02-11 18:07:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询产品', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?'}, 意图=咨询产品
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区', '旅游景点-名称': '石湖 景区'}
+提取状态: {'intent': '咨询产品', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?'}
+匹配数: 0/4
+
+--- 轮次 3 ---
+系统: 景区 的 电话号码 是 0512 - 65646668 。...
+用户: 我们 想 知道 这个 景区 有 什么 特点 呀 ？...
+[2026-02-11 18:07:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '咨询产品', '景点名称': '石湖景区', '具体需求': '了解景点特点'}, 意图=咨询产品
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区', '旅游景点-名称': '石湖 景区'}
+提取状态: {'intent': '咨询产品', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?', '具体需求': '了解景点特点'}
+匹配数: 0/4
+
+--- 轮次 4 ---
+系统: 你们 可以 在 那里 赏 石湖 胜景 ， 看 山水 相依 、 峰峦 重叠 ， 领略 苏州 的 山水 文化底蕴 。...
+用户: 嗯 ， 真想 快点 到 那 ， 感受 大自然 的 美好 。 好 的 ， 谢谢 你 哈 ， 客服 。...
+[2026-02-11 18:07:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢', '感谢对象': '客服', '景点名称': '石湖景区'}, 意图=感谢
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区', '旅游景点-名称': '石湖 景区'}
+提取状态: {'intent': '感谢', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?', '具体需求': '了解景点特点', '感谢对象': '客服'}
+匹配数: 0/4
+
+--- 轮次 5 ---
+系统: 不 客气 ， 只要 二位 喜欢 就 好 。...
+用户: 好 的 ， 谢谢 ， 再见 ！...
+[2026-02-11 18:07:40] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '结束对话', '感谢': '谢谢', '告别': '再见'}, 意图=结束对话
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:40] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区', '旅游景点-名称': '石湖 景区'}
+提取状态: {'intent': '结束对话', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?', '具体需求': '了解景点特点', '感谢对象': '客服', '感谢': '谢谢', '告别': '再见'}
+匹配数: 0/4
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-区域': '吴中区', '旅游景点-是否地铁直达': '是', '旅游景点-景点类型': '山水 景区', '旅游景点-名称': '石湖 景区'}
+最终提取状态: {'intent': '结束对话', '旅行地点': '苏州吴中区', '交通方式': '地铁直达', '景点类型': '山水景区', '景点名称': '石湖景区', '地址': '苏州市吴中区友新路333号', '联系方式': '?', '具体需求': '了解景点特点', '感谢对象': '客服', '感谢': '谢谢', '告别': '再见'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 16.67%
+正确轮次数: 1/6
+======================================================================
+
+[2026-02-11 18:07:41] INFO - [__main__] ✅ 对话 8 评测完成
+[2026-02-11 18:07:41] INFO - [__main__] 
 处理对话 10/10: 9
-[2026-02-11 17:45:06] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': 'Request', '地点': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等'}, 意图=Request
-[2026-02-11 17:45:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '询问交通', '地点': '洞庭东山', '交通方式': '地铁'}, 意图=询问交通
-[2026-02-11 17:45:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询信息', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '电话'}, 意图=咨询信息
-[2026-02-11 17:45:07] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询地点', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare'}, 意图=查询地点
-[2026-02-11 17:45:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '获取信息', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '地址': '苏州市吴中区莫厘路附近', '消费水平': '中等', '类型': '家庭亲子'}, 意图=获取信息
-[2026-02-11 17:45:08] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': '感谢'}, 意图=感谢
-[2026-02-11 17:45:08] INFO - [__main__] ✅ 对话 9 评测完成
+
+============================================================
+测试对话: 9
+领域: 通用
+轮次数: 6
+============================================================
+
+--- 轮次 0 ---
+系统: ...
+用户: 你好 ， 我 从 外地 来 苏州 ， 想 在 吴中区 找个 适合 家庭 亲子 的 地方 玩玩 ， 消费 最好 是 中等 的 。...
+[2026-02-11 18:07:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #1: 更新={'intent': '咨询旅游', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等'}, 意图=咨询旅游
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等'}
+提取状态: {'intent': '咨询旅游', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等'}
+匹配数: 0/3
+
+--- 轮次 1 ---
+系统: 洞庭 东山 就 很 符合 你 的 要求 。...
+用户: 这个 地方 是不是 地铁 直达 的 ？...
+[2026-02-11 18:07:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #2: 更新={'intent': '查询交通', '地点': '洞庭东山', '交通方式': '地铁'}, 意图=查询交通
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Inform -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等', '旅游景点-名称': '洞庭 东山'}
+提取状态: {'intent': '查询交通', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等', '地点': '洞庭东山', '交通方式': '地铁'}
+匹配数: 0/4
+
+--- 轮次 2 ---
+系统: 不是 直达 的 。...
+用户: 电话 是 多少 ？...
+[2026-02-11 18:07:41] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #3: 更新={'intent': '咨询地点信息', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '电话'}, 意图=咨询地点信息
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:41] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等', '旅游景点-名称': '洞庭 东山'}
+提取状态: {'intent': '咨询地点信息', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '电话'}
+匹配数: 0/4
+
+--- 轮次 3 ---
+系统: 0512 - 66399231 。...
+用户: 具体位置 在 哪 ？...
+[2026-02-11 18:07:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #4: 更新={'intent': '查询地点', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare'}, 意图=查询地点
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Request -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等', '旅游景点-名称': '洞庭 东山'}
+提取状态: {'intent': '查询地点', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare'}
+匹配数: 0/4
+
+--- 轮次 4 ---
+系统: 苏州市 吴中区 莫厘路 附近 。...
+用户: 谢谢 。...
+[2026-02-11 18:07:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #5: 更新={'intent': '感谢', '感谢对象': '系统', '信息来源': '系统提供的信息'}, 意图=感谢
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: General -> Bye ✗
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等', '旅游景点-名称': '洞庭 东山'}
+提取状态: {'intent': '感谢', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare', '感谢对象': '系统', '信息来源': '系统提供的信息'}
+匹配数: 0/4
+
+--- 轮次 5 ---
+系统: 不 客气 。...
+用户: 再见 。...
+[2026-02-11 18:07:42] INFO - [contextmind.modes.dst.dialogue_state_tracker] 处理轮次 #6: 更新={'intent': 'Bye'}, 意图=Bye
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+[2026-02-11 18:07:42] WARNING - [contextmind.infra.embedding] [EmbeddingClient] 输入文本为空，跳过 embedding 生成
+轮次意图: Bye -> Bye ✓
+期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等', '旅游景点-名称': '洞庭 东山'}
+提取状态: {'intent': 'Bye', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare', '感谢对象': '系统', '信息来源': '系统提供的信息'}
+匹配数: 0/4
+
+======================================================================
+📊 对话评测结果
+======================================================================
+
+【槽位评测结果】
+槽位准确率 (Slot Accuracy): 0.00%
+联合准确率-严格 (Joint Accuracy Strict): 0.00%
+联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
+精确率 (Precision): 0.00%
+召回率 (Recall): 0.00%
+F1分数 (F1 Score): 0.00%
+
+最终期望状态: {'旅游景点-区域': '吴中区', '旅游景点-最适合人群': '家庭 亲子', '旅游景点-消费': '中等', '旅游景点-名称': '洞庭 东山'}
+最终提取状态: {'intent': 'Bye', '目的地': '苏州吴中区', '活动类型': '家庭亲子', '消费水平': '中等', '地点': '洞庭东山', '交通方式': '地铁', '联系方式': '0512-66399231', '详细地址': 'dontcare', '感谢对象': '系统', '信息来源': '系统提供的信息'}
+
+【轮次级别意图评测结果】
+意图准确率 (Turn Intent Accuracy): 16.67%
+正确轮次数: 1/6
+======================================================================
+
+[2026-02-11 18:07:42] INFO - [__main__] ✅ 对话 9 评测完成
 
 ======================================================================
 📊 测试指标汇总（对齐TransferTOD论文）
@@ -130,53 +889,34 @@ Notes:
 领域: 所有领域
 对话数: 10
 
+【分领域统计】
+----------------------------------------------------------------------
+
+旅游景点领域 (对话数: 1):
+  槽位准确率: 0.00%
+  联合准确率-严格: 0.00%
+  联合准确率-软匹配: 0.00%
+  精确率: 0.00%
+  召回率: 0.00%
+  F1分数: 0.00%
+
+通用领域 (对话数: 9):
+  槽位准确率: 0.00%
+  联合准确率-严格: 0.00%
+  联合准确率-软匹配: 0.00%
+  精确率: 0.00%
+  召回率: 0.00%
+  F1分数: 0.00%
+
+
 【整体汇总统计】
 ----------------------------------------------------------------------
 总测试对话数: 10
 平均槽位准确率 (Slot Accuracy): 0.00%
 平均联合准确率-严格 (Joint Accuracy Strict): 0.00%
 平均联合准确率-软匹配 (Joint Accuracy Soft): 0.00%
-平均精确率 (Precision): 0.83%
-平均召回率 (Recall): 2.50%
-平均F1分数 (F1 Score): 1.25%
-
-
-======================================================================
-🎯 对话级别意图评测报告
-======================================================================
-
-======================================================================
-意图评测报告 (Intent Evaluation Report)
-======================================================================
-
-----------------------------------------------------------------------
-对话级别意图评测
-----------------------------------------------------------------------
-总对话数: 10
-正确对话: 0
-对话意图准确率: 0.00%
-
-----------------------------------------------------------------------
-混淆矩阵 (Confusion Matrix)
-----------------------------------------------------------------------
-
-----------------------------------------------------------------------
-分类评测指标
-----------------------------------------------------------------------
-【宏平均指标】
-  精确率 (Precision):  0.00%
-  召回率 (Recall):     0.00%
-  F1分数 (F1 Score):   0.00%
-
-【微平均指标】
-  精确率 (Precision):  0.00%
-  召回率 (Recall):     0.00%
-  F1分数 (F1 Score):   0.00%
-  （注：在单标签分类中，微平均的精确率、召回率和F1通常相等，这是正常现象）
-
-【各意图类别指标】
-
-意图类别                 精确率        召回率        F1分数       支持数       
-----------------------------------------------------------------------
-General              0.00%      0.00%      0.00%      10        
-Inform               0.00%      0.00%      0.00%      0     
+平均精确率 (Precision): 0.00%
+平均召回率 (Recall): 0.00%
+平均F1分数 (F1 Score): 0.00%
+平均轮次意图准确率 (Turn Intent Accuracy): 17.54%
+总轮次数: 57, 正确轮次数: 10
