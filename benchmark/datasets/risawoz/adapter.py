@@ -133,7 +133,14 @@ class RiSAWOZAdapter:
         # 检测数据格式并规范化
         if isinstance(dialogue_data, list):
             # 格式2：直接是对话轮次列表
-            dialogue_turns = dialogue_data
+            # 处理可能的嵌套列表结构
+            dialogue_turns = []
+            for item in dialogue_data:
+                if isinstance(item, dict):
+                    dialogue_turns.append(item)
+                elif isinstance(item, list):
+                    # 嵌套列表，展开
+                    dialogue_turns.extend([t for t in item if isinstance(t, dict)])
             goal_info = {}
         elif isinstance(dialogue_data, dict):
             # 格式1：标准字典格式
@@ -155,6 +162,11 @@ class RiSAWOZAdapter:
         
         # 解析对话轮次
         for turn_data in dialogue_turns:
+            # 额外的安全检查：确保turn_data是字典
+            if not isinstance(turn_data, dict):
+                logger.warning(f"跳过非字典类型的turn_data: {type(turn_data)}")
+                continue
+            
             turn_id = turn_data.get("turn_id", len(turns))
             
             # 提取用户和系统话语
