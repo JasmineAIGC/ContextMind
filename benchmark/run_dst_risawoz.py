@@ -117,7 +117,8 @@ class DSTRiSAWOZTest:
         total_slots = 0
         correct_slots = 0
         total_turns = len(dialogue.turns)
-        correct_turns = 0  # Joint Accuracy
+        correct_turns_strict = 0  # Joint Accuracy - 严格匹配
+        correct_turns_soft = 0    # Joint Accuracy - 软匹配
         
         # 收集所有轮次的预测和真实状态（用于计算turn-level指标）
         all_turn_predictions = []
@@ -146,7 +147,8 @@ class DSTRiSAWOZTest:
             # 计算本轮的槽位准确率
             turn_correct_slots = 0
             turn_total_slots = len(expected_state)
-            turn_exact_match = True  # 本轮是否完全匹配
+            turn_exact_match_strict = True  # 本轮是否完全匹配（严格）
+            turn_exact_match_soft = True    # 本轮是否软匹配（允许额外槽位）
             
             # 比较每个槽位
             for slot_key, expected_value in expected_state.items():
@@ -159,18 +161,22 @@ class DSTRiSAWOZTest:
                 if expected_str == extracted_str:
                     turn_correct_slots += 1
                 else:
-                    turn_exact_match = False
+                    turn_exact_match_strict = False
+                    turn_exact_match_soft = False  # 期望槽位不正确，软匹配也失败
             
-            # 检查是否有多余的槽位（影响exact match）
+            # 检查是否有多余的槽位（只影响严格匹配）
             for slot_key in extracted_state:
                 if slot_key not in expected_state:
-                    turn_exact_match = False
+                    turn_exact_match_strict = False  # 有额外槽位，严格匹配失败
+                    # 软匹配不受影响
             
             total_slots += turn_total_slots
             correct_slots += turn_correct_slots
             
-            if turn_exact_match:
-                correct_turns += 1
+            if turn_exact_match_strict:
+                correct_turns_strict += 1
+            if turn_exact_match_soft:
+                correct_turns_soft += 1
             
             # 记录本轮的预测和真实状态
             all_turn_predictions.append(extracted_state)
@@ -180,14 +186,16 @@ class DSTRiSAWOZTest:
                 print(f"期望状态: {expected_state}")
                 print(f"提取状态: {extracted_state}")
                 print(f"槽位匹配: {turn_correct_slots}/{turn_total_slots}")
-                print(f"完全匹配: {'是' if turn_exact_match else '否'}")
+                print(f"严格匹配: {'是' if turn_exact_match_strict else '否'}")
+                print(f"软匹配: {'是' if turn_exact_match_soft else '否'}")
         
         # 计算RiSAWOZ评测指标
         # 1. Slot Accuracy (turn-level)
         slot_accuracy = correct_slots / total_slots if total_slots > 0 else 0.0
         
-        # 2. Joint Accuracy (turn-level)
-        joint_accuracy = correct_turns / total_turns if total_turns > 0 else 0.0
+        # 2. Joint Accuracy (turn-level) - 严格和软匹配
+        joint_accuracy_strict = correct_turns_strict / total_turns if total_turns > 0 else 0.0
+        joint_accuracy_soft = correct_turns_soft / total_turns if total_turns > 0 else 0.0
         
         # 3. 使用最终状态计算dialogue-level指标
         final_extracted = self.tracker.current_state
@@ -195,6 +203,16 @@ class DSTRiSAWOZTest:
         
         # 计算Precision/Recall/F1（基于slot-value pairs）
         precision, recall, f1 = self._calculate_prf_pairs(final_expected, final_extracted)
+        
+        # 4. 意图评测（从槽位信息推断意图）
+        # 添加到意图评测器
+        self.intent_evaluator.add_dialogue_evaluation(
+            dialogue_id=dialogue_id,
+            domain=dialogue.domain,
+            dialogue_slots=final_expected,
+            user_utterances=[turn.user_utterance for turn in dialogue.turns],
+            predicted_state=final_extracted
+        )
         
         if verbose:
             print("\n" + "=" * 70)
@@ -206,8 +224,10 @@ class DSTRiSAWOZTest:
             print(f"  - 正确槽位数: {correct_slots}/{total_slots}")
             
             print("\n【对话状态级别指标 (Turn-level)】")
-            print(f"联合准确率 (Joint Accuracy): {joint_accuracy * 100:.2f}%")
-            print(f"  - 完全匹配轮数: {correct_turns}/{total_turns}")
+            print(f"联合准确率-严格 (Joint Accuracy Strict): {joint_accuracy_strict * 100:.2f}%")
+            print(f"  - 完全匹配轮数（严格）: {correct_turns_strict}/{total_turns}")
+            print(f"联合准确率-软匹配 (Joint Accuracy Soft): {joint_accuracy_soft * 100:.2f}%")
+            print(f"  - 完全匹配轮数（软匹配）: {correct_turns_soft}/{total_turns}")
             
             print("\n【对话级别指标 (Dialogue-level)】")
             print(f"精确率 (Precision): {precision * 100:.2f}%")
@@ -222,14 +242,16 @@ class DSTRiSAWOZTest:
             "dialogue_id": dialogue_id,
             "domain": dialogue.domain,
             "slot_accuracy": slot_accuracy,
-            "joint_accuracy": joint_accuracy,
+            "joint_accuracy_strict": joint_accuracy_strict,
+            "joint_accuracy_soft": joint_accuracy_soft,
             "precision": precision,
             "recall": recall,
             "f1": f1,
             "total_slots": total_slots,
             "correct_slots": correct_slots,
             "total_turns": total_turns,
-            "correct_turns": correct_turns,
+            "correct_turns_strict": correct_turns_strict,
+            "correct_turns_soft": correct_turns_soft,
             "final_expected": final_expected,
             "final_extracted": final_extracted
         }
@@ -331,7 +353,8 @@ class DSTRiSAWOZTest:
         
         # 计算平均指标
         avg_slot_accuracy = sum(m["slot_accuracy"] for m in all_metrics) / len(all_metrics)
-        avg_joint_accuracy = sum(m["joint_accuracy"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy_strict = sum(m["joint_accuracy_strict"] for m in all_metrics) / len(all_metrics)
+        avg_joint_accuracy_soft = sum(m["joint_accuracy_soft"] for m in all_metrics) / len(all_metrics)
         avg_precision = sum(m["precision"] for m in all_metrics) / len(all_metrics)
         avg_recall = sum(m["recall"] for m in all_metrics) / len(all_metrics)
         avg_f1 = sum(m["f1"] for m in all_metrics) / len(all_metrics)
@@ -339,22 +362,25 @@ class DSTRiSAWOZTest:
         total_slots = sum(m["total_slots"] for m in all_metrics)
         correct_slots = sum(m["correct_slots"] for m in all_metrics)
         total_turns = sum(m["total_turns"] for m in all_metrics)
-        correct_turns = sum(m["correct_turns"] for m in all_metrics)
+        correct_turns_strict = sum(m["correct_turns_strict"] for m in all_metrics)
+        correct_turns_soft = sum(m["correct_turns_soft"] for m in all_metrics)
         
         summary_lines.append("\n【核心指标】")
         summary_lines.append("-" * 70)
-        summary_lines.append(f"槽位准确率 (Slot Accuracy):  {avg_slot_accuracy * 100:.2f}%")
-        summary_lines.append(f"联合准确率 (Joint Accuracy):  {avg_joint_accuracy * 100:.2f}%")
-        summary_lines.append(f"精确率 (Precision):          {avg_precision * 100:.2f}%")
-        summary_lines.append(f"召回率 (Recall):             {avg_recall * 100:.2f}%")
-        summary_lines.append(f"F1分数 (F1 Score):           {avg_f1 * 100:.2f}%")
+        summary_lines.append(f"槽位准确率 (Slot Accuracy):           {avg_slot_accuracy * 100:.2f}%")
+        summary_lines.append(f"联合准确率-严格 (Joint Accuracy Strict): {avg_joint_accuracy_strict * 100:.2f}%")
+        summary_lines.append(f"联合准确率-软匹配 (Joint Accuracy Soft):  {avg_joint_accuracy_soft * 100:.2f}%")
+        summary_lines.append(f"精确率 (Precision):                   {avg_precision * 100:.2f}%")
+        summary_lines.append(f"召回率 (Recall):                      {avg_recall * 100:.2f}%")
+        summary_lines.append(f"F1分数 (F1 Score):                    {avg_f1 * 100:.2f}%")
         
         summary_lines.append("\n【详细统计】")
         summary_lines.append("-" * 70)
         summary_lines.append(f"总槽位数: {total_slots}")
         summary_lines.append(f"正确槽位数: {correct_slots}")
         summary_lines.append(f"总轮次数: {total_turns}")
-        summary_lines.append(f"完全匹配轮次数: {correct_turns}")
+        summary_lines.append(f"完全匹配轮次数（严格）: {correct_turns_strict}")
+        summary_lines.append(f"完全匹配轮次数（软匹配）: {correct_turns_soft}")
         
         # 按领域统计
         domain_metrics = defaultdict(list)
@@ -366,11 +392,13 @@ class DSTRiSAWOZTest:
             summary_lines.append("-" * 70)
             for d, metrics in sorted(domain_metrics.items()):
                 d_slot_acc = sum(m["slot_accuracy"] for m in metrics) / len(metrics)
-                d_joint_acc = sum(m["joint_accuracy"] for m in metrics) / len(metrics)
+                d_joint_acc_strict = sum(m["joint_accuracy_strict"] for m in metrics) / len(metrics)
+                d_joint_acc_soft = sum(m["joint_accuracy_soft"] for m in metrics) / len(metrics)
                 d_f1 = sum(m["f1"] for m in metrics) / len(metrics)
                 summary_lines.append(f"\n{d} (对话数: {len(metrics)}):")
                 summary_lines.append(f"  槽位准确率: {d_slot_acc * 100:.2f}%")
-                summary_lines.append(f"  联合准确率: {d_joint_acc * 100:.2f}%")
+                summary_lines.append(f"  联合准确率-严格: {d_joint_acc_strict * 100:.2f}%")
+                summary_lines.append(f"  联合准确率-软匹配: {d_joint_acc_soft * 100:.2f}%")
                 summary_lines.append(f"  F1分数: {d_f1 * 100:.2f}%")
         
         summary_lines.append("\n" + "=" * 70)
@@ -378,6 +406,10 @@ class DSTRiSAWOZTest:
         # 输出汇总（使用 print）
         for line in summary_lines:
             print(line)
+        
+        # 输出意图评测结果
+        intent_summary = self.intent_evaluator.generate_summary()
+        print("\n" + intent_summary)
 
 
 async def main():
