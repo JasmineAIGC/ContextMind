@@ -125,18 +125,27 @@ class RiSAWOZAdapter:
                         f"{'='*70}\n\n"
                         f"文件: {file_path}\n\n"
                         f"检测到的格式:\n"
-                        f"  - 嵌套列表结构\n"
-                        f"  - 包含 tokens, labels, intents（NLU 任务数据）\n\n"
-                        f"此格式用于 NLU 任务（意图识别、实体提取），不适用于 DST（对话状态追踪）评测。\n\n"
-                        f"DST 评测需要的数据格式:\n"
-                        f"  - 包含 'dialogue' 字段（对话轮次列表）\n"
-                        f"  - 包含 'belief_state' 字段（槽位状态）\n"
-                        f"  - 每个对话应该是一个字典，包含多个轮次\n\n"
-                        f"请使用正确的 DST 格式数据，通常文件名为:\n"
-                        f"  - train.json (训练集)\n"
-                        f"  - val.json (验证集)\n"
-                        f"  - test.json (测试集)\n\n"
-                        f"参考 RiSAWOZ GitHub: https://github.com/terryqj0107/RiSAWOZ\n"
+                        f"  - 嵌套列表结构 [[tokens], [labels], [intents], ...]\n"
+                        f"  - 这是 NLU 任务数据（意图识别、实体提取）\n\n"
+                        f"此格式不适用于 DST（对话状态追踪）评测。\n\n"
+                        f"DST 评测需要的数据格式（两种之一）:\n\n"
+                        f"格式1 - 字典格式:\n"
+                        f"  {{\n"
+                        f"    \"dialogue_id\": \"xxx\",\n"
+                        f"    \"dialogue\": [\n"
+                        f"      {{\"user_utterance\": \"...\", \"belief_state\": [...]}}\n"
+                        f"    ]\n"
+                        f"  }}\n\n"
+                        f"格式2 - 列表格式:\n"
+                        f"  [\n"
+                        f"    {{\"turn_id\": 0, \"user_utterance\": \"...\", \"belief_state\": [...]}},\n"
+                        f"    {{\"turn_id\": 1, \"user_utterance\": \"...\", \"belief_state\": [...]}}\n"
+                        f"  ]\n\n"
+                        f"如何获取正确的数据:\n"
+                        f"  1. 从 RiSAWOZ GitHub 下载: https://github.com/terryqj0107/RiSAWOZ\n"
+                        f"  2. 使用标准的 train.json, val.json, test.json 文件\n"
+                        f"  3. 不要使用 task1-data 目录下的 NLU 格式文件\n\n"
+                        f"参考文档: benchmark/datasets/risawoz/DATASET_SETUP.md\n"
                         f"{'='*70}\n"
                     )
     
@@ -152,13 +161,13 @@ class RiSAWOZAdapter:
             标准化的对话实例
         """
         # RiSAWOZ数据格式支持两种：
-        # 格式1 (标准格式):
+        # 格式1 (标准字典格式):
         # {
         #   "dialogue_id": "xxx",
         #   "goal": {...},
         #   "dialogue": [...]
         # }
-        # 格式2 (简化格式, task1-data):
+        # 格式2 (简化列表格式):
         # [
         #   {
         #     "turn_id": 0,
@@ -167,6 +176,8 @@ class RiSAWOZAdapter:
         #   },
         #   ...
         # ]
+        # 注意：task1-data 中的 NLU 格式数据（嵌套列表，包含 tokens, labels, intents）
+        # 不适用于 DST 评测，会被验证拒绝。
         
         turns = []
         cumulative_state = {}  # 累积的belief state
