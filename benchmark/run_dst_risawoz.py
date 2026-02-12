@@ -429,8 +429,11 @@ class DSTRiSAWOZTest:
         """
         if value is None:
             return ""
-        # 转换为字符串并去除所有空格
-        normalized = str(value).replace(" ", "").replace(" ", "")  # 移除中英文空格
+        # 转换为字符串并去除所有类型的空格
+        normalized = str(value)
+        # 移除所有空白字符（包括空格、全角空格、制表符等）
+        import re
+        normalized = re.sub(r'\s+', '', normalized)
         return normalized.lower()  # 转小写以忽略大小写差异
     
     def _normalize_state_dict(self, state: Dict, domain: str) -> Dict:

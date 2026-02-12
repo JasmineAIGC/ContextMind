@@ -234,6 +234,24 @@ class RiSAWOZAdapter:
                     for belief in belief_state_data:
                         if isinstance(belief, dict) and "domain" in belief:
                             domains.add(belief["domain"])
+                        # 也从slots中提取domain前缀
+                        if isinstance(belief, dict) and "slots" in belief:
+                            slots_data = belief.get("slots", [])
+                            if isinstance(slots_data, list):
+                                for slot_pair in slots_data:
+                                    if isinstance(slot_pair, list) and len(slot_pair) >= 2:
+                                        slot_key = slot_pair[0]
+                                        if '-' in slot_key:
+                                            slot_domain = slot_key.split('-')[0]
+                                            # 只添加已知的RiSAWOZ领域
+                                            known_domains = ['医院', '天气', '旅游景点', '汽车', '火车', '电影', 
+                                                           '电脑', '电视剧', '辅导班', '酒店', '飞机', '餐厅']
+                                            if slot_domain in known_domains:
+                                                domains.add(slot_domain)
+        
+        # 移除"通用"如果有其他具体领域
+        if len(domains) > 1 and "通用" in domains:
+            domains.remove("通用")
         
         # 使用第一个领域作为主领域（如果有多个领域则记录在metadata中）
         # 如果没有找到领域，使用"通用"作为默认领域（RiSAWOZ有"通用"领域）
