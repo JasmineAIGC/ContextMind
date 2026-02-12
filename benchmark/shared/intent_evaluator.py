@@ -347,7 +347,7 @@ class IntentEvaluator:
             if not self.intent_label_loader.is_fallback_intent(domain, intent)
         ]
         
-        # 策略1: 基于关键词匹配推断意图
+        # 策略1: 基于关键词匹配推断意图（优先级最高）
         if user_utterance:
             intent_scores = {}
             for intent in non_fallback_intents:
@@ -365,20 +365,48 @@ class IntentEvaluator:
                 best_intent = max(intent_scores.items(), key=lambda x: x[1])[0]
                 return best_intent, "task_related"
         
-        # 策略2: 如果有槽位更新但无关键词匹配，使用领域的第一个主要意图
-        # 这避免了返回"其他"，而是返回一个合理的默认意图
-        if slot_updates and non_fallback_intents:
-            # 返回领域的第一个非兜底意图作为默认意图
-            # 通常配置文件中第一个意图是该领域最常见的意图
-            return non_fallback_intents[0], "task_related"
+        # 策略2: 基于槽位更新模式推断意图
+        # 分析槽位名称中是否包含请求、查询等关键词
+        if slot_updates:
+            # 检查槽位值中是否有"?"，通常表示请求
+            has_question_mark = any('?' in str(v) for v in slot_updates.values() if v)
+            
+            # 如果有问号，优先推断为Request
+            if has_question_mark and "Request" in non_fallback_intents:
+                return "Request", "task_related"
+            
+            # 如果用户话语包含问句标记，也推断为Request
+            if user_utterance and ("吗" in user_utterance or "呢" in user_utterance or "?" in user_utterance or "？" in user_utterance):
+                if "Request" in non_fallback_intents:
+                    return "Request", "task_related"
+            
+            # 如果有槽位更新，通常是Inform意图
+            if "Inform" in non_fallback_intents:
+                return "Inform", "task_related"
         
-        # 策略3: 即使没有槽位，如果有用户话语，也返回第一个主要意图
-        if user_utterance and non_fallback_intents:
-            return non_fallback_intents[0], "task_related"
+        # 策略3: 基于用户话语特征推断
+        if user_utterance:
+            # 问候语
+            if any(word in user_utterance for word in ["你好", "您好", "hi", "hello"]):
+                if "Greeting" in non_fallback_intents:
+                    return "Greeting", "task_related"
+            
+            # 告别语
+            if any(word in user_utterance for word in ["再见", "拜拜", "谢谢", "好的"]) and len(user_utterance) < 10:
+                if "Bye" in non_fallback_intents:
+                    return "Bye", "task_related"
+            
+            # 一般对话
+            if "General" in non_fallback_intents:
+                return "General", "task_related"
         
-        # 策略4: 在所有其他情况下，都返回领域的第一个主要意图
-        # 绝不返回"其他"作为推断的意图真值
-        # 这确保意图真值总是领域定义的具体意图类别
+        # 策略4: 最后的默认策略 - 避免总是返回第一个意图
+        # 优先返回"Inform"或"General"这些更通用的意图
+        for preferred_intent in ["Inform", "General", "Request"]:
+            if preferred_intent in non_fallback_intents:
+                return preferred_intent, "task_related"
+        
+        # 如果上述都不存在，才返回第一个非兜底意图
         if non_fallback_intents:
             return non_fallback_intents[0], "task_related"
         

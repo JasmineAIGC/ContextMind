@@ -313,8 +313,25 @@ class DSTRiSAWOZTest:
                 # 过滤掉'intent'字段本身，只使用槽位信息
                 turn_updates_for_intent = {k: v for k, v in turn_updates.items() if k != 'intent'}
                 
+                # 从提取的槽位中检测实际领域（而非使用对话元数据的领域）
+                # 这很重要，因为LLM可能使用"通用"作为前缀而非实际领域
+                detected_domain = dialogue.domain  # 默认使用对话领域
+                known_domains = ['医院', '天气', '旅游景点', '汽车', '火车', '电影', 
+                               '电脑', '电视剧', '辅导班', '酒店', '飞机', '餐厅']
+                
+                # 从turn_updates的槽位键中提取领域前缀
+                for slot_key in turn_updates_for_intent.keys():
+                    if '-' in slot_key:
+                        slot_domain = slot_key.split('-')[0]
+                        if slot_domain in known_domains:
+                            detected_domain = slot_domain
+                            break  # 找到第一个有效领域就使用
+                
+                # 如果检测到的领域和对话领域不一致，优先使用检测到的领域
+                # 这避免了LLM使用"通用"前缀时导致的意图推断错误
+                
                 turn_inferred_intent, _ = self.intent_evaluator.infer_intent_from_slots(
-                    domain=dialogue.domain,
+                    domain=detected_domain,  # 使用检测到的领域，而非对话元数据领域
                     turn_updates=turn_updates_for_intent,
                     previous_state={},
                     user_utterance=turn.user_utterance,
