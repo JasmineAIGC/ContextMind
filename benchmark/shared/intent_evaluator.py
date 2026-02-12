@@ -365,8 +365,40 @@ class IntentEvaluator:
                 best_intent = max(intent_scores.items(), key=lambda x: x[1])[0]
                 return best_intent, "task_related"
         
-        # 策略2: 基于槽位更新模式推断意图
-        # 分析槽位名称中是否包含请求、查询等关键词
+        # 策略2: 基于用户话语特征推断（优先级高，因为关键词为空）
+        if user_utterance:
+            # 问候语 - 优先检测
+            greeting_words = ["你好", "您好", "hi", "hello", "早上好", "晚上好", "哈喽"]
+            if any(word in user_utterance for word in greeting_words):
+                if "Greeting" in non_fallback_intents:
+                    return "Greeting", "task_related"
+            
+            # 告别语 - 优先检测
+            # 包含告别词且较短，或者明确的告别短语
+            bye_words = ["再见", "拜拜", "bye", "goodbye"]
+            thank_bye = ["谢谢", "好的", "好吧", "知道了"]
+            
+            # 明确的告别词
+            if any(word in user_utterance for word in bye_words):
+                if "Bye" in non_fallback_intents:
+                    return "Bye", "task_related"
+            
+            # 短的感谢/确认后结束（通常是对话结尾）
+            if any(word in user_utterance for word in thank_bye) and len(user_utterance) < 15:
+                # 检查是否还有实质内容
+                has_content = any(word in user_utterance for word in ["推荐", "介绍", "想", "请", "能", "帮"])
+                if not has_content and "Bye" in non_fallback_intents:
+                    return "Bye", "task_related"
+            
+            # 请求/询问 - 检测问句特征
+            question_markers = ["吗", "呢", "?", "？", "什么", "哪", "怎么", "如何", "多少", "几", "能不能", "可以", "有没有"]
+            has_question = any(marker in user_utterance for marker in question_markers)
+            
+            if has_question:
+                if "Request" in non_fallback_intents:
+                    return "Request", "task_related"
+        
+        # 策略3: 基于槽位更新模式推断意图
         if slot_updates:
             # 检查槽位值中是否有"?"，通常表示请求
             has_question_mark = any('?' in str(v) for v in slot_updates.values() if v)
@@ -375,30 +407,14 @@ class IntentEvaluator:
             if has_question_mark and "Request" in non_fallback_intents:
                 return "Request", "task_related"
             
-            # 如果用户话语包含问句标记，也推断为Request
-            if user_utterance and ("吗" in user_utterance or "呢" in user_utterance or "?" in user_utterance or "？" in user_utterance):
-                if "Request" in non_fallback_intents:
-                    return "Request", "task_related"
-            
-            # 如果有槽位更新，通常是Inform意图
+            # 如果有槽位更新且不是问句，通常是Inform意图
             if "Inform" in non_fallback_intents:
                 return "Inform", "task_related"
         
-        # 策略3: 基于用户话语特征推断
-        if user_utterance:
-            # 问候语
-            if any(word in user_utterance for word in ["你好", "您好", "hi", "hello"]):
-                if "Greeting" in non_fallback_intents:
-                    return "Greeting", "task_related"
-            
-            # 告别语
-            if any(word in user_utterance for word in ["再见", "拜拜", "谢谢", "好的"]) and len(user_utterance) < 10:
-                if "Bye" in non_fallback_intents:
-                    return "Bye", "task_related"
-            
-            # 一般对话
-            if "General" in non_fallback_intents:
-                return "General", "task_related"
+        # 策略4: 一般对话 - 仅当上述都不匹配时
+        # 有用户话语但没有明确意图特征
+        if user_utterance and "General" in non_fallback_intents:
+            return "General", "task_related"
         
         # 策略4: 最后的默认策略 - 避免总是返回第一个意图
         # 优先返回"Inform"或"General"这些更通用的意图
