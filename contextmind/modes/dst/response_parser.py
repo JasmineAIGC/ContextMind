@@ -32,54 +32,11 @@ class ResponseParser:
         enable_filtering: 是否启用槽位过滤（动态模式下为False）
     """
     
-    # RiSAWOZ槽位名称映射（LLM可能使用的变体 → 标准名称）
-    SLOT_NAME_MAPPING = {
-        # 旅游景点领域
-        '旅游景点-特色': '旅游景点-特点',
-        '旅游景点-特征': '旅游景点-特点',
-        '旅游景点-位置': '旅游景点-区域',
-        '旅游景点-地点': '旅游景点-区域',
-        '旅游景点-地址': '旅游景点-区域',
-        '旅游景点-景点名称': '旅游景点-名称',
-        '旅游景点-景区名称': '旅游景点-名称',
-        '旅游景点-价格': '旅游景点-消费',
-        '旅游景点-费用': '旅游景点-消费',
-        '旅游景点-门票': '旅游景点-门票',
-        '旅游景点-人群': '旅游景点-最适合人群',
-        '旅游景点-适合人群': '旅游景点-最适合人群',
-        
-        # 酒店领域
-        '酒店-位置': '酒店-区域',
-        '酒店-地点': '酒店-区域',
-        '酒店-地址': '酒店-区域',
-        '酒店-酒店名称': '酒店-名称',
-        '酒店-宾馆名称': '酒店-名称',
-        '酒店-价格': '酒店-价格',
-        '酒店-费用': '酒店-价格',
-        '酒店-房型': '酒店-房型',
-        '酒店-类型': '酒店-类型',
-        '酒店-星级': '酒店-星级',
-        '酒店-评分': '酒店-评分',
-        
-        # 餐厅领域
-        '餐厅-位置': '餐厅-区域',
-        '餐厅-地点': '餐厅-区域',
-        '餐厅-地址': '餐厅-区域',
-        '餐厅-餐厅名称': '餐厅-名称',
-        '餐厅-菜系': '餐厅-菜系',
-        '餐厅-菜品': '餐厅-菜系',
-        '餐厅-价格': '餐厅-人均消费',
-        '餐厅-费用': '餐厅-人均消费',
-        '餐厅-人均': '餐厅-人均消费',
-        '餐厅-评分': '餐厅-评分',
-        '餐厅-推荐菜': '餐厅-推荐菜',
-    }
-    
     def __init__(self, 
                  ontology_slots: Optional[Set[str]] = None,
                  enable_filtering: bool = False,
                  categorical_slots: Optional[Dict[str, list]] = None,
-                 enable_slot_mapping: bool = True):
+                 embedding_client: Optional['EmbeddingClient'] = None):
         """
         初始化响应解析器
         
@@ -87,12 +44,12 @@ class ResponseParser:
             ontology_slots: 本体中定义的槽位名称集合（可选）
             enable_filtering: 是否启用槽位过滤（默认False，支持动态槽位）
             categorical_slots: 分类槽位及其候选值（用于归一化）
-            enable_slot_mapping: 是否启用槽位名称映射（默认True）
+            embedding_client: Embedding客户端，用于语义槽位名称匹配（可选）
         """
         self.ontology_slots = ontology_slots or set()
         self.enable_filtering = enable_filtering
         self.categorical_slots = categorical_slots or {}
-        self.enable_slot_mapping = enable_slot_mapping
+        self.embedding_client = embedding_client
     
     def extract_json(self, text: str) -> Dict[str, str]:
         """
@@ -208,9 +165,59 @@ class ResponseParser:
             result[key] = value
         return result
     
+    def _find_similar_slot_name(self, llm_slot: str, expected_slots: Set[str]) -> Optional[str]:
+        """
+        使用语义相似度找到最相似的槽位名称（通用方法，适用于任何领域）
+        
+        使用embedding相似度匹配LLM提取的槽位名称到期望的本体槽位名称。
+        这是一个通用方法，无需硬编码领域映射，适用于任何领域。
+        
+        参数:
+            llm_slot: LLM提取的槽位名称
+            expected_slots: 期望的本体槽位名称集合
+            
+        返回:
+            最相似的槽位名称（如果相似度>0.85），否则返回None
+        """
+        if not expected_slots or not self.embedding_client:
+            return None
+        
+        try:
+            from contextmind.infra.embedding import calculate_embedding_similarity
+            
+            # 生成LLM槽位名的embedding
+            llm_embedding = self.embedding_client.generate_embedding(llm_slot)
+            if not llm_embedding:
+                return None
+            
+            best_match = None
+            best_similarity = 0.0
+            
+            # 计算与所有期望槽位的相似度
+            for expected_slot in expected_slots:
+                exp_embedding = self.embedding_client.generate_embedding(expected_slot)
+                if not exp_embedding:
+                    continue
+                
+                similarity, success = calculate_embedding_similarity(llm_embedding, exp_embedding)
+                
+                if success and similarity > best_similarity:
+                    best_similarity = similarity
+                    best_match = expected_slot
+            
+            # 只返回高相似度的匹配（阈值0.85）
+            if best_similarity >= 0.85:
+                logger.debug(f"语义槽位匹配: {llm_slot} -> {best_match} (相似度: {best_similarity:.3f})")
+                return best_match
+            
+        except Exception as e:
+            logger.warning(f"语义槽位匹配失败: {e}")
+        
+        return None
+    
     def _filter_if_needed(self, updates: Dict[str, str]) -> Dict[str, str]:
         """
-        根据配置决定是否过滤槽位
+        根据配置决定是否过滤槽位，并使用语义相似度匹配槽位名称
         
         参数:
             updates: 从LLM响应中提取的槽位更新
@@ -218,39 +225,37 @@ class ResponseParser:
         返回:
             过滤后的槽位更新（或原始更新）
         """
-        # Step 1: 应用槽位名称映射
-        if self.enable_slot_mapping:
-            mapped_updates = {}
-            for slot, value in updates.items():
-                # 检查是否需要映射
-                if slot in self.SLOT_NAME_MAPPING:
-                    mapped_slot = self.SLOT_NAME_MAPPING[slot]
-                    logger.debug(f"槽位名称映射: {slot} -> {mapped_slot}")
-                    mapped_updates[mapped_slot] = value
-                else:
-                    mapped_updates[slot] = value
-            updates = mapped_updates
+        # Step 1: 总是移除 'intent' 字段（不是真正的槽位）
+        filtered = {k: v for k, v in updates.items() if k != 'intent'}
         
-        # Step 2: 过滤非本体槽位（如果启用）
+        # Step 2: 如果有本体槽位，尝试语义匹配槽位名称
+        if self.ontology_slots:
+            mapped_updates = {}
+            for slot, value in filtered.items():
+                # 尝试语义匹配到本体槽位
+                similar_slot = self._find_similar_slot_name(slot, self.ontology_slots)
+                if similar_slot:
+                    # 使用语义匹配的槽位名
+                    mapped_updates[similar_slot] = value
+                else:
+                    # 保持原始槽位名
+                    mapped_updates[slot] = value
+            filtered = mapped_updates
+        
+        # Step 3: 过滤非本体槽位（如果启用过滤）
         if not self.enable_filtering or not self.ontology_slots:
             # 动态槽位模式：不过滤，接受所有LLM提取的信息
-            # 但仍然移除 'intent' 字段（不是真正的槽位）
-            filtered = {k: v for k, v in updates.items() if k != 'intent'}
             return filtered
         
         # 仅在启用过滤时才过滤
-        filtered = {}
-        for slot, value in updates.items():
-            # 跳过 'intent' 字段
-            if slot == 'intent':
-                continue
-            
+        final_filtered = {}
+        for slot, value in filtered.items():
             if slot in self.ontology_slots:
-                filtered[slot] = value
+                final_filtered[slot] = value
             else:
                 logger.debug(f"过滤未知槽位: {slot}")
         
-        return filtered
+        return final_filtered
     
     def normalize_value(self, slot: str, value: str, candidates: List[str] = None, strict: bool = False) -> Optional[str]:
         """
