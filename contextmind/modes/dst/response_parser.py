@@ -25,16 +25,61 @@ class ResponseParser:
     - 多策略解析（直接解析、正则提取、键值对提取）
     - 处理嵌套和列表格式
     - 可选的幻觉过滤（仅在非动态模式下）
+    - 槽位名称映射（标准化LLM输出）
     
     属性:
         ontology_slots: 本体槽位集合（用于可选的过滤）
         enable_filtering: 是否启用槽位过滤（动态模式下为False）
     """
     
+    # RiSAWOZ槽位名称映射（LLM可能使用的变体 → 标准名称）
+    SLOT_NAME_MAPPING = {
+        # 旅游景点领域
+        '旅游景点-特色': '旅游景点-特点',
+        '旅游景点-特征': '旅游景点-特点',
+        '旅游景点-位置': '旅游景点-区域',
+        '旅游景点-地点': '旅游景点-区域',
+        '旅游景点-地址': '旅游景点-区域',
+        '旅游景点-景点名称': '旅游景点-名称',
+        '旅游景点-景区名称': '旅游景点-名称',
+        '旅游景点-价格': '旅游景点-消费',
+        '旅游景点-费用': '旅游景点-消费',
+        '旅游景点-门票': '旅游景点-门票',
+        '旅游景点-人群': '旅游景点-最适合人群',
+        '旅游景点-适合人群': '旅游景点-最适合人群',
+        
+        # 酒店领域
+        '酒店-位置': '酒店-区域',
+        '酒店-地点': '酒店-区域',
+        '酒店-地址': '酒店-区域',
+        '酒店-酒店名称': '酒店-名称',
+        '酒店-宾馆名称': '酒店-名称',
+        '酒店-价格': '酒店-价格',
+        '酒店-费用': '酒店-价格',
+        '酒店-房型': '酒店-房型',
+        '酒店-类型': '酒店-类型',
+        '酒店-星级': '酒店-星级',
+        '酒店-评分': '酒店-评分',
+        
+        # 餐厅领域
+        '餐厅-位置': '餐厅-区域',
+        '餐厅-地点': '餐厅-区域',
+        '餐厅-地址': '餐厅-区域',
+        '餐厅-餐厅名称': '餐厅-名称',
+        '餐厅-菜系': '餐厅-菜系',
+        '餐厅-菜品': '餐厅-菜系',
+        '餐厅-价格': '餐厅-人均消费',
+        '餐厅-费用': '餐厅-人均消费',
+        '餐厅-人均': '餐厅-人均消费',
+        '餐厅-评分': '餐厅-评分',
+        '餐厅-推荐菜': '餐厅-推荐菜',
+    }
+    
     def __init__(self, 
                  ontology_slots: Optional[Set[str]] = None,
                  enable_filtering: bool = False,
-                 categorical_slots: Optional[Dict[str, list]] = None):
+                 categorical_slots: Optional[Dict[str, list]] = None,
+                 enable_slot_mapping: bool = True):
         """
         初始化响应解析器
         
@@ -42,10 +87,12 @@ class ResponseParser:
             ontology_slots: 本体中定义的槽位名称集合（可选）
             enable_filtering: 是否启用槽位过滤（默认False，支持动态槽位）
             categorical_slots: 分类槽位及其候选值（用于归一化）
+            enable_slot_mapping: 是否启用槽位名称映射（默认True）
         """
         self.ontology_slots = ontology_slots or set()
         self.enable_filtering = enable_filtering
-        self.categorical_slots = categorical_slots or {}  # 新增
+        self.categorical_slots = categorical_slots or {}
+        self.enable_slot_mapping = enable_slot_mapping
     
     def extract_json(self, text: str) -> Dict[str, str]:
         """
@@ -171,13 +218,33 @@ class ResponseParser:
         返回:
             过滤后的槽位更新（或原始更新）
         """
+        # Step 1: 应用槽位名称映射
+        if self.enable_slot_mapping:
+            mapped_updates = {}
+            for slot, value in updates.items():
+                # 检查是否需要映射
+                if slot in self.SLOT_NAME_MAPPING:
+                    mapped_slot = self.SLOT_NAME_MAPPING[slot]
+                    logger.debug(f"槽位名称映射: {slot} -> {mapped_slot}")
+                    mapped_updates[mapped_slot] = value
+                else:
+                    mapped_updates[slot] = value
+            updates = mapped_updates
+        
+        # Step 2: 过滤非本体槽位（如果启用）
         if not self.enable_filtering or not self.ontology_slots:
             # 动态槽位模式：不过滤，接受所有LLM提取的信息
-            return updates
+            # 但仍然移除 'intent' 字段（不是真正的槽位）
+            filtered = {k: v for k, v in updates.items() if k != 'intent'}
+            return filtered
         
         # 仅在启用过滤时才过滤
         filtered = {}
         for slot, value in updates.items():
+            # 跳过 'intent' 字段
+            if slot == 'intent':
+                continue
+            
             if slot in self.ontology_slots:
                 filtered[slot] = value
             else:
