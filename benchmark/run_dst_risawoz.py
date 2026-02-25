@@ -22,7 +22,7 @@ from collections import defaultdict, Counter
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter
+from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter, RISAWOZ_FILE_MAPPINGS
 from benchmark.shared.intent_evaluator import IntentEvaluator
 from benchmark.shared.intent_label_loader import IntentLabelLoader
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
@@ -813,12 +813,22 @@ async def main():
                        help="语义相似度阈值（0-1，默认：0.85）")
     
     # 自定义文件名参数
-    parser.add_argument("--train-file", type=str, default="train.json",
-                       help="训练集文件名（默认：train.json）")
-    parser.add_argument("--val-file", type=str, default="val.json",
-                       help="验证集文件名（默认：val.json）")
-    parser.add_argument("--test-file", type=str, default="test.json",
-                       help="测试集文件名（默认：test.json）")
+    parser.add_argument("--source-format", type=str, default=None,
+                       choices=["source-data", "task2-dst", "task3-e2e", "task5-unified"],
+                       help=(
+                           "RiSAWOZ 数据源格式，自动设置对应的文件名映射。\n"
+                           "  source-data  → all_train10000.json / all_dev600.json / all_test600_new.json\n"
+                           "  task2-dst    → dst_all_train10000.json / dst_all_dev600.json / dst_all_test600_new.json\n"
+                           "  task3-e2e    → train.json / val.json / test.json\n"
+                           "  task5-unified→ all_train10000.json / all_dev600.json / all_test600_new.json\n"
+                           "若提供此参数，--train-file / --val-file / --test-file 的默认值将自动更新。"
+                       ))
+    parser.add_argument("--train-file", type=str, default=None,
+                       help="训练集文件名（默认根据 --source-format 自动设置，或 all_train10000.json）")
+    parser.add_argument("--val-file", type=str, default=None,
+                       help="验证集文件名（默认根据 --source-format 自动设置，或 all_dev600.json）")
+    parser.add_argument("--test-file", type=str, default=None,
+                       help="测试集文件名（默认根据 --source-format 自动设置，或 all_test600_new.json）")
     
     args = parser.parse_args()
     
@@ -826,11 +836,19 @@ async def main():
     setup_logging(LogLevel[args.log_level])
     
     # 处理文件路径参数
-    # 如果用户提供的是完整路径（包含目录），需要分离目录和文件名
+    # 如果用户提供了 --source-format，自动应用对应的文件名映射
     data_root = args.data_root
-    train_file = args.train_file
-    val_file = args.val_file
-    test_file = args.test_file
+    
+    fmt_mapping = {}
+    if args.source_format and args.source_format in RISAWOZ_FILE_MAPPINGS:
+        fmt_mapping = RISAWOZ_FILE_MAPPINGS[args.source_format]
+        logger.info(f"使用 --source-format={args.source_format} 的文件名映射: {fmt_mapping}")
+    
+    # 用 source-format 映射填充 None 参数；若仍未设置则回退到 source-data 默认值
+    _default_mapping = RISAWOZ_FILE_MAPPINGS.get("source-data", {})
+    train_file = args.train_file or fmt_mapping.get("train") or _default_mapping.get("train", "all_train10000.json")
+    val_file   = args.val_file   or fmt_mapping.get("val")   or _default_mapping.get("val",   "all_dev600.json")
+    test_file  = args.test_file  or fmt_mapping.get("test")  or _default_mapping.get("test",  "all_test600_new.json")
     
     # 检查test-file是否包含路径
     test_path = Path(args.test_file)

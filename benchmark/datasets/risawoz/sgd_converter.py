@@ -58,7 +58,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter
+from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter, RISAWOZ_FILE_MAPPINGS
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,8 @@ def _map_act(risawoz_intent: str) -> str:
 # ------------------------------------------------------------------
 
 #: Accepted values for the source_format parameter.
-SOURCE_FORMATS = ("auto", "source-data", "task2-dst")
+#: Includes all keys from RISAWOZ_FILE_MAPPINGS plus "auto".
+SOURCE_FORMATS = ("auto", "source-data", "task2-dst", "task3-e2e", "task5-unified")
 
 
 def _detect_format(dialogue_data: Dict) -> str:
@@ -351,6 +352,13 @@ class RiSAWOZToSGDConverter:
         if source_format not in SOURCE_FORMATS:
             raise ValueError(
                 f"source_format 必须是 {SOURCE_FORMATS} 之一，got {source_format!r}"
+            )
+        # If no explicit file_mapping provided and a known source_format is given,
+        # auto-apply the correct filename mapping from RISAWOZ_FILE_MAPPINGS.
+        if file_mapping is None and source_format in RISAWOZ_FILE_MAPPINGS:
+            file_mapping = RISAWOZ_FILE_MAPPINGS[source_format]
+            logger.debug(
+                f"[RiSAWOZToSGDConverter] 自动应用文件映射 ({source_format}): {file_mapping}"
             )
         self.adapter = RiSAWOZAdapter(data_root, file_mapping=file_mapping)
         self.data_root = Path(data_root)

@@ -37,50 +37,98 @@ git clone https://github.com/terryqj0107/RiSAWOZ.git
 
 ## 目录结构与文件说明
 
-```
-RiSAWOZ/
-├── README.md                                          # 项目说明文档
-├── LICENSE                                            # CC BY-NC 4.0 许可证
-└── RiSAWOZ-data/                                      # 所有数据文件目录
-    ├── source-data.zip                                # 完整源数据（推荐下载）
-    ├── dataset_split_ids_dict.json                    # 数据集划分 ID 索引
-    ├── RiSAWOZ-Database-and-Ontology.zip             # 数据库与本体文件
-    ├── task1-data-NLU.zip                             # 任务1：自然语言理解数据
-    ├── task2-data-DST.zip                             # 任务2：对话状态追踪数据
-    ├── task3-data-E2E-Context-to-text.zip             # 任务3：端到端上下文生成数据
-    ├── task4-data-Coreference resolution.zip          # 任务4：共指消解数据
-    └── task5-data-Unified-generative-ellipsis-and-coreference-resolution.zip  # 任务5：统一省略与共指消解数据
-```
+RiSAWOZ 数据集解压后的**实际**目录结构如下：
 
-### `RiSAWOZ-data/` 目录（数据根目录）
-
-所有数据集文件均存放于此目录，包含源数据和各任务专用数据。
+```
+RiSAWOZ-data/
+├── conversion_summary.json                     # 转换摘要（非官方）
+├── dataset_split_ids_dict.json                 # 数据集划分 ID 索引
+├── RiSAWOZ-Database-and-Ontology/              # 知识库和本体（解压后）
+│   ├── DB/                                     # 各领域数据库
+│   │   ├── attraction_db.json    # 景点
+│   │   ├── car_db.json           # 汽车
+│   │   ├── class_db.json         # 辅导班
+│   │   ├── flight_db.json        # 航班
+│   │   ├── hospital_db.json      # 医院
+│   │   ├── hotel_db.json         # 酒店
+│   │   ├── movie_db.json         # 电影
+│   │   ├── pc_db.json            # 电脑
+│   │   ├── restaurant_db.json    # 餐厅
+│   │   ├── train_db.json         # 火车
+│   │   ├── tv_db.json            # 电视剧
+│   │   └── weather_db.json       # 天气
+│   └── Ontology/
+│       └── ontology.json         # 所有领域的槽位本体定义
+├── source-data/                                # 完整原始标注数据（推荐）
+│   ├── all_(11200)_new.json      # 完整数据集（全部 11200 条）
+│   ├── all_train10000.json       # 训练集（10000 条）
+│   ├── all_dev600.json           # 验证集（600 条）
+│   ├── all_test600_new.json      # 测试集（全部 600 条）
+│   ├── multi_test230_new.json    # 多领域测试集（230 条）
+│   └── single_test370_new.json   # 单领域测试集（370 条）
+├── task1-data-NLU/                             # 任务1：NLU（IOB 格式）
+│   ├── train_data.json
+│   ├── val_data.json
+│   ├── test_data.json_all
+│   ├── test_data.json_multi
+│   └── test_data.json_single
+├── task2-data-DST/                             # 任务2：DST 专用格式
+│   ├── dst_all_train10000.json   # 训练集（10000 条）
+│   ├── dst_all_dev600.json       # 验证集（600 条）
+│   ├── dst_all_test600_new.json  # 测试集（全部 600 条）
+│   ├── dst_multi_test230_new.json   # 多领域测试（230 条）
+│   └── dst_single_test370_new.json  # 单领域测试（370 条）
+├── task3-data-E2E-Context-to-text/             # 任务3：端到端生成（标准命名）
+│   ├── train.json
+│   ├── val.json
+│   ├── test.json
+│   └── preprocessed-data/
+│       ├── temp_for_damd.json
+│       ├── testListFile.json_all
+│       ├── testListFile.json_multi
+│       ├── testListFile.json_single
+│       └── valListFile.json
+├── task4-data-Coreference resolution/          # 任务4：共指消解（CoNLL 格式）
+│   ├── train.chinese.v4_gold_conll
+│   ├── dev.chinese.v4_gold_conll
+│   ├── all_test/
+│   │   └── test.chinese.v4_gold_conll
+│   ├── multi_test/
+│   │   └── test.chinese.v4_gold_conll
+│   └── single_test/
+│       └── test.chinese.v4_gold_conll
+└── task5-data-Unified-generative-ellipsis-and-coreference-resolution/
+    ├── all_(11200)_new.json      # 与 source-data 命名相同
+    ├── all_train10000.json
+    ├── all_dev600.json
+    ├── all_test600_new.json
+    ├── multi_test230_new.json
+    └── single_test370_new.json
+```
 
 ---
 
-### `source-data.zip`（完整源数据）
+### `source-data/`（完整原始标注数据，**推荐**）
 
-**推荐下载**，包含 RiSAWOZ 数据集的全部原始标注数据。解压后结构如下：
+**推荐用于 SGD 格式转换**，包含 RiSAWOZ 数据集的全部原始标注数据。
 
-```
-source-data/
-├── train.json     # 训练集（约 8,400 条对话）
-├── val.json       # 验证集（约 1,400 条对话）
-└── test.json      # 测试集（约 1,400 条对话）
-```
+| 文件 | 对话数 | 说明 |
+|------|--------|------|
+| `all_(11200)_new.json` | 11,200 | 完整数据集（含所有划分） |
+| `all_train10000.json` | 10,000 | 训练集 |
+| `all_dev600.json` | 600 | 验证集 |
+| `all_test600_new.json` | 600 | 测试集（全部） |
+| `multi_test230_new.json` | 230 | 多领域测试子集 |
+| `single_test370_new.json` | 370 | 单领域测试子集 |
 
-每条对话的数据格式：
+每条对话的数据格式（每轮分别存储 usr/sys 两个 dict）：
 
 ```json
 {
   "dialogue_id": "hotel_0001",
   "goal": {
     "description": "您需要预订一家酒店...",
-    "域名": "酒店",
-    "constraints": {
-      "位置": "西城区",
-      "价格范围": "经济型"
-    }
+    "constraints": {"位置": "西城区", "价格范围": "经济型"}
   },
   "domains": ["酒店"],
   "dialogue": [
@@ -89,24 +137,11 @@ source-data/
       "role": "usr",
       "utterance": "我想订一家西城区的经济型酒店",
       "dialogue_act": [
-        {
-          "act": "Inform",
-          "domain": "酒店",
-          "slot": "位置",
-          "value": "西城区"
-        }
+        {"act": "Inform", "domain": "酒店", "slot": "位置", "value": "西城区"}
       ],
       "belief_state": [
-        {
-          "domain": "酒店",
-          "slot": "位置",
-          "value": "西城区"
-        },
-        {
-          "domain": "酒店",
-          "slot": "价格范围",
-          "value": "经济型"
-        }
+        {"domain": "酒店", "slot": "位置", "value": "西城区"},
+        {"domain": "酒店", "slot": "价格范围", "value": "经济型"}
       ]
     },
     {
@@ -126,10 +161,8 @@ source-data/
 |------|------|------|
 | `dialogue_id` | string | 对话唯一标识符 |
 | `goal` | object | 对话目标，包含自然语言描述和约束条件 |
-| `goal.description` | string | 任务目标的自然语言描述 |
-| `goal.constraints` | object | 槽位约束条件 |
 | `domains` | list | 本次对话涉及的领域列表 |
-| `dialogue` | list | 对话轮次列表 |
+| `dialogue` | list | 对话轮次列表（usr/sys 各占一个 dict） |
 | `dialogue[].turn_id` | int | 轮次编号（从 0 开始） |
 | `dialogue[].role` | string | 发言角色：`usr`（用户）或 `sys`（系统） |
 | `dialogue[].utterance` | string | 话语文本 |
@@ -152,19 +185,27 @@ source-data/
 
 ---
 
-### `RiSAWOZ-Database-and-Ontology.zip`（数据库与本体）
+### `RiSAWOZ-Database-and-Ontology/`（数据库与本体）
 
-包含 12 个领域的知识库和槽位本体定义。解压后：
+包含 12 个领域的知识库和槽位本体定义：
 
 ```
 RiSAWOZ-Database-and-Ontology/
-├── database/           # 各领域知识库（结构化数据）
-│   ├── 酒店.json
-│   ├── 餐厅.json
-│   └── ...
-└── ontology/           # 各领域槽位本体（合法槽值列表）
-    ├── ontology.json   # 完整本体，包含所有领域的槽位定义与可选值
-    └── ...
+├── DB/
+│   ├── attraction_db.json   # 景点知识库
+│   ├── hotel_db.json        # 酒店知识库
+│   ├── restaurant_db.json   # 餐厅知识库
+│   ├── flight_db.json       # 航班知识库
+│   ├── hospital_db.json     # 医院知识库
+│   ├── movie_db.json        # 电影知识库
+│   ├── tv_db.json           # 电视剧知识库
+│   ├── train_db.json        # 火车知识库
+│   ├── weather_db.json      # 天气知识库
+│   ├── car_db.json          # 汽车知识库
+│   ├── class_db.json        # 辅导班知识库
+│   └── pc_db.json           # 电脑知识库
+└── Ontology/
+    └── ontology.json        # 所有领域的槽位定义与合法值列表
 ```
 
 **本体格式示例**：
@@ -174,63 +215,43 @@ RiSAWOZ-Database-and-Ontology/
   "酒店": {
     "位置": ["西城区", "东城区", "朝阳区", "海淀区", ...],
     "价格范围": ["经济型", "舒适型", "豪华型"],
-    "星级": ["二星级", "三星级", "四星级", "五星级"],
-    ...
+    "星级": ["二星级", "三星级", "四星级", "五星级"]
   }
 }
 ```
 
 ---
 
-### `task1-data-NLU.zip`（任务1：自然语言理解）
+### `task1-data-NLU/`（任务1：自然语言理解）
 
-包含**意图检测**（Intent Detection）和**槽位填充**（Slot Filling）任务的训练数据。数据采用 IOB 标注格式，每个话语带有分词、命名实体标注和意图标签。
+包含**意图检测**和**槽位填充**任务的训练数据，采用 JSON 格式。
 
-**文件结构**：
+**注意**：❌ 此格式**不支持**转换为 SGD 格式（无完整对话结构）。
 
 ```
 task1-data-NLU/
-├── train/
-│   ├── seq.in          # 分词后的输入序列（每行一个话语）
-│   ├── seq.out         # IOB 槽位标注序列
-│   └── label           # 意图标签
-├── dev/
-│   ├── seq.in
-│   ├── seq.out
-│   └── label
-└── test/
-    ├── seq.in
-    ├── seq.out
-    └── label
-```
-
-**数据格式示例**：
-
-```
-seq.in:  我 想 订 一 家 西 城 区 的 经 济 型 酒 店
-seq.out: O  O  O  O  O  B-位置 I-位置 I-位置 O  B-价格范围 I-价格范围 I-价格范围 O  O
-label:   酒店-预订
+├── train_data.json
+├── val_data.json
+├── test_data.json_all      # 全部测试集
+├── test_data.json_multi    # 多领域测试子集
+└── test_data.json_single   # 单领域测试子集
 ```
 
 ---
 
-### `task2-data-DST.zip`（任务2：对话状态追踪）
+### `task2-data-DST/`（任务2：对话状态追踪）
 
-包含**对话状态追踪**（Dialogue State Tracking, DST）任务专用数据，格式针对状态追踪任务优化。
+包含**对话状态追踪**（DST）任务专用数据，每轮合并了 user_utterance 和 system_utterance。
 
-**文件结构**：
+| 文件 | 对话数 | 说明 |
+|------|--------|------|
+| `dst_all_train10000.json` | 10,000 | 训练集 |
+| `dst_all_dev600.json` | 600 | 验证集 |
+| `dst_all_test600_new.json` | 600 | 测试集（全部） |
+| `dst_multi_test230_new.json` | 230 | 多领域测试子集 |
+| `dst_single_test370_new.json` | 370 | 单领域测试子集 |
 
-```
-task2-data-DST/
-├── train.json     # 训练集，含每轮的 belief_state 标注
-├── val.json       # 验证集
-└── test.json      # 测试集
-```
-
-**数据特点**：
-- 每个对话轮次包含当前的累积 `belief_state`（槽位-值对列表）
-- 与 ContextMind 的 `RiSAWOZAdapter` 直接兼容
-- ContextMind 使用此格式进行 DST 评测
+**数据特点**：每轮 dict 同时包含 `user_utterance`、`system_utterance`、`belief_state` 和 `user_acts`，与 ContextMind 的 `RiSAWOZAdapter` 直接兼容。
 
 **Belief State 格式**：
 
@@ -241,59 +262,61 @@ task2-data-DST/
 ]
 ```
 
-ContextMind 适配器会将其转换为字典格式：
-
-```python
-{
-  "酒店-位置": "西城区",
-  "酒店-价格范围": "经济型"
-}
-```
-
 ---
 
-### `task3-data-E2E-Context-to-text.zip`（任务3：端到端上下文生成）
+### `task3-data-E2E-Context-to-text/`（任务3：端到端上下文生成）
 
-包含**端到端对话生成**任务数据，模型需要基于对话上下文生成系统回复。
-
-**文件结构**：
+包含**端到端对话生成**任务数据，使用**标准文件命名**（train/val/test）。
 
 ```
 task3-data-E2E-Context-to-text/
-├── train.json     # 训练集，含对话历史和目标系统回复
-├── val.json       # 验证集
-└── test.json      # 测试集
+├── train.json
+├── val.json
+├── test.json
+└── preprocessed-data/
+    ├── temp_for_damd.json
+    ├── testListFile.json_all
+    ├── testListFile.json_multi
+    ├── testListFile.json_single
+    └── valListFile.json
 ```
+
+**注意**：⚠️ 此格式缺少 `belief_state`，转换为 SGD 格式时 schema 质量较低。
 
 ---
 
-### `task4-data-Coreference resolution.zip`（任务4：共指消解）
+### `task4-data-Coreference resolution/`（任务4：共指消解）
 
-包含**对话共指消解**任务数据，标注了对话中的省略词和代词对应的实体。
-
-**文件结构**：
+包含**对话共指消解**任务数据，采用 **CoNLL 格式**（不可转换为 SGD）。
 
 ```
 task4-data-Coreference resolution/
-├── train.json     # 训练集，含共指标注
-├── val.json       # 验证集
-└── test.json      # 测试集
+├── train.chinese.v4_gold_conll
+├── dev.chinese.v4_gold_conll
+├── all_test/
+│   └── test.chinese.v4_gold_conll
+├── multi_test/
+│   └── test.chinese.v4_gold_conll
+└── single_test/
+    └── test.chinese.v4_gold_conll
 ```
+
+**注意**：❌ 此格式**不支持**转换为 SGD 格式（CoNLL 格式无对话状态信息）。
 
 ---
 
-### `task5-data-Unified-generative-ellipsis-and-coreference-resolution.zip`（任务5：统一省略与共指消解）
+### `task5-data-Unified-.../`（任务5：统一省略与共指消解）
 
-包含**统一生成式省略消解与共指消解**任务数据，这是 RiSAWOZ 的特色创新任务。
+包含**统一生成式省略消解与共指消解**任务数据，文件命名与 `source-data/` 完全相同：
 
-**文件结构**：
-
-```
-task5-data-Unified-generative-ellipsis-and-coreference-resolution/
-├── train.json     # 训练集
-├── val.json       # 验证集
-└── test.json      # 测试集
-```
+| 文件 | 对话数 | 说明 |
+|------|--------|------|
+| `all_(11200)_new.json` | 11,200 | 完整数据集 |
+| `all_train10000.json` | 10,000 | 训练集 |
+| `all_dev600.json` | 600 | 验证集 |
+| `all_test600_new.json` | 600 | 测试集 |
+| `multi_test230_new.json` | 230 | 多领域测试 |
+| `single_test370_new.json` | 370 | 单领域测试 |
 
 ---
 
@@ -334,7 +357,7 @@ RiSAWOZ 为以下五个 NLP 任务提供基准数据：
 
 ## 在 ContextMind 中使用
 
-ContextMind 的 `RiSAWOZAdapter` 专门适配了 Task 2（DST）格式数据：
+ContextMind 支持 `source-data/` 和 `task2-data-DST/` 两种格式，通过 `RiSAWOZAdapter` 和 `RISAWOZ_FILE_MAPPINGS` 自动管理文件名映射。
 
 ### 下载并准备数据
 
@@ -342,33 +365,47 @@ ContextMind 的 `RiSAWOZAdapter` 专门适配了 Task 2（DST）格式数据：
 # 克隆仓库
 git clone https://github.com/terryqj0107/RiSAWOZ.git
 
-# 解压 DST 数据
-unzip RiSAWOZ/RiSAWOZ-data/task2-data-DST.zip -d ./data/
-
-# 或使用完整源数据
-unzip RiSAWOZ/RiSAWOZ-data/source-data.zip -d ./data/RiSAWOZ/
+# 将 RiSAWOZ-data 目录复制到 data/
+cp -r RiSAWOZ/RiSAWOZ-data ./data/
+# 现在 ./data/RiSAWOZ-data/ 下应有 source-data/ task2-data-DST/ 等子目录
 ```
 
-数据目录结构应为：
+数据目录结构（使用 source-data/）：
 
 ```
-./data/RiSAWOZ/
-├── train.json
-├── val.json
-└── test.json
+./data/RiSAWOZ-data/
+└── source-data/
+    ├── all_train10000.json      ← 训练集
+    ├── all_dev600.json          ← 验证集
+    ├── all_test600_new.json     ← 测试集
+    ├── multi_test230_new.json
+    └── single_test370_new.json
 ```
 
 ### 运行 DST 评测
 
 ```bash
-# 评测验证集（所有领域）
-python benchmark/run_dst_risawoz.py --data-root ./data/RiSAWOZ
+# 评测验证集（source-data 格式，自动应用文件映射）
+python benchmark/run_dst_risawoz.py \
+    --data-root ./data/RiSAWOZ-data/source-data \
+    --source-format source-data
 
 # 评测特定领域
-python benchmark/run_dst_risawoz.py --domain 酒店 --split val
+python benchmark/run_dst_risawoz.py \
+    --data-root ./data/RiSAWOZ-data/source-data \
+    --source-format source-data --domain 酒店 --split val
 
-# 限制数量快速测试
-python benchmark/run_dst_risawoz.py --split train --limit 10 --verbose
+# 使用 task2-dst 格式
+python benchmark/run_dst_risawoz.py \
+    --data-root ./data/RiSAWOZ-data/task2-data-DST \
+    --source-format task2-dst
+
+# 限制数量快速测试（多领域测试子集）
+python benchmark/run_dst_risawoz.py \
+    --data-root ./data/RiSAWOZ-data/source-data \
+    --source-format source-data \
+    --test-file multi_test230_new.json \
+    --split test --limit 10 --verbose
 ```
 
 ---
@@ -377,68 +414,64 @@ python benchmark/run_dst_risawoz.py --split train --limit 10 --verbose
 
 由于 SGD 数据集是英文的，ContextMind 提供了一个转换工具，可将 RiSAWOZ 转换为 SGD 格式，从而在中文数据集上使用 pyTOD 算法进行训练和测试。
 
-### 哪个 ZIP 包可以转换为 SGD 格式？
+### 哪个数据目录可以转换为 SGD 格式？
 
-RiSAWOZ 包含多个 ZIP 包，每个对应不同的 NLP 任务。下表说明各包与 SGD 转换的兼容性：
+| 目录 | 兼容性 | `--source-format` | 文件映射 |
+|------|--------|-------------------|---------|
+| `source-data/` | ✅ **首选** | `source-data` | train→`all_train10000.json`, val→`all_dev600.json`, test→`all_test600_new.json` |
+| `task2-data-DST/` | ✅ 支持 | `task2-dst` | train→`dst_all_train10000.json`, val→`dst_all_dev600.json`, test→`dst_all_test600_new.json` |
+| `task5-data-Unified-.../` | ✅ 支持 | `task5-unified` | 与 source-data 相同文件名 |
+| `task3-data-E2E-Context-to-text/` | ⚠️ 部分 | `task3-e2e` | train→`train.json`, val→`val.json`, test→`test.json`（缺 belief_state） |
+| `task1-data-NLU/` | ❌ **不支持** | — | JSON 格式但无对话状态，无法转换 |
+| `task4-data-Coreference resolution/` | ❌ **不支持** | — | CoNLL 格式，无法转换 |
 
-| ZIP 包 | 兼容性 | 推荐度 | 原因 |
-|--------|--------|--------|------|
-| `source-data.zip` | ✅ 完全支持 | ⭐⭐⭐ **首选** | 完整的原始标注，包含 `dialogue_act`、`belief_state` 等所有字段；每轮分别存储 `role="usr"/"sys"` 的独立对话行为，SGD schema 和 actions 最丰富 |
-| `task2-data-DST.zip` | ✅ 完全支持 | ⭐⭐ 推荐 | 专为 DST 优化，每轮包含 `user_utterance`、`system_utterance`、`belief_state` 和 `user_acts`，格式直接兼容 |
-| `task1-data-NLU.zip` | ❌ **不支持** | — | IOB 格式文本文件（`seq.in` / `seq.out` / `label`），单句标注，没有完整的对话结构和 `belief_state`，无法转换 |
-| `task3-data-E2E-Context-to-text.zip` | ⚠️ 部分支持 | — | 对话结构与 task2-dst 相似，但专为文本生成优化，可能缺少 `user_acts`，schema 质量较低 |
-| `task4-data-Coreference resolution.zip` | ⚠️ 部分支持 | — | 含额外的共指标注，base 对话结构可能兼容，但 `belief_state` 可能不完整 |
-| `task5-data-Unified-generative-ellipsis-and-coreference-resolution.zip` | ⚠️ 部分支持 | — | 与 task4 类似，转换质量取决于数据的 belief_state 完整性 |
+### 两种主要格式的数据结构对比
 
-**结论**：
-- **用于 pyTOD 训练/测试，请使用 `source-data.zip`（推荐）或 `task2-data-DST.zip`**
-- `task1-data-NLU.zip` 完全不适用
-- task3/4/5 的数据可以用 `--source-format auto` 尝试，但结果质量有限
-
-### 两种源格式的对比
-
-`source-data.zip` 和 `task2-data-DST.zip` 的关键数据结构差异：
-
-| 对比项 | source-data.zip | task2-data-DST.zip |
-|--------|----------------|-------------------|
-| 每轮的存储方式 | 两个独立 dict（一个 usr，一个 sys） | 一个合并 dict（含 user_utterance + system_utterance） |
-| 用户行为字段 | `dialogue_act: [{act, domain, slot, value}]` | `user_acts: [[intent, domain, slot, value]]` |
-| 对话标注 | 最完整，usr/sys 都有 `dialogue_act` | DST 专用，只有用户的 `user_acts` |
-| 建议 `--source-format` | `source-data` | `task2-dst` |
+| 对比项 | `source-data/`（推荐） | `task2-data-DST/` |
+|--------|----------------------|-------------------|
+| 每轮存储方式 | 两个独立 dict（role=usr + role=sys） | 一个合并 dict |
+| 用户行为字段 | `dialogue_act: [{act,domain,slot,value}]` | `user_acts: [[intent,domain,slot,value]]` |
+| 训练集文件名 | `all_train10000.json` | `dst_all_train10000.json` |
+| 验证集文件名 | `all_dev600.json` | `dst_all_dev600.json` |
+| 测试集文件名 | `all_test600_new.json` | `dst_all_test600_new.json` |
 
 ### 格式映射关系
 
 | RiSAWOZ | SGD |
 |---------|-----|
 | `domain` (如 "景点") | `service_name` (如 "景点_1") |
-| 每条 `dialogue` 记录（含 user + system 话语） | 拆分为 2 条 SGD turns（USER + SYSTEM）|
+| usr+sys 一对轮次 | 2 条 SGD turns（USER + SYSTEM）|
 | `belief_state[].{domain, slot, value}` | `state.slot_values.{slot: [value]}` |
-| `user_acts[[intent, domain, slot, value]]` | `frames[].actions[{act, slot, values}]` |
+| `dialogue_act` / `user_acts` | `frames[].actions[{act, slot, values}]` |
 | 动态从数据中提取 | `schema.json`（每个域的服务 Schema） |
 
-意图类型映射：RiSAWOZ 的 `Inform/Request/Select/Confirm` 分别对应 SGD 的 `INFORM/REQUEST/SELECT/CONFIRM`。
+意图类型映射：`Inform/Request/Select/Confirm` → `INFORM/REQUEST/SELECT/CONFIRM`。
 
 ### 使用转换工具
 
 ```bash
-# 使用 source-data.zip（推荐）
+# 使用 source-data/（推荐）
 python benchmark/convert_risawoz_to_sgd.py \
-    --data-root ./data/RiSAWOZ \
+    --data-root ./data/RiSAWOZ-data/source-data \
     --output-dir ./data/RiSAWOZ_SGD \
     --source-format source-data
 
-# 使用 task2-data-DST.zip
+# 使用 task2-data-DST/
 python benchmark/convert_risawoz_to_sgd.py \
-    --data-root ./data/RiSAWOZ_DST \
+    --data-root ./data/RiSAWOZ-data/task2-data-DST \
     --output-dir ./data/RiSAWOZ_SGD \
     --source-format task2-dst
 
-# 只转换验证集（自动检测格式）
-python benchmark/convert_risawoz_to_sgd.py --splits val
-
-# 自定义文件名映射（非标准文件名时使用）
+# 只转换验证集
 python benchmark/convert_risawoz_to_sgd.py \
-    --file-mapping train=train_data.json val=val_data.json
+    --data-root ./data/RiSAWOZ-data/source-data \
+    --source-format source-data --splits val
+
+# 用多领域测试文件覆盖默认测试集
+python benchmark/convert_risawoz_to_sgd.py \
+    --data-root ./data/RiSAWOZ-data/source-data \
+    --source-format source-data \
+    --file-mapping test=multi_test230_new.json
 ```
 
 ### 输出目录结构

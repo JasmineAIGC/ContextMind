@@ -7,52 +7,85 @@ Google SGD（Schema-Guided Dialogue）格式，
 以便使用 pyTOD 算法进行训练和测试。
 
 ----------------------------------------------------------------------
-使用哪个 RiSAWOZ ZIP 包？
+使用哪个 RiSAWOZ 数据目录？
 ----------------------------------------------------------------------
 
-RiSAWOZ 数据集包含多个 ZIP 包，对应不同的任务。
-转换为 SGD 格式时，只有以下两个包是有效的数据源：
+RiSAWOZ 解压后的实际目录结构如下（--data-root 应指向子目录）：
 
-  ✅ source-data.zip（推荐）
-     - 完整的原始对话标注，包含 dialogue_act、belief_state 等所有字段
-     - 每轮用独立的 role="usr"/"sys" dict 表示
-     - 信息最丰富，能生成最完整的 SGD schema 和 actions
-     - 使用 --source-format source-data
+  RiSAWOZ-data/
+    source-data/                 ← --data-root 指向这里（推荐）
+      all_train10000.json
+      all_dev600.json
+      all_test600_new.json
+      multi_test230_new.json
+      single_test370_new.json
+      all_(11200)_new.json
+    task2-data-DST/              ← --data-root 指向这里（DST）
+      dst_all_train10000.json
+      dst_all_dev600.json
+      dst_all_test600_new.json
+      dst_multi_test230_new.json
+      dst_single_test370_new.json
+    task3-data-E2E-Context-to-text/  ← train.json / val.json / test.json
+    task5-data-Unified-generative-ellipsis-and-coreference-resolution/
+      all_train10000.json  all_dev600.json  all_test600_new.json  ...
+    task1-data-NLU/              ← ❌ 不支持转换（IOB 格式）
+    task4-data-Coreference resolution/  ← ❌ 不支持转换（CoNLL 格式）
 
-  ✅ task2-data-DST.zip（也支持）
-     - 专为 DST 任务提取的数据，每轮含 user_utterance + system_utterance
-     - 包含 belief_state 和 user_acts，SGD 转换完整
-     - 使用 --source-format task2-dst
+----------------------------------------------------------------------
+各数据目录兼容性
+----------------------------------------------------------------------
 
-  ❌ task1-data-NLU.zip（不支持）
-     - IOB 格式文本文件（seq.in / seq.out / label），无对话结构
-     - 单句标注，不是完整对话，无法转换为 SGD 格式
+  ✅ source-data/（推荐）
+     完整的原始对话标注，dialogue_act + belief_state，信息最丰富
+     --source-format source-data
+     文件映射: train→all_train10000.json, val→all_dev600.json,
+               test→all_test600_new.json
 
-  ⚠️  task3 / task4 / task5 ZIP（部分支持）
-     - 格式变体，base 对话结构与 task2-dst 相似，可尝试自动模式
-     - 但可能缺少 belief_state 或 user_acts 字段，转换质量较低
-     - 如需使用，建议先检查数据格式
+  ✅ task2-data-DST/（也支持）
+     DST 专用格式，user_utterance + system_utterance + user_acts
+     --source-format task2-dst
+     文件映射: train→dst_all_train10000.json, val→dst_all_dev600.json,
+               test→dst_all_test600_new.json
+
+  ✅ task5-data-Unified.../（也支持）
+     与 source-data 格式相同（文件名相同）
+     --source-format task5-unified
+     文件映射: train→all_train10000.json, val→all_dev600.json,
+               test→all_test600_new.json
+
+  ⚠️  task3-data-E2E-Context-to-text/（部分支持）
+     标准文件名（train.json / val.json / test.json），但缺少 belief_state
+     --source-format task3-e2e
+
+  ❌ task1-data-NLU/    — IOB 格式文本文件，不可转换
+  ❌ task4-data-Coreference resolution/  — CoNLL 格式，不可转换
 
 ----------------------------------------------------------------------
 使用方法
 ----------------------------------------------------------------------
 
-    # 使用 source-data.zip 中的完整数据（推荐）
+    # 使用 source-data/（推荐）
     python benchmark/convert_risawoz_to_sgd.py \\
-        --data-root ./data/RiSAWOZ \\
-        --source-format source-data
+        --data-root ./data/RiSAWOZ-data/source-data \\
+        --source-format source-data \\
+        --output-dir ./data/RiSAWOZ_SGD
 
-    # 使用 task2-data-DST.zip 中的 DST 数据
+    # 使用 task2-data-DST/
     python benchmark/convert_risawoz_to_sgd.py \\
-        --data-root ./data/RiSAWOZ_DST \\
+        --data-root ./data/RiSAWOZ-data/task2-data-DST \\
         --source-format task2-dst
 
     # 只转换验证集
-    python benchmark/convert_risawoz_to_sgd.py --splits val
-
-    # 自定义文件名映射（非标准文件名时）
     python benchmark/convert_risawoz_to_sgd.py \\
-        --file-mapping train=train_data.json val=val_data.json test=test_data.json
+        --data-root ./data/RiSAWOZ-data/source-data \\
+        --source-format source-data --splits val
+
+    # 手动指定文件名映射（自定义测试文件）
+    python benchmark/convert_risawoz_to_sgd.py \\
+        --data-root ./data/RiSAWOZ-data/source-data \\
+        --source-format source-data \\
+        --file-mapping test=multi_test230_new.json
 
 输出目录结构（与 SGD 相同）:
     <output-dir>/
@@ -63,11 +96,9 @@ RiSAWOZ 数据集包含多个 ZIP 包，对应不同的任务。
         val/
             schema.json
             dialogues_001.json
-            ...
         test/
             schema.json
             dialogues_001.json
-            ...
 """
 
 import argparse
@@ -91,8 +122,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--data-root",
-        default="./data/RiSAWOZ",
-        help="RiSAWOZ 数据集根目录（默认: ./data/RiSAWOZ）",
+        default="./data/RiSAWOZ-data/source-data",
+        help=(
+            "RiSAWOZ 数据子目录路径（指向含 JSON 文件的目录）。\n"
+            "  source-data 格式: ./data/RiSAWOZ-data/source-data\n"
+            "  task2-dst 格式:   ./data/RiSAWOZ-data/task2-data-DST\n"
+            "（默认: ./data/RiSAWOZ-data/source-data）"
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -185,8 +221,12 @@ def main() -> None:
     print(f"输出根目录   : {output_root}")
     print(f"要转换的划分 : {', '.join(args.splits)}")
     print(f"源数据格式   : {args.source_format}")
+    # Show the effective file mapping (user-supplied overrides auto-mapping)
+    from benchmark.datasets.risawoz.adapter import RISAWOZ_FILE_MAPPINGS as _FM
     if file_mapping:
-        print(f"文件名映射   : {file_mapping}")
+        print(f"文件名映射   : {file_mapping}（用户自定义）")
+    elif args.source_format in _FM:
+        print(f"文件名映射   : {_FM[args.source_format]}（{args.source_format} 默认）")
     print(f"{'='*60}\n")
 
     converter = RiSAWOZToSGDConverter(

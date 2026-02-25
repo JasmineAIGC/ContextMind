@@ -3,12 +3,36 @@ RiSAWOZ数据集适配器
 
 将RiSAWOZ数据集格式转换为标准化的对话实例格式。
 
-RiSAWOZ数据集结构:
-- train.json: 训练集
-- val.json: 验证集
-- test.json: 测试集
-- 每个JSON文件包含对话实例列表
-- 对话格式遵循MultiWOZ风格，包含belief state、对话历史等
+RiSAWOZ数据集实际目录结构（解压后）:
+  RiSAWOZ-data/
+    source-data/                 # 完整原始标注数据（推荐）
+      all_train10000.json          # 训练集（10000条）
+      all_dev600.json              # 验证集（600条）
+      all_test600_new.json         # 测试集（全部600条）
+      multi_test230_new.json       # 多领域测试集（230条）
+      single_test370_new.json      # 单领域测试集（370条）
+      all_(11200)_new.json         # 完整数据集（11200条）
+    task2-data-DST/              # DST专用格式
+      dst_all_train10000.json
+      dst_all_dev600.json
+      dst_all_test600_new.json
+      dst_multi_test230_new.json
+      dst_single_test370_new.json
+    task3-data-E2E-Context-to-text/  # 端到端生成（标准命名）
+      train.json
+      val.json
+      test.json
+    task5-data-Unified-generative-ellipsis-and-coreference-resolution/
+      all_train10000.json          # 与 source-data 命名相同
+      all_dev600.json
+      all_test600_new.json
+      multi_test230_new.json
+      single_test370_new.json
+      all_(11200)_new.json
+    dataset_split_ids_dict.json
+    RiSAWOZ-Database-and-Ontology/  # 知识库和本体
+
+使用 RISAWOZ_FILE_MAPPINGS 获取各格式的标准 split→filename 映射。
 
 参考: https://github.com/terryqj0107/RiSAWOZ
 """
@@ -22,6 +46,39 @@ from collections import defaultdict
 
 # 获取logger
 logger = logging.getLogger(__name__)
+
+
+# ------------------------------------------------------------------
+# 各 RiSAWOZ 数据源格式的文件名映射
+# key: split 名称 ("train" / "val" / "test")
+# value: 对应数据目录中的实际文件名
+# ------------------------------------------------------------------
+RISAWOZ_FILE_MAPPINGS: Dict[str, Dict[str, str]] = {
+    # source-data/ 目录（推荐，信息最丰富）
+    "source-data": {
+        "train": "all_train10000.json",
+        "val":   "all_dev600.json",
+        "test":  "all_test600_new.json",
+    },
+    # task2-data-DST/ 目录（DST 专用格式）
+    "task2-dst": {
+        "train": "dst_all_train10000.json",
+        "val":   "dst_all_dev600.json",
+        "test":  "dst_all_test600_new.json",
+    },
+    # task3-data-E2E-Context-to-text/ 目录（标准命名，直接可用）
+    "task3-e2e": {
+        "train": "train.json",
+        "val":   "val.json",
+        "test":  "test.json",
+    },
+    # task5-data-Unified-generative-ellipsis-and-coreference-resolution/ 目录
+    "task5-unified": {
+        "train": "all_train10000.json",
+        "val":   "all_dev600.json",
+        "test":  "all_test600_new.json",
+    },
+}
 
 
 @dataclass
@@ -58,10 +115,21 @@ class RiSAWOZAdapter:
         初始化RiSAWOZ适配器
         
         Args:
-            data_root: RiSAWOZ数据集根目录路径
-            file_mapping: 自定义文件名映射 (可选)
-                默认: {"train": "train.json", "val": "val.json", "test": "test.json"}
-                示例: {"train": "train_data.json", "val": "val_data.json", "test": "test_data.json_all"}
+            data_root: RiSAWOZ数据目录路径（指向包含 JSON 文件的子目录，而非顶级目录）
+                例如:
+                  "./data/RiSAWOZ-data/source-data"      → source-data 格式
+                  "./data/RiSAWOZ-data/task2-data-DST"   → task2-dst 格式
+            file_mapping: split名称到文件名的映射 (可选)
+                如不提供，请使用 RISAWOZ_FILE_MAPPINGS[格式名] 中的预设映射。
+                例如:
+                  RISAWOZ_FILE_MAPPINGS["source-data"]
+                    = {"train": "all_train10000.json",
+                       "val":   "all_dev600.json",
+                       "test":  "all_test600_new.json"}
+                  RISAWOZ_FILE_MAPPINGS["task2-dst"]
+                    = {"train": "dst_all_train10000.json",
+                       "val":   "dst_all_dev600.json",
+                       "test":  "dst_all_test600_new.json"}
         """
         self.data_root = Path(data_root)
         self.dialogue_cache = {}
