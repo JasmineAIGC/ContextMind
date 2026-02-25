@@ -373,6 +373,123 @@ python benchmark/run_dst_risawoz.py --split train --limit 10 --verbose
 
 ---
 
+## 转换为 SGD 格式（用于 pyTOD 训练和测试）
+
+由于 SGD 数据集是英文的，ContextMind 提供了一个转换工具，可将 RiSAWOZ 转换为 SGD 格式，从而在中文数据集上使用 pyTOD 算法进行训练和测试。
+
+### 格式映射关系
+
+| RiSAWOZ | SGD |
+|---------|-----|
+| `domain` (如 "景点") | `service_name` (如 "景点_1") |
+| 每条 `dialogue` 记录（含 user + system 话语） | 拆分为 2 条 SGD turns（USER + SYSTEM）|
+| `belief_state[].{domain, slot, value}` | `state.slot_values.{slot: [value]}` |
+| `user_acts[[intent, domain, slot, value]]` | `frames[].actions[{act, slot, values}]` |
+| 动态从数据中提取 | `schema.json`（每个域的服务 Schema） |
+
+意图类型映射：RiSAWOZ 的 `Inform/Request/Select/Confirm` 分别对应 SGD 的 `INFORM/REQUEST/SELECT/CONFIRM`。
+
+### 使用转换工具
+
+```bash
+# 转换所有划分（train / val / test）
+python benchmark/convert_risawoz_to_sgd.py \
+    --data-root ./data/RiSAWOZ \
+    --output-dir ./data/RiSAWOZ_SGD
+
+# 只转换验证集
+python benchmark/convert_risawoz_to_sgd.py --splits val
+
+# 自定义文件名映射（非标准文件名时使用）
+python benchmark/convert_risawoz_to_sgd.py \
+    --file-mapping train=train_data.json val=val_data.json
+```
+
+### 输出目录结构
+
+```
+./data/RiSAWOZ_SGD/
+├── conversion_summary.json    # 转换汇总报告
+├── train/
+│   ├── schema.json            # 12 个领域的服务 Schema
+│   ├── dialogues_001.json     # 第 1 批对话（每批最多 1000 条）
+│   └── dialogues_002.json     # 第 2 批对话（如有）
+├── val/
+│   ├── schema.json
+│   └── dialogues_001.json
+└── test/
+    ├── schema.json
+    └── dialogues_001.json
+```
+
+### 生成的 SGD 格式示例
+
+**schema.json**（景点_1 服务）：
+```json
+{
+  "service_name": "景点_1",
+  "description": "景点领域对话服务",
+  "slots": [
+    {"name": "名称", "description": "名称", "is_categorical": false, "possible_values": []},
+    {"name": "类型", "description": "类型", "is_categorical": true, "possible_values": ["博物馆", "公园", "寺庙"]}
+  ],
+  "intents": [
+    {"name": "Inform", "description": "景点领域的Inform意图", "required_slots": [], "optional_slots": {}, "result_slots": []}
+  ]
+}
+```
+
+**dialogues_001.json**（转换后的对话）：
+```json
+{
+  "dialogue_id": "risawoz_001",
+  "services": ["景点_1"],
+  "turns": [
+    {
+      "turn_id": "0",
+      "speaker": "USER",
+      "utterance": "我想找一个博物馆",
+      "frames": [{
+        "service": "景点_1",
+        "state": {"active_intent": "Request", "requested_slots": [], "slot_values": {}},
+        "actions": [{"act": "REQUEST", "slot": "名称", "values": [], "canonical_values": []}]
+      }]
+    },
+    {
+      "turn_id": "1",
+      "speaker": "SYSTEM",
+      "utterance": "请问您想去哪个博物馆？",
+      "frames": [{
+        "service": "景点_1",
+        "state": {"active_intent": "NONE", "requested_slots": [], "slot_values": {}},
+        "actions": [],
+        "service_call": null,
+        "service_results": []
+      }]
+    }
+  ]
+}
+```
+
+### 与 pyTOD 配合使用
+
+转换完成后，可以直接将输出目录作为 SGD 数据集路径，供 pyTOD 读取：
+
+```bash
+# 将转换后的数据作为 SGD 数据集路径配置到 pyTOD
+export SGD_DATA_ROOT=./data/RiSAWOZ_SGD
+
+# 使用 pyTOD 官方脚本进行训练（参考 pyTOD 文档）
+# 详见: https://github.com/apple/ml-pytod
+```
+
+> **注意**：由于 RiSAWOZ 没有真实的 API 调用记录，`service_call` 和 `service_results` 字段为空。
+> pyTOD 的执行引擎部分需要相应调整，或先使用不依赖执行反馈的评测模式。
+
+详见 [pyTOD 算法文档](../algorithms/pytod.md) 和 [SGD 数据集文档](sgd.md)。
+
+---
+
 ## 评测指标
 
 ContextMind 对 RiSAWOZ 使用以下指标（与 TransferTOD 对齐）：
@@ -407,4 +524,8 @@ ContextMind 对 RiSAWOZ 使用以下指标（与 TransferTOD 对齐）：
 - [RiSAWOZ 官方主页](https://terryqj0107.github.io/RiSAWOZ_webpage/)
 - [ContextMind DST 评测脚本](../../benchmark/run_dst_risawoz.py)
 - [ContextMind RiSAWOZ 适配器](../../benchmark/datasets/risawoz/adapter.py)
+- [RiSAWOZ → SGD 转换工具](../../benchmark/convert_risawoz_to_sgd.py)
+- [RiSAWOZ → SGD 转换器核心代码](../../benchmark/datasets/risawoz/sgd_converter.py)
+- [pyTOD 算法文档](../algorithms/pytod.md)
+- [SGD 数据集文档](sgd.md)
 - [评测指标说明](../metrics-explanation.md)
