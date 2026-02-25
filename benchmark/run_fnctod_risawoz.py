@@ -127,26 +127,27 @@ class FnCTODRiSAWOZTest:
         for slot_name, slot_info in slots.items():
             # 确定参数类型
             param_type = ParameterType.STRING  # 默认为字符串
+            enum_values = []
             
-            # 如果有values列表，则为枚举类型
+            # 如果有values列表，将它们存储在enum_values中（但类型还是STRING）
             if isinstance(slot_info, dict):
                 values = slot_info.get('values', [])
                 if values and len(values) > 0:
-                    param_type = ParameterType.ENUM
+                    enum_values = values
             elif isinstance(slot_info, list):
                 # slot_info本身就是values列表
                 values = slot_info
                 if values and len(values) > 0:
-                    param_type = ParameterType.ENUM
+                    enum_values = values
                 slot_info = {'values': values}
             
             # 创建参数
             param = FunctionParameter(
                 name=slot_name,
-                type=param_type,
+                param_type=param_type,
                 description=f"{domain}领域的{slot_name}槽位",
                 required=False,  # RiSAWOZ中槽位通常不是必需的
-                enum_values=slot_info.get('values', []) if isinstance(slot_info, dict) else []
+                enum_values=enum_values
             )
             parameters.append(param)
         
@@ -460,7 +461,7 @@ def main():
     parser.add_argument("--data-root", type=str, default="./data/RiSAWOZ",
                        help="RiSAWOZ数据集根目录 (默认: ./data/RiSAWOZ)")
     parser.add_argument("--log-level", type=str, default="INFO",
-                       choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                       choices=["DEBUG", "INFO", "WARNING"],
                        help="日志级别 (默认: INFO)")
     
     args = parser.parse_args()
@@ -469,8 +470,7 @@ def main():
     log_level_map = {
         "DEBUG": LogLevel.DEBUG,
         "INFO": LogLevel.INFO,
-        "WARNING": LogLevel.WARNING,
-        "ERROR": LogLevel.ERROR
+        "WARNING": LogLevel.WARNING
     }
     setup_logging(level=log_level_map[args.log_level])
     
