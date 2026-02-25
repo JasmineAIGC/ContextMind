@@ -12,9 +12,17 @@
 
 ### 核心概念
 
-- [模式对比](modes.md) - 三种对话模式详细对比
+- [模式对比](modes.md) - DST / FnCTOD / Evolve 三种对话模式详细对比
 - [配置指南](configuration.md) - 高级配置选项
-- [评测指标](metrics-explanation.md) - 评测指标详细说明
+- [评测指标](metrics-explanation.md) - 评测指标详细说明（含常见问题分析）
+- [意图评测](intent-evaluation.md) - 意图识别评测使用指南
+- [上下文工程](context-engineering.md) - DST 和 FnCTOD 评测对上下文工程的意义
+
+### 数据集文档
+
+- [RiSAWOZ 数据集](datasets/risawoz.md) - RiSAWOZ 数据集文件与目录结构说明
+- [TransferTOD 数据集](datasets/transfertod.md) - TransferTOD 数据集文件与目录结构说明
+- [对话数量差异说明](datasets/dialogue-count.md) - DST 与 FnCTOD 评测对话数量不同的原因
 
 ### 开发指南
 
@@ -45,6 +53,8 @@
 - [如何使用 Evolve 模式](api-reference.md#evolve-模式-api)
 - [如何添加新场景](extending-scenarios.md)
 - [如何自定义配置](configuration.md)
+- [如何评测 RiSAWOZ 数据集](datasets/risawoz.md#在-contextmind-中使用)
+- [如何评测 TransferTOD 数据集](datasets/transfertod.md#在-contextmind-中使用)
 
 ### 遇到问题？
 
@@ -74,17 +84,36 @@
 
 1. 深入研究 [目录结构](directory-structure.md)
 2. 学习 [评测指标](metrics-explanation.md)
-3. 贡献代码（参考 [贡献指南](CONTRIBUTING.md)）
+3. 查看数据集文档（[RiSAWOZ](datasets/risawoz.md) / [TransferTOD](datasets/transfertod.md)）
+4. 贡献代码（参考 [贡献指南](CONTRIBUTING.md)）
 
 ---
 
-## 📂 文档规范
+## 📂 文档结构
 
-所有文档采用统一的命名规范：
-- 使用小写字母
-- 单词间用连字符 `-` 分隔
-- 使用 `.md` 扩展名
-- 每个文档包含"最后更新"日期
+```
+docs/
+├── README.md                  # 文档索引（本文件）
+├── quick-start.md             # 快速开始
+├── examples.md                # 示例代码
+├── directory-structure.md     # 项目目录结构
+├── modes.md                   # 三种对话模式对比
+├── configuration.md           # 配置指南
+├── api-reference.md           # API 参考
+├── metrics-explanation.md     # 评测指标说明
+├── intent-evaluation.md       # 意图评测指南
+├── context-engineering.md     # 上下文工程意义
+├── extending-scenarios.md     # 扩展场景
+├── troubleshooting.md         # 故障排查
+├── changelog.md               # 更新日志
+├── CONTRIBUTING.md            # 贡献指南
+└── datasets/                  # 数据集文档
+    ├── risawoz.md             # RiSAWOZ 数据集说明
+    ├── transfertod.md         # TransferTOD 数据集说明
+    └── dialogue-count.md      # 对话数量差异说明
+```
+
+文档命名规范：使用小写字母，单词间用连字符 `-` 分隔，扩展名 `.md`。
 
 ---
 
@@ -93,6 +122,8 @@
 - [主项目 README](../README.md)
 - [GitHub 仓库](https://github.com/Jasmine66Bloom/ContextMind)
 - [问题追踪](https://github.com/Jasmine66Bloom/ContextMind/issues)
+- [RiSAWOZ 数据集](https://github.com/terryqj0107/RiSAWOZ)
+- [TransferTOD 数据集](https://github.com/KongLongGeFDU/TransferTOD)
 
 ---
 
@@ -117,4 +148,4 @@
 
 ---
 
-**最后更新**: 2026-02-10 | **版本**: 0.2.1
+**最后更新**: 2026-02-25 | **版本**: 0.2.1
