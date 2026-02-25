@@ -12,9 +12,10 @@ from pathlib import Path
 
 class LogLevel(PyEnum):
     """Evolve 日志级别"""
-    INFO = "INFO"      # 信息模式：记录关键信息和流程
-    DEBUG = "DEBUG"    # 调试模式：记录所有详细日志
+    DEBUG = "DEBUG"      # 调试模式：记录所有详细日志
+    INFO = "INFO"        # 信息模式：记录关键信息和流程
     WARNING = "WARNING"  # 警告模式：仅记录警告和错误
+    ERROR = "ERROR"      # 错误模式：仅记录错误信息
 
 
 class EvolveLogger:
@@ -40,7 +41,7 @@ class EvolveLogger:
         
         Args:
             name: 模块名称
-            level: 日志级别 (INFO 或 DEBUG)
+            level: 日志级别 (DEBUG, INFO, WARNING 或 ERROR)
         """
         self.name = name
         self.level = level
@@ -59,7 +60,9 @@ class EvolveLogger:
         """
         # 如果是标准logging级别，转换为LogLevel
         if isinstance(level, int):
-            if level >= logging.WARNING:
+            if level >= logging.ERROR:
+                self.level = LogLevel.ERROR
+            elif level >= logging.WARNING:
                 self.level = LogLevel.WARNING
             elif level >= logging.INFO:
                 self.level = LogLevel.INFO
@@ -192,7 +195,7 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
     设置 Evolve 日志配置
     
     Args:
-        level: Evolve 日志级别（INFO, DEBUG 或 WARNING）
+        level: Evolve 日志级别（DEBUG, INFO, WARNING 或 ERROR）
         python_log_level: Python 日志级别（默认基于 Evolve 级别）
         save_to_file: 是否自动保存日志到文件（默认：True）
         log_dir: 日志文件保存目录（默认："logs"）
@@ -206,6 +209,8 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
             python_log_level = logging.DEBUG
         elif level == LogLevel.WARNING:
             python_log_level = logging.WARNING
+        elif level == LogLevel.ERROR:
+            python_log_level = logging.ERROR
         else:
             python_log_level = logging.INFO
     
@@ -256,3 +261,5 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
 
 INFO = logging.INFO
 DEBUG = logging.DEBUG
+WARNING = logging.WARNING
+ERROR = logging.ERROR
