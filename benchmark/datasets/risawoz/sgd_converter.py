@@ -119,6 +119,41 @@ def _detect_format(dialogue_data: Dict) -> str:
     return "task2-dst"
 
 
+# Role values recognized as user/system turns (case-insensitive via .lower())
+_USR_ROLES: frozenset = frozenset({"usr", "user"})
+_SYS_ROLES: frozenset = frozenset({"sys", "system"})
+
+
+def _coerce_belief_list(bs: Any) -> List:
+    """
+    Normalise a belief_state value to a list regardless of how it was stored.
+
+    Handles:
+      - list  (standard)   → returned as-is
+      - {}    (empty dict) → []
+      - {"domain": {"slot": "value"}} (nested dict) → [{"domain":..,"slot":..,"value":..}]
+      - None / other       → []
+    """
+    if isinstance(bs, list):
+        return bs
+    if isinstance(bs, dict):
+        if not bs:
+            return []
+        # Nested dict: {"景点": {"名称": "故宫"}, ...}
+        result = []
+        for domain, slots in bs.items():
+            if isinstance(slots, dict):
+                for slot, value in slots.items():
+                    result.append({"domain": domain, "slot": slot, "value": str(value)})
+            elif isinstance(slots, str):
+                # Flat dict: {"景点-名称": "故宫"}
+                if "-" in domain:
+                    d, s = domain.split("-", 1)
+                    result.append({"domain": d, "slot": s, "value": slots})
+        return result
+    return []
+
+
 def _normalize_turns(dialogue_data: Dict, fmt: str) -> List[Dict]:
     """
     Normalise raw turns into a list of combined dicts, each representing
@@ -128,6 +163,10 @@ def _normalize_turns(dialogue_data: Dict, fmt: str) -> List[Dict]:
 
     For "task2-dst" the dicts already have that shape; we return them as-is.
     For "source-data" we pair consecutive usr/sys turns.
+
+    Accepted role values (case-insensitive):
+      user roles  : "usr", "user"
+      system roles: "sys", "system"
     """
     raw_turns = dialogue_data.get("dialogue", [])
 
@@ -141,17 +180,18 @@ def _normalize_turns(dialogue_data: Dict, fmt: str) -> List[Dict]:
     for turn in raw_turns:
         if not isinstance(turn, dict):
             continue
-        role = turn.get("role", "")
-        if role == "usr":
+        role = turn.get("role", "").lower()
+        if role in _USR_ROLES:
             pending_usr = turn
-        elif role == "sys" and pending_usr is not None:
-            # Merge the pair into the combined format
-            # belief_state and dialogue_act from the *user* turn carry slot info;
-            # the system turn's belief_state is usually the same or empty.
-            user_bs = pending_usr.get("belief_state", [])
-            sys_bs = turn.get("belief_state", [])
-            # Use user belief_state; fall back to system if empty
-            belief_state = user_bs if user_bs else sys_bs
+        elif role in _SYS_ROLES and pending_usr is not None:
+            # Merge the pair into the combined format.
+            # In source-data format the system turn typically carries the
+            # cumulative belief_state; the user turn's belief_state is often [].
+            user_bs = _coerce_belief_list(pending_usr.get("belief_state", []))
+            sys_bs = _coerce_belief_list(turn.get("belief_state", []))
+            # Prefer system turn belief_state (it has the accumulated state);
+            # fall back to user turn if system turn is empty.
+            belief_state = sys_bs if sys_bs else user_bs
 
             # dialogue_act on the user turn maps to user_acts
             d_acts = pending_usr.get("dialogue_act", [])
@@ -176,22 +216,30 @@ def _dialogue_acts_to_user_acts(dialogue_acts: List) -> List:
     Convert source-data's dialogue_act list into the user_acts list format
     expected by the rest of the converter.
 
-    source-data dialogue_act:
-      [{"act": "Inform", "domain": "酒店", "slot": "位置", "value": "西城区"}, ...]
+    Handles two formats:
+      dict  : [{"act": "Inform", "domain": "酒店", "slot": "位置", "value": "西城区"}, ...]
+      list  : [["Inform", "酒店", "位置", "西城区"], ...]   ← list-of-lists (also common)
 
-    user_acts (task2-dst):
+    Returns user_acts:
       [["Inform", "酒店", "位置", "西城区"], ...]
     """
     result = []
     for da in dialogue_acts:
-        if not isinstance(da, dict):
-            continue
-        result.append([
-            da.get("act", ""),
-            da.get("domain", ""),
-            da.get("slot", ""),
-            da.get("value", ""),
-        ])
+        if isinstance(da, dict):
+            result.append([
+                da.get("act", ""),
+                da.get("domain", ""),
+                da.get("slot", ""),
+                da.get("value", ""),
+            ])
+        elif isinstance(da, list) and len(da) >= 2:
+            # list-of-lists format: [intent, domain, slot?, value?]
+            result.append([
+                da[0],
+                da[1],
+                da[2] if len(da) > 2 else "",
+                da[3] if len(da) > 3 else "",
+            ])
     return result
 
 
@@ -211,13 +259,17 @@ class _SchemaBuilder:
     def ingest_dialogue(self, dialogue_data: Dict) -> None:
         """Extract slot/intent information from a single raw RiSAWOZ dialogue."""
         for turn in dialogue_data.get("dialogue", []):
-            # belief_state can be in two formats (see adapter.py for details)
-            belief_state = turn.get("belief_state", [])
+            # ── belief_state ─────────────────────────────────────────────
+            # Supports three formats:
+            #   A. list-of-dicts: [{"domain": "景点", "slot": "名称", "value": "故宫"}]
+            #   B. list-of-dicts: [{"slots": [["景点-名称", "故宫"]], "act": "..."}]
+            #   C. nested dict:   {"景点": {"名称": "故宫"}} (normalised via _coerce_belief_list)
+            belief_state = _coerce_belief_list(turn.get("belief_state", []))
             for belief in belief_state:
                 if not isinstance(belief, dict):
                     continue
                 if "domain" in belief and "slot" in belief:
-                    # Format: {"domain": "景点", "slot": "名称", "value": "故宫"}
+                    # Format A: {"domain": "景点", "slot": "名称", "value": "故宫"}
                     domain = belief["domain"]
                     slot = belief["slot"]
                     value = belief.get("value", "")
@@ -227,7 +279,7 @@ class _SchemaBuilder:
                         else:
                             self._slots[domain][slot]  # ensure key exists
                 elif "slots" in belief:
-                    # Format: {"slots": [["景点-名称", "故宫"], ...], "act": "..."}
+                    # Format B: {"slots": [["景点-名称", "故宫"], ...], "act": "..."}
                     for slot_pair in belief.get("slots", []):
                         if isinstance(slot_pair, list) and len(slot_pair) >= 2:
                             slot_key = slot_pair[0]  # "domain-slot"
@@ -240,20 +292,35 @@ class _SchemaBuilder:
                                     else:
                                         self._slots[domain][slot]
 
-            # user_acts (task2-dst): [[intent, domain, slot, value], ...]
+            # ── user_acts (task2-dst): [[intent, domain, slot, value], ...] ──
             for act in turn.get("user_acts", []):
                 if isinstance(act, list) and len(act) >= 2:
                     intent, domain = act[0], act[1]
                     if domain:
                         self._intents[domain].add(intent)
 
-            # dialogue_act (source-data): [{"act":..,"domain":..,"slot":..,"value":..}, ...]
+            # ── dialogue_act (source-data) ────────────────────────────────
+            # Supports two formats:
+            #   dict : [{"act":..,"domain":..,"slot":..,"value":..}, ...]
+            #   list : [["Inform", "景点", "名称", "故宫"], ...]  ← list-of-lists
             for da in turn.get("dialogue_act", []):
                 if isinstance(da, dict):
                     intent = da.get("act", "")
                     domain = da.get("domain", "")
                     slot = da.get("slot", "")
                     value = da.get("value", "")
+                    if domain and intent:
+                        self._intents[domain].add(intent)
+                    if domain and slot:
+                        if value:
+                            self._slots[domain][slot].add(str(value))
+                        else:
+                            self._slots[domain][slot]
+                elif isinstance(da, list) and len(da) >= 2:
+                    # list-of-lists: [intent, domain, slot?, value?]
+                    intent, domain = da[0], da[1]
+                    slot = da[2] if len(da) > 2 else ""
+                    value = da[3] if len(da) > 3 else ""
                     if domain and intent:
                         self._intents[domain].add(intent)
                     if domain and slot:
@@ -415,6 +482,18 @@ class RiSAWOZToSGDConverter:
                 builder.ingest_dialogue(dialogue_data)
         schema = builder.build_schema()
 
+        # Diagnostic: warn when schema is empty (signals a data format mismatch)
+        if not schema and dialogues_raw:
+            sample = next((d for d in dialogues_raw if isinstance(d, dict)), None)
+            if sample:
+                sample_turn = sample.get("dialogue", [None])[0]
+                logger.warning(
+                    f"[RiSAWOZ→SGD] ⚠️  schema.json 为空（0 个服务），"
+                    f"请检查数据格式是否匹配。\n"
+                    f"  第一条对话的 keys: {list(sample.keys())}\n"
+                    f"  第一个 turn 的 keys: {list(sample_turn.keys()) if isinstance(sample_turn, dict) else sample_turn!r}"
+                )
+
         schema_path = out_path / "schema.json"
         schema_path.write_text(
             json.dumps(schema, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -434,6 +513,20 @@ class RiSAWOZToSGDConverter:
                 total_turns += len(sgd_dialogue["turns"])
             except Exception as exc:
                 logger.warning(f"[RiSAWOZ→SGD] 跳过对话 {idx}: {exc}")
+
+        # Diagnostic: warn when turns are all empty (signals a role/format mismatch)
+        if sgd_dialogues and total_turns == 0:
+            sample = next((d for d in dialogues_raw if isinstance(d, dict)), None)
+            if sample:
+                turns = sample.get("dialogue", [])
+                sample_roles = [t.get("role") for t in turns if isinstance(t, dict)]
+                logger.warning(
+                    f"[RiSAWOZ→SGD] ⚠️  转换了 {len(sgd_dialogues)} 条对话但总轮次为 0。\n"
+                    f"  检测到的源格式: {effective_format}\n"
+                    f"  第一条对话的 role 值: {sample_roles[:6]}\n"
+                    f"  期望的 role 值: {list(_USR_ROLES)} 或 {list(_SYS_ROLES)}\n"
+                    f"  若 role 值不在上述列表中，请检查数据格式。"
+                )
 
         # ── Write dialogue files ─────────────────────────────────────
         file_count = 0
@@ -477,7 +570,7 @@ class RiSAWOZToSGDConverter:
         # Collect all services (domains) referenced in this dialogue
         services: Set[str] = set()
         for turn in dialogue_data.get("dialogue", []):
-            for belief in turn.get("belief_state", []):
+            for belief in _coerce_belief_list(turn.get("belief_state", [])):
                 domain = self._extract_domain_from_belief(belief)
                 if domain:
                     services.add(f"{domain}_1")
@@ -543,7 +636,7 @@ class RiSAWOZToSGDConverter:
     # ------ belief_state parsing ------
 
     def _extract_domain_from_belief(self, belief: Any) -> Optional[str]:
-        """Return the domain string from a single belief_state entry."""
+        """Return the domain string from a single belief_state entry (already normalised)."""
         if not isinstance(belief, dict):
             return None
         if "domain" in belief:
@@ -557,20 +650,25 @@ class RiSAWOZToSGDConverter:
         return None
 
     def _parse_belief_state(
-        self, belief_state: List
+        self, belief_state: Any
     ) -> Dict[str, Dict[str, List[str]]]:
         """
-        Parse a RiSAWOZ belief_state list into:
+        Parse a RiSAWOZ belief_state value into:
             {service_name: {slot_name: [value]}}
+
+        Accepts all supported belief_state formats (normalised via _coerce_belief_list):
+          A. [{"domain": "景点", "slot": "名称", "value": "故宫"}, ...]
+          B. [{"slots": [["景点-名称", "故宫"], ...], "act": "..."}]
+          C. {"景点": {"名称": "故宫"}}  (nested dict, converted by _coerce_belief_list)
         """
         result: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
 
-        for belief in belief_state:
+        for belief in _coerce_belief_list(belief_state):
             if not isinstance(belief, dict):
                 continue
 
             if "domain" in belief and "slot" in belief:
-                # Format: {"domain": "景点", "slot": "名称", "value": "故宫"}
+                # Format A
                 domain = belief["domain"]
                 slot = belief["slot"]
                 value = str(belief.get("value", "")) if belief.get("value") else ""
@@ -579,7 +677,7 @@ class RiSAWOZToSGDConverter:
                     result[svc][slot] = [value]
 
             elif "slots" in belief:
-                # Format: {"slots": [["景点-名称", "故宫"], ...], "act": "..."}
+                # Format B
                 for pair in belief.get("slots", []):
                     if isinstance(pair, list) and len(pair) >= 2:
                         key = pair[0]
