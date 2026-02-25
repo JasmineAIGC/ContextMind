@@ -119,9 +119,15 @@ def _detect_format(dialogue_data: Dict) -> str:
     return "task2-dst"
 
 
-# Role values recognized as user/system turns (case-insensitive via .lower())
-_USR_ROLES: frozenset = frozenset({"usr", "user"})
-_SYS_ROLES: frozenset = frozenset({"sys", "system"})
+# Role values recognized as user/system turns (case-insensitive, checked via .lower())
+_USR_ROLES: frozenset = frozenset({
+    "usr", "user",                    # English abbreviations
+    "用户", "客户", "顾客", "client",  # Chinese/other user-side labels
+})
+_SYS_ROLES: frozenset = frozenset({
+    "sys", "system",                  # English
+    "系统", "客服", "服务员", "agent", # Chinese/other system-side labels
+})
 
 
 def _coerce_belief_list(bs: Any) -> List:
@@ -154,6 +160,120 @@ def _coerce_belief_list(bs: Any) -> List:
     return []
 
 
+def _infer_role_sets(raw_turns: List[Dict]) -> Tuple[frozenset, frozenset]:
+    """
+    Examine the actual role values in a list of raw turns and return
+    ``(usr_roles, sys_roles)`` frozensets to use for pairing.
+
+    Strategy (in order of preference):
+    1. If all role values are already in the known sets → use known sets.
+    2. If exactly 2 distinct role values exist → the one that appears *first*
+       overall is treated as the user role, the other as the system role.
+    3. Fallback: return empty frozensets so the caller uses position-based pairing.
+    """
+    seen_roles = []
+    seen_set: set = set()
+    for turn in raw_turns:
+        if not isinstance(turn, dict):
+            continue
+        r = turn.get("role")
+        if r is not None:
+            rl = str(r).lower()
+            if rl not in seen_set:
+                seen_set.add(rl)
+                seen_roles.append(rl)
+
+    if not seen_roles:
+        return frozenset(), frozenset()
+
+    # Check if all seen roles are already covered by the known sets
+    known = _USR_ROLES | _SYS_ROLES
+    if all(r in known for r in seen_roles):
+        return _USR_ROLES, _SYS_ROLES
+
+    # Exactly 2 distinct roles → first-seen = user, second-seen = system
+    if len(seen_roles) == 2:
+        logger.info(
+            f"[RiSAWOZ→SGD] 自动推断 role 映射: "
+            f"'{seen_roles[0]}' → 用户(user), '{seen_roles[1]}' → 系统(system)"
+        )
+        return frozenset({seen_roles[0]}), frozenset({seen_roles[1]})
+
+    # More than 2 distinct roles or 1 unknown role → fallback
+    logger.warning(
+        f"[RiSAWOZ→SGD] ⚠️  无法自动推断 role 映射，将使用位置法（偶数轮=用户，奇数轮=系统）\n"
+        f"  发现的 role 值: {seen_roles}"
+    )
+    return frozenset(), frozenset()
+
+
+def _pair_turns_by_role(
+    raw_turns: List[Dict], usr_roles: frozenset, sys_roles: frozenset
+) -> List[Dict]:
+    """
+    Pair consecutive user/system turns into combined dicts.
+    Returns a list of combined turn dicts with keys:
+      user_utterance, system_utterance, belief_state, user_acts, _dialogue_act
+    """
+    combined: List[Dict] = []
+    pending_usr: Optional[Dict] = None
+
+    for turn in raw_turns:
+        if not isinstance(turn, dict):
+            continue
+        role = str(turn.get("role", "")).lower()
+        if role in usr_roles:
+            pending_usr = turn
+        elif role in sys_roles and pending_usr is not None:
+            user_bs = _coerce_belief_list(pending_usr.get("belief_state", []))
+            sys_bs = _coerce_belief_list(turn.get("belief_state", []))
+            belief_state = sys_bs if sys_bs else user_bs
+            d_acts = pending_usr.get("dialogue_act", [])
+            combined.append({
+                "user_utterance": pending_usr.get("utterance", ""),
+                "system_utterance": turn.get("utterance", ""),
+                "belief_state": belief_state,
+                "user_acts": _dialogue_acts_to_user_acts(d_acts),
+                "_dialogue_act": d_acts,
+            })
+            pending_usr = None
+
+    return combined
+
+
+def _pair_turns_by_position(raw_turns: List[Dict]) -> List[Dict]:
+    """
+    Pair turns by position when role values are unknown or missing.
+    Even positions (0, 2, 4, …) are treated as user turns;
+    odd positions  (1, 3, 5, …) are treated as system turns.
+    """
+    dicts = [t for t in raw_turns if isinstance(t, dict)]
+    combined: List[Dict] = []
+    for i in range(0, len(dicts) - 1, 2):
+        usr_turn = dicts[i]
+        sys_turn = dicts[i + 1]
+        user_bs = _coerce_belief_list(usr_turn.get("belief_state", []))
+        sys_bs = _coerce_belief_list(sys_turn.get("belief_state", []))
+        belief_state = sys_bs if sys_bs else user_bs
+        d_acts = usr_turn.get("dialogue_act", [])
+        combined.append({
+            "user_utterance": (
+                usr_turn.get("utterance")
+                or usr_turn.get("content")
+                or ""
+            ),
+            "system_utterance": (
+                sys_turn.get("utterance")
+                or sys_turn.get("content")
+                or ""
+            ),
+            "belief_state": belief_state,
+            "user_acts": _dialogue_acts_to_user_acts(d_acts),
+            "_dialogue_act": d_acts,
+        })
+    return combined
+
+
 def _normalize_turns(dialogue_data: Dict, fmt: str) -> List[Dict]:
     """
     Normalise raw turns into a list of combined dicts, each representing
@@ -162,53 +282,31 @@ def _normalize_turns(dialogue_data: Dict, fmt: str) -> List[Dict]:
     so the rest of the converter can treat them uniformly.
 
     For "task2-dst" the dicts already have that shape; we return them as-is.
-    For "source-data" we pair consecutive usr/sys turns.
-
-    Accepted role values (case-insensitive):
-      user roles  : "usr", "user"
-      system roles: "sys", "system"
+    For "source-data" / other formats:
+      1. Try to pair turns by known role values (from _USR_ROLES / _SYS_ROLES).
+      2. If that produces 0 turns, auto-infer role values from the dialogue.
+      3. If still 0, fall back to position-based pairing (even=user, odd=system).
     """
     raw_turns = dialogue_data.get("dialogue", [])
 
     if fmt == "task2-dst":
         return [t for t in raw_turns if isinstance(t, dict)]
 
-    # ── source-data: pair up usr/sys turns ───────────────────────────
-    combined: List[Dict] = []
-    pending_usr: Optional[Dict] = None
+    # ── source-data and other role-based formats ──────────────────────
+    # Step 1: try with the well-known role sets
+    combined = _pair_turns_by_role(raw_turns, _USR_ROLES, _SYS_ROLES)
+    if combined:
+        return combined
 
-    for turn in raw_turns:
-        if not isinstance(turn, dict):
-            continue
-        role = turn.get("role", "").lower()
-        if role in _USR_ROLES:
-            pending_usr = turn
-        elif role in _SYS_ROLES and pending_usr is not None:
-            # Merge the pair into the combined format.
-            # In source-data format the system turn typically carries the
-            # cumulative belief_state; the user turn's belief_state is often [].
-            user_bs = _coerce_belief_list(pending_usr.get("belief_state", []))
-            sys_bs = _coerce_belief_list(turn.get("belief_state", []))
-            # Prefer system turn belief_state (it has the accumulated state);
-            # fall back to user turn if system turn is empty.
-            belief_state = sys_bs if sys_bs else user_bs
+    # Step 2: auto-infer role sets from actual data
+    usr_roles, sys_roles = _infer_role_sets(raw_turns)
+    if usr_roles or sys_roles:
+        combined = _pair_turns_by_role(raw_turns, usr_roles, sys_roles)
+    if combined:
+        return combined
 
-            # dialogue_act on the user turn maps to user_acts
-            d_acts = pending_usr.get("dialogue_act", [])
-            user_acts = _dialogue_acts_to_user_acts(d_acts)
-
-            combined.append({
-                "user_utterance": pending_usr.get("utterance", ""),
-                "system_utterance": turn.get("utterance", ""),
-                "belief_state": belief_state,
-                "user_acts": user_acts,
-                # keep raw dialogue_act for richer schema building
-                "_dialogue_act": d_acts,
-            })
-            pending_usr = None
-        # sys turn without matching usr: skip (system-initiated greeting etc.)
-
-    return combined
+    # Step 3: position-based fallback (always produces output if there are turns)
+    return _pair_turns_by_position(raw_turns)
 
 
 def _dialogue_acts_to_user_acts(dialogue_acts: List) -> List:

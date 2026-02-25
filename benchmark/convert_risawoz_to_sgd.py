@@ -177,6 +177,14 @@ def parse_args() -> argparse.Namespace:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="日志级别（默认: INFO）",
     )
+    parser.add_argument(
+        "--inspect",
+        action="store_true",
+        help=(
+            "检查模式：打印第一条对话的原始结构（对话ID、keys、前几个 turn 的 role/keys），"
+            "不执行转换。用于排查数据格式问题。"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -234,6 +242,42 @@ def main() -> None:
         file_mapping=file_mapping,
         source_format=args.source_format,
     )
+
+    # ── Inspect mode: dump first dialogue structure and exit ──────────
+    if args.inspect:
+        split = args.splits[0]
+        print(f"\n🔍 检查模式: 读取 '{split}' 划分的第一条对话结构")
+        try:
+            raw_data = converter.adapter._load_data_file(split)
+            dialogues = raw_data if isinstance(raw_data, list) else list(raw_data.values())
+            first = next((d for d in dialogues if isinstance(d, dict)), None)
+            if first is None:
+                print("  ❌ 未找到任何对话 dict")
+                sys.exit(1)
+            print(f"\n  对话级别 keys: {list(first.keys())}")
+            turns = first.get("dialogue", [])
+            print(f"  'dialogue' 下共 {len(turns)} 个 turn")
+            for i, t in enumerate(turns[:6]):
+                if isinstance(t, dict):
+                    role_val = repr(t.get("role", "<missing>"))
+                    turn_keys = list(t.keys())
+                    bs_sample = t.get("belief_state", "—")
+                    da_sample = t.get("dialogue_act", "—")
+                    if isinstance(da_sample, list):
+                        da_sample = da_sample[:2]
+                    if isinstance(bs_sample, list):
+                        bs_sample = bs_sample[:2]
+                    print(
+                        f"  turn[{i}]: role={role_val}  keys={turn_keys}\n"
+                        f"           belief_state (首2): {bs_sample}\n"
+                        f"           dialogue_act  (首2): {da_sample}"
+                    )
+                else:
+                    print(f"  turn[{i}]: {type(t).__name__}: {t!r}")
+        except Exception as exc:
+            print(f"  ❌ 读取失败: {exc}")
+            sys.exit(1)
+        return
 
     all_summaries = {}
     errors = []
