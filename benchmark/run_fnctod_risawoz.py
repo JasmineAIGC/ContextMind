@@ -316,16 +316,8 @@ class FnCTODRiSAWOZTest:
             limit: 限制对话数量
             verbose: 是否输出详细信息
         """
-        # 获取所有对话ID
-        dialogue_ids = self.adapter.get_all_dialogue_ids(split=split)
-        
-        # 按领域过滤
-        if domain:
-            dialogues_data = self.adapter._load_dialogues_data(split=split)
-            dialogue_ids = [
-                did for did in dialogue_ids
-                if dialogues_data.get(did, {}).get('domain') == domain
-            ]
+        # 获取对话ID（如果指定domain则过滤，否则获取全部）
+        dialogue_ids = self.adapter.get_dialogues_by_domain(domain=domain, split=split)
         
         # 限制数量
         if limit:
