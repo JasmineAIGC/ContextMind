@@ -10,13 +10,45 @@ SGD 格式参考:
 RiSAWOZ 格式参考:
   https://github.com/terryqj0107/RiSAWOZ
 
+----------------------------------------------------------------------
+支持的 RiSAWOZ 源格式
+----------------------------------------------------------------------
+
+"source-data" 格式 (source-data.zip)
+  对话的每一轮用两个独立的 dict 表示，一个 role="usr"，一个 role="sys":
+    {
+      "dialogue_id": "hotel_0001",
+      "domains": ["酒店"],
+      "dialogue": [
+        {"turn_id": 0, "role": "usr", "utterance": "...",
+         "dialogue_act": [{"act":"Inform","domain":"酒店","slot":"位置","value":"西城区"}],
+         "belief_state": [{"domain":"酒店","slot":"位置","value":"西城区"}]},
+        {"turn_id": 1, "role": "sys", "utterance": "...",
+         "dialogue_act": [...], "belief_state": [...]},
+        ...
+      ]
+    }
+
+"task2-dst" 格式 (task2-data-DST.zip)
+  每轮 dict 同时包含 user_utterance 和 system_utterance:
+    {
+      "dialogue": [
+        {"turn_id": 0,
+         "user_utterance": "...", "system_utterance": "...",
+         "belief_state": [...], "user_acts": [...]},
+        ...
+      ]
+    }
+
+转换器会自动检测格式。也可通过 source_format 参数手动指定。
+
 格式映射:
   RiSAWOZ dialogue → SGD dialogue
   RiSAWOZ domain   → SGD service_name (e.g. "景点_1")
-  RiSAWOZ turn     → 2 SGD turns (USER turn + SYSTEM turn)
+  RiSAWOZ turn(s)  → 2 SGD turns (USER turn + SYSTEM turn)
   RiSAWOZ belief_state [{domain, slot, value}]
     → SGD state.slot_values {slot_name: [value]}
-  RiSAWOZ user_acts [[intent, domain, slot, value]]
+  RiSAWOZ user_acts / dialogue_act
     → SGD actions [{act, slot, values, canonical_values}]
 """
 
@@ -54,6 +86,112 @@ _ACT_MAP: Dict[str, str] = {
 def _map_act(risawoz_intent: str) -> str:
     """Map a RiSAWOZ intent string to the corresponding SGD act string."""
     return _ACT_MAP.get(risawoz_intent, risawoz_intent.upper())
+
+
+# ------------------------------------------------------------------
+# Source-format detection
+# ------------------------------------------------------------------
+
+#: Accepted values for the source_format parameter.
+SOURCE_FORMATS = ("auto", "source-data", "task2-dst")
+
+
+def _detect_format(dialogue_data: Dict) -> str:
+    """
+    Infer the RiSAWOZ source format from a single dialogue dict.
+
+    Returns one of:
+      "source-data" — turns have individual role="usr"/"sys" dicts with an
+                      "utterance" field and optionally "dialogue_act"
+      "task2-dst"   — turns are combined dicts with "user_utterance" /
+                      "system_utterance" and optionally "user_acts"
+    """
+    turns = dialogue_data.get("dialogue", [])
+    for turn in turns:
+        if not isinstance(turn, dict):
+            continue
+        if "role" in turn and "utterance" in turn:
+            return "source-data"
+        if "user_utterance" in turn or "system_utterance" in turn:
+            return "task2-dst"
+    # default – task2-dst handles both via fallback keys
+    return "task2-dst"
+
+
+def _normalize_turns(dialogue_data: Dict, fmt: str) -> List[Dict]:
+    """
+    Normalise raw turns into a list of combined dicts, each representing
+    one user-turn + one system-turn pair.  Returns dicts with keys:
+      user_utterance, system_utterance, belief_state, user_acts
+    so the rest of the converter can treat them uniformly.
+
+    For "task2-dst" the dicts already have that shape; we return them as-is.
+    For "source-data" we pair consecutive usr/sys turns.
+    """
+    raw_turns = dialogue_data.get("dialogue", [])
+
+    if fmt == "task2-dst":
+        return [t for t in raw_turns if isinstance(t, dict)]
+
+    # ── source-data: pair up usr/sys turns ───────────────────────────
+    combined: List[Dict] = []
+    pending_usr: Optional[Dict] = None
+
+    for turn in raw_turns:
+        if not isinstance(turn, dict):
+            continue
+        role = turn.get("role", "")
+        if role == "usr":
+            pending_usr = turn
+        elif role == "sys" and pending_usr is not None:
+            # Merge the pair into the combined format
+            # belief_state and dialogue_act from the *user* turn carry slot info;
+            # the system turn's belief_state is usually the same or empty.
+            user_bs = pending_usr.get("belief_state", [])
+            sys_bs = turn.get("belief_state", [])
+            # Use user belief_state; fall back to system if empty
+            belief_state = user_bs if user_bs else sys_bs
+
+            # dialogue_act on the user turn maps to user_acts
+            d_acts = pending_usr.get("dialogue_act", [])
+            user_acts = _dialogue_acts_to_user_acts(d_acts)
+
+            combined.append({
+                "user_utterance": pending_usr.get("utterance", ""),
+                "system_utterance": turn.get("utterance", ""),
+                "belief_state": belief_state,
+                "user_acts": user_acts,
+                # keep raw dialogue_act for richer schema building
+                "_dialogue_act": d_acts,
+            })
+            pending_usr = None
+        # sys turn without matching usr: skip (system-initiated greeting etc.)
+
+    return combined
+
+
+def _dialogue_acts_to_user_acts(dialogue_acts: List) -> List:
+    """
+    Convert source-data's dialogue_act list into the user_acts list format
+    expected by the rest of the converter.
+
+    source-data dialogue_act:
+      [{"act": "Inform", "domain": "酒店", "slot": "位置", "value": "西城区"}, ...]
+
+    user_acts (task2-dst):
+      [["Inform", "酒店", "位置", "西城区"], ...]
+    """
+    result = []
+    for da in dialogue_acts:
+        if not isinstance(da, dict):
+            continue
+        result.append([
+            da.get("act", ""),
+            da.get("domain", ""),
+            da.get("slot", ""),
+            da.get("value", ""),
+        ])
+    return result
 
 
 # ------------------------------------------------------------------
@@ -101,12 +239,27 @@ class _SchemaBuilder:
                                     else:
                                         self._slots[domain][slot]
 
-            # user_acts: [[intent, domain, slot, value], ...]
+            # user_acts (task2-dst): [[intent, domain, slot, value], ...]
             for act in turn.get("user_acts", []):
                 if isinstance(act, list) and len(act) >= 2:
                     intent, domain = act[0], act[1]
                     if domain:
                         self._intents[domain].add(intent)
+
+            # dialogue_act (source-data): [{"act":..,"domain":..,"slot":..,"value":..}, ...]
+            for da in turn.get("dialogue_act", []):
+                if isinstance(da, dict):
+                    intent = da.get("act", "")
+                    domain = da.get("domain", "")
+                    slot = da.get("slot", "")
+                    value = da.get("value", "")
+                    if domain and intent:
+                        self._intents[domain].add(intent)
+                    if domain and slot:
+                        if value:
+                            self._slots[domain][slot].add(str(value))
+                        else:
+                            self._slots[domain][slot]
 
     def build_schema(self) -> List[Dict]:
         """Return a list of SGD-style service schema objects."""
@@ -161,6 +314,19 @@ class RiSAWOZToSGDConverter:
     """
     Converts a RiSAWOZ split (train / val / test) into SGD format.
 
+    Supported source formats
+    ------------------------
+    "auto" (default)
+        Auto-detect from the first dialogue's turn structure.
+    "source-data"
+        From ``source-data.zip``.  Each turn is an individual dict with
+        ``role="usr"`` or ``role="sys"`` and an ``utterance`` field.
+        Recommended — contains the richest annotations (``dialogue_act``).
+    "task2-dst"
+        From ``task2-data-DST.zip``.  Each turn is a combined dict with
+        ``user_utterance`` and ``system_utterance`` fields.
+        Also fully supported.
+
     Output directory layout (mirrors SGD):
         <output_dir>/
             schema.json          # all service schemas for this split
@@ -180,9 +346,15 @@ class RiSAWOZToSGDConverter:
         self,
         data_root: str = "./data/RiSAWOZ",
         file_mapping: Optional[Dict[str, str]] = None,
+        source_format: str = "auto",
     ) -> None:
+        if source_format not in SOURCE_FORMATS:
+            raise ValueError(
+                f"source_format 必须是 {SOURCE_FORMATS} 之一，got {source_format!r}"
+            )
         self.adapter = RiSAWOZAdapter(data_root, file_mapping=file_mapping)
         self.data_root = Path(data_root)
+        self.source_format = source_format
 
     # ------------------------------------------------------------------
     # Public API
@@ -216,6 +388,18 @@ class RiSAWOZToSGDConverter:
         raw_data = self.adapter._load_data_file(split)
         dialogues_raw = raw_data if isinstance(raw_data, list) else list(raw_data.values())
 
+        # Detect format from the first dialogue if mode is "auto"
+        effective_format = self.source_format
+        if effective_format == "auto" and dialogues_raw:
+            first_dict = next(
+                (d for d in dialogues_raw if isinstance(d, dict)), None
+            )
+            if first_dict is not None:
+                effective_format = _detect_format(first_dict)
+        if effective_format == "auto":
+            effective_format = "task2-dst"
+        logger.info(f"[RiSAWOZ→SGD] 检测到源格式: {effective_format}")
+
         # ── Pass 1: build schema ──────────────────────────────────────
         builder = _SchemaBuilder()
         for dialogue_data in dialogues_raw:
@@ -237,7 +421,7 @@ class RiSAWOZToSGDConverter:
             if not isinstance(dialogue_data, dict):
                 continue
             try:
-                sgd_dialogue = self._convert_dialogue(dialogue_data, idx)
+                sgd_dialogue = self._convert_dialogue(dialogue_data, idx, effective_format)
                 sgd_dialogues.append(sgd_dialogue)
                 total_turns += len(sgd_dialogue["turns"])
             except Exception as exc:
@@ -256,6 +440,7 @@ class RiSAWOZToSGDConverter:
         summary = {
             "split": split,
             "output_dir": str(out_path),
+            "source_format": effective_format,
             "dialogues": len(sgd_dialogues),
             "turns": total_turns,
             "services": len(schema),
@@ -272,7 +457,7 @@ class RiSAWOZToSGDConverter:
     # Internal conversion helpers
     # ------------------------------------------------------------------
 
-    def _convert_dialogue(self, dialogue_data: Dict, idx: int) -> Dict:
+    def _convert_dialogue(self, dialogue_data: Dict, idx: int, fmt: str = "task2-dst") -> Dict:
         """Convert one RiSAWOZ dialogue dict to SGD format."""
         # Dialogue ID
         dialogue_id = (
@@ -291,25 +476,17 @@ class RiSAWOZToSGDConverter:
 
         services_list = sorted(services) if services else ["通用_1"]
 
-        # Convert turns: one RiSAWOZ turn → USER turn + SYSTEM turn
+        # Normalise turns into combined user+system dicts
+        combined_turns = _normalize_turns(dialogue_data, fmt)
+
+        # Convert turns: one combined turn → USER turn + SYSTEM turn in SGD
         sgd_turns: List[Dict] = []
         cumulative_slots: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
         # cumulative_slots[service_name][slot_name] = [value]
 
-        for turn_data in dialogue_data.get("dialogue", []):
-            if not isinstance(turn_data, dict):
-                continue
-
-            user_utt = (
-                turn_data.get("transcript")
-                or turn_data.get("user_utterance")
-                or ""
-            )
-            sys_utt = (
-                turn_data.get("system_transcript")
-                or turn_data.get("system_utterance")
-                or ""
-            )
+        for turn_data in combined_turns:
+            user_utt = turn_data.get("user_utterance", "")
+            sys_utt = turn_data.get("system_utterance", "")
 
             # Parse this turn's belief_state increment
             turn_slot_delta = self._parse_belief_state(turn_data.get("belief_state", []))

@@ -6,19 +6,51 @@ RiSAWOZ → SGD 格式转换脚本
 Google SGD（Schema-Guided Dialogue）格式，
 以便使用 pyTOD 算法进行训练和测试。
 
-使用方法:
-    # 转换所有划分（train / val / test）
-    python benchmark/convert_risawoz_to_sgd.py
+----------------------------------------------------------------------
+使用哪个 RiSAWOZ ZIP 包？
+----------------------------------------------------------------------
+
+RiSAWOZ 数据集包含多个 ZIP 包，对应不同的任务。
+转换为 SGD 格式时，只有以下两个包是有效的数据源：
+
+  ✅ source-data.zip（推荐）
+     - 完整的原始对话标注，包含 dialogue_act、belief_state 等所有字段
+     - 每轮用独立的 role="usr"/"sys" dict 表示
+     - 信息最丰富，能生成最完整的 SGD schema 和 actions
+     - 使用 --source-format source-data
+
+  ✅ task2-data-DST.zip（也支持）
+     - 专为 DST 任务提取的数据，每轮含 user_utterance + system_utterance
+     - 包含 belief_state 和 user_acts，SGD 转换完整
+     - 使用 --source-format task2-dst
+
+  ❌ task1-data-NLU.zip（不支持）
+     - IOB 格式文本文件（seq.in / seq.out / label），无对话结构
+     - 单句标注，不是完整对话，无法转换为 SGD 格式
+
+  ⚠️  task3 / task4 / task5 ZIP（部分支持）
+     - 格式变体，base 对话结构与 task2-dst 相似，可尝试自动模式
+     - 但可能缺少 belief_state 或 user_acts 字段，转换质量较低
+     - 如需使用，建议先检查数据格式
+
+----------------------------------------------------------------------
+使用方法
+----------------------------------------------------------------------
+
+    # 使用 source-data.zip 中的完整数据（推荐）
+    python benchmark/convert_risawoz_to_sgd.py \\
+        --data-root ./data/RiSAWOZ \\
+        --source-format source-data
+
+    # 使用 task2-data-DST.zip 中的 DST 数据
+    python benchmark/convert_risawoz_to_sgd.py \\
+        --data-root ./data/RiSAWOZ_DST \\
+        --source-format task2-dst
 
     # 只转换验证集
     python benchmark/convert_risawoz_to_sgd.py --splits val
 
-    # 指定数据目录和输出目录
-    python benchmark/convert_risawoz_to_sgd.py \\
-        --data-root ./data/RiSAWOZ \\
-        --output-dir ./data/RiSAWOZ_SGD
-
-    # 自定义文件名映射（RiSAWOZ 非标准文件名时）
+    # 自定义文件名映射（非标准文件名时）
     python benchmark/convert_risawoz_to_sgd.py \\
         --file-mapping train=train_data.json val=val_data.json test=test_data.json
 
@@ -48,7 +80,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from benchmark.datasets.risawoz.sgd_converter import RiSAWOZToSGDConverter
+from benchmark.datasets.risawoz.sgd_converter import RiSAWOZToSGDConverter, SOURCE_FORMATS
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,6 +117,16 @@ def parse_args() -> argparse.Namespace:
         help=(
             "自定义文件名映射，格式为 split=filename，例如 "
             "train=train_data.json val=val_data.json"
+        ),
+    )
+    parser.add_argument(
+        "--source-format",
+        default="auto",
+        choices=list(SOURCE_FORMATS),
+        help=(
+            "源数据格式（默认: auto 自动检测）。"
+            "source-data: 对应 source-data.zip（推荐，最完整）；"
+            "task2-dst: 对应 task2-data-DST.zip。"
         ),
     )
     parser.add_argument(
@@ -142,6 +184,7 @@ def main() -> None:
     print(f"数据集根目录 : {data_root}")
     print(f"输出根目录   : {output_root}")
     print(f"要转换的划分 : {', '.join(args.splits)}")
+    print(f"源数据格式   : {args.source_format}")
     if file_mapping:
         print(f"文件名映射   : {file_mapping}")
     print(f"{'='*60}\n")
@@ -149,6 +192,7 @@ def main() -> None:
     converter = RiSAWOZToSGDConverter(
         data_root=str(data_root),
         file_mapping=file_mapping,
+        source_format=args.source_format,
     )
 
     all_summaries = {}

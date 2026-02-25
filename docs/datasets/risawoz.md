@@ -377,6 +377,35 @@ python benchmark/run_dst_risawoz.py --split train --limit 10 --verbose
 
 由于 SGD 数据集是英文的，ContextMind 提供了一个转换工具，可将 RiSAWOZ 转换为 SGD 格式，从而在中文数据集上使用 pyTOD 算法进行训练和测试。
 
+### 哪个 ZIP 包可以转换为 SGD 格式？
+
+RiSAWOZ 包含多个 ZIP 包，每个对应不同的 NLP 任务。下表说明各包与 SGD 转换的兼容性：
+
+| ZIP 包 | 兼容性 | 推荐度 | 原因 |
+|--------|--------|--------|------|
+| `source-data.zip` | ✅ 完全支持 | ⭐⭐⭐ **首选** | 完整的原始标注，包含 `dialogue_act`、`belief_state` 等所有字段；每轮分别存储 `role="usr"/"sys"` 的独立对话行为，SGD schema 和 actions 最丰富 |
+| `task2-data-DST.zip` | ✅ 完全支持 | ⭐⭐ 推荐 | 专为 DST 优化，每轮包含 `user_utterance`、`system_utterance`、`belief_state` 和 `user_acts`，格式直接兼容 |
+| `task1-data-NLU.zip` | ❌ **不支持** | — | IOB 格式文本文件（`seq.in` / `seq.out` / `label`），单句标注，没有完整的对话结构和 `belief_state`，无法转换 |
+| `task3-data-E2E-Context-to-text.zip` | ⚠️ 部分支持 | — | 对话结构与 task2-dst 相似，但专为文本生成优化，可能缺少 `user_acts`，schema 质量较低 |
+| `task4-data-Coreference resolution.zip` | ⚠️ 部分支持 | — | 含额外的共指标注，base 对话结构可能兼容，但 `belief_state` 可能不完整 |
+| `task5-data-Unified-generative-ellipsis-and-coreference-resolution.zip` | ⚠️ 部分支持 | — | 与 task4 类似，转换质量取决于数据的 belief_state 完整性 |
+
+**结论**：
+- **用于 pyTOD 训练/测试，请使用 `source-data.zip`（推荐）或 `task2-data-DST.zip`**
+- `task1-data-NLU.zip` 完全不适用
+- task3/4/5 的数据可以用 `--source-format auto` 尝试，但结果质量有限
+
+### 两种源格式的对比
+
+`source-data.zip` 和 `task2-data-DST.zip` 的关键数据结构差异：
+
+| 对比项 | source-data.zip | task2-data-DST.zip |
+|--------|----------------|-------------------|
+| 每轮的存储方式 | 两个独立 dict（一个 usr，一个 sys） | 一个合并 dict（含 user_utterance + system_utterance） |
+| 用户行为字段 | `dialogue_act: [{act, domain, slot, value}]` | `user_acts: [[intent, domain, slot, value]]` |
+| 对话标注 | 最完整，usr/sys 都有 `dialogue_act` | DST 专用，只有用户的 `user_acts` |
+| 建议 `--source-format` | `source-data` | `task2-dst` |
+
 ### 格式映射关系
 
 | RiSAWOZ | SGD |
@@ -392,12 +421,19 @@ python benchmark/run_dst_risawoz.py --split train --limit 10 --verbose
 ### 使用转换工具
 
 ```bash
-# 转换所有划分（train / val / test）
+# 使用 source-data.zip（推荐）
 python benchmark/convert_risawoz_to_sgd.py \
     --data-root ./data/RiSAWOZ \
-    --output-dir ./data/RiSAWOZ_SGD
+    --output-dir ./data/RiSAWOZ_SGD \
+    --source-format source-data
 
-# 只转换验证集
+# 使用 task2-data-DST.zip
+python benchmark/convert_risawoz_to_sgd.py \
+    --data-root ./data/RiSAWOZ_DST \
+    --output-dir ./data/RiSAWOZ_SGD \
+    --source-format task2-dst
+
+# 只转换验证集（自动检测格式）
 python benchmark/convert_risawoz_to_sgd.py --splits val
 
 # 自定义文件名映射（非标准文件名时使用）
