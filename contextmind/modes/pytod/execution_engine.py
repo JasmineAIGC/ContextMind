@@ -120,6 +120,8 @@ class ExecutionResult:
         """
         将执行结果格式化为可注入对话管理器 prompt 的上下文文本。
 
+        使用 JSON 格式序列化返回值，避免 Python repr() 暴露内部字符串表示。
+
         返回:
             格式化的结果说明，例如：
 
@@ -127,11 +129,16 @@ class ExecutionResult:
             函数调用: restaurants_1_find(cuisine='火锅')
             结果: [{"name": "海底捞", "rating": 4.8}]
         """
+        import json as _json
+
         if not self.success:
             return f"[执行结果]\n执行失败: {self.error}"
 
-        call_text = self.statement.to_call_text() if self.statement else "(未知调用)"
-        result_repr = repr(self.return_value)
+        call_text = self.statement.to_call_text() if self.statement else "(调用信息不可用)"
+        try:
+            result_repr = _json.dumps(self.return_value, ensure_ascii=False)
+        except (TypeError, ValueError):
+            result_repr = repr(self.return_value)
         # 超长结果截断，避免 context 过大
         max_len = ExecutionEngine.MAX_RESULT_LENGTH
         if len(result_repr) > max_len:
@@ -267,16 +274,20 @@ class ProgramExecutionResult:
         """
         将多语句执行结果格式化为可注入对话管理器 prompt 的上下文文本。
 
+        使用 JSON 格式序列化 API 返回值，避免 Python repr() 暴露内部字符串表示。
+
         返回:
             格式化的结果说明，例如：
 
             [程序执行结果]
             API 调用结果:
-              x1 = [{"name": "Sino", "rating": 4.5}]
+              x1 = {"name": "Sino", "rating": 4.5}
             Hint 提示:
               - request value: check_in_date
             say 输出: request value: check_in_date
         """
+        import json as _json
+
         max_len = ExecutionEngine.MAX_RESULT_LENGTH
         lines = ["[程序执行结果]"]
 
@@ -286,18 +297,25 @@ class ProgramExecutionResult:
                 lines.append(f"  - {err}")
             return "\n".join(lines)
 
-        # API 调用结果
-        if self.variable_values:
+        # API 调用结果（跳过 say 输出变量，避免重复展示）
+        api_vars = {
+            k: v for k, v in self.variable_values.items()
+            if not (self.say_output and v == self.say_output)
+        }
+        if api_vars:
             lines.append("API 调用结果:")
-            for var, value in self.variable_values.items():
-                val_repr = repr(value)
+            for var, value in api_vars.items():
+                try:
+                    val_repr = _json.dumps(value, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    val_repr = repr(value)
                 if len(val_repr) > max_len:
                     val_repr = val_repr[:max_len] + "...(已截断)"
                 lines.append(f"  {var} = {val_repr}")
 
         # Hint 提示
         if self.hint_messages:
-            lines.append("Hint 提示:")
+            lines.append("Hint 提示（需要向用户询问的信息）:")
             for hint in self.hint_messages:
                 lines.append(f"  - {hint}")
 

@@ -234,17 +234,25 @@ class PyTODPromptBuilder:
 
 ## 示例
 
+用户: 我想了解北京今天天气
+程序：
+x1 get_weather(city='北京', date='今天')
+
 用户: I want to book a hotel in San Jose for 2 nights.
 程序：
 x1 hotels_1_search_hotel(city='San Jose', number_of_nights=2)
 x2 Hint('request value: check_in_date')
 x3 say(x2)
 
+用户: 你好，随便聊聊
+程序：
+NONE()
+
 ## 规则
 
 1. 只能调用上方列出的 API 函数，不能创造新函数。
 2. 只传入用户**明确提供**的参数；未提供的参数用 Hint 语句引导用户补充。
-3. 若无法判断应调用哪个函数，输出：NONE()
+3. 如果用户话语是闲聊、打招呼、或无需调用 API，输出：NONE()
 4. 只输出程序语句，不要添加任何解释或额外文字。
 """
 
@@ -256,19 +264,27 @@ x3 say(x2)
 你是任务型对话系统的**对话管理器（Dialogue Manager）**。
 
 根据以下信息生成面向用户的自然语言回复：
-1. 用户的输入
-2. 系统执行的 API 调用及其返回结果
+1. 对话历史（了解用户之前说了什么、系统已回复了什么）
+2. 当前用户的输入
+3. 系统刚刚执行的 API 调用及其返回结果
 
 ## 执行结果
 
 {execution_result_text}
 
+## 当前累积状态
+
+{state_text}
+
 ## 规则
 
 1. 回复语言：{response_language}。
-2. 回复应简洁、礼貌、有帮助，直接使用执行结果中的数据回答用户。
-3. 如果执行失败，礼貌告知用户并引导重试。
-4. 只输出面向用户的自然语言回复，不要输出 JSON 或技术细节。
+2. 结合对话历史保持上下文连贯，不要重复之前已告知用户的信息。
+3. 使用执行结果中的**真实数据**（数字、状态、日期等）回答用户，用自然的口语描述。
+4. **不要**将 API 返回的原始字段名、内部备注（如 "演示"、"待确认"、"(未知调用)"）暴露给用户。
+5. 如果执行结果包含 hint 字段（缺少某参数），礼貌地向用户询问该信息。
+6. 如果执行失败，礼貌告知用户并引导重试或提供更多信息。
+7. 只输出面向用户的自然语言回复，不要输出 JSON 或技术细节。
 """
 
     # ---------------------------------------------------------------------- #
@@ -276,13 +292,18 @@ x3 say(x2)
     # 不要求 JSON，输出纯自然语言
     # ---------------------------------------------------------------------- #
     _FALLBACK_TEMPLATE = """\
-你是一个智能对话助手。请根据对话历史和用户输入，生成自然、简洁、有帮助的回复。
+你是一个智能对话助手。{scenario_desc}请根据对话历史和用户输入，生成自然、简洁、有帮助的回复。
+
+## 当前累积状态
+
+{state_text}
 
 ## 规则
 
 1. 回复语言：{response_language}。
-2. 只输出面向用户的自然语言回复。
-3. 不要输出 JSON、代码块或任何格式化数据，直接给出对话文字。
+2. 结合对话历史保持上下文连贯，充分利用已知信息（如用户姓名、之前询问的内容等）。
+3. 只输出面向用户的自然语言回复。
+4. 不要输出 JSON、代码块或任何格式化数据，直接给出对话文字。
 """
 
     def __init__(
@@ -467,41 +488,42 @@ x3 say(x2)
         user_input: str,
         execution_result: Any,
         history: Optional[List[ConversationTurn]] = None,
+        current_state: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, str]]:
         """
         组装对话管理器（Dialogue Manager）的 messages 列表。
 
         **PyTOD 算法流程第三步**：将执行引擎的执行结果注入 prompt，
-        让 LLM 生成面向用户的自然语言回复。
-
-        接受两种执行结果类型：
-        - ``ExecutionResult``：单语句执行结果（``ExecutionEngine.execute()``）
-        - ``ProgramExecutionResult``：多语句程序执行结果（``ExecutionEngine.execute_program()``）
-          两者均实现 ``to_context_text()``，可互换传入。
+        让 LLM 结合对话历史和累积状态生成面向用户的自然语言回复。
 
         参数:
             user_input:        当前轮用户输入
             execution_result:  执行引擎返回的执行结果（实现 to_context_text() 即可）
             history:           历史对话轮次列表（可选）
+            current_state:     当前累积状态字典（可选，用于提供更多上下文）
 
         返回:
             OpenAI / Qwen 兼容的 messages 列表
         """
+        import json as _json
+
+        state_text = _json.dumps(current_state, ensure_ascii=False, indent=2) if current_state else "(无)"
         system_content = self._DIALOGUE_MANAGER_TEMPLATE.format(
             execution_result_text=execution_result.to_context_text(),
+            state_text=state_text,
             response_language=self.response_language,
         )
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": system_content},
         ]
 
-        # 历史对话
+        # 历史对话（含当前轮之前的所有轮）
         if history:
-            trimmed = history[-self.max_history_turns :]
+            trimmed = history[-self.max_history_turns:]
             for turn in trimmed:
                 messages.append({"role": turn.role, "content": turn.content})
 
-        # 当前用户输入（对话管理器需要用户原始话语作为回复依据）
+        # 当前用户输入
         messages.append({"role": "user", "content": user_input})
         return messages
 
@@ -509,6 +531,8 @@ x3 say(x2)
         self,
         user_input: str,
         history: Optional[List[ConversationTurn]] = None,
+        scenario_description: str = "",
+        current_state: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, str]]:
         """
         组装后备对话消息列表（无执行结果 / NONE() 情形）。
@@ -516,18 +540,22 @@ x3 say(x2)
         当 Action Parser 输出 NONE()（无法确定应调用的 API）时使用本方法，
         生成**纯自然语言**回复，不要求 JSON 格式输出。
 
-        与 ``build_messages()`` 的区别：
-        - 系统提示不要求 JSON，避免 LLM 输出带有 intent/slots/response 结构的 JSON。
-        - 保留完整的对话历史上下文，确保多轮连贯性。
-
         参数:
-            user_input: 当前轮用户输入
-            history:    历史对话轮次列表（可选）
+            user_input:           当前轮用户输入
+            history:              历史对话轮次列表（可选）
+            scenario_description: 当前场景的业务描述（可选，嵌入系统提示增强上下文）
+            current_state:        当前累积状态字典（可选）
 
         返回:
             OpenAI / Qwen 兼容的 messages 列表
         """
+        import json as _json
+
+        scenario_desc = f"你的服务场景是：{scenario_description}。" if scenario_description else ""
+        state_text = _json.dumps(current_state, ensure_ascii=False, indent=2) if current_state else "(无)"
         system_content = self._FALLBACK_TEMPLATE.format(
+            scenario_desc=scenario_desc,
+            state_text=state_text,
             response_language=self.response_language,
         )
         messages: List[Dict[str, str]] = [
