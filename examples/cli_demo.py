@@ -3,12 +3,13 @@
 ContextMind 命令行交互Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持三种模式：dst（对话状态追踪）、evolve（基于AlphaEvolve/ThetaEvolve算法）、fnctod（函数调用DST）
+支持四种模式：dst（对话状态追踪）、evolve（基于AlphaEvolve/ThetaEvolve算法）、fnctod（函数调用DST）、pytod（程序执行型任务对话）
 
 使用方式:
     python examples/cli_demo.py --scenario chat --mode evolve
     python examples/cli_demo.py --scenario callcenter --mode dst
     python examples/cli_demo.py --scenario insurance --mode fnctod --log-level DEBUG
+    python examples/cli_demo.py --scenario insurance --mode pytod
 """
 
 import sys
@@ -28,6 +29,7 @@ from datetime import datetime
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import PyTODTracker
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -71,6 +73,8 @@ class UnifiedInteractiveDemo:
             self._init_dst_mode()
         elif mode == "fnctod":
             self._init_fnctod_mode()
+        elif mode == "pytod":
+            self._init_pytod_mode()
         else:
             self._init_evolve_mode()
     
@@ -180,7 +184,28 @@ class UnifiedInteractiveDemo:
         )
         
         self.app = None  # FnCTOD模式不使用app
-    
+
+    def _init_pytod_mode(self):
+        """初始化PyTOD模式（程序执行型任务对话）"""
+        logger.info(f"初始化PyTOD模式 - {self.config.name}")
+
+        if self.llm_client is None:
+            try:
+                self.llm_client = SimpleLLMClient()
+            except (ValueError, RuntimeError) as e:
+                logger.error(f"LLM客户端初始化失败: {e}")
+                print(f"\n{'='*60}")
+                print(f"❌ 错误: {e}")
+                print(f"{'='*60}\n")
+                sys.exit(1)
+
+        self.tracker = PyTODTracker.from_scenario(
+            llm_client=self.llm_client,
+            scenario_config=self.config,
+            max_history_turns=self.max_history_turns,
+        )
+        self.app = None  # PyTOD模式不使用app
+
     def _init_evolve_mode(self):
         """初始化Evolve模式"""
         logger.info(f"初始化Evolve模式 - {self.config.name}")
@@ -241,7 +266,8 @@ class UnifiedInteractiveDemo:
         mode_name = {
             'dst': 'DST (对话状态追踪)',
             'evolve': 'Evolve (基于记忆进化)',
-            'fnctod': 'FnCTOD (函数调用DST)'
+            'fnctod': 'FnCTOD (函数调用DST)',
+            'pytod': 'PyTOD (程序执行型任务对话)',
         }.get(self.mode, self.mode)
         print(f"模式: {mode_name}")
         print(f"日志级别: {logging.getLevelName(logger.level)}")
@@ -258,15 +284,20 @@ class UnifiedInteractiveDemo:
             print(f"✓ 已加载 {len(self.config.dst_slots)} 个参数（槽位）")
             print(f"✓ 两阶段处理: Domain选择 → 函数调用")
             print(f"✓ 输出格式: <function_call> + 自然语言回复")
+        elif self.mode == "pytod":
+            api_list = self.tracker.execution_engine.list_functions()
+            print(f"✓ 已注册 {len(api_list)} 个 API 函数: {', '.join(api_list)}")
+            print("✓ 三步流程: 动作解析器 → 执行引擎 → 对话管理器")
+            print("✓ 开放域模式：LLM 自由生成程序语句，无需预定义 schema")
         else:
             print("✓ 五层架构: 感知层、记忆层、上下文层、生成层、进化层")
             print(f"✓ 记忆功能: {'启用' if self.config.enable_memory else '禁用'}")
             print(f"✓ 进化学习: {'启用' if self.config.enable_evolution else '禁用'}")
-        
+
         print("\n💡 使用提示:")
         print("  - 输入 /quit 或 /exit 退出程序")
         print("  - 输入 /reset 重置对话")
-        if self.mode in ["dst", "fnctod"]:
+        if self.mode in ["dst", "fnctod", "pytod"]:
             print("  - 输入 /state 查看当前对话状态")
         print("="*60 + "\n")
     
@@ -313,6 +344,15 @@ class UnifiedInteractiveDemo:
             logger.error(f"FnCTOD模式处理失败: {e}")
             return f"抱歉，处理您的消息时出现了问题：{str(e)}"
     
+    async def chat_pytod_mode(self, user_message: str) -> str:
+        """PyTOD模式对话（程序执行型任务对话）"""
+        try:
+            result = await self.tracker.process_turn(user_utterance=user_message)
+            return result.get("response", "")
+        except Exception as e:
+            logger.error(f"PyTOD模式处理失败: {e}")
+            return f"抱歉，处理您的消息时出现了问题：{str(e)}"
+
     async def chat_evolve_mode(self, user_message: str) -> str:
         """Evolve模式对话"""
         try:
@@ -321,24 +361,26 @@ class UnifiedInteractiveDemo:
         except Exception as e:
             logger.error(f"Evolve模式处理失败: {e}")
             return f"抱歉，处理您的消息时出现了问题：{str(e)}"
-    
+
     async def chat(self, user_message: str) -> str:
         """统一的对话接口"""
         if self.mode == "dst":
             return await self.chat_dst_mode(user_message)
         elif self.mode == "fnctod":
             return await self.chat_fnctod_mode(user_message)
+        elif self.mode == "pytod":
+            return await self.chat_pytod_mode(user_message)
         else:
             return await self.chat_evolve_mode(user_message)
-    
+
     def show_state(self):
-        """显示当前状态（DST和FnCTOD模式）"""
-        if self.mode not in ["dst", "fnctod"]:
-            print("⚠️  状态查看功能仅在DST/FnCTOD模式下可用")
+        """显示当前状态（DST/FnCTOD/PyTOD模式）"""
+        if self.mode not in ["dst", "fnctod", "pytod"]:
+            print("⚠️  状态查看功能仅在DST/FnCTOD/PyTOD模式下可用")
             return
-        
+
         state = self.tracker.get_current_state()
-        
+
         print("\n" + "="*60)
         print("📊 当前对话状态:")
         print("="*60)
@@ -352,6 +394,8 @@ class UnifiedInteractiveDemo:
             self.tracker.reset_dialogue()
             self.last_system_reply = self._get_welcome_message()
         elif self.mode == "fnctod":
+            self.tracker.reset()
+        elif self.mode == "pytod":
             self.tracker.reset()
         else:
             # Evolve模式重新初始化
@@ -419,6 +463,8 @@ def parse_args():
   python examples/cli_demo.py --scenario chat --mode evolve
   python examples/cli_demo.py --scenario callcenter --mode dst
   python examples/cli_demo.py --scenario insurance --mode fnctod
+  python examples/cli_demo.py --scenario insurance --mode pytod
+  python examples/cli_demo.py --scenario chat --mode pytod --log-level DEBUG
   python examples/cli_demo.py --scenario insurance --mode dst --max-history-turns 20 --log-level DEBUG
         """
     )
@@ -432,9 +478,9 @@ def parse_args():
     
     parser.add_argument(
         '--mode',
-        choices=['dst', 'evolve', 'fnctod'],
+        choices=['dst', 'evolve', 'fnctod', 'pytod'],
         default='evolve',
-        help='选择模式: dst(对话状态追踪) / evolve(基于记忆进化) / fnctod(函数调用DST)'
+        help='选择模式: dst(对话状态追踪) / evolve(基于记忆进化) / fnctod(函数调用DST) / pytod(程序执行型任务对话)'
     )
     
     parser.add_argument(

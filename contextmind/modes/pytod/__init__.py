@@ -57,6 +57,7 @@ from .execution_engine import (
 )
 from .prompt_builder import PyTODPromptBuilder, ConversationTurn, FewShotExample
 from .validator import ActionValidator, ValidationResult
+from .tracker import PyTODTracker
 
 __all__ = [
     "SlotDefinition",
@@ -76,4 +77,5 @@ __all__ = [
     "FewShotExample",
     "ActionValidator",
     "ValidationResult",
+    "PyTODTracker",
 ]

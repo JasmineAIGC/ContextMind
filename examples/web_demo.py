@@ -27,6 +27,7 @@ from datetime import datetime
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import PyTODTracker
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -51,6 +52,7 @@ class UnifiedGradioDemo:
         self.llm_client = None
         self.tracker = None  # For DST mode
         self.fnctod_tracker = None  # For FnCTOD mode
+        self.pytod_tracker = None  # For PyTOD mode
         self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
@@ -79,6 +81,8 @@ class UnifiedGradioDemo:
             self._init_dst_mode()
         elif mode == "fnctod":
             self._init_fnctod_mode()
+        elif mode == "pytod":
+            self._init_pytod_mode()
         else:
             self._init_evolve_mode()
         
@@ -148,7 +152,28 @@ class UnifiedGradioDemo:
         )
         
         logger.info("FnCTOD模式初始化完成")
-    
+
+    def _init_pytod_mode(self):
+        """初始化PyTOD模式"""
+        try:
+            if self.llm_client is None:
+                self.llm_client = SimpleLLMClient()
+                logger.info("✅ LLM客户端初始化成功")
+        except Exception as e:
+            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
+            if "API" in str(e).upper() or "KEY" in str(e).upper():
+                error_msg += "📝 请检查.env配置文件\n"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        self.pytod_tracker = PyTODTracker.from_scenario(
+            llm_client=self.llm_client,
+            scenario_config=self.config,
+            max_history_turns=self.max_history_turns,
+        )
+
+        logger.info("PyTOD模式初始化完成")
+
     def _init_evolve_mode(self):
         """初始化Evolve模式"""
         try:
@@ -266,20 +291,30 @@ class UnifiedGradioDemo:
                 )
                 reply = result.get("response", "")
                 timing_breakdown['函数调用处理'] = time.time() - step_start
-                
+
                 # 收集FnCTOD内部的详细步骤耗时
                 if hasattr(self.fnctod_tracker, 'step_timings'):
                     timing_breakdown.update(self.fnctod_tracker.step_timings)
                     if '函数调用处理' in timing_breakdown and len(self.fnctod_tracker.step_timings) > 0:
                         del timing_breakdown['函数调用处理']
-                
+
                 # 状态捕获
-                # FnCTOD模式：process_turn内部已完成状态提取和回复生成
-                # 这里捕获的是内部用于生成回复的"回复前状态"
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
-                
+
+            elif self.current_mode == "pytod":
+                # PyTOD模式（三步流程：动作解析器 → 执行引擎 → 对话管理器）
+                step_start = time.time()
+                result = await self.pytod_tracker.process_turn(user_utterance=message)
+                reply = result.get("response", "")
+                timing_breakdown['PyTOD三步处理'] = time.time() - step_start
+
+                # 状态捕获
+                step_start = time.time()
+                self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
+
             else:
                 # Evolve模式
                 step_start = time.time()
@@ -479,6 +514,28 @@ class UnifiedGradioDemo:
                 state_info["累积状态"] = "暂无参数信息"
             
             return state_info
+        elif self.current_mode == "pytod" and self.pytod_tracker:
+            # PyTOD模式：显示程序执行状态和变量值
+            state = self.pytod_tracker.get_current_state()
+            state_info = {
+                "模式": "PyTOD (程序执行型任务对话)",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "对话轮数": self.pytod_tracker.turn_count,
+                "已注册 API": ", ".join(self.pytod_tracker.execution_engine.list_functions()),
+            }
+
+            if state:
+                state_info["---"] = "---"
+                state_info["执行状态"] = f"已记录 {len(state)} 个变量"
+                for key, value in state.items():
+                    display_value = str(value)
+                    if len(display_value) > 50:
+                        display_value = display_value[:47] + "..."
+                    state_info[key] = display_value
+            else:
+                state_info["执行状态"] = "暂无执行结果"
+
+            return state_info
         elif self.current_mode == "evolve" and self.app:
             # Evolve模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
             engine = self.app.evolve_engine
@@ -569,10 +626,14 @@ class UnifiedGradioDemo:
         if self.current_mode == "dst" and self.tracker:
             self.tracker.current_state = {}
             self.tracker.dialogue_history = []
+        elif self.current_mode == "fnctod" and self.fnctod_tracker:
+            self.fnctod_tracker.reset()
+        elif self.current_mode == "pytod" and self.pytod_tracker:
+            self.pytod_tracker.reset()
         elif self.current_mode == "evolve" and self.app:
             # 重新初始化app
             self.initialize_scenario(self.current_scenario, self.current_mode)
-        
+
         logger.info("对话已重置")
         return []
     
