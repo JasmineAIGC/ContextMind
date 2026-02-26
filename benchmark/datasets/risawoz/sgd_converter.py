@@ -134,10 +134,21 @@ def _coerce_belief_list(bs: Any) -> List:
     """
     Normalise a belief_state value to a list regardless of how it was stored.
 
-    Handles:
+    Handles all known RiSAWOZ belief_state formats:
       - list  (standard)   → returned as-is
       - {}    (empty dict) → []
-      - {"domain": {"slot": "value"}} (nested dict) → [{"domain":..,"slot":..,"value":..}]
+      - {"domain": {"slot": "value"}}
+          Standard nested dict: first-level key is domain name,
+          second-level key is plain slot name.
+          → [{"domain":"domain","slot":"slot","value":"value"}]
+      - {"act_type": {"domain-slot": "value"}}
+          Source-data act-type nested dict: first-level key is an act type
+          (e.g. "inform slot-values", "turn_inform"), second-level keys are
+          "domain-slot" format strings (contain "-").
+          → [{"domain":"domain","slot":"slot","value":"value"}]
+      - {"domain-slot": "value"}
+          Flat dict where key is "domain-slot" format string.
+          → [{"domain":"domain","slot":"slot","value":"value"}]
       - None / other       → []
     """
     if isinstance(bs, list):
@@ -145,17 +156,30 @@ def _coerce_belief_list(bs: Any) -> List:
     if isinstance(bs, dict):
         if not bs:
             return []
-        # Nested dict: {"景点": {"名称": "故宫"}, ...}
         result = []
-        for domain, slots in bs.items():
-            if isinstance(slots, dict):
-                for slot, value in slots.items():
-                    result.append({"domain": domain, "slot": slot, "value": str(value)})
-            elif isinstance(slots, str):
-                # Flat dict: {"景点-名称": "故宫"}
-                if "-" in domain:
-                    d, s = domain.split("-", 1)
-                    result.append({"domain": d, "slot": s, "value": slots})
+        for k, v in bs.items():
+            if isinstance(v, dict):
+                # Distinguish two nested-dict formats by inspecting second-level keys:
+                #   A. {"domain": {"slot": "value"}}        — slot keys have no "-"
+                #   B. {"act_type": {"domain-slot": "value"}} — slot keys contain "-"
+                if any("-" in str(sk) for sk in v.keys()):
+                    # Format B: act-type key, second-level keys are "domain-slot"
+                    for slot_key, value in v.items():
+                        sk = str(slot_key)
+                        if "-" in sk and value:
+                            domain, slot = sk.split("-", 1)
+                            result.append({"domain": domain, "slot": slot, "value": str(value)})
+                else:
+                    # Format A: standard domain → slot → value
+                    for slot, value in v.items():
+                        if value:
+                            result.append({"domain": k, "slot": slot, "value": str(value)})
+            elif isinstance(v, str) and v:
+                # Flat dict: {"domain-slot": "value"}
+                sk = str(k)
+                if "-" in sk:
+                    domain, slot = sk.split("-", 1)
+                    result.append({"domain": domain, "slot": slot, "value": v})
         return result
     return []
 
@@ -207,6 +231,18 @@ def _infer_role_sets(raw_turns: List[Dict]) -> Tuple[frozenset, frozenset]:
     return frozenset(), frozenset()
 
 
+def _get_utterance(turn: Dict) -> str:
+    """Extract utterance text from a raw turn, trying all known field names."""
+    return (
+        turn.get("utterance")
+        or turn.get("transcript")
+        or turn.get("utt")
+        or turn.get("text")
+        or turn.get("content")
+        or ""
+    )
+
+
 def _pair_turns_by_role(
     raw_turns: List[Dict], usr_roles: frozenset, sys_roles: frozenset
 ) -> List[Dict]:
@@ -230,8 +266,8 @@ def _pair_turns_by_role(
             belief_state = sys_bs if sys_bs else user_bs
             d_acts = pending_usr.get("dialogue_act", [])
             combined.append({
-                "user_utterance": pending_usr.get("utterance", ""),
-                "system_utterance": turn.get("utterance", ""),
+                "user_utterance": _get_utterance(pending_usr),
+                "system_utterance": _get_utterance(turn),
                 "belief_state": belief_state,
                 "user_acts": _dialogue_acts_to_user_acts(d_acts),
                 "_dialogue_act": d_acts,
@@ -257,16 +293,8 @@ def _pair_turns_by_position(raw_turns: List[Dict]) -> List[Dict]:
         belief_state = sys_bs if sys_bs else user_bs
         d_acts = usr_turn.get("dialogue_act", [])
         combined.append({
-            "user_utterance": (
-                usr_turn.get("utterance")
-                or usr_turn.get("content")
-                or ""
-            ),
-            "system_utterance": (
-                sys_turn.get("utterance")
-                or sys_turn.get("content")
-                or ""
-            ),
+            "user_utterance": _get_utterance(usr_turn),
+            "system_utterance": _get_utterance(sys_turn),
             "belief_state": belief_state,
             "user_acts": _dialogue_acts_to_user_acts(d_acts),
             "_dialogue_act": d_acts,
@@ -684,8 +712,19 @@ class RiSAWOZToSGDConverter:
         # cumulative_slots[service_name][slot_name] = [value]
 
         for turn_data in combined_turns:
-            user_utt = turn_data.get("user_utterance", "")
-            sys_utt = turn_data.get("system_utterance", "")
+            # Support both combined-dict field names:
+            #   "user_utterance"    (produced by _normalize_turns for source-data)
+            #   "transcript"        (native task2-DST / risawoz field name)
+            user_utt = (
+                turn_data.get("user_utterance")
+                or turn_data.get("transcript")
+                or ""
+            )
+            sys_utt = (
+                turn_data.get("system_utterance")
+                or turn_data.get("system_transcript")
+                or ""
+            )
 
             # Parse this turn's belief_state increment
             turn_slot_delta = self._parse_belief_state(turn_data.get("belief_state", []))
