@@ -28,7 +28,7 @@ get_current_state / reset），可直接插入 cli_demo / batch_demo / web_demo 
 
 内置场景 API（演示用）：
     - chat:       search_info / tell_joke / play_music
-    - callcenter: lookup_order / process_refund / transfer_to_agent
+    - callcenter: lookup_order / submit_complaint / process_refund / check_refund_status / transfer_to_agent
     - insurance:  query_insurance / calculate_premium / check_claim_status
 """
 
@@ -88,25 +88,41 @@ def _register_callcenter_apis(engine: ExecutionEngine) -> None:
     """为客服场景注册演示 API 函数。"""
 
     @engine.register
-    def lookup_order(order_id=None, customer_id=None):
-        """查询订单状态"""
-        if not (order_id or customer_id):
-            return {"error": "请提供订单号或客户ID"}
+    def lookup_order(order_id=None, customer_id=None, product_name=None, purchase_date=None):
+        """查询订单信息。支持按订单号、客户ID、商品名称或购买日期查询。"""
+        if not any([order_id, customer_id, product_name, purchase_date]):
+            return {"error": "请提供至少一项查询条件：订单号、客户ID、商品名称或购买日期"}
         return {
-            "order_id": order_id or "ORD-UNKNOWN",
+            "order_id": order_id or "ORD-20260220-8851",
+            "product_name": product_name or "未知商品",
+            "purchase_date": purchase_date or "2026-02-20",
             "status": "已发货",
-            "shipping_date": "2026-02-20",
+            "shipping_date": "2026-02-21",
             "estimated_delivery": "2026-02-28",
             "carrier": "顺丰快递",
+            "tracking_number": "SF1234567890",
         }
 
     @engine.register
-    def process_refund(order_id=None, reason=None, amount=None):
-        """处理退款申请"""
-        if not order_id:
-            return {"error": "请提供订单号"}
+    def submit_complaint(complaint_type=None, description=None, order_id=None, urgency=None):
+        """提交投诉或反馈。适用于服务不满意、产品问题、物流问题等场景。"""
         return {
-            "refund_id": f"REF-{order_id}-001",
+            "ticket_id": "CMP-20260226-5842",
+            "complaint_type": complaint_type or "服务投诉",
+            "status": "已受理",
+            "expected_response_time": "24小时内",
+            "notes": "您的投诉已记录，客服专员将尽快联系您处理。",
+        }
+
+    @engine.register
+    def process_refund(order_id=None, reason=None, amount=None, product_name=None):
+        """申请退款。需要提供订单号（或商品名称）及退款原因。"""
+        if not (order_id or product_name):
+            return {"hint": "请提供订单号或商品名称，以便为您办理退款"}
+        ref_base = order_id or product_name or "UNKNOWN"
+        return {
+            "refund_id": f"REF-{ref_base[:8].upper()}-001",
+            "order_id": order_id or "(待确认)",
             "status": "受理中",
             "expected_time": "3-5个工作日",
             "amount": amount or "全额退款",
@@ -114,8 +130,22 @@ def _register_callcenter_apis(engine: ExecutionEngine) -> None:
         }
 
     @engine.register
+    def check_refund_status(refund_id=None, order_id=None):
+        """查询退款进度。支持按退款单号或原订单号查询。"""
+        if not (refund_id or order_id):
+            return {"error": "请提供退款单号或订单号"}
+        return {
+            "refund_id": refund_id or f"REF-{order_id}-001",
+            "status": "审核中",
+            "submitted_date": "2026-02-22",
+            "expected_completion": "2026-02-27",
+            "amount": "全额退款",
+            "notes": "退款审核通过后将在1-3个工作日内到账。",
+        }
+
+    @engine.register
     def transfer_to_agent(department=None, issue_type=None, priority=None):
-        """转接人工客服"""
+        """转接人工客服。复杂问题或客户强烈要求时使用。"""
         return {
             "status": "转接中",
             "department": department or "综合客服",
