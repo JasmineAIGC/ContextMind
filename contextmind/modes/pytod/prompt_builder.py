@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .schema import ServiceSchema
+from .execution_engine import ExecutionResult
 
 
 # --------------------------------------------------------------------------- #
@@ -204,6 +205,54 @@ class PyTODPromptBuilder:
 
     _USER_TURN_TEMPLATE = "用户: {content}"
 
+    # ---------------------------------------------------------------------- #
+    # 步骤一：动作解析器（Action Parser）系统提示模板
+    # 生成程序语句而非 JSON，与 PyTOD 原始论文一致
+    # ---------------------------------------------------------------------- #
+    _ACTION_PARSER_TEMPLATE = """\
+你是任务型对话系统的**动作解析器（Action Parser）**。
+
+根据用户输入，从下列可用 API 函数中选择最合适的一个，
+生成对应的函数调用程序语句，供执行引擎调用。
+
+{api_functions_text}
+
+## 输出格式
+
+只输出**一行**函数调用语句，例如：
+    restaurants_1_find(cuisine="火锅", location="望京")
+
+## 规则
+
+1. 只能调用上方列出的函数，不能创造新函数。
+2. 只传入用户**明确提供**的参数；未提供的参数不要猜测。
+3. 若无法判断应调用哪个函数，输出：NONE()
+4. 只输出函数调用语句，不要添加任何解释或额外文字。
+"""
+
+    # ---------------------------------------------------------------------- #
+    # 步骤三：对话管理器（Dialogue Manager）系统提示模板
+    # 根据执行结果生成自然语言回复
+    # ---------------------------------------------------------------------- #
+    _DIALOGUE_MANAGER_TEMPLATE = """\
+你是任务型对话系统的**对话管理器（Dialogue Manager）**。
+
+根据以下信息生成面向用户的自然语言回复：
+1. 用户的输入
+2. 系统执行的 API 调用及其返回结果
+
+## 执行结果
+
+{execution_result_text}
+
+## 规则
+
+1. 回复语言：{response_language}。
+2. 回复应简洁、礼貌、有帮助，直接使用执行结果中的数据回答用户。
+3. 如果执行失败，礼貌告知用户并引导重试。
+4. 只输出面向用户的自然语言回复，不要输出 JSON 或技术细节。
+"""
+
     def __init__(
         self,
         schema: Optional[ServiceSchema] = None,
@@ -316,6 +365,102 @@ class PyTODPromptBuilder:
         parts.append("助手:")
 
         return "\n".join(parts)
+
+    # ------------------------------------------------------------------ #
+    # PyTOD 标准流程接口：步骤一 — 动作解析器（Action Parser）
+    # ------------------------------------------------------------------ #
+
+    def build_action_parser_messages(
+        self,
+        user_input: str,
+        execution_engine: Any,
+        history: Optional[List[ConversationTurn]] = None,
+    ) -> List[Dict[str, str]]:
+        """
+        组装动作解析器（Action Parser）的 messages 列表。
+
+        **PyTOD 算法流程第一步**：告知 LLM 当前可用的 API 函数列表，
+        让其根据用户输入生成一条程序语句（函数调用），供执行引擎执行。
+
+        LLM 应输出单行程序语句，例如：
+            ``restaurants_1_find(cuisine="火锅", location="望京")``
+
+        与 ``build_messages()`` 的区别：
+        - 不要求 LLM 生成 ``response`` 字段
+        - 输出格式是程序语句而非 JSON，与 PyTOD 原始论文一致
+        - 执行结果由执行引擎处理，回复由对话管理器生成
+
+        参数:
+            user_input:       当前轮用户输入
+            execution_engine: ``ExecutionEngine`` 实例（用于获取已注册函数列表）
+            history:          历史对话轮次列表（可选）
+
+        返回:
+            OpenAI / Qwen 兼容的 messages 列表
+        """
+        system_content = self._ACTION_PARSER_TEMPLATE.format(
+            api_functions_text=execution_engine.to_prompt_text(),
+        )
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": system_content},
+        ]
+
+        # 历史对话
+        if history:
+            trimmed = history[-self.max_history_turns :]
+            for turn in trimmed:
+                messages.append({"role": turn.role, "content": turn.content})
+
+        # 当前用户输入
+        messages.append({"role": "user", "content": user_input})
+        return messages
+
+    # ------------------------------------------------------------------ #
+    # PyTOD 标准流程接口：步骤三 — 对话管理器（Dialogue Manager）
+    # ------------------------------------------------------------------ #
+
+    def build_dialogue_manager_messages(
+        self,
+        user_input: str,
+        execution_result: "ExecutionResult",
+        history: Optional[List[ConversationTurn]] = None,
+    ) -> List[Dict[str, str]]:
+        """
+        组装对话管理器（Dialogue Manager）的 messages 列表。
+
+        **PyTOD 算法流程第三步**：将执行引擎的执行结果注入 prompt，
+        让 LLM 生成面向用户的自然语言回复。
+
+        与 ``build_messages()`` 的区别：
+        - 接收执行结果作为输入，LLM 据此生成回复
+        - LLM 不需要决定调用哪个 API，只需解读结果并回复用户
+        - 对应 PyTOD 原始论文中的 Response Generation 步骤
+
+        参数:
+            user_input:        当前轮用户输入
+            execution_result:  ``ExecutionEngine.execute()`` 的返回值
+            history:           历史对话轮次列表（可选）
+
+        返回:
+            OpenAI / Qwen 兼容的 messages 列表
+        """
+        system_content = self._DIALOGUE_MANAGER_TEMPLATE.format(
+            execution_result_text=execution_result.to_context_text(),
+            response_language=self.response_language,
+        )
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": system_content},
+        ]
+
+        # 历史对话
+        if history:
+            trimmed = history[-self.max_history_turns :]
+            for turn in trimmed:
+                messages.append({"role": turn.role, "content": turn.content})
+
+        # 当前用户输入（对话管理器需要用户原始话语作为回复依据）
+        messages.append({"role": "user", "content": user_input})
+        return messages
 
     # ------------------------------------------------------------------ #
     # 内部构建方法

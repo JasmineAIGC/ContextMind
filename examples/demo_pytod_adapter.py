@@ -28,6 +28,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from contextmind.modes.pytod import (
     ActionValidator,
     ConversationTurn,
+    ExecutionEngine,
+    ExecutionResult,
     FewShotExample,
     PyTODPromptBuilder,
     ServiceSchema,
@@ -459,6 +461,116 @@ def run_demo() -> None:
         print()
 
     # ------------------------------------------------------------------ #
+    # 步骤 7：标准 PyTOD 四步流程演示（与原始论文一致）
+    # ------------------------------------------------------------------ #
+    separator("步骤 7: 标准 PyTOD 四步流程（Action Parser → Execution Engine → Dialogue Manager）")
+    print(
+        "PyTOD 原始算法流程：\n"
+        "  用户输入\n"
+        "    ↓\n"
+        "  动作解析器（Action Parser）→ 程序语句（如 restaurants_1_find(cuisine='火锅')）\n"
+        "    ↓\n"
+        "  执行引擎（Execution Engine）→ 调用 API / 数据库 → 返回结果\n"
+        "    ↓\n"
+        "  对话管理器（Dialogue Manager）→ 基于执行结果生成自然语言回复\n"
+        "    ↓\n"
+        "  系统输出\n"
+    )
+
+    # 1. 创建 ExecutionEngine 并注册模拟 API 函数
+    engine = ExecutionEngine()
+
+    @engine.register
+    def restaurants_1_find(cuisine=None, location=None, price_range=None):
+        """查找餐厅（模拟数据库查询）"""
+        results = [
+            {"name": "海底捞望京店", "cuisine": "火锅", "rating": 4.8, "address": "望京 SOHO T1"},
+            {"name": "大龙燚望京", "cuisine": "火锅", "rating": 4.6, "address": "望京街道"},
+        ]
+        if cuisine:
+            results = [r for r in results if cuisine in r["cuisine"]]
+        if location:
+            results = [r for r in results if location in r["address"]]
+        return results
+
+    @engine.register
+    def restaurants_1_reserve(name, date_time, party_size, special_request=None):
+        """预约餐厅（模拟 API 调用）"""
+        return {
+            "reservation_id": "R20260226001",
+            "status": "confirmed",
+            "restaurant": name,
+            "date_time": date_time,
+            "party_size": party_size,
+            "special_request": special_request or "无",
+        }
+
+    print(f"已注册 API 函数: {engine.list_functions()}\n")
+    print("--- 执行引擎可用函数（注入 Action Parser prompt）---")
+    print(engine.to_prompt_text())
+    print()
+
+    # 2. 创建 PromptBuilder（用于 Action Parser 和 Dialogue Manager）
+    pytod_builder = PyTODPromptBuilder(response_language="中文")
+
+    # 3. 模拟两轮标准 PyTOD 对话
+    pytod_history: List[ConversationTurn] = []
+
+    pytod_turns = [
+        # (用户输入, 动作解析器模拟输出的程序语句, 对话管理器模拟输出)
+        (
+            "我想在望京找一家火锅餐厅",
+            "restaurants_1_find(cuisine='火锅', location='望京')",
+            "找到了两家望京的火锅餐厅：1. 海底捞望京店（评分4.8）；2. 大龙燚望京（评分4.6）。请问您想选哪家？",
+        ),
+        (
+            "选海底捞，帮我预约明晚7点4个人，要包间",
+            "restaurants_1_reserve(name='海底捞望京店', date_time='明晚7点', party_size=4, special_request='包间')",
+            "预约成功！您的预约编号是 R20260226001，海底捞望京店，明晚7点，4人包间。",
+        ),
+    ]
+
+    for turn_idx, (user_input, mock_program_stmt, mock_dm_response) in enumerate(pytod_turns):
+        print(f"{'═' * 60}")
+        print(f"【PyTOD 标准流程 第 {turn_idx + 1} 轮】")
+        print(f"用户输入: {user_input}\n")
+
+        # --- 步骤一：动作解析器 ---
+        ap_messages = pytod_builder.build_action_parser_messages(
+            user_input=user_input,
+            execution_engine=engine,
+            history=pytod_history,
+        )
+        print(f"[动作解析器 Action Parser]")
+        print(f"  → Prompt 已组装（{len(ap_messages)} 条 messages）")
+        print(f"  → LLM 输出程序语句: {mock_program_stmt}")
+
+        # --- 步骤二：执行引擎 ---
+        exec_result: ExecutionResult = engine.execute(mock_program_stmt)
+        print(f"\n[执行引擎 Execution Engine]")
+        if exec_result.success:
+            print(f"  → 执行成功: {exec_result.statement.to_call_text() if exec_result.statement else '(unknown)'}")
+            print(f"  → 返回结果: {json.dumps(exec_result.return_value, ensure_ascii=False)}")
+        else:
+            print(f"  → 执行失败: {exec_result.error}")
+
+        # --- 步骤三：对话管理器 ---
+        dm_messages = pytod_builder.build_dialogue_manager_messages(
+            user_input=user_input,
+            execution_result=exec_result,
+            history=pytod_history,
+        )
+        print(f"\n[对话管理器 Dialogue Manager]")
+        print(f"  → Prompt 已组装（{len(dm_messages)} 条 messages）")
+        print(f"  → 执行结果上下文:\n{exec_result.to_context_text()}")
+        print(f"  → LLM 生成回复: {mock_dm_response}")
+
+        # 更新历史
+        pytod_history.append(ConversationTurn(role="user", content=user_input))
+        pytod_history.append(ConversationTurn(role="assistant", content=mock_dm_response))
+        print()
+
+    # ------------------------------------------------------------------ #
     # 结语
     # ------------------------------------------------------------------ #
     separator("演示完成")
@@ -468,7 +580,11 @@ def run_demo() -> None:
         "2. 使用 PyTODPromptBuilder 组装 zero/few-shot prompt\n"
         "3. 使用 ActionValidator 对模型输出进行文本级校验\n"
         "4. 解析反馈，驱动多轮对话\n"
-        "5. 开放域模式（schema=None）：无需预定义意图/action/槽位\n\n"
+        "5. 开放域模式（schema=None）：无需预定义意图/action/槽位\n"
+        "6. 标准 PyTOD 四步流程：\n"
+        "   动作解析器（build_action_parser_messages）\n"
+        "     → 执行引擎（ExecutionEngine.execute）\n"
+        "     → 对话管理器（build_dialogue_manager_messages）\n\n"
         "接入真实 LLM（如 Qwen-3）时，将 mock_llm_call() 替换为 API 调用即可。"
     )
 
