@@ -411,16 +411,23 @@ class LLMBasedExtractor(BaseExtractor):
 请返回JSON格式的提取结果。
 提醒：只提取对话中明确出现的信息，不要添加任何推理、联想或补充的内容。"""
         
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
         try:
-            if hasattr(self.llm_client, 'generate_async'):
-                _, response = await self.llm_client.generate_async(full_prompt)
+            if hasattr(self.llm_client, 'chat_async'):
+                response = await self.llm_client.chat_async(messages=messages)
+            elif hasattr(self.llm_client, 'chat'):
+                response = self.llm_client.chat(messages=messages)
+            elif hasattr(self.llm_client, 'generate_async'):
+                _, response = await self.llm_client.generate_async(system_prompt + "\n\n" + user_prompt)
             elif hasattr(self.llm_client, 'generate'):
-                _, response = self.llm_client.generate(full_prompt)
+                _, response = self.llm_client.generate(system_prompt + "\n\n" + user_prompt)
             else:
-                raise ValueError("LLM客户端缺少generate或generate_async方法")
-            
+                raise ValueError("LLM客户端缺少chat_async、chat、generate_async或generate方法")
+
             return response
             
         except Exception as e:

@@ -816,7 +816,7 @@ class ExecutionEngine:
           1. 槽位赋值（``x1.slot = value``）
           2. Hint 语句（``x2 Hint('text')``）
           3. say 语句（``x3 say(x1, x2)``）
-          4. 带变量绑定的 API 调用（``x1 func(key=val)``）
+          4. 带变量绑定的 API 调用（``x1 func(key=val)`` 或 ``x1 = func(key=val)``）
           5. 裸函数调用（无变量前缀，向后兼容）
 
         参数:
@@ -825,6 +825,9 @@ class ExecutionEngine:
         返回:
             (statement, error_message) 元组
         """
+        # 兼容 Python 赋值语法：将 'x1 = func(...)' 规范化为 'x1 func(...)'
+        line = re.sub(r'^(x\d+)\s*=\s*(?=[A-Za-z_])', r'\1 ', line)
+
         # 1. 槽位赋值: x1.slot_name = 'value'
         m = self._RE_SLOT_ASSIGN.match(line)
         if m:

@@ -620,8 +620,12 @@ class PyTODTracker:
         for var, val in exec_result.variable_values.items():
             if not isinstance(val, str):
                 self.current_state[var] = val
+        # Replace hints with the current turn's hints (don't accumulate stale hints)
         if exec_result.hint_messages:
-            existing = self.current_state.get("_hints", [])
-            self.current_state["_hints"] = existing + exec_result.hint_messages
+            self.current_state["_hints"] = exec_result.hint_messages
+        else:
+            self.current_state.pop("_hints", None)
         if exec_result.say_output:
             self.current_state["_say"] = exec_result.say_output
+        else:
+            self.current_state.pop("_say", None)
