@@ -27,9 +27,9 @@ get_current_state / reset），可直接插入 cli_demo / batch_demo / web_demo 
         → LLM 根据执行结果生成面向用户的自然语言回复
 
 内置场景 API（演示用）：
-    - chat:       search_info / tell_joke / play_music
+    - chat:       get_weather / search_info / tell_joke / translate_text / calculate
     - callcenter: lookup_order / submit_complaint / process_refund / check_refund_status / transfer_to_agent
-    - insurance:  query_insurance / calculate_premium / check_claim_status
+    - insurance:  query_insurance / calculate_premium / get_policy_details / submit_claim / check_claim_status
 """
 
 from __future__ import annotations
@@ -52,36 +52,79 @@ def _register_chat_apis(engine: ExecutionEngine) -> None:
     """为闲聊场景注册演示 API 函数。"""
 
     @engine.register
-    def search_info(query=None, language=None):
-        """搜索信息"""
-        if not query:
-            return {"result": "请提供搜索关键词"}
+    def get_weather(city=None, date=None):
+        """查询天气预报。支持今天/明天/后天，或指定城市。"""
+        if not city:
+            return {"hint": "请提供城市名称"}
+        weather_map = {
+            "北京": {"condition": "晴", "temp_high": 12, "temp_low": 2, "wind": "西北风3级"},
+            "上海": {"condition": "多云", "temp_high": 16, "temp_low": 8, "wind": "东南风2级"},
+            "广州": {"condition": "小雨", "temp_high": 22, "temp_low": 15, "wind": "南风1级"},
+        }
+        w = weather_map.get(city, {"condition": "晴转多云", "temp_high": 15, "temp_low": 5, "wind": "微风"})
         return {
-            "query": query,
-            "result": f"关于「{query}」的搜索结果（模拟）",
-            "source": "演示数据库",
+            "city": city,
+            "date": date or "今天",
+            "condition": w["condition"],
+            "temp_high": w["temp_high"],
+            "temp_low": w["temp_low"],
+            "wind": w["wind"],
+            "message": f"{city}{date or '今天'}天气：{w['condition']}，{w['temp_low']}~{w['temp_high']}℃，{w['wind']}",
         }
 
     @engine.register
-    def tell_joke(topic=None, style=None):
-        """讲一个笑话"""
+    def search_info(query=None, category=None):
+        """搜索信息或回答知识类问题。category 可选：news（新闻）、wiki（百科）、general（通用）。"""
+        if not query:
+            return {"hint": "请提供搜索关键词"}
+        return {
+            "query": query,
+            "category": category or "general",
+            "result": f"关于「{query}」的搜索结果（演示数据）",
+            "summary": f"「{query}」是一个常见话题，涉及多个领域。演示模式下无法返回真实数据。",
+            "source": "演示知识库",
+        }
+
+    @engine.register
+    def tell_joke(topic=None):
+        """讲一个笑话。topic 可选：程序员、数学、生活、动物。"""
         jokes = {
             "程序员": "为什么程序员喜欢暗色主题？——因为 light 会吸引 bug。",
             "数学": "为什么数学书总是忧伤？——因为它有太多的问题。",
-            None: "人生就像一盒巧克力，你永远不知道你会遇到什么 bug。",
+            "生活": "有人问我：你最近怎么样？我说：还行吧。他说：那挺好的。——就这样又骗过去了一天。",
+            "动物": "一只猫走进图书馆，说：要一杯咖啡。图书馆员说：这里不卖咖啡。猫说：那要一本书。图书馆员说：好的，要哪本？猫说：随便，只要不是那本讲如何独立的书。",
         }
-        return {"joke": jokes.get(topic, jokes[None])}
+        joke_text = jokes.get(topic, jokes.get("生活"))
+        return {"topic": topic or "生活", "joke": joke_text}
 
     @engine.register
-    def play_music(genre=None, mood=None, artist=None):
-        """播放音乐（模拟）"""
+    def translate_text(text=None, target_language=None, source_language=None):
+        """翻译文本。target_language 为目标语言（中文/英文/日文/韩文等）。"""
+        if not text:
+            return {"hint": "请提供要翻译的文本"}
+        if not target_language:
+            return {"hint": "请提供目标语言"}
         return {
-            "status": "playing",
-            "genre": genre or "流行",
-            "mood": mood or "轻松",
-            "artist": artist or "随机",
-            "message": f"正在为您播放{mood or '轻松'}风格的{genre or '流行'}音乐",
+            "original": text,
+            "source_language": source_language or "自动检测",
+            "target_language": target_language,
+            "translation": f"[{target_language}翻译演示] {text}",
+            "note": "演示模式，实际翻译需接入翻译API",
         }
+
+    @engine.register
+    def calculate(expression=None):
+        """计算数学表达式。支持加减乘除、百分比等基础运算。"""
+        if not expression:
+            return {"hint": "请提供计算表达式，如：100*0.85 或 1200/12"}
+        try:
+            # 只允许数字和安全运算符
+            import re as _re
+            safe = _re.sub(r'[^0-9+\-*/.() %]', '', str(expression))
+            result = eval(safe)  # nosec — expression filtered to safe chars only
+            return {"expression": expression, "result": result, "message": f"{expression} = {result}"}
+        except Exception:
+            return {"expression": expression, "error": "表达式格式有误，请检查后重试"}
 
 
 def _register_callcenter_apis(engine: ExecutionEngine) -> None:
@@ -159,41 +202,109 @@ def _register_insurance_apis(engine: ExecutionEngine) -> None:
 
     @engine.register
     def query_insurance(insurance_type=None, customer_age=None, coverage_type=None):
-        """查询保险产品信息"""
+        """查询保险产品信息。insurance_type 可选：癌症险、重疾险、寿险、医疗险、意外险。"""
+        product_map = {
+            "癌症险": {
+                "monthly_premium_base": 114.0,
+                "coverage_amount": 1000000,
+                "coverage_items": ["确诊赔付", "手术津贴", "住院津贴", "身故赔付"],
+                "waiting_period": "90天",
+                "description": "适合30-60岁健康人群，专项癌症保障",
+            },
+            "重疾险": {
+                "monthly_premium_base": 280.0,
+                "coverage_amount": 500000,
+                "coverage_items": ["100种重大疾病", "60种轻症", "身故赔付", "保费豁免"],
+                "waiting_period": "90天",
+                "description": "保障100种重大疾病，含轻症保障",
+            },
+            "医疗险": {
+                "monthly_premium_base": 50.0,
+                "coverage_amount": 2000000,
+                "coverage_items": ["住院医疗", "门诊手术", "特殊门诊", "质子重离子"],
+                "waiting_period": "30天",
+                "description": "百万医疗，住院报销比例90%以上",
+            },
+        }
+        ptype = insurance_type or "重疾险"
+        product = product_map.get(ptype, product_map["重疾险"])
         return {
-            "insurance_type": insurance_type or "癌症险",
-            "monthly_premium": 114.0,
-            "coverage_amount": 1000000,
-            "coverage_items": ["确诊赔付", "手术津贴", "住院津贴", "身故赔付"],
-            "waiting_period": "90天",
-            "description": "适合30-60岁健康人群，无等待期续保",
+            "insurance_type": ptype,
+            "coverage_type": coverage_type or "全面保障",
+            "monthly_premium_reference": product["monthly_premium_base"],
+            "coverage_amount": product["coverage_amount"],
+            "coverage_items": product["coverage_items"],
+            "waiting_period": product["waiting_period"],
+            "description": product["description"],
         }
 
     @engine.register
-    def calculate_premium(insurance_type=None, customer_age=None, coverage_amount=None):
-        """计算保费"""
-        base = float(coverage_amount or 1000000) / 1000000 * 100
-        age_factor = 1.0 + max(0, (int(customer_age or 40) - 30)) * 0.05
-        monthly = round(base * age_factor, 2)
+    def calculate_premium(insurance_type=None, customer_age=None, coverage_amount=None, gender=None):
+        """精算保费。根据险种、年龄、保额（及性别）计算月保费和年保费。"""
+        base = float(coverage_amount or 500000) / 500000 * 200
+        age = int(customer_age or 35)
+        age_factor = 1.0 + max(0, (age - 30)) * 0.04
+        gender_factor = 1.05 if gender in ("男", "male", "M") else 1.0
+        monthly = round(base * age_factor * gender_factor, 2)
         return {
-            "insurance_type": insurance_type or "癌症险",
-            "customer_age": customer_age or 40,
-            "coverage_amount": coverage_amount or 1000000,
+            "insurance_type": insurance_type or "重疾险",
+            "customer_age": age,
+            "gender": gender or "未指定",
+            "coverage_amount": coverage_amount or 500000,
             "monthly_premium": monthly,
             "annual_premium": round(monthly * 12, 2),
+            "payment_term": "20年",
+            "note": "以上为参考保费，实际以核保结果为准",
+        }
+
+    @engine.register
+    def get_policy_details(policy_number=None, customer_name=None):
+        """查询保单详情。需要保单号或客户姓名。"""
+        if not (policy_number or customer_name):
+            return {"hint": "请提供保单号或客户姓名以查询保单信息"}
+        return {
+            "policy_number": policy_number or "POL-20240315-0042",
+            "customer_name": customer_name or "张先生",
+            "insurance_type": "重疾险",
+            "coverage_amount": 500000,
+            "premium_paid": "每月 280 元",
+            "effective_date": "2024-03-15",
+            "expiry_date": "2044-03-15",
+            "status": "有效",
+            "beneficiary": "配偶",
+        }
+
+    @engine.register
+    def submit_claim(policy_number=None, claim_type=None, incident_date=None, description=None):
+        """提交理赔申请。需要保单号、理赔类型和事故/诊断日期。"""
+        if not policy_number:
+            return {"hint": "请提供保单号以提交理赔"}
+        if not claim_type:
+            return {"hint": "请提供理赔类型（如：重疾确诊、住院医疗、意外伤害）"}
+        return {
+            "claim_id": "CLM-20260226-0089",
+            "policy_number": policy_number,
+            "claim_type": claim_type,
+            "incident_date": incident_date or "2026-02-20",
+            "status": "已受理",
+            "required_documents": ["医院诊断证明", "病历报告", "费用发票", "银行账户信息"],
+            "expected_review_time": "5-10个工作日",
+            "contact": "理赔专员将在24小时内联系您",
         }
 
     @engine.register
     def check_claim_status(claim_id=None, policy_number=None):
-        """查询理赔进度"""
+        """查询理赔进度。支持按理赔单号或保单号查询。"""
         if not (claim_id or policy_number):
-            return {"error": "请提供理赔单号或保单号"}
+            return {"hint": "请提供理赔单号或保单号"}
         return {
             "claim_id": claim_id or "CLM-2026-001",
+            "policy_number": policy_number or "POL-20240315-0042",
             "status": "审核中",
+            "current_step": "医疗材料核查",
             "submitted_date": "2026-02-01",
             "expected_completion": "2026-03-01",
-            "notes": "材料齐全，正在进行医疗材料核查",
+            "notes": "材料已收齐，正在进行医疗材料核查，请耐心等待。",
         }
 
 

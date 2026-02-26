@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import re
 from typing import Optional, Sequence, Tuple
 
 # 加载.env文件中的环境变量
@@ -196,7 +197,21 @@ class SimpleLLMClient:
             default_headers=headers or None,
         )
         logger.info(f"[LLM Client] 初始化成功")
-    
+
+    @staticmethod
+    def _strip_thinking(text: str) -> str:
+        """去除模型输出中的思考过程标签（<think>…</think>）。
+
+        部分推理模型（如 Qwen3 / DeepSeek-R1）即使在 API 层面禁用了
+        enable_thinking，仍可能在 content 字段内嵌入 <think>…</think>
+        或 <|think|>…<|/think|> 块。此方法在返回给调用方之前统一剥离这些标签。
+        """
+        # <think>...</think> (Qwen3 style)
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+        # <|think|>...<|/think|> (DeepSeek token style)
+        text = re.sub(r"<\|think\|>.*?<\|/think\|>", "", text, flags=re.DOTALL)
+        return text.strip()
+
     def _estimate_tokens(self, text: str) -> int:
         """
         估算文本的token数量
@@ -360,9 +375,9 @@ class SimpleLLMClient:
         if content is None:
             final_text = ""
         elif isinstance(content, str):
-            final_text = content
+            final_text = self._strip_thinking(content)
         else:
-            final_text = str(content)
+            final_text = self._strip_thinking(str(content))
 
         return str(reasoning_content), final_text
 
@@ -440,9 +455,9 @@ class SimpleLLMClient:
         if content is None:
             return ""
         elif isinstance(content, str):
-            return content
+            return self._strip_thinking(content)
         else:
-            return str(content)
+            return self._strip_thinking(str(content))
     
     async def chat_async(self, messages: list, temperature: float = None) -> str:
         """基于消息列表调用 LLM（异步版本）。

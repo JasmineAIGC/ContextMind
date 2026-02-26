@@ -515,23 +515,47 @@ class UnifiedGradioDemo:
             
             return state_info
         elif self.current_mode == "pytod" and self.pytod_tracker:
-            # PyTOD模式：显示程序执行状态和变量值
+            # PyTOD模式：显示人类可读的执行摘要
             state = self.pytod_tracker.get_current_state()
             state_info = {
                 "模式": "PyTOD (程序执行型任务对话)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.pytod_tracker.turn_count,
-                "已注册 API": ", ".join(self.pytod_tracker.execution_engine.list_functions()),
+                "可用 API": ", ".join(self.pytod_tracker.execution_engine.list_functions()),
             }
 
             if state:
-                state_info["---"] = "---"
-                state_info["执行状态"] = f"已记录 {len(state)} 个变量"
+                # 分类展示状态：区分API结果、提示信息、say输出
+                api_results = {}
+                hints = []
+                say_text = None
                 for key, value in state.items():
-                    display_value = str(value)
-                    if len(display_value) > 50:
-                        display_value = display_value[:47] + "..."
-                    state_info[key] = display_value
+                    if key == "_hints":
+                        hints = value if isinstance(value, list) else [value]
+                    elif key == "_say":
+                        say_text = str(value)
+                    elif isinstance(value, dict):
+                        # API返回的结构化数据：展开关键字段
+                        for k, v in value.items():
+                            if k not in ("_raw",):
+                                api_results[k] = str(v)
+                    else:
+                        api_results[key] = str(value)
+
+                if api_results:
+                    state_info["--- API 执行结果 ---"] = ""
+                    for k, v in api_results.items():
+                        display_value = v if len(v) <= 50 else v[:47] + "..."
+                        state_info[k] = display_value
+                if hints:
+                    state_info["--- 待收集信息 ---"] = ""
+                    for i, h in enumerate(hints, 1):
+                        state_info[f"待补充 {i}"] = str(h)
+                if say_text:
+                    state_info["--- 系统回复 ---"] = ""
+                    state_info["最近回复"] = say_text if len(say_text) <= 80 else say_text[:77] + "..."
+                if not api_results and not hints and not say_text:
+                    state_info["执行状态"] = "暂无执行结果"
             else:
                 state_info["执行状态"] = "暂无执行结果"
 
