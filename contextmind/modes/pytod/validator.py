@@ -239,9 +239,11 @@ class ActionValidator:
         self, parsed: Dict[str, Any], result: ValidationResult
     ) -> None:
         """从解析后的字典填充 ValidationResult 的字段。"""
-        result.intent = str(parsed.get("intent", ""))
+        raw_intent = parsed.get("intent")
+        result.intent = str(raw_intent) if raw_intent is not None else ""
         result.slots = parsed.get("slots", {}) or {}
-        result.response = str(parsed.get("response", ""))
+        raw_response = parsed.get("response")
+        result.response = str(raw_response) if raw_response is not None else ""
 
     def _extract_and_parse_json(
         self, text: str

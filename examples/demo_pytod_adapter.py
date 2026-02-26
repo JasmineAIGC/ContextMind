@@ -19,6 +19,7 @@ PyTOD Schema 适配器演示
 import json
 import sys
 from pathlib import Path
+from typing import List
 
 # 确保可以直接运行（不安装包时）
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -293,7 +294,7 @@ def run_demo() -> None:
         "帮我修改一下预约时间",  # 故意触发 intent 校验错误
     ]
 
-    history: list[ConversationTurn] = []
+    history: List[ConversationTurn] = []
 
     for turn_idx, user_input in enumerate(user_turns):
         print(f"\n{'─' * 60}")

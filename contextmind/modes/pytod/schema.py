@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 
 
 @dataclass
@@ -296,22 +296,26 @@ class ServiceSchema:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
 
-def load_schema_from_dict(data: Dict[str, Any]) -> ServiceSchema:
+def load_schema_from_dict(data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> ServiceSchema:
     """
     从字典加载 ServiceSchema（便捷函数）。
 
     支持两种格式：
     1. 单个 service 字典：{"service_name": ..., "slots": [...], "intents": [...]}
-    2. PyTOD 标准格式列表中的第一个元素（取第一个 service）
+    2. PyTOD 标准格式列表（取第一个 service 元素）
 
     参数:
-        data: service 定义字典
+        data: service 定义字典，或包含多个 service 字典的列表
 
     返回:
         ServiceSchema 实例
 
+    异常:
+        ValueError: 传入列表为空时抛出
+
     示例::
 
+        # 方式 1：单个字典
         schema = load_schema_from_dict({
             "service_name": "RestaurantReservation",
             "description": "餐厅预约服务",
@@ -327,5 +331,15 @@ def load_schema_from_dict(data: Dict[str, Any]) -> ServiceSchema:
                  "optional_slots": ["cuisine_type"]},
             ]
         })
+
+        # 方式 2：PyTOD 标准 JSON 列表（取第一个 service）
+        import json  # noqa: PLC0415  (import inside docstring example)
+        with open("schema.json") as f:
+            schemas = json.load(f)   # list of service dicts
+        schema = load_schema_from_dict(schemas)
     """
+    if isinstance(data, list):
+        if not data:
+            raise ValueError("Schema 列表为空，至少需要一个 service 定义")
+        data = data[0]
     return ServiceSchema.from_dict(data)
