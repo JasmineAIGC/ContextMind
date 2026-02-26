@@ -783,6 +783,9 @@ class ExecutionEngine:
         """
         调用已注册函数，返回结果或异常。
 
+        LLM 生成的程序可能包含函数签名中不存在的关键字参数；
+        调用前先过滤掉未知参数，使演示 API 更健壮。
+
         返回:
             - 函数返回值（成功时）
             - Exception 实例（执行异常时）
@@ -792,6 +795,15 @@ class ExecutionEngine:
         if func is None:
             return None
         try:
+            # Filter out kwargs not accepted by the function to gracefully
+            # handle cases where the LLM passes extra/unexpected arguments.
+            sig = inspect.signature(func)
+            accepts_var_keyword = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD
+                for p in sig.parameters.values()
+            )
+            if not accepts_var_keyword:
+                kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
             return func(**kwargs)
         except Exception as exc:  # noqa: BLE001
             return exc
