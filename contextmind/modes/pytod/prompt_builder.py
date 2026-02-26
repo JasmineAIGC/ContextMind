@@ -271,6 +271,20 @@ x3 say(x2)
 4. 只输出面向用户的自然语言回复，不要输出 JSON 或技术细节。
 """
 
+    # ---------------------------------------------------------------------- #
+    # 后备对话提示模板（无执行结果 / NONE() 情形）
+    # 不要求 JSON，输出纯自然语言
+    # ---------------------------------------------------------------------- #
+    _FALLBACK_TEMPLATE = """\
+你是一个智能对话助手。请根据对话历史和用户输入，生成自然、简洁、有帮助的回复。
+
+## 规则
+
+1. 回复语言：{response_language}。
+2. 只输出面向用户的自然语言回复。
+3. 不要输出 JSON、代码块或任何格式化数据，直接给出对话文字。
+"""
+
     def __init__(
         self,
         schema: Optional[ServiceSchema] = None,
@@ -488,6 +502,45 @@ x3 say(x2)
                 messages.append({"role": turn.role, "content": turn.content})
 
         # 当前用户输入（对话管理器需要用户原始话语作为回复依据）
+        messages.append({"role": "user", "content": user_input})
+        return messages
+
+    def build_fallback_messages(
+        self,
+        user_input: str,
+        history: Optional[List[ConversationTurn]] = None,
+    ) -> List[Dict[str, str]]:
+        """
+        组装后备对话消息列表（无执行结果 / NONE() 情形）。
+
+        当 Action Parser 输出 NONE()（无法确定应调用的 API）时使用本方法，
+        生成**纯自然语言**回复，不要求 JSON 格式输出。
+
+        与 ``build_messages()`` 的区别：
+        - 系统提示不要求 JSON，避免 LLM 输出带有 intent/slots/response 结构的 JSON。
+        - 保留完整的对话历史上下文，确保多轮连贯性。
+
+        参数:
+            user_input: 当前轮用户输入
+            history:    历史对话轮次列表（可选）
+
+        返回:
+            OpenAI / Qwen 兼容的 messages 列表
+        """
+        system_content = self._FALLBACK_TEMPLATE.format(
+            response_language=self.response_language,
+        )
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": system_content},
+        ]
+
+        # 历史对话
+        if history:
+            trimmed = history[-self.max_history_turns:]
+            for turn in trimmed:
+                messages.append({"role": turn.role, "content": turn.content})
+
+        # 当前用户输入
         messages.append({"role": "user", "content": user_input})
         return messages
 

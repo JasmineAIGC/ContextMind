@@ -748,14 +748,25 @@ class ExecutionEngine:
 
             elif isinstance(stmt, SayStatement):
                 # x3 say(x1, x2) — compose output
+                # Also handles say("literal text") where the arg is a string literal
                 parts: List[str] = []
                 for arg_var in stmt.arg_variables:
-                    if arg_var in hint_values:
-                        parts.append(hint_values[arg_var])
-                    elif arg_var in var_values:
-                        parts.append(repr(var_values[arg_var]))
+                    stripped = arg_var.strip()
+                    # Handle string literal arguments (LLM often writes say("text") directly).
+                    # Use simple quote-stripping rather than eval() to avoid any eval risks.
+                    if len(stripped) >= 2 and (
+                        (stripped[0] == '"' and stripped[-1] == '"')
+                        or (stripped[0] == "'" and stripped[-1] == "'")
+                    ):
+                        parts.append(stripped[1:-1])
+                    elif stripped in hint_values:
+                        parts.append(hint_values[stripped])
+                    elif stripped in var_values:
+                        val = var_values[stripped]
+                        # Use str() so string variables don't gain extra quotes in the output.
+                        parts.append(str(val))
                     else:
-                        parts.append(f"({arg_var})")
+                        parts.append(f"({stripped})")
                 say_output = "; ".join(parts)
                 var_values[stmt.variable] = say_output
 

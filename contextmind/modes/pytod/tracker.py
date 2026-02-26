@@ -385,26 +385,35 @@ class PyTODTracker:
                 exec_result = None
 
         # -------- 步骤三：对话管理器 -------- #
-        if exec_result is not None:
+        # 优化 1：当程序已通过 say() 明确给出回复文本，直接使用，无需再次调用 LLM
+        if exec_result is not None and exec_result.say_output:
+            response = exec_result.say_output
+            logger.info(f"[Dialogue Manager] 直接使用 say() 输出: {response[:80]}...")
+        elif exec_result is not None:
+            # 有 API 执行结果（非 say），由对话管理器 LLM 生成回复
             dm_messages = self.prompt_builder.build_dialogue_manager_messages(
                 user_input=user_utterance,
                 execution_result=exec_result,
                 history=self.history,
             )
+            try:
+                response = await self._call_llm(dm_messages)
+            except Exception as exc:
+                logger.error(f"对话管理器 LLM 调用失败: {exc}")
+                response = "抱歉，处理您的请求时出现了问题，请稍后重试。"
+            logger.info(f"[Dialogue Manager] 回复: {response[:80]}...")
         else:
-            # 执行失败时退化为普通对话
-            dm_messages = self.prompt_builder.build_messages(
+            # 优化 2：NONE() 情况使用纯自然语言后备提示，避免输出 JSON
+            dm_messages = self.prompt_builder.build_fallback_messages(
                 user_input=user_utterance,
                 history=self.history,
             )
-
-        try:
-            response = await self._call_llm(dm_messages)
-        except Exception as exc:
-            logger.error(f"对话管理器 LLM 调用失败: {exc}")
-            response = "抱歉，处理您的请求时出现了问题，请稍后重试。"
-
-        logger.info(f"[Dialogue Manager] 回复: {response[:80]}...")
+            try:
+                response = await self._call_llm(dm_messages)
+            except Exception as exc:
+                logger.error(f"后备对话 LLM 调用失败: {exc}")
+                response = "抱歉，处理您的请求时出现了问题，请稍后重试。"
+            logger.info(f"[Dialogue Manager] 后备回复: {response[:80]}...")
 
         # -------- 更新历史 -------- #
         self.history.append(ConversationTurn(role="user", content=user_utterance))
