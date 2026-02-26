@@ -461,14 +461,18 @@ def run_demo() -> None:
         print()
 
     # ------------------------------------------------------------------ #
-    # 步骤 7：标准 PyTOD 四步流程演示（与原始论文一致）
+    # 步骤 7：标准 PyTOD 四步流程演示（与官方算法文档一致）
     # ------------------------------------------------------------------ #
     separator("步骤 7: 标准 PyTOD 四步流程（Action Parser → Execution Engine → Dialogue Manager）")
     print(
-        "PyTOD 原始算法流程：\n"
+        "PyTOD 原始算法流程（参考 docs/algorithms/pytod.md）：\n"
         "  用户输入\n"
         "    ↓\n"
-        "  动作解析器（Action Parser）→ 程序语句（如 restaurants_1_find(cuisine='火锅')）\n"
+        "  动作解析器（Action Parser）\n"
+        "    → 生成多行程序语句，例如：\n"
+        "      x1 hotels_1_search_hotel(city='San Jose')\n"
+        "      x2 Hint('request value: check_in_date')\n"
+        "      x3 say(x2)\n"
         "    ↓\n"
         "  执行引擎（Execution Engine）→ 调用 API / 数据库 → 返回结果\n"
         "    ↓\n"
@@ -478,6 +482,8 @@ def run_demo() -> None:
     )
 
     # 1. 创建 ExecutionEngine 并注册模拟 API 函数
+    from contextmind.modes.pytod import ProgramExecutionResult
+
     engine = ExecutionEngine()
 
     @engine.register
@@ -513,29 +519,35 @@ def run_demo() -> None:
     # 2. 创建 PromptBuilder（用于 Action Parser 和 Dialogue Manager）
     pytod_builder = PyTODPromptBuilder(response_language="中文")
 
-    # 3. 模拟两轮标准 PyTOD 对话
+    # 3. 模拟两轮标准 PyTOD 对话（使用多行程序，与官方算法一致）
     pytod_history: List[ConversationTurn] = []
 
     pytod_turns = [
-        # (用户输入, 动作解析器模拟输出的程序语句, 对话管理器模拟输出)
+        # (用户输入, 动作解析器生成的多行 PyTOD 程序, 对话管理器生成的回复)
         (
             "我想在望京找一家火锅餐厅",
-            "restaurants_1_find(cuisine='火锅', location='望京')",
-            "找到了两家望京的火锅餐厅：1. 海底捞望京店（评分4.8）；2. 大龙燚望京（评分4.6）。请问您想选哪家？",
+            # 第1轮：查找餐厅，缺少 party_size，用 Hint 引导
+            (
+                "x1 restaurants_1_find(cuisine='火锅', location='望京')\n"
+                "x2 Hint('request value: party_size')\n"
+                "x3 say(x2)"
+            ),
+            "找到了两家望京的火锅餐厅：1. 海底捞望京店（评分4.8）；2. 大龙燚望京（评分4.6）。请问几位用餐？",
         ),
         (
             "选海底捞，帮我预约明晚7点4个人，要包间",
-            "restaurants_1_reserve(name='海底捞望京店', date_time='明晚7点', party_size=4, special_request='包间')",
+            # 第2轮：预约餐厅（所有参数已知，无需 Hint）
+            "x1 restaurants_1_reserve(name='海底捞望京店', date_time='明晚7点', party_size=4, special_request='包间')",
             "预约成功！您的预约编号是 R20260226001，海底捞望京店，明晚7点，4人包间。",
         ),
     ]
 
-    for turn_idx, (user_input, mock_program_stmt, mock_dm_response) in enumerate(pytod_turns):
+    for turn_idx, (user_input, mock_program, mock_dm_response) in enumerate(pytod_turns):
         print(f"{'═' * 60}")
         print(f"【PyTOD 标准流程 第 {turn_idx + 1} 轮】")
         print(f"用户输入: {user_input}\n")
 
-        # --- 步骤一：动作解析器 ---
+        # --- 步骤一：动作解析器 —— [HISTORY]/[CURRENT] 格式 ---
         ap_messages = pytod_builder.build_action_parser_messages(
             user_input=user_input,
             execution_engine=engine,
@@ -543,18 +555,26 @@ def run_demo() -> None:
         )
         print(f"[动作解析器 Action Parser]")
         print(f"  → Prompt 已组装（{len(ap_messages)} 条 messages）")
-        print(f"  → LLM 输出程序语句: {mock_program_stmt}")
+        print(f"  → 对话上下文格式:")
+        for line in ap_messages[-1]["content"].splitlines():
+            print(f"    {line}")
+        print(f"  → LLM 输出多行程序:\n    " + mock_program.replace("\n", "\n    "))
 
-        # --- 步骤二：执行引擎 ---
-        exec_result: ExecutionResult = engine.execute(mock_program_stmt)
+        # --- 步骤二：执行引擎 —— execute_program() 执行多行程序 ---
+        exec_result: ProgramExecutionResult = engine.execute_program(mock_program)
         print(f"\n[执行引擎 Execution Engine]")
         if exec_result.success:
-            print(f"  → 执行成功: {exec_result.statement.to_call_text() if exec_result.statement else '(unknown)'}")
-            print(f"  → 返回结果: {json.dumps(exec_result.return_value, ensure_ascii=False)}")
+            for var, val in exec_result.variable_values.items():
+                if not isinstance(val, str):  # 跳过 say() 产生的字符串变量，单独由 say_output 输出
+                    print(f"  → {var} = {json.dumps(val, ensure_ascii=False)}")
+            if exec_result.hint_messages:
+                print(f"  → Hint 提示: {exec_result.hint_messages}")
+            if exec_result.say_output:
+                print(f"  → say 输出: {exec_result.say_output}")
         else:
-            print(f"  → 执行失败: {exec_result.error}")
+            print(f"  → 执行失败: {exec_result.errors}")
 
-        # --- 步骤三：对话管理器 ---
+        # --- 步骤三：对话管理器 —— 基于执行结果生成自然语言回复 ---
         dm_messages = pytod_builder.build_dialogue_manager_messages(
             user_input=user_input,
             execution_result=exec_result,
@@ -562,7 +582,7 @@ def run_demo() -> None:
         )
         print(f"\n[对话管理器 Dialogue Manager]")
         print(f"  → Prompt 已组装（{len(dm_messages)} 条 messages）")
-        print(f"  → 执行结果上下文:\n{exec_result.to_context_text()}")
+        print(f"  → 注入执行结果上下文:\n    " + exec_result.to_context_text().replace("\n", "\n    "))
         print(f"  → LLM 生成回复: {mock_dm_response}")
 
         # 更新历史
@@ -581,10 +601,10 @@ def run_demo() -> None:
         "3. 使用 ActionValidator 对模型输出进行文本级校验\n"
         "4. 解析反馈，驱动多轮对话\n"
         "5. 开放域模式（schema=None）：无需预定义意图/action/槽位\n"
-        "6. 标准 PyTOD 四步流程：\n"
-        "   动作解析器（build_action_parser_messages）\n"
-        "     → 执行引擎（ExecutionEngine.execute）\n"
-        "     → 对话管理器（build_dialogue_manager_messages）\n\n"
+        "6. 标准 PyTOD 四步流程（与官方算法文档一致）：\n"
+        "   动作解析器 build_action_parser_messages()（[HISTORY]/[CURRENT] 格式）\n"
+        "     → 执行引擎 execute_program()（多行程序：API调用/槽位赋值/Hint/say）\n"
+        "     → 对话管理器 build_dialogue_manager_messages()（基于执行结果生成回复）\n\n"
         "接入真实 LLM（如 Qwen-3）时，将 mock_llm_call() 替换为 API 调用即可。"
     )
 

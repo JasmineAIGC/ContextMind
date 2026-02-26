@@ -10,12 +10,26 @@ PyTOD 算法流程中的第二步：
 
 执行引擎职责：
     1. 维护已注册的 API 函数列表（函数注册表）
-    2. 解析程序语句（如 ``restaurants_1_find(city='San Jose', cuisine='Chinese')``）
+    2. 解析多行 PyTOD 程序语句
     3. 安全调用对应的 Python 函数
     4. 返回结构化的执行结果
 
+PyTOD 程序支持以下四种语句形式（与官方算法一致）：
+
+    1. API 函数调用（带变量绑定）：
+       x1 hotels_1_search_hotel(city='San Jose')
+
+    2. 槽位赋值（补充或更新已声明的 API 调用参数）：
+       x1.location = 'San Jose'
+
+    3. Hint 语句（请求用户提供缺失的槽位信息）：
+       x2 Hint('request value: check_in_date')
+
+    4. say 语句（组合 Hint 输出，生成面向用户的提示）：
+       x3 say(x1, x2)
+
 安全保证：
-    - 不使用 ``eval()``；使用 Python ``ast`` 模块解析程序语句
+    - 不使用 ``eval()``；使用 Python ``ast`` 模块和正则解析程序语句
     - 只允许调用已显式注册的函数
     - 参数类型限制为 str、int、float、bool、None（拒绝执行任意代码）
 
@@ -25,22 +39,27 @@ PyTOD 算法流程中的第二步：
 
     # 注册 API 函数
     @engine.register
-    def restaurants_1_find(cuisine=None, location=None, price_range=None):
-        # 查询数据库 / 调用外部 API
-        return [{"name": "海底捞", "rating": 4.8, "address": "望京 SOHO"}]
+    def hotels_1_search_hotel(city=None, check_in_date=None):
+        return [{"name": "Sino", "rating": 4.5}]
 
-    # 执行动作解析器生成的程序语句
-    result = engine.execute("restaurants_1_find(cuisine='火锅', location='望京')")
-    print(result.return_value)   # [{"name": "海底捞", ...}]
-    print(result.success)        # True
+    # 执行多行 PyTOD 程序
+    program = '''
+    x1 hotels_1_search_hotel(city='San Jose')
+    x2 Hint('request value: check_in_date')
+    x3 say(x2)
+    '''
+    result = engine.execute_program(program)
+    print(result.variable_values["x1"])   # [{"name": "Sino", "rating": 4.5}]
+    print(result.say_output)              # "request value: check_in_date"
 """
 
 from __future__ import annotations
 
 import ast
 import inspect
+import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 
 # --------------------------------------------------------------------------- #
@@ -121,6 +140,175 @@ class ExecutionResult:
 
 
 # --------------------------------------------------------------------------- #
+# PyTOD 多行程序语句类型
+# --------------------------------------------------------------------------- #
+
+
+@dataclass
+class SlotAssignment:
+    """
+    槽位赋值语句（``x1.slot_name = 'value'``）。
+
+    为已声明的 API 调用变量补充或更新一个槽位值，对应 PyTOD 论文中的
+    属性赋值程序行。
+
+    例如：
+        ``x1.location = 'San Jose'``
+
+    属性:
+        variable:  变量名（如 "x1"）
+        slot_name: 槽位名称（如 "location"）
+        value:     槽位值（仅支持常量）
+        raw_text:  原始语句文本
+    """
+
+    variable: str
+    slot_name: str
+    value: Any
+    raw_text: str = ""
+
+
+@dataclass
+class HintStatement:
+    """
+    Hint 语句（``x2 Hint('request value: slot_name')``）。
+
+    请求用户提供缺失的槽位信息，对应 PyTOD 中的 ``Hint()`` 原语。
+    通常与 ``say()`` 语句配合，将提示输出给用户。
+
+    例如：
+        ``x2 Hint('request value: check_in_date')``
+
+    属性:
+        variable:  变量名（如 "x2"）
+        hint_text: Hint 内容（如 "request value: check_in_date"）
+        raw_text:  原始语句文本
+    """
+
+    variable: str
+    hint_text: str
+    raw_text: str = ""
+
+
+@dataclass
+class SayStatement:
+    """
+    say 语句（``x3 say(x1, x2)``）。
+
+    组合多个 Hint 或 API 结果变量，生成面向用户的输出，
+    对应 PyTOD 中的 ``say()`` 原语。
+
+    例如：
+        ``x4 say(x2, x3)``
+
+    属性:
+        variable:      变量名（如 "x4"）
+        arg_variables: 参与组合的变量名列表（如 ["x2", "x3"]）
+        raw_text:      原始语句文本
+    """
+
+    variable: str
+    arg_variables: List[str]
+    raw_text: str = ""
+
+
+# PyTOD 单条语句的联合类型
+AnyStatement = Union[ProgramStatement, SlotAssignment, HintStatement, SayStatement]
+
+
+@dataclass
+class ProgramBlock:
+    """
+    PyTOD 多行程序块。
+
+    包含动作解析器生成的一组有序程序语句，由执行引擎统一执行。
+
+    例如::
+
+        x1 hotels_1_search_hotel(city='San Jose')
+        x2 Hint('request value: check_in_date')
+        x3 say(x2)
+
+    属性:
+        statements: 有序语句列表（每条为 AnyStatement 之一）
+        raw_text:   原始多行程序文本
+    """
+
+    statements: List[AnyStatement] = field(default_factory=list)
+    raw_text: str = ""
+
+    def to_program_text(self) -> str:
+        """重新生成程序文本（每条语句一行）。"""
+        return "\n".join(s.raw_text for s in self.statements)
+
+
+@dataclass
+class ProgramExecutionResult:
+    """
+    多行 PyTOD 程序的执行结果。
+
+    属性:
+        success:         是否全部执行成功（有错误时为 False）
+        variable_values: 各变量名到 API 返回值的映射
+        hint_messages:   所有 Hint 语句收集到的提示文本列表
+        say_output:      say() 语句组合后面向用户的输出文本
+        errors:          执行过程中的错误信息列表
+        raw_program:     原始程序文本
+    """
+
+    success: bool
+    variable_values: Dict[str, Any] = field(default_factory=dict)
+    hint_messages: List[str] = field(default_factory=list)
+    say_output: str = ""
+    errors: List[str] = field(default_factory=list)
+    raw_program: str = ""
+
+    def to_context_text(self) -> str:
+        """
+        将多语句执行结果格式化为可注入对话管理器 prompt 的上下文文本。
+
+        返回:
+            格式化的结果说明，例如：
+
+            [程序执行结果]
+            API 调用结果:
+              x1 = [{"name": "Sino", "rating": 4.5}]
+            Hint 提示:
+              - request value: check_in_date
+            say 输出: request value: check_in_date
+        """
+        max_len = ExecutionEngine.MAX_RESULT_LENGTH
+        lines = ["[程序执行结果]"]
+
+        if not self.success and self.errors:
+            lines.append("执行错误:")
+            for err in self.errors:
+                lines.append(f"  - {err}")
+            return "\n".join(lines)
+
+        # API 调用结果
+        if self.variable_values:
+            lines.append("API 调用结果:")
+            for var, value in self.variable_values.items():
+                val_repr = repr(value)
+                if len(val_repr) > max_len:
+                    val_repr = val_repr[:max_len] + "...(已截断)"
+                lines.append(f"  {var} = {val_repr}")
+
+        # Hint 提示
+        if self.hint_messages:
+            lines.append("Hint 提示:")
+            for hint in self.hint_messages:
+                lines.append(f"  - {hint}")
+
+        # say 输出
+        if self.say_output:
+            lines.append(f"say 输出: {self.say_output}")
+
+        return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
 # 执行引擎
 # --------------------------------------------------------------------------- #
 
@@ -129,28 +317,42 @@ class ExecutionEngine:
     """
     PyTOD 风格执行引擎
 
-    将动作解析器生成的程序语句（如
-    ``restaurants_1_find(cuisine='火锅', location='望京')``）
-    解析后安全地调用已注册的 API 函数，并返回结构化的执行结果。
+    支持解析和执行 PyTOD 标准格式的多行程序，以及向后兼容的单语句执行。
 
-    设计原则：
-    - 仅允许调用已通过 ``register()`` 注册的函数，防止任意代码执行
-    - 使用 ``ast`` 模块解析参数，不调用 ``eval()``
-    - 参数值类型限制为常量（str、int、float、bool、None）
+    PyTOD 程序语句格式（与官方算法一致）：
+
+    1. API 函数调用（带变量绑定）::
+
+           x1 hotels_1_search_hotel(city='San Jose')
+
+    2. 槽位赋值（补充或更新 API 调用参数）::
+
+           x1.check_in_date = '2024-03-01'
+
+    3. Hint 语句（请求用户补充缺失信息）::
+
+           x2 Hint('request value: check_in_date')
+
+    4. say 语句（组合 Hint 输出给用户）::
+
+           x3 say(x2)
 
     使用示例::
 
         engine = ExecutionEngine()
 
         @engine.register
-        def restaurants_1_find(cuisine=None, location=None):
-            return [{"name": "海底捞", "rating": 4.8}]
+        def hotels_1_search_hotel(city=None, check_in_date=None):
+            return [{"name": "Sino", "rating": 4.5}]
 
-        result = engine.execute("restaurants_1_find(cuisine='火锅', location='望京')")
-        if result.success:
-            print(result.return_value)
-        else:
-            print(result.error)
+        program = '''
+        x1 hotels_1_search_hotel(city='San Jose')
+        x2 Hint('request value: check_in_date')
+        x3 say(x2)
+        '''
+        result = engine.execute_program(program)
+        print(result.variable_values["x1"])  # [{"name": "Sino", "rating": 4.5}]
+        print(result.say_output)             # "request value: check_in_date"
 
     属性:
         registry:           已注册函数字典，键为函数名，值为 callable
@@ -162,6 +364,19 @@ class ExecutionEngine:
 
     #: 执行结果转换为文本时的最大字符数（超出部分截断）
     MAX_RESULT_LENGTH: int = 2000
+
+    # ------------------------------------------------------------------ #
+    # 正则：用于解析 PyTOD 程序语句各行
+    # ------------------------------------------------------------------ #
+
+    # x1 func_name(...) — 变量绑定的 API 调用
+    _RE_VAR_CALL = re.compile(r"^(x\d+)\s+([A-Za-z_]\w*)\s*\(")
+    # x1.slot_name = 'value'  — 槽位赋值
+    _RE_SLOT_ASSIGN = re.compile(r"^(x\d+)\.([A-Za-z_]\w*)\s*=\s*(.+)$")
+    # x2 Hint('...') — Hint 语句
+    _RE_HINT = re.compile(r"^(x\d+)\s+Hint\s*\((.+)\)\s*$")
+    # x3 say(x1, x2, ...) — say 语句
+    _RE_SAY = re.compile(r"^(x\d+)\s+say\s*\(([^)]*)\)\s*$")
 
     def __init__(self) -> None:
         """初始化执行引擎（空函数注册表）。"""
@@ -417,3 +632,226 @@ class ExecutionEngine:
             return -node.operand.value, ""
 
         return None, f"不支持的 AST 节点类型 {type(node).__name__}"
+
+    # ------------------------------------------------------------------ #
+    # PyTOD 多行程序解析与执行
+    # ------------------------------------------------------------------ #
+
+    def parse_program(self, program_text: str) -> Tuple[Optional[ProgramBlock], str]:
+        """
+        将多行 PyTOD 程序文本解析为结构化的 ProgramBlock。
+
+        支持的语句格式（每行一条）：
+
+        1. ``x1 func_name(key='value', ...)``  — 带变量绑定的 API 调用
+        2. ``x1.slot_name = 'value'``           — 槽位赋值
+        3. ``x2 Hint('hint text')``             — Hint 语句
+        4. ``x3 say(x1, x2)``                   — say 语句
+
+        参数:
+            program_text: 动作解析器生成的多行程序文本
+
+        返回:
+            (ProgramBlock, error_message) 元组：
+            - 解析成功：(ProgramBlock实例, "")
+            - 解析失败：(None, 错误描述)
+        """
+        lines = [l.strip() for l in program_text.strip().splitlines()]
+        lines = [l for l in lines if l and not l.startswith("#")]
+        if not lines:
+            return None, "程序文本为空"
+
+        statements: List[AnyStatement] = []
+        for line in lines:
+            stmt, err = self._parse_one_line(line)
+            if stmt is None:
+                return None, f"无法解析语句 '{line}': {err}"
+            statements.append(stmt)
+
+        return ProgramBlock(statements=statements, raw_text=program_text.strip()), ""
+
+    def execute_program(self, program_text: str) -> ProgramExecutionResult:
+        """
+        解析并执行完整的多行 PyTOD 程序，返回聚合结果。
+
+        执行流程：
+            1. 解析多行程序为 ProgramBlock
+            2. 顺序执行各语句，维护变量环境
+            3. API 调用结果绑定到对应变量
+            4. 槽位赋值更新变量的参数并重新执行 API
+            5. Hint 语句收集提示信息
+            6. say 语句组合 Hint 输出
+
+        参数:
+            program_text: 动作解析器生成的多行程序文本
+
+        返回:
+            ProgramExecutionResult 实例，包含所有变量值和 say 输出
+        """
+        block, parse_error = self.parse_program(program_text)
+        if block is None:
+            return ProgramExecutionResult(
+                success=False,
+                errors=[f"解析失败: {parse_error}"],
+                raw_program=program_text,
+            )
+
+        # 运行时环境
+        var_values: Dict[str, Any] = {}        # variable → API return value
+        hint_values: Dict[str, str] = {}       # variable → hint text
+        # Track kwargs per variable so slot assignments can accumulate
+        var_kwargs: Dict[str, Dict[str, Any]] = {}
+        var_func: Dict[str, str] = {}          # variable → function name
+        errors: List[str] = []
+        hint_messages: List[str] = []
+        say_output: str = ""
+
+        for stmt in block.statements:
+            if isinstance(stmt, ProgramStatement):
+                # x1 api_func(key=val, ...)
+                kwargs = dict(stmt.kwargs)
+                var_kwargs[stmt._variable] = kwargs  # type: ignore[attr-defined]
+                var_func[stmt._variable] = stmt.function_name  # type: ignore[attr-defined]
+                single_result = self._call_registered(stmt.function_name, kwargs)
+                if single_result is None:
+                    errors.append(
+                        f"函数 '{stmt.function_name}' 未注册（变量 {stmt._variable}）"  # type: ignore[attr-defined]
+                    )
+                elif isinstance(single_result, Exception):
+                    errors.append(
+                        f"变量 {stmt._variable}: {type(single_result).__name__}: {single_result}"  # type: ignore[attr-defined]
+                    )
+                else:
+                    var_values[stmt._variable] = single_result  # type: ignore[attr-defined]
+
+            elif isinstance(stmt, SlotAssignment):
+                # x1.slot = value — update kwargs and re-execute
+                if stmt.variable not in var_func:
+                    errors.append(
+                        f"槽位赋值 '{stmt.raw_text}' 引用了未声明的变量 {stmt.variable}"
+                    )
+                    continue
+                var_kwargs.setdefault(stmt.variable, {})[stmt.slot_name] = stmt.value
+                fn_name = var_func[stmt.variable]
+                new_result = self._call_registered(fn_name, var_kwargs[stmt.variable])
+                if new_result is None:
+                    errors.append(f"函数 '{fn_name}' 未注册（变量 {stmt.variable}）")
+                elif isinstance(new_result, Exception):
+                    errors.append(f"变量 {stmt.variable}: {type(new_result).__name__}: {new_result}")
+                else:
+                    var_values[stmt.variable] = new_result
+
+            elif isinstance(stmt, HintStatement):
+                # x2 Hint('...') — collect hint
+                hint_values[stmt.variable] = stmt.hint_text
+                hint_messages.append(stmt.hint_text)
+
+            elif isinstance(stmt, SayStatement):
+                # x3 say(x1, x2) — compose output
+                parts: List[str] = []
+                for arg_var in stmt.arg_variables:
+                    if arg_var in hint_values:
+                        parts.append(hint_values[arg_var])
+                    elif arg_var in var_values:
+                        parts.append(repr(var_values[arg_var]))
+                    else:
+                        parts.append(f"({arg_var})")
+                say_output = "; ".join(parts)
+                var_values[stmt.variable] = say_output
+
+        return ProgramExecutionResult(
+            success=len(errors) == 0,
+            variable_values=var_values,
+            hint_messages=hint_messages,
+            say_output=say_output,
+            errors=errors,
+            raw_program=program_text,
+        )
+
+    def _call_registered(self, func_name: str, kwargs: Dict[str, Any]) -> Any:
+        """
+        调用已注册函数，返回结果或异常。
+
+        返回:
+            - 函数返回值（成功时）
+            - Exception 实例（执行异常时）
+            - None（函数未注册时）
+        """
+        func = self.registry.get(func_name)
+        if func is None:
+            return None
+        try:
+            return func(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            return exc
+
+    def _parse_one_line(self, line: str) -> Tuple[Optional[AnyStatement], str]:
+        """
+        解析单行 PyTOD 程序语句。
+
+        按以下顺序尝试：
+          1. 槽位赋值（``x1.slot = value``）
+          2. Hint 语句（``x2 Hint('text')``）
+          3. say 语句（``x3 say(x1, x2)``）
+          4. 带变量绑定的 API 调用（``x1 func(key=val)``）
+          5. 裸函数调用（无变量前缀，向后兼容）
+
+        参数:
+            line: 单行程序语句文本（已去除首尾空白）
+
+        返回:
+            (statement, error_message) 元组
+        """
+        # 1. 槽位赋值: x1.slot_name = 'value'
+        m = self._RE_SLOT_ASSIGN.match(line)
+        if m:
+            var, slot, raw_val = m.group(1), m.group(2), m.group(3).strip()
+            # 解析值（ast literal）
+            try:
+                value = ast.literal_eval(raw_val)
+                if not isinstance(value, self._ALLOWED_CONST_TYPES):
+                    return None, f"槽位值类型不支持: {type(value).__name__}"
+            except (ValueError, SyntaxError) as exc:
+                return None, f"槽位值解析失败: {exc}"
+            return SlotAssignment(variable=var, slot_name=slot, value=value, raw_text=line), ""
+
+        # 2. Hint 语句: x2 Hint('...')
+        m = self._RE_HINT.match(line)
+        if m:
+            var = m.group(1)
+            raw_arg = m.group(2).strip()
+            try:
+                hint_text = ast.literal_eval(raw_arg)
+                if not isinstance(hint_text, str):
+                    return None, "Hint 参数必须是字符串"
+            except (ValueError, SyntaxError) as exc:
+                return None, f"Hint 参数解析失败: {exc}"
+            return HintStatement(variable=var, hint_text=hint_text, raw_text=line), ""
+
+        # 3. say 语句: x3 say(x1, x2)
+        m = self._RE_SAY.match(line)
+        if m:
+            var = m.group(1)
+            arg_vars = [v.strip() for v in m.group(2).split(",") if v.strip()]
+            return SayStatement(variable=var, arg_variables=arg_vars, raw_text=line), ""
+
+        # 4. 带变量绑定的 API 调用: x1 func(key=val, ...)
+        m = self._RE_VAR_CALL.match(line)
+        if m:
+            var_name = m.group(1)
+            # 去掉变量前缀后用 ast 解析函数调用部分
+            func_part = line[len(var_name):].strip()
+            stmt, err = self.parse(func_part)
+            if stmt is None:
+                return None, err
+            # 附加变量名属性（用 object.__setattr__ 避免 dataclass 冲突）
+            stmt._variable = var_name  # type: ignore[attr-defined]
+            return stmt, ""
+
+        # 5. 向后兼容：裸函数调用（无变量前缀）
+        stmt, err = self.parse(line)
+        if stmt is not None:
+            stmt._variable = "_"  # type: ignore[attr-defined]
+            return stmt, ""
+
+        return None, err

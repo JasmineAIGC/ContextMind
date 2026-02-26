@@ -207,27 +207,45 @@ class PyTODPromptBuilder:
 
     # ---------------------------------------------------------------------- #
     # 步骤一：动作解析器（Action Parser）系统提示模板
-    # 生成程序语句而非 JSON，与 PyTOD 原始论文一致
+    # 与 PyTOD 官方算法一致：多行程序、[HISTORY]/[CURRENT] 格式
     # ---------------------------------------------------------------------- #
     _ACTION_PARSER_TEMPLATE = """\
 你是任务型对话系统的**动作解析器（Action Parser）**。
 
-根据用户输入，从下列可用 API 函数中选择最合适的一个，
-生成对应的函数调用程序语句，供执行引擎调用。
+根据对话历史和当前用户输入，生成对应的 PyTOD 程序，供执行引擎执行。
 
 {api_functions_text}
 
-## 输出格式
+## 程序格式
 
-只输出**一行**函数调用语句，例如：
-    restaurants_1_find(cuisine="火锅", location="望京")
+每条语句占一行，支持以下四种格式：
+
+1. API 函数调用（带变量绑定）：
+   x1 service_1_api_name(param1='value1', param2='value2')
+
+2. 槽位赋值（补充或更新已声明的 API 调用参数）：
+   x1.slot_name = 'value'
+
+3. Hint 语句（请求用户提供缺失信息）：
+   x2 Hint('request value: slot_name')
+
+4. say 语句（组合 Hint 输出给用户）：
+   x3 say(x2)
+
+## 示例
+
+用户: I want to book a hotel in San Jose for 2 nights.
+程序：
+x1 hotels_1_search_hotel(city='San Jose', number_of_nights=2)
+x2 Hint('request value: check_in_date')
+x3 say(x2)
 
 ## 规则
 
-1. 只能调用上方列出的函数，不能创造新函数。
-2. 只传入用户**明确提供**的参数；未提供的参数不要猜测。
+1. 只能调用上方列出的 API 函数，不能创造新函数。
+2. 只传入用户**明确提供**的参数；未提供的参数用 Hint 语句引导用户补充。
 3. 若无法判断应调用哪个函数，输出：NONE()
-4. 只输出函数调用语句，不要添加任何解释或额外文字。
+4. 只输出程序语句，不要添加任何解释或额外文字。
 """
 
     # ---------------------------------------------------------------------- #
@@ -380,14 +398,23 @@ class PyTODPromptBuilder:
         组装动作解析器（Action Parser）的 messages 列表。
 
         **PyTOD 算法流程第一步**：告知 LLM 当前可用的 API 函数列表，
-        让其根据用户输入生成一条程序语句（函数调用），供执行引擎执行。
+        让其根据对话历史和当前用户输入生成 PyTOD 多行程序，供执行引擎执行。
 
-        LLM 应输出单行程序语句，例如：
-            ``restaurants_1_find(cuisine="火锅", location="望京")``
+        输入格式与 PyTOD 官方算法一致，使用 ``[HISTORY]``/``[CURRENT]`` 标签::
+
+            [HISTORY] user: I want to book a hotel...
+            [HISTORY] system: Sure, where would you like to stay?
+            [CURRENT] user: In San Jose, please.
+
+        LLM 应输出多行 PyTOD 程序，例如::
+
+            x1 hotels_1_search_hotel(city='San Jose')
+            x2 Hint('request value: check_in_date')
+            x3 say(x2)
 
         与 ``build_messages()`` 的区别：
-        - 不要求 LLM 生成 ``response`` 字段
-        - 输出格式是程序语句而非 JSON，与 PyTOD 原始论文一致
+        - 使用 ``[HISTORY]``/``[CURRENT]`` 标签格式，符合 PyTOD 文本-文本范式
+        - 期望输出为多行程序而非 JSON
         - 执行结果由执行引擎处理，回复由对话管理器生成
 
         参数:
@@ -405,14 +432,16 @@ class PyTODPromptBuilder:
             {"role": "system", "content": system_content},
         ]
 
-        # 历史对话
+        # 组装 [HISTORY]/[CURRENT] 格式的对话上下文（PyTOD 文本-文本范式）
+        context_lines: List[str] = []
         if history:
-            trimmed = history[-self.max_history_turns :]
+            trimmed = history[-self.max_history_turns:]
             for turn in trimmed:
-                messages.append({"role": turn.role, "content": turn.content})
+                speaker = "user" if turn.role == "user" else "system"
+                context_lines.append(f"[HISTORY] {speaker}: {turn.content}")
+        context_lines.append(f"[CURRENT] user: {user_input}")
 
-        # 当前用户输入
-        messages.append({"role": "user", "content": user_input})
+        messages.append({"role": "user", "content": "\n".join(context_lines)})
         return messages
 
     # ------------------------------------------------------------------ #
@@ -422,7 +451,7 @@ class PyTODPromptBuilder:
     def build_dialogue_manager_messages(
         self,
         user_input: str,
-        execution_result: "ExecutionResult",
+        execution_result: Any,
         history: Optional[List[ConversationTurn]] = None,
     ) -> List[Dict[str, str]]:
         """
@@ -431,14 +460,14 @@ class PyTODPromptBuilder:
         **PyTOD 算法流程第三步**：将执行引擎的执行结果注入 prompt，
         让 LLM 生成面向用户的自然语言回复。
 
-        与 ``build_messages()`` 的区别：
-        - 接收执行结果作为输入，LLM 据此生成回复
-        - LLM 不需要决定调用哪个 API，只需解读结果并回复用户
-        - 对应 PyTOD 原始论文中的 Response Generation 步骤
+        接受两种执行结果类型：
+        - ``ExecutionResult``：单语句执行结果（``ExecutionEngine.execute()``）
+        - ``ProgramExecutionResult``：多语句程序执行结果（``ExecutionEngine.execute_program()``）
+          两者均实现 ``to_context_text()``，可互换传入。
 
         参数:
             user_input:        当前轮用户输入
-            execution_result:  ``ExecutionEngine.execute()`` 的返回值
+            execution_result:  执行引擎返回的执行结果（实现 to_context_text() 即可）
             history:           历史对话轮次列表（可选）
 
         返回:

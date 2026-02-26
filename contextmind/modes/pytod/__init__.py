@@ -45,7 +45,16 @@ zero/few-shot 大模型（如 Qwen-3）prompt 工程模式的适配模块。
 """
 
 from .schema import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
-from .execution_engine import ExecutionEngine, ProgramStatement, ExecutionResult
+from .execution_engine import (
+    ExecutionEngine,
+    ProgramStatement,
+    ExecutionResult,
+    SlotAssignment,
+    HintStatement,
+    SayStatement,
+    ProgramBlock,
+    ProgramExecutionResult,
+)
 from .prompt_builder import PyTODPromptBuilder, ConversationTurn, FewShotExample
 from .validator import ActionValidator, ValidationResult
 
@@ -57,6 +66,11 @@ __all__ = [
     "ExecutionEngine",
     "ProgramStatement",
     "ExecutionResult",
+    "SlotAssignment",
+    "HintStatement",
+    "SayStatement",
+    "ProgramBlock",
+    "ProgramExecutionResult",
     "PyTODPromptBuilder",
     "ConversationTurn",
     "FewShotExample",
