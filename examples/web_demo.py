@@ -429,49 +429,35 @@ class UnifiedGradioDemo:
         - 累积状态会随着对话进行不断更新，反映整个对话的完整信息
         """
         if self.current_mode == "dst" and self.tracker:
-            # DST模式：显示详细的对话状态信息（纯文本，无表情符号）
+            # DST模式：显示对话状态追踪信息
             state_info = {
                 "模式": "DST (对话状态追踪)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": len(self.tracker.dialogue_history),
             }
-            
-            # 显示本轮对话提取的槽位（如果有的话）
+
+            # 本轮新提取/更新的槽位（嵌套字典，清晰展示）
             if self.tracker.dialogue_history:
                 last_turn = self.tracker.dialogue_history[-1]
                 if last_turn.turn_updates:
-                    state_info["本轮提取"] = "以下是本轮新提取/更新的槽位"
-                    for slot_name, slot_value in last_turn.turn_updates.items():
-                        state_info[f"  {slot_name}"] = slot_value
-                    state_info["  本轮提取数"] = len(last_turn.turn_updates)
+                    state_info["本轮新提取"] = {
+                        k: str(v) for k, v in last_turn.turn_updates.items()
+                    }
                 else:
-                    state_info["本轮提取"] = "本轮未提取到新槽位"
-            
-            # 分隔线
-            if self.tracker.current_state:
-                state_info["---"] = "---"
-            
-            # 显示累积的所有槽位信息（精简版，只显示非空槽位）
-            if self.tracker.current_state:
-                # 过滤掉空值槽位，只显示有意义的信息
-                non_empty_slots = {k: v for k, v in self.tracker.current_state.items() 
-                                  if v and str(v).strip()}
-                
-                if non_empty_slots:
-                    state_info["累积状态"] = f"已提取 {len(non_empty_slots)} 个槽位"
-                    # 简化显示，只显示槽位名和值，不显示额外的缩进和计数
-                    for slot_name, slot_value in non_empty_slots.items():
-                        # 限制值的长度，避免显示过长
-                        display_value = str(slot_value)
-                        if len(display_value) > 50:
-                            display_value = display_value[:47] + "..."
-                        state_info[f"{slot_name}"] = display_value
-                else:
-                    state_info["累积状态"] = "暂无槽位信息"
+                    state_info["本轮新提取"] = "（本轮无新提取）"
             else:
-                state_info["累积状态"] = "暂无槽位信息"
-            
+                state_info["本轮新提取"] = "（暂无对话记录）"
+
+            # 累积状态：过滤空值后以嵌套字典展示
+            non_empty_slots = {
+                k: (str(v)[:50] + "..." if len(str(v)) > 50 else str(v))
+                for k, v in self.tracker.current_state.items()
+                if v and str(v).strip()
+            }
+            state_info["累积状态"] = non_empty_slots if non_empty_slots else "（暂无）"
+
             return state_info
+
         elif self.current_mode == "fnctod" and self.fnctod_tracker:
             # FnCTOD模式：显示函数调用状态
             state_info = {
@@ -479,53 +465,42 @@ class UnifiedGradioDemo:
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.fnctod_tracker.turn_count,
             }
-            
-            # 显示最近的函数调用
+
+            # 本轮函数调用（嵌套结构）
             if self.fnctod_tracker.dialogue_history:
                 last_turn = self.fnctod_tracker.dialogue_history[-1]
                 if last_turn.function_call:
                     fc = last_turn.function_call
-                    state_info["本轮函数调用"] = fc.function_name
-                    if fc.arguments:
-                        for param, value in fc.arguments.items():
-                            state_info[f"  {param}"] = value
+                    state_info["本轮函数调用"] = {
+                        "函数": fc.function_name,
+                        "参数": fc.arguments if fc.arguments else {},
+                    }
                 else:
-                    state_info["本轮函数调用"] = "未调用函数"
-            
-            # 分隔线
-            if self.fnctod_tracker.current_state:
-                state_info["---"] = "---"
-            
-            # 显示累积状态
-            if self.fnctod_tracker.current_state:
-                non_empty_slots = {k: v for k, v in self.fnctod_tracker.current_state.items()
-                                  if v and str(v).strip()}
-                
-                if non_empty_slots:
-                    state_info["累积状态"] = f"已提取 {len(non_empty_slots)} 个参数"
-                    for slot_name, slot_value in non_empty_slots.items():
-                        display_value = str(slot_value)
-                        if len(display_value) > 50:
-                            display_value = display_value[:47] + "..."
-                        state_info[f"{slot_name}"] = display_value
-                else:
-                    state_info["累积状态"] = "暂无参数信息"
+                    state_info["本轮函数调用"] = "（本轮未调用函数）"
             else:
-                state_info["累积状态"] = "暂无参数信息"
-            
+                state_info["本轮函数调用"] = "（暂无对话记录）"
+
+            # 累积状态（嵌套字典）
+            non_empty_slots = {
+                k: (str(v)[:50] + "..." if len(str(v)) > 50 else str(v))
+                for k, v in self.fnctod_tracker.current_state.items()
+                if v and str(v).strip()
+            }
+            state_info["累积状态"] = non_empty_slots if non_empty_slots else "（暂无）"
+
             return state_info
+
         elif self.current_mode == "pytod" and self.pytod_tracker:
-            # PyTOD模式：显示人类可读的执行摘要
+            # PyTOD模式：显示程序执行状态
             state = self.pytod_tracker.get_current_state()
             state_info = {
                 "模式": "PyTOD (程序执行型任务对话)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.pytod_tracker.turn_count,
-                "可用 API": ", ".join(self.pytod_tracker.execution_engine.list_functions()),
+                "可用 API": self.pytod_tracker.execution_engine.list_functions(),
             }
 
             if state:
-                # 分类展示状态：区分API结果、提示信息、say输出
                 api_results = {}
                 hints = []
                 say_text = None
@@ -535,83 +510,71 @@ class UnifiedGradioDemo:
                     elif key == "_say":
                         say_text = str(value)
                     elif isinstance(value, dict):
-                        # API返回的结构化数据：展开关键字段
                         for k, v in value.items():
                             if k not in ("_raw",):
-                                api_results[k] = str(v)
+                                sv = str(v)
+                                api_results[k] = sv[:50] + "..." if len(sv) > 50 else sv
                     else:
-                        api_results[key] = str(value)
+                        sv = str(value)
+                        api_results[key] = sv[:50] + "..." if len(sv) > 50 else sv
 
                 if api_results:
-                    state_info["--- API 执行结果 ---"] = ""
-                    for k, v in api_results.items():
-                        display_value = v if len(v) <= 50 else v[:47] + "..."
-                        state_info[k] = display_value
+                    state_info["API 执行结果"] = api_results
                 if hints:
-                    state_info["--- 待收集信息 ---"] = ""
-                    for i, h in enumerate(hints, 1):
-                        state_info[f"待补充 {i}"] = str(h)
+                    state_info["待收集信息"] = [str(h) for h in hints]
                 if say_text:
-                    state_info["--- 系统回复 ---"] = ""
-                    state_info["最近回复"] = say_text if len(say_text) <= 80 else say_text[:77] + "..."
+                    state_info["最近 say() 输出"] = say_text[:80] + "..." if len(say_text) > 80 else say_text
                 if not api_results and not hints and not say_text:
                     state_info["执行状态"] = "暂无执行结果"
             else:
                 state_info["执行状态"] = "暂无执行结果"
 
             return state_info
+
         elif self.current_mode == "evolve" and self.app:
-            # Evolve模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
+            # Evolve模式：显示记忆库和会话信息
             engine = self.app.evolve_engine
             state_info = {
                 "模式": "Evolve (基于记忆进化)",
                 "场景": self._get_scenario_name(self.current_scenario),
-                "记忆功能": "已启用",
-                "进化学习": "已启用",
-                "应用ID": engine.app_name if hasattr(engine, 'app_name') else "N/A",
-                "用户ID": engine.user_id if hasattr(engine, 'user_id') else "N/A",
+                "应用ID": getattr(engine, 'app_name', 'N/A'),
+                "用户ID": getattr(engine, 'user_id', 'N/A'),
             }
-            
-            # 显示记忆库详细信息
+
+            # 记忆库
             if hasattr(engine, 'memory_bank'):
                 memory_cache = engine.memory_bank.get_memory_cache()
                 total_memories = len(memory_cache)
                 state_info["记忆总数"] = total_memories
-                
-                # 显示本轮对话后的记忆库内容
+
                 if memory_cache:
-                    state_info["---"] = "---"
-                    state_info["记忆库内容"] = "以下是记忆库中的所有记忆"
-                    
-                    # 显示最近的记忆（最多10条，完整显示）
-                    recent_count = min(10, total_memories)
-                    recent_memories = memory_cache[-recent_count:] if total_memories > 0 else []
-                    
-                    for i, mem in enumerate(recent_memories, 1):
-                        # ContextItem has a 'content' attribute
-                        content = mem.content if hasattr(mem, 'content') else str(mem)
-                        
-                        # 尝试获取记忆类型
-                        mem_type = getattr(mem, 'type', 'unknown')
-                        
-                        # 格式化显示记忆内容（限制长度以保持可读性）
-                        if len(str(content)) > 100:
-                            display_content = str(content)[:100] + '...'
-                        else:
-                            display_content = str(content)
-                        
-                        # 显示记忆编号、类型和内容
-                        state_info[f"  记忆{i} [{mem_type}]"] = display_content
-                    
-                    # 如果记忆超过10条，显示省略提示
+                    recent = memory_cache[-10:]
+                    memories_display = []
+                    for mem in recent:
+                        content = str(mem.content if hasattr(mem, 'content') else mem)
+                        mem_type = str(getattr(mem, 'type', 'unknown'))
+                        if len(content) > 100:
+                            content = content[:97] + '...'
+                        memories_display.append(f"[{mem_type}] {content}")
+                    state_info["记忆列表"] = memories_display
                     if total_memories > 10:
-                        state_info["  提示"] = f"共{total_memories}条记忆，仅显示最近10条"
-            
-            # 显示会话信息
+                        state_info["提示"] = f"共 {total_memories} 条记忆，仅显示最近 10 条"
+                else:
+                    state_info["记忆列表"] = []
+
+            # 会话信息（_session_id 为私有属性，安全访问）
             if hasattr(engine, 'session_manager'):
-                state_info["----"] = "----"
-                state_info["会话ID"] = getattr(engine.session_manager, 'session_id', 'N/A')
-            
+                sm = engine.session_manager
+                session_id = getattr(sm, '_session_id', None)
+                if not isinstance(session_id, str) or not session_id:
+                    session_id = 'N/A'
+                session_msgs = len(getattr(sm, '_messages', []))
+                display_id = (session_id[:8] + "...") if session_id != 'N/A' and len(session_id) > 8 else session_id
+                state_info["会话信息"] = {
+                    "会话ID": display_id,
+                    "已缓存消息数": session_msgs,
+                }
+
             return state_info
         else:
             return {"状态": "未初始化", "提示": "请先应用场景配置"}
