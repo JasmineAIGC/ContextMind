@@ -2,7 +2,6 @@
 
 from ..engine import EvolveEngine
 from .registry import PluginRegistry, registry
-from .framework_config import ContextMind as ContextMindConfig
 
 # Import from new modular structure
 from .types import (
@@ -59,7 +58,6 @@ __all__ = [
     "EvolveEngine",
     "PluginRegistry",
     "registry",
-    "ContextMindConfig",
     # Types
     "KnowledgeType",
     "MemoryType",

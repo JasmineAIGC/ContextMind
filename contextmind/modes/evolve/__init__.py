@@ -14,11 +14,10 @@ Evolve - 专业的上下文优化框架 v0.2.1
 
 v0.2.1 新增功能 - Utils模块独立化与增强DST：
 {
-    from contextmind.modes.evolve import ContextMind, registry
+    from contextmind.modes.evolve import EvolveEngine, registry
     
-    # 简易集成API
-    cm = ContextMind()
-    context = await cm.prepare_context(user_input, session_id)
+    # 核心引擎
+    engine = EvolveEngine(llm_client=llm_client)
     
     # 插件注册中心
     print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
@@ -59,7 +58,6 @@ v0.2.1 核心改进：
 from .core import (
     EvolveEngine,
     PluginRegistry,
-    ContextMindConfig,
     Message,
     MessageRole,
     ContextItem,
@@ -129,7 +127,6 @@ from .evolution import (
 
 # 别名 - 统一命名风格
 registry = PluginRegistry()
-ContextMind = ContextMindConfig
 InputPreprocessor = Preprocessor
 ConversationSummarizer = LLMBasedSummarizer
 ResponseParser = ResponseHandler  # 统一Parser命名（虽然功能不同，但概念相似）
@@ -196,10 +193,6 @@ def create_app_for_scenario(scenario_name: str, llm_client, scenario_config, app
 
 
 __all__ = [
-    # 简易集成API
-    "ContextMind",
-    "ContextMindConfig",
-    
     # 插件系统
     "registry",
     "PluginRegistry",
