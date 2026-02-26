@@ -380,6 +380,85 @@ def run_demo() -> None:
     )
 
     # ------------------------------------------------------------------ #
+    # 步骤 6：开放域模式演示（无需预定义 schema）
+    # ------------------------------------------------------------------ #
+    separator("步骤 6: 开放域模式（schema=None，无需预定义意图/action）")
+    print(
+        "开放域模式：PyTOD 的 function / action / 意图 / 槽位\n"
+        "不需要预先定义，LLM 根据对话上下文自由判断。\n"
+    )
+
+    open_builder = PyTODPromptBuilder()          # schema=None → 开放域
+    open_validator = ActionValidator()           # schema=None → 开放域
+    print(f"PyTODPromptBuilder.is_open_domain = {open_builder.is_open_domain}")
+    print(f"ActionValidator.is_open_domain     = {open_validator.is_open_domain}\n")
+
+    # 展示开放域系统提示（节选）
+    open_system = open_builder._build_system_prompt()
+    print("--- 开放域 System Prompt（节选前 15 行）---")
+    for line in open_system.splitlines()[:15]:
+        print(line)
+    print("... (省略后续内容)\n")
+
+    # 开放域多轮对话：LLM 自由决定 intent 和 slots 名称
+    open_turns = [
+        (
+            "我想买一张下周五从北京到上海的高铁票，靠窗座位",
+            json.dumps(
+                {
+                    "intent": "BookTrain",
+                    "slots": {
+                        "departure": "北京",
+                        "destination": "上海",
+                        "date": "下周五",
+                        "seat_preference": "靠窗",
+                    },
+                    "response": "好的，我帮您查询下周五北京→上海的高铁靠窗座位，请问出行人数是几位？",
+                },
+                ensure_ascii=False,
+            ),
+        ),
+        (
+            "两个成人，另外帮我订一家上海外滩附近的酒店",
+            json.dumps(
+                {
+                    "intent": "BookHotel",
+                    "slots": {
+                        "location": "上海外滩附近",
+                        "guests": "2位成人",
+                    },
+                    "response": "明白，我为您查找外滩附近的酒店，请问入住和退房日期是？",
+                },
+                ensure_ascii=False,
+            ),
+        ),
+    ]
+
+    open_history: List[ConversationTurn] = []
+    for turn_idx, (user_input, llm_output) in enumerate(open_turns):
+        print(f"{'─' * 60}")
+        print(f"【开放域 第 {turn_idx + 1} 轮】用户: {user_input}")
+        print(f"[LLM 原始输出] {llm_output}")
+
+        result: ValidationResult = open_validator.validate(llm_output)
+        print(f"[校验结果] {result.summary()}")
+
+        open_history.append(ConversationTurn(role="user", content=user_input))
+        open_history.append(
+            ConversationTurn(
+                role="assistant",
+                content=result.response or "(无回复)",
+                action={"intent": result.intent, "slots": result.slots},
+            )
+        )
+
+        if result.is_valid:
+            print(f"  intent : {result.intent}")
+            print(f"  slots  : {json.dumps(result.slots, ensure_ascii=False)}")
+            print(f"  回复   : {result.response}")
+        print()
+
+    # ------------------------------------------------------------------ #
     # 结语
     # ------------------------------------------------------------------ #
     separator("演示完成")
@@ -388,7 +467,8 @@ def run_demo() -> None:
         "1. 导入 PyTOD 风格 schema（service/intent/slot）\n"
         "2. 使用 PyTODPromptBuilder 组装 zero/few-shot prompt\n"
         "3. 使用 ActionValidator 对模型输出进行文本级校验\n"
-        "4. 解析反馈，驱动多轮对话\n\n"
+        "4. 解析反馈，驱动多轮对话\n"
+        "5. 开放域模式（schema=None）：无需预定义意图/action/槽位\n\n"
         "接入真实 LLM（如 Qwen-3）时，将 mock_llm_call() 替换为 API 调用即可。"
     )
 

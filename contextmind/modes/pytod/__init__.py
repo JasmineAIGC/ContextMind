@@ -6,10 +6,25 @@ zero/few-shot 大模型（如 Qwen-3）prompt 工程模式的适配模块。
 
 无需依赖 PyTOD 官方代码，仅以 schema + prompt 驱动主流程。
 
+**重要：** function / action / 意图 / 槽位**不需要预定义**。
+
+本模块支持两种运行模式：
+
+1. **Schema 驱动模式**（传入 ``ServiceSchema``）
+   - 将预定义的意图列表、槽位描述和枚举值注入 prompt
+   - ``ActionValidator`` 根据 schema 校验意图合法性和枚举槽位值
+   - 适合有明确业务场景的生产环境
+
+2. **开放域模式**（``schema=None``，默认）
+   - **无需预定义任何意图、action 或槽位**
+   - LLM 根据对话上下文自由命名意图并提取任意信息槽位
+   - ``ActionValidator`` 仅校验 JSON 结构，不约束内容
+   - 适合快速原型开发或意图/槽位尚未确定的早期阶段
+
 子模块:
-    schema       - PyTOD schema 数据模型（Service/Intent/Slot）
-    prompt_builder - Prompt 组装工具
-    validator    - 模型生成 action 的合法性校验与反馈解析
+    schema         - PyTOD schema 数据模型（Service/Intent/Slot）
+    prompt_builder - Prompt 组装工具（支持开放域和 schema 驱动两种模式）
+    validator      - 模型生成 action 的合法性校验与反馈解析
 """
 
 from .schema import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict

@@ -6,9 +6,14 @@ PyTOD Prompt 组装工具
 
 设计原则:
 - 无需依赖 PyTOD 官方执行器或解释器
-- schema + prompt 驱动主流程
+- schema + prompt 驱动主流程；也支持**不预定义 schema** 的开放域模式
 - 支持 zero-shot 和 few-shot 两种模式
 - 输出格式为标准 messages 列表（兼容 OpenAI / Qwen API）
+
+schema-free 开放域模式:
+    当 ``schema=None`` 时，不依赖任何预定义的意图/槽位列表，
+    由 LLM 根据对话上下文自由推断意图名称和需要提取的槽位，
+    适合快速原型开发或意图/槽位尚未确定的早期阶段。
 """
 
 from __future__ import annotations
@@ -84,8 +89,19 @@ class PyTODPromptBuilder:
     """
     PyTOD 风格 Prompt 组装器
 
-    根据 ServiceSchema、对话历史和用户输入，组装适合大模型
+    根据 ServiceSchema（可选）、对话历史和用户输入，组装适合大模型
     （如 Qwen-3）进行 zero/few-shot 推理的完整 prompt。
+
+    支持两种运行模式：
+
+    **Schema 驱动模式**（传入 ``schema``）：
+        LLM 被约束在预定义的意图列表和槽位范围内进行推理，
+        适合有明确业务场景（如餐厅预约、保险咨询）的生产环境。
+
+    **开放域模式**（``schema=None``，默认）：
+        不依赖任何预定义意图或槽位，LLM 根据对话上下文自由命名
+        意图并提取任意信息槽位，适合快速原型开发或意图/槽位
+        尚未确定的早期阶段。
 
     模型输出格式（JSON）::
 
@@ -100,20 +116,24 @@ class PyTODPromptBuilder:
 
     使用示例::
 
-        builder = PyTODPromptBuilder(schema)
-        messages = builder.build_messages(
-            user_input="我想预约明天的餐厅",
-            history=[...],
-        )
-        # 将 messages 发送给 LLM API
+        # Schema 驱动模式
+        builder = PyTODPromptBuilder(schema=schema)
+        messages = builder.build_messages(user_input="我想预约明天的餐厅")
+
+        # 开放域模式（无需预定义 schema）
+        builder = PyTODPromptBuilder()
+        messages = builder.build_messages(user_input="我想预约明天的餐厅")
 
     属性:
-        schema:        ServiceSchema 实例，定义服务的意图和槽位
+        schema:            ServiceSchema 实例（可选，为 None 则启用开放域模式）
         few_shot_examples: few-shot 示例列表（可选）
         max_history_turns: 保留的最大历史轮次数（默认 10）
         response_language: 期望回复语言的提示文字（默认"中文"）
     """
 
+    # ---------------------------------------------------------------------- #
+    # Schema 驱动模式：系统提示模板
+    # ---------------------------------------------------------------------- #
     _SYSTEM_TEMPLATE = """\
 你是一个任务型对话系统的核心模块，负责理解用户意图并推荐合适的 action。
 
@@ -144,6 +164,40 @@ class PyTODPromptBuilder:
 5. 只输出合法 JSON，不要输出其他任何内容。
 """
 
+    # ---------------------------------------------------------------------- #
+    # 开放域模式：无需预定义 schema 的系统提示模板
+    # ---------------------------------------------------------------------- #
+    _SYSTEM_TEMPLATE_OPEN = """\
+你是一个任务型对话系统的核心模块，负责理解用户意图并推荐合适的 action。
+
+## 模式
+
+开放域模式：无预定义 Schema。请根据对话上下文自由判断意图，
+并提取用户明确提供的任意信息作为槽位，无需受限于固定意图列表或槽位名称。
+
+## 输出格式
+
+你必须严格按照以下 JSON 格式输出，不要添加任何额外文字或 Markdown 标记：
+
+```json
+{{
+    "intent": "根据上下文自由命名的意图（英文或中文，简洁清晰）",
+    "slots": {{
+        "槽位名": "槽位值"
+    }},
+    "response": "面向用户的自然语言回复（{response_language}）"
+}}
+```
+
+## 规则
+
+1. intent 根据用户话语自由命名，语义清晰即可；若无法判断，填 "UNKNOWN"。
+2. slots 只填写用户**明确提供**的信息；槽位名称可自行定义，无需预设。
+3. 若用户询问某个槽位，对应值填 "?"；若用户表示不在乎，填 "dontcare"。
+4. response 应简洁、礼貌，引导用户继续提供所需信息。
+5. 只输出合法 JSON，不要输出其他任何内容。
+"""
+
     _FEW_SHOT_HEADER = "\n## Few-shot 示例\n"
 
     _HISTORY_HEADER = "\n## 历史对话\n"
@@ -152,7 +206,7 @@ class PyTODPromptBuilder:
 
     def __init__(
         self,
-        schema: ServiceSchema,
+        schema: Optional[ServiceSchema] = None,
         few_shot_examples: Optional[List[FewShotExample]] = None,
         max_history_turns: int = 10,
         response_language: str = "中文",
@@ -161,7 +215,10 @@ class PyTODPromptBuilder:
         初始化 Prompt 组装器。
 
         参数:
-            schema:              服务 schema 定义
+            schema:              服务 schema 定义（可选）。
+                                 传入 ServiceSchema 则启用 schema 驱动模式；
+                                 传入 None（默认）则启用开放域模式，LLM 自由
+                                 决定意图名称和槽位，无需预定义。
             few_shot_examples:   few-shot 示例列表（为 None 或空列表则为 zero-shot）
             max_history_turns:   保留的历史轮次上限（防止 context 过长）
             response_language:   期望回复语言（嵌入系统提示中）
@@ -170,6 +227,11 @@ class PyTODPromptBuilder:
         self.few_shot_examples: List[FewShotExample] = few_shot_examples or []
         self.max_history_turns = max_history_turns
         self.response_language = response_language
+
+    @property
+    def is_open_domain(self) -> bool:
+        """当前是否为开放域模式（无预定义 schema）。"""
+        return self.schema is None
 
     # ------------------------------------------------------------------ #
     # 公开接口
@@ -260,7 +322,11 @@ class PyTODPromptBuilder:
     # ------------------------------------------------------------------ #
 
     def _build_system_prompt(self) -> str:
-        """构建包含 schema 的系统提示。"""
+        """构建系统提示。根据是否提供 schema 自动切换 schema 驱动 / 开放域模板。"""
+        if self.schema is None:
+            return self._SYSTEM_TEMPLATE_OPEN.format(
+                response_language=self.response_language,
+            )
         return self._SYSTEM_TEMPLATE.format(
             schema_text=self.schema.to_prompt_text(),
             response_language=self.response_language,

@@ -8,10 +8,14 @@ PyTOD Action 合法性校验与反馈解析
 
 校验内容:
     1. JSON 格式合法性
-    2. intent 字段存在且在 schema 中有定义
+    2. intent 字段存在且非空
     3. slots 字段存在且为字典类型
-    4. 枚举类型槽位的值在 possible_values 范围内
-    5. 意图对应的必填槽位是否已提供（宽松校验，缺失时给出提示）
+    Schema 驱动模式（提供 schema 时额外校验）:
+    4. intent 值在 schema 意图列表中
+    5. 枚举类型槽位的值在 possible_values 范围内
+    6. 意图对应的必填槽位是否已提供（宽松校验，缺失时给出提示）
+    开放域模式（schema=None）:
+    4-6 均跳过，LLM 可自由命名意图和槽位
 """
 
 from __future__ import annotations
@@ -106,20 +110,36 @@ class ActionValidator:
     对大模型生成的 JSON action 文本进行纯文本级校验，
     无需执行任何代码。
 
+    支持两种模式：
+
+    **Schema 驱动模式**（传入 ``schema``）：
+        在校验 JSON 结构的基础上，还会比对预定义的意图列表、
+        枚举槽位可选值、必填槽位完整性。
+
+    **开放域模式**（``schema=None``，默认）：
+        仅校验 JSON 结构（intent/slots 字段存在且类型正确），
+        不对意图名称或槽位内容做任何预设约束，适合 LLM 自由
+        推断意图/槽位的场景。
+
     使用示例::
 
-        validator = ActionValidator(schema)
+        # Schema 驱动模式
+        validator = ActionValidator(schema=schema)
         result = validator.validate(llm_output)
+
+        # 开放域模式（无预定义 schema）
+        validator = ActionValidator()
+        result = validator.validate(llm_output)
+
         if not result.is_valid:
-            # 将 result.to_feedback_text() 追加给 LLM 重新生成
             print(result.to_feedback_text())
         else:
             print(f"intent={result.intent}, slots={result.slots}")
 
     属性:
-        schema:                 ServiceSchema 实例
-        allow_unknown_intent:   是否允许不在 schema 中的 intent（默认 False）
-        strict_enum:            是否严格校验枚举值（默认 True）
+        schema:                 ServiceSchema 实例（可选，None 则为开放域模式）
+        allow_unknown_intent:   是否允许不在 schema 中的 intent（schema 模式下有效）
+        strict_enum:            是否严格校验枚举值（schema 模式下有效）
         require_response_field: 是否要求输出中包含 response 字段（默认 True）
     """
 
@@ -132,7 +152,7 @@ class ActionValidator:
 
     def __init__(
         self,
-        schema: ServiceSchema,
+        schema: Optional[ServiceSchema] = None,
         allow_unknown_intent: bool = False,
         strict_enum: bool = True,
         require_response_field: bool = True,
@@ -141,15 +161,23 @@ class ActionValidator:
         初始化校验器。
 
         参数:
-            schema:                 服务 schema 定义
-            allow_unknown_intent:   是否允许不在 schema 中的 intent
-            strict_enum:            枚举槽位是否严格匹配（否则仅警告）
+            schema:                 服务 schema 定义（可选）。
+                                    传入 ServiceSchema 则启用 schema 驱动模式；
+                                    传入 None（默认）则启用开放域模式，跳过
+                                    意图列表、枚举值、必填槽位等 schema 相关校验。
+            allow_unknown_intent:   schema 模式下是否允许不在 schema 中的 intent
+            strict_enum:            schema 模式下枚举槽位是否严格匹配（否则仅警告）
             require_response_field: 是否要求 response 字段存在
         """
         self.schema = schema
         self.allow_unknown_intent = allow_unknown_intent
         self.strict_enum = strict_enum
         self.require_response_field = require_response_field
+
+    @property
+    def is_open_domain(self) -> bool:
+        """当前是否为开放域模式（无预定义 schema）。"""
+        return self.schema is None
 
     # ------------------------------------------------------------------ #
     # 公开接口
@@ -305,6 +333,10 @@ class ActionValidator:
             )
             return
 
+        # 开放域模式：无预定义 schema，任意非空 intent 均合法
+        if self.schema is None:
+            return
+
         valid_intents = self.schema.get_intent_names()
         if intent not in valid_intents:
             msg = (
@@ -318,6 +350,10 @@ class ActionValidator:
 
     def _validate_slots(self, result: ValidationResult) -> None:
         """校验 slots 中各槽位的合法性。"""
+        # 开放域模式：无预定义 schema，槽位名称和值均不受限制，跳过所有 schema 校验
+        if self.schema is None:
+            return
+
         schema_slot_names = set(self.schema.get_slot_names())
 
         for slot_name, slot_value in result.slots.items():
