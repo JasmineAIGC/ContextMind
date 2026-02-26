@@ -1,0 +1,1128 @@
+[
+  {
+    "service_name": "医院_1",
+    "description": "医院领域对话服务",
+    "slots": [
+      {
+        "name": "区域",
+        "description": "区域",
+        "is_categorical": true,
+        "possible_values": [
+          "吴中区",
+          "姑苏 区",
+          "工业园区",
+          "高新区"
+        ]
+      },
+      {
+        "name": "名称",
+        "description": "名称",
+        "is_categorical": true,
+        "possible_values": [
+          "苏州 九龙 医院",
+          "苏州 口腔医院",
+          "苏州 科技 城 医院",
+          "苏州大学 附属 儿童医院",
+          "苏州大学 附属 第一 医院",
+          "苏州大学 附属 第二 医院",
+          "苏州市 中医医院",
+          "苏州市 中西医 结合 医院",
+          "苏州市 吴中 人民 医院",
+          "苏州市 广济 医院",
+          "苏州市 立 医院 ( 东区 )",
+          "苏州市 立 医院 ( 本部 )",
+          "苏州市 第五 人民 医院",
+          "苏州高新区 人民 医院"
+        ]
+      },
+      {
+        "name": "地铁可达",
+        "description": "地铁可达",
+        "is_categorical": true,
+        "possible_values": [
+          "True"
+        ]
+      },
+      {
+        "name": "性质",
+        "description": "性质",
+        "is_categorical": true,
+        "possible_values": [
+          "公立医院"
+        ]
+      },
+      {
+        "name": "等级",
+        "description": "等级",
+        "is_categorical": true,
+        "possible_values": [
+          "三级",
+          "二级"
+        ]
+      },
+      {
+        "name": "类别",
+        "description": "类别",
+        "is_categorical": true,
+        "possible_values": [
+          "专科医院",
+          "综合 医院"
+        ]
+      },
+      {
+        "name": "重点科室",
+        "description": "重点科室",
+        "is_categorical": true,
+        "possible_values": [
+          "产科",
+          "儿科",
+          "内分泌科",
+          "口腔科",
+          "呼吸 内科",
+          "妇科",
+          "心血管 内科",
+          "普外科",
+          "泌尿外科",
+          "消化 内科",
+          "烧伤科",
+          "皮肤科",
+          "眼科",
+          "神经内科",
+          "神经外科",
+          "精神 心理 科",
+          "肾内科",
+          "肿瘤科"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "Inform",
+        "description": "医院领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "医院领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "天气_1",
+    "description": "天气领域对话服务",
+    "slots": [
+      {
+        "name": "城市",
+        "description": "城市",
+        "is_categorical": true,
+        "possible_values": [
+          "上海",
+          "北京",
+          "南京",
+          "厦门",
+          "广州",
+          "成都",
+          "杭州",
+          "武汉",
+          "深圳",
+          "苏州"
+        ]
+      },
+      {
+        "name": "日期",
+        "description": "日期",
+        "is_categorical": true,
+        "possible_values": [
+          "下 周三",
+          "下 周二",
+          "下 周五",
+          "下 周六",
+          "下 周四",
+          "下 周日",
+          "下周一"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "General",
+        "description": "天气领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "天气领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "天气领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "天气领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "旅游景点_1",
+    "description": "旅游景点领域对话服务",
+    "slots": [
+      {
+        "name": "区域",
+        "description": "区域",
+        "is_categorical": true,
+        "possible_values": [
+          "吴中区",
+          "吴江",
+          "姑苏 区",
+          "工业园区",
+          "常熟",
+          "昆山",
+          "高新区"
+        ]
+      },
+      {
+        "name": "名称",
+        "description": "名称",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "是否地铁直达",
+        "description": "是否地铁直达",
+        "is_categorical": true,
+        "possible_values": [
+          "是"
+        ]
+      },
+      {
+        "name": "景点类型",
+        "description": "景点类型",
+        "is_categorical": true,
+        "possible_values": [
+          "商业中心",
+          "姑苏 古迹",
+          "学校 校园",
+          "山水 景区",
+          "水乡 古镇",
+          "游乐场",
+          "苏州园林"
+        ]
+      },
+      {
+        "name": "最适合人群",
+        "description": "最适合人群",
+        "is_categorical": true,
+        "possible_values": [
+          "家庭 亲子",
+          "情侣 约会",
+          "朋友 出游"
+        ]
+      },
+      {
+        "name": "消费",
+        "description": "消费",
+        "is_categorical": true,
+        "possible_values": [
+          "中等",
+          "便宜",
+          "偏贵"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "General",
+        "description": "旅游景点领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "旅游景点领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "旅游景点领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "旅游景点领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "汽车_1",
+    "description": "汽车领域对话服务",
+    "slots": [
+      {
+        "name": "厂商",
+        "description": "厂商",
+        "is_categorical": true,
+        "possible_values": [
+          "一汽大众",
+          "上汽 大众",
+          "进口 大众"
+        ]
+      },
+      {
+        "name": "座位数",
+        "description": "座位数",
+        "is_categorical": true,
+        "possible_values": [
+          "4"
+        ]
+      },
+      {
+        "name": "所属价格区间",
+        "description": "所属价格区间",
+        "is_categorical": true,
+        "possible_values": [
+          "15   ~   20",
+          "20   ~   30",
+          "<   15",
+          ">   30"
+        ]
+      },
+      {
+        "name": "级别",
+        "description": "级别",
+        "is_categorical": true,
+        "possible_values": [
+          "中 大型",
+          "中型",
+          "中小型",
+          "小型"
+        ]
+      },
+      {
+        "name": "能源类型",
+        "description": "能源类型",
+        "is_categorical": true,
+        "possible_values": [
+          "插电式 混合 动力",
+          "汽油"
+        ]
+      },
+      {
+        "name": "车型",
+        "description": "车型",
+        "is_categorical": true,
+        "possible_values": [
+          "MPV",
+          "SUV",
+          "三厢车"
+        ]
+      },
+      {
+        "name": "车系",
+        "description": "车系",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "驱动方式",
+        "description": "驱动方式",
+        "is_categorical": true,
+        "possible_values": [
+          "两驱",
+          "四驱"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "Inform",
+        "description": "汽车领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "汽车领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "火车_1",
+    "description": "火车领域对话服务",
+    "slots": [
+      {
+        "name": "出发地",
+        "description": "出发地",
+        "is_categorical": true,
+        "possible_values": [
+          "上海",
+          "北京",
+          "南京",
+          "厦门",
+          "广州",
+          "成都",
+          "杭州",
+          "深圳"
+        ]
+      },
+      {
+        "name": "坐席",
+        "description": "坐席",
+        "is_categorical": true,
+        "possible_values": [
+          "一等 卧",
+          "一等 座",
+          "二等 座",
+          "动卧"
+        ]
+      },
+      {
+        "name": "日期",
+        "description": "日期",
+        "is_categorical": true,
+        "possible_values": [
+          "下 周三 上午",
+          "下 周三 下午",
+          "下 周二 上午",
+          "下 周二 下午",
+          "下 周五 上午",
+          "下 周五 下午",
+          "下 周六 上午",
+          "下 周六 下午",
+          "下 周四 上午",
+          "下 周四 下午",
+          "下 周日 上午",
+          "下 周日 下午",
+          "下周一 上午",
+          "下周一 下午"
+        ]
+      },
+      {
+        "name": "目的地",
+        "description": "目的地",
+        "is_categorical": true,
+        "possible_values": [
+          "上海",
+          "北京",
+          "南京",
+          "厦门",
+          "广州",
+          "成都",
+          "杭州",
+          "深圳"
+        ]
+      },
+      {
+        "name": "车型",
+        "description": "车型",
+        "is_categorical": true,
+        "possible_values": [
+          "动车",
+          "高铁"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "General",
+        "description": "火车领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "火车领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "火车领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "火车领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "电影_1",
+    "description": "电影领域对话服务",
+    "slots": [
+      {
+        "name": "主演",
+        "description": "主演",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "制片国家/地区",
+        "description": "制片国家/地区",
+        "is_categorical": true,
+        "possible_values": [
+          "中国 大陆",
+          "中国台湾",
+          "中国香港",
+          "印度",
+          "美国",
+          "韩国"
+        ]
+      },
+      {
+        "name": "年代",
+        "description": "年代",
+        "is_categorical": true,
+        "possible_values": [
+          "2000 年代",
+          "2010 年代",
+          "70 年代",
+          "80 年代",
+          "90 年代"
+        ]
+      },
+      {
+        "name": "类型",
+        "description": "类型",
+        "is_categorical": true,
+        "possible_values": [
+          "动作片",
+          "喜剧片",
+          "恐怖片",
+          "爱情片",
+          "科幻片"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "Bye",
+        "description": "电影领域的Bye意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "General",
+        "description": "电影领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "电影领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "电影领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "电影领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "电脑_1",
+    "description": "电脑领域对话服务",
+    "slots": [
+      {
+        "name": "CPU",
+        "description": "CPU",
+        "is_categorical": true,
+        "possible_values": [
+          "i3",
+          "i5",
+          "i7"
+        ]
+      },
+      {
+        "name": "产品类别",
+        "description": "产品类别",
+        "is_categorical": true,
+        "possible_values": [
+          "台式机",
+          "笔记本"
+        ]
+      },
+      {
+        "name": "价格区间",
+        "description": "价格区间",
+        "is_categorical": true,
+        "possible_values": [
+          "5000 到 10000",
+          "小于 5000"
+        ]
+      },
+      {
+        "name": "内存容量",
+        "description": "内存容量",
+        "is_categorical": true,
+        "possible_values": [
+          "16GB",
+          "8GB"
+        ]
+      },
+      {
+        "name": "分类",
+        "description": "分类",
+        "is_categorical": true,
+        "possible_values": [
+          "商用 电脑",
+          "常规 笔记本",
+          "游戏 电脑",
+          "轻薄 本"
+        ]
+      },
+      {
+        "name": "品牌",
+        "description": "品牌",
+        "is_categorical": true,
+        "possible_values": [
+          "宏碁",
+          "小米",
+          "惠普",
+          "戴尔",
+          "联想",
+          "苹果"
+        ]
+      },
+      {
+        "name": "屏幕尺寸",
+        "description": "屏幕尺寸",
+        "is_categorical": true,
+        "possible_values": [
+          "14.0 英寸",
+          "15.6 英寸"
+        ]
+      },
+      {
+        "name": "系列",
+        "description": "系列",
+        "is_categorical": false,
+        "possible_values": []
+      }
+    ],
+    "intents": [
+      {
+        "name": "Inform",
+        "description": "电脑领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "电脑领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "电视剧_1",
+    "description": "电视剧领域对话服务",
+    "slots": [
+      {
+        "name": "主演",
+        "description": "主演",
+        "is_categorical": true,
+        "possible_values": [
+          "刘畅",
+          "古川 雄辉",
+          "史艳文",
+          "周渝民",
+          "堺 雅人",
+          "张家辉",
+          "徐熙媛",
+          "户田 惠梨香",
+          "文兴宇",
+          "木村拓哉",
+          "李准 基",
+          "李帝勋",
+          "苗侨伟",
+          "马修 · 福克斯"
+        ]
+      },
+      {
+        "name": "制片国家/地区",
+        "description": "制片国家/地区",
+        "is_categorical": true,
+        "possible_values": [
+          "中国 大陆",
+          "中国台湾",
+          "中国香港",
+          "日本",
+          "美国",
+          "韩国"
+        ]
+      },
+      {
+        "name": "年代",
+        "description": "年代",
+        "is_categorical": true,
+        "possible_values": [
+          "2000 年代",
+          "2010 年代",
+          "90 年代"
+        ]
+      },
+      {
+        "name": "类型",
+        "description": "类型",
+        "is_categorical": true,
+        "possible_values": [
+          "剧情片",
+          "动作片",
+          "喜剧片",
+          "悬疑片",
+          "爱情片",
+          "犯罪 片",
+          "科幻片"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "Bye",
+        "description": "电视剧领域的Bye意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "General",
+        "description": "电视剧领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "电视剧领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "电视剧领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "电视剧领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "辅导班_1",
+    "description": "辅导班领域对话服务",
+    "slots": [
+      {
+        "name": "区域",
+        "description": "区域",
+        "is_categorical": true,
+        "possible_values": [
+          "吴中区",
+          "园区",
+          "姑苏 区",
+          "新区"
+        ]
+      },
+      {
+        "name": "年级",
+        "description": "年级",
+        "is_categorical": true,
+        "possible_values": [
+          "五年级",
+          "六年级",
+          "四年级"
+        ]
+      },
+      {
+        "name": "时段",
+        "description": "时段",
+        "is_categorical": true,
+        "possible_values": [
+          "上午",
+          "下午",
+          "晚上"
+        ]
+      },
+      {
+        "name": "每周",
+        "description": "每周",
+        "is_categorical": true,
+        "possible_values": [
+          "六",
+          "日"
+        ]
+      },
+      {
+        "name": "科目",
+        "description": "科目",
+        "is_categorical": true,
+        "possible_values": [
+          "数学",
+          "英语",
+          "语文"
+        ]
+      },
+      {
+        "name": "难度",
+        "description": "难度",
+        "is_categorical": true,
+        "possible_values": [
+          "好学 班",
+          "志高班",
+          "精进 班"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "Inform",
+        "description": "辅导班领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "辅导班领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "酒店_1",
+    "description": "酒店领域对话服务",
+    "slots": [
+      {
+        "name": "价位",
+        "description": "价位",
+        "is_categorical": true,
+        "possible_values": [
+          "中等",
+          "便宜",
+          "偏贵"
+        ]
+      },
+      {
+        "name": "区域",
+        "description": "区域",
+        "is_categorical": true,
+        "possible_values": [
+          "吴中区",
+          "吴江",
+          "姑苏 区",
+          "工业园区",
+          "常熟",
+          "昆山",
+          "高新区"
+        ]
+      },
+      {
+        "name": "名称",
+        "description": "名称",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "房型",
+        "description": "房型",
+        "is_categorical": true,
+        "possible_values": [
+          "大床 房",
+          "标准间"
+        ]
+      },
+      {
+        "name": "星级",
+        "description": "星级",
+        "is_categorical": true,
+        "possible_values": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ]
+      },
+      {
+        "name": "酒店类型",
+        "description": "酒店类型",
+        "is_categorical": true,
+        "possible_values": [
+          "休闲 度假",
+          "商务 出行"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "General",
+        "description": "酒店领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "酒店领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "酒店领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "酒店领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "飞机_1",
+    "description": "飞机领域对话服务",
+    "slots": [
+      {
+        "name": "出发地",
+        "description": "出发地",
+        "is_categorical": true,
+        "possible_values": [
+          "上海",
+          "北京",
+          "南京",
+          "厦门",
+          "广州",
+          "成都",
+          "杭州",
+          "深圳"
+        ]
+      },
+      {
+        "name": "日期",
+        "description": "日期",
+        "is_categorical": true,
+        "possible_values": [
+          "下 周三",
+          "下 周二",
+          "下 周五",
+          "下 周六",
+          "下 周四",
+          "下 周日",
+          "下周一"
+        ]
+      },
+      {
+        "name": "目的地",
+        "description": "目的地",
+        "is_categorical": true,
+        "possible_values": [
+          "上海",
+          "北京",
+          "南京",
+          "厦门",
+          "广州",
+          "成都",
+          "杭州",
+          "深圳"
+        ]
+      },
+      {
+        "name": "舱位档次",
+        "description": "舱位档次",
+        "is_categorical": true,
+        "possible_values": [
+          "公务舱",
+          "头等舱",
+          "经济舱"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "General",
+        "description": "飞机领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "飞机领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "飞机领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "飞机领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  },
+  {
+    "service_name": "餐厅_1",
+    "description": "餐厅领域对话服务",
+    "slots": [
+      {
+        "name": "价位",
+        "description": "价位",
+        "is_categorical": true,
+        "possible_values": [
+          "中等",
+          "便宜",
+          "偏贵"
+        ]
+      },
+      {
+        "name": "区域",
+        "description": "区域",
+        "is_categorical": true,
+        "possible_values": [
+          "吴中区",
+          "吴江",
+          "姑苏 区",
+          "工业园区",
+          "常熟",
+          "昆山",
+          "高新区"
+        ]
+      },
+      {
+        "name": "名称",
+        "description": "名称",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "是否地铁直达",
+        "description": "是否地铁直达",
+        "is_categorical": true,
+        "possible_values": [
+          "是"
+        ]
+      },
+      {
+        "name": "菜系",
+        "description": "菜系",
+        "is_categorical": true,
+        "possible_values": [
+          "东北菜",
+          "川菜",
+          "快餐 简餐",
+          "日本料理",
+          "江浙 菜",
+          "火锅",
+          "粤菜",
+          "西北 菜",
+          "西餐",
+          "面包 甜点",
+          "韩国 料理"
+        ]
+      }
+    ],
+    "intents": [
+      {
+        "name": "General",
+        "description": "餐厅领域的General意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Greeting",
+        "description": "餐厅领域的Greeting意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Inform",
+        "description": "餐厅领域的Inform意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "Request",
+        "description": "餐厅领域的Request意图",
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ]
+  }
+]
