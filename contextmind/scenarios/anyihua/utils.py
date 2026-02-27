@@ -77,7 +77,12 @@ def cn2int(s: str) -> int:
 
 def extract_amounts(text: str) -> List[Tuple[str, int]]:
     """
-    从文本中提取所有中文金额（"元"或"块钱"结尾）。
+    从文本中提取所有中文金额。
+
+    支持多种后缀：
+    - "元"/"块钱"（明确货币单位）
+    - "左右"（约数表达，如"四万五千一百左右"）
+    - 额度上下文词（"的额度"/"元的额度"/"元左右"等）
 
     仅返回整数值 > 500 的金额，过滤日常小额数字（如"三元"）。
 
@@ -85,7 +90,7 @@ def extract_amounts(text: str) -> List[Tuple[str, int]]:
         text: 包含中文金额的字符串
 
     返回:
-        [(中文文本, 整数值), ...] 列表，按出现顺序排列
+        [(中文文本, 整数值), ...] 列表，按出现顺序排列，去重
 
     示例::
 
@@ -93,13 +98,20 @@ def extract_amounts(text: str) -> List[Tuple[str, int]]:
         [('两万三千九百八十八', 23988)]
         >>> extract_amounts('借款利率是百分之二十四')
         []  # 24 < 500
+        >>> extract_amounts('额度呢是四万五千一百左右')
+        [('四万五千一百', 45100)]
     """
-    pattern = r"([零一二三四五六七八九十百千万亿两]+)(?:元|块钱)"
-    return [
-        (m, cn2int(m))
-        for m in re.findall(pattern, text)
-        if cn2int(m) > 500
-    ]
+    _CN_AMOUNT = r"[零一二三四五六七八九十百千万亿两]+"
+    # 匹配：明确货币单位（元/块钱）或约数表达（左右）
+    pattern = rf"({_CN_AMOUNT})(?:元|块钱|左右)"
+    seen: set = set()
+    results: List[Tuple[str, int]] = []
+    for m in re.findall(pattern, text):
+        val = cn2int(m)
+        if val > 500 and m not in seen:
+            seen.add(m)
+            results.append((m, val))
+    return results
 
 
 # --------------------------------------------------------------------------- #

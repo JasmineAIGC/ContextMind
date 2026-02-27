@@ -119,6 +119,9 @@ _LABEL_PRIORITY: List[str] = ["数据错误", "重复询问", "不当告别", "�
 #: 设为 20 以覆盖更多重复询问场景（部分会话首次重复出现在第 20+ 条之前）
 _DEFAULT_HISTORY_TURNS: int = 20
 
+#: 在规则预分析摘要中显示的历史发言最大字符数
+_DISPLAY_TURN_MAX_LEN: int = 30
+
 
 # --------------------------------------------------------------------------- #
 # 1. 数据错误检测
@@ -454,6 +457,7 @@ async def detect_session_llm(
     - 【用户系统额度】从 user_info 预解析，作为"数据错误"判断的唯一客观参考
     - 【对话历史】提供对话背景，坐席发言可用于重复询问/不当告别/答非所问比对
     - 【坐席最终回复】是被评估对象
+    - 规则预分析结果作为提示注入 prompt，提升 LLM 对数值偏差和重复模式的感知
     - 使用思维链提示词（CoT）提升推理质量，从回复中提取最后出现的 JSON
 
     五个合法标签（_VALID_LABELS）：
@@ -483,6 +487,82 @@ async def detect_session_llm(
     credit_yuan = info["available_credit"]
     credit_display = f"{credit_yuan:,}元" if credit_yuan > 0 else "未提供"
 
+    # --------------------------------------------------------------------------- #
+    # 规则预分析：为 LLM 提供具体数值证据，提升数据错误和重复询问的召回率
+    # --------------------------------------------------------------------------- #
+
+    # 1. 数据错误预分析：提取坐席回复及历史发言中的金额，与系统额度比对
+    # 合法参考值：available_credit 和 temp_credit（未过期时）
+    _gt_values = [
+        v for v in [credit_yuan, info["temp_credit"]]
+        if v > 0
+    ]
+    data_error_hints: List[str] = []
+    if _gt_values:
+        def _is_amount_valid(value: int) -> bool:
+            """检查 value 是否与任意合法额度相差 ≤ 300 元"""
+            return any(abs(value - gt) <= 300 for gt in _gt_values)
+
+        # 检查坐席最终回复中的金额
+        for amount_text, value in extract_amounts(reply):
+            if value > 1000 and not _is_amount_valid(value):
+                diff = abs(value - credit_yuan)
+                data_error_hints.append(
+                    f"坐席最终回复提到「{amount_text}」({value:,}元)，"
+                    f"系统额度{credit_yuan:,}元，偏差{diff:,}元 ⚠️"
+                )
+        # 检查对话历史中坐席发言的金额（覆盖"回复本轮未提数字但历史已报错"的场景）
+        seen_history_errors: set = set()
+        for turn in history:
+            if turn.startswith(_AGENT_PREFIX):
+                turn_text = turn.removeprefix(_AGENT_PREFIX)
+                for amount_text, value in extract_amounts(turn_text):
+                    if (
+                        value > 1000
+                        and not _is_amount_valid(value)
+                        and amount_text not in seen_history_errors
+                    ):
+                        seen_history_errors.add(amount_text)
+                        diff = abs(value - credit_yuan)
+                        data_error_hints.append(
+                            f"历史坐席发言提到「{amount_text}」({value:,}元)，"
+                            f"系统额度{credit_yuan:,}元，偏差{diff:,}元 ⚠️"
+                        )
+
+    # 2. 重复询问预分析：计算坐席最终回复与历史坐席发言的文本相似度
+    agent_turns_history = [
+        t.removeprefix(_AGENT_PREFIX).strip()
+        for t in history
+        if t.startswith(_AGENT_PREFIX)
+    ]
+    reply_stripped = reply.strip()
+    is_exact_repeat = reply_stripped in agent_turns_history
+    max_sim = 0.0
+    max_sim_turn = ""
+    for past in agent_turns_history:
+        if not past:
+            continue
+        past_chars = set(past)  # O(1) lookup vs O(n) for string membership
+        common = sum(1 for c in reply_stripped if c in past_chars)
+        denom = len(reply_stripped) + len(past)
+        sim = 2 * common / denom if denom > 0 else 0.0
+        if sim > max_sim:
+            max_sim = sim
+            max_sim_turn = past
+
+    repetition_hint = ""
+    if is_exact_repeat:
+        repetition_hint = f"⚠️ 坐席最终回复与历史某条坐席发言完全一致（精确匹配）"
+    elif max_sim >= 0.80:
+        repetition_hint = (
+            f"⚠️ 坐席最终回复与历史发言「{max_sim_turn[:_DISPLAY_TURN_MAX_LEN]}」"
+            f"相似度 {max_sim:.0%}（≥80%）"
+        )
+
+    # --------------------------------------------------------------------------- #
+    # 构建 prompt
+    # --------------------------------------------------------------------------- #
+
     # 按 use_full_history 决定传入 LLM 的历史条数
     history_slice = history if use_full_history else history[-_DEFAULT_HISTORY_TURNS:]
     history_text = "\n".join(history_slice)
@@ -490,54 +570,81 @@ async def detect_session_llm(
     system_prompt = (
         "你是安逸花外呼对话质检专家。安逸花是小额贷款产品，坐席职责是推介借款并解答问题。\n\n"
         "请对【坐席最终回复】从以下五个标签中选择唯一最匹配的一个。\n\n"
+        "【重要】用户消息中提到的金额（用户自述的额度、用户质疑的数字）不可作为系统真实额度，"
+        "只有【用户系统额度】是判断数据错误的唯一客观标准。\n\n"
         "【判断标准（按①→⑤顺序逐一核查，第一个明确成立的即为结果）】\n\n"
         "① 数据错误\n"
         "   成立条件（必须同时满足）：\n"
-        "   a. 坐席最终回复中出现了明确的具体金额（如'三万''32,000元'）\n"
-        "   b. 该金额与【用户系统额度】相差超过300元（|坐席金额 - 系统额度| > 300）\n"
+        "   a. 坐席（历史发言或最终回复）中出现了明确的可提现额度数字\n"
+        "   b. 该数字与【用户系统额度】相差超过300元（|坐席金额 - 系统额度| > 300）\n"
+        "   如果【规则预分析-数据错误】中显示了金额偏差警告⚠️，请仔细核查该金额的上下文：\n"
+        "   只有当坐席是在向用户陈述可提现额度（'您的额度是X元''您还有X元可提现'等）时，\n"
+        "   且该金额与系统额度偏差>300元，才算数据错误。\n"
+        "   若该金额是建议提现数额、还款金额、举例说明等，则不算数据错误。\n"
         "   以下情况不算数据错误，直接跳②：\n"
-        "   ✗ 坐席回复中没有提及具体额度金额（只谈操作步骤/产品介绍/无法提现原因等）\n"
-        "   ✗ 提到的金额是还款金额、手续费、利息、分期金额等（不是可提现额度）\n"
-        "   ✗ 用户在对话中自述或质疑的金额（用户说法不能用来判断坐席对错）\n"
-        "   ✗ 【用户系统额度】为'未提供'时\n\n"
+        "   ✗ 坐席回复中没有提及任何具体额度金额（只谈操作步骤/无法提现原因/产品简介等）\n"
+        "   ✗ 提到的金额是还款金额、手续费、利息、分期月还款等（不是可提现额度）\n"
+        "   ✗ 【用户系统额度】为'未提供'时\n"
+        "   注意：用户在对话中自述的金额（如'我APP显示三万'）不能用于判断坐席对错\n\n"
         "② 重复询问\n"
         "   成立条件（必须同时满足）：\n"
         "   a. 坐席最终回复的核心话术，与对话历史中某条坐席发言几乎逐字相同或字符重叠超过80%\n"
         "   b. 该话术在历史中确实已出现过（是重复，不是第一次说）\n"
+        "   如果【规则预分析-重复询问】中显示了高相似度或精确匹配⚠️，请核查该话术在历史中\n"
+        "   是否确实已出现过，且本次是重复而非合理的话术变体。\n"
         "   以下情况不算重复询问：\n"
-        "   ✗ 两条发言话题相同但措辞不同\n"
-        "   ✗ 核实用户姓名或身份的固定开场白\n\n"
+        "   ✗ 两条发言话题相同但措辞明显不同\n"
+        "   ✗ 核实用户姓名或身份的固定开场白（'请问您是XXX先生/女士吗'）\n\n"
         "③ 不当告别\n"
         "   成立条件（必须同时满足）：\n"
-        "   a. 坐席最终回复包含告别话术（含'再见''不打扰''感谢接听''祝您生活愉快'等）\n"
-        "   b. 用户最后一条消息中，存在一个坐席回复中完全未回应的明确问题或强烈投诉\n"
-        "   以下情况用户没有未解决问题（不当告别不成立）：\n"
-        "   ✗ 用户明确拒绝借款（'不需要''不借''不感兴趣''先不用'）\n"
-        "   ✗ 用户表示需要考虑或等待（'我再想想''等我想好再联系'）\n"
-        "   ✗ 用户表示要和家人商量\n"
-        "   ✗ 用户同意去操作或去查看（'好的我去试试''我去APP看看'）\n"
-        "   ✗ 用户只是简短回应（'嗯''哦''好''知道了''行''没事'）\n"
-        "   ✗ 用户的问题坐席已给出任何形式的回应（即使用户不满意也算已回应）\n\n"
+        "   a. 坐席最终回复包含明确告别话术（含'再见''不打扰您了''感谢接听''祝您生活愉快'等）\n"
+        "   b. 用户最近几条消息中，有一个坐席本轮回复中完全未触及的明确问题或投诉\n"
+        "   以下情况说明用户无未解决诉求（不当告别不成立）：\n"
+        "   ✗ 用户明确表示不需要/拒绝（'不需要''不借''不用了''没事'）\n"
+        "   ✗ 用户表示需要考虑或等待（'我想想''等我想好了''等我跟家人商量'）\n"
+        "   ✗ 用户同意去操作或去查看（'好的我去试试''我去APP看看''那行我去弄'）\n"
+        "   ✗ 用户只是简短应答（'嗯''哦''好''知道了''行''明白了'）\n"
+        "   注意：仅当用户最近消息中有具体的、未被本次回复解答的问题时，才判为不当告别\n\n"
         "④ 答非所问\n"
-        "   成立条件（必须同时满足）：\n"
-        "   a. 用户最后一条消息包含明确的具体疑问（带问号或明显询问语气）\n"
-        "   b. 坐席最终回复与用户的具体疑问毫无关联——不是没答好，是完全没涉及\n"
-        "   以下情况不算答非所问：\n"
-        "   ✗ 坐席给出了不够详细或不够准确的回答（有涉及就不算）\n"
-        "   ✗ 坐席围绕贷款相关话题回答（额度/利息/操作/申请/账户等均视为相关）\n"
-        "   ✗ 用户的话是抱怨、陈述或表达不满（不是在问具体问题）\n"
-        "   ✗ 坐席表示'为您查询''核实后回复'等承诺，算作对问题的响应\n\n"
+        "   成立条件（必须同时满足，且门槛较高）：\n"
+        "   a. 用户最后一条消息包含非常明确的具体问题（问号或明显询问语气）\n"
+        "   b. 坐席最终回复与用户的具体问题属于完全不同的话题，毫无关联\n"
+        "   以下情况一律不算答非所问：\n"
+        "   ✗ 坐席回答了相关话题，即使不够精确或未完整回答（有涉及就不算）\n"
+        "   ✗ 用户问贷款/额度/提现/账户/利率/还款相关，坐席也回复贷款/额度/提现/账户相关\n"
+        "   ✗ 坐席在推介产品时未专门解答用户某个细节问题\n"
+        "   ✗ 用户表达不满/抱怨/质疑，坐席给出了贷款相关的任何解释\n"
+        "   ✗ 坐席承诺查询或核实（'为您查询''我帮您核实'等），算作有效响应\n\n"
         "⑤ 无标签命中\n"
         "   以上①②③④均不明确成立时，选此标签。\n"
-        "   正常对话结束（用户接受/拒绝/同意考虑）、坐席正常推介产品等，均属于无标签命中。\n\n"
+        "   正常推介、用户接受/拒绝/同意考虑、正常问答（即使不够精确）均属于无标签命中。\n\n"
         "【输出要求】\n"
         "请先逐条核查①到④，每项写出核查结论（成立/不成立及简要理由）。\n"
         "最后一行必须是且仅是以下格式的JSON（不要加代码块标记）：\n"
         '{"label": "标签名", "reason": "理由（15字以内）"}'
     )
 
+    # 构建规则预分析摘要（注入 user message）
+    preanalysis_sections: List[str] = []
+    if data_error_hints:
+        preanalysis_sections.append(
+            "【规则预分析-数据错误】\n" + "\n".join(f"  · {h}" for h in data_error_hints)
+        )
+    else:
+        preanalysis_sections.append("【规则预分析-数据错误】未检测到明显金额偏差")
+
+    if repetition_hint:
+        preanalysis_sections.append(f"【规则预分析-重复询问】{repetition_hint}")
+    else:
+        preanalysis_sections.append(
+            f"【规则预分析-重复询问】最高历史相似度 {max_sim:.0%}（<80%，未触发）"
+        )
+
+    preanalysis_text = "\n".join(preanalysis_sections)
+
     user_message = (
-        f"【用户系统额度（仅用于①数据错误的判断，不可用于其他标签）】{credit_display}\n\n"
+        f"【用户系统额度（仅用于①数据错误的判断）】{credit_display}\n\n"
+        f"{preanalysis_text}\n\n"
         f"【对话历史（共{len(history)}条，显示最近{len(history_slice)}条）】\n"
         f"{history_text}\n\n"
         f"【坐席最终回复（待评估）】\n"
