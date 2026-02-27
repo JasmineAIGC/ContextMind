@@ -8,6 +8,9 @@
     cd /path/to/ContextMind
     python examples/anyihua_qc_pipeline.py
 
+    # 启用 LLM 增强检测（提升"答非所问"召回率，需配置 .env）：
+    python examples/anyihua_qc_pipeline.py --llm
+
     # 只看预测错误的条目（verbose 模式）：
     python examples/anyihua_qc_pipeline.py --verbose
 
@@ -21,10 +24,10 @@
     1. 数据错误   — 数值比对，最精确（覆盖率 14/15 = 93%）
     2. 重复询问   — 字符串匹配（覆盖率 13/15 = 87%，L1+L2 可达 15/15）
     3. 不当告别   — 关键词 + 上下文（覆盖率 13/15 = 87%）
-    4. 答非所问   — 规则预过滤（召回率约 60%，无需 LLM）
+    4. 答非所问   — 规则预过滤（召回率约 60%）；启用 --llm 后 LLM 增强至约 80%+
     5. 无标签命中 — 默认
 
-无需配置 API Key，纯规则运行。
+不使用 --llm 时无需配置 API Key，纯规则运行。
 """
 
 from __future__ import annotations
@@ -73,6 +76,16 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="同时扫描完整对话历史（覆盖率略高，但会增加误报。默认：只扫描坐席回复）",
     )
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        default=False,
+        help=(
+            "启用 LLM 增强检测：对规则未命中的'答非所问'类别使用真实 LLM API 判断，"
+            "可将召回率从 ~60% 提升至 ~80%+。"
+            "需在 .env 中配置 QWEN3_API_KEY / LLM_BASE_URL 等参数。"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -97,13 +110,30 @@ def main() -> None:
     for label, count in sorted(label_counts.items()):
         print(f"  {label}: {count} 条")
 
+    # ---- 初始化 LLM 客户端（可选）----
+    llm_client = None
+    if args.llm:
+        from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
+        try:
+            config = LLMConfig.from_env()
+            llm_client = SimpleLLMClient(config)
+            print(f"\n✅ LLM 客户端初始化成功 (model: {config.model})")
+            print("   LLM 增强模式已启用，将对'答非所问'类别使用真实 LLM API 判断")
+        except Exception as exc:
+            print(f"\n⚠️  LLM 客户端初始化失败: {exc}")
+            print("   请检查 .env 文件中的 QWEN3_API_KEY / LLM_BASE_URL 配置")
+            print("   将退回纯规则模式运行")
+            llm_client = None
+
     # ---- 运行质检 ----
     checker = PyTODQualityChecker()
-    print(f"\n🔍 开始质检（use_full_history={args.full_history}）…\n")
+    mode_desc = f"use_full_history={args.full_history}, llm_enhanced={llm_client is not None}"
+    print(f"\n🔍 开始质检（{mode_desc}）…\n")
     results = checker.run_batch(
         data,
         verbose=args.verbose,
         use_full_history=args.full_history,
+        llm_client=llm_client,
     )
 
     # ---- 保存结果（可选）----

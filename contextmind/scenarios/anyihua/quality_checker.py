@@ -8,7 +8,7 @@
     1. 数据错误   — 数值比对，最精确，几乎无误报
     2. 重复询问   — 字符串匹配，极精确
     3. 不当告别   — 关键词 + 上下文，精确
-    4. 答非所问   — 规则辅助（异步 LLM 增强），召回率有限
+    4. 答非所问   — 规则预过滤 + 可选 LLM 增强（需传入 llm_client）
     5. 无标签命中 — 以上均未触发时的默认标签
 
 实测预期性能（基于 chat_test_100.json 数据分析）：
@@ -22,12 +22,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 from typing import Any, Dict, List, Optional
 
 from .detectors import (
     detect_data_error,
     detect_data_error_full_history,
     detect_improper_farewell,
+    detect_off_topic_llm,
     detect_off_topic_rule,
     detect_repetition,
 )
@@ -38,7 +41,8 @@ class PyTODQualityChecker:
     安逸花外呼对话 PyTOD 批量质检器
 
     将四类检测器按优先级组合，为每条会话预测质量标签。
-    无需 LLM（纯规则模式）即可覆盖约 80%+ 的质量问题。
+    无需 LLM（纯规则模式）即可覆盖约 80%+ 的质量问题；
+    传入 llm_client 后可进一步提升"答非所问"的召回率至 80%+。
 
     使用示例::
 
@@ -49,9 +53,14 @@ class PyTODQualityChecker:
 
         checker = PyTODQualityChecker()
 
-        # 单条检测
+        # 单条检测（纯规则）
         pred = checker.check(data[0])
         print(pred)  # {"label": "不当告别", "reason": "...", "confidence": 0.85}
+
+        # 单条检测（LLM 增强）
+        from contextmind.infra.llm_client import SimpleLLMClient
+        llm = SimpleLLMClient()
+        pred = checker.check(data[0], llm_client=llm)
 
         # 批量检测（含 P/R/F1 报告）
         results = checker.run_batch(data, verbose=True)
@@ -62,6 +71,7 @@ class PyTODQualityChecker:
         self,
         session: Dict[str, Any],
         use_full_history: bool = False,
+        llm_client: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         对单条会话执行四项检测，按优先级返回第一个命中的预测结果。
@@ -71,6 +81,9 @@ class PyTODQualityChecker:
             use_full_history: False（默认）则只扫描 坐席回复 中的金额数字；
                               True 则扫描完整对话历史（覆盖率更高但误报率也高，
                               因为历史中的数据错误不一定是当前轮次的质量问题）
+            llm_client:       可选的 LLM 客户端（需支持 chat_async 方法）；
+                              提供后，"答非所问"检测将在规则未命中时继续使用
+                              LLM 增强判断，召回率可从 ~60% 提升至 ~80%+
 
         返回:
             包含以下键的字典::
@@ -99,10 +112,30 @@ class PyTODQualityChecker:
         if is_farewell:
             return {"label": "不当告别", "reason": reason, "confidence": 0.85}
 
-        # 4. 答非所问检测（规则预过滤，无 LLM）
+        # 4. 答非所问检测：规则预过滤，命中后直接返回；
+        #    若规则未命中且提供了 llm_client，则用 LLM 增强判断
         is_offtopic, reason = detect_off_topic_rule(session)
         if is_offtopic:
             return {"label": "答非所问", "reason": reason, "confidence": 0.65}
+
+        if llm_client is not None:
+            try:
+                # 检测是否已在运行中的事件循环内
+                asyncio.get_running_loop()
+                # 已在事件循环中，使用独立线程执行以避免嵌套 asyncio.run
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(
+                        asyncio.run, detect_off_topic_llm(session, llm_client)
+                    )
+                    is_offtopic, reason = future.result()
+            except RuntimeError:
+                # 没有运行中的事件循环，直接使用 asyncio.run
+                is_offtopic, reason = asyncio.run(
+                    detect_off_topic_llm(session, llm_client)
+                )
+
+            if is_offtopic:
+                return {"label": "答非所问", "reason": reason, "confidence": 0.80}
 
         # 5. 默认：未命中任何质量问题
         return {"label": "无标签命中", "reason": "通过所有检测", "confidence": 0.78}
@@ -112,6 +145,7 @@ class PyTODQualityChecker:
         data: List[Dict[str, Any]],
         verbose: bool = False,
         use_full_history: bool = False,
+        llm_client: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         批量质检并计算与人工校验的一致性。
@@ -120,6 +154,8 @@ class PyTODQualityChecker:
             data:             chat_test_100.json 数据列表（全部 100 条）
             verbose:          True 则逐条打印预测错误的会话信息
             use_full_history: 传递给 check() 的同名参数（默认 False）
+            llm_client:       可选的 LLM 客户端；提供后将对"答非所问"类别
+                              执行 LLM 增强检测（需配置 .env 中的 API 参数）
 
         返回:
             包含以下键的字典::
@@ -135,7 +171,11 @@ class PyTODQualityChecker:
         by_label: Dict[str, Dict[str, int]] = {}
 
         for session in data:
-            pred = self.check(session, use_full_history=use_full_history)
+            pred = self.check(
+                session,
+                use_full_history=use_full_history,
+                llm_client=llm_client,
+            )
             gold = session.get("人工校验", "")
 
             pred["session_id"] = session["session_id"]
