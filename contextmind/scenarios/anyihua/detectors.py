@@ -123,6 +123,9 @@ _DEFAULT_HISTORY_TURNS: int = 20
 #: 在规则预分析摘要中显示的历史发言最大字符数
 _DISPLAY_TURN_MAX_LEN: int = 30
 
+#: 重复询问相似度触发阈值（用于 detect_session_llm 预分析）
+_REPETITION_SIM_THRESHOLD: float = 0.80
+
 
 # --------------------------------------------------------------------------- #
 # 1. 数据错误检测
@@ -491,7 +494,6 @@ async def detect_session_llm(
 
     credit_yuan = acct["available_credit"]
     credit_display = f"{credit_yuan:,}元" if credit_yuan > 0 else "未提供"
-    # parse_user_info 仍用于获取 temp_credit（引擎 acct 已含该字段）
     temp_credit = acct.get("temp_credit", 0)
 
     # --------------------------------------------------------------------------- #
@@ -538,7 +540,7 @@ async def detect_session_llm(
     is_exact_repeat = rep["is_exact_repeat"]
     # 找最相似历史发言片段用于 hint 展示
     max_sim_turn = ""
-    if max_sim >= 0.80 and not is_exact_repeat:
+    if max_sim >= _REPETITION_SIM_THRESHOLD and not is_exact_repeat:
         agent_turns_history = [
             t.removeprefix(_AGENT_PREFIX).strip()
             for t in history
@@ -559,10 +561,10 @@ async def detect_session_llm(
     repetition_hint = ""
     if is_exact_repeat:
         repetition_hint = f"⚠️ 坐席最终回复与历史某条坐席发言完全一致（精确匹配）"
-    elif max_sim >= 0.80:
+    elif max_sim >= _REPETITION_SIM_THRESHOLD:
         repetition_hint = (
             f"⚠️ 坐席最终回复与历史发言「{max_sim_turn[:_DISPLAY_TURN_MAX_LEN]}」"
-            f"相似度 {max_sim:.0%}（≥80%）"
+            f"相似度 {max_sim:.0%}（≥{_REPETITION_SIM_THRESHOLD:.0%}）"
         )
 
     # 3. 不当告别预分析：使用 PyTOD 引擎 check_farewell_preconditions() 结果
