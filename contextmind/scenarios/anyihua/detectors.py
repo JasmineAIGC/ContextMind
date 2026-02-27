@@ -91,6 +91,15 @@ OFFTOPIC_SIGNALS: Dict[str, List[str]] = {
     "显示": ["之前借", "是吗", "借了一笔"],  # 用户质疑 APP 显示数字时，坐席转移话题
 }
 
+#: LLM 答非所问检测预过滤词：用户发言须含至少一个问题/质疑信号才调用 LLM
+#: 无明确问题信号时，答非所问在语义上不成立（无问题可"非所答"），直接跳过 LLM 调用
+_QUESTION_SIGNALS: List[str] = [
+    "多少", "为什么", "为啥", "为何", "能不能", "可以吗", "能吗",
+    "怎么", "怎样", "怎么回事", "什么", "哪里", "哪个", "哪些",
+    "不是", "不对", "不行", "显示", "不明白", "什么意思",
+    "多久", "几天", "几期", "不应该", "咋",
+]
+
 
 # --------------------------------------------------------------------------- #
 # 1. 数据错误检测
@@ -146,10 +155,16 @@ def detect_data_error(session: Dict[str, Any]) -> Tuple[bool, str]:
 
 def detect_data_error_full_history(session: Dict[str, Any]) -> Tuple[bool, str]:
     """
-    扩展版：在完整对话历史中检测数据错误（覆盖率 14/15）。
+    扩展版：检测最近历史坐席发言是否引用了错误金额。
 
-    相比 detect_data_error，额外扫描 对话历史 中所有坐席发言，
-    可检出本轮回复未引用具体金额、但历史轮次已引用过错误金额的情况。
+    仅扫描对话历史中最近一条坐席发言（不含本轮回复，本轮已由 detect_data_error 覆盖），
+    可检出"本轮回复未引用数字、但上一轮坐席已报错误金额"的场景。
+
+    设计说明：
+        函数仅扫描最近 1 条历史坐席发言，而非全部历史。扫描全部历史会导致大量误报：
+        早期历史发言中的金额可能是当时合法引用的数字（用户额度随时间变化），
+        或出现在贷款金额、分期金额等非额度比对语境中。
+        此函数被设计为流水线末端（步骤 5）的低优先级补充检测器。
 
     参数:
         session: 单条 chat_test_100.json 记录
@@ -167,18 +182,16 @@ def detect_data_error_full_history(session: Dict[str, Any]) -> Tuple[bool, str]:
         if v > 0
     ]
 
-    # 合并历史中所有坐席发言 + 本轮回复
-    all_agent_text = " ".join(
-        t for t in session["对话历史"] if t.startswith("坐席：")
-    )
-    all_agent_text += " " + session["坐席回复"]
+    # 只扫描最近一条历史坐席发言（当前回复已由 detect_data_error 处理）
+    agent_turns = [t for t in session["对话历史"] if t.startswith("坐席：")]
+    recent_turn = agent_turns[-1] if agent_turns else ""
 
-    for amount_text_cn, value in extract_amounts(all_agent_text):
+    for amount_text_cn, value in extract_amounts(recent_turn):
         if value <= 1000:
             continue
         if not any(abs(value - gt) < 300 for gt in gt_values):
             return True, (
-                f"对话中引用金额 {amount_text_cn}({value:,}) 与用户信息不符"
+                f"近期历史发言引用金额 {amount_text_cn}({value:,}) 与用户信息不符"
             )
 
     return False, ""
@@ -335,6 +348,9 @@ async def detect_off_topic_llm(
     使用 LLM 判断坐席回复是否响应了用户的当前意图，
     可处理"APP 显示九万四千八"、"分 12 期手续费"等复杂意图对齐场景。
 
+    内置预过滤：若用户最后发言不含明确问题信号（如疑问词、否定词等），
+    则答非所问在语义上不成立，直接返回 False 而不调用 LLM API。
+
     参数:
         session:    单条 chat_test_100.json 记录
         llm_client: contextmind.infra.llm_client.LLMClient 实例，
@@ -349,13 +365,28 @@ async def detect_off_topic_llm(
         (t.removeprefix(_USER_PREFIX) for t in reversed(history) if t.startswith(_USER_PREFIX)), ""
     )
 
+    # 预过滤：若用户最后发言不含任何问题/质疑信号，答非所问在语义上无法成立
+    # （"答非所问"的前提是用户"问"了，否则坐席无从"非所答"）
+    if not any(signal in last_user for signal in _QUESTION_SIGNALS):
+        return False, ""
+
     messages = [
         {
             "role": "system",
             "content": (
-                "你是一个对话质量检测助手。判断坐席回复是否响应了用户的当前意图。\n"
-                "只输出 JSON：{\"is_off_topic\": true/false, \"reason\": \"...\"}，"
-                "不要输出其他内容。"
+                "你是安逸花外呼质检系统，负责检测坐席回复是否'答非所问'。\n"
+                "安逸花是小额贷款产品，外呼坐席的核心任务是向用户推介借款并解答疑问。\n\n"
+                "【判定为'答非所问'的条件（需同时满足）】\n"
+                "1. 用户最后发言是明确的问题（询问金额、原因、操作方式、时间等）\n"
+                "2. 坐席回复完全未涉及该问题，内容与问题毫无关联\n\n"
+                "【不属于'答非所问'的情况（符合其一即判为 false）】\n"
+                "- 用户发言不是问题（如表示确认、感谢、陈述事实）\n"
+                "- 坐席给出了方向正确的回答，即使不够详细\n"
+                "- 坐席承认无法处理并说明了原因\n"
+                "- 坐席回答问题后顺带推介了产品\n"
+                "- 有任何不确定性时\n\n"
+                "请只输出以下格式的 JSON，禁止输出其他内容：\n"
+                '{"is_off_topic": false, "reason": "简短说明"}'
             ),
         },
         {
@@ -363,14 +394,20 @@ async def detect_off_topic_llm(
             "content": (
                 f"用户最后发言：{last_user}\n"
                 f"坐席回复：{reply}\n\n"
-                "坐席回复是否答非所问？"
+                "该坐席回复是否答非所问？"
             ),
         },
     ]
 
     try:
         raw = await llm_client.chat_async(messages=messages)
-        parsed = json.loads(raw.strip().strip("`"))
+        # 兼容 LLM 可能返回的 markdown 代码块格式
+        raw_clean = raw.strip()
+        if raw_clean.startswith("```"):
+            raw_clean = raw_clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        elif raw_clean.startswith("`"):
+            raw_clean = raw_clean.strip("`")
+        parsed = json.loads(raw_clean)
         if parsed.get("is_off_topic"):
             return True, parsed.get("reason", "意图不对齐")
     except Exception:
