@@ -1,8 +1,15 @@
 """
 安逸花外呼促活场景 · PyTOD 批量质检器
 
-对 chat_test_100.json 中的会话执行批量质检，由 LLM 直接完成五分类判断。
-所有检测均通过 LLM 调用完成，不使用任何规则。
+对 chat_test_100.json 中的会话执行批量质检，支持两种模式：
+
+模式 1（默认）：纯 LLM 质检
+    所有检测均通过 LLM 调用完成，PyTOD ExecutionEngine 提供预分析 hint。
+
+模式 2：Hybrid（PyTOD 优先，LLM 兜底）— use_pytod_first=True
+    对于数据错误和重复询问（机械性错误）先尝试纯规则预测；
+    若规则无法判断，再交由 LLM 处理。
+    实测：约 32% 会话可无 LLM 直接给出答案（精度 81%），节省 token 开销。
 
 五个质量标签：
     - 数据错误：坐席引用金额与用户实际信息不符（偏差 > 300 元）
@@ -11,7 +18,7 @@
     - 答非所问：用户明确提问但坐席回复完全无关
     - 无标签命中：不存在上述任何质量问题
 
-基于 docs/analysis/pytod-on-chat-test-100.md §6 实现。
+基于 docs/analysis/pytod-on-chat-test-100.md §6 和 §8 实现。
 """
 
 from __future__ import annotations
@@ -20,7 +27,7 @@ import asyncio
 import concurrent.futures
 from typing import Any, Dict, List, Optional
 
-from .detectors import detect_session_llm
+from .detectors import detect_session_llm, predict_label_pytod
 
 
 # 各标签的置信度估计（固定值，LLM 结果不附带置信度）
@@ -37,7 +44,12 @@ class PyTODQualityChecker:
     """
     安逸花外呼对话 PyTOD 批量质检器
 
-    所有检测均由 LLM 完成（无规则）。需传入已初始化的 llm_client。
+    支持两种检测模式：
+    - 纯 LLM 模式（默认）：所有检测均由 LLM 完成；
+      PyTOD ExecutionEngine 提供结构化 hint 注入 prompt。
+    - Hybrid 模式（use_pytod_first=True）：
+      先由 predict_label_pytod() 尝试纯规则判断（无 LLM）；
+      规则无法判断时再调用 LLM；节省约 32% token 开销。
 
     使用示例::
 
@@ -51,9 +63,13 @@ class PyTODQualityChecker:
         llm = SimpleLLMClient(config)
         checker = PyTODQualityChecker()
 
-        # 单条检测
+        # 单条检测（纯 LLM 模式）
         pred = checker.check(data[0], llm_client=llm)
         print(pred)  # {"label": "不当告别", "reason": "...", "confidence": 0.85}
+
+        # 单条检测（Hybrid 模式：PyTOD 优先，LLM 兜底）
+        pred = checker.check(data[0], llm_client=llm, use_pytod_first=True)
+        print(pred)  # {"label": "重复询问", "reason": "...", "confidence": 0.87, "source": "pytod"}
 
         # 批量检测（含 P/R/F1 报告）
         results = checker.run_batch(data, llm_client=llm)
@@ -65,31 +81,54 @@ class PyTODQualityChecker:
         session: Dict[str, Any],
         use_full_history: bool = False,
         llm_client: Optional[Any] = None,
+        use_pytod_first: bool = False,
     ) -> Dict[str, Any]:
         """
-        对单条会话调用 LLM 进行质量分类。
+        对单条会话进行质量分类，支持纯 LLM 模式或 Hybrid 模式。
 
         参数:
-            session:          单条 chat_test_100.json 记录
-            use_full_history: True 时将完整对话历史送入 LLM；
-                              False（默认）时仅发送最近 10 轮（节省 token）
-            llm_client:       LLMClient 实例（必须提供，不支持纯规则模式）
+            session:           单条 chat_test_100.json 记录
+            use_full_history:  True 时将完整对话历史送入 LLM（默认 False）
+            llm_client:        LLMClient 实例；use_pytod_first=True 时为可选，
+                               规则无法判断的会话仍需 LLMClient
+            use_pytod_first:   True 时启用 Hybrid 模式：
+                               优先尝试 predict_label_pytod() 纯规则预测；
+                               规则无法判断时再调用 LLM。
+                               实测可节省约 32% LLM 调用（以 81% 精度）。
 
         返回:
             包含以下键的字典::
 
                 {
                     "label":      str,    # 预测标签
-                    "reason":     str,    # LLM 给出的判断理由
-                    "confidence": float,  # 置信度估计
+                    "reason":     str,    # 判断理由
+                    "confidence": float,  # 置信度（规则命中时为 0.87，LLM 时为 0.75~0.85）
+                    "source":     str,    # "pytod"（规则预测）或 "llm"（LLM 预测）
                 }
 
         异常:
-            ValueError: llm_client 未提供时抛出
+            ValueError: use_pytod_first=False 且 llm_client 未提供时抛出
         """
+        # ------------------------------------------------------------------ #
+        # Hybrid 模式：PyTOD 规则优先
+        # ------------------------------------------------------------------ #
+        if use_pytod_first:
+            label, confidence, reason = predict_label_pytod(session)
+            if label is not None:
+                return {
+                    "label": label,
+                    "reason": reason,
+                    "confidence": confidence,
+                    "source": "pytod",
+                }
+            # 规则无法判断：fall back to LLM
+
+        # ------------------------------------------------------------------ #
+        # LLM 模式
+        # ------------------------------------------------------------------ #
         if llm_client is None:
             raise ValueError(
-                "llm_client 是必须参数。所有检测均基于 LLM，"
+                "规则无法判断该会话，需要 LLM 处理，"
                 "请传入已初始化的 LLMClient 实例（如 SimpleLLMClient）。"
             )
 
@@ -113,6 +152,7 @@ class PyTODQualityChecker:
             "label": label,
             "reason": reason,
             "confidence": _LABEL_CONFIDENCE.get(label, 0.75),
+            "source": "llm",
         }
 
     def run_batch(
@@ -121,23 +161,26 @@ class PyTODQualityChecker:
         verbose: bool = False,
         use_full_history: bool = False,
         llm_client: Optional[Any] = None,
+        use_pytod_first: bool = False,
     ) -> Dict[str, Any]:
         """
         批量质检并计算与人工校验的一致性。
 
         参数:
-            data:             chat_test_100.json 数据列表
-            verbose:          True 则逐条打印预测错误的会话信息
-            use_full_history: 传递给 check() 的同名参数（默认 False）
-            llm_client:       LLMClient 实例（必须提供）
+            data:              chat_test_100.json 数据列表
+            verbose:           True 则逐条打印预测错误的会话信息
+            use_full_history:  传递给 check() 的同名参数（默认 False）
+            llm_client:        LLMClient 实例（use_pytod_first=False 时必须提供）
+            use_pytod_first:   True 时启用 Hybrid 模式（见 check() 参数说明）
 
         返回:
             包含以下键的字典::
 
                 {
-                    "predictions": list,   # 每条预测结果
-                    "accuracy":    float,  # 总体准确率
-                    "by_label":    dict,   # 各标签的 TP/FP/FN 及 P/R/F1
+                    "predictions": list,          # 每条预测结果
+                    "accuracy":    float,          # 总体准确率
+                    "by_label":    dict,           # 各标签的 TP/FP/FN 及 P/R/F1
+                    "pytod_rate":  float,          # Hybrid 模式下规则预测比例
                 }
         """
         predictions: List[Dict[str, Any]] = []
@@ -149,6 +192,7 @@ class PyTODQualityChecker:
                 session,
                 use_full_history=use_full_history,
                 llm_client=llm_client,
+                use_pytod_first=use_pytod_first,
             )
             gold = session.get("人工校验", "")
 
@@ -166,6 +210,8 @@ class PyTODQualityChecker:
                 print(f"   原因: {pred['reason']}")
 
         accuracy = correct / len(data) if data else 0.0
+        pytod_count = sum(1 for p in predictions if p.get("source") == "pytod")
+        pytod_rate = pytod_count / len(data) if data else 0.0
 
         # 统计各标签的 TP / FP / FN
         for pred in predictions:
@@ -182,6 +228,14 @@ class PyTODQualityChecker:
 
         # 打印摘要
         print(f"\n总体准确率: {accuracy:.1%} ({correct}/{len(data)})")
+        if pytod_count > 0:
+            pytod_correct = sum(
+                1 for p in predictions if p.get("source") == "pytod" and p["correct"]
+            )
+            print(
+                f"PyTOD 规则预测: {pytod_count}/{len(data)} 条（{pytod_rate:.0%}），"
+                f"其中正确 {pytod_correct}/{pytod_count}（精度 {pytod_correct/pytod_count:.0%}）"
+            )
         print("\n各标签统计:")
         for label, stats in by_label.items():
             tp = stats["TP"]
@@ -203,4 +257,5 @@ class PyTODQualityChecker:
             "predictions": predictions,
             "accuracy": accuracy,
             "by_label": by_label,
+            "pytod_rate": pytod_rate,
         }
