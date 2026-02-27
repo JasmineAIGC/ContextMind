@@ -1,17 +1,15 @@
 """
-安逸花外呼促活服务 · PyTOD 在线生成演示
+安逸花外呼促活服务 · PyTOD 坐席回复质量提升 Web Demo
 
-使用 PyTODTracker 对单条安逸花外呼会话进行在线回复生成，
-演示 PyTOD 三步流程（动作解析器 → 执行引擎 → 对话管理器）
-如何基于真实 CRM 数据生成回复，从根本上避免数据错误。
+通过 Gradio 界面从 chat_test_100.json 中选择一条会话，
+使用 PyTODTracker 三步流程（动作解析器 → 执行引擎 → 对话管理器）
+生成更优质的坐席回复，并与实际坐席回复进行对比展示。
 
 流程说明:
-    1. 解析 用户信息 → 构建 mock CRM (ExecutionEngine)
-    2. 加载 ANYIHUA_SCHEMA → 创建 PyTODPromptBuilder（Schema 驱动模式）
-    3. 创建 PyTODTracker
-    4. 将 对话历史 逐轮注入 tracker（不调用 LLM，仅更新 history）
-    5. 对最后一轮用户发言调用 tracker.process_turn() → 生成回复
-    6. 对比 PyTOD 生成回复 vs 实际坐席回复
+    1. 从下拉列表中选择一条会话
+    2. 点击「生成回复」按钮
+    3. PyTOD 三步流程：解析 CRM → 执行程序 → 生成回复
+    4. 对比 PyTOD 生成回复 vs 实际坐席回复
 
 环境要求:
     QWEN3_API_KEY=your_key_here
@@ -20,15 +18,8 @@
 用法:
     cd /path/to/ContextMind
     python examples/anyihua_online_demo.py
-
-    # 按标签筛选演示会话：
-    python examples/anyihua_online_demo.py --label 数据错误
-
-    # 演示多条（默认各类型各 1 条）：
-    python examples/anyihua_online_demo.py --label 不当告别 --label 重复询问
-
-    # 指定会话索引（0-based）：
-    python examples/anyihua_online_demo.py --index 3
+    python examples/anyihua_online_demo.py --port 7861
+    python examples/anyihua_online_demo.py --share
 """
 
 from __future__ import annotations
@@ -38,12 +29,14 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # 添加项目根目录到 Python 路径，使得可以直接运行而无需安装
 _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
+
+import gradio as gr
 
 from contextmind.infra.llm_client import SimpleLLMClient as LLMClient, LLMConfig
 from contextmind.modes.pytod import PyTODPromptBuilder, PyTODTracker
@@ -53,14 +46,13 @@ from contextmind.scenarios.anyihua import ANYIHUA_SCHEMA, build_anyihua_engine
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
 
+_AGENT_PREFIX = "坐席："
+_USER_PREFIX = "用户："
+
 
 # --------------------------------------------------------------------------- #
 # 核心函数：单条会话在线生成
 # --------------------------------------------------------------------------- #
-
-
-_AGENT_PREFIX = "坐席："
-_USER_PREFIX = "用户："
 
 
 async def run_online_generation(
@@ -85,17 +77,14 @@ async def run_online_generation(
             - actual_reply: 实际坐席回复（来自数据集）
             - label:        人工校验标签
     """
-    # ---- 构建 mock CRM（ExecutionEngine）----
     engine = build_anyihua_engine(session)
 
-    # ---- 创建 Prompt Builder（Schema 驱动模式）----
     builder = PyTODPromptBuilder(
         schema=ANYIHUA_SCHEMA,
         max_history_turns=max_history_turns,
         response_language="中文",
     )
 
-    # ---- 创建追踪器 ----
     tracker = PyTODTracker(
         llm_client=llm_client,
         execution_engine=engine,
@@ -104,8 +93,7 @@ async def run_online_generation(
         max_history_turns=max_history_turns,
     )
 
-    # ---- Replay 对话历史（不调用 LLM，直接注入 ConversationTurn）----
-    # 数据格式：交替出现"坐席：…"和"用户：…"，最后一项为用户最新发言
+    # Replay 对话历史（不调用 LLM，直接注入 ConversationTurn）
     history = session["对话历史"]
     i = 0
     while i < len(history) - 1:
@@ -122,8 +110,8 @@ async def run_online_generation(
         else:
             i += 1
 
-    # ---- 处理最后一轮用户发言 ----
-    last_user = history[-1].removeprefix(_USER_PREFIX)  # 去除 "用户：" 前缀
+    # 处理最后一轮用户发言
+    last_user = history[-1].removeprefix(_USER_PREFIX)
     result = await tracker.process_turn(user_utterance=last_user)
 
     return {
@@ -137,41 +125,169 @@ async def run_online_generation(
 
 
 # --------------------------------------------------------------------------- #
-# 打印辅助
+# Gradio Web Demo
 # --------------------------------------------------------------------------- #
 
 
-def print_session_demo(
-    session: Dict[str, Any],
-    result: Dict[str, Any],
-    session_idx: int,
-) -> None:
-    """格式化打印单条会话的演示结果。"""
-    sid = session["session_id"][-8:]
-    label = session.get("人工校验", "")
-    last_user = session["对话历史"][-1].removeprefix(_USER_PREFIX)
+def load_data(data_path: Path) -> List[Dict[str, Any]]:
+    with open(data_path, encoding="utf-8") as f:
+        return json.load(f)
 
-    print("\n" + "=" * 60)
-    print(f"会话 {session_idx + 1} | ID: {sid} | 标签: {label}")
-    print("=" * 60)
 
-    # 展示最近几轮历史（最多 4 轮）
-    recent_history = session["对话历史"][-8:-1]
-    if recent_history:
-        print("\n📋 最近对话历史（最后 4 轮）:")
-        for line in recent_history[-8:]:
-            print(f"  {line}")
+def build_session_choices(data: List[Dict[str, Any]]) -> List[str]:
+    """生成下拉列表选项：'序号 | 标签 | 会话ID后8位'"""
+    choices = []
+    for i, d in enumerate(data):
+        label = d.get("人工校验", "无标签命中")
+        sid = d["session_id"][-8:]
+        choices.append(f"{i:03d} | {label} | …{sid}")
+    return choices
 
-    print(f"\n👤 用户最后发言: {last_user}")
-    print(f"\n❌ 实际坐席回复:\n   {result['actual_reply'][:120]}")
 
-    print(f"\n🤖 PyTOD 生成回复:\n   {result['response'][:120]}")
+def format_history(session: Dict[str, Any]) -> str:
+    """将对话历史格式化为可读文本。"""
+    lines = []
+    for turn in session["对话历史"]:
+        lines.append(turn)
+    return "\n".join(lines)
 
-    if result["program_text"] and result["program_text"] != "NONE()":
-        print(f"\n📝 PyTOD 程序:\n   {result['program_text']}")
 
-    if result["state"]:
-        print(f"\n📊 执行引擎状态: {result['state']}")
+def on_session_select(
+    choice: str,
+    data: List[Dict[str, Any]],
+) -> tuple:
+    """用户从下拉列表中选择会话后，更新信息面板。"""
+    if not choice:
+        return "", "", "", ""
+    idx = int(choice.split("|")[0].strip())
+    session = data[idx]
+    label = session.get("人工校验", "无标签命中")
+    user_info = session.get("用户信息", "")
+    history_text = format_history(session)
+    actual_reply = session.get("坐席回复", "")
+    return label, user_info, history_text, actual_reply
+
+
+def on_generate(
+    choice: str,
+    data: List[Dict[str, Any]],
+    llm_client_holder: List,  # mutable container [LLMClient | None]
+) -> tuple:
+    """点击「生成回复」时运行 PyTOD，返回结果文本。"""
+    if not choice:
+        return "请先从下拉列表中选择一条会话。", "", ""
+
+    idx = int(choice.split("|")[0].strip())
+    session = data[idx]
+
+    llm = llm_client_holder[0]
+    if llm is None:
+        return (
+            "⚠️ LLM 客户端未初始化。\n请检查 .env 文件中的 QWEN3_API_KEY / LLM_BASE_URL 配置。",
+            "",
+            "",
+        )
+
+    try:
+        result = asyncio.run(run_online_generation(session, llm))
+    except Exception as exc:
+        return f"❌ 生成失败: {exc}", "", ""
+
+    program_text = result["program_text"] or "（无程序）"
+    state_text = (
+        json.dumps(result["state"], ensure_ascii=False, indent=2)
+        if result["state"]
+        else "（无执行状态）"
+    )
+    return result["response"], program_text, state_text
+
+
+def create_ui(
+    data: List[Dict[str, Any]],
+    llm_client_holder: List,
+) -> gr.Blocks:
+    """构建 Gradio Blocks 界面。"""
+    choices = build_session_choices(data)
+
+    with gr.Blocks(title="安逸花 PyTOD 坐席回复质量提升") as app:
+        gr.Markdown(
+            "# 🤖 安逸花外呼 · PyTOD 坐席回复质量提升\n"
+            "从下拉列表中选择一条会话，点击「生成回复」，对比 PyTOD 生成回复与实际坐席回复。"
+        )
+
+        # 会话选择
+        with gr.Row():
+            session_dropdown = gr.Dropdown(
+                choices=choices,
+                label="选择会话（序号 | 人工校验标签 | 会话ID）",
+                interactive=True,
+                scale=4,
+            )
+            label_box = gr.Textbox(label="人工校验标签", interactive=False, scale=1)
+
+        # 会话信息
+        with gr.Row():
+            user_info_box = gr.Textbox(
+                label="用户信息",
+                lines=3,
+                interactive=False,
+                scale=1,
+            )
+
+        # 对话历史 + 实际坐席回复
+        with gr.Row():
+            history_box = gr.Textbox(
+                label="对话历史",
+                lines=12,
+                interactive=False,
+                scale=3,
+            )
+            actual_reply_box = gr.Textbox(
+                label="实际坐席回复",
+                lines=12,
+                interactive=False,
+                scale=2,
+            )
+
+        # 生成按钮
+        generate_btn = gr.Button("🚀 生成回复（PyTOD）", variant="primary")
+
+        # PyTOD 结果
+        with gr.Row():
+            pytod_reply_box = gr.Textbox(
+                label="🤖 PyTOD 生成回复",
+                lines=6,
+                interactive=False,
+                scale=3,
+            )
+        with gr.Row():
+            program_box = gr.Textbox(
+                label="📝 PyTOD 程序",
+                lines=3,
+                interactive=False,
+                scale=2,
+            )
+            state_box = gr.Textbox(
+                label="📊 执行引擎状态",
+                lines=3,
+                interactive=False,
+                scale=2,
+            )
+
+        # 事件绑定
+        session_dropdown.change(
+            fn=lambda choice: on_session_select(choice, data),
+            inputs=[session_dropdown],
+            outputs=[label_box, user_info_box, history_box, actual_reply_box],
+        )
+
+        generate_btn.click(
+            fn=lambda choice: on_generate(choice, data, llm_client_holder),
+            inputs=[session_dropdown],
+            outputs=[pytod_reply_box, program_box, state_box],
+        )
+
+    return app
 
 
 # --------------------------------------------------------------------------- #
@@ -181,8 +297,14 @@ def print_session_demo(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="安逸花外呼对话 PyTOD 在线生成演示",
+        description="安逸花外呼 PyTOD 坐席回复质量提升 Web Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+用法示例:
+  python examples/anyihua_online_demo.py
+  python examples/anyihua_online_demo.py --port 7861
+  python examples/anyihua_online_demo.py --share
+        """,
     )
     parser.add_argument(
         "--data",
@@ -190,84 +312,48 @@ def parse_args() -> argparse.Namespace:
         help=f"数据文件路径（默认: {_DEFAULT_DATA_PATH}）",
     )
     parser.add_argument(
-        "--label",
-        action="append",
-        dest="labels",
-        default=[],
-        choices=["数据错误", "重复询问", "不当告别", "答非所问", "无标签命中"],
-        help="按人工校验标签筛选演示会话（可多次指定）",
+        "--port",
+        type=int,
+        default=7860,
+        help="Web 服务器端口（默认: 7860）",
     )
     parser.add_argument(
-        "--index",
-        type=int,
-        default=None,
-        help="按 0-based 索引指定特定会话",
-    )
-    parser.add_argument(
-        "--max-sessions",
-        type=int,
-        default=1,
-        help="最多演示多少条会话（默认 1）",
+        "--share",
+        action="store_true",
+        help="创建公共分享链接（Gradio share）",
     )
     return parser.parse_args()
 
 
-async def main() -> None:
+def main() -> None:
     args = parse_args()
 
-    # ---- 加载数据 ----
+    # 加载数据
     data_path = Path(args.data)
     if not data_path.exists():
         raise FileNotFoundError(f"数据文件不存在: {data_path}")
+    data = load_data(data_path)
+    print(f"✅ 加载数据: {data_path}（共 {len(data)} 条会话）")
 
-    with open(data_path, encoding="utf-8") as f:
-        data = json.load(f)
-
-    # ---- 选取演示会话 ----
-    if args.index is not None:
-        if args.index < 0 or args.index >= len(data):
-            raise ValueError(f"索引 {args.index} 超出范围 [0, {len(data) - 1}]")
-        sessions_to_demo = [(args.index, data[args.index])]
-    elif args.labels:
-        sessions_to_demo = [
-            (i, d) for i, d in enumerate(data)
-            if d.get("人工校验", "") in args.labels
-        ][: args.max_sessions]
-        if not sessions_to_demo:
-            print(f"⚠️  未找到标签 {args.labels} 的会话")
-            return
-    else:
-        # 默认：各类标签各取一条
-        label_order = ["数据错误", "不当告别", "重复询问", "答非所问"]
-        sessions_to_demo = []
-        seen_labels: set = set()
-        for i, d in enumerate(data):
-            lbl = d.get("人工校验", "")
-            if lbl in label_order and lbl not in seen_labels:
-                sessions_to_demo.append((i, d))
-                seen_labels.add(lbl)
-            if len(sessions_to_demo) >= args.max_sessions:
-                break
-
-    # ---- 初始化 LLM 客户端 ----
+    # 初始化 LLM 客户端（允许失败——界面仍可打开，生成时报错）
+    llm_client_holder: List = [None]
     try:
         config = LLMConfig.from_env()
-        llm = LLMClient(config)
+        llm_client_holder[0] = LLMClient(config)
         print(f"✅ LLM 客户端初始化成功 (model: {config.model})")
     except Exception as exc:
         print(f"⚠️  LLM 客户端初始化失败: {exc}")
         print("   请检查 .env 文件中的 QWEN3_API_KEY 和 LLM_BASE_URL 配置")
-        return
+        print("   界面仍可打开，但点击「生成回复」时将报错。")
 
-    # ---- 逐条演示 ----
-    print(f"\n📊 将演示 {len(sessions_to_demo)} 条会话\n")
-    for session_idx, session in sessions_to_demo:
-        try:
-            result = await run_online_generation(session, llm)
-            print_session_demo(session, result, session_idx)
-        except Exception as exc:
-            print(f"❌ 会话 {session_idx} 处理失败: {exc}")
+    # 启动 Gradio
+    app = create_ui(data, llm_client_holder)
+    app.launch(
+        server_name="0.0.0.0",
+        server_port=args.port,
+        share=args.share,
+    )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
