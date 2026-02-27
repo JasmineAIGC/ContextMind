@@ -36,8 +36,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# 添加项目根目录到 Python 路径，使得可以直接运行而无需安装
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from contextmind.infra.llm_client import SimpleLLMClient as LLMClient, LLMConfig
 from contextmind.modes.pytod import PyTODPromptBuilder, PyTODTracker
