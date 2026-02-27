@@ -33,6 +33,7 @@ class ChatApplication:
         evolve_engine: EvolveEngine,
         system_prompt: str = CHAT_SYSTEM_PROMPT,
         history_turns: int = 10,
+        llm_client: Optional[SimpleLLMClient] = None,
         llm_config: Optional[LLMConfig] = None,
         use_real_llm: bool = True,
         extraction_method: str = None,  # 知识提取方式 ('rule' 或 'llm')
@@ -44,7 +45,8 @@ class ChatApplication:
             evolve_engine: 进化引擎
             system_prompt: 系统提示词（可自定义）
             history_turns: Prompt中包含的历史轮数
-            llm_config: LLM 配置（可选，从环境变量加载）
+            llm_client: 已创建的 LLM 客户端实例（优先使用，避免重复创建）
+            llm_config: LLM 配置（可选，llm_client 未提供时从环境变量加载）
             use_real_llm: 是否使用真实 LLM（True=调用API，False=模拟回复）
             extraction_method: 知识提取方式 ('rule' 规则提取, 'llm' LLM自动提取)
                 如未指定，使用引擎的extraction_method
@@ -64,17 +66,25 @@ class ChatApplication:
         
         # 初始化 LLM 客户端（如果使用真实 LLM）
         if use_real_llm:
-            try:
-                self.llm_client = SimpleLLMClient(llm_config)
+            if llm_client is not None:
+                # 复用已有客户端，避免重复创建
+                self.llm_client = llm_client
                 logger.info(
-                    f"[ChatApplication] ✓ 初始化完成 "
-                    f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
+                    f"[ChatApplication] ✓ 初始化完成（复用 LLM 客户端, "
+                    f"知识提取: {self.extraction_method}）"
                 )
-            except Exception as e:
-                logger.warning(f"[ChatApplication] ⚠ LLM 客户端初始化失败: {e}")
-                logger.warning("[ChatApplication] 将使用模拟回复")
-                self.use_real_llm = False
-                self.llm_client = None
+            else:
+                try:
+                    self.llm_client = SimpleLLMClient(llm_config)
+                    logger.info(
+                        f"[ChatApplication] ✓ 初始化完成 "
+                        f"(真实LLM: {use_real_llm}, 知识提取: {self.extraction_method})"
+                    )
+                except Exception as e:
+                    logger.warning(f"[ChatApplication] ⚠ LLM 客户端初始化失败: {e}")
+                    logger.warning("[ChatApplication] 将使用模拟回复")
+                    self.use_real_llm = False
+                    self.llm_client = None
         else:
             self.llm_client = None
             logger.info(
@@ -380,6 +390,7 @@ class ChatApplication:
         return cls(
             evolve_engine=engine,
             system_prompt=scenario_config.system_prompt,
+            llm_client=llm_client,
             use_real_llm=True
         )
 
