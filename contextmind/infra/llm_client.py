@@ -169,6 +169,7 @@ class SimpleLLMClient:
         "Qwen2.5-32B-Instruct": 32768,
         "Qwen2.5-72B-Instruct": 32768,
         "Qwen3-32B": 32768,
+        "Qwen3-235B": 131072,
         "deepseek-chat": 32768,
         "deepseek-r1": 64000,
     }
