@@ -897,7 +897,7 @@ def _register_anyihua_apis(engine: ExecutionEngine, session: dict = None) -> Non
 import asyncio
 from contextmind.modes.pytod import PyTODTracker, ExecutionEngine, PyTODPromptBuilder
 from contextmind.modes.pytod.prompt_builder import ConversationTurn
-from contextmind.infra.llm_client import LLMConfig, LLMClient
+from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient as LLMClient
 
 
 async def run_anyihua_online_generation(session: dict) -> None:
@@ -1092,7 +1092,7 @@ results = checker.run_batch(data, verbose=True)
 
 ```python
 import asyncio, json
-from contextmind.infra.llm_client import LLMConfig, LLMClient
+from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient as LLMClient
 from contextmind.modes.pytod import PyTODTracker, ExecutionEngine, PyTODPromptBuilder
 
 async def demo():
@@ -1165,4 +1165,4 @@ P3（持续优化）
 | `tracker.reset()` | — | 重置对话状态 |
 | `load_schema_from_dict(dict)` | `contextmind.modes.pytod` | 加载 ServiceSchema |
 | `LLMConfig.from_env()` | `contextmind.infra.llm_client` | 从环境变量加载 LLM 配置 |
-| `LLMClient(config)` | `contextmind.infra.llm_client` | 创建 LLM 客户端 |
+| `SimpleLLMClient(config)` | `contextmind.infra.llm_client` | 创建 LLM 客户端 |
