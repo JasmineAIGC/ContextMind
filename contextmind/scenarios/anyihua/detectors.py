@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from .utils import extract_amounts, parse_user_info
@@ -109,9 +110,14 @@ _VALID_LABELS: frozenset[str] = frozenset(
     {"数据错误", "重复询问", "不当告别", "答非所问", "无标签命中"}
 )
 
+#: 标签优先顺序（与系统 prompt 中"检查顺序"一致）
+#: 当 JSON 解析失败时按此顺序从 LLM 原始输出中提取标签
+_LABEL_PRIORITY: List[str] = ["数据错误", "重复询问", "不当告别", "答非所问", "无标签命中"]
+
 #: use_full_history=False 时传入 LLM 的最大历史消息条数
 #: 对话历史中每条消息为单独一条（"坐席：…" 或 "用户：…"），不是一个来回
-_DEFAULT_HISTORY_TURNS: int = 10
+#: 设为 20 以覆盖更多重复询问场景（部分会话首次重复出现在第 20+ 条之前）
+_DEFAULT_HISTORY_TURNS: int = 20
 
 
 # --------------------------------------------------------------------------- #
@@ -444,87 +450,122 @@ async def detect_session_llm(
     """
     LLM 全量质检：一次 LLM 调用完成对单条会话的五分类判断。
 
-    将用户信息、对话历史和本轮坐席回复一并送入 LLM，由模型直接输出质量标签。
-    替代所有规则检测器，适用于对精度要求较高的场景。
+    将解析后的用户额度、对话历史和本轮坐席回复送入 LLM，由模型按顺序检查五个质量标签。
+    关键设计：
+
+    - 预解析 `用户信息` 提取可提现额度，以明确数字形式传入 LLM，
+      避免 LLM 自行解析 '#' 分隔原始字段（小模型易出错）。
+    - 系统 prompt 规定顺序检查，无"宁可漏报"偏置，提升各类别召回率。
+    - 使用 temperature=0.0 确保分类结果稳定一致。
+    - JSON 解析失败时最多重试 2 次，最后从原始文本提取标签作为兜底。
 
     五个合法标签（_VALID_LABELS）：
-        - 数据错误：坐席引用的金额与用户实际信息不符（误差超过 300 元）
-        - 重复询问：坐席回复与历史发言高度重复
+        - 数据错误：坐席引用的金额与用户实际可提现额度偏差超过 300 元
+        - 重复询问：坐席回复与历史发言高度重复（逐字或近似）
         - 不当告别：用户有未解决问题时坐席执行告别话术
         - 答非所问：用户明确提问但坐席回复完全无关
         - 无标签命中：不存在上述任何质量问题
 
     参数:
         session:          单条 chat_test_100.json 记录
-        llm_client:       LLMClient 实例（需支持 chat_async 方法）
+        llm_client:       LLMClient 实例（需支持 chat_async(messages, temperature) 方法）
         use_full_history: True 时将全部对话历史送入 LLM；
-                          False（默认）时仅保留最近 _DEFAULT_HISTORY_TURNS 轮（节省 token）
+                          False（默认）时仅保留最近 _DEFAULT_HISTORY_TURNS 条（节省 token）
 
     返回:
         (label: str, reason: str)
         label 必为 _VALID_LABELS 中的一个；若 LLM 调用失败则返回 ("无标签命中", "LLM 调用异常")
     """
-    user_info = session["用户信息"]
+    user_info_str = session["用户信息"]
     history = session["对话历史"]
     reply = session["坐席回复"]
 
-    # 按 use_full_history 决定传入 LLM 的历史轮数
+    # 预解析用户信息：提取可提现额度并以明确数字形式传入 LLM
+    # 避免 LLM 自行解析 '#' 分隔的原始字段（小模型解析成功率低）
+    # credit_yuan == 0 通常表示字段未解析到（parse_user_info 默认值），而非实际 0 额度
+    info = parse_user_info(user_info_str)
+    credit_yuan = info["available_credit"]
+    credit_display = f"{credit_yuan:,}元" if credit_yuan >= 0 and info["raw_fields"] else "（未提供）"
+    customer_name = info["customer_name"] or "用户"
+
+    # 按 use_full_history 决定传入 LLM 的历史条数
     history_slice = history if use_full_history else history[-_DEFAULT_HISTORY_TURNS:]
     history_text = "\n".join(history_slice)
 
+    system_prompt = (
+        "你是安逸花外呼质检系统。安逸花是小额贷款产品，外呼坐席负责向用户推介借款。\n"
+        "请对【坐席最终回复】选择以下五个质量标签之一。\n\n"
+        "【标签与判断标准】\n"
+        "1. 数据错误\n"
+        "   坐席在本次对话中提到的借款额度/可提现金额，与【用户实际可提现额度】偏差超过 300 元。\n"
+        "   ▸ 判断：提取对话中坐席说过的所有金额，逐一与实际额度比较；偏差 > 300 元即为数据错误。\n"
+        "   ▸ 注意：只比较额度类金额（如'五万两千五百元'），不比较利息、期数金额。\n\n"
+        "2. 重复询问\n"
+        "   坐席最终回复内容与【对话历史】中某条坐席发言几乎完全相同（逐字重复或极高相似度）。\n"
+        "   ▸ 判断：将最终回复逐句与历史中每条坐席发言对比，内容相同或高度相似即为重复询问。\n\n"
+        "3. 不当告别\n"
+        "   坐席用告别话术结束通话（含'不打扰了'、'再见'、'祝您生活愉快'等），\n"
+        "   但用户在最近发言中仍有明确未解决的问题、诉求或不满。\n"
+        "   ▸ 两个条件须同时成立：① 坐席回复是告别语；② 用户近期有未解决问题。\n\n"
+        "4. 答非所问\n"
+        "   用户的最后一个问题十分明确，但坐席的最终回复与该问题毫无关联。\n"
+        "   ▸ 判断：只有当坐席回复与用户问题完全无关时选此标签；若坐席有任何方向正确的尝试，不选。\n\n"
+        "5. 无标签命中\n"
+        "   以上四种问题均不存在，对话质量正常。\n\n"
+        "【检查顺序】按以下顺序逐一判断，第一个符合的即为答案：\n"
+        "① 对话中坐席提到了额度金额 → 与实际可提现额度偏差 > 300 元？→ 数据错误\n"
+        "② 最终回复与历史某条坐席发言几乎一模一样？→ 重复询问\n"
+        "③ 最终回复含告别语 且 用户近期有未解决问题？→ 不当告别\n"
+        "④ 用户最后提出明确问题 且 坐席回复完全无关？→ 答非所问\n"
+        "⑤ 以上均不符合 → 无标签命中\n\n"
+        "只输出以下格式的 JSON，禁止输出其他任何内容：\n"
+        '{"label": "标签名", "reason": "简短理由（20字以内）"}'
+    )
+
+    user_message = (
+        f"【用户实际可提现额度】{credit_display}\n"
+        f"【客户】{customer_name}\n\n"
+        f"【对话历史（共{len(history)}条，显示最近{len(history_slice)}条）】\n"
+        f"{history_text}\n\n"
+        f"【坐席最终回复】\n{reply}\n\n"
+        "请按检查顺序判断质量标签，只输出 JSON。"
+    )
+
     messages = [
-        {
-            "role": "system",
-            "content": (
-                "你是安逸花外呼质检系统，负责对客服坐席的对话质量进行分类。\n"
-                "安逸花是小额贷款产品，外呼坐席负责向用户推介借款、解答疑问并处理还款业务。\n\n"
-                "【质量标签及判断标准】\n"
-                "1. 数据错误\n"
-                "   坐席在对话中提及的金额（可提现额度、临时额度等）与【用户信息】中的实际数据不符，\n"
-                "   偏差超过 300 元即视为错误。\n\n"
-                "2. 重复询问\n"
-                "   坐席的最终回复内容与对话历史中某条坐席发言高度重复（字面相同或语义极为相似），\n"
-                "   构成无效重复。\n\n"
-                "3. 不当告别\n"
-                "   用户明确表示有疑问、诉求或困惑，坐席却直接执行告别话术\n"
-                "   （如'不打扰您了'、'再见'、'祝您生活愉快'等）。\n\n"
-                "4. 答非所问\n"
-                "   用户提出明确问题，坐席的回复内容与该问题完全无关。\n"
-                "   仅当用户明确提问且坐席回复毫无关联时才判定；\n"
-                "   若坐席给出了方向正确的回答（即使不够详细），不算答非所问。\n\n"
-                "5. 无标签命中\n"
-                "   坐席回复不存在上述任何质量问题，对话质量正常。\n\n"
-                "【判断原则】\n"
-                "- 若同时满足多个标签，选择最主要、最严重的一个\n"
-                "- 有任何不确定时，选择'无标签命中'（宁可漏报，不要误报）\n"
-                "- label 必须是以下五个之一：数据错误、重复询问、不当告别、答非所问、无标签命中\n\n"
-                "只输出以下格式的 JSON，禁止输出其他内容：\n"
-                '{"label": "...", "reason": "简短说明（30字以内）"}'
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"【用户信息】\n{user_info}\n\n"
-                f"【对话历史】\n{history_text}\n\n"
-                f"【坐席最终回复】\n{reply}\n\n"
-                "请判断该坐席最终回复的质量标签。"
-            ),
-        },
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
     ]
 
-    try:
-        raw = await llm_client.chat_async(messages=messages)
-        raw_clean = raw.strip()
-        if raw_clean.startswith("```"):
-            raw_clean = raw_clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-        elif raw_clean.startswith("`"):
-            raw_clean = raw_clean.strip("`")
-        parsed = json.loads(raw_clean)
-        label = parsed.get("label", "无标签命中")
-        reason = parsed.get("reason", "")
-        if label not in _VALID_LABELS:
-            return "无标签命中", f"LLM 返回未知标签: {label}"
-        return label, reason
-    except Exception as exc:
-        return "无标签命中", f"LLM 调用异常: {exc}"
+    raw = ""
+    for attempt in range(3):
+        try:
+            raw = await llm_client.chat_async(messages=messages, temperature=0.0)
+            raw_clean = raw.strip()
+            # 去除 markdown 代码块
+            if raw_clean.startswith("```"):
+                raw_clean = raw_clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            elif raw_clean.startswith("`"):
+                raw_clean = raw_clean.strip("`")
+            # 去除可能残留的 <think> 标签
+            raw_clean = re.sub(r"<think>.*?</think>", "", raw_clean, flags=re.DOTALL).strip()
+            parsed = json.loads(raw_clean)
+            label = parsed.get("label", "无标签命中")
+            reason = parsed.get("reason", "")
+            if label not in _VALID_LABELS:
+                # 尝试从原始输出中找到合法标签
+                for candidate in _LABEL_PRIORITY:
+                    if candidate in raw:
+                        return candidate, reason or "从输出提取标签"
+                return "无标签命中", f"LLM 返回未知标签: {label}"
+            return label, reason
+        except json.JSONDecodeError:
+            # JSON 解析失败：继续重试，让 LLM 再次生成合法 JSON
+            continue
+        except Exception as exc:
+            return "无标签命中", f"LLM 调用异常: {exc}"
+
+    # 全部重试后仍无法解析 JSON：按优先级从最后一次原始输出中提取标签
+    for candidate in _LABEL_PRIORITY:
+        if candidate in raw:
+            return candidate, "从原始输出提取标签"
+    return "无标签命中", "多次尝试后 JSON 解析仍失败"
