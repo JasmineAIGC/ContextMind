@@ -1,33 +1,32 @@
 """
-安逸花外呼促活服务 · PyTOD 批量质检流水线
+安逸花外呼促活服务 · PyTOD 批量质检流水线（LLM 全量质检版）
 
-对 chat_test_100.json 中的 100 条安逸花外呼对话数据集执行离线质检，
-预测每条会话的质量标签，并与人工校验标签对比输出 P/R/F1 报告。
+对 chat_test_100.json 中的 100 条安逸花外呼对话数据集执行离线质检。
+所有质量问题检测均由 LLM 完成（无规则），输出五分类标签并与人工校验对比。
+
+五个质量标签：
+    - 数据错误：坐席引用金额与用户实际信息不符
+    - 重复询问：坐席回复与历史发言高度重复
+    - 不当告别：用户有未解决问题时坐席执行告别话术
+    - 答非所问：用户明确提问但坐席回复完全无关
+    - 无标签命中：不存在上述任何质量问题
+
+环境要求（.env 文件）：
+    QWEN3_API_KEY=your_key_here
+    LLM_BASE_URL=https://your-endpoint/v1
 
 用法:
     cd /path/to/ContextMind
     python examples/anyihua_qc_pipeline.py
 
-    # 启用 LLM 增强检测（提升"答非所问"召回率，需配置 .env）：
-    python examples/anyihua_qc_pipeline.py --llm
+    # 将全部对话历史送入 LLM（默认仅送最近 10 轮，节省 token）：
+    python examples/anyihua_qc_pipeline.py --full-history
 
     # 只看预测错误的条目（verbose 模式）：
     python examples/anyihua_qc_pipeline.py --verbose
 
-    # 只扫描坐席回复（不扫历史，速度更快）：
-    python examples/anyihua_qc_pipeline.py --no-full-history
-
     # 将结果保存到 JSON：
     python examples/anyihua_qc_pipeline.py --output /tmp/qc_results.json
-
-检测优先级（高 → 低）：
-    1. 数据错误   — 数值比对，最精确（覆盖率 14/15 = 93%）
-    2. 重复询问   — 字符串匹配（覆盖率 13/15 = 87%，L1+L2 可达 15/15）
-    3. 不当告别   — 关键词 + 上下文（覆盖率 13/15 = 87%）
-    4. 答非所问   — 规则预过滤（召回率约 60%）；启用 --llm 后 LLM 增强至约 80%+
-    5. 无标签命中 — 默认
-
-不使用 --llm 时无需配置 API Key，纯规则运行。
 """
 
 from __future__ import annotations
@@ -42,6 +41,7 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
 from contextmind.scenarios.anyihua import PyTODQualityChecker
 
 # 项目根目录（examples/ 的上一级）
@@ -51,7 +51,7 @@ _DEFAULT_DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="安逸花外呼对话 PyTOD 批量质检流水线",
+        description="安逸花外呼对话 PyTOD 批量质检流水线（LLM 全量质检）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -74,16 +74,9 @@ def parse_args() -> argparse.Namespace:
         dest="full_history",
         action="store_true",
         default=False,
-        help="同时扫描完整对话历史（覆盖率略高，但会增加误报。默认：只扫描坐席回复）",
-    )
-    parser.add_argument(
-        "--llm",
-        action="store_true",
-        default=False,
         help=(
-            "启用 LLM 增强检测：对规则未命中的'答非所问'类别使用真实 LLM API 判断，"
-            "可将召回率从 ~60% 提升至 ~80%+。"
-            "需在 .env 中配置 QWEN3_API_KEY / LLM_BASE_URL 等参数。"
+            "将完整对话历史送入 LLM（默认仅送最近 10 轮以节省 token）。"
+            "历史较长的会话建议开启以提升检测准确率。"
         ),
     )
     return parser.parse_args()
@@ -110,24 +103,19 @@ def main() -> None:
     for label, count in sorted(label_counts.items()):
         print(f"  {label}: {count} 条")
 
-    # ---- 初始化 LLM 客户端（可选）----
-    llm_client = None
-    if args.llm:
-        from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
-        try:
-            config = LLMConfig.from_env()
-            llm_client = SimpleLLMClient(config)
-            print(f"\n✅ LLM 客户端初始化成功 (model: {config.model})")
-            print("   LLM 增强模式已启用，将对'答非所问'类别使用真实 LLM API 判断")
-        except Exception as exc:
-            print(f"\n⚠️  LLM 客户端初始化失败: {exc}")
-            print("   请检查 .env 文件中的 QWEN3_API_KEY / LLM_BASE_URL 配置")
-            print("   将退回纯规则模式运行")
-            llm_client = None
+    # ---- 初始化 LLM 客户端（必须）----
+    try:
+        config = LLMConfig.from_env()
+        llm_client = SimpleLLMClient(config)
+        print(f"\n✅ LLM 客户端初始化成功 (model: {config.model})")
+    except Exception as exc:
+        print(f"\n❌ LLM 客户端初始化失败: {exc}")
+        print("   请在 .env 文件中配置 QWEN3_API_KEY / LLM_BASE_URL 等参数")
+        sys.exit(1)
 
     # ---- 运行质检 ----
     checker = PyTODQualityChecker()
-    mode_desc = f"use_full_history={args.full_history}, llm_enhanced={llm_client is not None}"
+    mode_desc = f"use_full_history={args.full_history}, model={config.model}"
     print(f"\n🔍 开始质检（{mode_desc}）…\n")
     results = checker.run_batch(
         data,
@@ -139,7 +127,6 @@ def main() -> None:
     # ---- 保存结果（可选）----
     if args.output:
         output_path = Path(args.output)
-        # predictions 中的 dict 已是 JSON 可序列化类型
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(results["predictions"], f, ensure_ascii=False, indent=2)
         print(f"\n💾 预测结果已保存到: {output_path}")

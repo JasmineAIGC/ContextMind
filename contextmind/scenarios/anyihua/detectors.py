@@ -100,6 +100,19 @@ _QUESTION_SIGNALS: List[str] = [
     "多久", "几天", "几期", "不应该", "咋",
 ]
 
+# --------------------------------------------------------------------------- #
+# LLM 全量质检常量
+# --------------------------------------------------------------------------- #
+
+#: LLM 全量质检合法标签集合（detect_session_llm 返回值必须在此集合内）
+_VALID_LABELS: frozenset[str] = frozenset(
+    {"数据错误", "重复询问", "不当告别", "答非所问", "无标签命中"}
+)
+
+#: use_full_history=False 时传入 LLM 的最大历史消息条数
+#: 对话历史中每条消息为单独一条（"坐席：…" 或 "用户：…"），不是一个来回
+_DEFAULT_HISTORY_TURNS: int = 10
+
 
 # --------------------------------------------------------------------------- #
 # 1. 数据错误检测
@@ -153,9 +166,9 @@ def detect_data_error(session: Dict[str, Any]) -> Tuple[bool, str]:
     return False, ""
 
 
-def detect_data_error_full_history(session: Dict[str, Any]) -> Tuple[bool, str]:
+def detect_data_error_recent_history(session: Dict[str, Any]) -> Tuple[bool, str]:
     """
-    扩展版：检测最近历史坐席发言是否引用了错误金额。
+    扩展版：检测最近一条历史坐席发言是否引用了错误金额。
 
     仅扫描对话历史中最近一条坐席发言（不含本轮回复，本轮已由 detect_data_error 覆盖），
     可检出"本轮回复未引用数字、但上一轮坐席已报错误金额"的场景。
@@ -164,7 +177,8 @@ def detect_data_error_full_history(session: Dict[str, Any]) -> Tuple[bool, str]:
         函数仅扫描最近 1 条历史坐席发言，而非全部历史。扫描全部历史会导致大量误报：
         早期历史发言中的金额可能是当时合法引用的数字（用户额度随时间变化），
         或出现在贷款金额、分期金额等非额度比对语境中。
-        此函数被设计为流水线末端（步骤 5）的低优先级补充检测器。
+        此函数不在主质检流水线中使用（主流水线已切换为 detect_session_llm 全量 LLM 分类），
+        保留供调试和离线分析参考。
 
     参数:
         session: 单条 chat_test_100.json 记录
@@ -183,6 +197,7 @@ def detect_data_error_full_history(session: Dict[str, Any]) -> Tuple[bool, str]:
     ]
 
     # 只扫描最近一条历史坐席发言（当前回复已由 detect_data_error 处理）
+    # 若历史中无坐席发言，recent_turn 为空字符串，extract_amounts 将返回空列表
     agent_turns = [t for t in session["对话历史"] if t.startswith("坐席：")]
     recent_turn = agent_turns[-1] if agent_turns else ""
 
@@ -414,3 +429,102 @@ async def detect_off_topic_llm(
         pass
 
     return False, ""
+
+
+# --------------------------------------------------------------------------- #
+# 5. LLM 全量质检（单次调用，统一分类）
+# --------------------------------------------------------------------------- #
+
+
+async def detect_session_llm(
+    session: Dict[str, Any],
+    llm_client: Any,
+    use_full_history: bool = False,
+) -> Tuple[str, str]:
+    """
+    LLM 全量质检：一次 LLM 调用完成对单条会话的五分类判断。
+
+    将用户信息、对话历史和本轮坐席回复一并送入 LLM，由模型直接输出质量标签。
+    替代所有规则检测器，适用于对精度要求较高的场景。
+
+    五个合法标签（_VALID_LABELS）：
+        - 数据错误：坐席引用的金额与用户实际信息不符（误差超过 300 元）
+        - 重复询问：坐席回复与历史发言高度重复
+        - 不当告别：用户有未解决问题时坐席执行告别话术
+        - 答非所问：用户明确提问但坐席回复完全无关
+        - 无标签命中：不存在上述任何质量问题
+
+    参数:
+        session:          单条 chat_test_100.json 记录
+        llm_client:       LLMClient 实例（需支持 chat_async 方法）
+        use_full_history: True 时将全部对话历史送入 LLM；
+                          False（默认）时仅保留最近 _DEFAULT_HISTORY_TURNS 轮（节省 token）
+
+    返回:
+        (label: str, reason: str)
+        label 必为 _VALID_LABELS 中的一个；若 LLM 调用失败则返回 ("无标签命中", "LLM 调用异常")
+    """
+    user_info = session["用户信息"]
+    history = session["对话历史"]
+    reply = session["坐席回复"]
+
+    # 按 use_full_history 决定传入 LLM 的历史轮数
+    history_slice = history if use_full_history else history[-_DEFAULT_HISTORY_TURNS:]
+    history_text = "\n".join(history_slice)
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是安逸花外呼质检系统，负责对客服坐席的对话质量进行分类。\n"
+                "安逸花是小额贷款产品，外呼坐席负责向用户推介借款、解答疑问并处理还款业务。\n\n"
+                "【质量标签及判断标准】\n"
+                "1. 数据错误\n"
+                "   坐席在对话中提及的金额（可提现额度、临时额度等）与【用户信息】中的实际数据不符，\n"
+                "   偏差超过 300 元即视为错误。\n\n"
+                "2. 重复询问\n"
+                "   坐席的最终回复内容与对话历史中某条坐席发言高度重复（字面相同或语义极为相似），\n"
+                "   构成无效重复。\n\n"
+                "3. 不当告别\n"
+                "   用户明确表示有疑问、诉求或困惑，坐席却直接执行告别话术\n"
+                "   （如'不打扰您了'、'再见'、'祝您生活愉快'等）。\n\n"
+                "4. 答非所问\n"
+                "   用户提出明确问题，坐席的回复内容与该问题完全无关。\n"
+                "   仅当用户明确提问且坐席回复毫无关联时才判定；\n"
+                "   若坐席给出了方向正确的回答（即使不够详细），不算答非所问。\n\n"
+                "5. 无标签命中\n"
+                "   坐席回复不存在上述任何质量问题，对话质量正常。\n\n"
+                "【判断原则】\n"
+                "- 若同时满足多个标签，选择最主要、最严重的一个\n"
+                "- 有任何不确定时，选择'无标签命中'（宁可漏报，不要误报）\n"
+                "- label 必须是以下五个之一：数据错误、重复询问、不当告别、答非所问、无标签命中\n\n"
+                "只输出以下格式的 JSON，禁止输出其他内容：\n"
+                '{"label": "...", "reason": "简短说明（30字以内）"}'
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"【用户信息】\n{user_info}\n\n"
+                f"【对话历史】\n{history_text}\n\n"
+                f"【坐席最终回复】\n{reply}\n\n"
+                "请判断该坐席最终回复的质量标签。"
+            ),
+        },
+    ]
+
+    try:
+        raw = await llm_client.chat_async(messages=messages)
+        raw_clean = raw.strip()
+        if raw_clean.startswith("```"):
+            raw_clean = raw_clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        elif raw_clean.startswith("`"):
+            raw_clean = raw_clean.strip("`")
+        parsed = json.loads(raw_clean)
+        label = parsed.get("label", "无标签命中")
+        reason = parsed.get("reason", "")
+        if label not in _VALID_LABELS:
+            return "无标签命中", f"LLM 返回未知标签: {label}"
+        return label, reason
+    except Exception as exc:
+        return "无标签命中", f"LLM 调用异常: {exc}"
