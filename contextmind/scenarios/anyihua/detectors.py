@@ -25,6 +25,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from .engine import build_anyihua_engine
 from .utils import extract_amounts, parse_user_info
 
 
@@ -481,22 +482,25 @@ async def detect_session_llm(
     history = session["对话历史"]
     reply = session["坐席回复"]
 
-    # 预解析用户系统额度作为"数据错误"判断的客观参考
-    # 用户在对话中自述的金额不能作为参考（用户可能误记/质疑正确数字）
-    info = parse_user_info(user_info_str)
-    credit_yuan = info["available_credit"]
+    # 使用 PyTOD 执行引擎获取结构化预分析信号
+    # 引擎将用户信息注册为可调用 CRM API，提供客观的 ground truth 数据
+    engine = build_anyihua_engine(session)
+    acct = engine.registry["query_account"]()
+    rep = engine.registry["check_repetition"](utterance=reply.strip())
+    fare = engine.registry["check_farewell_preconditions"]()
+
+    credit_yuan = acct["available_credit"]
     credit_display = f"{credit_yuan:,}元" if credit_yuan > 0 else "未提供"
+    # parse_user_info 仍用于获取 temp_credit（引擎 acct 已含该字段）
+    temp_credit = acct.get("temp_credit", 0)
 
     # --------------------------------------------------------------------------- #
-    # 规则预分析：为 LLM 提供具体数值证据，提升数据错误和重复询问的召回率
+    # 规则预分析：为 LLM 提供具体数值证据，提升各标签召回率
     # --------------------------------------------------------------------------- #
 
     # 1. 数据错误预分析：提取坐席回复及历史发言中的金额，与系统额度比对
     # 合法参考值：available_credit 和 temp_credit（未过期时）
-    _gt_values = [
-        v for v in [credit_yuan, info["temp_credit"]]
-        if v > 0
-    ]
+    _gt_values = [v for v in [credit_yuan, temp_credit] if v > 0]
     data_error_hints: List[str] = []
     if _gt_values:
         def _is_amount_valid(value: int) -> bool:
@@ -529,26 +533,28 @@ async def detect_session_llm(
                             f"系统额度{credit_yuan:,}元，偏差{diff:,}元 ⚠️"
                         )
 
-    # 2. 重复询问预分析：计算坐席最终回复与历史坐席发言的文本相似度
-    agent_turns_history = [
-        t.removeprefix(_AGENT_PREFIX).strip()
-        for t in history
-        if t.startswith(_AGENT_PREFIX)
-    ]
-    reply_stripped = reply.strip()
-    is_exact_repeat = reply_stripped in agent_turns_history
-    max_sim = 0.0
+    # 2. 重复询问预分析：使用 PyTOD 引擎 check_repetition() 结果
+    max_sim = rep["max_similarity"]
+    is_exact_repeat = rep["is_exact_repeat"]
+    # 找最相似历史发言片段用于 hint 展示
     max_sim_turn = ""
-    for past in agent_turns_history:
-        if not past:
-            continue
-        past_chars = set(past)  # O(1) lookup vs O(n) for string membership
-        common = sum(1 for c in reply_stripped if c in past_chars)
-        denom = len(reply_stripped) + len(past)
-        sim = 2 * common / denom if denom > 0 else 0.0
-        if sim > max_sim:
-            max_sim = sim
-            max_sim_turn = past
+    if max_sim >= 0.80 and not is_exact_repeat:
+        agent_turns_history = [
+            t.removeprefix(_AGENT_PREFIX).strip()
+            for t in history
+            if t.startswith(_AGENT_PREFIX)
+        ]
+        reply_stripped = reply.strip()
+        for past in agent_turns_history:
+            if not past:
+                continue
+            past_chars = set(past)
+            common = sum(1 for c in reply_stripped if c in past_chars)
+            denom = len(reply_stripped) + len(past)
+            sim = 2 * common / denom if denom > 0 else 0.0
+            if abs(sim - max_sim) < 0.01:
+                max_sim_turn = past
+                break
 
     repetition_hint = ""
     if is_exact_repeat:
@@ -557,6 +563,15 @@ async def detect_session_llm(
         repetition_hint = (
             f"⚠️ 坐席最终回复与历史发言「{max_sim_turn[:_DISPLAY_TURN_MAX_LEN]}」"
             f"相似度 {max_sim:.0%}（≥80%）"
+        )
+
+    # 3. 不当告别预分析：使用 PyTOD 引擎 check_farewell_preconditions() 结果
+    farewell_hint = ""
+    if not fare["can_farewell"] and fare["unresolved_issues"]:
+        last_issue = fare["unresolved_issues"][-1][:_DISPLAY_TURN_MAX_LEN]
+        farewell_hint = (
+            f"⚠️ 检测到用户有未解决诉求：「{last_issue}…」"
+            f"（共 {len(fare['unresolved_issues'])} 条未解决消息）"
         )
 
     # --------------------------------------------------------------------------- #
@@ -639,6 +654,11 @@ async def detect_session_llm(
         preanalysis_sections.append(
             f"【规则预分析-重复询问】最高历史相似度 {max_sim:.0%}（<80%，未触发）"
         )
+
+    if farewell_hint:
+        preanalysis_sections.append(f"【规则预分析-不当告别】{farewell_hint}")
+    else:
+        preanalysis_sections.append("【规则预分析-不当告别】未检测到明显未解决诉求")
 
     preanalysis_text = "\n".join(preanalysis_sections)
 
