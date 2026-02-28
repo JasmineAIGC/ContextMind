@@ -13,7 +13,7 @@
     from contextmind.scenarios.anyihua.qc import (
         build_qc_engine,
         predict_label_pytod,
-        detect_session_llm,
+        classify_session_llm,
         PyTODQualityChecker,
     )
 
@@ -39,7 +39,7 @@
 """
 
 from .utils import cn2int, extract_amounts, parse_user_info
-from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, detect_session_llm
+from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, classify_session_llm
 from .generation import build_generation_engine, ANYIHUA_SCHEMA, ANYIHUA_SCHEMA_DICT
 
 __all__ = [
@@ -50,7 +50,7 @@ __all__ = [
     # 任务一：QC
     "build_qc_engine",
     "predict_label_pytod",
-    "detect_session_llm",
+    "classify_session_llm",
     "PyTODQualityChecker",
     # 任务二：Generation
     "build_generation_engine",

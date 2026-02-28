@@ -4,7 +4,7 @@
 提供三个层次的质量标签预测能力，由低成本到高成本排列：
 
     1. predict_label_pytod()    — 纯规则，零 LLM，~32% 会话可直接预测
-    2. detect_session_llm()     — LLM 全量质检，配合规则 hint 提升精度
+    2. classify_session_llm()     — LLM 全量质检，配合规则 hint 提升精度
     3. PyTODQualityChecker      — 批量质检器，支持 Hybrid（规则优先 + LLM 兜底）模式
 
 典型 Hybrid 流程:
@@ -70,7 +70,7 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
 
     返回:
         (label, confidence, reason)
-        label=None 表示规则无法判断，需交由 detect_session_llm 处理。
+        label=None 表示规则无法判断，需交由 classify_session_llm 处理。
     """
     engine = build_qc_engine(session)
 
@@ -90,7 +90,7 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
 # --------------------------------------------------------------------------- #
 
 
-async def detect_session_llm(
+async def classify_session_llm(
     session: Dict[str, Any],
     llm_client: Any,
     use_full_history: bool = False,
@@ -326,12 +326,12 @@ class PyTODQualityChecker:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(
                     asyncio.run,
-                    detect_session_llm(session, llm_client, use_full_history),
+                    classify_session_llm(session, llm_client, use_full_history),
                 )
                 label, reason = future.result()
         except RuntimeError:
             label, reason = asyncio.run(
-                detect_session_llm(session, llm_client, use_full_history)
+                classify_session_llm(session, llm_client, use_full_history)
             )
 
         return {

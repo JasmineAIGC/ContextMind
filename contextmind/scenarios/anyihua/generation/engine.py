@@ -26,8 +26,6 @@ from contextmind.modes.pytod import ExecutionEngine
 
 from ..utils import (
     AGENT_PREFIX as _AGENT_PREFIX,
-    FAREWELL_KEYWORDS,
-    FAREWELL_SOFT_PATTERNS,
     USER_CONCERN_WORDS,
     USER_PREFIX as _USER_PREFIX,
     parse_user_info,
@@ -133,13 +131,21 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     @engine.register
     def check_repetition(utterance: str = None) -> dict:
         """
-        检测坐席即将说的话是否与历史发言重复。
+        检测坐席计划使用的话术是否与历史发言重复。
 
+        需由动作解析器显式传入 utterance（坐席计划说的内容）。
         在 guide_loan_operation 意图时调用：
         - repeat_count >= 2 时建议改为 escalate_to_human
         - repeat_count == 1 时提示换一种说法
+        - 未传入 utterance 时返回无法检测
         """
-        utt = (utterance or "").strip()
+        if not utterance:
+            return {
+                "is_repetitive": False,
+                "repeat_count": 0,
+                "recommendation": "需传入 utterance 参数才能检测重复",
+            }
+        utt = utterance.strip()
         agent_turns = [
             t.removeprefix(_AGENT_PREFIX).strip()
             for t in history

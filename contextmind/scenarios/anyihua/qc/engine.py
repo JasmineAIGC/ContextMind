@@ -19,7 +19,7 @@
         "detected":   bool,         # 是否检出该类问题
         "confidence": float,        # 规则置信度（0.0 ~ 0.87）
         "evidence":   str,          # 检出依据描述
-        ...                         # API 专属字段（供 detect_session_llm 使用）
+        ...                         # API 专属字段（供 classify_session_llm 使用）
     }
 """
 
@@ -95,7 +95,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         检测数据错误：坐席引用额度金额与系统记录偏差 > 300 元。
 
         - detected/evidence：仅扫描坐席最终回复（降低误报）
-        - data_error_hints：同时扫描历史发言（供 detect_session_llm 使用）
+        - data_error_hints：同时扫描历史发言（供 classify_session_llm 使用）
 
         实测精度：P=87%, R=87%（100 条安逸花数据集）
         """
@@ -210,7 +210,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         检测不当告别：用户有未解决诉求时坐席执行告别话术。
 
         - detected：回复含告别词 AND 历史有未解决诉求
-        - farewell_hint：历史有未解决诉求时生成（供 detect_session_llm 使用）
+        - farewell_hint：历史有未解决诉求时生成（供 classify_session_llm 使用）
         """
         farewell_score = sum(1 for kw in FAREWELL_KEYWORDS if kw in reply)
         is_farewell = farewell_score >= 2 or any(

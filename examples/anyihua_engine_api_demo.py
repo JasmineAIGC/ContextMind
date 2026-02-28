@@ -5,7 +5,7 @@
 
   任务一 (QC)：build_qc_engine()
     注册 5 个质量标签检测 API，直接对应 5 个质量标签类别。
-    用于离线标签预测（predict_label_pytod）和 LLM hint 注入（detect_session_llm）。
+    用于离线标签预测（predict_label_pytod）和 LLM hint 注入（classify_session_llm）。
 
   任务二 (Generation)：build_generation_engine()
     注册 5 个 CRM 查询 API（query_account 等）。
