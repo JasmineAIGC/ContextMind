@@ -286,7 +286,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         farewell_evidence = [kw for kw in FAREWELL_KEYWORDS if kw in reply]
         soft_matches = [p for p in FAREWELL_SOFT_PATTERNS if p in reply]
 
-        has_farewell = farewell_score >= 2 or bool(soft_matches)
+        has_farewell = farewell_score >= 1 or bool(soft_matches)
         if soft_matches:
             farewell_evidence.extend(soft_matches)
 

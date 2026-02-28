@@ -52,6 +52,9 @@ _LABEL_CONFIDENCE: Dict[str, float] = {
 _RULE_CREDIT_ERROR_CONFIDENCE: float = 0.87   # 数据错误：精确额度偏差检测
 _RULE_REPETITION_CONFIDENCE: float = 0.87     # 重复询问：精确字符串匹配
 
+#: 不当告别规则预测中"最近未解决诉求"的预览字符数
+_ISSUE_PREVIEW: int = 20
+
 
 # --------------------------------------------------------------------------- #
 # 1. 纯规则标签预测
@@ -90,6 +93,19 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
     if rep["exact_repeat"] and rep["repeat_count"] >= 1:
         reason = f"坐席回复与历史发言精确匹配，已重复 {rep['repeat_count'] + 1} 次"
         return "重复询问", _RULE_REPETITION_CONFIDENCE, reason
+
+    # 不当告别：引擎提供告别事实，规则在此处综合判断
+    # build_qc_engine 保证 get_farewell_data 始终注册，KeyError 此处不可能发生
+    fare = engine.registry["get_farewell_data"]()
+    if fare["has_farewell"] and fare["unresolved_count"] >= 2:
+        evidence = "、".join(fare["farewell_evidence"][:2]) if fare["farewell_evidence"] else "告别话术"
+        last_issue = fare["unresolved_issues"][-1][:_ISSUE_PREVIEW] if fare["unresolved_issues"] else ""
+        reason = (
+            f"坐席执行告别话术（{evidence}），"
+            f"用户有 {fare['unresolved_count']} 条含诉求词消息"
+            + (f"（最近：「{last_issue}…」）" if last_issue else "")
+        )
+        return "不当告别", 0.75, reason
 
     return None, 0.0, "规则无法判断，需 LLM 语义推理"
 
@@ -361,6 +377,7 @@ class PyTODQualityChecker:
         self,
         data: List[Dict[str, Any]],
         verbose: bool = False,
+        show_all: bool = False,
         use_full_history: bool = False,
         llm_client: Optional[Any] = None,
         use_pytod_first: bool = False,
@@ -368,14 +385,19 @@ class PyTODQualityChecker:
         """
         批量质检并计算与人工校验的一致性。
 
+        参数:
+            verbose:   True 时逐条打印预测**错误**的会话详情
+            show_all:  True 时逐条打印**所有**会话详情（含正确）
+
         返回:
             {"predictions": list, "accuracy": float, "by_label": dict, "pytod_rate": float}
         """
         predictions: List[Dict[str, Any]] = []
         correct = 0
         by_label: Dict[str, Dict[str, int]] = {}
+        total = len(data)
 
-        for session in data:
+        for idx, session in enumerate(data, 1):
             pred = self.check(
                 session,
                 use_full_history=use_full_history,
@@ -389,11 +411,11 @@ class PyTODQualityChecker:
             if pred["correct"]:
                 correct += 1
             predictions.append(pred)
-            if verbose and not pred["correct"]:
-                print(f"❌ {session['session_id'][-8:]} | 预测: {pred['label']} | 实际: {gold}")
-                print(f"   原因: {pred['reason']}")
 
-        total = len(data)
+            # 逐条日志：show_all 显示所有，verbose 仅显示错误
+            if show_all or (verbose and not pred["correct"]):
+                self._print_item(idx, total, session, pred, gold)
+
         accuracy = correct / total if total else 0.0
         pytod_count = sum(1 for p in predictions if p.get("source") == "pytod")
         pytod_rate = pytod_count / total if total else 0.0
@@ -410,22 +432,70 @@ class PyTODQualityChecker:
                 by_label[gold]["FN"] += 1
                 by_label[predicted]["FP"] += 1
 
-        print(f"\n总体准确率: {accuracy:.1%} ({correct}/{total})")
+        print(f"\n{'─' * 60}")
+        print(f"总体准确率: {accuracy:.1%} ({correct}/{total})")
         if pytod_count > 0:
             pytod_correct = sum(1 for p in predictions if p.get("source") == "pytod" and p["correct"])
             print(
-                f"PyTOD 规则预测: {pytod_count}/{total} 条（{pytod_rate:.0%}），"
+                f"规则预测覆盖: {pytod_count}/{total} 条（{pytod_rate:.0%}），"
                 f"其中正确 {pytod_correct}/{pytod_count}（精度 {pytod_correct/pytod_count:.0%}）"
             )
-        print("\n各标签统计:")
-        for label, stats in by_label.items():
+        llm_count = total - pytod_count
+        if llm_count > 0:
+            llm_correct = sum(1 for p in predictions if p.get("source") == "llm" and p["correct"])
+            print(
+                f"LLM 预测覆盖: {llm_count}/{total} 条（{1 - pytod_rate:.0%}），"
+                f"其中正确 {llm_correct}/{llm_count}（精度 {llm_correct/llm_count:.0%}）"
+            )
+        print("\n各标签统计 (P=精确率 R=召回率 F1):")
+        for label, stats in sorted(by_label.items(), key=lambda x: -(x[1]["TP"] + x[1]["FN"])):
             tp, fp, fn = stats["TP"], stats["FP"], stats["FN"]
             precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
             recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-            print(f"  {label}: P={precision:.0%} R={recall:.0%} F1={f1:.0%}")
+            total_gold = tp + fn
+            print(
+                f"  {label:<8}  金标={total_gold:2d}  TP={tp:2d}  FP={fp:2d}  FN={fn:2d}"
+                f"  P={precision:.0%}  R={recall:.0%}  F1={f1:.0%}"
+            )
             by_label[label].update(
                 {"precision": round(precision, 4), "recall": round(recall, 4), "f1": round(f1, 4)}
             )
 
         return {"predictions": predictions, "accuracy": accuracy, "by_label": by_label, "pytod_rate": pytod_rate}
+
+    @staticmethod
+    def _print_item(
+        idx: int,
+        total: int,
+        session: Dict[str, Any],
+        pred: Dict[str, Any],
+        gold: str,
+    ) -> None:
+        """打印单条会话的质检详情（供 verbose/show_all 模式使用）。"""
+        is_correct = pred["label"] == gold
+        status = "✅ 正确" if is_correct else "❌ 错误"
+        sid = session.get("session_id", "")
+        reply = session.get("坐席回复", "")
+        history = session.get("对话历史", [])
+
+        # 最近一条用户发言
+        last_user = next(
+            (t.removeprefix("用户：") for t in reversed(history) if t.startswith("用户：")),
+            "",
+        )
+        reply_short = reply[:60].replace("\n", " ")
+        reply_suffix = "…" if len(reply) > 60 else ""
+        user_short = last_user[:50].replace("\n", " ")
+        user_suffix = "…" if len(last_user) > 50 else ""
+
+        source_tag = f"[{pred.get('source', '?')}  置信度={pred.get('confidence', 0):.0%}]"
+        print(
+            f"\n  [{idx:03d}/{total}] {status}  {source_tag}\n"
+            f"    session_id : {sid}\n"
+            f"    用户最后说 : {user_short}{user_suffix}\n"
+            f"    坐席回复   : {reply_short}{reply_suffix}\n"
+            f"    人工校验   : {gold}\n"
+            f"    预测标签   : {pred['label']}\n"
+            f"    预测原因   : {pred.get('reason', '—')}"
+        )

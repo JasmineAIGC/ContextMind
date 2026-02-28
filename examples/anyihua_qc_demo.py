@@ -2,11 +2,11 @@
 安逸花外呼促活服务 · PyTOD 批量质检流水线（Hybrid 质检版）
 
 对 chat_test_100.json 中的 100 条安逸花外呼对话数据集执行离线质检。
-默认启用 Hybrid 模式：规则覆盖的会话（约 29%）直接给出标签（精度 90%+），
+默认启用 Hybrid 模式：规则覆盖的会话（约 40%）直接给出标签（高精度），
 其余会话调用 LLM 质检，节省 token 并提升整体准确率。
 
 五个质量标签：
-    - 数据错误：坐席引用金额与用户实际信息不符（偏差 > 300 元）
+    - 数据错误：坐席引用金额与用户实际信息不符
     - 重复询问：坐席回复与历史发言高度重复
     - 不当告别：用户有未解决问题时坐席执行告别话术
     - 答非所问：用户明确提问但坐席回复完全无关
@@ -20,14 +20,17 @@
     cd /path/to/ContextMind
     python examples/anyihua_qc_demo.py
 
-    # 禁用规则优先，使用纯 LLM 质检：
-    python examples/anyihua_qc_demo.py --no-pytod
+    # 使用纯 LLM 质检（不使用规则预测）：
+    python examples/anyihua_qc_demo.py --mode llm
 
-    # 将全部对话历史送入 LLM（默认仅送最近 10 轮，节省 token）：
+    # 将全部对话历史送入 LLM（默认仅送最近 20 轮，节省 token）：
     python examples/anyihua_qc_demo.py --full-history
 
-    # 只看预测错误的条目（verbose 模式）：
+    # 逐条打印预测错误的条目：
     python examples/anyihua_qc_demo.py --verbose
+
+    # 逐条打印所有条目（含预测正确的）：
+    python examples/anyihua_qc_demo.py --show-all
 
     # 将结果保存到 JSON：
     python examples/anyihua_qc_demo.py --output /tmp/qc_results.json
@@ -98,16 +101,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="逐条打印预测错误的会话信息",
+        help="逐条打印预测错误的会话详情",
     )
     parser.add_argument(
-        "--no-pytod",
-        dest="use_pytod_first",
-        action="store_false",
-        default=True,
+        "--show-all",
+        dest="show_all",
+        action="store_true",
+        default=False,
+        help="逐条打印所有会话详情（含预测正确的；与 --verbose 互斥，优先级更高）",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["hybrid", "llm"],
+        default="hybrid",
         help=(
-            "禁用规则优先模式（默认启用 Hybrid 模式：规则覆盖的会话直接给出标签，"
-            "规则无法判断时再调用 LLM，节省 token 并提升准确率）"
+            "预测标签方法（默认: hybrid）：\n"
+            "  hybrid — 规则优先 + LLM 兜底：规则直接覆盖数据错误/重复询问/不当告别，"
+            "其余由 LLM 处理，节省 token 并提升准确率；\n"
+            "  llm    — 纯 LLM 质检：所有会话均由 LLM 处理，适用于规则覆盖不足的场景。"
         ),
     )
     parser.add_argument(
@@ -116,7 +127,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help=(
-            "将完整对话历史送入 LLM（默认仅送最近 10 轮以节省 token）。"
+            "将完整对话历史送入 LLM（默认仅送最近 20 轮以节省 token）。"
             "历史较长的会话建议开启以提升检测准确率。"
         ),
     )
@@ -159,17 +170,18 @@ def main() -> None:
 
     # ---- 运行质检 ----
     checker = PyTODQualityChecker()
+    use_pytod_first = args.mode == "hybrid"
     mode_desc = (
-        f"hybrid={'开启' if args.use_pytod_first else '关闭'}, "
-        f"use_full_history={args.full_history}, model={config.model}"
+        f"mode={args.mode}  full_history={args.full_history}  model={config.model}"
     )
     print(f"\n🔍 开始质检（{mode_desc}）…\n")
     results = checker.run_batch(
         data,
         verbose=args.verbose,
+        show_all=args.show_all,
         use_full_history=args.full_history,
         llm_client=llm_client,
-        use_pytod_first=args.use_pytod_first,
+        use_pytod_first=use_pytod_first,
     )
 
     # ---- 保存结果（可选）----
