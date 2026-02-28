@@ -1,34 +1,26 @@
 """
-安逸花外呼促活场景 · ExecutionEngine 构建
+安逸花外呼 · 任务一（QC）· ExecutionEngine 构建
 
-将 5 个质量标签检测函数注册为 PyTOD ExecutionEngine 的可调用 API，
-每个 API 对应一个质量标签类别，封装完整的检测逻辑。
+将 5 个质量标签检测函数注册为 PyTOD ExecutionEngine 的可调用 API。
+每个 API 对应一个质量标签类别，封装完整的规则检测逻辑，
+可由动作解析器生成 PyTOD 程序直接调用，也可在 predict_label_pytod()
+中作为纯规则预测器调用（无需 LLM）。
 
-PyTOD 动作解析器可生成如下程序，由执行引擎依次调用：
-
-    x1 predict_data_error()
-    x2 predict_repetition()
-    x3 predict_improper_farewell()
-    x4 predict_off_topic()
-    x5 say(x1)
-
-注册的 API 列表（对应 5 个质量标签类别）：
-    predict_data_error(customer_name)        - 检测数据错误（额度引用偏差 > 300 元）
-    predict_repetition(utterance)            - 检测重复询问（与历史发言精确/模糊匹配）
-    predict_improper_farewell(customer_name) - 检测不当告别（用户有未解决诉求时告别）
-    predict_off_topic(customer_name)         - 检测答非所问（回复与用户问题话题无关）
-    predict_no_issue(customer_name)          - 无标签命中（以上均未检出时的默认标签）
+注册的 5 个 API（对应 5 个标签类别）：
+    predict_data_error(customer_name)        — 额度偏差 > 300 元
+    predict_repetition(utterance)            — 坐席回复与历史精确/模糊匹配
+    predict_improper_farewell(customer_name) — 用户有未解决诉求时告别
+    predict_off_topic(customer_name)         — 回复与用户问题话题无关
+    predict_no_issue(customer_name)          — 默认标签（兜底）
 
 每个 API 返回标准结构：
     {
-        "label":      str | None,   # 对应标签名；未检出时为 None
+        "label":      str | None,   # 标签名；未检出时为 None
         "detected":   bool,         # 是否检出该类问题
         "confidence": float,        # 规则置信度（0.0 ~ 0.87）
         "evidence":   str,          # 检出依据描述
-        ...                         # API 专属字段（供 LLM 预分析提示使用）
+        ...                         # API 专属字段（供 detect_session_llm 使用）
     }
-
-基于 docs/analysis/pytod-on-chat-test-100.md §3.3 和 §7.1 实现。
 """
 
 from __future__ import annotations
@@ -37,7 +29,7 @@ from typing import Any, Dict
 
 from contextmind.modes.pytod import ExecutionEngine
 
-from .utils import (
+from ..utils import (
     AGENT_PREFIX as _AGENT_PREFIX,
     FAREWELL_KEYWORDS,
     FAREWELL_SOFT_PATTERNS,
@@ -48,55 +40,42 @@ from .utils import (
     parse_user_info,
 )
 
-# 数据错误检测容许误差（元）
+# 数据错误容许误差（元）
 _AMOUNT_TOLERANCE = 300
-
-# 重复询问模糊相似度阈值（Layer 2，用于 LLM hint 生成）
+# 重复询问模糊相似度阈值（用于 LLM hint 生成）
 _REP_SIM_THRESHOLD = 0.80
-
-# 不当告别检测的用户历史窗口大小（最近 N 条历史）
+# 不当告别检测的用户历史窗口大小
 _FAREWELL_HISTORY_WINDOW = 12
-
-# LLM hint 文本截断长度
+# hint 文本截断长度
 _HINT_TRUNC = 30
 
 
-def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
+def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     """
-    为安逸花外呼场景构建 ExecutionEngine，注册 5 个质量标签检测 API。
+    为安逸花 QC 任务构建 ExecutionEngine，注册 5 个质量标签检测 API。
 
-    每次针对一个会话调用，返回绑定了该会话数据的 ExecutionEngine 实例。
-    动作解析器可在 PyTOD 程序中调用这些 API 直接获取标签预测结果，
-    无需 LLM 介入即可处理高置信度的机械性质量问题。
+    每次针对一条会话调用，返回绑定该会话数据的引擎实例。
 
     参数:
-        session: chat_test_100.json 中的单条记录，包含键：
-                 - "用户信息": "#" 分隔的客户属性字段串
-                 - "对话历史": 对话历史列表
-                 - "坐席回复": 待检测的坐席最终回复
-                 - "session_id": 会话唯一标识
+        session: chat_test_100.json 单条记录，须包含键：
+                 "用户信息", "对话历史", "坐席回复"
 
     返回:
-        ExecutionEngine 实例，已注册以下 5 个标签检测 API：
-        predict_data_error / predict_repetition / predict_improper_farewell /
-        predict_off_topic / predict_no_issue
+        ExecutionEngine 实例，已注册 5 个标签检测 API。
 
     使用示例::
 
-        engine = build_anyihua_engine(session)
+        engine = build_qc_engine(session)
 
-        # 方式 A：直接调用（用于 predict_label_pytod 纯规则预测）
+        # 纯规则调用
         result = engine.registry["predict_data_error"]()
-        if result["detected"]:
-            print(f"检出 {result['label']}，置信度 {result['confidence']}")
 
-        # 方式 B：PyTOD 程序调用（由动作解析器生成）
+        # PyTOD 程序调用
         result = engine.execute_program('''
             x1 predict_data_error()
             x2 predict_repetition()
             x3 say(x1)
         ''')
-        # result.variable_values["x1"]["detected"] == True → 数据错误
     """
     engine = ExecutionEngine()
     info = parse_user_info(session["用户信息"])
@@ -113,15 +92,10 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
     @engine.register
     def predict_data_error(customer_name: str = None) -> dict:
         """
-        检测数据错误：坐席引用的额度金额与系统记录偏差 > 300 元。
+        检测数据错误：坐席引用额度金额与系统记录偏差 > 300 元。
 
-        两层输出：
-        - detected / label / confidence / evidence：
-          用于规则预测（仅扫描坐席回复，降低误报）
-        - data_error_hints：
-          用于 LLM 预分析提示（同时扫描历史发言，提高召回）
-        - system_credit / temp_credit：
-          供 LLM prompt 引用的系统真实额度
+        - detected/evidence：仅扫描坐席最终回复（降低误报）
+        - data_error_hints：同时扫描历史发言（供 detect_session_llm 使用）
 
         实测精度：P=87%, R=87%（100 条安逸花数据集）
         """
@@ -133,7 +107,6 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
         reply_evidence = ""
 
         if _gt_values:
-            # Layer 1：扫描坐席最终回复（规则预测依据，避免历史金额引发误报）
             for amount_text, value in extract_amounts(reply):
                 if value > 1000 and not _is_valid(value):
                     diff = abs(value - info["available_credit"])
@@ -148,7 +121,6 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
                             f"系统额度{info['available_credit']:,}元，偏差{diff:,}元"
                         )
 
-            # Layer 2：扫描历史坐席发言（仅用于 LLM hint，不影响 detected）
             seen: set = set()
             for turn in history:
                 if turn.startswith(_AGENT_PREFIX):
@@ -181,11 +153,8 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
         """
         检测重复询问：坐席回复与历史发言高度重复。
 
-        分层检测：
         - Layer 1（精确匹配）：detected=True，用于规则预测（P=87%, R=87%）
         - Layer 2（字符重叠 ≥ 80%）：生成 repetition_hint，供 LLM 参考
-
-        实测精度：P=87%, R=87%（100 条安逸花数据集）
         """
         utt = (utterance or reply).strip()
         agent_turns = [
@@ -194,11 +163,9 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
             if t.startswith(_AGENT_PREFIX)
         ]
 
-        # Layer 1：精确匹配（规则预测依据）
         is_exact = utt in agent_turns
         count = agent_turns.count(utt)
 
-        # Layer 2：字符重叠相似度（LLM hint 依据）
         max_sim = 0.0
         max_sim_turn = ""
         for past in agent_turns:
@@ -242,10 +209,8 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
         """
         检测不当告别：用户有未解决诉求时坐席执行告别话术。
 
-        两层输出：
-        - detected：仅当回复含告别词 AND 历史有未解决诉求时为 True
-        - farewell_hint：仅当历史有未解决诉求时生成（即使本轮回复不是
-          告别话术，也作为 LLM 背景信息）
+        - detected：回复含告别词 AND 历史有未解决诉求
+        - farewell_hint：历史有未解决诉求时生成（供 detect_session_llm 使用）
         """
         farewell_score = sum(1 for kw in FAREWELL_KEYWORDS if kw in reply)
         is_farewell = farewell_score >= 2 or any(
@@ -291,8 +256,7 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
         """
         检测答非所问：用户有明确问题但坐席回复与问题话题完全无关。
 
-        规则版召回率约 60%，适合作为快速预过滤层；
-        纯语义层面的答非所问需交由 LLM 判断。
+        规则版召回率约 60%，适合快速预过滤；语义层面需 LLM 判断。
         """
         last_user = next(
             (
@@ -312,29 +276,21 @@ def build_anyihua_engine(session: Dict[str, Any]) -> ExecutionEngine:
                         "detected": True,
                         "confidence": 0.80,
                         "evidence": (
-                            f"用户发言含「{q_word}」，但坐席回复含「{mismatches[0]}」，"
-                            f"可能答非所问"
+                            f"用户发言含「{q_word}」，但坐席回复含「{mismatches[0]}」"
                         ),
                     }
 
-        return {
-            "label": None,
-            "detected": False,
-            "confidence": 0.0,
-            "evidence": "",
-        }
+        return {"label": None, "detected": False, "confidence": 0.0, "evidence": ""}
 
     # ----------------------------------------------------------------------- #
-    # API 5：predict_no_issue — 无标签命中（默认标签）
+    # API 5：predict_no_issue — 无标签命中（兜底）
     # ----------------------------------------------------------------------- #
 
     @engine.register
     def predict_no_issue(customer_name: str = None) -> dict:
         """
-        无标签命中（默认标签）。
-
-        在其余四个标签均未检出时调用，表示本条对话不存在已定义的质量问题。
-        confidence 相对较低（0.75），因为规则层无法穷举所有"正常"情况。
+        无标签命中（默认兜底标签）。
+        其余四个标签均未检出时调用。
         """
         return {
             "label": "无标签命中",

@@ -41,7 +41,7 @@ import gradio as gr
 from contextmind.infra.llm_client import SimpleLLMClient as LLMClient, LLMConfig
 from contextmind.modes.pytod import PyTODPromptBuilder, PyTODTracker
 from contextmind.modes.pytod.prompt_builder import ConversationTurn
-from contextmind.scenarios.anyihua import ANYIHUA_SCHEMA, build_anyihua_engine
+from contextmind.scenarios.anyihua.generation import ANYIHUA_SCHEMA, build_generation_engine
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
@@ -77,7 +77,7 @@ async def run_online_generation(
             - actual_reply: 实际坐席回复（来自数据集）
             - label:        人工校验标签
     """
-    engine = build_anyihua_engine(session)
+    engine = build_generation_engine(session)
 
     builder = PyTODPromptBuilder(
         schema=ANYIHUA_SCHEMA,

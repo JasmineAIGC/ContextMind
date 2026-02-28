@@ -1,80 +1,59 @@
 """
-安逸花外呼促活服务 · PyTOD 场景实现
+安逸花外呼促活场景 · PyTOD 实现
 
-基于 docs/analysis/pytod-on-chat-test-100.md 的分析与代码指导，
-在 chat_test_100.json（100 条安逸花外呼对话数据集）上实现 PyTOD 的三种应用方式：
+本场景包含两个独立任务，代码完全隔离：
 
-方式 A：离线质检（Offline QC）— 纯 LLM
-    输入: (用户信息, 对话历史, 坐席回复)
-    → PyTOD ExecutionEngine 5 个标签 API 预分析（注入 hint 到 prompt）
-    → LLM 五分类质检（detect_session_llm）
-    → 预测标签 vs 人工校验标签 → F1 评估
+任务一：离线质检（Label Prediction / QC）
+    位置: contextmind/scenarios/anyihua/qc/
+    入口: examples/anyihua_qc_pipeline.py
 
-方式 A²：离线质检（Hybrid QC）— PyTOD 优先，LLM 兜底
-    输入: (用户信息, 对话历史, 坐席回复)
-    → predict_label_pytod()：纯规则预测
-      → 数据错误：predict_data_error() → 直接输出（无 LLM）
-      → 重复询问：predict_repetition() → 直接输出（无 LLM）
-      → 其他标签：规则无法判断 → 交由 detect_session_llm
-    → 实测：32/100 会话无需 LLM，节省 ~32% token
+    使用 PyTOD ExecutionEngine 注册 5 个标签检测 API（对应 5 个质量标签），
+    通过纯规则预测或 LLM 辅助分类对坐席回复进行质量标注。
 
-方式 B：在线生成（Online Generation）
-    输入: (用户信息, 对话历史, 最后用户发言)
-    → [步骤1] 动作解析器 (LLM) → PyTOD 程序
-    → [步骤2] ExecutionEngine.execute_program()
-    → [步骤3] 对话管理器 (LLM) → 基于真实数据生成回复
+    from contextmind.scenarios.anyihua.qc import (
+        build_qc_engine,
+        predict_label_pytod,
+        detect_session_llm,
+        PyTODQualityChecker,
+    )
 
-目录结构:
-    utils.py          - 中文数字解析、用户信息解析、标签检测共享常量
-    engine.py         - ExecutionEngine 构建（5 个质量标签检测 API 注册）
-    schema.py         - ServiceSchema 定义
-    detectors.py      - 检测函数（predict_label_pytod 纯规则；detect_session_llm LLM 分类）
-    quality_checker.py - PyTODQualityChecker 批量质检器（支持 hybrid 模式）
+任务二：在线生成（Response Generation）
+    位置: contextmind/scenarios/anyihua/generation/
+    入口: examples/anyihua_online_demo.py
+
+    使用 PyTOD ExecutionEngine 注册 CRM 查询 API（query_account 等），
+    通过 PyTODTracker 三步流程（动作解析器 → 执行引擎 → 对话管理器）
+    生成更优质的坐席回复。
+
+    from contextmind.scenarios.anyihua.generation import (
+        build_generation_engine,
+        ANYIHUA_SCHEMA,
+    )
+
+共享工具:
+    from contextmind.scenarios.anyihua.utils import (
+        cn2int, extract_amounts, parse_user_info,
+        AGENT_PREFIX, USER_PREFIX, FAREWELL_KEYWORDS,
+        USER_CONCERN_WORDS, OFFTOPIC_SIGNALS,
+    )
 """
 
 from .utils import cn2int, extract_amounts, parse_user_info
-from .engine import build_anyihua_engine
-from .schema import ANYIHUA_SCHEMA_DICT, ANYIHUA_SCHEMA
-from .detectors import (
-    detect_data_error,
-    detect_data_error_recent_history,
-    detect_repetition,
-    detect_improper_farewell,
-    detect_off_topic_rule,
-    detect_off_topic_llm,
-    detect_session_llm,
-    predict_label_pytod,
-    FAREWELL_KEYWORDS,
-    USER_CONCERN_WORDS,
-    OFFTOPIC_SIGNALS,
-)
-from .quality_checker import PyTODQualityChecker
+from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, detect_session_llm
+from .generation import build_generation_engine, ANYIHUA_SCHEMA, ANYIHUA_SCHEMA_DICT
 
 __all__ = [
-    # utils
+    # 共享工具
     "cn2int",
     "extract_amounts",
     "parse_user_info",
-    # engine
-    "build_anyihua_engine",
-    # schema
-    "ANYIHUA_SCHEMA_DICT",
-    "ANYIHUA_SCHEMA",
-    # detectors — rule-based (PyTOD-only, no LLM)
-    "detect_data_error",
-    "detect_data_error_recent_history",
-    "detect_repetition",
-    "detect_improper_farewell",
-    "detect_off_topic_rule",
-    "detect_off_topic_llm",
-    # detectors — PyTOD deterministic predictor (no LLM)
+    # 任务一：QC
+    "build_qc_engine",
     "predict_label_pytod",
-    # detectors — LLM-based (main pipeline)
     "detect_session_llm",
-    # constants
-    "FAREWELL_KEYWORDS",
-    "USER_CONCERN_WORDS",
-    "OFFTOPIC_SIGNALS",
-    # quality checker
     "PyTODQualityChecker",
+    # 任务二：Generation
+    "build_generation_engine",
+    "ANYIHUA_SCHEMA",
+    "ANYIHUA_SCHEMA_DICT",
 ]
