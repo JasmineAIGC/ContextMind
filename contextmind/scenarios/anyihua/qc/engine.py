@@ -33,6 +33,7 @@
 from __future__ import annotations
 
 import re
+from difflib import SequenceMatcher
 from typing import Any, Dict
 
 from contextmind.modes.pytod import ExecutionEngine
@@ -265,13 +266,13 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         提取内容：
           · exact_repeat      — 是否与历史某条坐席发言完全一致
           · repeat_count      — 完全一致的历史出现次数
-          · max_similarity    — 最高字符相似度（0.0~1.0）
+          · max_similarity    — 最高序列相似度（difflib Gestalt，0.0~1.0）
           · most_similar_turn — 相似度最高的历史发言片段
           · hint              — 供 LLM 参考的文字描述
 
         注意：本 API 不判断是否为"重复询问"，判断由调用方（LLM / predictor）负责。
               精确重复（exact_repeat=True）是强信号，
-              相似度 ≥ 0.80 时由 LLM 进一步确认是否实质重复。
+              相似度 ≥ 75% 时由 LLM 进一步确认是否实质重复。
         """
         utt = (utterance or reply).strip()
         agent_turns = [
@@ -288,9 +289,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         for past in agent_turns:
             if not past:
                 continue
-            common = sum(1 for c in utt if c in past)
-            denom = len(utt) + len(past)
-            sim = 2 * common / denom if denom > 0 else 0.0
+            sim = SequenceMatcher(None, utt, past).ratio()
             if sim > max_sim:
                 max_sim = sim
                 most_similar = past
