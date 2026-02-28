@@ -5,12 +5,13 @@
 供动作解析器（Action Parser）在 PyTOD 程序中调用，
 以便对话管理器（Dialogue Manager）基于真实数据生成坐席回复。
 
-注册的 5 个 API（均为纯数据查询，不返回建议或决策）：
-    query_account()          — 查询账户额度信息（核心数据源）
-    calculate_repayment(amount, months)  — 计算月还款额和总手续费
-    get_agent_history()      — 获取历史坐席话术列表（供对话管理器避免重复）
-    query_unresolved_issues() — 查询用户未解决诉求（供对话管理器决定是否告别）
-    query_loan_records()     — 查询借款记录
+注册的 6 个 API（均为纯数据查询，不返回建议或决策）：
+    verify_customer(name, phone_suffix) — 验证客户身份（核实姓名和手机尾号）
+    query_account()                     — 查询账户额度信息（核心数据源）
+    calculate_repayment(amount, months) — 计算月还款额和总手续费
+    get_agent_history()                 — 获取历史坐席话术列表（供对话管理器避免重复）
+    query_unresolved_issues()           — 查询用户未解决诉求（供对话管理器决定是否告别）
+    query_loan_records()                — 查询借款记录
 
 API 设计原则：
     - 所有 API 只返回原始数据，不做推断或建议（决策由对话管理器 LLM 负责）
@@ -36,7 +37,7 @@ _FAREWELL_HISTORY_WINDOW = 12
 
 def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     """
-    为安逸花生成任务构建 ExecutionEngine，注册 5 个 CRM 数据查询 API。
+    为安逸花生成任务构建 ExecutionEngine，注册 6 个 CRM 数据查询 API。
 
     动作解析器（LLM）根据 ANYIHUA_SCHEMA 生成 PyTOD 程序，
     执行引擎调用这些 API 获取真实 CRM 数据，
@@ -66,7 +67,49 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     history: list = session.get("对话历史", [])
 
     # ----------------------------------------------------------------------- #
-    # API 1：query_account — 查询账户信息（核心数据源）
+    # API 1：verify_customer — 核实客户身份
+    # ----------------------------------------------------------------------- #
+
+    def _check_name_match(provided: str, stored: str) -> bool:
+        """姓名匹配：支持部分匹配（如'高先生'匹配'高'或反向）"""
+        if not provided or not stored:
+            return False
+        return stored in provided or provided in stored
+
+    def _check_phone_match(provided: str, stored: str) -> bool:
+        """手机尾号匹配：忽略'末'字前缀，检查尾号是否出现在提供值中"""
+        if not provided or not stored:
+            return False
+        normalized = stored.replace("末", "").strip()
+        return normalized in provided
+
+    @engine.register
+    def verify_customer(name: str = None, phone_suffix: str = None) -> dict:
+        """
+        核实客户身份：验证来电人提供的姓名和手机尾号与系统记录是否一致。
+
+        动作解析器在 verify_identity 意图时调用此 API，
+        通过对比用户提供的姓名和手机尾号来确认来电者是账户本人。
+
+        返回的 identity_confirmed 字段供对话管理器（LLM）决策：
+        · identity_confirmed=True：可继续告知账户信息并推介借款
+        · identity_confirmed=False：不应告知账户详情，应礼貌询问或终止通话
+        """
+        name_match = _check_name_match(name, info["customer_name"]) if name is not None else None
+        phone_match = _check_phone_match(phone_suffix, info["phone_suffix"]) if phone_suffix is not None else None
+
+        return {
+            "customer_name": info["customer_name"],
+            "phone_suffix": info["phone_suffix"],
+            "name_provided": name,
+            "phone_suffix_provided": phone_suffix,
+            "name_match": name_match,
+            "phone_match": phone_match,
+            "identity_confirmed": bool(name_match),
+        }
+
+    # ----------------------------------------------------------------------- #
+    # API 2：query_account — 查询账户信息（核心数据源）
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -96,7 +139,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 2：calculate_repayment — 计算还款信息
+    # API 3：calculate_repayment — 计算还款信息
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -125,7 +168,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 3：get_agent_history — 获取历史坐席话术
+    # API 4：get_agent_history — 获取历史坐席话术
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -148,7 +191,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 4：query_unresolved_issues — 查询用户未解决诉求
+    # API 5：query_unresolved_issues — 查询用户未解决诉求
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -172,7 +215,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 5：query_loan_records — 查询借款记录
+    # API 6：query_loan_records — 查询借款记录
     # ----------------------------------------------------------------------- #
 
     @engine.register

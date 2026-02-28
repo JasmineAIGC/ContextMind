@@ -10,11 +10,12 @@ Schema 约束 LLM 只从预定义意图中选择，按规定格式填写槽位�
         customer_name, phone_suffix, dispute_date, inquiry_amount, term_months
 
     API 返回槽位（Action Parser 从 API 结果中读取，供对话管理器使用）：
-        available_credit, temp_credit, temp_credit_status, temp_expiry_days,
-        annual_rate_pct, loan_count, last_loan_date, outstanding_amount
+        identity_confirmed, available_credit, temp_credit, temp_credit_status,
+        temp_expiry_days, annual_rate_pct, loan_count, last_loan_date,
+        outstanding_amount
 
-意图设计原则（基于 chat_test_100.json 数据分析）：
-    verify_identity         — 开场核实身份（用户提供姓名和手机尾号）
+意图设计原则（安逸花外呼通用业务流程）：
+    verify_identity         — 开场核实身份（调用 verify_customer API）
     explain_credit_limit    — 告知额度（调用 query_account API）
     explain_interest_rate   — 解释利率和还款方式（可调用 calculate_repayment API）
     calculate_repayment     — 计算月还款额（调用 calculate_repayment API）
@@ -47,7 +48,17 @@ ANYIHUA_SCHEMA_DICT = {
             "is_categorical": False,
         },
         {"name": "term_months", "description": "用户询问的分期期数（如 12）", "is_categorical": False},
-        # ---- API 返回槽位（由 query_account / calculate_repayment 填充）----
+        # ---- API 返回槽位（由 verify_customer / query_account / calculate_repayment 填充）----
+        {
+            "name": "identity_confirmed",
+            "description": (
+                "客户身份是否已核实——由 verify_customer API 返回。"
+                "对话管理器（LLM）应在 identity_confirmed=False 时拒绝告知账户信息；"
+                "此字段是对话管理器执行身份验证策略的依据，不由执行引擎强制拦截"
+            ),
+            "is_categorical": True,
+            "possible_values": ["True", "False"],
+        },
         {
             "name": "available_credit",
             "description": "当前实际可提现额度（元）——由 query_account API 返回，禁止估算",
@@ -69,8 +80,12 @@ ANYIHUA_SCHEMA_DICT = {
     "intents": [
         {
             "name": "verify_identity",
-            "description": "开场身份核实：确认客户姓名和手机尾号",
-            "required_slots": ["customer_name"],
+            "description": (
+                "开场身份核实：确认来电者是账户本人。"
+                "调用 verify_customer API 传入用户提供的姓名和手机尾号，"
+                "通过 identity_confirmed 字段确认身份后才可进行后续账户信息告知"
+            ),
+            "required_slots": ["customer_name", "identity_confirmed"],
             "optional_slots": ["phone_suffix"],
         },
         {

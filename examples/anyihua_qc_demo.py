@@ -46,11 +46,38 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
-from contextmind.scenarios.anyihua.qc import PyTODQualityChecker
+from contextmind.modes.pytod import ServiceSchema
+from contextmind.scenarios.anyihua.qc import ANYIHUA_QC_SCHEMA, PyTODQualityChecker
 
 # 项目根目录（examples/ 的上一级）
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
+
+
+def print_schema_summary(schema: ServiceSchema) -> None:
+    """
+    显示 QC ServiceSchema 的意图和槽位摘要。
+
+    PyTOD 动作解析器（Action Parser）会根据此 schema 约束意图选择和槽位填充。
+    schema 定义了 LLM 可以调用的执行引擎 API 以及每个意图需要的数据槽位。
+    """
+    print("\n📐 QC Schema — PyTOD 动作解析器约束（contextmind/modes/pytod/schema.py）")
+    print(f"   服务名: {schema.service_name}")
+    print(f"   意图数: {len(schema.intents)}  槽位数: {len(schema.slots)}")
+    print()
+    print("   质量检测意图（Action Parser 按需调用对应执行引擎 API）:")
+    for intent in schema.intents:
+        req = ", ".join(intent.required_slots) or "—"
+        opt = ", ".join(intent.optional_slots) if intent.optional_slots else "—"
+        print(f"     · {intent.name}")
+        print(f"       必填槽位: {req}  可选槽位: {opt}")
+    print()
+    # 展示 ServiceSchema 渲染为 prompt 文本的片段
+    schema_prompt = schema.to_prompt_text()[:400]
+    print("   Schema prompt 片段（前 400 字符）:")
+    for line in schema_prompt.split("\n"):
+        print(f"     {line}")
+    print()
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,6 +136,9 @@ def main() -> None:
 
     print(f"✅ 加载数据: {data_path}")
     print(f"   共 {len(data)} 条会话")
+
+    # ---- 显示 QC Schema（PyTOD 动作解析器约束）----
+    print_schema_summary(ANYIHUA_QC_SCHEMA)
 
     # 标签分布
     from collections import Counter
