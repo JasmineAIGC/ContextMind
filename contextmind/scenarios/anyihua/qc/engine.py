@@ -1,26 +1,33 @@
 """
 安逸花外呼 · 任务一（QC）· ExecutionEngine 构建
 
-将 5 个质量标签检测函数注册为 PyTOD ExecutionEngine 的可调用 API。
-每个 API 对应一个质量标签类别，封装完整的规则检测逻辑，
-可由动作解析器生成 PyTOD 程序直接调用，也可在 predict_label_pytod()
-中作为纯规则预测器调用（无需 LLM）。
+将 4 个事实数据提取函数注册为 PyTOD ExecutionEngine 的可调用 API，
+供动作解析器（LLM）获取客观事实数据，用于质量标签判断。
 
-注册的 5 个 API（对应 5 个标签类别）：
-    predict_data_error()             — 额度偏差 > 300 元
-    predict_repetition(utterance)    — 坐席回复与历史精确/模糊匹配
-    predict_improper_farewell()      — 用户有未解决诉求时告别
-    predict_off_topic()              — 回复与用户问题话题无关
-    predict_no_issue()               — 默认标签（兜底）
+设计原则（PyTOD 哲学）：
+    执行引擎 API 只返回"客观事实"，不做主观的标签预测。
+    所有标签判断由 LLM（动作解析器）完成，规则门限在 predictor.py 中维护。
+    这样做的好处：
+      · 引擎接口稳定、可测试，输出无歧义
+      · LLM 拥有完整语义推理空间，不受规则误判干扰
+      · 规则阈值可在 predictor.py 独立调整，无需修改引擎
 
-每个 API 返回标准结构：
-    {
-        "label":      str | None,   # 标签名；未检出时为 None
-        "detected":   bool,         # 是否检出该类问题
-        "confidence": float,        # 规则置信度（0.0 ~ 0.87）
-        "evidence":   str,          # 检出依据描述
-        ...                         # API 专属字段（供 classify_session_llm 使用）
-    }
+注册的 4 个 API（对应 schema.py 中的 4 个检测意图）：
+    get_credit_data()        — 额度事实（数据错误检测用）
+    get_repetition_data()    — 重复度量（重复询问检测用）
+    get_farewell_data()      — 告别 & 未解决诉求（不当告别检测用）
+    get_topic_data()         — 话题相关性（答非所问检测用）
+
+每个 API 返回纯事实结构（无 label / detected / confidence 字段）：
+    get_credit_data() →
+        {system_credit, temp_credit, reply_amounts, withdrawal_amounts,
+         discrepant_amounts, max_discrepancy, hints}
+    get_repetition_data() →
+        {exact_repeat, repeat_count, max_similarity, most_similar_turn, hint}
+    get_farewell_data() →
+        {has_farewell, unresolved_issues, unresolved_count, hint}
+    get_topic_data() →
+        {last_user_message, topic_mismatch_hint}
 """
 
 from __future__ import annotations
@@ -42,9 +49,12 @@ from ..utils import (
     parse_user_info,
 )
 
-# 数据错误容许误差（元）
+# 额度偏差阈值（元）：超出此值的金额才计入 discrepant_amounts 列表
+# 注：此阈值用于事实提取（哪些金额应被记录），而非标签判断；
+#     标签判断逻辑在 predictor.py 中根据 discrepant_amounts 是否为空来决定
 _AMOUNT_TOLERANCE = 300
-# 重复询问模糊相似度阈值（用于 LLM hint 生成）
+# 重复询问模糊相似度提示阈值：超出此值才生成 hint 文字（仅供 LLM 参考）
+# 注：此阈值用于 hint 文字生成，而非标签预测；标签判断依赖 exact_repeat 字段
 _REP_SIM_THRESHOLD = 0.80
 # 不当告别检测的用户历史窗口大小
 _FAREWELL_HISTORY_WINDOW = 12
@@ -65,29 +75,31 @@ _WITHDRAWAL_RE = re.compile(
 
 def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     """
-    为安逸花 QC 任务构建 ExecutionEngine，注册 5 个质量标签检测 API。
+    为安逸花 QC 任务构建 ExecutionEngine，注册 4 个事实数据提取 API。
 
     每次针对一条会话调用，返回绑定该会话数据的引擎实例。
+    引擎 API 只提供客观事实（金额、相似度、告别词等），
+    标签判断由调用方（LLM 或 predictor.py 中的规则）负责。
 
     参数:
         session: chat_test_100.json 单条记录，须包含键：
                  "用户信息", "对话历史", "坐席回复"
 
     返回:
-        ExecutionEngine 实例，已注册 5 个标签检测 API。
+        ExecutionEngine 实例，已注册 4 个事实数据 API。
 
     使用示例::
 
         engine = build_qc_engine(session)
 
-        # 纯规则调用
-        result = engine.registry["predict_data_error"]()
+        # 直接调用（predictor.py / 测试）
+        credit_facts = engine.registry["get_credit_data"]()
+        rep_facts    = engine.registry["get_repetition_data"]()
 
-        # PyTOD 程序调用
+        # PyTOD 程序调用（Action Parser 生成）
         result = engine.execute_program('''
-            x1 predict_data_error()
-            x2 predict_repetition()
-            x3 say(x1)
+            x1 get_credit_data()
+            x2 get_repetition_data()
         ''')
     """
     engine = ExecutionEngine()
@@ -99,105 +111,112 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     _gt_values = [v for v in [info["available_credit"], info["temp_credit"]] if v > 0]
 
     # ----------------------------------------------------------------------- #
-    # API 1：predict_data_error — 检测数据错误
+    # API 1：get_credit_data — 额度事实（数据错误检测用）
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_data_error() -> dict:
+    def get_credit_data() -> dict:
         """
-        检测数据错误：坐席引用额度金额与系统记录偏差 > 300 元。
+        提取信用额度相关的客观事实数据。
 
-        - detected/evidence：仅扫描坐席最终回复（降低误报）
-        - data_error_hints：同时扫描历史发言（供 classify_session_llm 使用）
-        - 排除"最高X元的固定额度"等未来奖励额度的描述（非用户当前可提现额度）
+        提取内容：
+          · system_credit     — CRM 记录的可提现额度（唯一客观参照）
+          · reply_amounts     — 坐席最终回复中提及的金额（排除奖励额度）
+          · withdrawal_amounts — 坐席提现引导语中提及的金额（无货币后缀）
+          · discrepant_amounts — 偏差 > 300 元的金额（(文本, 值, 偏差) 列表）
+          · max_discrepancy   — 最大偏差金额（元），0 表示无偏差
+          · hints             — 供 LLM 参考的文字描述列表
 
-        实测精度：P=90%, R=87%（100 条安逸花数据集）
+        注意：本 API 不判断是否为"数据错误"，判断由调用方（LLM / predictor）负责。
         """
-        def _is_valid(value: int) -> bool:
+        def _is_close(value: int) -> bool:
             return any(abs(value - gt) <= _AMOUNT_TOLERANCE for gt in _gt_values)
 
-        data_error_hints = []
-        reply_detected = False
-        reply_evidence = ""
+        hints: list = []
+        reply_amounts: list = []       # (text, value)
+        withdrawal_amounts: list = []  # (text, value)
+        discrepant_amounts: list = []  # (text, value, discrepancy)
 
         if _gt_values:
-            # 识别回复中属于"未来奖励额度"的金额（不是用户当前可提现额度）
-            bonus_amounts = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(reply)}
+            bonus_in_reply = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(reply)}
 
+            # 提取回复中的显式金额
             for amount_text, value in extract_amounts(reply):
-                if amount_text in bonus_amounts:
-                    continue  # 跳过促销奖励额度，不纳入数据错误检测
-                if value > 1000 and not _is_valid(value):
+                if amount_text in bonus_in_reply:
+                    continue
+                reply_amounts.append((amount_text, value))
+                if value > 1000 and not _is_close(value):
                     diff = abs(value - info["available_credit"])
-                    data_error_hints.append(
+                    discrepant_amounts.append((amount_text, value, diff))
+                    hints.append(
                         f"坐席最终回复提到「{amount_text}」({value:,}元)，"
                         f"系统额度{info['available_credit']:,}元，偏差{diff:,}元 ⚠️"
                     )
-                    if not reply_detected:
-                        reply_detected = True
-                        reply_evidence = (
-                            f"回复提及「{amount_text}」({value:,}元)，"
-                            f"系统额度{info['available_credit']:,}元，偏差{diff:,}元"
-                        )
 
-            # 补充：检测坐席在提现引导语中提及的额度（无显式货币后缀）
-            seen_withdrawal: set = set()
+            # 提取提现引导语中的金额（无货币后缀）
+            seen_w: set = set()
             for m in _WITHDRAWAL_RE.finditer(reply):
                 amount_text = m.group(1)
-                if amount_text in bonus_amounts or amount_text in seen_withdrawal:
+                if amount_text in bonus_in_reply or amount_text in seen_w:
                     continue
-                seen_withdrawal.add(amount_text)
+                seen_w.add(amount_text)
                 value = cn2int(amount_text)
-                if value > 1000 and not _is_valid(value):
+                withdrawal_amounts.append((amount_text, value))
+                if value > 1000 and not _is_close(value):
                     diff = abs(value - info["available_credit"])
-                    data_error_hints.append(
+                    discrepant_amounts.append((amount_text, value, diff))
+                    hints.append(
                         f"坐席引导提现提到「{amount_text}」({value:,}元)，"
                         f"系统额度{info['available_credit']:,}元，偏差{diff:,}元 ⚠️"
                     )
-                    if not reply_detected:
-                        reply_detected = True
-                        reply_evidence = (
-                            f"回复引导提现提及「{amount_text}」({value:,}元)，"
-                            f"系统额度{info['available_credit']:,}元，偏差{diff:,}元"
-                        )
 
-            seen: set = set()
+            # 扫描历史坐席发言（供 LLM hints 参考）
+            seen_h: set = set()
             for turn in history:
                 if turn.startswith(_AGENT_PREFIX):
                     turn_text = turn.removeprefix(_AGENT_PREFIX)
                     turn_bonus = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(turn_text)}
                     for amount_text, value in extract_amounts(turn_text):
-                        if amount_text in turn_bonus:
+                        if amount_text in turn_bonus or amount_text in seen_h:
                             continue
-                        if value > 1000 and not _is_valid(value) and amount_text not in seen:
-                            seen.add(amount_text)
+                        if value > 1000 and not _is_close(value):
+                            seen_h.add(amount_text)
                             diff = abs(value - info["available_credit"])
-                            data_error_hints.append(
+                            hints.append(
                                 f"历史坐席发言提到「{amount_text}」({value:,}元)，"
                                 f"系统额度{info['available_credit']:,}元，偏差{diff:,}元 ⚠️"
                             )
 
+        max_discrepancy = max((d for _, _, d in discrepant_amounts), default=0)
         return {
-            "label": "数据错误" if reply_detected else None,
-            "detected": reply_detected,
-            "confidence": 0.87 if reply_detected else 0.0,
-            "evidence": reply_evidence,
             "system_credit": info["available_credit"],
             "temp_credit": info["temp_credit"],
-            "data_error_hints": data_error_hints,
+            "reply_amounts": reply_amounts,
+            "withdrawal_amounts": withdrawal_amounts,
+            "discrepant_amounts": discrepant_amounts,
+            "max_discrepancy": max_discrepancy,
+            "hints": hints,
         }
 
     # ----------------------------------------------------------------------- #
-    # API 2：predict_repetition — 检测重复询问
+    # API 2：get_repetition_data — 重复度量（重复询问检测用）
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_repetition(utterance: str = None) -> dict:
+    def get_repetition_data(utterance: str = None) -> dict:
         """
-        检测重复询问：坐席回复与历史发言高度重复。
+        提取坐席回复与历史发言的重复度量数据。
 
-        - Layer 1（精确匹配）：detected=True，用于规则预测（P=87%, R=87%）
-        - Layer 2（字符重叠 ≥ 80%）：生成 repetition_hint，供 LLM 参考
+        提取内容：
+          · exact_repeat      — 是否与历史某条坐席发言完全一致
+          · repeat_count      — 完全一致的历史出现次数
+          · max_similarity    — 最高字符相似度（0.0~1.0）
+          · most_similar_turn — 相似度最高的历史发言片段
+          · hint              — 供 LLM 参考的文字描述
+
+        注意：本 API 不判断是否为"重复询问"，判断由调用方（LLM / predictor）负责。
+              精确重复（exact_repeat=True）是强信号，
+              相似度 ≥ 0.80 时由 LLM 进一步确认是否实质重复。
         """
         utt = (utterance or reply).strip()
         agent_turns = [
@@ -206,11 +225,11 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             if t.startswith(_AGENT_PREFIX)
         ]
 
-        is_exact = utt in agent_turns
-        count = agent_turns.count(utt)
+        exact_repeat = utt in agent_turns
+        repeat_count = agent_turns.count(utt)
 
         max_sim = 0.0
-        max_sim_turn = ""
+        most_similar = ""
         for past in agent_turns:
             if not past:
                 continue
@@ -219,87 +238,97 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             sim = 2 * common / denom if denom > 0 else 0.0
             if sim > max_sim:
                 max_sim = sim
-                max_sim_turn = past
+                most_similar = past
 
-        repetition_hint = ""
-        if is_exact:
-            repetition_hint = "⚠️ 坐席最终回复与历史某条坐席发言完全一致（精确匹配）"
+        hint = ""
+        if exact_repeat:
+            hint = (
+                f"⚠️ 坐席最终回复与历史某条发言完全一致"
+                f"（已出现 {repeat_count + 1} 次）"
+            )
         elif max_sim >= _REP_SIM_THRESHOLD:
-            repetition_hint = (
-                f"⚠️ 坐席最终回复与历史发言「{max_sim_turn[:_HINT_TRUNC]}」"
+            hint = (
+                f"⚠️ 坐席回复与历史发言「{most_similar[:_HINT_TRUNC]}」"
                 f"相似度 {max_sim:.0%}（≥{_REP_SIM_THRESHOLD:.0%}）"
             )
 
-        detected = is_exact and count >= 1
         return {
-            "label": "重复询问" if detected else None,
-            "detected": detected,
-            "confidence": 0.87 if detected else 0.0,
-            "evidence": f"坐席回复与历史发言精确匹配，已重复 {count + 1} 次" if detected else "",
-            "is_exact_repeat": is_exact,
-            "repeat_count": count,
+            "exact_repeat": exact_repeat,
+            "repeat_count": repeat_count,
             "max_similarity": round(max_sim, 3),
-            "max_sim_turn": max_sim_turn,
-            "repetition_hint": repetition_hint,
+            "most_similar_turn": most_similar,
+            "hint": hint,
         }
 
     # ----------------------------------------------------------------------- #
-    # API 3：predict_improper_farewell — 检测不当告别
+    # API 3：get_farewell_data — 告别 & 未解决诉求（不当告别检测用）
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_improper_farewell() -> dict:
+    def get_farewell_data() -> dict:
         """
-        检测不当告别：用户有未解决诉求时坐席执行告别话术。
+        提取告别话术和用户未解决诉求的事实数据。
 
-        - detected：回复含告别词 AND 历史有未解决诉求
-        - farewell_hint：历史有未解决诉求时生成（供 classify_session_llm 使用）
+        提取内容：
+          · has_farewell        — 坐席最终回复是否含告别话术
+          · farewell_evidence   — 检测到的告别词/模式
+          · unresolved_issues   — 最近窗口内用户含诉求词的发言列表
+          · unresolved_count    — 未解决诉求数量
+          · hint                — 供 LLM 参考的文字描述
+
+        注意：本 API 不判断是否为"不当告别"，判断由调用方（LLM / predictor）负责。
+              has_farewell=True 且 unresolved_count > 0 时，
+              LLM 需进一步判断诉求是否真实未解决（用户可能已表示同意/拒绝）。
         """
         farewell_score = sum(1 for kw in FAREWELL_KEYWORDS if kw in reply)
-        is_farewell = farewell_score >= 2 or any(
-            p in reply for p in FAREWELL_SOFT_PATTERNS
-        )
+        farewell_evidence = [kw for kw in FAREWELL_KEYWORDS if kw in reply]
+        soft_matches = [p for p in FAREWELL_SOFT_PATTERNS if p in reply]
+
+        has_farewell = farewell_score >= 2 or bool(soft_matches)
+        if soft_matches:
+            farewell_evidence.extend(soft_matches)
 
         last_user_turns = [
             t.removeprefix(_USER_PREFIX)
             for t in history[-_FAREWELL_HISTORY_WINDOW:]
             if t.startswith(_USER_PREFIX)
         ]
-        unresolved = [t for t in last_user_turns if any(w in t for w in USER_CONCERN_WORDS)]
+        unresolved_issues = [
+            t for t in last_user_turns if any(w in t for w in USER_CONCERN_WORDS)
+        ]
 
-        detected = is_farewell and bool(unresolved)
-
-        farewell_hint = ""
-        if unresolved:
-            last_issue = unresolved[-1][:_HINT_TRUNC]
-            farewell_hint = (
+        hint = ""
+        if unresolved_issues:
+            last_issue = unresolved_issues[-1][:_HINT_TRUNC]
+            hint = (
                 f"⚠️ 检测到用户有未解决诉求：「{last_issue}…」"
-                f"（共 {len(unresolved)} 条未解决消息）"
+                f"（共 {len(unresolved_issues)} 条含诉求词的消息）"
             )
 
         return {
-            "label": "不当告别" if detected else None,
-            "detected": detected,
-            "confidence": 0.85 if detected else 0.0,
-            "evidence": (
-                f"用户有 {len(unresolved)} 个未解决问题时执行告别：{unresolved[-1][:40]}…"
-                if detected else ""
-            ),
-            "can_farewell": not bool(unresolved),
-            "unresolved_issues": unresolved,
-            "farewell_hint": farewell_hint,
+            "has_farewell": has_farewell,
+            "farewell_evidence": farewell_evidence,
+            "unresolved_issues": unresolved_issues,
+            "unresolved_count": len(unresolved_issues),
+            "hint": hint,
         }
 
     # ----------------------------------------------------------------------- #
-    # API 4：predict_off_topic — 检测答非所问
+    # API 4：get_topic_data — 话题相关性（答非所问检测用）
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_off_topic() -> dict:
+    def get_topic_data() -> dict:
         """
-        检测答非所问：用户有明确问题但坐席回复与问题话题完全无关。
+        提取用户最近问题和话题相关性的事实数据。
 
-        规则版召回率约 60%，适合快速预过滤；语义层面需 LLM 判断。
+        提取内容：
+          · last_user_message   — 用户最近一条发言的完整内容
+          · topic_mismatch_hint — 话题不匹配的初步信号（由规则生成，供 LLM 参考）
+
+        注意：本 API 不判断是否为"答非所问"，判断由调用方（LLM / predictor）负责。
+              topic_mismatch_hint 是弱信号，LLM 需结合语义判断是否真正答非所问。
+              多数情况下坐席回复贷款相关话题即视为切题，不应轻易标注为答非所问。
         """
         last_user = next(
             (
@@ -310,36 +339,21 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             "",
         )
 
+        topic_mismatch_hint = ""
         for q_word, irrelevant_patterns in OFFTOPIC_SIGNALS.items():
             if q_word in last_user:
                 mismatches = [p for p in irrelevant_patterns if p in reply]
                 if mismatches:
-                    return {
-                        "label": "答非所问",
-                        "detected": True,
-                        "confidence": 0.80,
-                        "evidence": (
-                            f"用户发言含「{q_word}」，但坐席回复含「{mismatches[0]}」"
-                        ),
-                    }
+                    topic_mismatch_hint = (
+                        f"初步信号：用户发言含「{q_word}」，"
+                        f"但坐席回复含「{mismatches[0]}」（仅供参考，需 LLM 语义确认）"
+                    )
+                    break
 
-        return {"label": None, "detected": False, "confidence": 0.0, "evidence": ""}
-
-    # ----------------------------------------------------------------------- #
-    # API 5：predict_no_issue — 无标签命中（兜底）
-    # ----------------------------------------------------------------------- #
-
-    @engine.register
-    def predict_no_issue() -> dict:
-        """
-        无标签命中（默认兜底标签）。
-        其余四个标签均未检出时调用。
-        """
         return {
-            "label": "无标签命中",
-            "detected": True,
-            "confidence": 0.75,
-            "evidence": "以上四类标签均未检出",
+            "last_user_message": last_user,
+            "topic_mismatch_hint": topic_mismatch_hint,
         }
 
     return engine
+

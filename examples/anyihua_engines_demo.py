@@ -47,30 +47,47 @@ def _hr(title: str = "") -> None:
 
 
 def demo_qc_engine() -> None:
-    """演示 QC 任务引擎：5 个标签检测 API。"""
+    """演示 QC 任务引擎：4 个事实数据 API（引擎只提供事实，标签判断由 LLM/规则完成）。"""
     _hr("任务一（QC）：build_qc_engine() 演示")
     session = _data[10]
     engine = build_qc_engine(session)
 
     print(f"注册的 API：{engine.list_functions()}\n")
 
-    for api_name in engine.list_functions():
-        r = engine.registry[api_name]()
-        status = "✅ 检出" if r["detected"] and r["label"] else "  未检出"
-        label = r["label"] or "(无)"
-        conf = f"{r['confidence']:.0%}" if r["confidence"] > 0 else "—"
-        print(f"  {status}  {api_name:35s}  label={label}  confidence={conf}")
+    # get_credit_data
+    credit = engine.registry["get_credit_data"]()
+    print(f"  get_credit_data():")
+    print(f"    system_credit={credit['system_credit']:,}元  "
+          f"discrepant_amounts={credit['discrepant_amounts']}")
+
+    # get_repetition_data
+    rep = engine.registry["get_repetition_data"]()
+    print(f"\n  get_repetition_data():")
+    print(f"    exact_repeat={rep['exact_repeat']}  repeat_count={rep['repeat_count']}  "
+          f"max_similarity={rep['max_similarity']:.0%}")
+
+    # get_farewell_data
+    fare = engine.registry["get_farewell_data"]()
+    print(f"\n  get_farewell_data():")
+    print(f"    has_farewell={fare['has_farewell']}  unresolved_count={fare['unresolved_count']}")
+
+    # get_topic_data
+    topic = engine.registry["get_topic_data"]()
+    print(f"\n  get_topic_data():")
+    print(f"    last_user_message: {topic['last_user_message'][:40]}…")
+    if topic["topic_mismatch_hint"]:
+        print(f"    topic_mismatch_hint: {topic['topic_mismatch_hint'][:60]}")
 
     _hr("execute_program 演示")
     result = engine.execute_program("""
-x1 predict_data_error()
-x2 predict_repetition()
-x3 predict_improper_farewell()
-x4 predict_off_topic()
-x5 say(x3)
+x1 get_credit_data()
+x2 get_repetition_data()
+x3 get_farewell_data()
+x4 get_topic_data()
 """)
     print(f"success: {result.success}")
-    print(f"x3 (不当告别): detected={result.variable_values.get('x3', {}).get('detected')}")
+    print(f"x3 (告别事实): has_farewell={result.variable_values.get('x3', {}).get('has_farewell')}  "
+          f"unresolved_count={result.variable_values.get('x3', {}).get('unresolved_count')}")
 
     _hr("predict_label_pytod() 在 100 条数据集上的表现")
     total, predicted, correct = len(_data), 0, 0

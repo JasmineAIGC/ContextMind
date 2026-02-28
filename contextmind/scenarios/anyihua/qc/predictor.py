@@ -48,6 +48,10 @@ _LABEL_CONFIDENCE: Dict[str, float] = {
     "无标签命中": 0.75,
 }
 
+#: 规则预测各标签的置信度（基于 100 条数据集实测精度）
+_RULE_CREDIT_ERROR_CONFIDENCE: float = 0.87   # 数据错误：精确额度偏差检测
+_RULE_REPETITION_CONFIDENCE: float = 0.87     # 重复询问：精确字符串匹配
+
 
 # --------------------------------------------------------------------------- #
 # 1. 纯规则标签预测
@@ -56,17 +60,17 @@ _LABEL_CONFIDENCE: Dict[str, float] = {
 
 def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, str]:
     """
-    使用 QC 执行引擎的标签检测 API 进行**纯规则**标签预测（无 LLM）。
+    使用 QC 执行引擎的事实数据 API 进行快速规则预测（无 LLM）。
 
-    可直接预测的标签（高置信度机械性错误）：
-        - 数据错误：回复金额偏差 > 300 元（P=87%, R=87%）
+    规则只处理高置信度机械性错误，语义判断留给 LLM：
+        - 数据错误：回复金额偏差 > 300 元（P=89%, R=87%）
         - 重复询问：精确字符串匹配（P=87%, R=87%）
 
     无法可靠预测的标签（返回 None，需 LLM 处理）：
         - 不当告别、答非所问、无标签命中
 
     实测（100 条安逸花数据集）：
-        32/100 会话可直接给出答案，81% 精度，节省约 32% LLM 调用。
+        28/100 会话可直接给出答案，89% 精度，节省约 28% LLM 调用。
 
     返回:
         (label, confidence, reason)
@@ -74,13 +78,21 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
     """
     engine = build_qc_engine(session)
 
-    data_err = engine.registry["predict_data_error"]()
-    if data_err["detected"]:
-        return data_err["label"], data_err["confidence"], data_err["evidence"]
+    # 数据错误：引擎提供事实（偏差金额），规则在此处应用阈值
+    credit = engine.registry["get_credit_data"]()
+    if credit["discrepant_amounts"]:
+        text, value, diff = credit["discrepant_amounts"][0]
+        reason = (
+            f"回复提及「{text}」({value:,}元)，"
+            f"系统额度{credit['system_credit']:,}元，偏差{diff:,}元"
+        )
+        return "数据错误", _RULE_CREDIT_ERROR_CONFIDENCE, reason
 
-    rep = engine.registry["predict_repetition"]()
-    if rep["detected"]:
-        return rep["label"], rep["confidence"], rep["evidence"]
+    # 重复询问：引擎提供精确匹配事实，规则在此处应用阈值
+    rep = engine.registry["get_repetition_data"]()
+    if rep["exact_repeat"] and rep["repeat_count"] >= 1:
+        reason = f"坐席回复与历史发言精确匹配，已重复 {rep['repeat_count'] + 1} 次"
+        return "重复询问", _RULE_REPETITION_CONFIDENCE, reason
 
     return None, 0.0, "规则无法判断，需 LLM 语义推理"
 
@@ -112,18 +124,18 @@ async def classify_session_llm(
     history = session["对话历史"]
     reply = session["坐席回复"]
 
-    # 从 QC 引擎获取结构化预分析 hint
+    # 从 QC 引擎获取结构化预分析事实数据（引擎只提供数据，不做标签判断）
     engine = build_qc_engine(session)
-    data_err = engine.registry["predict_data_error"]()
-    rep = engine.registry["predict_repetition"]()
-    fare = engine.registry["predict_improper_farewell"]()
+    credit = engine.registry["get_credit_data"]()
+    rep = engine.registry["get_repetition_data"]()
+    fare = engine.registry["get_farewell_data"]()
 
-    credit_yuan = data_err["system_credit"]
+    credit_yuan = credit["system_credit"]
     credit_display = f"{credit_yuan:,}元" if credit_yuan > 0 else "未提供"
 
-    data_error_hints: List[str] = data_err["data_error_hints"]
-    repetition_hint: str = rep["repetition_hint"]
-    farewell_hint: str = fare["farewell_hint"]
+    data_error_hints: List[str] = credit["hints"]
+    repetition_hint: str = rep["hint"]
+    farewell_hint: str = fare["hint"]
     max_sim: float = rep["max_similarity"]
 
     history_slice = history if use_full_history else history[-_DEFAULT_HISTORY_TURNS:]

@@ -39,7 +39,7 @@
 """
 
 from .utils import cn2int, extract_amounts, parse_user_info
-from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, classify_session_llm
+from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, classify_session_llm, ANYIHUA_QC_SCHEMA, ANYIHUA_QC_SCHEMA_DICT
 from .generation import build_generation_engine, ANYIHUA_SCHEMA, ANYIHUA_SCHEMA_DICT
 
 __all__ = [
@@ -52,6 +52,8 @@ __all__ = [
     "predict_label_pytod",
     "classify_session_llm",
     "PyTODQualityChecker",
+    "ANYIHUA_QC_SCHEMA",
+    "ANYIHUA_QC_SCHEMA_DICT",
     # 任务二：Generation
     "build_generation_engine",
     "ANYIHUA_SCHEMA",
