@@ -94,15 +94,26 @@ async def run_online_generation(
         prompt_builder=builder,
         scenario_name="安逸花外呼",
         max_history_turns=max_history_turns,
+        scenario_context=(
+            "这是一个外呼小额借款推介场景（安逸花外呼促活）。"
+            "坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。"
+            "标准流程：① 核实用户身份（姓名/手机尾号）→ ② 告知可用额度和利率 → "
+            "③ 解答疑问（还款方式、账单争议等）→ ④ 引导用户在 APP 完成借款操作 → "
+            "⑤ 确认无未解决诉求后礼貌告别。"
+            "注意：核实身份前不得告知账户详细信息；若用户有未解决诉求则不得直接告别。"
+        ),
     )
 
     # Replay 对话历史（不调用 LLM，直接注入 ConversationTurn）
+    # 目标：将历史中除最后一条用户发言之外的所有轮次注入 tracker.history，
+    # 最后一条用户发言作为 process_turn() 的新鲜输入，不在此处注入。
+    # 这样 LLM 在 [HISTORY] 中看到的是"已发生的"历史，
+    # 在 [CURRENT] 中看到的是"当前用户正在说"的内容，语义不会重复。
     history = session["对话历史"]
     i = 0
-    while i < len(history) - 1:
+    while i < len(history) - 2:  # 停在倒数第二轮之前，不含最后一对（坐席+用户）
         if (
             history[i].startswith(_AGENT_PREFIX)
-            and i + 1 < len(history)
             and history[i + 1].startswith(_USER_PREFIX)
         ):
             system_utt = history[i].removeprefix(_AGENT_PREFIX)
@@ -112,6 +123,15 @@ async def run_online_generation(
             i += 2
         else:
             i += 1
+    # 将倒数第二轮坐席发言（history[-2]）也注入，使 LLM 知道坐席上一步说了什么，
+    # 但不注入最后一条用户发言——它将作为 process_turn() 的新鲜输入
+    if len(history) >= 2 and history[-2].startswith(_AGENT_PREFIX):
+        tracker.history.append(
+            ConversationTurn(
+                role="assistant",
+                content=history[-2].removeprefix(_AGENT_PREFIX),
+            )
+        )
 
     # 处理最后一轮用户发言
     last_user = history[-1].removeprefix(_USER_PREFIX)

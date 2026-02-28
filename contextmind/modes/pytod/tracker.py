@@ -464,17 +464,30 @@ class PyTODTracker:
         prompt_builder: PyTODPromptBuilder,
         scenario_name: str = "",
         max_history_turns: int = 10,
+        scenario_context: str = "",
     ) -> None:
         """
         初始化追踪器。
 
         通常通过 ``from_scenario()`` 工厂方法创建，而非直接调用构造函数。
+
+        参数:
+            llm_client:        LLM 客户端实例（需支持 chat_async 或 chat）
+            execution_engine:  已注册 API 函数的 ExecutionEngine 实例
+            prompt_builder:    PyTODPromptBuilder 实例
+            scenario_name:     场景名称（用于日志和后备提示）
+            max_history_turns: 保留的最大历史轮数
+            scenario_context:  业务场景描述（可选），注入到 Action Parser 和
+                               Dialogue Manager 系统提示中，帮助 LLM 理解业务背景。
+                               例如："这是一个外呼小额借款推介场景，坐席正在联系老用户
+                               激活闲置额度，应先核实身份，再告知额度并引导借款操作。"
         """
         self.llm_client = llm_client
         self.execution_engine = execution_engine
         self.prompt_builder = prompt_builder
         self.scenario_name = scenario_name
         self.max_history_turns = max_history_turns
+        self.scenario_context = scenario_context
 
         # 运行时状态
         self.history: List[ConversationTurn] = []
@@ -585,6 +598,7 @@ class PyTODTracker:
             user_input=user_utterance,
             execution_engine=self.execution_engine,
             history=self.history,
+            scenario_context=self.scenario_context,
         )
         try:
             program_text = await self._call_llm(ap_messages)
@@ -621,6 +635,7 @@ class PyTODTracker:
                 execution_result=exec_result,
                 history=self.history,
                 current_state=self.current_state if self.current_state else None,
+                scenario_context=self.scenario_context,
             )
             try:
                 response = await self._call_llm(dm_messages)

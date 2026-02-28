@@ -428,6 +428,7 @@ NONE()
         user_input: str,
         execution_engine: Any,
         history: Optional[List[ConversationTurn]] = None,
+        scenario_context: str = "",
     ) -> List[Dict[str, str]]:
         """
         组装动作解析器（Action Parser）的 messages 列表。
@@ -453,9 +454,11 @@ NONE()
         - 执行结果由执行引擎处理，回复由对话管理器生成
 
         参数:
-            user_input:       当前轮用户输入
-            execution_engine: ``ExecutionEngine`` 实例（用于获取已注册函数列表）
-            history:          历史对话轮次列表（可选）
+            user_input:        当前轮用户输入
+            execution_engine:  ``ExecutionEngine`` 实例（用于获取已注册函数列表）
+            history:           历史对话轮次列表（可选）
+            scenario_context:  业务场景描述（可选），注入到系统提示开头以补充业务背景，
+                               例如 "这是一个外呼小额借款推介场景，坐席正在联系用户。"
 
         返回:
             OpenAI / Qwen 兼容的 messages 列表
@@ -463,6 +466,7 @@ NONE()
         system_content = self._ACTION_PARSER_TEMPLATE.format(
             api_functions_text=execution_engine.to_prompt_text(),
         )
+        system_content = self._prepend_scenario_context(system_content, scenario_context)
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": system_content},
         ]
@@ -489,6 +493,7 @@ NONE()
         execution_result: Any,
         history: Optional[List[ConversationTurn]] = None,
         current_state: Optional[Dict[str, Any]] = None,
+        scenario_context: str = "",
     ) -> List[Dict[str, str]]:
         """
         组装对话管理器（Dialogue Manager）的 messages 列表。
@@ -501,6 +506,8 @@ NONE()
             execution_result:  执行引擎返回的执行结果（实现 to_context_text() 即可）
             history:           历史对话轮次列表（可选）
             current_state:     当前累积状态字典（可选，用于提供更多上下文）
+            scenario_context:  业务场景描述（可选），注入到系统提示开头以补充业务背景，
+                               例如 "这是一个外呼小额借款推介场景，请以坐席身份回复用户。"
 
         返回:
             OpenAI / Qwen 兼容的 messages 列表
@@ -513,6 +520,7 @@ NONE()
             state_text=state_text,
             response_language=self.response_language,
         )
+        system_content = self._prepend_scenario_context(system_content, scenario_context)
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": system_content},
         ]
@@ -575,6 +583,16 @@ NONE()
     # ------------------------------------------------------------------ #
     # 内部构建方法
     # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _prepend_scenario_context(base_content: str, scenario_context: str) -> str:
+        """
+        当 scenario_context 非空时，将其作为 '## 业务背景' 段落
+        前置到系统提示内容中，否则直接返回原内容。
+        """
+        if scenario_context:
+            return f"## 业务背景\n\n{scenario_context}\n\n" + base_content
+        return base_content
 
     def _build_system_prompt(self) -> str:
         """构建系统提示。根据是否提供 schema 自动切换 schema 驱动 / 开放域模板。"""

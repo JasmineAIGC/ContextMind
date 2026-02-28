@@ -48,7 +48,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
                  "用户信息", "对话历史"
 
     返回:
-        ExecutionEngine 实例，已注册 5 个 CRM 数据查询 API。
+        ExecutionEngine 实例，已注册 6 个 CRM 数据查询 API。
 
     使用示例::
 
