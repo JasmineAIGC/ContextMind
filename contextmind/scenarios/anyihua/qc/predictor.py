@@ -66,11 +66,12 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
     使用 QC 执行引擎的事实数据 API 进行快速规则预测（无 LLM）。
 
     规则只处理高置信度机械性错误，语义判断留给 LLM：
-        - 数据错误：回复金额与系统额度存在实质性偏差
-        - 重复询问：精确字符串匹配
+        - 数据错误：回复金额与系统额度存在实质性偏差（含额度前缀/后缀模式）
+        - 重复询问：精确字符串匹配历史坐席发言
+        - 不当告别：有告别话术且最近历史含 ≥2 条未解决诉求
 
     无法可靠预测的标签（返回 None，需 LLM 处理）：
-        - 不当告别、答非所问、无标签命中
+        - 答非所问、无标签命中（语义复杂，规则误判率高）
 
     返回:
         (label, confidence, reason)
@@ -145,6 +146,7 @@ async def classify_session_llm(
     credit = engine.registry["get_credit_data"]()
     rep = engine.registry["get_repetition_data"]()
     fare = engine.registry["get_farewell_data"]()
+    topic = engine.registry["get_topic_data"]()
 
     credit_yuan = credit["system_credit"]
     credit_display = f"{credit_yuan:,}元" if credit_yuan > 0 else "未提供"
@@ -152,6 +154,7 @@ async def classify_session_llm(
     data_error_hints: List[str] = credit["hints"]
     repetition_hint: str = rep["hint"]
     farewell_hint: str = fare["hint"]
+    topic_hint: str = topic["topic_mismatch_hint"]
     max_sim: float = rep["max_similarity"]
 
     history_slice = history if use_full_history else history[-_DEFAULT_HISTORY_TURNS:]
@@ -199,10 +202,15 @@ async def classify_session_llm(
         "   · 用户同意去操作或查看（'好的我去试试''我去APP看看''那行我去弄'）\n"
         "   · 用户只是简短应答（'嗯''哦''好''知道了''行''明白了'）\n\n"
         "④ 答非所问\n"
-        "   定义：用户提出明确具体问题，但坐席回复与该问题完全无关。\n"
+        "   定义：基于对话历史，用户提出明确具体的问题，但坐席最终回复与该问题完全无关。\n"
         "   成立条件（门槛较高，必须同时满足）：\n"
-        "   a. 用户最后一条消息包含非常明确的具体问题（有问号或明显询问语气）\n"
+        "   a. 用户最后一条消息包含非常明确的具体问题（有问号或明显询问语气，如'多少''在哪里''手续费多少'）\n"
         "   b. 坐席最终回复与用户的具体问题属于完全不同的话题，毫无关联\n"
+        "   典型答非所问场景：\n"
+        "   · 用户问'多少/多少钱'，坐席回答自我介绍或品牌名称（如'我说安逸花/马上消费安逸花'）\n"
+        "   · 用户问具体数字，坐席把同样的问题反问回用户（如用户问'多少'，坐席答'您这边大概是多少？'）\n"
+        "   · 用户问手续费/费用，坐席只谈处理速度（'提现成功等三分钟'等）而不给费用数字\n"
+        "   · 用户提出具体问题，坐席直接切换到核实身份或重新介绍产品\n"
         "   以下情况一律不算答非所问：\n"
         "   · 坐席回答了相关话题，即使不够精确或未完整回答\n"
         "   · 用户问贷款/额度/提现/账户/利率/还款，坐席也回复了同类话题\n"
@@ -237,6 +245,11 @@ async def classify_session_llm(
         preanalysis_sections.append(f"【规则预分析-不当告别】{farewell_hint}")
     else:
         preanalysis_sections.append("【规则预分析-不当告别】未检测到明显未解决诉求")
+
+    if topic_hint:
+        preanalysis_sections.append(f"【规则预分析-答非所问】{topic_hint}")
+    else:
+        preanalysis_sections.append("【规则预分析-答非所问】未检测到明显话题不匹配信号")
 
     user_message = (
         f"【用户系统额度（仅用于①数据错误的判断）】{credit_display}\n\n"

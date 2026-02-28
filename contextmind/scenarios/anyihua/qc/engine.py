@@ -27,7 +27,7 @@
     get_farewell_data() →
         {has_farewell, unresolved_issues, unresolved_count, hint}
     get_topic_data() →
-        {last_user_message, topic_mismatch_hint}
+        {last_user_message, user_asks_amount, topic_mismatch_hint}
 """
 
 from __future__ import annotations
@@ -74,6 +74,21 @@ _WITHDRAWAL_RE = re.compile(
     r"(?:给它按需|暂时提现|按需全部|全部提现|全部提出|按需提现|按需借出"
     r"|一次性提出|全额提出|先提出|都可以提|一并提出)"
 )
+# 额度前缀模式：坐席提及用户账户额度时金额跟在"额度"之后但无"元"后缀
+# 排除"最高额度"等通用营销描述（负向回溯 (?<!最高)），覆盖如"额度五万两千五百嘛"
+_CREDIT_LEAD_RE = re.compile(
+    r"(?<!最高)额度[为是到]?([零一二三四五六七八九十百千万亿两]+)"
+)
+# 额度后缀模式：金额出现在"的额度"前，无"元"前缀，覆盖如"三万六千九百的额度"
+_CREDIT_SUFFIX_RE = re.compile(
+    r"([零一二三四五六七八九十百千万亿两]+)(?:元)?的额度"
+)
+# 答非所问检测：用于判断用户是否在询问具体金额的关键词
+_AMOUNT_QUESTION_WORDS: tuple = ("多少", "几钱", "多少钱", "多少啊", "多少元")
+# 答非所问检测：坐席进行品牌/身份自我介绍的信号（而非回答用户问题）
+_AGENT_INTRO_RE = re.compile(r"(?:我是|我这边是|我这里是|我说).{0,6}(?:安逸花|马上消费)")
+# 答非所问检测：坐席将用户问题反问回去的信号（未给出实质答案）
+_AGENT_ECHO_RE = re.compile(r"您(?:是说|这边|这里)?[^，。]{0,15}(?:吗[？?]|是吗[？?])")
 
 
 def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
@@ -171,6 +186,23 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
                         f"坐席引导提现提到「{amount_text}」({value:,}元)，"
                         f"系统额度{info['available_credit']:,}元，偏差{diff:,}元 ⚠️"
                     )
+
+            # 补充：额度前缀/后缀模式（无显式"元"后缀，如"额度五万两千五百嘛""三万六千九百的额度"）
+            seen_credit_amounts: set = set(t for t, _ in reply_amounts) | seen_w
+            for pattern in (_CREDIT_LEAD_RE, _CREDIT_SUFFIX_RE):
+                for m in pattern.finditer(reply):
+                    amount_text = m.group(1)
+                    if amount_text in bonus_in_reply or amount_text in seen_credit_amounts:
+                        continue
+                    seen_credit_amounts.add(amount_text)
+                    value = cn2int(amount_text)
+                    if value > 1000 and not _is_close(value):
+                        diff = abs(value - info["available_credit"])
+                        discrepant_amounts.append((amount_text, value, diff))
+                        hints.append(
+                            f"坐席回复提及「{amount_text}」({value:,}元)，"
+                            f"系统额度{info['available_credit']:,}元，偏差{diff:,}元 ⚠️"
+                        )
 
             # 扫描历史坐席发言（供 LLM hints 参考）
             seen_h: set = set()
@@ -326,6 +358,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
 
         提取内容：
           · last_user_message   — 用户最近一条发言的完整内容
+          · user_asks_amount    — 用户是否在询问具体金额（"多少"类问题）
           · topic_mismatch_hint — 话题不匹配的初步信号（由规则生成，供 LLM 参考）
 
         注意：本 API 不判断是否为"答非所问"，判断由调用方（LLM / predictor）负责。
@@ -341,7 +374,21 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             "",
         )
 
+        # 判断用户是否在询问具体金额
+        user_asks_amount = any(w in last_user for w in _AMOUNT_QUESTION_WORDS)
+
+        # 判断坐席回复是否包含中文数字金额（有实质数字信息）
+        agent_has_amount = bool(
+            re.search(r"[零一二三四五六七八九十百千万亿两]+(?:元|万|千|百)", reply)
+        )
+        # 判断坐席是否进行品牌/身份自我介绍而非回答问题
+        agent_is_intro = bool(_AGENT_INTRO_RE.search(reply))
+        # 判断坐席是否将问题反问回用户而非给出答案
+        agent_echoes_question = bool(_AGENT_ECHO_RE.search(reply))
+
         topic_mismatch_hint = ""
+
+        # 首先使用已有 OFFTOPIC_SIGNALS 规则生成 hint
         for q_word, irrelevant_patterns in OFFTOPIC_SIGNALS.items():
             if q_word in last_user:
                 mismatches = [p for p in irrelevant_patterns if p in reply]
@@ -352,8 +399,27 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
                     )
                     break
 
+        # 补充：结构性不匹配信号（优先级更高，覆盖 OFFTOPIC_SIGNALS 未覆盖的场景）
+        if not topic_mismatch_hint:
+            if user_asks_amount and agent_is_intro:
+                topic_mismatch_hint = (
+                    f"⚠️ 用户询问「{last_user[:_HINT_TRUNC]}」，"
+                    f"坐席进行了品牌/身份自我介绍而未提供金额"
+                )
+            elif user_asks_amount and agent_echoes_question:
+                topic_mismatch_hint = (
+                    f"⚠️ 用户询问「{last_user[:_HINT_TRUNC]}」，"
+                    f"坐席将问题反问回用户（未给出实质答案）"
+                )
+            elif user_asks_amount and not agent_has_amount:
+                topic_mismatch_hint = (
+                    f"⚠️ 用户询问金额「{last_user[:_HINT_TRUNC]}」，"
+                    f"但坐席回复未包含任何明确数字"
+                )
+
         return {
             "last_user_message": last_user,
+            "user_asks_amount": user_asks_amount,
             "topic_mismatch_hint": topic_mismatch_hint,
         }
 
