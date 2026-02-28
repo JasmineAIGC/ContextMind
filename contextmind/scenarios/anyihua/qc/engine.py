@@ -306,6 +306,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         提取内容：
           · has_farewell        — 坐席最终回复是否含告别话术
           · farewell_evidence   — 检测到的告别词/模式
+          · last_user_message   — 用户实际最后一条发言（坐席回复前的最后一句话）
           · unresolved_issues   — 最近窗口内用户含诉求词的发言列表
           · unresolved_count    — 未解决诉求数量
           · hint                — 供 LLM 参考的文字描述
@@ -313,6 +314,8 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         注意：本 API 不判断是否为"不当告别"，判断由调用方（LLM / predictor）负责。
               has_farewell=True 且 unresolved_count > 0 时，
               LLM 需进一步判断诉求是否真实未解决（用户可能已表示同意/拒绝）。
+              hint 区分两种情形：⚠️ 表示用户最后一条消息本身含诉求词（当前诉求），
+              无 ⚠️ 表示仅历史消息含诉求词而用户最后消息无诉求词（历史诉求，可能已解决）。
         """
         farewell_score = sum(1 for kw in FAREWELL_KEYWORDS if kw in reply)
         farewell_evidence = [kw for kw in FAREWELL_KEYWORDS if kw in reply]
@@ -331,17 +334,35 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             t for t in last_user_turns if any(w in t for w in USER_CONCERN_WORDS)
         ]
 
+        # 用户实际最后一条发言（不受窗口限制；逆序遍历取第一条用户发言）
+        last_user_msg = next(
+            (t.removeprefix(_USER_PREFIX) for t in reversed(history) if t.startswith(_USER_PREFIX)),
+            "",
+        )
+        last_msg_has_concern = any(w in last_user_msg for w in USER_CONCERN_WORDS)
+
         hint = ""
         if unresolved_issues:
             last_issue = unresolved_issues[-1][:_HINT_TRUNC]
-            hint = (
-                f"⚠️ 检测到用户有未解决诉求：「{last_issue}…」"
-                f"（共 {len(unresolved_issues)} 条含诉求词的消息）"
-            )
+            last_user_short = last_user_msg[:_HINT_TRUNC]
+            if last_msg_has_concern:
+                # 用户最后一条消息本身含诉求词：当前诉求，重要信号
+                hint = (
+                    f"⚠️ 用户最后一条消息含诉求词：「{last_user_short}」"
+                    f"（近期共 {len(unresolved_issues)} 条含诉求词消息）"
+                )
+            else:
+                # 用户最后一条消息无诉求词：历史诉求，可能已解决
+                hint = (
+                    f"用户最后一条消息：「{last_user_short}」（无诉求词）；"
+                    f"历史含诉求词 {len(unresolved_issues)} 条"
+                    f"（最近：「{last_issue}」）"
+                )
 
         return {
             "has_farewell": has_farewell,
             "farewell_evidence": farewell_evidence,
+            "last_user_message": last_user_msg,
             "unresolved_issues": unresolved_issues,
             "unresolved_count": len(unresolved_issues),
             "hint": hint,
@@ -413,8 +434,8 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
                 )
             elif user_asks_amount and not agent_has_amount:
                 topic_mismatch_hint = (
-                    f"⚠️ 用户询问金额「{last_user[:_HINT_TRUNC]}」，"
-                    f"但坐席回复未包含任何明确数字"
+                    f"用户询问金额「{last_user[:_HINT_TRUNC]}」，"
+                    f"坐席回复未含明确数字（若坐席正在核实身份或做引导性回复，不算答非所问）"
                 )
 
         return {
