@@ -48,7 +48,7 @@ _LABEL_CONFIDENCE: Dict[str, float] = {
     "无标签命中": 0.75,
 }
 
-#: 规则预测各标签的置信度（基于 100 条数据集实测精度）
+#: 规则预测各标签的置信度（基于规则精度估计）
 _RULE_CREDIT_ERROR_CONFIDENCE: float = 0.87   # 数据错误：精确额度偏差检测
 _RULE_REPETITION_CONFIDENCE: float = 0.87     # 重复询问：精确字符串匹配
 
@@ -63,14 +63,11 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
     使用 QC 执行引擎的事实数据 API 进行快速规则预测（无 LLM）。
 
     规则只处理高置信度机械性错误，语义判断留给 LLM：
-        - 数据错误：回复金额偏差 > 300 元（P=89%, R=87%）
-        - 重复询问：精确字符串匹配（P=87%, R=87%）
+        - 数据错误：回复金额与系统额度存在实质性偏差
+        - 重复询问：精确字符串匹配
 
     无法可靠预测的标签（返回 None，需 LLM 处理）：
         - 不当告别、答非所问、无标签命中
-
-    实测（100 条安逸花数据集）：
-        28/100 会话可直接给出答案，89% 精度，节省约 28% LLM 调用。
 
     返回:
         (label, confidence, reason)

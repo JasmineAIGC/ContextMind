@@ -45,7 +45,7 @@ ANYIHUA_QC_SCHEMA_DICT = {
         },
         {
             "name": "credit_discrepancy",
-            "description": "坐席回复中金额与系统额度的最大偏差（元）；> 300 时为数据错误的强信号",
+            "description": "坐席回复中金额与系统额度的最大偏差（元）；偏差超过合理容差时为数据错误的强信号",
             "is_categorical": False,
         },
         {
@@ -67,7 +67,7 @@ ANYIHUA_QC_SCHEMA_DICT = {
         },
         {
             "name": "similarity_score",
-            "description": "坐席最终回复与历史发言的最高字符相似度（0.0~1.0）；≥ 0.80 为重复信号",
+            "description": "坐席最终回复与历史发言的最高字符相似度（0.0~1.0）；高相似度为重复询问的参考信号",
             "is_categorical": False,
         },
         # ---- 不当告别检测槽位 ----
@@ -116,9 +116,9 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "获取信用额度事实数据，检测坐席回复中引用的金额是否与系统额度一致。"
                 "调用执行引擎 get_credit_data() API，"
                 "返回 system_credit、credit_discrepancy、discrepant_amount_text。"
-                "偏差 > 300 元时须标注为【数据错误】。"
-                "注意：仅当坐席在陈述可提现额度时才检测；"
-                "未来奖励额度（'最高三万元的固定额度'等）不纳入检测范围"
+                "偏差超过合理容差时须标注为【数据错误】。"
+                "注意：仅当坐席在陈述用户当前可提现额度时才检测；"
+                "促销奖励额度、活动固定额度等不纳入检测范围"
             ),
             "required_slots": ["system_credit"],
             "optional_slots": ["credit_discrepancy", "discrepant_amount_text"],
@@ -130,7 +130,7 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "调用执行引擎 get_repetition_data() API，"
                 "返回 exact_repeat、repeat_count、similarity_score。"
                 "精确重复（exact_repeat=True）时须标注为【重复询问】；"
-                "相似度 ≥ 0.80 时由 LLM 进一步判断是否为实质重复"
+                "高相似度时由 LLM 进一步判断是否为实质重复"
             ),
             "required_slots": ["exact_repeat", "repeat_count"],
             "optional_slots": ["similarity_score"],
