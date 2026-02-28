@@ -67,6 +67,12 @@ _BONUS_CREDIT_RE = re.compile(
     r"([零一二三四五六七八九十百千万亿两]+)"
     r"(?:元|块钱)(?:的)?(?:固定额度|额度奖励|活动额度|专属额度|补充额度|奖励额度)"
 )
+# 平台最高额度营销话术：坐席声称平台最高可申请XX万，不是用户当前可用额度
+# 覆盖多种表达：「最高额度是二十万」「额度开放到了最高二十万元」「最高额度已经开放到二十万」
+# 中间部分限制为汉字和常见数词，排除无关字符，控制最大间距避免跨句误匹配
+_MAX_CREDIT_RE = re.compile(
+    r"最(?:高|大)[\u4e00-\u9fa5、，]{0,20}?([零一二三四五六七八九十百千万亿两]+)(?:元|块钱|万)?"
+)
 # 坐席引导提现/借款的上下文模式（金额在前，动作词在后，无显式货币单位后缀）
 # 覆盖多种常见的外呼坐席引导话术表达方式（含全量/按需/一次性等变体）
 _WITHDRAWAL_RE = re.compile(
@@ -210,8 +216,10 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
                 if turn.startswith(_AGENT_PREFIX):
                     turn_text = turn.removeprefix(_AGENT_PREFIX)
                     turn_bonus = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(turn_text)}
+                    # 排除平台最高额度营销话术（如"最高额度是二十万"不是用户当前额度）
+                    turn_max_credit = {m.group(1) for m in _MAX_CREDIT_RE.finditer(turn_text)}
                     for amount_text, value in extract_amounts(turn_text):
-                        if amount_text in turn_bonus or amount_text in seen_h:
+                        if amount_text in turn_bonus or amount_text in turn_max_credit or amount_text in seen_h:
                             continue
                         if value > 1000 and not _is_close(value):
                             seen_h.add(amount_text)
@@ -342,7 +350,9 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         last_msg_has_concern = any(w in last_user_msg for w in USER_CONCERN_WORDS)
 
         hint = ""
-        if unresolved_issues:
+        # 只有在坐席确实含告别话术时，才生成不当告别相关的 hint
+        # 若无告别话术，③不当告别从步骤1起即不成立，无需生成hint
+        if has_farewell and unresolved_issues:
             last_issue = unresolved_issues[-1][:_HINT_TRUNC]
             last_user_short = last_user_msg[:_HINT_TRUNC]
             if last_msg_has_concern:

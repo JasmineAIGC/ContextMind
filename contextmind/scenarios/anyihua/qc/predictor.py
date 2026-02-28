@@ -154,6 +154,7 @@ async def classify_session_llm(
     data_error_hints: List[str] = credit["hints"]
     repetition_hint: str = rep["hint"]
     farewell_hint: str = fare["hint"]
+    has_farewell: bool = fare["has_farewell"]
     topic_hint: str = topic["topic_mismatch_hint"]
     max_sim: float = rep["max_similarity"]
 
@@ -165,10 +166,13 @@ async def classify_session_llm(
         "坐席的职责是推介借款、解答用户咨询，并按规范完成服务流程。\n\n"
         "请对【坐席最终回复】从以下五个质量标签中选择唯一最匹配的一个。\n"
         "每个标签代表一类违规或质量问题，均需要满足明确条件才能判定。\n\n"
-        "【重要说明】\n"
-        "· 判断依据必须来自对话内容和系统数据，不能凭感觉或主观推断\n"
+        "【核心判断原则】\n"
+        "· ⑤无标签命中是默认标签：当①②③④均无明确充分的成立证据时，直接选⑤，不要勉强选择其他标签\n"
+        "· 事实判断优先：判断依据必须来自对话内容和系统数据，不能凭感觉或主观推断\n"
+        "· 证据不足时选⑤：宁愿漏判一个错误，也不要误判一个正常的对话为违规\n"
+        "· 数据缺失时跳过：当规则预分析提示某项数据'未提供'，则对应标签直接不成立\n"
         "· 用户自述的金额（如'我APP显示三万'）不可作为系统真实数据\n"
-        "· 只有【用户系统额度】是判断数据错误的唯一客观标准\n\n"
+        "· 只有【用户系统额度】是判断①数据错误的唯一客观标准\n\n"
         "【五个质量标签的判断标准（按①→⑤顺序逐一核查，第一个明确成立的即为结果）】\n\n"
         "① 数据错误\n"
         "   定义：坐席在向用户陈述账户可提现额度时，所报金额与系统记录存在实质性偏差。\n"
@@ -230,7 +234,12 @@ async def classify_session_llm(
         "     请结合对话上下文判断，坐席用解释性语言回应也是有效响应\n\n"
         "⑤ 无标签命中\n"
         "   定义：以上①②③④均不明确成立，回复符合基本服务规范。\n"
-        "   适用情形：正常推介、用户接受/拒绝/同意考虑、正常问答（即使不够精确）等。\n\n"
+        "   适用情形：正常推介、用户接受/拒绝/同意考虑、正常问答（即使不够精确）等。\n"
+        "   【重要】这是默认标签。有以下任意情形时直接选⑤，不需要继续考虑其他标签：\n"
+        "   · 规则预分析各项均未触发⚠️信号\n"
+        "   · 对话历史太短或缺失，无法确认违规事实\n"
+        "   · 各项证据模棱两可，无法确定哪个标签\n"
+        "   · 系统额度'未提供'且无其他可检测的违规\n\n"
         "【输出要求】\n"
         "请先逐条核查①到④，每项写出核查结论（成立/不成立及简要理由）。\n"
         "最后一行必须是且仅是以下格式的JSON（不要加代码块标记）：\n"
@@ -238,7 +247,10 @@ async def classify_session_llm(
     )
 
     preanalysis_sections: List[str] = []
-    if data_error_hints:
+    if credit_yuan == 0:
+        # 系统额度未提供：①数据错误检测无法进行，直接不成立
+        preanalysis_sections.append("【规则预分析-数据错误】系统额度未提供，①直接不成立")
+    elif data_error_hints:
         preanalysis_sections.append(
             "【规则预分析-数据错误】\n" + "\n".join(f"  · {h}" for h in data_error_hints)
         )
@@ -252,10 +264,13 @@ async def classify_session_llm(
             f"【规则预分析-重复询问】最高历史相似度 {max_sim:.0%}（<80%，未触发）"
         )
 
-    if farewell_hint:
-        preanalysis_sections.append(f"【规则预分析-不当告别】{farewell_hint}")
+    # 不当告别预分析：has_farewell=False 时直接标注③不成立，不产生额外噪音
+    if not has_farewell:
+        preanalysis_sections.append("【规则预分析-不当告别】坐席回复不含明确告别话术，③直接不成立")
+    elif farewell_hint:
+        preanalysis_sections.append(f"【规则预分析-不当告别】坐席含告别话术；{farewell_hint}")
     else:
-        preanalysis_sections.append("【规则预分析-不当告别】未检测到明显未解决诉求")
+        preanalysis_sections.append("【规则预分析-不当告别】坐席含告别话术；未检测到近期未解决诉求")
 
     if topic_hint:
         preanalysis_sections.append(f"【规则预分析-答非所问】{topic_hint}")
