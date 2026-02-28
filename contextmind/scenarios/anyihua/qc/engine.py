@@ -90,7 +90,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_data_error(customer_name: str = None) -> dict:
+    def predict_data_error() -> dict:
         """
         检测数据错误：坐席引用额度金额与系统记录偏差 > 300 元。
 
@@ -205,7 +205,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_improper_farewell(customer_name: str = None) -> dict:
+    def predict_improper_farewell() -> dict:
         """
         检测不当告别：用户有未解决诉求时坐席执行告别话术。
 
@@ -252,7 +252,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_off_topic(customer_name: str = None) -> dict:
+    def predict_off_topic() -> dict:
         """
         检测答非所问：用户有明确问题但坐席回复与问题话题完全无关。
 
@@ -287,7 +287,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def predict_no_issue(customer_name: str = None) -> dict:
+    def predict_no_issue() -> dict:
         """
         无标签命中（默认兜底标签）。
         其余四个标签均未检出时调用。

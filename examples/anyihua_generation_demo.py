@@ -17,9 +17,9 @@
 
 用法:
     cd /path/to/ContextMind
-    python examples/anyihua_online_demo.py
-    python examples/anyihua_online_demo.py --port 7861
-    python examples/anyihua_online_demo.py --share
+    python examples/anyihua_generation_demo.py
+    python examples/anyihua_generation_demo.py --port 7861
+    python examples/anyihua_generation_demo.py --share
 """
 
 from __future__ import annotations
@@ -301,9 +301,9 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 用法示例:
-  python examples/anyihua_online_demo.py
-  python examples/anyihua_online_demo.py --port 7861
-  python examples/anyihua_online_demo.py --share
+  python examples/anyihua_generation_demo.py
+  python examples/anyihua_generation_demo.py --port 7861
+  python examples/anyihua_generation_demo.py --share
         """,
     )
     parser.add_argument(

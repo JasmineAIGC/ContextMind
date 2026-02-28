@@ -5,17 +5,16 @@
 供动作解析器（Action Parser）在 PyTOD 程序中调用，
 以便对话管理器（Dialogue Manager）基于真实数据生成坐席回复。
 
-注册的 5 个 API：
-    query_account(customer_name)             — 查询账户额度信息（核心数据源）
-    calculate_repayment(amount, months)      — 计算月还款额和总手续费
-    check_repetition(utterance)              — 检测话术是否已重复说过
-    check_farewell_preconditions(customer_name) — 检查是否可以告别
-    query_loan_records(customer_name)        — 查询借款记录
+注册的 5 个 API（均为纯数据查询，不返回建议或决策）：
+    query_account()          — 查询账户额度信息（核心数据源）
+    calculate_repayment(amount, months)  — 计算月还款额和总手续费
+    get_agent_history()      — 获取历史坐席话术列表（供对话管理器避免重复）
+    query_unresolved_issues() — 查询用户未解决诉求（供对话管理器决定是否告别）
+    query_loan_records()     — 查询借款记录
 
-与 QC 引擎的区别：
-    - QC 引擎（qc/engine.py）注册的是「标签检测器」，用于判断对话质量
-    - 生成引擎（本文件）注册的是「CRM 查询器」，用于获取数据以生成回复
-    - 两者目的不同、数据不同，不可共用
+API 设计原则：
+    - 所有 API 只返回原始数据，不做推断或建议（决策由对话管理器 LLM 负责）
+    - 与 QC 引擎（qc/engine.py）完全独立，目的和数据均不同
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ _FAREWELL_HISTORY_WINDOW = 12
 
 def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     """
-    为安逸花生成任务构建 ExecutionEngine，注册 5 个 CRM 查询 API。
+    为安逸花生成任务构建 ExecutionEngine，注册 5 个 CRM 数据查询 API。
 
     动作解析器（LLM）根据 ANYIHUA_SCHEMA 生成 PyTOD 程序，
     执行引擎调用这些 API 获取真实 CRM 数据，
@@ -48,7 +47,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
                  "用户信息", "对话历史"
 
     返回:
-        ExecutionEngine 实例，已注册 5 个 CRM 查询 API。
+        ExecutionEngine 实例，已注册 5 个 CRM 数据查询 API。
 
     使用示例::
 
@@ -71,7 +70,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def query_account(customer_name: str = None) -> dict:
+    def query_account() -> dict:
         """
         查询客户账户信息（额度、利率、借款状态等）。
 
@@ -125,55 +124,40 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 3：check_repetition — 检测话术是否已重复
+    # API 3：get_agent_history — 获取历史坐席话术
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def check_repetition(utterance: str = None) -> dict:
+    def get_agent_history() -> dict:
         """
-        检测坐席计划使用的话术是否与历史发言重复。
+        返回对话历史中所有坐席发言的列表。
 
-        需由动作解析器显式传入 utterance（坐席计划说的内容）。
-        在 guide_loan_operation 意图时调用：
-        - repeat_count >= 2 时建议改为 escalate_to_human
-        - repeat_count == 1 时提示换一种说法
-        - 未传入 utterance 时返回无法检测
+        对话管理器在生成回复前调用此 API，
+        对照历史话术避免重复说完全相同的内容；
+        若历史中同一话术已出现 2 次以上，应改变表达或转人工。
         """
-        if not utterance:
-            return {
-                "is_repetitive": False,
-                "repeat_count": 0,
-                "recommendation": "需传入 utterance 参数才能检测重复",
-            }
-        utt = utterance.strip()
         agent_turns = [
             t.removeprefix(_AGENT_PREFIX).strip()
             for t in history
             if t.startswith(_AGENT_PREFIX)
         ]
-        is_exact = utt in agent_turns
-        count = agent_turns.count(utt)
         return {
-            "is_repetitive": is_exact,
-            "repeat_count": count,
-            "recommendation": (
-                "建议转人工" if count >= 2
-                else "建议换一种方式说明" if count == 1
-                else "可以继续"
-            ),
+            "agent_turns": agent_turns,
+            "turn_count": len(agent_turns),
         }
 
     # ----------------------------------------------------------------------- #
-    # API 4：check_farewell_preconditions — 检查告别前提
+    # API 4：query_unresolved_issues — 查询用户未解决诉求
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def check_farewell_preconditions(customer_name: str = None) -> dict:
+    def query_unresolved_issues() -> dict:
         """
-        检查是否满足礼貌告别的前提条件（用户无未解决诉求）。
+        返回最近对话中用户尚未得到回答的诉求列表。
 
-        say_goodbye 意图执行前必须调用此 API，
-        can_farewell=False 时应先解决用户问题或转人工。
+        对话管理器在执行 say_goodbye 意图前调用此 API，
+        仅当 issue_count=0（无未解决诉求）时才可礼貌告别，
+        否则应继续解决问题或转人工，不得直接告别。
         """
         last_user_turns = [
             t.removeprefix(_USER_PREFIX)
@@ -182,9 +166,8 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         ]
         unresolved = [t for t in last_user_turns if any(w in t for w in USER_CONCERN_WORDS)]
         return {
-            "can_farewell": not bool(unresolved),
             "unresolved_issues": unresolved,
-            "recommendation": "可以告别" if not unresolved else "请先解决用户问题或转人工",
+            "issue_count": len(unresolved),
         }
 
     # ----------------------------------------------------------------------- #
@@ -192,7 +175,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     # ----------------------------------------------------------------------- #
 
     @engine.register
-    def query_loan_records(customer_name: str = None) -> dict:
+    def query_loan_records() -> dict:
         """
         查询客户借款记录（用于 handle_loan_dispute 意图）。
 

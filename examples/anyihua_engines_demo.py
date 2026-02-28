@@ -8,7 +8,7 @@
     用于离线标签预测（predict_label_pytod）和 LLM hint 注入（classify_session_llm）。
 
   任务二 (Generation)：build_generation_engine()
-    注册 5 个 CRM 查询 API（query_account 等）。
+    注册 5 个 CRM 数据查询 API（query_account、get_agent_history 等）。
     动作解析器（LLM）可基于 ANYIHUA_SCHEMA 生成 PyTOD 程序调用这些 API，
     对话管理器再基于真实数据生成坐席回复。
 
@@ -16,7 +16,7 @@
 
 用法（无需 LLM，完全离线）:
     cd /path/to/ContextMind
-    python examples/anyihua_engine_api_demo.py
+    python examples/anyihua_engines_demo.py
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ x5 say(x3)
 
 
 def demo_generation_engine() -> None:
-    """演示 Generation 任务引擎：5 个 CRM 查询 API。"""
+    """演示 Generation 任务引擎：5 个 CRM 数据查询 API。"""
     _hr("任务二（Generation）：build_generation_engine() 演示")
     session = _data[10]
     engine = build_generation_engine(session)
@@ -105,17 +105,23 @@ def demo_generation_engine() -> None:
     print(f"    月还款额: {rep['monthly_payment']:,}元")
     print(f"    总手续费: {rep['total_interest']:,}元")
 
-    # check_farewell_preconditions
-    fare = engine.registry["check_farewell_preconditions"]()
-    print(f"\n  check_farewell_preconditions():")
-    print(f"    can_farewell: {fare['can_farewell']}")
-    print(f"    recommendation: {fare['recommendation']}")
+    # get_agent_history
+    hist = engine.registry["get_agent_history"]()
+    print(f"\n  get_agent_history():")
+    print(f"    历史坐席话术条数: {hist['turn_count']}")
+    if hist["agent_turns"]:
+        print(f"    最后一条: {hist['agent_turns'][-1][:40]}…")
+
+    # query_unresolved_issues
+    issues = engine.registry["query_unresolved_issues"]()
+    print(f"\n  query_unresolved_issues():")
+    print(f"    未解决诉求数: {issues['issue_count']}")
 
     _hr("execute_program 演示（模拟动作解析器生成的 PyTOD 程序）")
     result = engine.execute_program("""
 x1 query_account()
 x2 calculate_repayment()
-x3 check_farewell_preconditions()
+x3 query_unresolved_issues()
 x4 say(x1)
 """)
     print(f"success: {result.success}")
@@ -136,8 +142,8 @@ def main() -> None:
     print("\n更多阅读:")
     print("  任务一 QC 引擎:        contextmind/scenarios/anyihua/qc/")
     print("  任务二 Generation 引擎: contextmind/scenarios/anyihua/generation/")
-    print("  任务一入口:            examples/anyihua_qc_pipeline.py")
-    print("  任务二入口:            examples/anyihua_online_demo.py")
+    print("  任务一入口:            examples/anyihua_qc_demo.py")
+    print("  任务二入口:            examples/anyihua_generation_demo.py")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@
 
 任务一：离线质检（Label Prediction / QC）
     位置: contextmind/scenarios/anyihua/qc/
-    入口: examples/anyihua_qc_pipeline.py
+    入口: examples/anyihua_qc_demo.py
 
     使用 PyTOD ExecutionEngine 注册 5 个标签检测 API（对应 5 个质量标签），
     通过纯规则预测或 LLM 辅助分类对坐席回复进行质量标注。
@@ -19,7 +19,7 @@
 
 任务二：在线生成（Response Generation）
     位置: contextmind/scenarios/anyihua/generation/
-    入口: examples/anyihua_online_demo.py
+    入口: examples/anyihua_generation_demo.py
 
     使用 PyTOD ExecutionEngine 注册 CRM 查询 API（query_account 等），
     通过 PyTODTracker 三步流程（动作解析器 → 执行引擎 → 对话管理器）

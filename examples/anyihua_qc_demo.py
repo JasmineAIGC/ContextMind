@@ -17,16 +17,16 @@
 
 用法:
     cd /path/to/ContextMind
-    python examples/anyihua_qc_pipeline.py
+    python examples/anyihua_qc_demo.py
 
     # 将全部对话历史送入 LLM（默认仅送最近 10 轮，节省 token）：
-    python examples/anyihua_qc_pipeline.py --full-history
+    python examples/anyihua_qc_demo.py --full-history
 
     # 只看预测错误的条目（verbose 模式）：
-    python examples/anyihua_qc_pipeline.py --verbose
+    python examples/anyihua_qc_demo.py --verbose
 
     # 将结果保存到 JSON：
-    python examples/anyihua_qc_pipeline.py --output /tmp/qc_results.json
+    python examples/anyihua_qc_demo.py --output /tmp/qc_results.json
 """
 
 from __future__ import annotations

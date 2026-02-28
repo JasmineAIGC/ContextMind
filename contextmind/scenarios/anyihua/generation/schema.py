@@ -20,9 +20,9 @@ Schema 约束 LLM 只从预定义意图中选择，按规定格式填写槽位�
     calculate_repayment     — 计算月还款额（调用 calculate_repayment API）
     explain_displayed_amount — 解释 APP 显示金额（调用 query_account API）
     handle_loan_dispute     — 核实借款争议（调用 query_loan_records API）
-    guide_loan_operation    — 引导借款操作（调用 check_repetition API）
+    guide_loan_operation    — 引导借款操作（调用 get_agent_history API）
     escalate_to_human       — 转接人工（重复无效时使用）
-    say_goodbye             — 礼貌告别（必须先调用 check_farewell_preconditions API）
+    say_goodbye             — 礼貌告别（必须先调用 query_unresolved_issues API）
 """
 
 from __future__ import annotations
@@ -118,8 +118,8 @@ ANYIHUA_SCHEMA_DICT = {
             "name": "guide_loan_operation",
             "description": (
                 "引导用户在 APP 完成借款操作。"
-                "先调用 query_account 获取 available_credit，再调用 check_repetition API；"
-                "repeat_count >= 2 时改为 escalate_to_human"
+                "先调用 query_account 获取 available_credit，再调用 get_agent_history API；"
+                "历史中同一话术出现 2 次以上时改为 escalate_to_human"
             ),
             "required_slots": ["customer_name"],
             "optional_slots": ["available_credit"],
@@ -137,8 +137,8 @@ ANYIHUA_SCHEMA_DICT = {
             "name": "say_goodbye",
             "description": (
                 "礼貌告别。"
-                "必须先调用 check_farewell_preconditions API，"
-                "确认 can_farewell=True 才可执行告别，否则继续解决用户问题或转人工"
+                "必须先调用 query_unresolved_issues API，"
+                "确认 issue_count=0（无未解决诉求）才可执行告别，否则继续解决用户问题或转人工"
             ),
             "required_slots": ["customer_name"],
             "optional_slots": [],
