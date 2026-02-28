@@ -94,6 +94,15 @@ ANYIHUA_QC_SCHEMA_DICT = {
             "is_categorical": False,
         },
         {
+            "name": "user_has_inquiry",
+            "description": (
+                "用户是否提出了需要坐席正面回应的实质性诉求（True/False）。"
+                "不仅限于金额询问，也包含'在哪里''显示X''申请了Y'等账户相关问题"
+            ),
+            "is_categorical": True,
+            "possible_values": ["True", "False"],
+        },
+        {
             "name": "topic_mismatch_hint",
             "description": "坐席回复与用户问题话题不匹配的初步信号（由引擎规则生成，供 LLM 参考）",
             "is_categorical": False,
@@ -152,11 +161,11 @@ ANYIHUA_QC_SCHEMA_DICT = {
             "description": (
                 "获取话题相关性数据，检测坐席回复是否切题。"
                 "调用执行引擎 get_topic_data() API，"
-                "返回 last_user_question、topic_mismatch_hint。"
+                "返回 last_user_question、user_has_inquiry、topic_mismatch_hint。"
                 "由 LLM 判断坐席回复是否与用户问题在同一话题范围内；"
                 "仅当回复与问题完全无关时才标注为【答非所问】"
             ),
-            "required_slots": ["last_user_question"],
+            "required_slots": ["last_user_question", "user_has_inquiry"],
             "optional_slots": ["topic_mismatch_hint"],
         },
         {

@@ -55,7 +55,7 @@ from ..utils import (
 _AMOUNT_TOLERANCE = 300
 # 重复询问模糊相似度提示阈值：超出此值才生成 hint 文字（仅供 LLM 参考）
 # 注：此阈值用于 hint 文字生成，而非标签预测；标签判断依赖 exact_repeat 字段
-_REP_SIM_THRESHOLD = 0.80
+_REP_SIM_THRESHOLD = 0.75
 # 不当告别检测的用户历史窗口大小
 _FAREWELL_HISTORY_WINDOW = 12
 # hint 文本截断长度
@@ -89,10 +89,23 @@ _CREDIT_LEAD_RE = re.compile(
 _CREDIT_SUFFIX_RE = re.compile(
     r"([零一二三四五六七八九十百千万亿两]+)(?:元)?的额度"
 )
-# 答非所问检测：用于判断用户是否在询问具体金额的关键词
-_AMOUNT_QUESTION_WORDS: tuple = ("多少", "几钱", "多少钱", "多少啊", "多少元")
+# 答非所问检测：用于判断用户是否在询问具体金额或位置的关键词
+_AMOUNT_QUESTION_WORDS: tuple = ("多少", "几钱", "多少钱", "多少啊", "多少元", "在哪里", "在哪")
+# 答非所问检测：用户消息中出现以下词时，认为用户正在询问账户相关事项
+# （即使不含"多少"，也应视为有效诉求，坐席应正面回应）
+_ACCOUNT_INQUIRY_WORDS: tuple = ("显示", "申请", "额度", "利息")
+# 答非所问检测：简短应答词集合——用户发言仅含这些词时不视为实质性诉求
+_SIMPLE_ACK: frozenset = frozenset({
+    "嗯", "哦", "好", "对", "行", "是", "好的", "知道了", "明白了", "嗯嗯",
+    "好好", "好好好", "是的", "对的", "行行", "好吧",
+})
 # 答非所问检测：坐席进行品牌/身份自我介绍的信号（而非回答用户问题）
 _AGENT_INTRO_RE = re.compile(r"(?:我是|我这边是|我这里是|我说).{0,6}(?:安逸花|马上消费)")
+# 答非所问检测：坐席将对话切回销售宣传脚本（忽略用户具体问题，切到通用pitch）
+_AGENT_SALES_PITCH_RE = re.compile(
+    r"(?:来电|打来电话)就是[^，。]{0,20}借还款记录"
+    r"|看到您[^，。]{0,15}借还款记录保持得"
+)
 # 答非所问检测：坐席将用户问题反问回去的信号（未给出实质答案）
 _AGENT_ECHO_RE = re.compile(r"您(?:是说|这边|这里)?[^，。]{0,15}(?:吗[？?]|是吗[？?])")
 
@@ -388,9 +401,11 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         提取用户最近问题和话题相关性的事实数据。
 
         提取内容：
-          · last_user_message   — 用户最近一条发言的完整内容
-          · user_asks_amount    — 用户是否在询问具体金额（"多少"类问题）
-          · topic_mismatch_hint — 话题不匹配的初步信号（由规则生成，供 LLM 参考）
+          · last_user_message      — 用户最近一条发言的完整内容
+          · user_asks_amount       — 用户是否在询问具体金额或位置（"多少/在哪里"类）
+          · user_has_inquiry       — 用户是否提出了需要坐席正面回应的实质性诉求
+                                     （比 user_asks_amount 更宽，包含账户相关询问）
+          · topic_mismatch_hint    — 话题不匹配的初步信号（由规则生成，供 LLM 参考）
 
         注意：本 API 不判断是否为"答非所问"，判断由调用方（LLM / predictor）负责。
               topic_mismatch_hint 是弱信号，LLM 需结合语义判断是否真正答非所问。
@@ -405,8 +420,16 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             "",
         )
 
-        # 判断用户是否在询问具体金额
+        # 用户是否在询问具体金额或位置（严格）
         user_asks_amount = any(w in last_user for w in _AMOUNT_QUESTION_WORDS)
+
+        # 用户是否有实质性账户相关诉求（宽松）：
+        # 含账户词且消息内容足够长（排除"嗯""哦""好"等简短应答）
+        user_has_inquiry = user_asks_amount or (
+            len(last_user.strip()) >= 6
+            and last_user.strip() not in _SIMPLE_ACK
+            and any(w in last_user for w in _ACCOUNT_INQUIRY_WORDS)
+        )
 
         # 判断坐席回复是否包含中文数字金额（有实质数字信息）
         agent_has_amount = bool(
@@ -414,6 +437,8 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         )
         # 判断坐席是否进行品牌/身份自我介绍而非回答问题
         agent_is_intro = bool(_AGENT_INTRO_RE.search(reply))
+        # 判断坐席是否切回标准销售宣传脚本（忽略用户问题）
+        agent_deflects_to_pitch = bool(_AGENT_SALES_PITCH_RE.search(reply))
         # 判断坐席是否将问题反问回用户而非给出答案
         agent_echoes_question = bool(_AGENT_ECHO_RE.search(reply))
 
@@ -432,15 +457,24 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
 
         # 补充：结构性不匹配信号（优先级更高，覆盖 OFFTOPIC_SIGNALS 未覆盖的场景）
         if not topic_mismatch_hint:
-            if user_asks_amount and agent_is_intro:
+            if user_asks_amount and (agent_is_intro or agent_deflects_to_pitch):
+                # 用户问了具体问题，坐席却做品牌介绍或切回销售脚本
+                action = "品牌/身份自我介绍" if agent_is_intro else "切回销售宣传脚本"
                 topic_mismatch_hint = (
                     f"⚠️ 用户询问「{last_user[:_HINT_TRUNC]}」，"
-                    f"坐席进行了品牌/身份自我介绍而未提供金额"
+                    f"坐席进行了{action}而未正面回答"
                 )
-            elif user_asks_amount and agent_echoes_question:
+            elif user_has_inquiry and agent_echoes_question:
+                # 用户提出实质性诉求，坐席用反问句回应（可能是澄清或回避）
                 topic_mismatch_hint = (
-                    f"⚠️ 用户询问「{last_user[:_HINT_TRUNC]}」，"
-                    f"坐席将问题反问回用户（未给出实质答案）"
+                    f"⚠️ 用户发言「{last_user[:_HINT_TRUNC]}」，"
+                    f"坐席以反问方式回应（未给出实质答案，需 LLM 判断是否答非所问）"
+                )
+            elif agent_is_intro and len(history) >= 6 and len(last_user.strip()) >= 5:
+                # 对话已建立多轮，坐席却重新做品牌介绍 → 很可能是在回避用户问题
+                topic_mismatch_hint = (
+                    f"⚠️ 对话已进行多轮，坐席重新进行品牌介绍："
+                    f"用户说「{last_user[:_HINT_TRUNC]}」，坐席却重新介绍身份（可能在回避问题）"
                 )
             elif user_asks_amount and not agent_has_amount:
                 topic_mismatch_hint = (
@@ -451,6 +485,7 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         return {
             "last_user_message": last_user,
             "user_asks_amount": user_asks_amount,
+            "user_has_inquiry": user_has_inquiry,
             "topic_mismatch_hint": topic_mismatch_hint,
         }
 
