@@ -6,15 +6,15 @@
 
 方式 A：离线质检（Offline QC）— 纯 LLM
     输入: (用户信息, 对话历史, 坐席回复)
-    → PyTOD ExecutionEngine 预分析（注入 hint 到 prompt）
+    → PyTOD ExecutionEngine 5 个标签 API 预分析（注入 hint 到 prompt）
     → LLM 五分类质检（detect_session_llm）
     → 预测标签 vs 人工校验标签 → F1 评估
 
 方式 A²：离线质检（Hybrid QC）— PyTOD 优先，LLM 兜底
     输入: (用户信息, 对话历史, 坐席回复)
     → predict_label_pytod()：纯规则预测
-      → 数据错误：回复金额 vs 系统额度偏差 > 300 元 → 直接输出（无 LLM）
-      → 重复询问：精确字符串匹配 → 直接输出（无 LLM）
+      → 数据错误：predict_data_error() → 直接输出（无 LLM）
+      → 重复询问：predict_repetition() → 直接输出（无 LLM）
       → 其他标签：规则无法判断 → 交由 detect_session_llm
     → 实测：32/100 会话无需 LLM，节省 ~32% token
 
@@ -25,8 +25,8 @@
     → [步骤3] 对话管理器 (LLM) → 基于真实数据生成回复
 
 目录结构:
-    utils.py          - 中文数字解析、用户信息解析
-    engine.py         - ExecutionEngine 构建（mock CRM API 注册）
+    utils.py          - 中文数字解析、用户信息解析、标签检测共享常量
+    engine.py         - ExecutionEngine 构建（5 个质量标签检测 API 注册）
     schema.py         - ServiceSchema 定义
     detectors.py      - 检测函数（predict_label_pytod 纯规则；detect_session_llm LLM 分类）
     quality_checker.py - PyTODQualityChecker 批量质检器（支持 hybrid 模式）

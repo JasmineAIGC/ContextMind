@@ -26,74 +26,23 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from .engine import build_anyihua_engine
-from .utils import extract_amounts, parse_user_info
+from .utils import (
+    AGENT_PREFIX as _AGENT_PREFIX,
+    FAREWELL_KEYWORDS,
+    FAREWELL_SOFT_PATTERNS,
+    OFFTOPIC_SIGNALS,
+    USER_CONCERN_WORDS,
+    USER_PREFIX as _USER_PREFIX,
+    extract_amounts,
+    parse_user_info,
+)
 
 
 # --------------------------------------------------------------------------- #
-# 角色前缀常量（对话历史格式: "坐席：发言内容" / "用户：发言内容"）
+# LLM 答非所问检测预过滤词
 # --------------------------------------------------------------------------- #
 
-_AGENT_PREFIX = "坐席："
-_USER_PREFIX = "用户："
-
-
-# --------------------------------------------------------------------------- #
-# 告别检测常量
-# --------------------------------------------------------------------------- #
-
-#: 固定告别话术关键词（13/15 会话命中至少 2 个）
-FAREWELL_KEYWORDS: List[str] = [
-    "不打扰您了",
-    "祝您生活愉快",
-    "再见",
-    "感谢您的接听",
-    "感谢接听",       # 口语缩写，无"您"
-]
-
-#: 单关键词即可判断告别的强信号词组（score 不够时的补充）
-_FAREWELL_SOFT_PATTERNS: List[str] = [
-    "先不打扰",
-    "不打扰了",
-    "打扰到您了",
-]
-
-#: 用户诉求关键词（出现在最后 12 条历史中则视为有未解决问题）
-USER_CONCERN_WORDS: List[str] = [
-    "为什么",
-    "怎么",
-    "没有",
-    "借不出",
-    "不对",
-    "不是",
-    "投诉",
-    "能不能",
-    "可不可以",
-    "怎么办",
-    "解冻",
-    "申请",
-    "问一下",
-    "还想问",       # "我还想问你" — 用户明确表示有更多问题
-    "什么意思",     # 用户对坐席说法表示困惑
-    "干啥",         # "我问他干啥" — 口语质疑
-    "不行",         # "这个不行" — 操作失败反馈
-    "显示",         # "它显示九万四千八" — 用户质疑 APP 显示数字
-]
-
-# --------------------------------------------------------------------------- #
-# 答非所问规则常量
-# --------------------------------------------------------------------------- #
-
-#: 用户疑问词 → 坐席回复中不应出现的无关模式
-#: 用户问 Q，坐席回答无关的 Y 时视为答非所问
-OFFTOPIC_SIGNALS: Dict[str, List[str]] = {
-    "多少": ["再见", "打扰", "明白吧", "操作流程", "安逸花呀", "是吗", "提完了"],
-    "为什么": ["按需借", "提现", "立即借款", "安逸花呀"],
-    "能不能": ["再见", "不打扰", "感谢", "明白吧"],
-    "怎么": ["按需借", "提现", "可以用", "就可以了"],
-    "显示": ["之前借", "是吗", "借了一笔"],  # 用户质疑 APP 显示数字时，坐席转移话题
-}
-
-#: LLM 答非所问检测预过滤词：用户发言须含至少一个问题/质疑信号才调用 LLM
+#: 用户发言须含至少一个问题/质疑信号才调用 LLM
 #: 无明确问题信号时，答非所问在语义上不成立（无问题可"非所答"），直接跳过 LLM 调用
 _QUESTION_SIGNALS: List[str] = [
     "多少", "为什么", "为啥", "为何", "能不能", "可以吗", "能吗",
@@ -122,9 +71,6 @@ _DEFAULT_HISTORY_TURNS: int = 20
 
 #: 在规则预分析摘要中显示的历史发言最大字符数
 _DISPLAY_TURN_MAX_LEN: int = 30
-
-#: 重复询问相似度触发阈值（用于 detect_session_llm 预分析）
-_REPETITION_SIM_THRESHOLD: float = 0.80
 
 
 # --------------------------------------------------------------------------- #
@@ -308,7 +254,7 @@ def detect_improper_farewell(session: Dict[str, Any]) -> Tuple[bool, str]:
     # 判断是否为告别语（命中 2 个关键词或含委婉告别词）
     farewell_score = sum(1 for kw in FAREWELL_KEYWORDS if kw in reply)
     is_farewell = farewell_score >= 2 or any(
-        p in reply for p in _FAREWELL_SOFT_PATTERNS
+        p in reply for p in FAREWELL_SOFT_PATTERNS
     )
 
     if not is_farewell:
@@ -451,19 +397,19 @@ async def detect_off_topic_llm(
 
 def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, str]:
     """
-    使用 PyTOD ExecutionEngine 的结构化 API 对会话进行**纯规则**标签预测。
+    使用 PyTOD ExecutionEngine 的标签检测 API 对会话进行**纯规则**标签预测。
 
-    本函数**不调用任何 LLM**，仅通过 ExecutionEngine 注册的 CRM API 函数
-    （query_account / check_repetition）对两类高置信度标签进行判断：
+    本函数**不调用任何 LLM**，通过调用 ExecutionEngine 注册的标签预测 API
+    对两类高置信度标签进行判断：
 
     ┌─────────────────────────────────────────────────────────────┐
-    │  标签           规则依据                   实测精度/召回      │
+    │  API                    标签       实测精度/召回              │
     │  ───────────────────────────────────────────────────────── │
-    │  数据错误  回复金额与系统额度偏差 > 300 元    P=87%  R=87%   │
-    │  重复询问  坐席回复与历史精确字符串匹配       P=87%  R=87%   │
+    │  predict_data_error()   数据错误   P=87%  R=87%             │
+    │  predict_repetition()   重复询问   P=87%  R=87%             │
     └─────────────────────────────────────────────────────────────┘
 
-    对于以下标签，本函数**无法**做出判断（返回 None），需交由 LLM 处理：
+    对于以下标签，本函数**无法**可靠判断（返回 None），需交由 LLM 处理：
     - 不当告别：规则精度不足（FP 率 ~47%），语境判断复杂
     - 答非所问：纯语义问题，规则无法穷举
     - 无标签命中：其他标签的补集，无法单独预测
@@ -490,52 +436,19 @@ def predict_label_pytod(session: Dict[str, Any]) -> Tuple[Optional[str], float, 
         - 其中正确:   26/32（81% 精度）
         - LLM 调用节省: 约 32%
     """
-    from .engine import build_anyihua_engine
-
     engine = build_anyihua_engine(session)
-    reply = session["坐席回复"].strip()
 
-    acct = engine.registry["query_account"]()
-    rep = engine.registry["check_repetition"](utterance=reply)
+    # 1. 数据错误（高精度规则：回复金额偏差 > 300 元）
+    data_err = engine.registry["predict_data_error"]()
+    if data_err["detected"]:
+        return data_err["label"], data_err["confidence"], data_err["evidence"]
 
-    credit_yuan = acct["available_credit"]
-    temp_credit = acct.get("temp_credit", 0)
-    gt_values = [v for v in [credit_yuan, temp_credit] if v > 0]
+    # 2. 重复询问（高精度规则：精确字符串匹配）
+    rep = engine.registry["predict_repetition"]()
+    if rep["detected"]:
+        return rep["label"], rep["confidence"], rep["evidence"]
 
-    # ----------------------------------------------------------------- #
-    # 1. 数据错误：坐席回复金额与系统额度偏差 > 300 元
-    #    实测：15 条数据错误中 13 条（87%）可从最终回复中直接检出。
-    #    仅扫描坐席最终回复（不扫描历史），避免历史发言中的其他金额引发 FP。
-    # ----------------------------------------------------------------- #
-    if gt_values:
-        for amount_text, value in extract_amounts(reply):
-            # 过滤 1000 元以下的小额（如利息、手续费、分期月还款等），
-            # 此类金额不是"可提现额度"，不参与数据错误判断
-            if value > 1000 and not any(abs(value - g) <= 300 for g in gt_values):
-                diff = abs(value - credit_yuan)
-                return (
-                    "数据错误",
-                    0.87,
-                    f"回复提及「{amount_text}」({value:,}元)，"
-                    f"系统额度{credit_yuan:,}元，偏差{diff:,}元",
-                )
-
-    # ----------------------------------------------------------------- #
-    # 2. 重复询问：坐席回复与历史发言精确匹配
-    #    实测：15 条重复询问中 13 条（87%）为逐字完全相同。
-    #    仅使用精确匹配（Layer 1），不使用模糊相似度，避免 FP。
-    # ----------------------------------------------------------------- #
-    if rep["is_exact_repeat"]:
-        count = rep["repeat_count"]
-        return (
-            "重复询问",
-            0.87,
-            f"坐席回复与历史发言精确匹配，已重复 {count + 1} 次",
-        )
-
-    # ----------------------------------------------------------------- #
-    # 3. 以下标签无法由规则可靠预测，返回 None 交由 LLM 处理
-    # ----------------------------------------------------------------- #
+    # 3. 不当告别/答非所问：规则精度不足，返回 None 交由 LLM 处理
     return None, 0.0, "规则无法判断，需 LLM 语义推理"
 
 
@@ -580,96 +493,23 @@ async def detect_session_llm(
     history = session["对话历史"]
     reply = session["坐席回复"]
 
-    # 使用 PyTOD 执行引擎获取结构化预分析信号
-    # 引擎将用户信息注册为可调用 CRM API，提供客观的 ground truth 数据
+    # 使用 PyTOD 执行引擎的标签检测 API 获取结构化预分析信号
     engine = build_anyihua_engine(session)
-    acct = engine.registry["query_account"]()
-    rep = engine.registry["check_repetition"](utterance=reply.strip())
-    fare = engine.registry["check_farewell_preconditions"]()
+    data_err = engine.registry["predict_data_error"]()
+    rep = engine.registry["predict_repetition"]()
+    fare = engine.registry["predict_improper_farewell"]()
 
-    credit_yuan = acct["available_credit"]
+    credit_yuan = data_err["system_credit"]
     credit_display = f"{credit_yuan:,}元" if credit_yuan > 0 else "未提供"
-    temp_credit = acct.get("temp_credit", 0)
 
     # --------------------------------------------------------------------------- #
-    # 规则预分析：为 LLM 提供具体数值证据，提升各标签召回率
+    # 规则预分析：从标签检测 API 结果中提取 LLM hint
     # --------------------------------------------------------------------------- #
 
-    # 1. 数据错误预分析：提取坐席回复及历史发言中的金额，与系统额度比对
-    # 合法参考值：available_credit 和 temp_credit（未过期时）
-    _gt_values = [v for v in [credit_yuan, temp_credit] if v > 0]
-    data_error_hints: List[str] = []
-    if _gt_values:
-        def _is_amount_valid(value: int) -> bool:
-            """检查 value 是否与任意合法额度相差 ≤ 300 元"""
-            return any(abs(value - gt) <= 300 for gt in _gt_values)
-
-        # 检查坐席最终回复中的金额
-        for amount_text, value in extract_amounts(reply):
-            if value > 1000 and not _is_amount_valid(value):
-                diff = abs(value - credit_yuan)
-                data_error_hints.append(
-                    f"坐席最终回复提到「{amount_text}」({value:,}元)，"
-                    f"系统额度{credit_yuan:,}元，偏差{diff:,}元 ⚠️"
-                )
-        # 检查对话历史中坐席发言的金额（覆盖"回复本轮未提数字但历史已报错"的场景）
-        seen_history_errors: set = set()
-        for turn in history:
-            if turn.startswith(_AGENT_PREFIX):
-                turn_text = turn.removeprefix(_AGENT_PREFIX)
-                for amount_text, value in extract_amounts(turn_text):
-                    if (
-                        value > 1000
-                        and not _is_amount_valid(value)
-                        and amount_text not in seen_history_errors
-                    ):
-                        seen_history_errors.add(amount_text)
-                        diff = abs(value - credit_yuan)
-                        data_error_hints.append(
-                            f"历史坐席发言提到「{amount_text}」({value:,}元)，"
-                            f"系统额度{credit_yuan:,}元，偏差{diff:,}元 ⚠️"
-                        )
-
-    # 2. 重复询问预分析：使用 PyTOD 引擎 check_repetition() 结果
-    max_sim = rep["max_similarity"]
-    is_exact_repeat = rep["is_exact_repeat"]
-    # 找最相似历史发言片段用于 hint 展示
-    max_sim_turn = ""
-    if max_sim >= _REPETITION_SIM_THRESHOLD and not is_exact_repeat:
-        agent_turns_history = [
-            t.removeprefix(_AGENT_PREFIX).strip()
-            for t in history
-            if t.startswith(_AGENT_PREFIX)
-        ]
-        reply_stripped = reply.strip()
-        for past in agent_turns_history:
-            if not past:
-                continue
-            past_chars = set(past)
-            common = sum(1 for c in reply_stripped if c in past_chars)
-            denom = len(reply_stripped) + len(past)
-            sim = 2 * common / denom if denom > 0 else 0.0
-            if abs(sim - max_sim) < 0.01:
-                max_sim_turn = past
-                break
-
-    repetition_hint = ""
-    if is_exact_repeat:
-        repetition_hint = f"⚠️ 坐席最终回复与历史某条坐席发言完全一致（精确匹配）"
-    elif max_sim >= _REPETITION_SIM_THRESHOLD:
-        repetition_hint = (
-            f"⚠️ 坐席最终回复与历史发言「{max_sim_turn[:_DISPLAY_TURN_MAX_LEN]}」"
-            f"相似度 {max_sim:.0%}（≥{_REPETITION_SIM_THRESHOLD:.0%}）"
-        )
-
-    # 3. 不当告别预分析：使用 PyTOD 引擎 check_farewell_preconditions() 结果
-    farewell_hint = ""
-    if not fare["can_farewell"] and fare["unresolved_issues"]:
-        last_issue = fare["unresolved_issues"][-1][:_DISPLAY_TURN_MAX_LEN]
-        farewell_hint = (
-            f"⚠️ 检测到用户有未解决诉求：「{last_issue}…」"
-            f"（共 {len(fare['unresolved_issues'])} 条未解决消息）"
-        )
+    data_error_hints: List[str] = data_err["data_error_hints"]
+    repetition_hint: str = rep["repetition_hint"]
+    farewell_hint: str = fare["farewell_hint"]
+    max_sim: float = rep["max_similarity"]
 
     # --------------------------------------------------------------------------- #
     # 构建 prompt
