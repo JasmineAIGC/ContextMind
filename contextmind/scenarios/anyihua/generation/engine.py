@@ -105,9 +105,10 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         计算指定金额和期数的月还款额和总手续费。
 
         在 calculate_repayment / explain_interest_rate 意图时调用。
+        LLM 有时以字符串形式传入数值参数，此处强制转为整数以避免类型错误。
         """
-        principal = amount or info["available_credit"]
-        n = months or 12
+        principal = int(amount) if amount is not None else info["available_credit"]
+        n = int(months) if months is not None else 12
         rate = info["annual_rate_pct"] / 100 / 12
         if rate > 0:
             monthly = principal * rate * (1 + rate) ** n / ((1 + rate) ** n - 1)

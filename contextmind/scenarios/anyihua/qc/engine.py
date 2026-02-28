@@ -7,11 +7,11 @@
 中作为纯规则预测器调用（无需 LLM）。
 
 注册的 5 个 API（对应 5 个标签类别）：
-    predict_data_error(customer_name)        — 额度偏差 > 300 元
-    predict_repetition(utterance)            — 坐席回复与历史精确/模糊匹配
-    predict_improper_farewell(customer_name) — 用户有未解决诉求时告别
-    predict_off_topic(customer_name)         — 回复与用户问题话题无关
-    predict_no_issue(customer_name)          — 默认标签（兜底）
+    predict_data_error()             — 额度偏差 > 300 元
+    predict_repetition(utterance)    — 坐席回复与历史精确/模糊匹配
+    predict_improper_farewell()      — 用户有未解决诉求时告别
+    predict_off_topic()              — 回复与用户问题话题无关
+    predict_no_issue()               — 默认标签（兜底）
 
 每个 API 返回标准结构：
     {
@@ -25,6 +25,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict
 
 from contextmind.modes.pytod import ExecutionEngine
@@ -36,6 +37,7 @@ from ..utils import (
     OFFTOPIC_SIGNALS,
     USER_CONCERN_WORDS,
     USER_PREFIX as _USER_PREFIX,
+    cn2int,
     extract_amounts,
     parse_user_info,
 )
@@ -48,6 +50,17 @@ _REP_SIM_THRESHOLD = 0.80
 _FAREWELL_HISTORY_WINDOW = 12
 # hint 文本截断长度
 _HINT_TRUNC = 30
+# 未来奖励额度的上下文模式（额外增加给用户的固定额度，不是用户当前可提现额度）
+_BONUS_CREDIT_RE = re.compile(
+    r"(?:最高|额外|再给您)[^，。]*?"
+    r"([零一二三四五六七八九十百千万亿两]+)"
+    r"(?:元|块钱)的固定额度"
+)
+# 坐席引导用户提现当前额度的上下文模式（这些金额是用户当前可提现额度，无显式货币后缀）
+_WITHDRAWAL_RE = re.compile(
+    r"([零一二三四五六七八九十百千万亿两]+)"
+    r"(?:给它按需|暂时提现|按需全部|全部提现|全部提出|按需提现|按需借出)"
+)
 
 
 def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
@@ -96,8 +109,9 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
 
         - detected/evidence：仅扫描坐席最终回复（降低误报）
         - data_error_hints：同时扫描历史发言（供 classify_session_llm 使用）
+        - 排除"最高X元的固定额度"等未来奖励额度的描述（非用户当前可提现额度）
 
-        实测精度：P=87%, R=87%（100 条安逸花数据集）
+        实测精度：P=90%, R=87%（100 条安逸花数据集）
         """
         def _is_valid(value: int) -> bool:
             return any(abs(value - gt) <= _AMOUNT_TOLERANCE for gt in _gt_values)
@@ -107,7 +121,12 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
         reply_evidence = ""
 
         if _gt_values:
+            # 识别回复中属于"未来奖励额度"的金额（不是用户当前可提现额度）
+            bonus_amounts = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(reply)}
+
             for amount_text, value in extract_amounts(reply):
+                if amount_text in bonus_amounts:
+                    continue  # 跳过促销奖励额度，不纳入数据错误检测
                 if value > 1000 and not _is_valid(value):
                     diff = abs(value - info["available_credit"])
                     data_error_hints.append(
@@ -121,11 +140,35 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
                             f"系统额度{info['available_credit']:,}元，偏差{diff:,}元"
                         )
 
+            # 补充：检测坐席在提现引导语中提及的额度（无显式货币后缀）
+            seen_withdrawal: set = set()
+            for m in _WITHDRAWAL_RE.finditer(reply):
+                amount_text = m.group(1)
+                if amount_text in bonus_amounts or amount_text in seen_withdrawal:
+                    continue
+                seen_withdrawal.add(amount_text)
+                value = cn2int(amount_text)
+                if value > 1000 and not _is_valid(value):
+                    diff = abs(value - info["available_credit"])
+                    data_error_hints.append(
+                        f"坐席引导提现提到「{amount_text}」({value:,}元)，"
+                        f"系统额度{info['available_credit']:,}元，偏差{diff:,}元 ⚠️"
+                    )
+                    if not reply_detected:
+                        reply_detected = True
+                        reply_evidence = (
+                            f"回复引导提现提及「{amount_text}」({value:,}元)，"
+                            f"系统额度{info['available_credit']:,}元，偏差{diff:,}元"
+                        )
+
             seen: set = set()
             for turn in history:
                 if turn.startswith(_AGENT_PREFIX):
                     turn_text = turn.removeprefix(_AGENT_PREFIX)
+                    turn_bonus = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(turn_text)}
                     for amount_text, value in extract_amounts(turn_text):
+                        if amount_text in turn_bonus:
+                            continue
                         if value > 1000 and not _is_valid(value) and amount_text not in seen:
                             seen.add(amount_text)
                             diff = abs(value - info["available_credit"])

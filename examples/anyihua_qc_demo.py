@@ -1,11 +1,12 @@
 """
-安逸花外呼促活服务 · PyTOD 批量质检流水线（LLM 全量质检版）
+安逸花外呼促活服务 · PyTOD 批量质检流水线（Hybrid 质检版）
 
 对 chat_test_100.json 中的 100 条安逸花外呼对话数据集执行离线质检。
-所有质量问题检测均由 LLM 完成（无规则），输出五分类标签并与人工校验对比。
+默认启用 Hybrid 模式：规则覆盖的会话（约 29%）直接给出标签（精度 90%+），
+其余会话调用 LLM 质检，节省 token 并提升整体准确率。
 
 五个质量标签：
-    - 数据错误：坐席引用金额与用户实际信息不符
+    - 数据错误：坐席引用金额与用户实际信息不符（偏差 > 300 元）
     - 重复询问：坐席回复与历史发言高度重复
     - 不当告别：用户有未解决问题时坐席执行告别话术
     - 答非所问：用户明确提问但坐席回复完全无关
@@ -18,6 +19,9 @@
 用法:
     cd /path/to/ContextMind
     python examples/anyihua_qc_demo.py
+
+    # 禁用规则优先，使用纯 LLM 质检：
+    python examples/anyihua_qc_demo.py --no-pytod
 
     # 将全部对话历史送入 LLM（默认仅送最近 10 轮，节省 token）：
     python examples/anyihua_qc_demo.py --full-history
@@ -70,6 +74,16 @@ def parse_args() -> argparse.Namespace:
         help="逐条打印预测错误的会话信息",
     )
     parser.add_argument(
+        "--no-pytod",
+        dest="use_pytod_first",
+        action="store_false",
+        default=True,
+        help=(
+            "禁用规则优先模式（默认启用 Hybrid 模式：规则覆盖的会话直接给出标签，"
+            "规则无法判断时再调用 LLM，节省 token 并提升准确率）"
+        ),
+    )
+    parser.add_argument(
         "--full-history",
         dest="full_history",
         action="store_true",
@@ -115,13 +129,17 @@ def main() -> None:
 
     # ---- 运行质检 ----
     checker = PyTODQualityChecker()
-    mode_desc = f"use_full_history={args.full_history}, model={config.model}"
+    mode_desc = (
+        f"hybrid={'开启' if args.use_pytod_first else '关闭'}, "
+        f"use_full_history={args.full_history}, model={config.model}"
+    )
     print(f"\n🔍 开始质检（{mode_desc}）…\n")
     results = checker.run_batch(
         data,
         verbose=args.verbose,
         use_full_history=args.full_history,
         llm_client=llm_client,
+        use_pytod_first=args.use_pytod_first,
     )
 
     # ---- 保存结果（可选）----

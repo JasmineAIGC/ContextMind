@@ -82,6 +82,13 @@ x5 say(x3)
     print(f"  规则预测覆盖: {predicted}/{total} ({predicted/total:.0%})")
     if predicted > 0:
         print(f"  规则预测精度: {correct}/{predicted} ({correct/predicted:.0%})")
+    # 总体准确率：规则未覆盖的会话以"无标签命中"兜底
+    overall_correct = correct
+    for s in _data:
+        label, _, _ = predict_label_pytod(s)
+        if label is None and s.get("人工校验", "") == "无标签命中":
+            overall_correct += 1
+    print(f"  规则总体准确率（含兜底）: {overall_correct}/{total} ({overall_correct/total:.0%})")
 
 
 def demo_generation_engine() -> None:

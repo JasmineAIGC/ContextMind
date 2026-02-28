@@ -20,6 +20,7 @@
     python examples/anyihua_generation_demo.py
     python examples/anyihua_generation_demo.py --port 7861
     python examples/anyihua_generation_demo.py --share
+    python examples/anyihua_generation_demo.py --verbose  # 控制台打印详细 PyTOD 步骤日志
 """
 
 from __future__ import annotations
@@ -59,6 +60,7 @@ async def run_online_generation(
     session: Dict[str, Any],
     llm_client: LLMClient,
     max_history_turns: int = 10,
+    verbose: bool = False,
 ) -> Dict[str, Any]:
     """
     使用 PyTODTracker 对单条会话进行在线回复生成。
@@ -67,6 +69,7 @@ async def run_online_generation(
         session:           单条 chat_test_100.json 记录
         llm_client:        LLMClient 实例
         max_history_turns: 保留的最大历史轮数（默认 10）
+        verbose:           是否将详细步骤日志打印到控制台
 
     返回:
         包含以下键的字典:
@@ -112,7 +115,18 @@ async def run_online_generation(
 
     # 处理最后一轮用户发言
     last_user = history[-1].removeprefix(_USER_PREFIX)
+    if verbose:
+        print(f"\n[Generation Verbose] 会话: {session['session_id']}")
+        print(f"[Generation Verbose] 用户输入: {last_user}")
     result = await tracker.process_turn(user_utterance=last_user)
+
+    if verbose:
+        print(f"[Generation Verbose] PyTOD 程序:\n{result.get('program_text', '(无)')}")
+        if result.get("state"):
+            import json as _json
+            print(f"[Generation Verbose] 执行状态: {_json.dumps(result['state'], ensure_ascii=False)}")
+        print(f"[Generation Verbose] 生成回复: {result['response']}")
+        print(f"[Generation Verbose] 实际回复: {session['坐席回复']}")
 
     return {
         "response": result["response"],
@@ -172,6 +186,7 @@ def on_generate(
     choice: str,
     data: List[Dict[str, Any]],
     llm_client_holder: List,  # mutable container [LLMClient | None]
+    verbose: bool = False,
 ) -> tuple:
     """点击「生成回复」时运行 PyTOD，返回结果文本。"""
     if not choice:
@@ -189,7 +204,7 @@ def on_generate(
         )
 
     try:
-        result = asyncio.run(run_online_generation(session, llm))
+        result = asyncio.run(run_online_generation(session, llm, verbose=verbose))
     except Exception as exc:
         return f"❌ 生成失败: {exc}", "", ""
 
@@ -205,6 +220,7 @@ def on_generate(
 def create_ui(
     data: List[Dict[str, Any]],
     llm_client_holder: List,
+    verbose: bool = False,
 ) -> gr.Blocks:
     """构建 Gradio Blocks 界面。"""
     choices = build_session_choices(data)
@@ -282,7 +298,7 @@ def create_ui(
         )
 
         generate_btn.click(
-            fn=lambda choice: on_generate(choice, data, llm_client_holder),
+            fn=lambda choice: on_generate(choice, data, llm_client_holder, verbose),
             inputs=[session_dropdown],
             outputs=[pytod_reply_box, program_box, state_box],
         )
@@ -322,6 +338,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="创建公共分享链接（Gradio share）",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="将 PyTOD 每步详细日志打印到控制台（程序文本、API 执行结果、生成回复）",
+    )
     return parser.parse_args()
 
 
@@ -347,7 +368,9 @@ def main() -> None:
         print("   界面仍可打开，但点击「生成回复」时将报错。")
 
     # 启动 Gradio
-    app = create_ui(data, llm_client_holder)
+    app = create_ui(data, llm_client_holder, verbose=args.verbose)
+    if args.verbose:
+        print("✅ Verbose 模式已启用：每次生成回复将在此控制台打印详细日志")
     app.launch(
         server_name="0.0.0.0",
         server_port=args.port,
