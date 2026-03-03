@@ -44,6 +44,11 @@ class ExtractionStrategy(ABC):
     
     @abstractmethod
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
+        """Parse messages and return structured Knowledge objects.
+        
+        Implementations may use rule-based heuristics or LLM calls.
+        Should be idempotent — same messages should yield equivalent results.
+        """
         pass
 
 
@@ -52,6 +57,10 @@ class UpdateStrategy(ABC):
     
     @abstractmethod
     async def update(self, memory_cache: List[ContextItem], new_knowledge: List[Knowledge]) -> List[ContextItem]:
+        """Merge new_knowledge into memory_cache, handling deduplication and conflict resolution.
+        
+        Returns the updated cache; callers should replace their cache with the result.
+        """
         pass
 
 
@@ -60,6 +69,10 @@ class SummarizerStrategy(ABC):
     
     @abstractmethod
     async def summarize(self, messages: List[Message], existing_summary: Optional[str] = None) -> str:
+        """Compress messages into a summary string, optionally extending an existing one.
+        
+        Incremental mode (existing_summary provided) avoids re-summarizing the full history.
+        """
         pass
 
 
@@ -88,10 +101,11 @@ class RerankingStrategy(OptimizationStrategy):
     默认重排序策略
     
     按时间戳和来源重新排序上下文条目。
+    Subclass and override `optimize` to apply model-based or score-based reranking.
     """
     
     async def optimize(self, context: ProcessedContext) -> ProcessedContext:
-        """重排序上下文（当前保持原有顺序）。"""
+        """No-op default — preserves insertion order; override for custom reranking logic."""
         logger.debug(f"[RerankingStrategy] 重排序 {len(context.items)} 项")
         return context
 

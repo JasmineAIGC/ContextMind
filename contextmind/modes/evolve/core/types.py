@@ -87,7 +87,7 @@ class MessageRole(str, Enum):
 
 
 class ContextSource(str, Enum):
-    """上下文项来源"""
-    MEMORY = "memory"
-    RAG = "rag"
-    HISTORY = "history"
+    """上下文项来源 — used to prioritize and filter items during context assembly."""
+    MEMORY = "memory"    # long-term knowledge extracted from past conversations
+    RAG = "rag"          # retrieved from external document stores
+    HISTORY = "history"  # recent in-session messages

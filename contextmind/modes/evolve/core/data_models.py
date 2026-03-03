@@ -45,7 +45,7 @@ class ContextItem:
     """用于 Prompt 构建的上下文项。"""
     content: str
     source: ContextSource
-    score: float = 1.0
+    score: float = 1.0  # defaults to max so manually-injected items always rank above retrieved candidates
     timestamp: datetime = field(default_factory=datetime.now)
     embeddings: Dict[str, EmbeddingInfo] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -56,7 +56,7 @@ class ContextResult:
     """上下文检索/处理结果。"""
     items: List[ContextItem] = field(default_factory=list)
     total_tokens: int = 0
-    compressed: bool = False
+    compressed: bool = False  # True when items were truncated/merged to fit token budget
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -71,7 +71,7 @@ class ProcessedContext:
 class MemoryNote:
     """存储在记忆库中的记忆笔记。"""
     content: str
-    memory_type: str = "semantic"
+    memory_type: str = "semantic"  # 'semantic' (vector), 'keyword', or 'structured' — matches MemoryType enum values
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -108,13 +108,13 @@ class Knowledge:
     embeddings: Dict[str, EmbeddingInfo] = field(default_factory=dict)
     scores: ScoreInfo = field(default_factory=ScoreInfo)
     version_history: List[VersionRecord] = field(default_factory=list)
-    extraction_method: str = "rule"  # 'rule' 或 'llm'
+    extraction_method: str = "rule"  # 'rule' or 'llm' — records how this knowledge was originally extracted
     source_message_ids: List[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     last_accessed: Optional[datetime] = None
     access_count: int = 0
-    status: str = "active"  # active/archived/deleted
+    status: str = "active"  # lifecycle state: 'active' | 'archived' (soft-hidden) | 'deleted' (pending purge)
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     # 兼容性属性
