@@ -11,12 +11,12 @@ from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Lazy import avoids a circular dependency: benchmark imports ContextMind
-# modules, so importing benchmark at module level would create a cycle.
+# 延迟导入以避免循环依赖：benchmark 模块导入了 ContextMind 模块，
+# 若在模块加载时直接导入 benchmark 则会产生循环引用。
 _intent_label_loader = None
 
 def _get_intent_label_loader():
-    """Lazy load intent label loader"""
+    """懒加载意图标签加载器"""
     global _intent_label_loader
     if _intent_label_loader is None:
         try:
@@ -90,8 +90,8 @@ class PromptManager:
         else:
             self.max_context_length = max_context_length
         
-        # Slots are advisory hints only; in dynamic mode the LLM is not
-        # constrained to this list, so filtering stays opt-in.
+        # 槽位列表仅作为提示，动态模式下 LLM 不受此列表约束，
+        # 因此过滤功能默认关闭，需显式启用。
         self.ontology_slots: Dict[str, str] = {}
         self.categorical_constraints: Dict[str, List[str]] = {}
         
@@ -226,8 +226,8 @@ class PromptManager:
             is_risawoz_domain = self.domain in ['医院', '天气', '旅游景点', '汽车', '火车', '电影', '电脑', '电视剧', '辅导班', '通用', '酒店', '飞机', '餐厅']
             
             if is_risawoz_domain:
-                # RiSAWOZ uses a "{domain}-{slot}" slot-key convention to avoid
-                # name collisions when multiple domains are tracked simultaneously.
+                # RiSAWOZ 采用 "{domain}-{slot}" 格式的槽位键命名规范，
+                # 以避免多领域同时追踪时发生槽位名冲突。
                 instruction += f"""## 信息提取指南
 
 **重要：你正在为"{self.domain}"领域提取对话状态，请严格遵循以下规范。**

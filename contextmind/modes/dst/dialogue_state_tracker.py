@@ -194,7 +194,7 @@ class DialogueStateTracker:
         else:
             full_prompt = turn_prompt
         
-        # Only keep the system message; history is embedded in full_prompt to prevent exponential growth.
+        # 仅保留系统消息；历史对话已嵌入 full_prompt，避免消息列表指数增长。
         self.messages = [self.messages[0]]
         
         self.messages.append({"role": "user", "content": full_prompt})

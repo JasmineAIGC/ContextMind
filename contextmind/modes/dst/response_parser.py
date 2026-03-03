@@ -68,7 +68,7 @@ class ResponseParser:
                 return self._filter_if_needed(parsed)
             elif isinstance(parsed, list) and len(parsed) > 0:
                 if isinstance(parsed[0], dict):
-                    # Some LLMs wrap the result in a list; merge items so no info is lost.
+                    # 部分 LLM 会将结果包装为列表；合并所有条目以防信息丢失。
                     result = {}
                     for item in parsed:
                         if isinstance(item, dict):
@@ -193,7 +193,7 @@ class ResponseParser:
                     best_similarity = similarity
                     best_match = expected_slot
             
-            # Only accept high-confidence matches to avoid cross-slot confusion.
+            # 仅接受高置信度匹配，避免跨槽位混淆。
             if best_similarity >= 0.85:
                 logger.debug(f"语义槽位匹配: {llm_slot} -> {best_match} (相似度: {best_similarity:.3f})")
                 return best_match
@@ -215,8 +215,8 @@ class ResponseParser:
         """
         filtered = {k: v for k, v in updates.items() if k != 'intent'}
         
-        # Remap slot names that are close but not exact matches (e.g. synonyms
-        # produced by the LLM) before applying the ontology filter below.
+        # 将 LLM 产生的近义词或非标准槽位名映射为规范名称，
+        # 然后再执行本体过滤。
         if self.ontology_slots:
             mapped_updates = {}
             for slot, value in filtered.items():

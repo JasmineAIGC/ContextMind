@@ -26,5 +26,5 @@ class DialogueTurn:
     user_utterance: str
     predicted_state: Dict[str, str] = field(default_factory=dict)
     turn_updates: Dict[str, str] = field(default_factory=dict)
-    # Preserved for debugging and offline analysis; not used in state tracking.
+    # 保留原始 LLM 响应，供调试和离线分析使用；状态追踪本身不依赖此字段。
     raw_llm_response: Optional[str] = None
