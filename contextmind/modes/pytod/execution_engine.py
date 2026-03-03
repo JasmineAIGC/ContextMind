@@ -256,7 +256,12 @@ class ExecutionEngine:
             return None
         try:
             sig = inspect.signature(func)
-            return f"{name}{sig}"
+            sig_str = f"{name}{sig}"
+            # Strip quotes around type annotations produced by 'from __future__ import annotations'
+            # Target only annotation positions (after ':' or '->'), not string default values.
+            sig_str = re.sub(r"(:\s*)'([^']+)'", r"\1\2", sig_str)   # param annotations
+            sig_str = re.sub(r"(->\s*)'([^']+)'", r"\1\2", sig_str)  # return annotation
+            return sig_str
         except (ValueError, TypeError):
             return f"{name}(...)"
 

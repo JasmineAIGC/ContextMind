@@ -333,16 +333,12 @@ def collect_predefined_config(
         }
 
     api_list = []
-    for name, func in sorted(engine.registry.items()):
-        try:
-            sig = inspect.signature(func)
-            sig_str = f"{name}{sig}"
-        except (ValueError, TypeError):
-            sig_str = f"{name}(...)"
+    for name in sorted(engine.registry.keys()):
+        sig_str = engine.get_function_signature(name) or f"{name}(...)"
         api_list.append({
             "name": name,
             "signature": sig_str,
-            "docstring": inspect.getdoc(func) or "(无文档)",
+            "docstring": inspect.getdoc(engine.registry[name]) or "(无文档)",
         })
 
     templates = {
@@ -537,66 +533,83 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     # 3.2 ServiceSchema
     schema = cfg["schema"]
     lines += [
-        "### 3.2 ServiceSchema（约束动作解析器的意图与槽位）",
+        "### 3.2 ServiceSchema（服务意图与槽位定义）",
         "",
         f"**服务名**：`{schema.get('service_name', '—')}`  ",
         f"**描述**：{schema.get('description', '—')}  ",
         f"**意图数**：{len(schema.get('intents', []))}  ",
         f"**槽位数**：{len(schema.get('slots', []))}",
         "",
+        "> ℹ️ **注**：Schema 是服务能力的设计文档，供系统设计者和 Action Parser 作意图参考。",
+        "> 在 PyTOD 流程中，Schema 不直接注入 LLM 提示——Action Parser 实际接收的是",
+        "> 执行引擎的 CRM API 签名列表（见 3.3 节）。",
+        "",
     ]
     if "intents" in schema:
         lines.append("#### 意图列表")
         lines.append("")
-        lines.append("| 意图名 | 说明 | 必填槽位 | 可选槽位 |")
-        lines.append("|--------|------|----------|----------|")
         for intent in schema["intents"]:
-            req = "、".join(intent["required_slots"]) or "—"
-            opt = "、".join(intent["optional_slots"]) if intent.get("optional_slots") else "—"
-            lines.append(
-                f"| `{intent['name']}` | {intent['description']} | {req} | {opt} |"
-            )
-        lines.append("")
-        lines.append("#### Schema 渲染为 Prompt 的完整文本（注入动作解析器）")
-        lines.append("")
-        lines.append(_md_code(schema["prompt_text"]))
-        lines.append("")
+            req_slots = "、".join(f"`{s}`" for s in intent["required_slots"]) if intent["required_slots"] else "—"
+            opt_slots = "、".join(f"`{s}`" for s in intent.get("optional_slots", [])) if intent.get("optional_slots") else "—"
+            lines.append(f"**`{intent['name']}`** — {intent['description']}")
+            lines.append(f"- 必填槽位：{req_slots}")
+            lines.append(f"- 可选槽位：{opt_slots}")
+            lines.append("")
 
     # 3.3 注册 API
     lines += [
         "### 3.3 执行引擎注册的 CRM API",
         "",
         "> 这些 API 是 PyTOD 可调用的「工具箱」，每个函数对应一类真实 CRM 查询操作。",
+        "> 以下签名与 Step 1 动作解析器收到的 SYSTEM 消息中的 API 列表**完全一致**。",
         "",
     ]
     for api in cfg["registered_apis"]:
-        lines.append(f"#### `{api['name']}`")
+        lines.append(f"**`{api['name']}`**")
         lines.append("")
         lines.append(_md_code(api["signature"]))
-        lines.append("")
-        # 文档字符串每行加缩进引用
+        # Render docstring as blockquote, preserving paragraph breaks
         doc_lines = api["docstring"].splitlines()
         for dl in doc_lines:
-            lines.append(f"> {dl}")
+            lines.append(f"> {dl}" if dl.strip() else ">")
         lines.append("")
 
-    # 3.4 Prompt 模板
+    # 3.4 Prompt 模板（渲染后版本，无占位符）
+    #   - Action Parser：`{api_functions_text}` 已用 3.3 节中的实际 API 列表填充
+    #   - DM / Fallback：运行时动态填充的字段（执行结果、状态等）以说明文字标注
+    ap_rendered = cfg["prompt_templates"]["action_parser"].replace(
+        "{api_functions_text}", cfg["api_prompt_text"]
+    )
+    dm_annotated = (
+        cfg["prompt_templates"]["dialogue_manager"]
+        .replace("{execution_result_text}", "← Step 2 执行结果（见第四章）")
+        .replace("{state_text}", "← 当前会话累积状态（键值对）")
+        .replace("{response_language}", cfg.get("response_language", "中文"))
+    )
+    fallback_annotated = (
+        cfg["prompt_templates"]["fallback"]
+        .replace("{scenario_desc}", f"你的服务场景是：{meta['scenario']}。")
+        .replace("{state_text}", "← 当前会话累积状态（键值对）")
+        .replace("{response_language}", cfg.get("response_language", "中文"))
+    )
     lines += [
-        "### 3.4 LLM 系统提示模板",
+        "### 3.4 LLM 系统提示（渲染后）",
         "",
-        "> 三个模板分别用于动作解析器、对话管理器和后备模式，是 PyTOD 与 LLM 通信的「指令规范」。",
+        "> 以下展示三个提示的最终形态。动作解析器提示已填入实际 API 列表，",
+        "> 对话管理器和后备提示中的动态字段（执行结果、状态）以注释标记，",
+        "> 其实际内容可在第四章各步骤的 📥 输入中查看。",
         "",
-        "#### 动作解析器（Action Parser）系统提示模板",
+        "#### 动作解析器（Action Parser）— 完整系统提示",
         "",
-        _md_code(cfg["prompt_templates"]["action_parser"]),
+        _md_code(ap_rendered),
         "",
-        "#### 对话管理器（Dialogue Manager）系统提示模板",
+        "#### 对话管理器（Dialogue Manager）— 系统提示（动态字段已注释）",
         "",
-        _md_code(cfg["prompt_templates"]["dialogue_manager"]),
+        _md_code(dm_annotated),
         "",
-        "#### 后备模式（Fallback）系统提示模板",
+        "#### 后备模式（Fallback）— 系统提示（动态字段已注释）",
         "",
-        _md_code(cfg["prompt_templates"]["fallback"]),
+        _md_code(fallback_annotated),
         "",
         "---",
         "",
