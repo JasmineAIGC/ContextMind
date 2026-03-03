@@ -109,7 +109,7 @@ class FunctionCall:
     """函数调用结果，包含function名称、参数、原始输出和自然语言回复。"""
     function_name: str
     arguments: Dict[str, Any] = field(default_factory=dict)
-    # Full matched text from the LLM response, useful for debugging parse failures.
+    # LLM 响应中完整的匹配原文，用于调试解析失败的情况。
     raw_output: str = ""
     natural_response: str = ""
     

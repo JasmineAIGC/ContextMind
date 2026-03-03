@@ -658,7 +658,7 @@ class PyTODTracker:
         for var, val in exec_result.variable_values.items():
             if not isinstance(val, str):
                 self.current_state[var] = val
-        # Replace hints with the current turn's hints (don't accumulate stale hints)
+        # 每轮替换提示值，不累积过期的旧提示
         if exec_result.hint_messages:
             self.current_state["_hints"] = exec_result.hint_messages
         else:

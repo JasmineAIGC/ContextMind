@@ -54,8 +54,8 @@ __all__ = [
     'FunctionCall',
     'DomainSpec',
     'FunctionParameter',
-    'ParameterType',  # Added ParameterType to exports
-    # Schema functions
+    'ParameterType',  # 导出 ParameterType
+    # Schema 转换函数
     'get_chat_function_schema',
     'get_callcenter_function_schema',
     'get_insurance_function_schema',

@@ -26,7 +26,7 @@ def get_chat_function_schema() -> DomainSpec:
         name="intent_level1",
         description="一级意图（主意图）",
         param_type=ParameterType.STRING,
-        required=True,  # top-level intent is mandatory; all other fields are best-effort
+        required=True,  # 顶层意图为必填字段；其余字段为尽力而为
         enum_values=["闲聊", "求助", "分享", "咨询", "情感倾诉", "闲暇活动", "其他"]
     ))
     

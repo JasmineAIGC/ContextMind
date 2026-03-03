@@ -382,10 +382,10 @@ class ExecutionEngine:
                 error=f"参数错误: {exc}",
             )
         except Exception as exc:  # noqa: BLE001 — registered functions may raise any exception type
-            # Catch-all for application-level exceptions raised by registered API functions
-            # (e.g. requests.HTTPError, db.OperationalError, etc.) without depending on
-            # their specific types here.  Re-raise only truly unexpected system exceptions
-            # (KeyboardInterrupt, SystemExit) which do not inherit from Exception.
+            # 捕获已注册 API 函数抛出的应用层异常（如 requests.HTTPError、
+            # db.OperationalError 等），无需依赖其具体类型。
+            # 仅重新抛出不继承自 Exception 的真正系统异常
+            # （如 KeyboardInterrupt、SystemExit）。
             return ExecutionResult(
                 success=False,
                 statement=statement,
@@ -450,11 +450,11 @@ class ExecutionEngine:
             )
 
         # 运行时环境
-        var_values: Dict[str, Any] = {}        # variable → API return value
-        hint_values: Dict[str, str] = {}       # variable → hint text
-        # Track kwargs per variable so slot assignments can accumulate
+        var_values: Dict[str, Any] = {}        # 变量名 → API 返回值
+        hint_values: Dict[str, str] = {}       # 变量名 → 提示文本
+        # 按变量追踪 kwargs，使槽位赋值可以累积
         var_kwargs: Dict[str, Dict[str, Any]] = {}
-        var_func: Dict[str, str] = {}          # variable → function name
+        var_func: Dict[str, str] = {}          # 变量名 → 函数名
         errors: List[str] = []
         hint_messages: List[str] = []
         say_output: str = ""
@@ -497,12 +497,12 @@ class ExecutionEngine:
                 hint_messages.append(stmt.hint_text)
 
             elif isinstance(stmt, SayStatement):
-                # Also handles say("literal text") where the arg is a string literal
+                # 同时处理 say("literal text") 的情况，其中参数为字符串字面量
                 parts: List[str] = []
                 for arg_var in stmt.arg_variables:
                     stripped = arg_var.strip()
-                    # Handle string literal arguments (LLM often writes say("text") directly).
-                    # Use simple quote-stripping rather than eval() to avoid any eval risks.
+                    # 处理字符串字面量参数（LLM 常直接写 say("text")）。
+                    # 使用简单的引号剥离而非 eval()，以避免安全风险。
                     if len(stripped) >= 2 and (
                         (stripped[0] == '"' and stripped[-1] == '"')
                         or (stripped[0] == "'" and stripped[-1] == "'")
@@ -512,7 +512,7 @@ class ExecutionEngine:
                         parts.append(hint_values[stripped])
                     elif stripped in var_values:
                         val = var_values[stripped]
-                        # Use str() so string variables don't gain extra quotes in the output.
+                        # 使用 str() 防止字符串变量在输出中获得多余的引号。
                         parts.append(str(val))
                     else:
                         parts.append(f"({stripped})")
@@ -544,8 +544,8 @@ class ExecutionEngine:
         if func is None:
             return None
         try:
-            # Filter out kwargs not accepted by the function to gracefully
-            # handle cases where the LLM passes extra/unexpected arguments.
+            # 过滤函数不接受的 kwargs，优雅处理 LLM 传入
+            # 多余或意外参数的情况。
             sig = inspect.signature(func)
             accepts_var_keyword = any(
                 p.kind == inspect.Parameter.VAR_KEYWORD

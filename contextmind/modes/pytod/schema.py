@@ -145,8 +145,8 @@ class ServiceSchema:
         slots = [SlotDefinition.from_dict(s) for s in data.get("slots", [])]
         intents = [IntentDefinition.from_dict(i) for i in data.get("intents", [])]
 
-        # Derive is_required from intent definitions rather than slot definitions,
-        # because the PyTOD JSON schema stores required slots under intents.
+        # 从意图定义而非槽位定义中推导 is_required，
+        # 因为 PyTOD JSON schema 将必填槽位存储在意图下。
         required_set: Set[str] = set()
         for intent in intents:
             required_set.update(intent.required_slots)
@@ -154,7 +154,7 @@ class ServiceSchema:
             if slot.name in required_set:
                 slot.is_required = True
 
-        # Support both "service_name" (internal format) and "name" (PyTOD JSON format).
+        # 同时支持 "service_name"（内部格式）和 "name"（PyTOD JSON 格式）。
         return cls(
             service_name=data.get("service_name", data.get("name", "")),
             description=data.get("description", ""),

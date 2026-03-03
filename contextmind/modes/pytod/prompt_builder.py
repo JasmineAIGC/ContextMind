@@ -19,7 +19,7 @@ from .execution_engine import ExecutionResult
 class ConversationTurn:
     """单轮对话记录，role 为 "user" 或 "assistant"。"""
 
-    role: str  # "user" | "assistant"
+    role: str  # "user"（用户）| "assistant"（助手）
     content: str
     action: Optional[Dict[str, Any]] = None
 
@@ -230,8 +230,8 @@ NONE()
         """
         self.schema = schema
         self.few_shot_examples: List[FewShotExample] = few_shot_examples or []
-        # Truncate history to avoid exceeding the model's context window;
-        # 10 turns covers most realistic multi-turn dialogues.
+        # 截断历史以避免超出模型上下文窗口；
+        # 10 轮已涵盖绝大多数实际多轮对话场景。
         self.max_history_turns = max_history_turns
         self.response_language = response_language
 
@@ -278,8 +278,8 @@ NONE()
             trimmed = history[-self.max_history_turns :]
             for turn in trimmed:
                 role = turn.role
-                # Map directly to OpenAI role strings; ConversationTurn already
-                # uses "user" / "assistant" so no translation needed.
+                # 直接映射到 OpenAI 角色字符串；ConversationTurn 已使用
+                # "user" / "assistant"，无需转换。
                 messages.append({"role": role, "content": turn.content})
 
         messages.append({"role": "user", "content": user_input})
@@ -354,8 +354,8 @@ NONE()
             for turn in trimmed:
                 speaker = "user" if turn.role == "user" else "system"
                 context_lines.append(f"[HISTORY] {speaker}: {turn.content}")
-        # [CURRENT] tag distinguishes the live turn from history so the model
-        # generates a program only for the current user input.
+        # [CURRENT] 标签将当前轮与历史对话区分开，
+        # 确保模型仅为当前用户输入生成程序。
         context_lines.append(f"[CURRENT] user: {user_input}")
 
         messages.append({"role": "user", "content": "\n".join(context_lines)})

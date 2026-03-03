@@ -78,11 +78,10 @@ class ActionValidator:
     传入 ``schema`` 启用 schema 驱动模式；``schema=None``（默认）启用开放域模式。
     """
 
-    # Patterns tried in order: fenced code blocks first (most explicit),
-    # then bare JSON object.  Fenced blocks are more reliable because they
-    # have clear delimiters; the bare-object pattern is a last resort.
+    # 按顺序尝试各种模式：围栏代码块最明确（优先），最后尝试裸 JSON 对象。
+    # 围栏代码块因有明确分隔符而更可靠；裸对象匹配为最终后备方案。
     _JSON_PATTERNS: List[str] = [
-        r"```json\s*([\s\S]*?)\s*```",  # ```json ... ```
+        r"```json\s*([\s\S]*?)\s*```",  # ```json ... ``` 格式
         r"```\s*([\s\S]*?)\s*```",       # ``` ... ```
         r"\{[\s\S]*\}",                  # 裸 JSON 对象
     ]
@@ -239,9 +238,8 @@ class ActionValidator:
             return
 
         if intent == "UNKNOWN":
-            # UNKNOWN is a reserved sentinel indicating the model could not
-            # determine intent; it is not an error, but a signal to the
-            # dialogue manager to ask the user for clarification.
+            # UNKNOWN 是保留哨兵值，表示模型无法确定意图；
+            # 这不是错误，而是给对话管理器的信号，提示其向用户寻求澄清。
             result.warnings.append(
                 "intent 为 UNKNOWN，表示模型未能识别用户意图，"
                 "建议追问用户或提供更多上下文"
@@ -278,8 +276,8 @@ class ActionValidator:
                 )
                 continue
 
-            # "?" and "dontcare" are DST-convention sentinels that bypass
-            # enum validation — they are always legal regardless of possible_values.
+            # "?" 和 "dontcare" 是 DST 惯例的哨兵值，可绕过枚举验证——
+            # 无论 possible_values 为何值，它们始终合法。
             if slot_value in ("?", "dontcare"):
                 continue
 
@@ -300,8 +298,8 @@ class ActionValidator:
         if intent_def:
             for required_slot in intent_def.required_slots:
                 if required_slot not in result.slots:
-                    # Warn rather than error: slot filling happens incrementally
-                    # across turns, so absence in one turn is expected.
+                    # 警告而非报错：槽位填充是跨轮次递增进行的，
+                    # 单轮缺失槽位属于正常情况。
                     result.warnings.append(
                         f"意图 '{result.intent}' 的必填槽位 '{required_slot}' 尚未提供，"
                         "请引导用户补充"
