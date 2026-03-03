@@ -27,8 +27,8 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_MODEL = "Qwen3-32B"
-# 0.6 balances determinism and diversity; lower values produce more repetitive
-# but safer structured output (JSON), higher values risk hallucination.
+# 0.6 在确定性与多样性之间取得平衡；更低的值输出更稳定但可能过于重复，
+# 更高的值增加幻觉风险。
 DEFAULT_TEMPERATURE = 0.6
 
 
@@ -52,8 +52,8 @@ class LLMConfig:
     base_url: Optional[str] = None
     temperature: float = DEFAULT_TEMPERATURE
     access_key: Optional[str] = None
-    top_k: int = 20  # vLLM/Qwen top-k sampling; 20 is a reasonable starting point
-    max_tokens: int = 4096  # conservatively capped; dynamically reduced per request if input is large
+    top_k: int = 20  # vLLM/Qwen top-k 采样参数；20 是合理的初始值
+    max_tokens: int = 4096  # 保守上限；输入过长时每次请求会动态缩减
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
@@ -189,9 +189,9 @@ class SimpleLLMClient:
         enable_thinking，仍可能在 content 字段内嵌入 <think>…</think>
         或 <|think|>…<|/think|> 块。此方法在返回给调用方之前统一剥离这些标签。
         """
-        # <think>...</think> (Qwen3 style)
+        # <think>...</think>（Qwen3 格式）
         text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-        # <|think|>...<|/think|> (DeepSeek token style)
+        # <|think|>...<|/think|>（DeepSeek token 格式）
         text = re.sub(r"<\|think\|>.*?<\|/think\|>", "", text, flags=re.DOTALL)
         return text.strip()
 
@@ -241,8 +241,8 @@ class SimpleLLMClient:
 
         estimated_input_tokens = self._estimate_tokens(input_text)
         context_limit = self._get_model_context_limit()
-        # Reserve 10% headroom for tokeniser inaccuracies; ensure at least 512
-        # tokens so the model can always produce a meaningful response.
+        # 预留 10% 冗余量以应对分词误差；至少保留 512 个 token，
+        # 确保模型始终有足够空间生成有意义的响应。
         available_tokens = int((context_limit - estimated_input_tokens) * 0.9)
         safe_max_tokens = min(self.config.max_tokens, max(available_tokens, 512))
 
@@ -269,9 +269,9 @@ class SimpleLLMClient:
             safe_max_tokens = self._calculate_safe_max_tokens(messages)
             extra_body = {
                 "top_k": self.config.top_k,
-                # Disable chain-of-thought tokens in the response content;
-                # reasoning-capable models (Qwen3, DeepSeek-R1) otherwise emit
-                # <think>…</think> inside the content field.
+                # 关闭响应内容中的思维链 token；
+                # 否则 Qwen3、DeepSeek-R1 等推理模型会在 content 字段中
+                # 输出 <think>…</think> 块。
                 "chat_template_kwargs": {"enable_thinking": False},
             }
             response = self._client.chat.completions.create(

@@ -21,8 +21,8 @@ class LogLevel(PyEnum):
 class EvolveLogger:
     """Evolve 统一日志系统，支持 INFO/DEBUG 两种模式及文件输出。"""
     
-    # Class-level so all EvolveLogger instances share one authoritative level,
-    # allowing set_global_log_level() to affect every logger retroactively.
+    # 类级别变量，所有 EvolveLogger 实例共享同一个权威日志级别，
+    # 确保 set_global_log_level() 能即时影响所有已创建的 logger。
     _global_level: LogLevel = LogLevel.INFO
     
     def __init__(self, name: str, level: LogLevel = LogLevel.INFO):
@@ -85,8 +85,8 @@ class EvolveLogger:
 
     def debug(self, message: str):
         """记录 DEBUG 级别日志（仅在 DEBUG 模式下输出）。"""
-        # Check both global and per-instance level so a single logger can be
-        # promoted to DEBUG independently of the rest of the application.
+        # 同时检查全局级别和实例级别，允许单个 logger 独立提升为 DEBUG，
+        # 而不影响应用中其他 logger 的级别。
         if self._global_level == LogLevel.DEBUG or self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
     
@@ -207,8 +207,8 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
 
         print(f"📝 日志将自动保存到: {log_filepath}")
 
-    # force=True re-applies basicConfig even if the root logger is already
-    # configured (e.g. when a library called logging.basicConfig earlier).
+    # force=True 确保即使根 logger 已被配置（如第三方库提前调用了 basicConfig），
+    # 本次配置仍会生效并覆盖之前的设置。
     logging.basicConfig(
         level=python_log_level,
         format='[%(asctime)s] %(levelname)s - %(message)s',

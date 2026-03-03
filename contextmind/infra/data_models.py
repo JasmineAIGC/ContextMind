@@ -10,7 +10,7 @@ class EmbeddingInfo:
 
     model: str
     vector: List[float]
-    # Derived from vector length in __post_init__; not set by the caller.
+    # 由 __post_init__ 根据向量长度自动推导，调用方无需传入。
     dimension: int = field(init=False)
 
     def __post_init__(self):

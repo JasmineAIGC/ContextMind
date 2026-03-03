@@ -53,8 +53,8 @@ class EmbeddingConfig:
     model: str = DEFAULT_EMBEDDING_MODEL
     base_url: Optional[str] = None
     access_key: Optional[str] = None
-    model_path: Optional[str] = None  # filesystem path for SentenceTransformer.load()
-    use_local: bool = False  # True → load via sentence-transformers; False → OpenAI-compat API
+    model_path: Optional[str] = None  # SentenceTransformer.load() 本地模型的文件系统路径
+    use_local: bool = False  # True：通过 sentence-transformers 本地加载；False：使用 OpenAI 兼容 API
     
     @classmethod
     def from_env(cls) -> "EmbeddingConfig":
@@ -68,7 +68,7 @@ class EmbeddingConfig:
             logger.info(f"[EmbeddingConfig] 使用本地 embedding 模型: {embedding_model_path}")
             model_name = embedding_model or os.path.basename(embedding_model_path)
             return cls(
-                api_key="",  # not needed for local inference
+                api_key="",  # 本地推理无需 API Key
                 model=model_name,
                 model_path=embedding_model_path,
                 use_local=True,
@@ -238,7 +238,7 @@ class EmbeddingClient:
             try:
                 vector = self.local_model.encode(
                     text,
-                    convert_to_tensor=False,  # keep as numpy array, then convert to list below
+                    convert_to_tensor=False,  # 保持 numpy 数组格式，后续统一转换为列表
                     show_progress_bar=False,
                 ).tolist()
                 dimension = len(vector)
@@ -327,8 +327,8 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
     if norm1 == 0 or norm2 == 0:
         return 0.0
 
-    # Raw cosine is in [-1, 1]; shift-and-scale to [0, 1] so downstream
-    # similarity thresholds stay intuitive (0 = unrelated, 1 = identical).
+    # 原始余弦值范围为 [-1, 1]；平移缩放至 [0, 1]
+    # 使下游相似度阈值更直观（0 = 完全无关，1 = 完全相同）。
     similarity = dot_product / (norm1 * norm2)
     return (similarity + 1) / 2
 
