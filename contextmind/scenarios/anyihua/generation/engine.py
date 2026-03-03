@@ -5,9 +5,10 @@
 供动作解析器（Action Parser）在 PyTOD 程序中调用，
 以便对话管理器（Dialogue Manager）基于真实数据生成坐席回复。
 
-注册的 6 个 API（均为纯数据查询，不返回建议或决策）：
+注册的 7 个 API（均为纯数据查询，不返回建议或决策）：
     verify_customer(name, phone_suffix) — 验证客户身份（核实姓名和手机尾号）
-    query_account()                     — 查询账户额度信息（核心数据源）
+    query_account()                     — 查询账户额度/利率/账单信息（核心数据源）
+    query_customer_profile()            — 查询客户背景信息（注册时间、登录记录等）
     calculate_repayment(amount, months) — 计算月还款额和总手续费
     get_agent_history()                 — 获取历史坐席话术列表（供对话管理器避免重复）
     query_unresolved_issues()           — 查询用户未解决诉求（供对话管理器决定是否告别）
@@ -48,7 +49,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
                  "用户信息", "对话历史"
 
     返回:
-        ExecutionEngine 实例，已注册 6 个 CRM 数据查询 API。
+        ExecutionEngine 实例，已注册 7 个 CRM 数据查询 API。
 
     使用示例::
 
@@ -101,6 +102,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         return {
             "customer_name": info["customer_name"],
             "phone_suffix": info["phone_suffix"],
+            "bound_bank": info["bound_bank"],
             "name_provided": name,
             "phone_suffix_provided": phone_suffix,
             "name_match": name_match,
@@ -115,10 +117,11 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
     @engine.register
     def query_account() -> dict:
         """
-        查询客户账户信息（额度、利率、借款状态等）。
+        查询客户账户信息（额度、利率、账单、绑定银行等）。
 
         动作解析器在 explain_credit_limit / explain_displayed_amount 意图时
         必须先调用此 API 获取 available_credit，不得自行估算（防止数据错误）。
+        坐席在身份核实后需要报告绑定银行时也应调用此 API。
         """
         temp_status = (
             "已过期" if info["temp_expired"]
@@ -128,10 +131,15 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         return {
             "customer_name": info["customer_name"],
             "available_credit": info["available_credit"],
+            "authorized_credit": info["authorized_credit"],
             "temp_credit": info["temp_credit"],
             "temp_credit_status": temp_status,
             "temp_active_days": info["temp_active_days"],
             "annual_rate_pct": info["annual_rate_pct"],
+            "cash_ratio_pct": info["cash_ratio_pct"],
+            "bound_bank": info["bound_bank"],
+            "billing_day": info["billing_day"],
+            "repayment_date": info["repayment_date"],
             "loan_count": info["loan_count"],
             "last_loan_date": info["last_loan_date"],
             "outstanding_amount": info["outstanding_amount"],
@@ -168,7 +176,39 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 4：get_agent_history — 获取历史坐席话术
+    # API 4：query_customer_profile — 查询客户背景信息
+    # ----------------------------------------------------------------------- #
+
+    @engine.register
+    def query_customer_profile() -> dict:
+        """
+        查询客户背景信息：注册时间、授信天数、登录历史、电话接通记录、优惠券等。
+
+        在以下场景下调用：
+        · 坐席需要说明客户注册时间（"您是我们安逸花XX年XX月份申请的优质用户"）
+        · 坐席需要了解客户活跃度（登录频次、上次登录时间）
+        · 坐席需要说明优惠券信息
+        · 坐席需要了解累计提现笔数或授信天数以说明合作历史
+        """
+        return {
+            "customer_name": info["customer_name"],
+            "registration_date": info["registration_date"],
+            "authorized_days": info["authorized_days"],
+            "initial_credit": info["initial_credit"],
+            "last_credit_increase_date": info["last_credit_increase_date"],
+            "days_since_last_credit_increase": info["days_since_last_credit_increase"],
+            "last_credit_increase_amount": info["last_credit_increase_amount"],
+            "total_withdrawals": info["total_withdrawals"],
+            "coupon_count": info["coupon_count"],
+            "last_login_date": info["last_login_date"],
+            "days_since_last_login": info["days_since_last_login"],
+            "monthly_logins": info["monthly_logins"],
+            "call_count": info["call_count"],
+            "days_since_last_call": info["days_since_last_call"],
+        }
+
+    # ----------------------------------------------------------------------- #
+    # API 5：get_agent_history — 获取历史坐席话术
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -191,7 +231,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 5：query_unresolved_issues — 查询用户未解决诉求
+    # API 6：query_unresolved_issues — 查询用户未解决诉求
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -215,7 +255,7 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         }
 
     # ----------------------------------------------------------------------- #
-    # API 6：query_loan_records — 查询借款记录
+    # API 7：query_loan_records — 查询借款记录
     # ----------------------------------------------------------------------- #
 
     @engine.register
@@ -223,15 +263,17 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
         """
         查询客户借款记录（用于 handle_loan_dispute 意图）。
 
-        提供历史借款笔数、最近借款日期和未还款金额，
+        提供历史借款笔数、最近借款日期、未还款金额、距离上次借款天数及借款还清日期，
         帮助坐席核实用户争议的借款事实。
         """
         return {
             "customer_name": info["customer_name"],
             "loan_count": info["loan_count"],
             "last_loan_date": info["last_loan_date"],
+            "days_since_last_loan": info["days_since_last_loan"],
             "outstanding_amount": info["outstanding_amount"],
             "loan_outstanding": info["loan_outstanding"],
+            "loan_cleared_date": info["loan_cleared_date"],
         }
 
     return engine

@@ -148,6 +148,25 @@ def parse_user_info(user_info_str: str) -> Dict[str, Any]:
         - outstanding_amount (int): 未还款金额（元）
         - loan_outstanding (bool): 是否有未还款项
         - bound_bank (str):     绑定银行名称
+        - registration_date (str): 注册时间（中文格式，如 "二零一八年九月二十日"）
+        - authorized_days (int): 已授信天数
+        - initial_credit (int): 初始授信额度（元）
+        - authorized_credit (int): 当前授信额度（含提额后，元）
+        - cash_ratio_pct (int): 取现比例（%，通常为 100）
+        - last_credit_increase_date (str): 末次提额时间（中文格式）
+        - days_since_last_credit_increase (int): 距离上次提额天数
+        - last_credit_increase_amount (int): 末次提额金额（元）
+        - billing_day (int):    账单日（每月几号，0 表示未知）
+        - repayment_date (str): 最近还款日期（中文格式）
+        - total_withdrawals (int): 累计提现笔数
+        - coupon_count (int):   优惠券数量
+        - last_login_date (str): 最近登录时间（中文格式）
+        - days_since_last_login (int): 距离上次登录天数
+        - monthly_logins (int): 近 30 天登录次数
+        - call_count (int):     历史电话接通次数
+        - days_since_last_call (int): 距离上次接通天数
+        - days_since_last_loan (int): 距离上次借款天数
+        - loan_cleared_date (str): 借款还清日期（中文格式，无则为空）
     """
     fields = user_info_str.split("#")
     info: Dict[str, Any] = {
@@ -165,6 +184,26 @@ def parse_user_info(user_info_str: str) -> Dict[str, Any]:
         "outstanding_amount": 0,
         "loan_outstanding": False,
         "bound_bank": "",
+        # 新增字段
+        "registration_date": "",
+        "authorized_days": 0,
+        "initial_credit": 0,
+        "authorized_credit": 0,
+        "cash_ratio_pct": 100,
+        "last_credit_increase_date": "",
+        "days_since_last_credit_increase": 0,
+        "last_credit_increase_amount": 0,
+        "billing_day": 0,
+        "repayment_date": "",
+        "total_withdrawals": 0,
+        "coupon_count": 0,
+        "last_login_date": "",
+        "days_since_last_login": 0,
+        "monthly_logins": 0,
+        "call_count": 0,
+        "days_since_last_call": 0,
+        "days_since_last_loan": 0,
+        "loan_cleared_date": "",
     }
 
     for f in fields:
@@ -224,6 +263,95 @@ def parse_user_info(user_info_str: str) -> Dict[str, Any]:
 
         elif "绑定" in f and "银行" in f:
             info["bound_bank"] = f.replace("绑定", "").strip()
+
+        elif "注册时间是" in f:
+            info["registration_date"] = f.replace("注册时间是", "").strip()
+
+        elif "最近登录时间是" in f:
+            info["last_login_date"] = f.replace("最近登录时间是", "").strip()
+
+        elif "距离上次登录" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)天", f)
+            if m:
+                info["days_since_last_login"] = cn2int(m.group(1))
+
+        elif "近" in f and "天登录" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两\d]+)次", f)
+            if m:
+                raw = m.group(1)
+                try:
+                    info["monthly_logins"] = int(raw)
+                except ValueError:
+                    info["monthly_logins"] = cn2int(raw)
+
+        elif "电话接通过" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)次", f)
+            if m:
+                info["call_count"] = cn2int(m.group(1))
+
+        elif "距离上次接通" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)天", f)
+            if m:
+                info["days_since_last_call"] = cn2int(m.group(1))
+
+        elif "已授信" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)天", f)
+            if m:
+                info["authorized_days"] = cn2int(m.group(1))
+
+        elif "初始额度为" in f:
+            m = re.search(r"([零一二三四五六七八九十百千万两]+)元", f)
+            if m:
+                info["initial_credit"] = cn2int(m.group(1))
+
+        elif "授信额度为" in f:
+            m = re.search(r"([零一二三四五六七八九十百千万两]+)元", f)
+            if m:
+                info["authorized_credit"] = cn2int(m.group(1))
+
+        elif "取现比例是百分之" in f:
+            m = re.search(r"百分之([零一二三四五六七八九十百]+)", f)
+            if m:
+                info["cash_ratio_pct"] = cn2int(m.group(1))
+
+        elif "提额时间是" in f:
+            info["last_credit_increase_date"] = f.replace("提额时间是", "").strip()
+
+        elif "距离上次提额" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)天", f)
+            if m:
+                info["days_since_last_credit_increase"] = cn2int(m.group(1))
+
+        elif "末次提额" in f:
+            m = re.search(r"末次提额([零一二三四五六七八九十百千万两]+)元", f)
+            if m:
+                info["last_credit_increase_amount"] = cn2int(m.group(1))
+
+        elif "账单日是每月" in f:
+            m = re.search(r"每月([零一二三四五六七八九十]+)号", f)
+            if m:
+                info["billing_day"] = cn2int(m.group(1))
+
+        elif "还款日是" in f:
+            info["repayment_date"] = f.replace("还款日是", "").strip()
+
+        elif "累计提现" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)笔", f)
+            if m:
+                info["total_withdrawals"] = cn2int(m.group(1))
+
+        elif "优惠券有" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)张", f)
+            if m:
+                info["coupon_count"] = cn2int(m.group(1))
+
+        elif "距离上次借款" in f:
+            m = re.search(r"([零一二三四五六七八九十百千两]+)天", f)
+            if m:
+                info["days_since_last_loan"] = cn2int(m.group(1))
+
+        elif "借款还清日期是" in f:
+            info["loan_cleared_date"] = f.replace("借款还清日期是", "").strip()
 
     return info
 
