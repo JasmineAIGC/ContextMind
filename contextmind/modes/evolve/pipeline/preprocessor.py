@@ -11,12 +11,16 @@ logger = get_logger(__name__)
 
 
 class InputPreprocessor:
-    """输入预处理器，对用户输入进行标准化处理（去空白、验证、清洗）。"""
+    """
+    输入预处理器，对用户输入进行标准化处理（去空白、验证、清洗）。
+
+    先验证边界再规范化，确保下游组件拿到干净且长度可预期的字符串。
+    """
 
     def __init__(
         self,
         min_length: int = 1,
-        max_length: int = 10000,
+        max_length: int = 10000,  # 约等于 ~7500 tokens，防止超出常见 LLM 上下文窗口
     ):
         self.min_length = min_length
         self.max_length = max_length
@@ -42,7 +46,7 @@ class InputPreprocessor:
         if len(processed) > self.max_length:
             raise ValueError(f"输入过长 (最大 {self.max_length} 字符)")
 
-        processed = re.sub(r'\s+', ' ', processed)
+        processed = re.sub(r'\s+', ' ', processed)  # 将换行、Tab、多余空格统一为单个空格
 
         logger.debug(f"[InputPreprocessor] 输出: '{processed}'")
 

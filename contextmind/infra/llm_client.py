@@ -27,6 +27,8 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_MODEL = "Qwen3-32B"
+# 0.6 balances determinism and diversity; lower values produce more repetitive
+# but safer structured output (JSON), higher values risk hallucination.
 DEFAULT_TEMPERATURE = 0.6
 
 
@@ -50,8 +52,8 @@ class LLMConfig:
     base_url: Optional[str] = None
     temperature: float = DEFAULT_TEMPERATURE
     access_key: Optional[str] = None
-    top_k: int = 20
-    max_tokens: int = 4096  # 降低默认值以避免超出上下文限制
+    top_k: int = 20  # vLLM/Qwen top-k sampling; 20 is a reasonable starting point
+    max_tokens: int = 4096  # conservatively capped; dynamically reduced per request if input is large
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
@@ -239,6 +241,8 @@ class SimpleLLMClient:
 
         estimated_input_tokens = self._estimate_tokens(input_text)
         context_limit = self._get_model_context_limit()
+        # Reserve 10% headroom for tokeniser inaccuracies; ensure at least 512
+        # tokens so the model can always produce a meaningful response.
         available_tokens = int((context_limit - estimated_input_tokens) * 0.9)
         safe_max_tokens = min(self.config.max_tokens, max(available_tokens, 512))
 
@@ -265,6 +269,9 @@ class SimpleLLMClient:
             safe_max_tokens = self._calculate_safe_max_tokens(messages)
             extra_body = {
                 "top_k": self.config.top_k,
+                # Disable chain-of-thought tokens in the response content;
+                # reasoning-capable models (Qwen3, DeepSeek-R1) otherwise emit
+                # <think>…</think> inside the content field.
                 "chat_template_kwargs": {"enable_thinking": False},
             }
             response = self._client.chat.completions.create(
@@ -307,7 +314,11 @@ class SimpleLLMClient:
         return str(reasoning_content), final_text
 
     async def generate_async(self, prompt: str) -> Tuple[str, str]:
-        """异步版本的 generate（当前封装同步版本，生产环境应使用 AsyncOpenAI）。"""
+        """异步版本的 generate（当前封装同步版本，生产环境应使用 AsyncOpenAI）。
+
+        Wraps the synchronous call to satisfy async callers without blocking the
+        event loop correctly.  Replace with ``AsyncOpenAI`` for production use.
+        """
         return self.generate(prompt)
 
     def chat(self, messages: list, temperature: float = None) -> str:

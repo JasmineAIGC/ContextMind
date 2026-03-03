@@ -20,13 +20,18 @@ logger = get_logger(__name__)
 class SimpleUpdater(BaseUpdater):
     """简单记忆更新器，基本的增加/更新/去重逻辑，支持记忆合并。"""
     
-    # 存储阈值（提高质量要求）
+    # Storage threshold rationale: preferences require higher confidence than
+    # facts/events because a wrong preference silently degrades every future
+    # interaction, while an incorrect fact is more likely to be caught and
+    # corrected through explicit user feedback.
     STORAGE_THRESHOLD_PREFERENCE = 0.80  # 0.75 → 0.80
     STORAGE_THRESHOLD_FACT = 0.75  # 0.70 → 0.75
     STORAGE_THRESHOLD_EVENT = 0.75  # 0.70 → 0.75
     STORAGE_MIN_LENGTH = 5  # 3 → 5 最小字符数
     
-    # 相似度阈值（用于检测需要合并的记忆）
+    # 80% merge threshold prevents semantically distinct facts from being collapsed.
+    # 92% duplicate threshold is strict enough to catch only near-verbatim repeats,
+    # avoiding the memory pool stagnation that a lower threshold would cause.
     SIMILARITY_THRESHOLD_FOR_MERGE = 0.80  # 提高到80%，避免误判不同事实为相似（修复记忆库不增长问题）
     EXACT_DUPLICATE_THRESHOLD = 0.92  # 提高到92%，更精确地识别完全重复项
     
@@ -90,6 +95,8 @@ class SimpleUpdater(BaseUpdater):
                 
                 if similarity >= self.EXACT_DUPLICATE_THRESHOLD:
                     logger.debug(f"[SimpleUpdater] 跳过完全重复知识 (相似度={similarity:.2f}): {formatted_content[:50]}...")
+                    # Sentinel -1 means "skip entirely" (exact duplicate), distinct from
+                    # None (no match found) and a valid index (merge candidate found).
                     merge_target_idx = -1
                     break
                 
@@ -102,6 +109,9 @@ class SimpleUpdater(BaseUpdater):
             elif merge_target_idx is not None:
                 existing_item = updated_cache[merge_target_idx]
                 
+                # Only replace if the new knowledge has higher confidence; otherwise
+                # retain the existing entry to avoid overwriting well-established facts
+                # with noisier extractions from less reliable message contexts.
                 if k.confidence > existing_item.score:
                     logger.info(f"[SimpleUpdater] 🔄 合并记忆 (相似度={max_similarity:.2f}, 新置信度={k.confidence:.2f} > 旧={existing_item.score:.2f})")
                     logger.debug(f"  旧: {existing_item.content[:60]}...")
@@ -156,7 +166,13 @@ class SimpleUpdater(BaseUpdater):
         return self._calculate_similarity(formatted_content, existing.content)
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """计算两文本的 Jaccard 相似度。"""
+        """Character-set Jaccard similarity after stripping type-tag prefixes.
+
+        Type tags like [PREFERENCE] are removed before comparison so that two
+        memories with different tags but identical content are correctly detected
+        as duplicates. Punctuation is excluded to avoid inflating similarity
+        between unrelated sentences that share only common delimiters.
+        """
         clean1 = re.sub(r'\[.*?\]\s*', '', text1).strip().lower()
         clean2 = re.sub(r'\[.*?\]\s*', '', text2).strip().lower()
         
@@ -201,7 +217,8 @@ class SimpleUpdater(BaseUpdater):
         union = len(chars1 | chars2)
         similarity = intersection / union if union > 0 else 0
         
-        return similarity > 0.7
+        return similarity > 0.7  # 0.7 Jaccard: high enough to suppress paraphrases,
+        # but low enough to keep factually distinct memories that share common words.
 
 
 class ConflictResolverUpdater(BaseUpdater):

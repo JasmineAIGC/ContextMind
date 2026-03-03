@@ -18,7 +18,15 @@ logger = get_logger(__name__)
 
 
 class SemanticSearchRetriever(BaseRetriever):
-    """语义搜索检索器，使用字符重叠和嵌入向量相似度检索相关记忆。"""
+    """语义搜索检索器。
+
+    Two-tier retrieval strategy:
+    1. If embeddings are available for both query and stored memories, cosine
+       similarity is used for dense semantic matching.
+    2. Otherwise falls back to character-level Jaccard similarity, which is
+       fast and language-agnostic but purely lexical.
+    Recency boost is applied on top to surface recent memories.
+    """
     
     def __init__(self, config: Optional[RetrievalConfig] = None):
         self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
@@ -94,6 +102,7 @@ class SemanticSearchRetriever(BaseRetriever):
                     if isinstance(item.timestamp, datetime):
                         days_ago = (datetime.now() - item.timestamp).days
                         if days_ago <= self.config.recency_days_threshold:
+                            # Linear decay: full boost at age 0, zero boost at the threshold boundary.
                             recency_boost = self.config.recency_weight * (
                                 1 - days_ago / self.config.recency_days_threshold
                             )
@@ -144,7 +153,13 @@ class SemanticSearchRetriever(BaseRetriever):
         return result
     
     def _calculate_char_similarity(self, query_lower: str, content_lower: str) -> float:
-        """计算字符级 Jaccard 相似度（嵌入向量不可用时的回退方案）"""
+        """Character-level Jaccard similarity, used when embeddings are unavailable.
+
+        Substring containment is scored at 0.9 so an embedding-based score can
+        still outrank it. For partial overlaps, Jaccard over character sets is
+        linearly scaled into [base_score, 0.9] to preserve relative ordering.
+        """
+        # Direct containment is strong evidence; 0.9 not 1.0 keeps room for embeddings.
         if query_lower in content_lower or content_lower in query_lower:
             return 0.9
         
@@ -155,6 +170,8 @@ class SemanticSearchRetriever(BaseRetriever):
         if overlap >= self.config.min_overlap_chars:
             union = len(query_chars | content_chars)
             similarity = overlap / union if union > 0 else 0
+            # Scale Jaccard [0, 1] linearly into [base_score, 0.9], mapping the full
+            # similarity range to the allowed output range while preserving ordering.
             score = self.config.base_score + similarity * (0.9 - self.config.base_score)
         else:
             score = self.config.base_score
@@ -162,6 +179,12 @@ class SemanticSearchRetriever(BaseRetriever):
         return score
     
     def _deduplicate_memories(self, scored_items: List[tuple]) -> List[tuple]:
+        """Remove near-duplicate memories using Jaccard similarity.
+
+        Uses similarity_threshold_for_dedup from config (typically 0.7) to
+        decide when two memories are close enough to keep only the higher-scored one.
+        Processing in score-descending order ensures the best entry survives.
+        """
         if not scored_items:
             return []
         

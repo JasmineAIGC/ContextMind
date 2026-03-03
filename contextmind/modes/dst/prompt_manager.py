@@ -11,7 +11,8 @@ from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
-# 意图标签加载器（延迟导入以避免循环依赖）
+# Lazy import avoids a circular dependency: benchmark imports ContextMind
+# modules, so importing benchmark at module level would create a cycle.
 _intent_label_loader = None
 
 def _get_intent_label_loader():
@@ -89,7 +90,8 @@ class PromptManager:
         else:
             self.max_context_length = max_context_length
         
-        # 可选的槽位本体（仅用于指导，不强制）
+        # Slots are advisory hints only; in dynamic mode the LLM is not
+        # constrained to this list, so filtering stays opt-in.
         self.ontology_slots: Dict[str, str] = {}
         self.categorical_constraints: Dict[str, List[str]] = {}
         
@@ -224,7 +226,8 @@ class PromptManager:
             is_risawoz_domain = self.domain in ['医院', '天气', '旅游景点', '汽车', '火车', '电影', '电脑', '电视剧', '辅导班', '通用', '酒店', '飞机', '餐厅']
             
             if is_risawoz_domain:
-                # RiSAWOZ专用提示 - 结构化槽位提取
+                # RiSAWOZ uses a "{domain}-{slot}" slot-key convention to avoid
+                # name collisions when multiple domains are tracked simultaneously.
                 instruction += f"""## 信息提取指南
 
 **重要：你正在为"{self.domain}"领域提取对话状态，请严格遵循以下规范。**
@@ -412,6 +415,9 @@ class PromptManager:
     def _get_default_context_length(self) -> int:
         """
         根据LLM格式获取默认上下文长度
+
+        Values are conservative defaults that leave room for the model's
+        response without risking truncation of the input prompt.
         
         返回:
             默认上下文长度（tokens）

@@ -30,7 +30,9 @@ class ResponseParser:
         
         参数:
             ontology_slots: 本体中定义的槽位名称集合（可选）
-            enable_filtering: 是否启用槽位过滤（默认False，支持动态槽位）
+            enable_filtering: 是否启用槽位过滤。默认 False 以支持动态槽位——
+                              LLM 可以自由提取任何槽位，而不被本体列表截断。
+                              设为 True 则只保留 ontology_slots 中的槽位。
             categorical_slots: 分类槽位及其候选值（用于归一化）
             embedding_client: Embedding客户端，用于语义槽位名称匹配（可选）
         """
@@ -66,7 +68,7 @@ class ResponseParser:
                 return self._filter_if_needed(parsed)
             elif isinstance(parsed, list) and len(parsed) > 0:
                 if isinstance(parsed[0], dict):
-                    # 处理字典列表：合并它们
+                    # Some LLMs wrap the result in a list; merge items so no info is lost.
                     result = {}
                     for item in parsed:
                         if isinstance(item, dict):
@@ -99,6 +101,9 @@ class ResponseParser:
     def _extract_json_with_regex(self, text: str) -> Optional[Dict[str, str]]:
         """
         使用正则表达式从文本中提取JSON
+
+        Tries patterns in decreasing flexibility: nested objects first, then
+        flat objects, then arrays. Returns the first successfully parsed dict.
         
         参数:
             text: 包含JSON的文本
@@ -149,8 +154,11 @@ class ResponseParser:
         """
         使用语义相似度找到最相似的槽位名称（通用方法，适用于任何领域）
         
-        使用embedding相似度匹配LLM提取的槽位名称到期望的本体槽位名称。
-        这是一个通用方法，无需硬编码领域映射，适用于任何领域。
+        LLM may use synonyms or slightly different phrasing for slot names.
+        Embedding similarity generalises across domains without hard-coded
+        lookup tables; the 0.85 threshold (on the [0,1]-scaled cosine score)
+        was empirically chosen to avoid false positives while still catching
+        minor paraphrases.
         
         参数:
             llm_slot: LLM提取的槽位名称
@@ -185,7 +193,7 @@ class ResponseParser:
                     best_similarity = similarity
                     best_match = expected_slot
             
-            # 只返回高相似度的匹配（阈值0.85）
+            # Only accept high-confidence matches to avoid cross-slot confusion.
             if best_similarity >= 0.85:
                 logger.debug(f"语义槽位匹配: {llm_slot} -> {best_match} (相似度: {best_similarity:.3f})")
                 return best_match
@@ -207,6 +215,8 @@ class ResponseParser:
         """
         filtered = {k: v for k, v in updates.items() if k != 'intent'}
         
+        # Remap slot names that are close but not exact matches (e.g. synonyms
+        # produced by the LLM) before applying the ontology filter below.
         if self.ontology_slots:
             mapped_updates = {}
             for slot, value in filtered.items():

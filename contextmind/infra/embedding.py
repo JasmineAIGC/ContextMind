@@ -53,8 +53,8 @@ class EmbeddingConfig:
     model: str = DEFAULT_EMBEDDING_MODEL
     base_url: Optional[str] = None
     access_key: Optional[str] = None
-    model_path: Optional[str] = None  # 本地模型路径（用于直接加载）
-    use_local: bool = False  # 是否使用本地加载模式
+    model_path: Optional[str] = None  # filesystem path for SentenceTransformer.load()
+    use_local: bool = False  # True → load via sentence-transformers; False → OpenAI-compat API
     
     @classmethod
     def from_env(cls) -> "EmbeddingConfig":
@@ -68,7 +68,7 @@ class EmbeddingConfig:
             logger.info(f"[EmbeddingConfig] 使用本地 embedding 模型: {embedding_model_path}")
             model_name = embedding_model or os.path.basename(embedding_model_path)
             return cls(
-                api_key="",
+                api_key="",  # not needed for local inference
                 model=model_name,
                 model_path=embedding_model_path,
                 use_local=True,
@@ -236,7 +236,11 @@ class EmbeddingClient:
 
         if self.config.use_local and self.local_model:
             try:
-                vector = self.local_model.encode(text, convert_to_tensor=False, show_progress_bar=False).tolist()
+                vector = self.local_model.encode(
+                    text,
+                    convert_to_tensor=False,  # keep as numpy array, then convert to list below
+                    show_progress_bar=False,
+                ).tolist()
                 dimension = len(vector)
                 logger.debug(f"[EmbeddingClient] 成功生成 embedding (本地) - model: {self.config.model}, dim: {dimension}, text: {text[:50]}...")
                 return EmbeddingInfo(
@@ -323,6 +327,8 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
     if norm1 == 0 or norm2 == 0:
         return 0.0
 
+    # Raw cosine is in [-1, 1]; shift-and-scale to [0, 1] so downstream
+    # similarity thresholds stay intuitive (0 = unrelated, 1 = identical).
     similarity = dot_product / (norm1 * norm2)
     return (similarity + 1) / 2
 
@@ -351,7 +357,11 @@ _global_client: Optional[EmbeddingClient] = None
 
 
 def get_embedding_client() -> Optional[EmbeddingClient]:
-    """获取全局 Embedding 客户端（单例）。"""
+    """获取全局 Embedding 客户端（单例）。
+
+    Lazy-initialized so the heavy model load (or API handshake) only happens
+    on first use, not at import time.
+    """
     global _global_client
 
     if _global_client is None:

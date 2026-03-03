@@ -145,7 +145,8 @@ class ServiceSchema:
         slots = [SlotDefinition.from_dict(s) for s in data.get("slots", [])]
         intents = [IntentDefinition.from_dict(i) for i in data.get("intents", [])]
 
-        # 根据意图引用，标记槽位的 is_required 属性
+        # Derive is_required from intent definitions rather than slot definitions,
+        # because the PyTOD JSON schema stores required slots under intents.
         required_set: Set[str] = set()
         for intent in intents:
             required_set.update(intent.required_slots)
@@ -153,6 +154,7 @@ class ServiceSchema:
             if slot.name in required_set:
                 slot.is_required = True
 
+        # Support both "service_name" (internal format) and "name" (PyTOD JSON format).
         return cls(
             service_name=data.get("service_name", data.get("name", "")),
             description=data.get("description", ""),
@@ -183,7 +185,9 @@ def load_schema_from_dict(data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> 
     """
     从字典加载 ServiceSchema（便捷函数）。
 
-    支持单个 service 字典或 PyTOD 标准格式列表（取第一个 service 元素）。
+    When passed a list (the standard PyTOD per-dialogue schema format, which
+    can contain multiple service entries), only the first service is used.
+    Multi-service dialogues should call ServiceSchema.from_dict per service.
 
     Args:
         data: service 定义字典，或包含多个 service 字典的列表

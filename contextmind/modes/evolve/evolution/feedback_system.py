@@ -35,7 +35,12 @@ class FeedbackType(Enum):
 
 @dataclass
 class FeedbackEvent:
-    """记录一次完整的反馈信息，包括来源、类型、强度等。"""
+    """
+    记录一次完整的反馈信息，包括来源、类型、强度等。
+
+    strength 表示信号强度（0-1），用于加权适应度更新，
+    confidence 表示该反馈信号本身的可信度（隐式信号通常低于显式信号）。
+    """
     memory_ids: List[str]
     feedback_type: FeedbackType
     source: FeedbackSource
@@ -286,10 +291,10 @@ class FeedbackCollector:
     def collect_rating(
         self,
         memories: List[ContextItem],
-        rating: float,  # 0-1 范围
+        rating: float,  # 0-1；>= 0.7 正面，<= 0.3 负面，中间为中性
         details: Optional[Dict[str, Any]] = None
     ) -> FeedbackEvent:
-        """收集评分反馈，rating >= 0.7 为正面，<= 0.3 为负面，其余为中性。"""
+        """收集评分反馈，将 0-1 区间的评分映射到正/负/中性三类反馈。"""
         if rating >= 0.7:
             feedback_type = FeedbackType.POSITIVE
             source = FeedbackSource.RATING
@@ -310,7 +315,7 @@ class FeedbackCollector:
             memory_ids=memory_ids,
             feedback_type=feedback_type,
             source=source,
-            strength=abs(rating - 0.5) * 2,  # 0.5 → 0, 0或1 → 1
+            strength=abs(rating - 0.5) * 2,  # 将偏离中立值(0.5)的程度线性映射为强度：0.5→0, 0或1→1
             details={'rating': rating, **(details or {})}
         )
         
@@ -360,7 +365,12 @@ class FeedbackCollector:
 
 
 class ImplicitFeedbackAnalyzer:
-    """从对话行为中推断隐式反馈。"""
+    """
+    从对话行为中推断隐式反馈。
+
+    这些规则均为启发式信号，置信度低于显式反馈，
+    主要用于在用户不主动评分时提供低成本的质量信号。
+    """
     
     def __init__(self, feedback_collector: FeedbackCollector):
         self.feedback_collector = feedback_collector
@@ -387,7 +397,9 @@ class ImplicitFeedbackAnalyzer:
         previous_turns: List[ConversationTurn]
     ):
         """
-        分析重复提问行为。与最近3轮共享3个以上词的查询视为负面信号。
+        分析重复提问行为。
+
+        与最近3轮存在3个以上共同词时判定为重复，说明之前的回答未能满足用户需求。
         """
         if not previous_turns:
             return

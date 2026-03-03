@@ -36,7 +36,7 @@ class SessionManager:
         self.user_id = user_id
         self.max_recent_events = max_recent_events
         self._session_id: str = str(uuid.uuid4())
-        self._messages: List[Message] = []  # 使用本地缓存
+        self._messages: List[Message] = []  # In-memory store; no external persistence needed
     
     async def _ensure_session(self) -> None:
         if not self._session_id:
@@ -71,6 +71,7 @@ class SessionManager:
         
         num_events = limit if limit is not None else self.max_recent_events
         
+        # Return a copy to prevent callers from mutating internal state.
         if num_events >= len(self._messages):
             return self._messages.copy()
         else:

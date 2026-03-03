@@ -78,7 +78,9 @@ class ActionValidator:
     传入 ``schema`` 启用 schema 驱动模式；``schema=None``（默认）启用开放域模式。
     """
 
-    # 用于从文本中提取 JSON 块的正则
+    # Patterns tried in order: fenced code blocks first (most explicit),
+    # then bare JSON object.  Fenced blocks are more reliable because they
+    # have clear delimiters; the bare-object pattern is a last resort.
     _JSON_PATTERNS: List[str] = [
         r"```json\s*([\s\S]*?)\s*```",  # ```json ... ```
         r"```\s*([\s\S]*?)\s*```",       # ``` ... ```
@@ -237,6 +239,9 @@ class ActionValidator:
             return
 
         if intent == "UNKNOWN":
+            # UNKNOWN is a reserved sentinel indicating the model could not
+            # determine intent; it is not an error, but a signal to the
+            # dialogue manager to ask the user for clarification.
             result.warnings.append(
                 "intent 为 UNKNOWN，表示模型未能识别用户意图，"
                 "建议追问用户或提供更多上下文"
@@ -273,7 +278,8 @@ class ActionValidator:
                 )
                 continue
 
-            # ? 和 dontcare 总是合法的
+            # "?" and "dontcare" are DST-convention sentinels that bypass
+            # enum validation — they are always legal regardless of possible_values.
             if slot_value in ("?", "dontcare"):
                 continue
 
@@ -294,6 +300,8 @@ class ActionValidator:
         if intent_def:
             for required_slot in intent_def.required_slots:
                 if required_slot not in result.slots:
+                    # Warn rather than error: slot filling happens incrementally
+                    # across turns, so absence in one turn is expected.
                     result.warnings.append(
                         f"意图 '{result.intent}' 的必填槽位 '{required_slot}' 尚未提供，"
                         "请引导用户补充"

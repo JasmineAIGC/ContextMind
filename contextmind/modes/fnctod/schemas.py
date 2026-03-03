@@ -26,7 +26,7 @@ def get_chat_function_schema() -> DomainSpec:
         name="intent_level1",
         description="一级意图（主意图）",
         param_type=ParameterType.STRING,
-        required=True,
+        required=True,  # top-level intent is mandatory; all other fields are best-effort
         enum_values=["闲聊", "求助", "分享", "咨询", "情感倾诉", "闲暇活动", "其他"]
     ))
     
@@ -776,8 +776,10 @@ def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
     """
     根据场景名称获取对应的函数Schema
     
-    使用场景注册表，支持动态添加新场景的Schema。
-    所有场景必须在 scenarios.yaml 中配置。
+    Delegates to the scenario registry so new schemas can be added via
+    ``scenarios.yaml`` without modifying this file (open/closed principle).
+    All built-in schemas (chat, callcenter, insurance) are pre-registered
+    there; custom schemas must also be registered in that config.
     
     Args:
         scenario_name: 场景名称（支持中英文别名）
@@ -789,12 +791,8 @@ def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
         ValueError: 如果场景未注册或没有Schema
     
     Example:
-        # 使用内置场景Schema
         schema = get_function_schema_for_scenario("chat")
         schema = get_function_schema_for_scenario("闲聊")  # 中文别名
-        
-        # 添加自定义场景（在 scenarios.yaml 中配置）
-        schema = get_function_schema_for_scenario("custom")
     """
     from contextmind.config.registry import scenario_registry
     

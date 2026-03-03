@@ -43,7 +43,7 @@ class EvolveEngine:
         llm_client: Optional[Any] = None,
         session_service: Optional[Any] = None,
         memory_service: Optional[Any] = None,
-        max_recent_events: int = 9999,
+        max_recent_events: int = 9999,   # 实际上限由 session_service 决定，此处设为极大值不主动截断
         use_postprocessor: bool = False,
         use_summarizer: bool = False,
         extraction_method: str = "llm",
@@ -174,7 +174,7 @@ class EvolveEngine:
         if include_memory:
             long_term_memory = await self.memory_bank.retrieve(
                 query=processed_input,
-                limit=10
+                limit=10  # 取Top-10记忆：经验值，在覆盖率和 Token 开销之间取得平衡
             )
             logger.info(f"[EvolveEngine]   - 长期记忆: {len(long_term_memory)} 条知识")
         
@@ -200,7 +200,7 @@ class EvolveEngine:
         
         logger.info(f"[EvolveEngine] 🗜️  步骤 4/5: 上下文压缩")
         is_compressed = False
-        if len(all_items) > 50:  # 超过50条才需要压缩
+        if len(all_items) > 50:  # 50条以下的上下文规模通常在 Token 预算内，压缩收益不抵开销
             logger.info(f"[EvolveEngine]   - 上下文项过多，需要压缩")
             # TODO: 实现压缩逻辑
             is_compressed = True
@@ -241,9 +241,10 @@ class EvolveEngine:
         assistant_response: str,
     ) -> None:
         """
-        将用户输入和助手回复添加到会话历史。
+        仅将当前对话轮次写入会话历史，不执行知识提取。
 
-        如需完整功能（包括知识提取和记忆更新），请使用 handle_response()。
+        适用于对延迟敏感的场景，知识提取可延迟到会话结束时批量调用
+        handle_response() 或 extract_knowledge() 完成。
         """
         logger.info(f"[EvolveEngine] 💾 更新会话历史 - 添加新对话轮次")
         logger.info(f"[EvolveEngine]   - 用户消息: {len(user_input)} 字符")

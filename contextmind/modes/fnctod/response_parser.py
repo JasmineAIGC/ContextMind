@@ -50,6 +50,7 @@ class FnCTODResponseParser:
         if not domains:
             logger.warning("未检测到domain标签，尝试从文本中推断")
             words = response.lower().split()
+            # Fallback: scan for known domain keywords when the model omits tags.
             common_domains = ['hotel', 'restaurant', 'attraction', 'train', 'taxi', 'insurance', 'callcenter', 'chat']
             for domain in common_domains:
                 if domain in words:
@@ -95,7 +96,8 @@ class FnCTODResponseParser:
                 raw_output=match.group(0)
             )
             
-            # 提取function call之后的自然语言回复
+            # Extract text after the closing tag as the natural response;
+            # fall back to text before the opening tag if nothing follows.
             natural_response = response[match.end():].strip()
             
             # 如果没有后续回复，使用function call之前的内容
@@ -115,7 +117,7 @@ class FnCTODResponseParser:
                 if partial_matches:
                     logger.debug(f"发现的开始标签: {partial_matches}")
             
-            # 尝试更宽松的匹配（不要求name属性用引号）
+            # Loose pattern: some models omit quotes around the name attribute.
             loose_pattern = r'<function_call\s+name=([^\s>]+)\s*>(.*?)</function_call>'
             loose_match = re.search(loose_pattern, response, re.DOTALL | re.IGNORECASE)
             if loose_match:
@@ -201,7 +203,8 @@ class FnCTODResponseParser:
         if not function_call:
             return {}
         
-        # 格式: {domain-slot: value}
+        # State keys follow "{domain}-{param}" convention so a single dict
+        # can hold slots from multiple concurrent domains without collision.
         state = {}
         domain = function_call.function_name
         

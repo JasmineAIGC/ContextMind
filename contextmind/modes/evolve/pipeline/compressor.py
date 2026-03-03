@@ -12,11 +12,16 @@ from ..core.strategies import CompressionStrategy
 
 logger = get_logger(__name__)
 
-DEFAULT_MAX_SESSION_ITEMS = 10
+DEFAULT_MAX_SESSION_ITEMS = 10  # 默认保留最近10条会话条目，平衡上下文完整性和Token开销
 
 
 class ContextCompressor:
-    """上下文压缩器，将收集到的上下文压缩以减少Token消耗。"""
+    """
+    上下文压缩器，将收集到的上下文压缩以减少Token消耗。
+
+    策略将原始条目分类为近期历史、长期记忆和外部知识三层结构，
+    使 LLM 提示保持在合理的 Token 预算内。
+    """
 
     def __init__(
         self,
@@ -31,7 +36,12 @@ class ContextCompressor:
         self,
         context: ProcessedContext,
     ) -> ContextResult:
-        """压缩上下文，返回 ContextResult。"""
+        """
+        将 ProcessedContext 分层压缩为 ContextResult。
+
+        CompressionStrategy 负责按优先级将条目分配到
+        recent_history / long_term_memory / external_knowledge 三个槽位。
+        """
         input_items_count = len(context.items)
 
         result = await self.strategy.optimize(context)

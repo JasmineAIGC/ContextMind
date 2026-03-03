@@ -53,11 +53,13 @@ class MemoryBank:
     提供长期记忆的存储、检索和管理功能
     """
     
-    # 存储阈值
+    # Preferences need higher confidence than facts/events because a wrong preference
+    # shapes every future interaction without obvious correction signals, while
+    # an incorrect fact is more likely to be caught and corrected through dialogue.
     STORAGE_THRESHOLD_PREFERENCE = 0.75
     STORAGE_THRESHOLD_FACT = 0.70
     STORAGE_THRESHOLD_EVENT = 0.70
-    STORAGE_MIN_LENGTH = 3
+    STORAGE_MIN_LENGTH = 3  # Reject single-char or whitespace-only strings
     
     def __init__(
         self,
@@ -180,6 +182,8 @@ class MemoryBank:
         for item in self._local_cache:
             content_lower = item.content.lower()
 
+            # Direct substring containment is strong evidence of relevance; score
+            # 0.9 (not 1.0) so an embedding-based retriever can still outscore it.
             if query_lower in content_lower or content_lower in query_lower:
                 score = 0.9
             else:
@@ -187,9 +191,12 @@ class MemoryBank:
                 content_chars = set(content_lower)
                 overlap = len(query_chars & content_chars)
 
+                # Jaccard over character sets is a cheap proxy for lexical similarity.
+                # min_overlap_chars filters out matches driven purely by common punctuation.
                 if overlap >= self.config.min_overlap_chars:
                     union = len(query_chars | content_chars)
                     similarity = overlap / union if union > 0 else 0
+                    # Scale Jaccard [0, 1] linearly into [base_score, 0.9]
                     score = self.config.base_score + similarity * (0.9 - self.config.base_score)
                 else:
                     score = self.config.base_score
@@ -539,7 +546,10 @@ class MemoryBank:
         查找并建立与现有记忆的关联
 
         基于关键词重叠度判断语义相关性。
-        需要至少2个关键词重叠才建立关联（避免过度链接）。
+        Requires at least 2 keyword overlaps to form a link; a single shared word
+        is too common to signal genuine relatedness and would create a noisy graph.
+        Linked memories receive a 10% importance boost since co-activation suggests
+        they form a coherent knowledge cluster.
         """
         if not self._memory_notes:
             return
@@ -551,7 +561,7 @@ class MemoryBank:
             existing_keywords = set(existing.metadata.get('keywords', []))
             overlap = len(note_keywords & existing_keywords)
             
-            if overlap >= 2:
+            if overlap >= 2:  # Minimum 2 shared keywords required to avoid spurious links
                 linked_memories.append(existing_id)
                 existing_links = existing.metadata.get('linked_memories', [])
                 if note_id not in existing_links:
@@ -559,6 +569,8 @@ class MemoryBank:
                     existing.metadata['linked_memories'] = existing_links
 
                 current_importance = existing.metadata.get('importance_score', 0.5)
+                # Co-activation with a new memory signals this memory is part of a cluster;
+                # boost its importance by 10% to resist forgetting during evolution.
                 existing.metadata['importance_score'] = min(1.0, current_importance * 1.1)
         
         note.metadata['linked_memories'] = linked_memories
@@ -610,6 +622,8 @@ class MemoryBank:
                         score = 0
 
             importance = note.metadata.get('importance_score', 0.5)
+            # 70% query relevance + 30% intrinsic importance: prevents high-frequency
+            # but query-irrelevant memories from crowding out more relevant results.
             final_score = score * 0.7 + importance * 0.3
             
             if final_score > 0:
@@ -638,18 +652,23 @@ class MemoryBank:
         if not self._memory_notes:
             return 0
         
+        # 2% per-cycle decay approximates the Ebbinghaus forgetting curve at a
+        # weekly timescale; memories that are actively retrieved resist decay via
+        # the importance boost in _link_related_memories and retrieve_memory_notes.
         decay_factor = 0.98
         for note in self._memory_notes.values():
             current_importance = note.metadata.get('importance_score', 0.5)
             note.metadata['importance_score'] = current_importance * decay_factor
         
         removed = 0
+        # Do not evict below 10 notes; preserve a minimum useful working set.
         if len(self._memory_notes) > 10:
             sorted_notes = sorted(
                 self._memory_notes.items(),
                 key=lambda x: x[1].metadata.get('importance_score', 0.5)
             )
 
+            # Notes that have decayed below 0.1 are effectively forgotten
             threshold = 0.1
             to_remove = []
             

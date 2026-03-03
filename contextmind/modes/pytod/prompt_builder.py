@@ -230,6 +230,8 @@ NONE()
         """
         self.schema = schema
         self.few_shot_examples: List[FewShotExample] = few_shot_examples or []
+        # Truncate history to avoid exceeding the model's context window;
+        # 10 turns covers most realistic multi-turn dialogues.
         self.max_history_turns = max_history_turns
         self.response_language = response_language
 
@@ -276,6 +278,8 @@ NONE()
             trimmed = history[-self.max_history_turns :]
             for turn in trimmed:
                 role = turn.role
+                # Map directly to OpenAI role strings; ConversationTurn already
+                # uses "user" / "assistant" so no translation needed.
                 messages.append({"role": role, "content": turn.content})
 
         messages.append({"role": "user", "content": user_input})
@@ -350,6 +354,8 @@ NONE()
             for turn in trimmed:
                 speaker = "user" if turn.role == "user" else "system"
                 context_lines.append(f"[HISTORY] {speaker}: {turn.content}")
+        # [CURRENT] tag distinguishes the live turn from history so the model
+        # generates a program only for the current user input.
         context_lines.append(f"[CURRENT] user: {user_input}")
 
         messages.append({"role": "user", "content": "\n".join(context_lines)})
@@ -469,7 +475,11 @@ NONE()
         )
 
     def _build_few_shot_messages(self) -> List[Dict[str, str]]:
-        """将 few-shot 示例转换为 messages 格式。"""
+        """将 few-shot 示例转换为 messages 格式。
+
+        Each example is injected as a real user/assistant exchange so the model
+        learns the exact JSON output format from the conversation context itself.
+        """
         import json
 
         messages: List[Dict[str, str]] = []

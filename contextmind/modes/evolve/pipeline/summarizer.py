@@ -18,10 +18,10 @@ logger = get_logger(__name__)
 class SummarizationConfig:
     """对话摘要配置"""
 
-    summarize_threshold: int = 5  # 触发摘要的对话轮数阈值
-    keep_recent_turns: int = 3  # 摘要后保留的最近对话轮数
+    summarize_threshold: int = 5  # 至少5轮对话后才值得摘要，避免对短会话的无效摘要开销
+    keep_recent_turns: int = 3    # 摘要后仍保留最近3轮原始对话，维持对话连贯性
 
-    method: str = "llm"  # 'rule' 或 'llm'
+    method: str = "llm"  # 'rule' 或 'llm'；LLM 方式语义更准确但需额外推理延迟
 
     max_summary_length: int = 200
     extract_key_points: bool = True
@@ -30,11 +30,17 @@ class SummarizationConfig:
     include_stats: bool = True
 
     llm_max_tokens: int = 150
-    llm_temperature: float = 0.3  # 越低越稳定
+    llm_temperature: float = 0.3  # 低温度使摘要更确定性、减少幻觉
 
 
 class RuleBasedSummarizer(SummarizerStrategy):
-    """基于规则的摘要器，使用统计信息和关键词提取生成摘要。推荐使用 LLMBasedSummarizer。"""
+    """
+    基于规则的摘要器，使用统计信息和关键词提取生成摘要。
+
+    通过匹配预设的中文关键词识别用户偏好、身份、状态等要点，
+    无需 LLM 推理，延迟极低，适合对话历史较短或无法提供 LLM 客户端的场景。
+    推荐在生产中使用 LLMBasedSummarizer 获取语义更丰富的摘要。
+    """
 
     def __init__(self, config: Optional[Any] = None):
         """
@@ -95,7 +101,7 @@ class RuleBasedSummarizer(SummarizerStrategy):
             seen = set()
             unique_points = []
             for point in key_points:
-                key = point[:30]  # deduplicate by first 30 chars
+                key = point[:30]  # 以前30个字符作为去重键，避免相似句重复
                 if key not in seen:
                     seen.add(key)
                     unique_points.append(point)
@@ -218,7 +224,7 @@ class LLMBasedSummarizer(SummarizerStrategy):
 - 保持客观，不添加主观评价
 - 摘要应该以用户为中心，记录用户说了什么、想要什么"""
         
-        # 如果有已存在的摘要，说明这是增量更新
+        # 如果有已存在的摘要，将其作为前缀让 LLM 进行增量更新而非全量重写
         if existing_summary:
             user_prompt = f"""请基于以下已有摘要和新对话，生成更新后的完整摘要：
 
@@ -248,7 +254,7 @@ class LLMBasedSummarizer(SummarizerStrategy):
 
             summary = summary.strip()
 
-            if len(summary) > self.max_summary_length * 2:  # 给LLM摘要更多空间
+            if len(summary) > self.max_summary_length * 2:  # LLM 输出通常比规则摘要更详细，给双倍空间
                 summary = summary[:self.max_summary_length * 2] + "..."
 
             logger.info(f"[LLMBasedSummarizer] LLM摘要生成完成 - 长度: {len(summary)}")
@@ -310,13 +316,14 @@ class ConversationSummarizer:
         
         self.window_size = window_size
 
+        # 分层摘要状态：base_summary 覆盖早期对话，incremental_summaries 覆盖中间段
         self.base_summary: Optional[str] = None
         self.incremental_summaries: List[str] = []
         self.last_summarized_turn: int = 0
         self.last_update: Optional[datetime] = None
 
-        self.increment_interval: int = 5  # 每5轮生成一次增量摘要
-        self.consolidate_threshold: int = 3  # 有3个增量摘要时合并到基础摘要
+        self.increment_interval: int = 5   # 每5轮生成一次增量，避免频繁调用 LLM
+        self.consolidate_threshold: int = 3  # 积累3个增量后合并，防止增量链过长导致上下文膨胀
 
         logger.info(f"[Summarizer] 初始化完成 - 策略: {self.strategy.__class__.__name__}, 窗口: {window_size}, 增量模式启用")
 
@@ -490,7 +497,12 @@ class ConversationSummarizer:
         return combined_summary, recent_history
 
     def _contextitem_to_message(self, item: ContextItem) -> Message:
-        """将 ContextItem 转换为 Message。"""
+        """
+        将 ContextItem 转换为 Message。
+
+        通过简单的字符串前缀启发式判断角色，因为 ContextItem 不携带结构化角色字段。
+        无法识别角色时默认归为 USER，以避免摘要器遗漏内容。
+        """
         content = item.content
 
         if "user:" in content.lower():

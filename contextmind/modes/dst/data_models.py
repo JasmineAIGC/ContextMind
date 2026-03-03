@@ -10,7 +10,11 @@ from typing import Dict, Optional
 
 
 class SpecialValue(Enum):
-    """特殊槽位值，UNKNOWN="?" 表示用户询问，DONTCARE="dontcare" 表示不关心。"""
+    """特殊槽位值，遵循 MultiWOZ / DSTC 惯例。
+
+    UNKNOWN ("?") — user is *asking* for this slot rather than providing a value.
+    DONTCARE ("dontcare") — user explicitly doesn't care about this slot's value.
+    """
     UNKNOWN = "?"
     DONTCARE = "dontcare"
 
@@ -22,4 +26,5 @@ class DialogueTurn:
     user_utterance: str
     predicted_state: Dict[str, str] = field(default_factory=dict)
     turn_updates: Dict[str, str] = field(default_factory=dict)
+    # Preserved for debugging and offline analysis; not used in state tracking.
     raw_llm_response: Optional[str] = None

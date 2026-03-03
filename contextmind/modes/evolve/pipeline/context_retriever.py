@@ -13,7 +13,12 @@ logger = get_logger(__name__)
 
 
 class ContextRetriever:
-    """从外部知识库检索相关信息。当前检索功能主要由 MemoryBank 实现，此模块为架构完整性保留。"""
+    """
+    从外部知识库检索相关信息。
+
+    当前检索功能主要由 MemoryBank 实现，此模块为架构完整性保留，
+    未来可接入向量数据库、搜索引擎等外部知识源。
+    """
 
     def __init__(self, knowledge_base: Optional[Any] = None):
         self.knowledge_base = knowledge_base
@@ -21,14 +26,9 @@ class ContextRetriever:
 
     async def retrieve(self, query: str, top_k: int = 5) -> List[ContextItem]:
         """
-        检索相关上下文
+        检索相关上下文。
 
-        Args:
-            query: 检索查询
-            top_k: 返回的最大结果数
-
-        Returns:
-            相关的上下文项列表
+        top_k=5 是经验值：在相关性覆盖和 Token 开销之间的平衡点。
         """
         if not self.knowledge_base:
             logger.debug("[ContextRetriever] 无外部知识库配置")

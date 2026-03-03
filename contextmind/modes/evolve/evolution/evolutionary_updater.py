@@ -27,9 +27,9 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
     def __init__(
         self,
         max_memory_size: int = 100,
-        elite_ratio: float = 0.7,
-        similarity_threshold: float = 0.85,
-        min_fitness_threshold: float = 0.2,
+        elite_ratio: float = 0.7,         # 每次更新保留70%，确保记忆库稳定性同时淘汰末尾低质记忆
+        similarity_threshold: float = 0.85,  # 高阈值避免误合并语义相近但实际不同的记忆
+        min_fitness_threshold: float = 0.2,  # 低于此分数的记忆视为"退化"，在容量控制时优先淘汰
         fitness_weights: Optional[Dict[str, float]] = None,
         enable_decay: bool = True
     ):
@@ -210,6 +210,7 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
                 existing_item = updated_existing[best_match_idx]
                 
                 if k.confidence > existing_item.score:
+                    # 只在新记忆置信度更高时才替换，保留更可靠的版本
                     logger.debug(
                         f"[EvolutionaryUpdater] 🔄 合并记忆 "
                         f"(相似度={best_similarity:.2f}, 新置信度={k.confidence:.2f} > 旧={existing_item.score:.2f})"
@@ -226,6 +227,7 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
                         metadata={
                             **k.metadata,
                             'merged': True,
+                            # 继承旧记忆的使用历史，避免合并后"重置"已积累的访问权重
                             'usage_count': old_fitness.usage_count,
                             'last_used': old_fitness.last_used,
                             'accuracy': old_fitness.accuracy,
@@ -253,10 +255,11 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
     
     def _calculate_similarity(self, knowledge: Knowledge, memory: ContextItem) -> float:
         """
-        计算知识与记忆的相似度，优先使用嵌入向量，回退到 Jaccard 字符集相似度。
+        计算知识与记忆的相似度。
 
-        Returns:
-            相似度分数 (0-1)
+        优先使用嵌入向量（语义相似度），回退到基于字符集的 Jaccard 相似度。
+        Jaccard 对中文效果尚可，因为中文字符本身已携带语义单元，
+        但对长文本准确性下降，仅作为无嵌入时的兜底方案。
         """
         if knowledge.embeddings and memory.embeddings:
             knowledge_emb = knowledge.embeddings.get('default')
@@ -270,12 +273,14 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
         import re
         formatted_content = f"[{knowledge.type.value.upper()}] {knowledge.content}"
         
+        # 去除类型前缀标签后再比较，避免 [FACT] vs [PREFERENCE] 标签差异影响内容相似度判断
         clean1 = re.sub(r'\[.*?\]\s*', '', formatted_content).strip().lower()
         clean2 = re.sub(r'\[.*?\]\s*', '', memory.content).strip().lower()
         
         if not clean1 or not clean2:
             return 0.0
         
+        # 过滤标点，中文标点不是语义单元，保留汉字和字母以提高 Jaccard 精度
         chars1 = set(c for c in clean1 if c.strip() and c not in '，。！？,.!?；:：')
         chars2 = set(c for c in clean2 if c.strip() and c not in '，。！？,.!?；:：')
         

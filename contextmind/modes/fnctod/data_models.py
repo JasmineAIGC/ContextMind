@@ -109,6 +109,7 @@ class FunctionCall:
     """函数调用结果，包含function名称、参数、原始输出和自然语言回复。"""
     function_name: str
     arguments: Dict[str, Any] = field(default_factory=dict)
+    # Full matched text from the LLM response, useful for debugging parse failures.
     raw_output: str = ""
     natural_response: str = ""
     
@@ -122,6 +123,9 @@ class FunctionCall:
     def to_xml(self) -> str:
         """
         转换为XML格式的function call（用于提示词中的历史记录）
+
+        The XML wrapper is used in prompts so the LLM can learn the expected
+        output format from in-context examples of past turns.
         
         Returns:
             XML格式的function call字符串

@@ -30,6 +30,8 @@ class RuleBasedExtractor(BaseExtractor):
     
     @property
     def confidence_preference_negative(self) -> float:
+        # Negative preferences are harder to express precisely in natural language
+        # and carry more ambiguity, so they receive a 10% confidence penalty.
         return self.config.preference_confidence * 0.9
     
     @property
@@ -398,6 +400,8 @@ class LLMBasedExtractor(BaseExtractor):
                             logger.debug(f"[LLMBasedExtractor] 跳过内容过短: {content}")
                             continue
                         
+                        # Reject scores outside [0.72, 1.0]: below 0.72 is too uncertain
+                        # to be actionable; above 1.0 indicates an LLM calibration error.
                         if confidence < 0.72 or confidence > 1.0:
                             logger.debug(f"[LLMBasedExtractor] 跳过不合理置信度: {confidence}")
                             continue
@@ -458,8 +462,12 @@ class LLMBasedExtractor(BaseExtractor):
         for knowledge in knowledge_list:
             content = knowledge.content.strip()
             
+            # Strip type-tag prefixes (e.g. "用户偏好:") before phrase extraction so
+            # the validation check operates on the actual factual content.
             content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
             
+            # Extract CJK sequences of 3+ characters as key phrases;
+            # shorter CJK strings are typically function words or measure words.
             key_phrases = re.findall(r'[\u4e00-\u9fa5]{3,}', content_clean)
             
             if not key_phrases:

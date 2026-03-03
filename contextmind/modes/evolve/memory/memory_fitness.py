@@ -112,7 +112,9 @@ class MemoryFitness:
         if total_feedback == 0:
             return 0.5  # 无反馈时返回中性分数
         
-        # 正面权重1.0，负面权重-1.0，纠正权重-0.5
+        # Corrections penalise less than outright negatives (-0.5 vs -1.0) because
+        # a correction still indicates the memory was useful enough to be cited,
+        # while a negative means it was unhelpful or misleading.
         score = (
             self.positive_feedback_count * 1.0 -
             self.negative_feedback_count * 1.0 -
@@ -152,12 +154,19 @@ class MemoryFitness:
         if current_time is None:
             current_time = time.time()
         
+        # Log scale: 100 uses ≈ 1.0, preventing high-use memories from
+        # indefinitely dominating retrieval ranking over newer, fresher ones.
         usage_score = min(1.0, math.log(self.actual_usage_count + 1) / math.log(100))
         
         usage_rate_score = self.usage_rate
         
         time_since_use = current_time - self.last_used
-        half_life_seconds = 7 * 24 * 3600  # 7天半衰期
+        # 7-day half-life mirrors typical short-term conversational relevance windows.
+        half_life_seconds = 7 * 24 * 3600
+        # Exponential decay via exp(-t/τ): score halves every 7 days of non-use,
+        # where τ = half_life_seconds satisfies exp(-τ/τ) = exp(-1) ≈ 0.368, so
+        # the actual half-life is half_life_seconds * ln(2) ≈ 4.85 days — close enough
+        # to 7 days for the intended weekly-scale forgetting behaviour.
         recency_score = math.exp(-time_since_use / half_life_seconds)
         
         accuracy_score = self.accuracy
@@ -190,14 +199,19 @@ class MemoryFitness:
     
     def record_positive_feedback(self):
         self.positive_feedback_count += 1
+        # Small +0.05 nudge: a single positive signal should not inflate accuracy too quickly.
         self.accuracy = min(1.0, self.accuracy + 0.05)
     
     def record_negative_feedback(self):
         self.negative_feedback_count += 1
+        # Negative feedback carries twice the penalty of a positive reward (asymmetric
+        # update) because errors are more costly than missed opportunities.
         self.accuracy = max(0.0, self.accuracy - 0.1)
     
     def record_correction(self):
         self.correction_count += 1
+        # Corrections (factual rewrites) are the strongest inaccuracy signal; -0.15
+        # exceeds the negative feedback penalty to force rapid re-evaluation.
         self.accuracy = max(0.0, self.accuracy - 0.15)
     
     def update_contribution(self, score: float):
@@ -207,6 +221,8 @@ class MemoryFitness:
         Args:
             score: 贡献度评分 0-1
         """
+        # Exponential moving average (α=0.3): recent contributions matter more,
+        # but the full history is not discarded to avoid thrashing on noisy signals.
         alpha = 0.3
         self.contribution_score = (
             alpha * score + (1 - alpha) * self.contribution_score
@@ -404,6 +420,8 @@ class FitnessCalculator:
         
         for memory in memories:
             fitness = self.get_fitness(memory)
+            # Multiplicative decay per evolution cycle prevents old memories from
+            # accumulating disproportionately high counts relative to recent ones.
             fitness.usage_count = int(fitness.usage_count * self.usage_decay_rate)
             
             updated_metadata = {

@@ -16,7 +16,12 @@ logger = get_logger(__name__)
 
 
 class ResponseHandler:
-    """响应处理器，解析 LLM 响应、提取知识并更新记忆库，形成完整的记忆更新闭环。"""
+    """
+    响应处理器，解析 LLM 响应、提取知识并更新记忆库，形成完整的记忆更新闭环。
+
+    处理顺序：记录对话 → 提取知识 → 持久化记忆。
+    各阶段均可通过 auto_extract / auto_store 独立开关，适配不同延迟预算场景。
+    """
 
     def __init__(
         self,
@@ -115,6 +120,7 @@ class ResponseHandler:
         user_input: str,
         assistant_response: str
     ) -> List[Knowledge]:
+        # 用当前时间戳构造临时 Message 对象，提取器不依赖精确时间，仅需角色和内容
         messages = [
             Message(
                 role=MessageRole.USER,
