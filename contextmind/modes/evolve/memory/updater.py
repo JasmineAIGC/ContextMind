@@ -11,7 +11,7 @@ from datetime import datetime
 from ..core.data_models import ContextItem, Knowledge
 from ..core.types import ContextSource, KnowledgeType
 from contextmind.infra.logger import get_logger
-from ..core.strategies import UpdateStrategy as BaseUpdater  # Use core base class
+from ..core.strategies import UpdateStrategy as BaseUpdater  # 使用核心基类
 from contextmind.infra.embedding import calculate_embedding_similarity
 
 logger = get_logger(__name__)
@@ -20,18 +20,17 @@ logger = get_logger(__name__)
 class SimpleUpdater(BaseUpdater):
     """简单记忆更新器，基本的增加/更新/去重逻辑，支持记忆合并。"""
     
-    # Storage threshold rationale: preferences require higher confidence than
-    # facts/events because a wrong preference silently degrades every future
-    # interaction, while an incorrect fact is more likely to be caught and
-    # corrected through explicit user feedback.
+    # 存储阈值设计依据：偏好类知识需要比事实/事件更高的置信度，
+    # 因为错误的偏好会悄然降低每次后续交互质量，
+    # 而错误事实更容易通过用户显式反馈被发现和纠正。
     STORAGE_THRESHOLD_PREFERENCE = 0.80  # 0.75 → 0.80
     STORAGE_THRESHOLD_FACT = 0.75  # 0.70 → 0.75
     STORAGE_THRESHOLD_EVENT = 0.75  # 0.70 → 0.75
     STORAGE_MIN_LENGTH = 5  # 3 → 5 最小字符数
     
-    # 80% merge threshold prevents semantically distinct facts from being collapsed.
-    # 92% duplicate threshold is strict enough to catch only near-verbatim repeats,
-    # avoiding the memory pool stagnation that a lower threshold would cause.
+    # 80% 合并阈值防止语义不同的事实被错误合并。
+    # 92% 去重阈值足够严格，仅捕获近乎逐字重复的内容，
+    # 避免较低阈值导致记忆池停滞不更新。
     SIMILARITY_THRESHOLD_FOR_MERGE = 0.80  # 提高到80%，避免误判不同事实为相似（修复记忆库不增长问题）
     EXACT_DUPLICATE_THRESHOLD = 0.92  # 提高到92%，更精确地识别完全重复项
     
@@ -73,7 +72,7 @@ class SimpleUpdater(BaseUpdater):
                     reason = f"置信度不足 ({k.confidence:.2f} < {min_confidence:.2f})"
                 elif len(k.content.strip()) < self.STORAGE_MIN_LENGTH:
                     reason = f"内容过短 ({len(k.content.strip())} < {self.STORAGE_MIN_LENGTH})"
-                else:  # k.content.isdigit()
+                else:  # k.content.isdigit() 纯数字字符串
                     reason = "纯数字内容"
                 logger.debug(f"[SimpleUpdater] 过滤低质量知识 ({reason}): [{k.type.value}] {k.content[:50]}...")
         
@@ -95,8 +94,8 @@ class SimpleUpdater(BaseUpdater):
                 
                 if similarity >= self.EXACT_DUPLICATE_THRESHOLD:
                     logger.debug(f"[SimpleUpdater] 跳过完全重复知识 (相似度={similarity:.2f}): {formatted_content[:50]}...")
-                    # Sentinel -1 means "skip entirely" (exact duplicate), distinct from
-                    # None (no match found) and a valid index (merge candidate found).
+                    # 哨兵值 -1 表示"完全跳过"（精确重复），不同于
+                    # None（未找到匹配）和有效索引（找到合并候选）。
                     merge_target_idx = -1
                     break
                 
@@ -109,9 +108,9 @@ class SimpleUpdater(BaseUpdater):
             elif merge_target_idx is not None:
                 existing_item = updated_cache[merge_target_idx]
                 
-                # Only replace if the new knowledge has higher confidence; otherwise
-                # retain the existing entry to avoid overwriting well-established facts
-                # with noisier extractions from less reliable message contexts.
+                # 仅在新知识置信度更高时才替换；否则保留现有条目，
+                # 避免用来自可信度较低上下文的嘈杂提取覆盖
+                # 已有充分依据的事实。
                 if k.confidence > existing_item.score:
                     logger.info(f"[SimpleUpdater] 🔄 合并记忆 (相似度={max_similarity:.2f}, 新置信度={k.confidence:.2f} > 旧={existing_item.score:.2f})")
                     logger.debug(f"  旧: {existing_item.content[:60]}...")
@@ -217,8 +216,8 @@ class SimpleUpdater(BaseUpdater):
         union = len(chars1 | chars2)
         similarity = intersection / union if union > 0 else 0
         
-        return similarity > 0.7  # 0.7 Jaccard: high enough to suppress paraphrases,
-        # but low enough to keep factually distinct memories that share common words.
+        return similarity > 0.7  # 0.7 Jaccard：足以抑制同义改写，
+        # 又不会将共享常用词但事实不同的记忆错误合并。
 
 
 class ConflictResolverUpdater(BaseUpdater):

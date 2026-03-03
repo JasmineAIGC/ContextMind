@@ -11,7 +11,7 @@ from ..core.data_models import ContextItem
 from ..core.types import ContextSource
 from ..core.configs import RetrievalConfig, DEFAULT_MEMORY_CONFIG
 from contextmind.infra.logger import get_logger
-from ..core.strategies import RetrievalStrategy as BaseRetriever  # Use core base class
+from ..core.strategies import RetrievalStrategy as BaseRetriever  # 使用核心基类
 from contextmind.infra.embedding import get_embedding_client, calculate_embedding_similarity
 
 logger = get_logger(__name__)
@@ -102,7 +102,7 @@ class SemanticSearchRetriever(BaseRetriever):
                     if isinstance(item.timestamp, datetime):
                         days_ago = (datetime.now() - item.timestamp).days
                         if days_ago <= self.config.recency_days_threshold:
-                            # Linear decay: full boost at age 0, zero boost at the threshold boundary.
+                            # 线性衰减：记忆越新提升越多，到达阈值边界时提升归零。
                             recency_boost = self.config.recency_weight * (
                                 1 - days_ago / self.config.recency_days_threshold
                             )
@@ -159,7 +159,7 @@ class SemanticSearchRetriever(BaseRetriever):
         still outrank it. For partial overlaps, Jaccard over character sets is
         linearly scaled into [base_score, 0.9] to preserve relative ordering.
         """
-        # Direct containment is strong evidence; 0.9 not 1.0 keeps room for embeddings.
+        # 直接子串包含是强相关证据；评分为 0.9 而非 1.0，为向量检索保留超越空间。
         if query_lower in content_lower or content_lower in query_lower:
             return 0.9
         
@@ -170,8 +170,8 @@ class SemanticSearchRetriever(BaseRetriever):
         if overlap >= self.config.min_overlap_chars:
             union = len(query_chars | content_chars)
             similarity = overlap / union if union > 0 else 0
-            # Scale Jaccard [0, 1] linearly into [base_score, 0.9], mapping the full
-            # similarity range to the allowed output range while preserving ordering.
+            # 将 Jaccard 相似度 [0, 1] 线性映射到 [base_score, 0.9]，
+            # 在保持排序的同时将相似度范围映射到允许的输出区间。
             score = self.config.base_score + similarity * (0.9 - self.config.base_score)
         else:
             score = self.config.base_score

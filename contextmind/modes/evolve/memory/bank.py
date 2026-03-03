@@ -53,13 +53,12 @@ class MemoryBank:
     提供长期记忆的存储、检索和管理功能
     """
     
-    # Preferences need higher confidence than facts/events because a wrong preference
-    # shapes every future interaction without obvious correction signals, while
-    # an incorrect fact is more likely to be caught and corrected through dialogue.
+    # 偏好类知识需要比事实/事件更高的置信度，因为错误的偏好会悄然影响每次后续交互，
+    # 而且没有明显的纠正信号；相比之下，错误事实更容易在对话中被发现并修正。
     STORAGE_THRESHOLD_PREFERENCE = 0.75
     STORAGE_THRESHOLD_FACT = 0.70
     STORAGE_THRESHOLD_EVENT = 0.70
-    STORAGE_MIN_LENGTH = 3  # Reject single-char or whitespace-only strings
+    STORAGE_MIN_LENGTH = 3  # 拒绝单字符或纯空白字符串
     
     def __init__(
         self,
@@ -182,8 +181,8 @@ class MemoryBank:
         for item in self._local_cache:
             content_lower = item.content.lower()
 
-            # Direct substring containment is strong evidence of relevance; score
-            # 0.9 (not 1.0) so an embedding-based retriever can still outscore it.
+            # 直接子串包含是强相关证据；评分为 0.9 而非 1.0，
+            # 以便向量检索器仍有机会获得更高分。
             if query_lower in content_lower or content_lower in query_lower:
                 score = 0.9
             else:
@@ -191,12 +190,12 @@ class MemoryBank:
                 content_chars = set(content_lower)
                 overlap = len(query_chars & content_chars)
 
-                # Jaccard over character sets is a cheap proxy for lexical similarity.
-                # min_overlap_chars filters out matches driven purely by common punctuation.
+                # 字符集 Jaccard 相似度是词汇相似性的快速近似计算。
+                # min_overlap_chars 过滤掉仅由常用标点驱动的虚假匹配。
                 if overlap >= self.config.min_overlap_chars:
                     union = len(query_chars | content_chars)
                     similarity = overlap / union if union > 0 else 0
-                    # Scale Jaccard [0, 1] linearly into [base_score, 0.9]
+                    # 将 Jaccard 相似度 [0, 1] 线性映射到 [base_score, 0.9]
                     score = self.config.base_score + similarity * (0.9 - self.config.base_score)
                 else:
                     score = self.config.base_score
@@ -561,7 +560,7 @@ class MemoryBank:
             existing_keywords = set(existing.metadata.get('keywords', []))
             overlap = len(note_keywords & existing_keywords)
             
-            if overlap >= 2:  # Minimum 2 shared keywords required to avoid spurious links
+            if overlap >= 2:  # 至少 2 个共同关键词才建立关联，避免虚假链接
                 linked_memories.append(existing_id)
                 existing_links = existing.metadata.get('linked_memories', [])
                 if note_id not in existing_links:
@@ -569,8 +568,8 @@ class MemoryBank:
                     existing.metadata['linked_memories'] = existing_links
 
                 current_importance = existing.metadata.get('importance_score', 0.5)
-                # Co-activation with a new memory signals this memory is part of a cluster;
-                # boost its importance by 10% to resist forgetting during evolution.
+                # 与新记忆共同激活表明该记忆属于某个知识簇；
+                # 提升 10% 重要性以抵抗演化过程中的遗忘。
                 existing.metadata['importance_score'] = min(1.0, current_importance * 1.1)
         
         note.metadata['linked_memories'] = linked_memories
@@ -622,8 +621,8 @@ class MemoryBank:
                         score = 0
 
             importance = note.metadata.get('importance_score', 0.5)
-            # 70% query relevance + 30% intrinsic importance: prevents high-frequency
-            # but query-irrelevant memories from crowding out more relevant results.
+            # 70% 查询相关性 + 30% 内在重要性：防止高频但查询无关的记忆
+            # 挤占更相关的检索结果。
             final_score = score * 0.7 + importance * 0.3
             
             if final_score > 0:
@@ -652,23 +651,23 @@ class MemoryBank:
         if not self._memory_notes:
             return 0
         
-        # 2% per-cycle decay approximates the Ebbinghaus forgetting curve at a
-        # weekly timescale; memories that are actively retrieved resist decay via
-        # the importance boost in _link_related_memories and retrieve_memory_notes.
+        # 每轮 2% 衰减近似艾宾浩斯遗忘曲线的周级时间尺度；
+        # 被主动检索的记忆通过 _link_related_memories 和 retrieve_memory_notes
+        # 中的重要性提升机制来抵抗遗忘。
         decay_factor = 0.98
         for note in self._memory_notes.values():
             current_importance = note.metadata.get('importance_score', 0.5)
             note.metadata['importance_score'] = current_importance * decay_factor
         
         removed = 0
-        # Do not evict below 10 notes; preserve a minimum useful working set.
+        # 最少保留 10 条记忆，维持最小可用工作集。
         if len(self._memory_notes) > 10:
             sorted_notes = sorted(
                 self._memory_notes.items(),
                 key=lambda x: x[1].metadata.get('importance_score', 0.5)
             )
 
-            # Notes that have decayed below 0.1 are effectively forgotten
+            # 衰减至 0.1 以下的记忆视为已遗忘
             threshold = 0.1
             to_remove = []
             

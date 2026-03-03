@@ -112,9 +112,8 @@ class MemoryFitness:
         if total_feedback == 0:
             return 0.5  # 无反馈时返回中性分数
         
-        # Corrections penalise less than outright negatives (-0.5 vs -1.0) because
-        # a correction still indicates the memory was useful enough to be cited,
-        # while a negative means it was unhelpful or misleading.
+        # 纠正的惩罚力度小于完全负向反馈（-0.5 vs -1.0），因为纠正说明
+        # 该记忆至少被引用过（有一定价值），而纯负向反馈表示完全无用或有误导性。
         score = (
             self.positive_feedback_count * 1.0 -
             self.negative_feedback_count * 1.0 -
@@ -154,19 +153,19 @@ class MemoryFitness:
         if current_time is None:
             current_time = time.time()
         
-        # Log scale: 100 uses ≈ 1.0, preventing high-use memories from
-        # indefinitely dominating retrieval ranking over newer, fresher ones.
+        # 对数尺度：100 次使用 ≈ 1.0，防止高频记忆无限主导检索排名
+        # 而压制更新、更新鲜的记忆。
         usage_score = min(1.0, math.log(self.actual_usage_count + 1) / math.log(100))
         
         usage_rate_score = self.usage_rate
         
         time_since_use = current_time - self.last_used
-        # 7-day half-life mirrors typical short-term conversational relevance windows.
+        # 7 天半衰期对应短期对话相关性的典型时间窗口。
         half_life_seconds = 7 * 24 * 3600
-        # Exponential decay via exp(-t/τ): score halves every 7 days of non-use,
-        # where τ = half_life_seconds satisfies exp(-τ/τ) = exp(-1) ≈ 0.368, so
-        # the actual half-life is half_life_seconds * ln(2) ≈ 4.85 days — close enough
-        # to 7 days for the intended weekly-scale forgetting behaviour.
+        # 指数衰减 exp(-t/τ)：每 7 天不使用则分数减半；
+        # τ = half_life_seconds 满足 exp(-τ/τ) = exp(-1) ≈ 0.368，
+        # 实际半衰期为 half_life_seconds * ln(2) ≈ 4.85 天——
+        # 足够接近 7 天的周级遗忘目标。
         recency_score = math.exp(-time_since_use / half_life_seconds)
         
         accuracy_score = self.accuracy
@@ -199,19 +198,19 @@ class MemoryFitness:
     
     def record_positive_feedback(self):
         self.positive_feedback_count += 1
-        # Small +0.05 nudge: a single positive signal should not inflate accuracy too quickly.
+        # 微小的 +0.05 增量：单次正向信号不应使准确度增长过快。
         self.accuracy = min(1.0, self.accuracy + 0.05)
     
     def record_negative_feedback(self):
         self.negative_feedback_count += 1
-        # Negative feedback carries twice the penalty of a positive reward (asymmetric
-        # update) because errors are more costly than missed opportunities.
+        # 负向反馈的惩罚力度是正向奖励的两倍（非对称更新），
+        # 因为错误的代价远高于错失机会的代价。
         self.accuracy = max(0.0, self.accuracy - 0.1)
     
     def record_correction(self):
         self.correction_count += 1
-        # Corrections (factual rewrites) are the strongest inaccuracy signal; -0.15
-        # exceeds the negative feedback penalty to force rapid re-evaluation.
+        # 纠正（事实改写）是最强的不准确信号；-0.15 超过负向反馈惩罚，
+        # 以强制快速重新评估该记忆。
         self.accuracy = max(0.0, self.accuracy - 0.15)
     
     def update_contribution(self, score: float):
@@ -221,8 +220,8 @@ class MemoryFitness:
         Args:
             score: 贡献度评分 0-1
         """
-        # Exponential moving average (α=0.3): recent contributions matter more,
-        # but the full history is not discarded to avoid thrashing on noisy signals.
+        # 指数移动平均（α=0.3）：近期贡献权重更大，
+        # 但不完全丢弃历史数据，以避免在噪声信号上产生震荡。
         alpha = 0.3
         self.contribution_score = (
             alpha * score + (1 - alpha) * self.contribution_score
@@ -420,8 +419,8 @@ class FitnessCalculator:
         
         for memory in memories:
             fitness = self.get_fitness(memory)
-            # Multiplicative decay per evolution cycle prevents old memories from
-            # accumulating disproportionately high counts relative to recent ones.
+            # 每次演化周期的乘法衰减防止旧记忆的计数相对近期记忆
+            # 不成比例地累积过高。
             fitness.usage_count = int(fitness.usage_count * self.usage_decay_rate)
             
             updated_metadata = {
