@@ -52,15 +52,13 @@ class PluginRegistry:
             return
         
         try:
-            # 导入并注册提取器 (v0.2.1: 仅支持基于大语言模型的提取)
             from ..memory.extractor import (
                 LLMBasedExtractor,
                 ImportancePredictorExtractor,
             )
-            self.register('extractors', 'llm_based', LLMBasedExtractor)  # 推荐使用
+            self.register('extractors', 'llm_based', LLMBasedExtractor)
             self.register('extractors', 'importance', ImportancePredictorExtractor)
             
-            # 导入并注册检索器
             from ..memory.retriever import (
                 SemanticSearchRetriever,
                 HybridRetriever,
@@ -70,7 +68,6 @@ class PluginRegistry:
             self.register('retrievers', 'hybrid', HybridRetriever)
             self.register('retrievers', 'locator', LocatorRetriever)
             
-            # 导入并注册更新器
             from ..memory.updater import (
                 SimpleUpdater,
                 ConflictResolverUpdater,
@@ -80,7 +77,6 @@ class PluginRegistry:
             self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
             self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
-            # 导入并注册其他 Pipeline 组件 (v0.2.1: 移除已废弃组件)
             from ..pipeline.compressor import ContextCompressor
             from ..pipeline.reorderer import ContextReorderer
             from ..pipeline.preprocessor import InputPreprocessor
@@ -128,7 +124,6 @@ class PluginRegistry:
         self._lazy_init()
         return {cat: list(plugins.keys()) for cat, plugins in self._plugins.items()}
     
-    # 每个类别的便捷方法
     def get_extractor(self, name: str = 'rule_based', **kwargs):
         """获取提取器插件 (默认: rule_based)"""
         return self.get('extractors', name, **kwargs)
@@ -154,7 +149,6 @@ class PluginRegistry:
         return self.list_plugins('updaters')
 
 
-# 全局注册中心实例
 registry = PluginRegistry()
 
 __all__ = ['PluginRegistry', 'registry']
