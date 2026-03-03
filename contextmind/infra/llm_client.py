@@ -27,9 +27,10 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_MODEL = "Qwen3-32B"
-# 0.6 在确定性与多样性之间取得平衡；更低的值输出更稳定但可能过于重复，
-# 更高的值增加幻觉风险。
-DEFAULT_TEMPERATURE = 0.6
+# 对话管理器（Dialogue Manager）使用此温度生成自然语言坐席话术。
+# 0.3 在语言流畅度与输出稳定性之间取得平衡；动作解析器（Action Parser）
+# 单独使用 PyTODTracker.AP_TEMPERATURE = 0.1，以确保代码生成的确定性。
+DEFAULT_TEMPERATURE = 0.3
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:

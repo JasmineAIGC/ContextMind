@@ -399,7 +399,21 @@ class PyTODTracker:
     实现与 ``DialogueStateTracker`` / ``FnCTODTracker`` 一致的接口，
     按三步流程处理每轮对话：动作解析器 → 执行引擎 → 对话管理器。
     默认启用开放域模式（无需预定义 schema）。
+
+    温度策略
+    --------
+    动作解析器（Action Parser）生成**结构化代码**（如 ``x1 = query_account()``），
+    随机采样会导致不同运行中选择不同的 API 或输出 ``NONE()``，引发完全不同的
+    执行路径，进而使最终回复内容差异巨大。因此：
+
+    - ``AP_TEMPERATURE``：动作解析器专用低温（默认 0.1），保证代码生成稳定。
+    - 对话管理器（Dialogue Manager）生成自然语言，可使用较高温度（由
+      ``LLMConfig.temperature`` 控制，默认 0.3），在语言流畅度与稳定性之间
+      取得平衡。
     """
+
+    #: 动作解析器专用温度——代码生成任务需接近 0，以避免随机选择不同 API
+    AP_TEMPERATURE: float = 0.1
 
     def __init__(
         self,
@@ -541,7 +555,7 @@ class PyTODTracker:
             scenario_context=self.scenario_context,
         )
         try:
-            program_text = await self._call_llm(ap_messages)
+            program_text = await self._call_llm(ap_messages, temperature=self.AP_TEMPERATURE)
         except Exception as exc:
             logger.error(f"动作解析器 LLM 调用失败: {exc}")
             program_text = "NONE()"
@@ -627,24 +641,27 @@ class PyTODTracker:
     # 内部方法
     # ------------------------------------------------------------------ #
 
-    async def _call_llm(self, messages: List[Dict[str, str]]) -> str:
+    async def _call_llm(self, messages: List[Dict[str, str]], temperature: Optional[float] = None) -> str:
         """
         调用 LLM，优先使用 chat_async，降级为同步 chat。
 
         参数:
             messages: OpenAI 兼容的 messages 列表
+            temperature: 采样温度覆盖值。传入 None 时由 LLM 客户端自动回退到
+                ``LLMConfig.temperature``（默认 0.3）。动作解析器调用时应
+                显式传入 ``self.AP_TEMPERATURE``（0.1）以保证代码生成稳定。
 
         返回:
             LLM 生成的文本
         """
         if hasattr(self.llm_client, "chat_async"):
-            return await self.llm_client.chat_async(messages=messages)
+            return await self.llm_client.chat_async(messages=messages, temperature=temperature)
         elif hasattr(self.llm_client, "chat"):
             import asyncio
 
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(
-                None, lambda: self.llm_client.chat(messages=messages)
+                None, lambda: self.llm_client.chat(messages=messages, temperature=temperature)
             )
         raise RuntimeError("llm_client 既无 chat_async 也无 chat 方法")
 

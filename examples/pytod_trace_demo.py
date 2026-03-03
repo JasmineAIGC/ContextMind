@@ -134,7 +134,7 @@ class TracingPyTODTracker(PyTODTracker):
             _print_step_header(1, "动作解析器（Action Parser）")
             _print_messages(ap_messages)
         try:
-            program_text = await self._call_llm(ap_messages)
+            program_text = await self._call_llm(ap_messages, temperature=self.AP_TEMPERATURE)
             ap_step["output_program"] = program_text.strip()
             ap_step["llm_ok"] = True
         except Exception as exc:
