@@ -1,35 +1,9 @@
 """
 PyTODTracker — 面向场景的 PyTOD 对话追踪器
 
-实现与 DST / FnCTOD 追踪器完全一致的接口（from_scenario / process_turn /
-get_current_state / reset），可直接插入 cli_demo / batch_demo / web_demo 的
-已有模式分派框架，无需修改调用侧的框架逻辑。
-
-算法三步流程（参考 docs/algorithms/pytod.md）::
-
-    用户输入
-      ↓
-    [步骤一] 动作解析器（Action Parser）
-        → LLM 根据可用 API 列表和对话历史，生成多行 PyTOD 程序::
-
-            x1 service_1_api(param='value')
-            x2 Hint('request value: slot_name')
-            x3 say(x2)
-
-      ↓
-    [步骤二] 执行引擎（Execution Engine）
-        → 安全解析并执行程序语句
-        → 调用已注册的模拟 API 函数（或真实 API）
-        → 返回结构化执行结果
-
-      ↓
-    [步骤三] 对话管理器（Dialogue Manager）
-        → LLM 根据执行结果生成面向用户的自然语言回复
-
-内置场景 API（演示用）：
-    - chat:       get_weather / search_info / tell_joke / translate_text / calculate
-    - callcenter: lookup_order / submit_complaint / process_refund / check_refund_status / transfer_to_agent
-    - insurance:  query_insurance / calculate_premium / get_policy_details / submit_claim / check_claim_status
+实现与 DST / FnCTOD 追踪器一致的接口（from_scenario / process_turn /
+get_current_state / reset），按照三步流程处理每轮对话：
+动作解析器 → 执行引擎 → 对话管理器。
 """
 
 from __future__ import annotations
@@ -43,10 +17,6 @@ from .prompt_builder import PyTODPromptBuilder, ConversationTurn
 
 logger = logging.getLogger(__name__)
 
-
-# --------------------------------------------------------------------------- #
-# 内置场景 API 注册
-# --------------------------------------------------------------------------- #
 
 def _register_chat_apis(engine: ExecutionEngine) -> None:
     """为闲聊场景注册演示 API 函数。"""
@@ -326,8 +296,6 @@ def _register_insurance_apis(engine: ExecutionEngine) -> None:
             return {"hint": "请提供险种名称（如重疾险、医疗险）"}
         if not condition:
             return {"hint": "请描述需要核查的健康状况或既往病史"}
-        # 常见核保参考（简化演示）
-        excluded = ["恶性肿瘤", "白血病", "艾滋病", "先天性心脏病（重度）"]
         has_risk = any(kw in condition for kw in excluded)
         return {
             "insurance_type": insurance_type,
@@ -406,19 +374,12 @@ _SCENARIO_API_REGISTRY: Dict[str, Any] = {
 
 def _get_scenario_key(scenario_name: str) -> Optional[str]:
     """从场景名称（可能含中文）查找注册表键。"""
-    # 精确匹配
     if scenario_name in _SCENARIO_API_REGISTRY:
         return scenario_name
-    # 子串匹配（e.g. "保险挽回场景" → "保险挽回"）
     for key in _SCENARIO_API_REGISTRY:
         if key in scenario_name or scenario_name in key:
             return key
     return None
-
-
-# --------------------------------------------------------------------------- #
-# PyTODTracker
-# --------------------------------------------------------------------------- #
 
 
 @dataclass
@@ -435,26 +396,9 @@ class PyTODTracker:
     """
     PyTOD 风格对话追踪器
 
-    实现与 ``DialogueStateTracker`` / ``FnCTODTracker`` 完全一致的接口，
-    可直接插入已有 Demo 的模式分派逻辑，无需修改调用侧框架。
-
-    **算法三步流程**：
-
-    1. 动作解析器（Action Parser）：LLM 生成多行 PyTOD 程序
-    2. 执行引擎（Execution Engine）：安全执行程序，调用注册 API
-    3. 对话管理器（Dialogue Manager）：LLM 根据执行结果生成回复
-
-    **开放域模式**（默认）：无需预定义 schema，LLM 自由命名意图和槽位。
-
-    使用示例::
-
-        tracker = PyTODTracker.from_scenario(
-            llm_client=llm_client,
-            scenario_config=insurance_scenario,
-        )
-        result = await tracker.process_turn(user_utterance="我想了解癌症险")
-        print(result["response"])   # 自然语言回复
-        print(result["state"])      # 当前累积状态
+    实现与 ``DialogueStateTracker`` / ``FnCTODTracker`` 一致的接口，
+    按三步流程处理每轮对话：动作解析器 → 执行引擎 → 对话管理器。
+    默认启用开放域模式（无需预定义 schema）。
     """
 
     def __init__(
@@ -489,7 +433,6 @@ class PyTODTracker:
         self.max_history_turns = max_history_turns
         self.scenario_context = scenario_context
 
-        # 运行时状态
         self.history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}
         self.turn_count: int = 0
@@ -530,7 +473,6 @@ class PyTODTracker:
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
 
-        # 注册场景对应的 API 函数
         key = _get_scenario_key(scenario_name)
         if key:
             _SCENARIO_API_REGISTRY[key](engine)
@@ -547,7 +489,6 @@ class PyTODTracker:
             max_history_turns=max_history_turns,
             response_language=response_language,
         )
-
         return cls(
             llm_client=llm_client,
             execution_engine=engine,
@@ -593,7 +534,6 @@ class PyTODTracker:
         logger.info(f"PyTOD 第 {self.turn_count} 轮对话")
         logger.info(f"用户: {user_utterance}")
 
-        # -------- 步骤一：动作解析器 -------- #
         ap_messages = self.prompt_builder.build_action_parser_messages(
             user_input=user_utterance,
             execution_engine=self.execution_engine,
@@ -609,7 +549,6 @@ class PyTODTracker:
         program_text = program_text.strip()
         logger.info(f"[Action Parser] 程序:\n{program_text}")
 
-        # -------- 步骤二：执行引擎 -------- #
         exec_result: Optional[ProgramExecutionResult] = None
         if program_text and program_text != "NONE()":
             try:
@@ -623,7 +562,6 @@ class PyTODTracker:
                 logger.error(f"[Execution Engine] 异常: {exc}")
                 exec_result = None
 
-        # -------- 步骤三：对话管理器 -------- #
         # 优化 1：当程序已通过 say() 明确给出回复文本，直接使用，无需再次调用 LLM
         if exec_result is not None and exec_result.say_output:
             response = exec_result.say_output
@@ -658,10 +596,8 @@ class PyTODTracker:
                 response = "抱歉，处理您的请求时出现了问题，请稍后重试。"
             logger.info(f"[Dialogue Manager] 后备回复: {response[:80]}...")
 
-        # -------- 更新历史 -------- #
         self.history.append(ConversationTurn(role="user", content=user_utterance))
         self.history.append(ConversationTurn(role="assistant", content=response))
-        # 保持历史在 max_history_turns 范围内
         if len(self.history) > self.max_history_turns * 2:
             self.history = self.history[-(self.max_history_turns * 2):]
 

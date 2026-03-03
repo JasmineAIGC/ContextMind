@@ -1,17 +1,8 @@
 """
 PyTOD Schema 数据模型
 
-定义 PyTOD 风格的 schema 数据结构：Service / Intent / Slot。
+定义 PyTOD 风格的 schema 数据结构：ServiceSchema / IntentDefinition / SlotDefinition。
 不依赖 PyTOD 官方代码，仅保留 schema 格式定义。
-
-PyTOD schema 标准参考:
-    https://github.com/google-research/schema-guided-dialogue
-
-数据结构层次:
-    ServiceSchema
-    ├── slots: List[SlotDefinition]
-    └── intents: List[IntentDefinition]
-              └── required_slots / optional_slots (引用 slot 名称)
 """
 
 from __future__ import annotations
@@ -23,18 +14,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 @dataclass
 class SlotDefinition:
-    """
-    槽位定义
-
-    对应 PyTOD schema 中的 slot 对象。
-
-    属性:
-        name:            槽位名称（唯一标识）
-        description:     槽位语义描述，用于 prompt 生成
-        is_categorical:  是否为枚举类型槽位
-        possible_values: 枚举类型槽位的候选值列表
-        is_required:     是否为必填槽位（由 intent 引用时设置）
-    """
+    """对应 PyTOD schema 中的 slot 对象。"""
 
     name: str
     description: str
@@ -43,13 +23,7 @@ class SlotDefinition:
     is_required: bool = False
 
     def to_prompt_text(self) -> str:
-        """
-        生成适合嵌入 prompt 的槽位说明文本。
-
-        返回:
-            单行格式的槽位说明，例如：
-            "  - date_time (必填): 预约日期时间 [可选值: 今天, 明天, 后天]"
-        """
+        """生成适合嵌入 prompt 的槽位说明文本。"""
         required_mark = "必填" if self.is_required else "可选"
         line = f"  - {self.name} ({required_mark}): {self.description}"
         if self.is_categorical and self.possible_values:
@@ -59,17 +33,7 @@ class SlotDefinition:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SlotDefinition":
-        """
-        从字典（如 JSON 解析结果）构造 SlotDefinition。
-
-        参数:
-            data: 包含 slot 信息的字典，支持 PyTOD 原始格式：
-                  {"name": ..., "description": ..., "is_categorical": ...,
-                   "possible_values": [...]}
-
-        返回:
-            SlotDefinition 实例
-        """
+        """从字典（如 JSON 解析结果）构造 SlotDefinition。"""
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -91,17 +55,7 @@ class SlotDefinition:
 
 @dataclass
 class IntentDefinition:
-    """
-    意图定义
-
-    对应 PyTOD schema 中的 intent 对象。
-
-    属性:
-        name:            意图名称（唯一标识）
-        description:     意图语义描述
-        required_slots:  该意图的必填槽位名称列表
-        optional_slots:  该意图的可选槽位名称列表
-    """
+    """对应 PyTOD schema 中的 intent 对象。"""
 
     name: str
     description: str
@@ -109,12 +63,7 @@ class IntentDefinition:
     optional_slots: List[str] = field(default_factory=list)
 
     def to_prompt_text(self) -> str:
-        """
-        生成适合嵌入 prompt 的意图说明文本。
-
-        返回:
-            多行格式的意图说明
-        """
+        """生成适合嵌入 prompt 的意图说明文本。"""
         lines = [f"  - {self.name}: {self.description}"]
         if self.required_slots:
             lines.append(f"    必填槽位: {', '.join(self.required_slots)}")
@@ -124,17 +73,7 @@ class IntentDefinition:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "IntentDefinition":
-        """
-        从字典构造 IntentDefinition。
-
-        参数:
-            data: 包含 intent 信息的字典，支持 PyTOD 原始格式：
-                  {"name": ..., "description": ...,
-                   "required_slots": [...], "optional_slots": [...]}
-
-        返回:
-            IntentDefinition 实例
-        """
+        """从字典构造 IntentDefinition。"""
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -154,27 +93,12 @@ class IntentDefinition:
 
 @dataclass
 class ServiceSchema:
-    """
-    服务 Schema 定义
-
-    对应 PyTOD schema 中的 service 对象，包含该服务的所有
-    槽位和意图定义。
-
-    属性:
-        service_name: 服务名称（唯一标识）
-        description:  服务语义描述
-        slots:        槽位定义列表
-        intents:      意图定义列表
-    """
+    """对应 PyTOD schema 中的 service 对象，包含该服务的所有槽位和意图定义。"""
 
     service_name: str
     description: str
     slots: List[SlotDefinition] = field(default_factory=list)
     intents: List[IntentDefinition] = field(default_factory=list)
-
-    # ------------------------------------------------------------------ #
-    # 查询接口
-    # ------------------------------------------------------------------ #
 
     def get_slot(self, name: str) -> Optional[SlotDefinition]:
         """按名称查找槽位定义。"""
@@ -198,30 +122,8 @@ class ServiceSchema:
         """返回所有意图名称列表。"""
         return [i.name for i in self.intents]
 
-    # ------------------------------------------------------------------ #
-    # Prompt 文本生成
-    # ------------------------------------------------------------------ #
-
     def to_prompt_text(self) -> str:
-        """
-        将服务 schema 转换为适合嵌入 prompt 的文本块。
-
-        返回:
-            格式化的 schema 说明文本，例如：
-
-            ## 服务: RestaurantReservation
-            描述: 餐厅预约服务
-
-            ### 意图列表
-              - Reserve: 预约餐厅
-                必填槽位: restaurant_name, date_time, party_size
-                可选槽位: cuisine_type
-
-            ### 槽位列表
-              - restaurant_name (必填): 餐厅名称
-              - date_time (必填): 预约日期时间
-              ...
-        """
+        """将服务 schema 转换为适合嵌入 prompt 的文本块。"""
         lines = [
             f"## 服务: {self.service_name}",
             f"描述: {self.description}",
@@ -237,28 +139,9 @@ class ServiceSchema:
 
         return "\n".join(lines)
 
-    # ------------------------------------------------------------------ #
-    # 序列化 / 反序列化
-    # ------------------------------------------------------------------ #
-
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ServiceSchema":
-        """
-        从字典构造 ServiceSchema，支持 PyTOD 原始 JSON 格式。
-
-        参数:
-            data: PyTOD service 字典，格式示例::
-
-                {
-                    "service_name": "RestaurantReservation",
-                    "description": "餐厅预约服务",
-                    "slots": [...],
-                    "intents": [...]
-                }
-
-        返回:
-            ServiceSchema 实例
-        """
+        """从字典构造 ServiceSchema，支持 PyTOD 原始 JSON 格式。"""
         slots = [SlotDefinition.from_dict(s) for s in data.get("slots", [])]
         intents = [IntentDefinition.from_dict(i) for i in data.get("intents", [])]
 
@@ -300,43 +183,13 @@ def load_schema_from_dict(data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> 
     """
     从字典加载 ServiceSchema（便捷函数）。
 
-    支持两种格式：
-    1. 单个 service 字典：{"service_name": ..., "slots": [...], "intents": [...]}
-    2. PyTOD 标准格式列表（取第一个 service 元素）
+    支持单个 service 字典或 PyTOD 标准格式列表（取第一个 service 元素）。
 
-    参数:
+    Args:
         data: service 定义字典，或包含多个 service 字典的列表
 
-    返回:
-        ServiceSchema 实例
-
-    异常:
+    Raises:
         ValueError: 传入列表为空时抛出
-
-    示例::
-
-        # 方式 1：单个字典
-        schema = load_schema_from_dict({
-            "service_name": "RestaurantReservation",
-            "description": "餐厅预约服务",
-            "slots": [
-                {"name": "restaurant_name", "description": "餐厅名称", "is_categorical": False},
-                {"name": "date_time", "description": "预约时间", "is_categorical": False},
-                {"name": "party_size", "description": "就餐人数", "is_categorical": True,
-                 "possible_values": ["1", "2", "3", "4", "5", "6+"]},
-            ],
-            "intents": [
-                {"name": "Reserve", "description": "预约餐厅",
-                 "required_slots": ["restaurant_name", "date_time", "party_size"],
-                 "optional_slots": ["cuisine_type"]},
-            ]
-        })
-
-        # 方式 2：PyTOD 标准 JSON 列表（取第一个 service）
-        import json  # noqa: PLC0415  (import inside docstring example)
-        with open("schema.json") as f:
-            schemas = json.load(f)   # list of service dicts
-        schema = load_schema_from_dict(schemas)
     """
     if isinstance(data, list):
         if not data:

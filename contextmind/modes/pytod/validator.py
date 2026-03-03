@@ -1,21 +1,9 @@
 """
 PyTOD Action 合法性校验与反馈解析
 
-对大模型生成的 PyTOD 风格 action 代码进行**纯文本级**合法性校验，
-并将结构化反馈解析为可用的数据结构。
-
-不依赖 PyTOD 官方执行器，不执行任何代码，仅做文本分析。
-
-校验内容:
-    1. JSON 格式合法性
-    2. intent 字段存在且非空
-    3. slots 字段存在且为字典类型
-    Schema 驱动模式（提供 schema 时额外校验）:
-    4. intent 值在 schema 意图列表中
-    5. 枚举类型槽位的值在 possible_values 范围内
-    6. 意图对应的必填槽位是否已提供（宽松校验，缺失时给出提示）
-    开放域模式（schema=None）:
-    4-6 均跳过，LLM 可自由命名意图和槽位
+对大模型生成的 PyTOD 风格 action 进行纯文本级合法性校验。
+Schema 驱动模式（传入 schema）校验意图列表、枚举值、必填槽位；
+开放域模式（schema=None）仅校验 JSON 结构。
 """
 
 from __future__ import annotations
@@ -28,25 +16,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from .schema import ServiceSchema
 
 
-# --------------------------------------------------------------------------- #
-# 校验结果
-# --------------------------------------------------------------------------- #
-
-
 @dataclass
 class ValidationResult:
-    """
-    校验结果
-
-    属性:
-        is_valid:    整体是否通过校验（无 error 级别问题）
-        intent:      解析出的 intent（如解析失败则为空字符串）
-        slots:       解析出的 slots 字典
-        response:    解析出的自然语言回复
-        errors:      错误信息列表（阻断性问题）
-        warnings:    警告信息列表（非阻断性问题，如缺少可选槽位）
-        raw_text:    原始 LLM 输出文本
-    """
+    """校验结果，包含 intent/slots/response 解析值及错误/警告列表。"""
 
     is_valid: bool
     intent: str = ""
@@ -98,49 +70,12 @@ class ValidationResult:
         return f"✗ 校验失败（{len(self.errors)} 个错误）: {'; '.join(self.errors[:2])}"
 
 
-# --------------------------------------------------------------------------- #
-# 校验器
-# --------------------------------------------------------------------------- #
-
-
 class ActionValidator:
     """
     PyTOD 风格 Action 校验器
 
-    对大模型生成的 JSON action 文本进行纯文本级校验，
-    无需执行任何代码。
-
-    支持两种模式：
-
-    **Schema 驱动模式**（传入 ``schema``）：
-        在校验 JSON 结构的基础上，还会比对预定义的意图列表、
-        枚举槽位可选值、必填槽位完整性。
-
-    **开放域模式**（``schema=None``，默认）：
-        仅校验 JSON 结构（intent/slots 字段存在且类型正确），
-        不对意图名称或槽位内容做任何预设约束，适合 LLM 自由
-        推断意图/槽位的场景。
-
-    使用示例::
-
-        # Schema 驱动模式
-        validator = ActionValidator(schema=schema)
-        result = validator.validate(llm_output)
-
-        # 开放域模式（无预定义 schema）
-        validator = ActionValidator()
-        result = validator.validate(llm_output)
-
-        if not result.is_valid:
-            print(result.to_feedback_text())
-        else:
-            print(f"intent={result.intent}, slots={result.slots}")
-
-    属性:
-        schema:                 ServiceSchema 实例（可选，None 则为开放域模式）
-        allow_unknown_intent:   是否允许不在 schema 中的 intent（schema 模式下有效）
-        strict_enum:            是否严格校验枚举值（schema 模式下有效）
-        require_response_field: 是否要求输出中包含 response 字段（默认 True）
+    对大模型生成的 JSON action 文本进行纯文本级校验，无需执行任何代码。
+    传入 ``schema`` 启用 schema 驱动模式；``schema=None``（默认）启用开放域模式。
     """
 
     # 用于从文本中提取 JSON 块的正则
@@ -187,39 +122,26 @@ class ActionValidator:
         """
         校验 LLM 生成的 action 文本。
 
-        校验流程:
-            1. 提取 JSON
-            2. 校验 intent 字段
-            3. 校验 slots 字段
-            4. 校验枚举值
-            5. 校验必填槽位（宽松，缺失为警告）
-
-        参数:
+        Args:
             text: LLM 原始输出文本
 
-        返回:
+        Returns:
             ValidationResult 实例，包含校验结论和详细信息
         """
         result = ValidationResult(is_valid=False, raw_text=text)
 
-        # Step 1: 提取并解析 JSON
         parsed, parse_error = self._extract_and_parse_json(text)
         if parsed is None:
             result.errors.append(f"无法解析 JSON: {parse_error}")
             return result
 
-        # Step 2: 校验顶层结构
         self._validate_top_level(parsed, result)
         if result.errors:
             return result
 
-        # Step 3: 填充已解析的字段
         self._populate_fields(parsed, result)
-
-        # Step 4: 校验 intent
         self._validate_intent(result)
 
-        # Step 5: 校验 slots
         if isinstance(result.slots, dict):
             self._validate_slots(result)
         else:
@@ -227,7 +149,6 @@ class ActionValidator:
                 f"slots 字段类型错误，期望 dict，实际 {type(result.slots).__name__}"
             )
 
-        # Step 6: 校验 response 字段（可选要求）
         if self.require_response_field and not result.response.strip():
             result.warnings.append("response 字段为空，建议提供面向用户的自然语言回复")
 
@@ -276,20 +197,10 @@ class ActionValidator:
     def _extract_and_parse_json(
         self, text: str
     ) -> Tuple[Optional[Dict[str, Any]], str]:
-        """
-        从文本中提取 JSON 并解析。
-
-        依次尝试:
-        1. 直接解析整段文本
-        2. 用正则提取 JSON 块后解析
-
-        返回:
-            (parsed_dict, error_message)
-        """
+        """从文本中提取 JSON 并解析，依次尝试直接解析和正则提取。"""
         if not text or not text.strip():
             return None, "输入为空"
 
-        # 直接解析
         try:
             parsed = json.loads(text.strip())
             if isinstance(parsed, dict):
@@ -297,7 +208,6 @@ class ActionValidator:
         except json.JSONDecodeError:
             pass
 
-        # 正则提取
         for pattern in self._JSON_PATTERNS:
             for match in re.finditer(pattern, text, re.DOTALL):
                 candidate = match.group(1) if match.lastindex else match.group(0)
@@ -357,18 +267,16 @@ class ActionValidator:
         schema_slot_names = set(self.schema.get_slot_names())
 
         for slot_name, slot_value in result.slots.items():
-            # 校验槽位名称是否在 schema 中定义
             if schema_slot_names and slot_name not in schema_slot_names:
                 result.warnings.append(
                     f"槽位 '{slot_name}' 未在 schema 中定义，可能是模型幻觉"
                 )
                 continue
 
-            # 特殊值：? 和 dontcare 总是合法的
+            # ? 和 dontcare 总是合法的
             if slot_value in ("?", "dontcare"):
                 continue
 
-            # 枚举类型槽位校验
             slot_def = self.schema.get_slot(slot_name)
             if slot_def and slot_def.is_categorical and slot_def.possible_values:
                 value_str = str(slot_value)
@@ -382,7 +290,6 @@ class ActionValidator:
                     else:
                         result.warnings.append(msg)
 
-        # 检查当前 intent 的必填槽位是否已提供
         intent_def = self.schema.get_intent(result.intent)
         if intent_def:
             for required_slot in intent_def.required_slots:
