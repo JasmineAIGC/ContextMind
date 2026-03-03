@@ -23,7 +23,6 @@ class FunctionManager:
     """
     
     def __init__(self):
-        """初始化函数管理器"""
         self.domains: Dict[str, DomainSpec] = {}
         logger.info("FunctionManager 初始化完成")
     
@@ -74,15 +73,12 @@ class FunctionManager:
         logger.info(f"从槽位创建domain函数: {domain_name} ({len(slots)} 个槽位)")
     
     def get_domain(self, name: str) -> Optional[DomainSpec]:
-        """获取domain规格"""
         return self.domains.get(name)
     
     def get_all_domains(self) -> List[DomainSpec]:
-        """获取所有domain列表"""
         return list(self.domains.values())
     
     def get_domain_names(self) -> List[str]:
-        """获取所有domain名称列表"""
         return list(self.domains.keys())
     
     def generate_system_prompt(self, include_all_specs: bool = False) -> str:

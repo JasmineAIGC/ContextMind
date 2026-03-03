@@ -22,7 +22,6 @@ def get_chat_function_schema() -> DomainSpec:
         description="日常闲聊对话场景，全面提取用户意图、话题、情绪、用户画像等多维度信息"
     )
     
-    # === 意图和话题相关 ===
     schema.add_parameter(FunctionParameter(
         name="intent_level1",
         description="一级意图（主意图）",
@@ -60,7 +59,6 @@ def get_chat_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 情绪和态度 ===
     schema.add_parameter(FunctionParameter(
         name="emotion",
         description="用户情绪状态",
@@ -77,7 +75,6 @@ def get_chat_function_schema() -> DomainSpec:
         enum_values=["友好", "热情", "冷淡", "敷衍", "认真", "随意", "其他"]
     ))
     
-    # === 用户信息 ===
     schema.add_parameter(FunctionParameter(
         name="user_name",
         description="用户名称或称呼",
@@ -122,7 +119,6 @@ def get_chat_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 对话特征 ===
     schema.add_parameter(FunctionParameter(
         name="conversation_style",
         description="对话风格",
@@ -146,7 +142,6 @@ def get_chat_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 后续行动 ===
     schema.add_parameter(FunctionParameter(
         name="follow_up_needed",
         description="是否需要后续跟进",
@@ -186,7 +181,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         description="客户服务对话场景，全面提取客户意图、问题详情、解决方案、服务质量等多维度信息"
     )
     
-    # === 意图和问题分类 ===
     schema.add_parameter(FunctionParameter(
         name="intent_level1",
         description="一级意图（主意图）",
@@ -224,7 +218,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 客户信息 ===
     schema.add_parameter(FunctionParameter(
         name="customer_name",
         description="客户姓名",
@@ -247,7 +240,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         enum_values=["普通", "VIP", "黄金", "钻石", "未知"]
     ))
     
-    # === 联系方式 ===
     schema.add_parameter(FunctionParameter(
         name="contact_phone",
         description="联系电话",
@@ -277,7 +269,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 订单和产品信息 ===
     schema.add_parameter(FunctionParameter(
         name="order_number",
         description="订单号",
@@ -306,7 +297,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 解决方案和状态 ===
     schema.add_parameter(FunctionParameter(
         name="resolution_status",
         description="解决状态",
@@ -336,7 +326,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 优先级和紧急程度 ===
     schema.add_parameter(FunctionParameter(
         name="urgency",
         description="紧急程度",
@@ -361,7 +350,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         enum_values=["是", "否", "待定"]
     ))
     
-    # === 服务质量 ===
     schema.add_parameter(FunctionParameter(
         name="satisfaction",
         description="客户满意度",
@@ -391,7 +379,6 @@ def get_callcenter_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 其他信息 ===
     schema.add_parameter(FunctionParameter(
         name="reference_number",
         description="工单号或参考号",
@@ -423,7 +410,6 @@ def get_insurance_function_schema() -> DomainSpec:
         description="保险销售对话场景，全面提取客户意图、个人信息、保险需求、健康状况、家庭情况等专业销售信息"
     )
     
-    # === 意图分类（保险特有的多层意图） ===
     schema.add_parameter(FunctionParameter(
         name="intent_level1",
         description="一级意图",
@@ -446,7 +432,6 @@ def get_insurance_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 基本客户信息 ===
     schema.add_parameter(FunctionParameter(
         name="customer_name",
         description="客户姓名",
@@ -499,7 +484,6 @@ def get_insurance_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 家庭信息 ===
     schema.add_parameter(FunctionParameter(
         name="marital_status",
         description="婚姻状况",
@@ -544,7 +528,6 @@ def get_insurance_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 健康信息 ===
     schema.add_parameter(FunctionParameter(
         name="health_status",
         description="健康状况",
@@ -597,7 +580,6 @@ def get_insurance_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 保险需求和偏好 ===
     schema.add_parameter(FunctionParameter(
         name="insurance_interest",
         description="保险兴趣度",
@@ -659,7 +641,6 @@ def get_insurance_function_schema() -> DomainSpec:
         enum_values=["定期（10-30年）", "至70岁", "至80岁", "终身", "其他"]
     ))
     
-    # === 现有保险情况 ===
     schema.add_parameter(FunctionParameter(
         name="existing_insurance",
         description="已有保险情况描述",
@@ -689,7 +670,6 @@ def get_insurance_function_schema() -> DomainSpec:
         enum_values=["有职工社保", "有居民社保", "有新农合", "无社保", "未知"]
     ))
     
-    # === 购买决策相关 ===
     schema.add_parameter(FunctionParameter(
         name="decision_maker",
         description="决策人（谁决定买保险）",
@@ -729,7 +709,6 @@ def get_insurance_function_schema() -> DomainSpec:
         required=False
     ))
     
-    # === 拒绝和异议处理 ===
     schema.add_parameter(FunctionParameter(
         name="rejection_reason",
         description="拒绝原因（如果拒绝）",
@@ -753,7 +732,6 @@ def get_insurance_function_schema() -> DomainSpec:
         enum_values=["是", "否", "部分处理"]
     ))
     
-    # === 沟通和跟进 ===
     schema.add_parameter(FunctionParameter(
         name="consultation_channel",
         description="咨询渠道",

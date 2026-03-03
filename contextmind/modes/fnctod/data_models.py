@@ -25,7 +25,7 @@ class FunctionParameter:
     description: str
     param_type: ParameterType = ParameterType.STRING
     required: bool = False
-    enum_values: Optional[List[str]] = None  # 分类槽位的可选值
+    enum_values: Optional[List[str]] = None
     default: Optional[Any] = None
     
     def to_dict(self) -> Dict[str, Any]:
@@ -43,24 +43,15 @@ class FunctionParameter:
 
 @dataclass
 class DomainSpec:
-    """
-    Domain 规格定义（作为Function）
-    
-    每个domain被视为一个function，包含：
-    - name: domain名称（也是函数名）
-    - description: domain描述
-    - parameters: 参数列表（即槽位）
-    """
+    """Domain规格定义，每个domain被视为一个function。"""
     name: str
     description: str
     parameters: List[FunctionParameter] = field(default_factory=list)
     
     def add_parameter(self, param: FunctionParameter):
-        """添加参数"""
         self.parameters.append(param)
     
     def get_required_parameters(self) -> List[str]:
-        """获取必需参数列表"""
         return [p.name for p in self.parameters if p.required]
     
     def to_json_schema(self) -> Dict[str, Any]:
@@ -115,22 +106,13 @@ class DomainSpec:
 
 @dataclass
 class FunctionCall:
-    """
-    函数调用结果
-    
-    表示一次function call的结果，包括：
-    - function_name: 调用的函数名（domain）
-    - arguments: 参数字典（槽位-值）
-    - raw_output: 原始LLM输出
-    - natural_response: 自然语言回复
-    """
+    """函数调用结果，包含function名称、参数、原始输出和自然语言回复。"""
     function_name: str
     arguments: Dict[str, Any] = field(default_factory=dict)
     raw_output: str = ""
     natural_response: str = ""
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
         return {
             "function": self.function_name,
             "arguments": self.arguments,
@@ -149,17 +131,12 @@ class FunctionCall:
         return f"<function_call name=\"{self.function_name}\">\n{args_json}\n</function_call>"
     
     def __str__(self) -> str:
-        """字符串表示"""
         return self.to_xml()
 
 
 @dataclass
 class DialogueTurn:
-    """
-    对话轮次
-    
-    记录一轮对话的信息
-    """
+    """对话轮次，记录一轮对话的完整信息。"""
     turn_id: int
     user_utterance: str
     system_utterance: str = ""
@@ -168,7 +145,6 @@ class DialogueTurn:
     timestamp: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
         result = {
             "turn_id": self.turn_id,
             "user": self.user_utterance,

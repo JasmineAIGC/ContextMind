@@ -24,7 +24,6 @@ class FnCTODResponseParser:
     """
     
     def __init__(self):
-        """初始化解析器"""
         logger.debug("FnCTODResponseParser 初始化")
     
     def parse_domain_selection(self, response: str) -> List[str]:
@@ -39,7 +38,6 @@ class FnCTODResponseParser:
         """
         domains = []
         
-        # 匹配 <domain>name</domain>
         pattern = r'<domain>(.*?)</domain>'
         matches = re.findall(pattern, response, re.IGNORECASE)
         
@@ -51,8 +49,6 @@ class FnCTODResponseParser:
         
         if not domains:
             logger.warning("未检测到domain标签，尝试从文本中推断")
-            # 尝试从响应中提取可能的domain名称
-            # 这是一个简单的fallback策略
             words = response.lower().split()
             common_domains = ['hotel', 'restaurant', 'attraction', 'train', 'taxi', 'insurance', 'callcenter', 'chat']
             for domain in common_domains:
@@ -75,11 +71,9 @@ class FnCTODResponseParser:
         function_call = None
         natural_response = response
         
-        # 记录原始响应（用于调试）
         logger.debug(f"原始响应长度: {len(response)}")
         logger.debug(f"原始响应前200字符: {response[:200]}")
         
-        # 匹配 <function_call name="...">...</function_call>
         pattern = r'<function_call\s+name="([^"]+)"\s*>(.*?)</function_call>'
         match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
         
@@ -90,7 +84,6 @@ class FnCTODResponseParser:
             logger.info(f"✅ 检测到function call: {function_name}")
             logger.debug(f"参数字符串: {arguments_str[:200]}...")
             
-            # 解析参数
             arguments = self._parse_arguments(arguments_str)
             
             if not arguments:
@@ -112,15 +105,12 @@ class FnCTODResponseParser:
             function_call.natural_response = natural_response
             
             logger.info(f"✅ 解析function call成功: {function_name}, {len(arguments)} 个参数")
-            logger.debug(f"参数: {arguments}")
         else:
             logger.warning("❌ 未检测到function call标签")
             logger.debug(f"尝试查找的模式: <function_call name=\"...\">...</function_call>")
             
-            # 尝试查找是否有部分匹配
             if '<function_call' in response.lower():
                 logger.warning("⚠️ 响应中包含<function_call但格式不正确")
-                # 记录可能的格式问题
                 partial_matches = re.findall(r'<function_call[^>]*>', response, re.IGNORECASE)
                 if partial_matches:
                     logger.debug(f"发现的开始标签: {partial_matches}")
@@ -164,7 +154,6 @@ class FnCTODResponseParser:
         """
         arguments = {}
         
-        # 首先尝试JSON格式
         try:
             arguments = json.loads(arguments_str)
             logger.debug(f"JSON解析成功: {len(arguments)} 个参数")
@@ -172,13 +161,12 @@ class FnCTODResponseParser:
         except json.JSONDecodeError:
             logger.debug("JSON解析失败，尝试键值对格式")
         
-        # 尝试键值对格式
         try:
             # 匹配 key=value 或 "key": "value" 格式
             patterns = [
-                r'(["\']?)(\w+)\1\s*[=:]\s*(["\']?)([^,\n]+)\3',  # key=value 或 key:value
-                r'(\w+)\s*[=:]\s*"([^"]+)"',  # key="value"
-                r'(\w+)\s*[=:]\s*\'([^\']+)\'',  # key='value'
+                r'(["\']?)(\w+)\1\s*[=:]\s*(["\']?)([^,\n]+)\3',
+                r'(\w+)\s*[=:]\s*"([^"]+)"',
+                r'(\w+)\s*[=:]\s*\'([^\']+)\'',
             ]
             
             for pattern in patterns:
@@ -195,7 +183,6 @@ class FnCTODResponseParser:
         except Exception as e:
             logger.error(f"键值对解析失败: {e}")
         
-        # 如果都失败，记录警告
         if not arguments:
             logger.warning(f"无法解析参数: {arguments_str[:100]}...")
         
@@ -214,7 +201,6 @@ class FnCTODResponseParser:
         if not function_call:
             return {}
         
-        # 将function的参数转换为状态
         # 格式: {domain-slot: value}
         state = {}
         domain = function_call.function_name

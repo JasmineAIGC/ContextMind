@@ -56,15 +56,11 @@ class FnCTODTracker:
         self.use_two_stage = use_two_stage
         self.max_history_turns = max_history_turns
         
-        # 状态管理
         self.current_state: Dict[str, Any] = {}
         self.dialogue_history: List[DialogueTurn] = []
         self.turn_count = 0
-        
-        # 性能统计
         self.step_timings: Dict[str, float] = {}
         
-        # 加载提示词模板
         self._load_prompt_templates()
         
         logger.info(f"FnCTODTracker 初始化完成 (两阶段模式: {use_two_stage}, 场景: {scenario_config.name if scenario_config else '未指定'})")
@@ -89,10 +85,8 @@ class FnCTODTracker:
         """
         from contextmind.modes.fnctod import get_function_schema_for_scenario
         
-        # 创建FunctionManager并加载schema
         function_manager = FunctionManager()
         try:
-            # 使用预定义的函数Schema
             schema = get_function_schema_for_scenario(scenario_config.name)
             function_manager.add_domain(schema)
             logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
@@ -134,7 +128,6 @@ class FnCTODTracker:
         self.turn_count += 1
         start_time = time.time()
         
-        # 初始化步骤计时字典
         self.step_timings = {}
         
         logger.info(f"\n{'='*60}")
@@ -142,17 +135,10 @@ class FnCTODTracker:
         logger.info(f"用户: {user_utterance}")
         logger.info(f"{'='*60}")
         
-        # 步骤1: 历史准备
-        step_start = time.time()
-        # 准备对话历史用于后续处理（在_select_domains和_call_function中使用）
-        self.step_timings['历史准备'] = time.time() - step_start
-        
-        # 步骤2 & 3: Domain Selection (如果需要)
         selected_domains = []
         
         # 智能检测：如果场景已确定，跳过域选择
         if self.scenario_config:
-            # 场景已确定，domain已知，跳过域选择阶段
             # 注意：使用FunctionManager中实际注册的domain名称，而不是scenario_config.name
             # 因为scenario名称（如"保险挽回"）可能与domain名称（如"insurance"）不同
             available_domains = self.function_manager.get_domain_names()
@@ -164,25 +150,20 @@ class FnCTODTracker:
                 logger.warning("⚠️ 场景已确定但没有注册的domain，执行域选择")
                 selected_domains = await self._select_domains(user_utterance)
         elif self.use_two_stage and len(self.function_manager.get_all_domains()) > 1:
-            # 场景未确定，需要执行域选择
-            logger.info("场景未确定，执行域选择...")
             selected_domains = await self._select_domains(user_utterance)
         else:
             # 单阶段或单domain场景，直接使用所有domain
             selected_domains = self.function_manager.get_domain_names()
         
-        # 步骤4: Function Calling
         function_call, natural_response = await self._call_function(
             user_utterance,
             selected_domains
         )
         
-        # 步骤5: 状态更新
         step_start = time.time()
         if function_call:
             self._update_state(function_call)
         
-        # 记录对话轮次
         turn = DialogueTurn(
             turn_id=self.turn_count,
             user_utterance=user_utterance,
@@ -192,7 +173,6 @@ class FnCTODTracker:
         )
         self.dialogue_history.append(turn)
         
-        # 限制历史长度
         if len(self.dialogue_history) > self.max_history_turns:
             self.dialogue_history = self.dialogue_history[-self.max_history_turns:]
         
@@ -212,11 +192,6 @@ class FnCTODTracker:
         """
         Stage 1: 选择相关的domain（FnCTOD论文Fig.2第一阶段）
         
-        流程顺序（必须按此顺序）：
-        1. 构建提示词（包含所有domain的简要描述）
-        2. 调用LLM
-        3. 解析domain标签
-        
         Args:
             user_utterance: 用户输入
         
@@ -225,14 +200,11 @@ class FnCTODTracker:
         """
         logger.info("Stage 1: Domain Selection")
         
-        # 步骤1: 提示词构建（必须在LLM调用之前）
-        # 根据FnCTOD论文，提示词包含所有domain的简要描述
         prompt_start = time.time()
         
-        # 构建domain选择提示词
+        # 根据FnCTOD论文，提示词包含所有domain的简要描述
         system_prompt = self.function_manager.generate_system_prompt(include_all_specs=False)
         
-        # 构建消息
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_utterance}
@@ -244,20 +216,15 @@ class FnCTODTracker:
             if turn.system_utterance:
                 messages.append({"role": "assistant", "content": turn.system_utterance})
         
-        # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
-        # 提示词构建完成，记录时间
         self.step_timings['提示词构建'] = time.time() - prompt_start
         
-        # 步骤2: 调用LLM进行域选择（在提示词构建之后）
-        # 根据FnCTOD论文，LLM在接收到完整提示词后输出domain标签
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
             logger.debug(f"Domain选择响应: {response}")
             
-            # 解析domain
             domains = self.parser.parse_domain_selection(response)
             
             if not domains:
@@ -265,7 +232,6 @@ class FnCTODTracker:
                 logger.warning("未检测到domain，使用第一个domain作为默认")
                 domains = [self.function_manager.get_domain_names()[0]]
             
-            # LLM调用完成，记录时间
             self.step_timings['域选择'] = time.time() - llm_start
             logger.info(f"✅ Domain选择完成: {domains}")
             
@@ -283,11 +249,6 @@ class FnCTODTracker:
         """
         Stage 2: 调用函数填充参数（FnCTOD论文Fig.2第二阶段）
         
-        流程顺序（必须按此顺序）：
-        1. 构建提示词（包含选中domain的完整spec + few-shot示例）
-        2. 调用LLM
-        3. 解析function call JSON + 自然语言回复
-        
         Args:
             user_utterance: 用户输入
             domains: 候选domain列表
@@ -297,19 +258,11 @@ class FnCTODTracker:
         """
         logger.info(f"Stage 2: Function Calling for domains: {domains}")
         
-        # 步骤1: 提示词构建（必须在LLM调用之前）
-        # 根据FnCTOD论文Fig.3，提示词包含：
-        # - 整体指令
-        # - 函数规格（JSON schema）
-        # - Few-shot示例（可选）
-        # 如果是两阶段模式，这是第二次提示词构建
-        # 如果是单阶段模式（跳过域选择），这是唯一的提示词构建
+        # 根据FnCTOD论文Fig.3，提示词包含整体指令、函数规格（JSON schema）和few-shot示例
         prompt_start = time.time()
         
-        # 构建完整规格提示词（只包含选中的domain）
         system_prompt = self._build_function_call_prompt(domains)
         
-        # 构建消息
         messages = [
             {"role": "system", "content": system_prompt}
         ]
@@ -320,7 +273,6 @@ class FnCTODTracker:
             
             # 构建完整的assistant回复（function call + 自然语言回复）
             if turn.function_call and turn.system_utterance:
-                # 包含function call和自然语言回复
                 assistant_content = f"{turn.function_call.to_xml()}\n{turn.system_utterance}"
                 messages.append({"role": "assistant", "content": assistant_content})
             elif turn.system_utterance:
@@ -329,7 +281,6 @@ class FnCTODTracker:
         
         # 添加当前状态提示（帮助LLM维护累积状态）
         if self.current_state:
-            # 将状态转换为更清晰的JSON格式
             import json
             # 将 "domain-param" 格式转换为 domain分组的字典
             state_by_domain = {}
@@ -346,27 +297,19 @@ class FnCTODTracker:
                 "content": f"Previous cumulative state:\n{state_json}\n\nRemember to include ALL previous parameters in your function call, plus any new ones from the current turn."
             })
         
-        # 添加当前用户输入
         messages.append({"role": "user", "content": user_utterance})
         
-        # 提示词构建完成，记录时间
-        # 如果是单阶段模式（没有域选择），这是第一次也是唯一一次提示词构建
-        # 如果是两阶段模式（有域选择），这是第二次提示词构建，覆盖之前的记录
         self.step_timings['提示词构建'] = time.time() - prompt_start
         
-        # 步骤2: 调用LLM进行函数调用（在提示词构建之后）
-        # 根据FnCTOD论文，LLM在接收到完整提示词后输出：
-        # <function_call name="domain">{"param": "value"}</function_call> + 自然语言回复
+        # 根据FnCTOD论文，LLM输出 <function_call name="domain">{"param": "value"}</function_call> + 自然语言回复
         llm_start = time.time()
         try:
             response = await self.llm_client.chat_async(messages)
             logger.info(f"✅ 收到LLM响应，长度: {len(response)}")
             logger.debug(f"LLM响应前300字符: {response[:300]}...")
             
-            # LLM调用完成，记录时间
             self.step_timings['函数调用'] = time.time() - llm_start
             
-            # 步骤3: 解析响应（在LLM调用之后）
             # 根据FnCTOD论文，需要提取：
             # 1. <function_call> 标签内的JSON参数
             # 2. 标签后的自然语言回复
@@ -375,7 +318,6 @@ class FnCTODTracker:
             function_call, natural_response = self.parser.parse_function_call(response)
             
             if not function_call:
-                # 如果没有检测到function call，将整个响应作为自然语言回复
                 logger.warning("⚠️ 未检测到function call，使用响应作为自然语言回复")
                 logger.warning(f"⚠️ 完整响应: {response}")
                 natural_response = response
@@ -383,7 +325,6 @@ class FnCTODTracker:
                 logger.info(f"✅ Function call解析成功: {function_call.function_name}")
                 logger.info(f"✅ 提取的参数: {function_call.arguments}")
             
-            # 记录解析时间
             self.step_timings['响应解析'] = time.time() - parse_start
             
             return function_call, natural_response
@@ -476,40 +417,33 @@ class FnCTODTracker:
         Returns:
             提示词文本
         """
-        # 如果没有加载模板，使用默认提示词
         if not self.prompt_templates:
             return self._build_default_prompt(domains)
         
         templates = self.prompt_templates
         prompt_parts = []
         
-        # 1. 系统提示词
         prompt_parts.append(templates.get('system_prompt', ''))
         prompt_parts.append("")
         prompt_parts.append("Available functions:")
         
-        # 2. 添加域的函数定义
         for domain_name in domains:
             domain = self.function_manager.get_domain(domain_name)
             if domain:
                 prompt_parts.append("")
                 prompt_parts.append(domain.to_prompt_format())
         
-        # 3. 重要性提示
         output_fmt = templates.get('output_format', {})
         prompt_parts.append("")
         prompt_parts.append(output_fmt.get('importance_note', ''))
         
-        # 4. 输出格式说明
         prompt_parts.append("")
         prompt_parts.append(output_fmt.get('format_description', ''))
         
-        # 5. 示例（使用场景特定或默认示例）
         domain_name = domains[0] if domains else 'chat'
         examples = self._get_examples_for_domain(domain_name)
         
         if examples:
-            # 单轮示例
             if 'single_turn' in examples:
                 example = examples['single_turn']
                 template = output_fmt.get('single_turn_example_template', '')
@@ -521,7 +455,6 @@ class FnCTODTracker:
                         example_response=example.get('response', '')
                     ))
             
-            # 多轮示例
             if 'multi_turn' in examples:
                 example = examples['multi_turn']
                 template = output_fmt.get('multi_turn_example_template', '')
@@ -537,7 +470,6 @@ class FnCTODTracker:
                         turn2_response=example.get('turn2', {}).get('response', '')
                     ))
         
-        # 6. 累积状态指令
         prompt_parts.append("")
         prompt_parts.append(templates.get('cumulative_state_instructions', ''))
         
@@ -554,8 +486,6 @@ class FnCTODTracker:
         
         for param_name, param_value in function_call.arguments.items():
             state_key = f"{domain}-{param_name}"
-            
-            # 更新或添加状态
             if param_value:  # 只更新非空值
                 self.current_state[state_key] = param_value
                 logger.debug(f"状态更新: {state_key} = {param_value}")
@@ -589,31 +519,9 @@ class FnCTODTracker:
         从场景配置创建FnCTODTracker实例的工厂方法
         
         这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
-        
-        参数:
-            llm_client: LLM客户端实例
-            scenario_config: 场景配置对象（来自scenarios模块）
-            use_two_stage: 是否使用两阶段处理（domain选择 + function calling）
-            max_history_turns: 最大历史轮数
-            
-        返回:
-            配置好的FnCTODTracker实例
-            
-        示例:
-            from contextmind.modes.fnctod import FnCTODTracker
-            from scenarios import get_chat_scenario
-            from contextmind.infra.llm_client import SimpleLLMClient
-            
-            llm_client = SimpleLLMClient()
-            config = get_chat_scenario()
-            tracker = FnCTODTracker.create_from_config(
-                llm_client=llm_client,
-                scenario_config=config
-            )
         """
         from contextmind.modes.fnctod import get_function_schema_for_scenario, FunctionManager
         
-        # 创建FunctionManager
         function_manager = FunctionManager()
         
         try:
@@ -632,7 +540,6 @@ class FnCTODTracker:
                 required_slots=[]
             )
         
-        # 创建并返回tracker实例
         return cls(
             llm_client=llm_client,
             function_manager=function_manager,
