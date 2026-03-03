@@ -6,8 +6,6 @@
 - 智能历史管理（模板摘要或LLM摘要）
 - 多意图追踪
 - 优化的LLM使用（默认仅在槽位提取时调用）
-
-版本: v0.2.1
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -24,31 +22,8 @@ class DialogueStateTracker:
     """
     对话状态追踪器（优化版 - 减少LLM调用）
     
-    实现完整的零样本对话状态追踪系统，符合ACL 2023论文规范，并优化：
-    1. 动态槽位提取 - LLM自由提取任何相关信息
-    2. 智能历史管理 - 模板摘要（默认）或LLM摘要（可选）
-    3. 多意图追踪 - 追踪意图切换和演变
-    4. 优化LLM使用 - 默认仅在槽位提取时调用LLM
-    
-    核心特性：
-    - 完全零样本（无需训练或微调）
-    - 基于提示词工程
-    - 智能历史管理（模板摘要 + 完整最近历史）
-    - 支持多意图场景
-    - 优化LLM调用次数（默认每轮仅1次）
-    
-    属性:
-        prompt_manager: 提示词管理器
-        llm_client: LLM客户端
-        messages: 完整的对话历史消息
-        current_state: 当前累积的对话状态
-        dialogue_history: 所有轮次的对话历史
-        intent_history: 意图演变历史
-        current_intents: 当前活跃的意图列表
-        history_summary: 旧对话的摘要
-        max_history_turns: 完整保留的最近对话轮数
-        enable_history_summary: 是否启用历史摘要
-        use_llm_summary: 是否使用LLM生成摘要（默认False）
+    实现完整的零样本对话状态追踪系统，符合ACL 2023论文规范。
+    支持动态槽位提取、智能历史管理、多意图追踪。
     """
     
     def __init__(self, 
@@ -77,40 +52,32 @@ class DialogueStateTracker:
             enable_dynamic_slots=enable_dynamic_slots
         )
         
-        # 获取分类槽位用于归一化（优化）
         categorical_slots = {}
         if hasattr(self.prompt_manager, 'categorical_slots'):
             categorical_slots = self.prompt_manager.categorical_slots
         
-        # 使用 PromptManager 的 enable_dynamic_slots 设置（而非 __init__ 参数）
-        # 这样可以正确支持 from_scenario() 工厂方法
         pm_enable_dynamic = self.prompt_manager.enable_dynamic_slots
         
         self.response_parser = ResponseParser(
             ontology_slots=self.prompt_manager.get_slot_names(),
-            enable_filtering=not pm_enable_dynamic,  # 动态模式不过滤
-            categorical_slots=categorical_slots  # 传递分类槽位
+            enable_filtering=not pm_enable_dynamic,
+            categorical_slots=categorical_slots
         )
         
-        # 对话状态
         self.current_state: Dict[str, str] = {}
         self.dialogue_history: List[DialogueTurn] = []
         
-        # 意图追踪（新增）
         self.intent_history: List[str] = []
         self.current_intents: List[str] = []
         
-        # 多意图槽位存储（优化）- 支持按意图分离槽位
-        self.intent_states: Dict[str, Dict[str, str]] = {}  # intent -> slots
-        self.enable_intent_namespacing: bool = False  # 默认关闭
+        self.intent_states: Dict[str, Dict[str, str]] = {}
+        self.enable_intent_namespacing: bool = False
         
-        # 历史管理（新增）
         self.max_history_turns = max_history_turns
         self.enable_history_summary = enable_history_summary
-        self.use_llm_summary = use_llm_summary  # 新增：控制是否用LLM摘要
+        self.use_llm_summary = use_llm_summary
         self.history_summary: Optional[str] = None
         
-        # 初始化消息列表，包含系统指令（关键修复：确保LLM收到JSON格式要求）
         self.messages: List[Dict[str, str]] = [
             {"role": "system", "content": self.prompt_manager.get_system_instruction()}
         ]
@@ -142,22 +109,18 @@ class DialogueStateTracker:
         返回:
             DialogueStateTracker实例
         """
-        # 创建PromptManager，使用自定义模板（如果提供）
         pm = PromptManager(
             domain=scenario_config.name,
             enable_dynamic_slots=scenario_config.enable_dynamic_slots,
             custom_template=getattr(scenario_config, 'dst_prompt_template', None)
         )
         
-        # 添加预定义槽位
         for slot_name, slot_desc in scenario_config.dst_slots.items():
-            # 检查是否有分类约束
             categorical_values = None
             if scenario_config.dst_categorical_slots and slot_name in scenario_config.dst_categorical_slots:
                 categorical_values = scenario_config.dst_categorical_slots[slot_name]
             pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
         
-        # 创建并返回tracker实例
         return cls(
             llm_client=llm_client,
             prompt_manager=pm,
@@ -177,16 +140,7 @@ class DialogueStateTracker:
         return self.dialogue_history
     
     def reset(self) -> None:
-        """
-        重置对话状态，清空所有历史和状态
-        
-        重置内容:
-            - 消息历史
-            - 当前状态
-            - 对话轮次历史
-            - 意图历史
-            - 历史摘要
-        """
+        """重置对话状态，清空所有历史和状态。"""
         self.messages = [
             {"role": "system", "content": self.prompt_manager.get_system_instruction()}
         ]
@@ -220,47 +174,35 @@ class DialogueStateTracker:
         """
         import time
         
-        # 初始化步骤计时字典
         self.step_timings = {}
         
-        # 格式化当前轮次
         turn_prompt = f'system: "{system_utterance}"\nuser: "{user_utterance}"'
         
-        # 步骤1: 历史准备
         step_start = time.time()
         history_for_prompt = self._prepare_history_for_prompt()
         self.step_timings['历史准备'] = time.time() - step_start
         
-        # 步骤2: 提示词构建（包括系统指令更新和消息构建）
         step_start = time.time()
-        # 如果有历史摘要，更新系统指令
         if self.history_summary and self.enable_history_summary:
             system_instruction = self.prompt_manager.get_system_instruction(
                 history_summary=self.history_summary
             )
-            # 更新系统消息
             self.messages[0] = {"role": "system", "content": system_instruction}
         
-        # 添加历史对话到提示
         if history_for_prompt:
             full_prompt = f"{history_for_prompt}\n\n{turn_prompt}"
         else:
             full_prompt = turn_prompt
         
-        # 【修复】清理旧消息，防止指数级增长
-        # 策略：只保留系统消息，历史已经在 full_prompt 中了
-        # 这样避免了历史在 messages 数组中重复累积
-        self.messages = [self.messages[0]]  # 只保留系统消息
+        # Only keep the system message; history is embedded in full_prompt to prevent exponential growth.
+        self.messages = [self.messages[0]]
         
-        # 添加当前轮次的用户消息（已包含必要的历史）
         self.messages.append({"role": "user", "content": full_prompt})
         self.step_timings['提示词构建'] = time.time() - step_start
         
-        # 步骤3: LLM槽位提取
         step_start = time.time()
         if self.llm_client:
             try:
-                # DEBUG: 记录发送给LLM的完整消息
                 logger.debug("=" * 60)
                 logger.debug("发送给LLM的消息:")
                 for i, msg in enumerate(self.messages):
@@ -272,7 +214,6 @@ class DialogueStateTracker:
                     temperature=0.0
                 )
                 
-                # DEBUG: 记录LLM的完整响应
                 logger.debug("=" * 60)
                 logger.debug(f"LLM完整响应:\n{raw_response}")
                 logger.debug("=" * 60)
@@ -285,18 +226,11 @@ class DialogueStateTracker:
             raw_response = "{}"
         self.step_timings['LLM槽位提取'] = time.time() - step_start
         
-        # 【修复】不再添加助手响应到 messages 数组
-        # 因为我们已经在每轮重置 messages，只保留系统消息
-        # 历史已经通过 dialogue_history 管理，并在需要时包含在 full_prompt 中
-        # 这避免了 messages 数组的无限增长
-        
-        # 步骤4: 响应解析（合并JSON解析和值归一化）
         step_start = time.time()
         logger.debug(f"开始解析响应，长度: {len(raw_response)} 字符")
         turn_updates = self.response_parser.extract_json(raw_response)
         logger.debug(f"解析结果: {turn_updates}")
         
-        # 归一化槽位值（优化）- 应用严格分类约束
         turn_updates = self.response_parser.normalize_extracted(
             turn_updates,
             self.prompt_manager.get_all_slots(),
@@ -305,15 +239,11 @@ class DialogueStateTracker:
         logger.debug(f"归一化后: {turn_updates}")
         self.step_timings['响应解析'] = time.time() - step_start
         
-        # 步骤5: 状态更新
         step_start = time.time()
         self._update_state(turn_updates)
-        
-        # 追踪意图（新增）
         self._track_intents(turn_updates)
         self.step_timings['状态更新'] = time.time() - step_start
         
-        # 记录本轮对话
         turn = DialogueTurn(
             system_utterance=system_utterance,
             user_utterance=user_utterance,
@@ -323,10 +253,8 @@ class DialogueStateTracker:
         )
         self.dialogue_history.append(turn)
         
-        # 智能历史管理（新增）
         await self._manage_history()
         
-        # 获取意图信息用于日志
         intent_info = turn_updates.get('intent') or turn_updates.get('intent_level1', '未识别')
         logger.info(
             f"处理轮次 #{len(self.dialogue_history)}: "
@@ -385,18 +313,15 @@ class DialogueStateTracker:
         )
         
         if should_summarize:
-            # 摘要旧的对话轮次
             old_turns = self.dialogue_history[:-self.max_history_turns]
             if old_turns:
                 if self.use_llm_summary and self.llm_client:
-                    # 使用LLM生成智能摘要（更详细但消耗资源）
                     self.history_summary = await self._summarize_old_turns(old_turns)
                     logger.info(
                         f"生成LLM历史摘要（轮次1-{len(old_turns)}），"
                         f"保留完整历史（轮次{len(old_turns)+1}-{total_turns}）"
                     )
                 else:
-                    # 使用模板方式生成摘要（快速且不消耗LLM）
                     self.history_summary = self._template_based_summary(old_turns)
                     logger.info(
                         f"生成模板历史摘要（轮次1-{len(old_turns)}），"
@@ -418,7 +343,6 @@ class DialogueStateTracker:
         返回:
             摘要文本
         """
-        # 构建摘要提示
         dialogue_text = ""
         for i, turn in enumerate(turns, 1):
             dialogue_text += f"轮次{i}:\n"
@@ -467,7 +391,6 @@ class DialogueStateTracker:
         返回:
             摘要文本
         """
-        # 提取意图演变
         intents = []
         for turn in turns:
             if turn.turn_updates and "intent" in turn.turn_updates:
@@ -475,20 +398,16 @@ class DialogueStateTracker:
                 if intent and intent not in ["其他", "未知"]:
                     intents.append(intent)
         
-        # 提取关键槽位
         key_slots = {}
         for turn in turns:
             if turn.turn_updates:
                 for slot, value in turn.turn_updates.items():
                     if slot != "intent" and value and value.strip():
-                        # 保留最新值
                         key_slots[slot] = value
         
-        # 构建摘要
         summary_parts = [f"历史对话（共{len(turns)}轮）"]
         
         if intents:
-            # 去重并保持顺序
             unique_intents = []
             seen = set()
             for intent in intents:
@@ -498,7 +417,6 @@ class DialogueStateTracker:
             summary_parts.append(f"主要意图：{' → '.join(unique_intents)}")
         
         if key_slots:
-            # 只显示最重要的几个槽位
             important_slots = list(key_slots.items())[:5]
             slot_str = ", ".join([f"{k}={v}" for k, v in important_slots])
             summary_parts.append(f"关键信息：{slot_str}")
@@ -518,38 +436,27 @@ class DialogueStateTracker:
         参数:
             updates: 从当前轮次提取的槽位更新
         """
-        # 应用严格归一化（如果有prompt_manager）
         if hasattr(self, 'prompt_manager') and self.prompt_manager:
-            # 获取允许的槽位和分类槽位
             allowed_slots = self.prompt_manager.get_all_slots()
             categorical_slots = self.prompt_manager.categorical_slots or {}
-            
-            # 使用strict模式进行归一化
             updates = self.response_parser.normalize_extracted(
                 updates,
                 allowed_slots,
                 categorical_slots
             )
         
-        # 提取当前意图
         current_intent = updates.get("intent")
         
-        # 更新全局状态
         for slot, value in updates.items():
-            if value and value.strip():  # 只更新非空值
+            if value and value.strip():
                 self.current_state[slot] = value
         
-        # 如果启用意图命名空间，同时维护按意图分离的状态
         if self.enable_intent_namespacing and current_intent:
-            # 初始化该意图的状态字典
             if current_intent not in self.intent_states:
                 self.intent_states[current_intent] = {}
-            
-            # 存储非intent字段到对应意图下
             for slot, value in updates.items():
                 if slot != "intent" and value and value.strip():
                     self.intent_states[current_intent][slot] = value
-            
             logger.debug(f"意图状态更新: {current_intent} -> {self.intent_states[current_intent]}")
     
     def _track_intents(self, updates: Dict[str, str]) -> None:
@@ -563,14 +470,9 @@ class DialogueStateTracker:
         """
         if "intent" in updates:
             new_intent = updates["intent"]
-            
-            # 添加到意图历史
             self.intent_history.append(new_intent)
-            
-            # 更新当前活跃意图
             if new_intent not in self.current_intents:
                 self.current_intents.append(new_intent)
-            
             logger.debug(f"意图追踪: 新意图={new_intent}, 历史={self.intent_history}")
     
     def get_current_state(self) -> Dict[str, str]:
@@ -614,10 +516,8 @@ class DialogueStateTracker:
             "current_intents": len(self.current_intents),
             "has_summary": self.history_summary is not None,
             "messages_count": len(self.messages),
-            "intent_states_count": len(self.intent_states)  # 新增
+            "intent_states_count": len(self.intent_states)
         }
-    
-    # 新增：意图特定状态查询方法
     
     def get_intent_state(self, intent: str) -> Dict[str, str]:
         """
@@ -731,22 +631,18 @@ class DialogueStateTracker:
                 max_history_turns=10
             )
         """
-        # 创建PromptManager，使用自定义模板（如果提供）
         pm = PromptManager(
             domain=scenario_config.name,
             enable_dynamic_slots=scenario_config.enable_dynamic_slots,
             custom_template=getattr(scenario_config, 'dst_prompt_template', None)
         )
         
-        # 添加预定义槽位
         for slot_name, slot_desc in scenario_config.dst_slots.items():
-            # 检查是否有分类约束
             categorical_values = None
             if scenario_config.dst_categorical_slots and slot_name in scenario_config.dst_categorical_slots:
                 categorical_values = scenario_config.dst_categorical_slots[slot_name]
             pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
         
-        # 创建并返回tracker实例
         return cls(
             llm_client=llm_client,
             prompt_manager=pm,

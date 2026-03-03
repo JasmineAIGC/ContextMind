@@ -3,8 +3,6 @@
 
 管理槽位本体定义、分类约束和提示词生成，
 完全基于LLM理解，支持动态槽位提取。
-
-版本: v0.2.1
 """
 
 from typing import Dict, List, Set, Optional
@@ -31,18 +29,18 @@ def _get_intent_label_loader():
 
 class Language(Enum):
     """支持的语言"""
-    ZH_CN = "zh-CN"  # 简体中文
-    EN_US = "en-US"  # 英语
-    JA_JP = "ja-JP"  # 日语
+    ZH_CN = "zh-CN"
+    EN_US = "en-US"
+    JA_JP = "ja-JP"
 
 
 class LLMFormat(Enum):
     """LLM平台格式"""
-    OPENAI = "openai"          # OpenAI GPT系列
-    ANTHROPIC = "anthropic"    # Claude系列
-    GOOGLE = "google"          # Gemini系列
-    QWEN = "qwen"             # 通义千问
-    GENERAL = "general"        # 通用格式（默认）
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    QWEN = "qwen"
+    GENERAL = "general"
 
 
 class PromptManager:
@@ -51,17 +49,6 @@ class PromptManager:
     
     管理本体定义和提示词生成，符合 ACL 2023 论文规范。
     支持完全动态的槽位提取 - LLM自由提取任何相关信息。
-    
-    核心改进：
-    - 不强制预定义槽位
-    - LLM自主识别意图和提取信息
-    - 支持多意图场景
-    
-    属性:
-        domain: 对话领域（如 "general", "chat", "restaurant"）
-        ontology_slots: 槽位名称到描述的映射字典（可选，用于指导）
-        categorical_constraints: 槽位名称到允许值的映射字典（可选，用于指导）
-        enable_dynamic_slots: 是否启用完全动态槽位（默认True）
     """
     
     def __init__(self, 
@@ -95,9 +82,8 @@ class PromptManager:
         self.template_style = template_style
         self.custom_template = custom_template
         self.enable_intent_prediction = enable_intent_prediction
-        self.intent_label_loader = intent_label_loader  # 保存自定义加载器
+        self.intent_label_loader = intent_label_loader
         
-        # 根据LLM格式设置默认上下文长度
         if max_context_length is None:
             self.max_context_length = self._get_default_context_length()
         else:

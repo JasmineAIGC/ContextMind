@@ -2,8 +2,6 @@
 响应解析器（Response Parser）
 
 鲁棒的JSON响应解析，支持多种格式和容错处理。
-
-版本: v0.2.1
 """
 
 import json
@@ -20,16 +18,6 @@ class ResponseParser:
     
     从LLM响应中提取JSON格式的槽位更新，支持多种解析策略。
     在动态槽位模式下，不过滤任何LLM提取的信息。
-    
-    特性:
-    - 多策略解析（直接解析、正则提取、键值对提取）
-    - 处理嵌套和列表格式
-    - 可选的幻觉过滤（仅在非动态模式下）
-    - 槽位名称映射（标准化LLM输出）
-    
-    属性:
-        ontology_slots: 本体槽位集合（用于可选的过滤）
-        enable_filtering: 是否启用槽位过滤（动态模式下为False）
     """
     
     def __init__(self, 
@@ -70,7 +58,6 @@ class ResponseParser:
             logger.debug("响应为空")
             return {}
         
-        # 策略1：直接JSON解析（最快，适用于干净的输出）
         logger.debug("尝试策略1: 直接JSON解析")
         try:
             parsed = json.loads(text)
@@ -89,7 +76,6 @@ class ResponseParser:
         except json.JSONDecodeError as e:
             logger.debug(f"策略1失败: {e}")
         
-        # 策略2：基于正则的JSON提取（处理嵌入的JSON）
         logger.debug("尝试策略2: 正则表达式提取JSON")
         extracted = self._extract_json_with_regex(text)
         if extracted:
@@ -98,7 +84,6 @@ class ResponseParser:
         else:
             logger.debug("策略2失败: 未找到有效的JSON结构")
         
-        # 策略3：键值对提取（用于格式错误的JSON的后备方案）
         logger.debug("尝试策略3: 键值对提取")
         extracted = self._extract_key_value_pairs(text)
         if extracted:
@@ -107,7 +92,6 @@ class ResponseParser:
         else:
             logger.debug("策略3失败: 未找到键值对")
         
-        # 所有策略都失败了
         logger.warning(f"无法从响应中提取JSON: {text[:100]}...")
         logger.debug(f"完整失败响应:\n{text}")
         return {}
@@ -122,13 +106,9 @@ class ResponseParser:
         返回:
             提取的字典，如果失败则返回 None
         """
-        # 按特异性排序的模式
         patterns = [
-            # 嵌套花括号（处理复杂的嵌套结构）
             r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',
-            # 简单花括号（单层对象）
             r'\{[^{}]+\}',
-            # 方括号（数组格式）
             r'\[[^\[\]]+\]',
         ]
         
@@ -225,29 +205,21 @@ class ResponseParser:
         返回:
             过滤后的槽位更新（或原始更新）
         """
-        # Step 1: 总是移除 'intent' 字段（不是真正的槽位）
         filtered = {k: v for k, v in updates.items() if k != 'intent'}
         
-        # Step 2: 如果有本体槽位，尝试语义匹配槽位名称
         if self.ontology_slots:
             mapped_updates = {}
             for slot, value in filtered.items():
-                # 尝试语义匹配到本体槽位
                 similar_slot = self._find_similar_slot_name(slot, self.ontology_slots)
                 if similar_slot:
-                    # 使用语义匹配的槽位名
                     mapped_updates[similar_slot] = value
                 else:
-                    # 保持原始槽位名
                     mapped_updates[slot] = value
             filtered = mapped_updates
         
-        # Step 3: 过滤非本体槽位（如果启用过滤）
         if not self.enable_filtering or not self.ontology_slots:
-            # 动态槽位模式：不过滤，接受所有LLM提取的信息
             return filtered
         
-        # 仅在启用过滤时才过滤
         final_filtered = {}
         for slot, value in filtered.items():
             if slot in self.ontology_slots:
@@ -282,30 +254,24 @@ class ResponseParser:
         if not value_str.strip():
             return value_str
         
-        # 基础归一化：去除首尾空格
         normalized = value_str.strip()
         
-        # 确定候选值列表
         if candidates is None:
             if slot in self.categorical_slots:
                 candidates = self.categorical_slots[slot]
             else:
-                # 非分类槽位，返回归一化后的值
                 return normalized
         
         value_lower = normalized.lower()
         
-        # 1. 精确匹配（忽略大小写）
         for candidate in candidates:
             if value_lower == candidate.lower():
                 return candidate
         
-        # 严格模式：不允许模糊匹配
         if strict:
             logger.debug(f"严格模式下 {slot}='{value}' 无精确匹配，返回None")
             return None
         
-        # 2. 包含匹配（非严格模式）
         for candidate in candidates:
             if value_lower in candidate.lower() or candidate.lower() in value_lower:
                 logger.debug(f"归一化: {slot}='{value}' -> '{candidate}'")
@@ -343,25 +309,20 @@ class ResponseParser:
             if not value_str or not value_str.strip():
                 continue
             
-            # 动态槽位模式：接受所有槽位
             if not self.enable_filtering:
-                # 对分类槽位尝试归一化（但不强制）
                 if slot in categorical_slots:
                     normalized_value = self.normalize_value(
                         slot, value_str, categorical_slots[slot], strict=False
                     )
                     normalized[slot] = normalized_value if normalized_value else value_str
                 else:
-                    # 非分类槽位，直接保留
                     normalized[slot] = value_str
                 continue
             
-            # 严格模式：过滤1 - 只保留预定义的槽位名称
             if slot not in allowed_slots:
                 logger.warning(f"跳过未定义的槽位: {slot} (值: {value_str})")
                 continue
             
-            # 严格模式：过滤2 - 对分类槽位进行严格归一化
             if slot in categorical_slots:
                 normalized_value = self.normalize_value(
                     slot, value_str, categorical_slots[slot], strict=True
@@ -371,7 +332,6 @@ class ResponseParser:
                 else:
                     logger.warning(f"槽位 {slot} 的值 '{value_str}' 不在预定义列表中，已跳过")
             else:
-                # 非分类槽位，直接保留（但值必须非空）
                 if value_str.strip():
                     normalized[slot] = value_str
         
