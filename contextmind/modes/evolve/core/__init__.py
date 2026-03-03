@@ -3,7 +3,7 @@
 from ..engine import EvolveEngine
 from .registry import PluginRegistry, registry
 
-# Import from new modular structure
+# 从模块化子包导入
 from .types import (
     KnowledgeType,
     MemoryType,
@@ -58,7 +58,7 @@ __all__ = [
     "EvolveEngine",
     "PluginRegistry",
     "registry",
-    # Types
+    # 类型枚举
     "KnowledgeType",
     "MemoryType",
     "MessageRole",
@@ -75,14 +75,14 @@ __all__ = [
     "ScoreInfo",
     "VersionRecord",
     "MemoryNote",
-    # Configs
+    # 配置数据类
     "ExtractionConfig",
     "RetrievalConfig",
     "SummarizationConfig",
     "CompressionConfig",
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
-    # Logger
+    # 日志工具
     "EvolveLogger",
     "LogLevel",
     "get_logger",
@@ -91,7 +91,7 @@ __all__ = [
     "get_global_log_level",
     "INFO",
     "DEBUG",
-    # Strategies
+    # 策略基类
     "ExtractionStrategy",
     "RetrievalStrategy",
     "IntegrationStrategy",

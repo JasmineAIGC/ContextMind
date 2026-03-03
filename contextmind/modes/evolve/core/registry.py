@@ -47,7 +47,7 @@ class PluginRegistry:
         self._initialized = False
     
     def _lazy_init(self):
-        """Defer plugin imports until first use to avoid circular imports at module load time."""
+        """延迟导入插件，在首次使用时才加载，避免模块加载时的循环导入。"""
         if self._initialized:
             return
         
@@ -149,6 +149,6 @@ class PluginRegistry:
         return self.list_plugins('updaters')
 
 
-registry = PluginRegistry()  # module-level singleton; import and use directly across the codebase
+registry = PluginRegistry()  # 模块级单例，可在整个代码库中直接导入使用
 
 __all__ = ['PluginRegistry', 'registry']

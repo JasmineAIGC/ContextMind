@@ -44,10 +44,10 @@ class ExtractionStrategy(ABC):
     
     @abstractmethod
     async def extract(self, messages: List[Message]) -> List[Knowledge]:
-        """Parse messages and return structured Knowledge objects.
+        """解析消息并返回结构化的 Knowledge 对象。
         
-        Implementations may use rule-based heuristics or LLM calls.
-        Should be idempotent — same messages should yield equivalent results.
+        实现可使用基于规则的启发式方法或 LLM 调用。
+        应保持幂等性——相同消息应产生等效结果。
         """
         pass
 
@@ -57,9 +57,9 @@ class UpdateStrategy(ABC):
     
     @abstractmethod
     async def update(self, memory_cache: List[ContextItem], new_knowledge: List[Knowledge]) -> List[ContextItem]:
-        """Merge new_knowledge into memory_cache, handling deduplication and conflict resolution.
+        """将 new_knowledge 合并到 memory_cache 中，处理去重和冲突解决。
         
-        Returns the updated cache; callers should replace their cache with the result.
+        返回更新后的缓存；调用方应用返回结果替换原有缓存。
         """
         pass
 
@@ -69,9 +69,9 @@ class SummarizerStrategy(ABC):
     
     @abstractmethod
     async def summarize(self, messages: List[Message], existing_summary: Optional[str] = None) -> str:
-        """Compress messages into a summary string, optionally extending an existing one.
+        """将消息压缩为摘要字符串，可选地在现有摘要基础上追加。
         
-        Incremental mode (existing_summary provided) avoids re-summarizing the full history.
+        增量模式（提供 existing_summary）可避免对完整历史记录重新摘要。
         """
         pass
 
@@ -101,11 +101,11 @@ class RerankingStrategy(OptimizationStrategy):
     默认重排序策略
     
     按时间戳和来源重新排序上下文条目。
-    Subclass and override `optimize` to apply model-based or score-based reranking.
+    子类可覆盖 `optimize` 方法以应用基于模型或分数的重排序逻辑。
     """
     
     async def optimize(self, context: ProcessedContext) -> ProcessedContext:
-        """No-op default — preserves insertion order; override for custom reranking logic."""
+        """默认空实现——保持插入顺序；子类可覆盖以实现自定义重排序逻辑。"""
         logger.debug(f"[RerankingStrategy] 重排序 {len(context.items)} 项")
         return context
 
