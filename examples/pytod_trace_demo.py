@@ -63,6 +63,7 @@ from contextmind.modes.pytod import (
 )
 from contextmind.modes.pytod.prompt_builder import ConversationTurn
 from contextmind.scenarios.anyihua.generation import ANYIHUA_SCHEMA, build_generation_engine
+from contextmind.scenarios.anyihua.utils import AGENT_PREFIX as _AGENT_PREFIX, USER_PREFIX as _USER_PREFIX
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -78,9 +79,6 @@ _SCENARIO_CONTEXT = (
     "⑤ 确认无未解决诉求后礼貌告别。"
     "注意：核实身份前不得告知账户详细信息；若用户有未解决诉求则不得直接告别。"
 )
-
-_AGENT_PREFIX = "坐席："
-_USER_PREFIX = "用户："
 
 
 # ===========================================================================
@@ -856,6 +854,10 @@ async def run_trace(
 
     last_user = history[-1].removeprefix(_USER_PREFIX) if history else ""
 
+    # Capture the injected history count NOW — before process_turn() appends
+    # the current user turn and system response to tracker.history.
+    injected_history_turns = len(tracker.history)
+
     if verbose:
         print(f"\n{'='*60}")
         print(f"  会话 ID：{session['session_id']}")
@@ -882,7 +884,7 @@ async def run_trace(
             "对话历史": session.get("对话历史", []),
             "坐席回复_实际": session.get("坐席回复", ""),
             "人工校验": session.get("人工校验", ""),
-            "注入_tracker_history_turns": len(tracker.history),
+            "注入_tracker_history_turns": injected_history_turns,
             "最后用户输入": last_user,
         },
         "predefined_config": predefined_config,
