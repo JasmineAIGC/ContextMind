@@ -170,9 +170,9 @@ def build_qc_engine(session: Dict[str, Any]) -> ExecutionEngine:
             return any(abs(value - gt) <= _AMOUNT_TOLERANCE for gt in _gt_values)
 
         hints: list = []
-        reply_amounts: list = []       # (text, value)
-        withdrawal_amounts: list = []  # (text, value)
-        discrepant_amounts: list = []  # (text, value, discrepancy)
+        reply_amounts: list = []       # (文本, 金额)
+        withdrawal_amounts: list = []  # (文本, 金额)
+        discrepant_amounts: list = []  # (文本, 金额, 差异)
 
         if _gt_values:
             bonus_in_reply = {m.group(1) for m in _BONUS_CREDIT_RE.finditer(reply)}

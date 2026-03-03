@@ -274,7 +274,7 @@ def create_gradio_ui(demo_instance=None):
 5. **查看状态**: 点击"🔍 查看状态"查看提取的信息或记忆库
             """)
         
-        # Footer
+        # 页脚
         gr.Markdown(
             "ContextMind v0.2.1 | 💡 Powered by LLM",
             elem_classes=["footer"]
@@ -367,7 +367,7 @@ def create_gradio_ui(demo_instance=None):
                     return history, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
                 elif mode == "fnctod":
                     return history, gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
-                else:  # evolve
+                else:  # evolve 模式
                     return history, gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
             
             apply_btn.click(
