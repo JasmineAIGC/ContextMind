@@ -91,7 +91,8 @@ modes/
 │   ├── tracker.py                   # 主追踪器
 │   ├── function_manager.py          # 函数管理器 + 数据模型（FunctionCall、DomainSpec等）
 │   ├── parser.py                    # FnCTOD响应解析器（FnCTODResponseParser）
-│   └── schemas.py                   # Schema定义
+│   ├── schemas.py                   # Schema定义（YAML驱动加载器）
+│   └── schemas.yaml                 # 场景 schema 参数配置（YAML）
 │
 ├── evolve/              # 演化式上下文模式
 │   ├── __init__.py
@@ -110,11 +111,11 @@ modes/
 │   │   ├── retriever.py             # 记忆检索器
 │   │   ├── session.py               # 会话管理器
 │   │   ├── updater.py               # 记忆更新器
-│   │   └── memory_fitness.py        # 适应度评估
+│   │   └── fitness.py               # 适应度评估
 │   │
 │   ├── evolution/                   # 进化学习（2文件）
-│   │   ├── evolutionary_updater.py  # 进化更新器
-│   │   └── feedback_system.py       # 反馈系统
+│   │   ├── updater.py               # 进化更新器
+│   │   └── feedback.py              # 反馈系统
 │   │
 │   └── pipeline/                    # 上下文处理流水线（3文件）
 │       ├── steps.py                 # InputPreprocessor + ContextRetriever + ContextCompressor + ContextReorderer（合并）
@@ -128,7 +129,7 @@ modes/
     ├── execution_engine.py          # 安全解析并执行程序语句
     ├── schemas.py                   # ServiceSchema / IntentDefinition / SlotDefinition
     ├── validator.py                 # 动作合法性校验
-    └── api_registry.py              # API注册表
+    └── registry.py                  # API注册表
 ```
 
 **依赖**: infra

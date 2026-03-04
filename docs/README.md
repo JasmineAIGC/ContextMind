@@ -52,7 +52,7 @@ docs/
 ├── quick-start.md                 # 快速开始
 ├── examples.md                    # 示例代码
 ├── directory-structure.md         # 项目目录结构
-├── modes.md                       # 三种对话模式对比
+├── modes.md                       # 四种对话模式对比
 ├── configuration.md               # 配置指南
 ├── api-reference.md               # API 参考
 ├── metrics-explanation.md         # 评测指标说明
@@ -63,11 +63,16 @@ docs/
 ├── algorithms/                    # 算法文档
 │   ├── dst.md                     # DST 算法（已实现）
 │   ├── fnctod.md                  # FnCTOD 算法（已实现）
-│   ├── pytod.md                   # pyTOD 算法（已实现）
+│   ├── pytod.md                   # PyTOD 算法（已实现）
 │   ├── intent-evaluation.md       # 意图评测使用指南
 │   └── context-engineering.md     # 上下文工程意义
+├── analysis/                      # 实验分析报告
+│   ├── pytod-anyihua-label-prediction-analysis.md
+│   ├── pytod-engine-api-explained.md
+│   ├── pytod-on-chat-test-100.md
+│   └── pytod-vs-fnctod-comparison.md
 └── datasets/                      # 数据集文档
-    ├── sgd.md                     # SGD 数据集（pyTOD 使用）
+    ├── sgd.md                     # SGD 数据集（PyTOD 使用）
     ├── transfertod.md             # TransferTOD 数据集
     ├── risawoz.md                 # RiSAWOZ 数据集
     └── dialogue-count.md          # 对话数量差异说明
@@ -108,7 +113,7 @@ docs/
 ## 🔗 相关链接
 
 - [主项目 README](../README.md)
-- [GitHub 仓库](https://github.com/Jasmine66Bloom/ContextMind)
+- [GitHub 仓库](https://github.com/JasmineAIGC/ContextMind)
 - [RiSAWOZ 数据集](https://github.com/terryqj0107/RiSAWOZ)
 - [TransferTOD 数据集](https://github.com/KongLongGeFDU/TransferTOD)
 - [SGD 数据集](https://github.com/google-research-datasets/dstc8-schema-guided-dialogue)

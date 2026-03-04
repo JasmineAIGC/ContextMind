@@ -184,7 +184,6 @@ class BatchDialogueTest:
         Returns:
             冒号后的内容
         """
-        import re
         # 匹配 "前缀：" 或 "前缀:" 后面的内容
         pattern = f'^{prefix}[：:](.*)$'
         match = re.match(pattern, line)

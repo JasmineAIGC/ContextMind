@@ -5,10 +5,11 @@ Benchmark 算法评测模块
 - Metrics 数据类（继承 BaseMetrics）：存储聚合指标
 - Evaluator 类（继承 BaseEvaluator）：通过 add_* / calculate_metrics / reset 接口收集并计算指标
 
+槽位类评测器（DST、FnCTOD）继承 SlotBasedEvaluator，共享槽位精度/召回/F1/JGA 计算逻辑。
 添加新评测器时：继承 BaseEvaluator + BaseMetrics，并在此 __init__.py 中注册导出。
 """
 
-from .base import BaseMetrics, BaseEvaluator
+from .base import BaseMetrics, BaseEvaluator, SlotMetrics, SlotBasedEvaluator
 from .dst import DSTMetrics, DSTEvaluator
 from .fnctod import FnCTODMetrics, FnCTODEvaluator
 from .pytod import PyTODMetrics, PyTODEvaluator
@@ -18,6 +19,9 @@ __all__ = [
     # 基类
     "BaseMetrics",
     "BaseEvaluator",
+    # 槽位类共用基础设施
+    "SlotMetrics",
+    "SlotBasedEvaluator",
     # DST — 对话状态追踪
     "DSTMetrics",
     "DSTEvaluator",

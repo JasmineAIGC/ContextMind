@@ -21,6 +21,8 @@ if str(project_root) not in sys.path:
 
 import argparse
 import asyncio
+import re
+import time
 from typing import List, Tuple, Optional
 from datetime import datetime
 
@@ -200,8 +202,6 @@ class UnifiedGradioDemo:
     
     async def chat(self, message: str, history: List) -> List:
         """处理对话"""
-        import time
-        
         try:
             # 首次使用时初始化
             if not self.initialized:
@@ -245,7 +245,6 @@ class UnifiedGradioDemo:
                 
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
-                import re
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
                 
                 # 步骤1: 槽位提取（包含DST内部的多个步骤）

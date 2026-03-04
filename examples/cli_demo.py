@@ -93,41 +93,40 @@ class UnifiedInteractiveDemo:
         """获取欢迎消息"""
         return self.config.welcome_message if self.config.welcome_message else "你好！"
     
+    def _init_llm_client(self):
+        """初始化LLM客户端（若已初始化则跳过），失败时打印帮助信息并退出。"""
+        if self.llm_client is not None:
+            return
+        try:
+            self.llm_client = SimpleLLMClient()
+        except (ValueError, RuntimeError) as e:
+            logger.error(f"LLM客户端初始化失败: {e}")
+            print(f"\n{'='*60}")
+            print(f"❌ 错误: {e}")
+            print(f"{'='*60}")
+            error_str = str(e)
+            if "API key" in error_str or "API_KEY" in error_str:
+                print("\n📝 请配置.env文件，添加以下内容：")
+                print("=" * 60)
+                print("# 选择一个配置即可")
+                print("QWEN3_API_KEY=sk-your-api-key-here")
+                print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
+                print("QWEN3_MODEL=Qwen3-32B")
+                print("=" * 60)
+                print("\n支持的环境变量名：")
+                print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
+                print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
+                print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
+            elif "OpenAI" in error_str:
+                print("\n请安装OpenAI包：")
+                print("  pip install openai")
+            print()
+            sys.exit(1)
+
     def _setup_dst_tracker(self):
         """初始化DST模式"""
         logger.info(f"初始化DST模式 - {self.config.name}")
-        
-        # 创建LLM客户端（如果还未创建）
-        if self.llm_client is None:
-            try:
-                self.llm_client = SimpleLLMClient()
-            except (ValueError, RuntimeError) as e:
-                logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n{'='*60}")
-                print(f"❌ 错误: {e}")
-                print(f"{'='*60}")
-                
-                # 根据错误类型提供具体帮助
-                error_str = str(e)
-                if "API key" in error_str or "API_KEY" in error_str:
-                    print("\n📝 请配置.env文件，添加以下内容：")
-                    print("=" * 60)
-                    print("# 选择一个配置即可")
-                    print("QWEN3_API_KEY=sk-your-api-key-here")
-                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-                    print("QWEN3_MODEL=Qwen3-32B")
-                    print("=" * 60)
-                    print("\n支持的环境变量名：")
-                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
-                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
-                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
-                elif "OpenAI" in error_str:
-                    print("\n请安装OpenAI包：")
-                    print("  pip install openai")
-                print()
-                sys.exit(1)
-        
-        # 使用工厂方法创建DST追踪器
+        self._init_llm_client()
         self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -135,70 +134,25 @@ class UnifiedInteractiveDemo:
             enable_history_summary=self.enable_summary,
             use_llm_summary=self.use_llm_summary
         )
-        
-        # 初始化系统回复（第一轮对话使用）- 使用欢迎消息
         self.last_system_reply = self._get_welcome_message()
-        
         self.app = None  # DST模式不使用app
-    
+
     def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
         logger.info(f"初始化FnCTOD模式 - {self.config.name}")
-        
-        # 创建LLM客户端（如果还未创建）
-        if self.llm_client is None:
-            try:
-                self.llm_client = SimpleLLMClient()
-            except (ValueError, RuntimeError) as e:
-                logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n{'='*60}")
-                print(f"❌ 错误: {e}")
-                print(f"{'='*60}")
-                
-                # 根据错误类型提供具体帮助
-                error_str = str(e)
-                if "API key" in error_str or "API_KEY" in error_str:
-                    print("\n📝 请配置.env文件，添加以下内容：")
-                    print("=" * 60)
-                    print("# 选择一个配置即可")
-                    print("QWEN3_API_KEY=sk-your-api-key-here")
-                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-                    print("QWEN3_MODEL=Qwen3-32B")
-                    print("=" * 60)
-                    print("\n支持的环境变量名：")
-                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
-                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
-                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
-                elif "OpenAI" in error_str:
-                    print("\n请安装OpenAI包：")
-                    print("  pip install openai")
-                print()
-                sys.exit(1)
-        
-        # 使用工厂方法创建FnCTOD追踪器
+        self._init_llm_client()
         self.tracker = FnCTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             use_two_stage=True,
             max_history_turns=self.max_history_turns
         )
-        
         self.app = None  # FnCTOD模式不使用app
 
     def _setup_pytod_tracker(self):
         """初始化PyTOD模式（程序执行型任务对话）"""
         logger.info(f"初始化PyTOD模式 - {self.config.name}")
-
-        if self.llm_client is None:
-            try:
-                self.llm_client = SimpleLLMClient()
-            except (ValueError, RuntimeError) as e:
-                logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n{'='*60}")
-                print(f"❌ 错误: {e}")
-                print(f"{'='*60}\n")
-                sys.exit(1)
-
+        self._init_llm_client()
         self.tracker = PyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -209,38 +163,7 @@ class UnifiedInteractiveDemo:
     def _setup_evolve_app(self):
         """初始化Evolve模式"""
         logger.info(f"初始化Evolve模式 - {self.config.name}")
-        
-        # 创建LLM客户端（如果还未创建）
-        if self.llm_client is None:
-            try:
-                self.llm_client = SimpleLLMClient()
-            except (ValueError, RuntimeError) as e:
-                logger.error(f"LLM客户端初始化失败: {e}")
-                print(f"\n{'='*60}")
-                print(f"❌ 错误: {e}")
-                print(f"{'='*60}")
-                
-                # 根据错误类型提供具体帮助
-                error_str = str(e)
-                if "API key" in error_str or "API_KEY" in error_str:
-                    print("\n📝 请配置.env文件，添加以下内容：")
-                    print("=" * 60)
-                    print("# 选择一个配置即可")
-                    print("QWEN3_API_KEY=sk-your-api-key-here")
-                    print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-                    print("QWEN3_MODEL=Qwen3-32B")
-                    print("=" * 60)
-                    print("\n支持的环境变量名：")
-                    print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
-                    print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
-                    print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
-                elif "OpenAI" in error_str:
-                    print("\n请安装OpenAI包：")
-                    print("  pip install openai")
-                print()
-                sys.exit(1)
-        
-        # 使用工厂方法创建应用
+        self._init_llm_client()
         try:
             from contextmind.modes.evolve import create_app_for_scenario
             self.app = create_app_for_scenario(
@@ -256,7 +179,7 @@ class UnifiedInteractiveDemo:
             print(f"详细信息: {e}")
             print(f"{'='*60}\n")
             sys.exit(1)
-    
+
     def print_welcome(self):
         """打印欢迎信息"""
         print("\n" + "="*60)
