@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from .schema import ServiceSchema
+from .schemas import ServiceSchema
 
 
 @dataclass

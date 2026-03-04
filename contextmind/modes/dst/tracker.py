@@ -11,8 +11,8 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from .data_models import DialogueTurn
-from .prompt_manager import PromptManager
-from .response_parser import DSTResponseParser
+from .prompts import PromptManager
+from .parser import DSTResponseParser
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)

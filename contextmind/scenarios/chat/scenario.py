@@ -2,8 +2,8 @@
 闲聊场景配置
 """
 
-from .config import ScenarioConfig, ScenarioType
-from contextmind.config.prompts import CHAT_SYSTEM_PROMPT
+from ..base import ScenarioConfig, ScenarioType
+from contextmind.scenarios.prompts import CHAT_SYSTEM_PROMPT
 
 
 def get_chat_scenario() -> ScenarioConfig:

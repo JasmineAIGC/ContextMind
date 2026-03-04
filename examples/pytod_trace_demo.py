@@ -61,7 +61,7 @@ from contextmind.modes.pytod import (
     PyTODPromptBuilder,
     PyTODTracker,
 )
-from contextmind.modes.pytod.prompt_builder import ConversationTurn
+from contextmind.modes.pytod.prompts import ConversationTurn
 from contextmind.scenarios.anyihua.generation import ANYIHUA_SCHEMA, build_generation_engine
 from contextmind.scenarios.anyihua.utils import AGENT_PREFIX as _AGENT_PREFIX, USER_PREFIX as _USER_PREFIX
 

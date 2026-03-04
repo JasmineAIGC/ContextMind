@@ -2,8 +2,8 @@
 客服场景配置
 """
 
-from .config import ScenarioConfig, ScenarioType
-from contextmind.config.prompts import CALLCENTER_SYSTEM_PROMPT
+from ..base import ScenarioConfig, ScenarioType
+from contextmind.scenarios.prompts import CALLCENTER_SYSTEM_PROMPT
 
 
 def get_callcenter_scenario() -> ScenarioConfig:

@@ -22,7 +22,7 @@ from contextmind.modes.evolve import (
 from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
 
 # 导入统一的系统提示词
-from contextmind.config.prompts import CALLCENTER_SYSTEM_PROMPT
+from contextmind.scenarios.prompts import CALLCENTER_SYSTEM_PROMPT
 
 # 禁用HTTP/网络层的debug日志，减少噪音
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -271,7 +271,7 @@ class CallCenterApplication:
         # 步骤2: 构建 Prompt
         step_start = time.time()
         prompt = await self.build_prompt(user_input, context_result)
-        self.step_timings['Prompt构建'] = time.time() - step_start
+        self.step_timings['上下文整合'] = time.time() - step_start
         
         if debug:
             debug_info['prompt'] = prompt

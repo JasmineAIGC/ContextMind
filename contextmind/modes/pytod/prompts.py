@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .schema import ServiceSchema
+from .schemas import ServiceSchema
 from .execution_engine import ExecutionResult
 
 

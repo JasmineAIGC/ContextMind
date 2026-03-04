@@ -20,7 +20,7 @@ scenarios:
     description: 通用闲聊场景
     aliases:
       - 闲聊
-    app_class: contextmind.apps.chat_app.ChatApplication
+    app_class: contextmind.scenarios.chat.app.ChatApplication
     schema_getter: contextmind.modes.fnctod.schemas.get_chat_function_schema
 
   # 客服场景
@@ -29,7 +29,7 @@ scenarios:
     description: 客服场景
     aliases:
       - 客服
-    app_class: contextmind.apps.callcenter_app.CallCenterApplication
+    app_class: contextmind.scenarios.callcenter.app.CallCenterApplication
     schema_getter: contextmind.modes.fnctod.schemas.get_callcenter_function_schema
 
   # 保险挽回场景
@@ -39,7 +39,7 @@ scenarios:
     aliases:
       - 保险
       - 保险挽回
-    app_class: contextmind.apps.insurance_app.InsuranceApplication
+    app_class: contextmind.scenarios.insurance.app.InsuranceApplication
     schema_getter: contextmind.modes.fnctod.schemas.get_insurance_function_schema
 
 # 添加新场景示例：

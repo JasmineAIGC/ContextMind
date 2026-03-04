@@ -45,7 +45,7 @@ zero/few-shot 大模型（如 Qwen-3）prompt 工程模式的适配模块。
     api_registry     - 场景 API 注册表（闲聊/客服/保险）及注册工具函数
 """
 
-from .schema import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
+from .schemas import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
 from .execution_engine import (
     ExecutionEngine,
     ProgramStatement,
@@ -56,7 +56,7 @@ from .execution_engine import (
     ProgramBlock,
     ProgramExecutionResult,
 )
-from .prompt_builder import PyTODPromptBuilder, ConversationTurn, FewShotExample
+from .prompts import PyTODPromptBuilder, ConversationTurn, FewShotExample
 from .validator import ActionValidator, ValidationResult
 from .tracker import PyTODTracker, PyTODTurnResult
 from .api_registry import SCENARIO_API_REGISTRY, get_scenario_key

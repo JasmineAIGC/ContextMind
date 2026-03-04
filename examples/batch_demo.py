@@ -579,7 +579,7 @@ class BatchDialogueTest:
         
         # 根据场景创建相应的应用
         if "保险" in scenario_name:
-            from contextmind.apps.insurance_app import InsuranceApplication
+            from contextmind.scenarios.insurance import InsuranceApplication
             return InsuranceApplication(
                 evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
@@ -587,7 +587,7 @@ class BatchDialogueTest:
                 use_real_llm=True
             )
         elif "客服" in scenario_name or "callcenter" in scenario_name.lower():
-            from contextmind.apps.callcenter_app import CallCenterApplication
+            from contextmind.scenarios.callcenter import CallCenterApplication
             return CallCenterApplication(
                 evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
@@ -595,7 +595,7 @@ class BatchDialogueTest:
                 use_real_llm=True
             )
         else:
-            from contextmind.apps.chat_app import ChatApplication
+            from contextmind.scenarios.chat import ChatApplication
             return ChatApplication(
                 evolve_engine=evolve_engine,
                 llm_client=self.llm_client,

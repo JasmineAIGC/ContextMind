@@ -2,8 +2,9 @@
 ContextMind 配置管理模块
 
 本模块负责处理:
-- 场景注册表：管理场景定义及其相关组件
-- 场景配置：从 YAML 文件加载和验证场景配置
+- 场景注册表：从 scenarios.yaml 加载场景定义，管理场景查询接口
+
+提示词（prompts）已移至 contextmind.scenarios.prompts。
 """
 
 from contextmind.config.registry import scenario_registry

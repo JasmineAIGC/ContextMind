@@ -41,7 +41,7 @@ import gradio as gr
 
 from contextmind.infra.llm_client import SimpleLLMClient as LLMClient, LLMConfig
 from contextmind.modes.pytod import PyTODPromptBuilder, PyTODTracker
-from contextmind.modes.pytod.prompt_builder import ConversationTurn
+from contextmind.modes.pytod.prompts import ConversationTurn
 from contextmind.scenarios.anyihua.generation import ANYIHUA_SCHEMA, build_generation_engine
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent

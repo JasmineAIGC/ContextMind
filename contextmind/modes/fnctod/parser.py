@@ -100,7 +100,7 @@ class FnCTODResponseParser:
             # 若闭合标签后无内容，则回退到开始标签前的文本。
             natural_response = response[match.end():].strip()
             
-            # 如果没有后续回复，使用function call之前的内容
+            # 如果标签后无内容或仅包含空白字符，使用function call之前的内容
             if not natural_response:
                 natural_response = response[:match.start()].strip()
             

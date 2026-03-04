@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from .data_models import FunctionCall, DialogueTurn
 from .function_manager import FunctionManager
-from .response_parser import FnCTODResponseParser
+from .parser import FnCTODResponseParser
 from .schemas import get_function_schema_for_scenario
 from contextmind.infra.logger import get_logger
 
@@ -344,7 +344,7 @@ class FnCTODTracker:
     
     def _load_prompt_templates(self) -> None:
         """加载提示词模板配置文件"""
-        template_path = Path(__file__).parent / "fnctod_prompts.yaml"
+        template_path = Path(__file__).parent / "prompts.yaml"
         
         try:
             with open(template_path, 'r', encoding='utf-8') as f:
@@ -418,7 +418,7 @@ class FnCTODTracker:
         """
         构建function call提示词（从配置文件加载，支持自定义）
         
-        使用 fnctod_prompts.yaml 配置文件中的模板和示例，
+        使用 prompts.yaml 配置文件中的模板和示例，
         实现提示词的可配置化和场景化。
         
         Args:

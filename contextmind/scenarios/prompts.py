@@ -217,12 +217,13 @@ DEFAULT_PROMPT = CHAT_SYSTEM_PROMPT
 def get_prompt(scenario: str = "chat") -> str:
     """
     获取指定场景的系统提示词
-    
+
     Args:
-        scenario: 场景名称，可选值：chat, callcenter, dst, tech_support, education, insurance
-        
+        scenario: 场景名称，支持：chat, callcenter, dst, tech_support, education, insurance。
+                  传入未知场景名时回退到 CHAT_SYSTEM_PROMPT（默认提示词）。
+
     Returns:
-        对应场景的系统提示词
+        对应场景的系统提示词；未匹配时返回默认提示词（chat）。
     """
     return PROMPT_MAP.get(scenario, DEFAULT_PROMPT)
 

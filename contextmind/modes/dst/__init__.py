@@ -42,9 +42,9 @@ v0.2.1 新特性：
 from .data_models import DialogueTurn, SpecialValue
 
 # 核心组件
-from .prompt_manager import PromptManager, Language, LLMFormat
-from .response_parser import DSTResponseParser, ResponseParser
-from .dialogue_state_tracker import DialogueStateTracker
+from .prompts import PromptManager, Language, LLMFormat
+from .parser import DSTResponseParser, ResponseParser
+from .tracker import DialogueStateTracker
 
 __all__ = [
     'DialogueStateTracker',
