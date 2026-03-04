@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from .types import KnowledgeType, MessageRole, ContextSource
+from .config import KnowledgeType, MessageRole, ContextSource
 from contextmind.infra.data_models import EmbeddingInfo
 
 

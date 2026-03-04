@@ -8,14 +8,40 @@
 - 优化的LLM使用（默认仅在槽位提取时调用）
 """
 
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from .data_models import DialogueTurn
 from .prompts import PromptManager
 from .parser import DSTResponseParser
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# 数据模型（原 data_models.py）
+# ---------------------------------------------------------------------------
+
+class SpecialValue(Enum):
+    """特殊槽位值，遵循 MultiWOZ / DSTC 惯例。
+
+    UNKNOWN ("?") — user is *asking* for this slot rather than providing a value.
+    DONTCARE ("dontcare") — user explicitly doesn't care about this slot's value.
+    """
+    UNKNOWN = "?"
+    DONTCARE = "dontcare"
+
+
+@dataclass
+class DialogueTurn:
+    """单轮对话数据结构，包含系统/用户发言和槽位状态信息。"""
+    system_utterance: str
+    user_utterance: str
+    predicted_state: Dict[str, str] = field(default_factory=dict)
+    turn_updates: Dict[str, str] = field(default_factory=dict)
+    # 保留原始 LLM 响应，供调试和离线分析使用；状态追踪本身不依赖此字段。
+    raw_llm_response: Optional[str] = None
 
 
 class DialogueStateTracker:

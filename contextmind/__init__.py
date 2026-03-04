@@ -8,19 +8,17 @@ ContextMind 提供四种先进的对话处理模式：
 - PyTOD（可编程任务型对话）：程序执行 + 真实 API 调用
 
 主要组件：
-- infra：基础设施（日志、LLM客户端、工具）
-- config：配置管理（场景注册、配置文件）
-- ui：用户界面组件
+- infra：基础设施（日志、LLM客户端、嵌入向量、基础数据模型）
 - modes：四种对话处理模式（共享 BaseTracker 协议）
-- scenarios：场景配置定义
-- apps：应用实现
+- scenarios：场景配置、系统提示词、注册表及 Evolve 应用实现
+- ui：用户界面组件（Gradio）
 """
 
 __version__ = "0.2.1"
 __author__ = "ContextMind Team"
 
 # 重新导出主要组件，方便访问
-from contextmind.config.registry import scenario_registry
+from contextmind.scenarios.registry import scenario_registry
 from contextmind.modes.base import BaseTracker
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker

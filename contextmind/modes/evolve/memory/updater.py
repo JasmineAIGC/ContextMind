@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 
 from ..core.data_models import ContextItem, Knowledge
-from ..core.types import ContextSource, KnowledgeType
+from ..core.config import ContextSource, KnowledgeType
 from contextmind.infra.logger import get_logger
 from ..core.strategies import UpdateStrategy as BaseUpdater  # 使用核心基类
 from contextmind.infra.embedding import calculate_embedding_similarity

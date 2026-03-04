@@ -16,7 +16,7 @@ import time
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
-from .data_models import FunctionCall, DialogueTurn
+from .function_manager import FunctionCall, DialogueTurn
 from .function_manager import FunctionManager
 from .parser import FnCTODResponseParser
 from .schemas import get_function_schema_for_scenario

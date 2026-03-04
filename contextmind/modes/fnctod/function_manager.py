@@ -1,15 +1,159 @@
 """
 FnCTOD Function Manager
 
-管理 domain-as-function 规格
+数据模型（FunctionCall、FunctionParameter、DomainSpec）+ 函数管理器（FunctionManager）合并模块。
+
+将 data_models 与 function_manager 合并，减少文件数量，
+因为两者高度耦合（FunctionManager 直接操作 DomainSpec、FunctionParameter）。
 """
 
 import json
-from typing import Dict, List, Optional
-from .data_models import DomainSpec, FunctionParameter, ParameterType
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# 数据模型（原 data_models.py）
+# ---------------------------------------------------------------------------
+
+class ParameterType(Enum):
+    """参数类型枚举"""
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    ARRAY = "array"
+    OBJECT = "object"
+
+
+@dataclass
+class FunctionParameter:
+    """函数参数定义"""
+    name: str
+    description: str
+    param_type: ParameterType = ParameterType.STRING
+    required: bool = False
+    enum_values: Optional[List[str]] = None
+    default: Optional[Any] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典（用于生成JSON schema）"""
+        param_def = {
+            "type": self.param_type.value,
+            "description": self.description
+        }
+        if self.enum_values:
+            param_def["enum"] = self.enum_values
+        if self.default is not None:
+            param_def["default"] = self.default
+        return param_def
+
+
+@dataclass
+class DomainSpec:
+    """Domain规格定义，每个domain被视为一个function。"""
+    name: str
+    description: str
+    parameters: List[FunctionParameter] = field(default_factory=list)
+
+    def add_parameter(self, param: FunctionParameter):
+        self.parameters.append(param)
+
+    def get_required_parameters(self) -> List[str]:
+        return [p.name for p in self.parameters if p.required]
+
+    def to_json_schema(self) -> Dict[str, Any]:
+        """转换为JSON Schema格式（符合OpenAI function calling规范）"""
+        properties = {}
+        required = []
+
+        for param in self.parameters:
+            properties[param.name] = param.to_dict()
+            if param.required:
+                required.append(param.name)
+
+        schema = {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": properties
+            }
+        }
+
+        if required:
+            schema["parameters"]["required"] = required
+
+        return schema
+
+    def to_prompt_format(self) -> str:
+        """转换为提示词格式"""
+        lines = [
+            f"Function: {self.name}",
+            f"Description: {self.description}",
+            "Parameters:"
+        ]
+
+        for param in self.parameters:
+            required_mark = " (required)" if param.required else ""
+            enum_info = f" [options: {', '.join(param.enum_values)}]" if param.enum_values else ""
+            lines.append(
+                f"  - {param.name} ({param.param_type.value}){required_mark}: "
+                f"{param.description}{enum_info}"
+            )
+
+        return "\n".join(lines)
+
+
+@dataclass
+class FunctionCall:
+    """函数调用结果，包含function名称、参数、原始输出和自然语言回复。"""
+    function_name: str
+    arguments: Dict[str, Any] = field(default_factory=dict)
+    raw_output: str = ""
+    natural_response: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "function": self.function_name,
+            "arguments": self.arguments,
+            "response": self.natural_response
+        }
+
+    def to_xml(self) -> str:
+        """转换为XML格式的function call（用于提示词中的历史记录）"""
+        args_json = json.dumps(self.arguments, ensure_ascii=False, indent=0)
+        return f"<function_call name=\"{self.function_name}\">\n{args_json}\n</function_call>"
+
+    def __str__(self) -> str:
+        return self.to_xml()
+
+
+@dataclass
+class DialogueTurn:
+    """对话轮次，记录一轮对话的完整信息。"""
+    turn_id: int
+    user_utterance: str
+    system_utterance: str = ""
+    function_call: Optional[FunctionCall] = None
+    state: Dict[str, Any] = field(default_factory=dict)
+    timestamp: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        result = {
+            "turn_id": self.turn_id,
+            "user": self.user_utterance,
+            "system": self.system_utterance,
+            "state": self.state
+        }
+        if self.function_call:
+            result["function_call"] = self.function_call.to_dict()
+        if self.timestamp:
+            result["timestamp"] = self.timestamp
+        return result
 
 
 class FunctionManager:

@@ -5,8 +5,8 @@ import re
 import json
 
 from ..core.data_models import Message, Knowledge, ScoreInfo
-from ..core.types import KnowledgeType
-from ..core.configs import ExtractionConfig, DEFAULT_MEMORY_CONFIG
+from ..core.config import KnowledgeType
+from ..core.config import ExtractionConfig, DEFAULT_MEMORY_CONFIG
 from contextmind.infra.logger import get_logger
 from ..core.strategies import ExtractionStrategy as BaseExtractor  # 使用核心基类
 from contextmind.infra.embedding import get_embedding_client

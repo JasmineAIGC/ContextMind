@@ -177,7 +177,7 @@ FnCTOD模式由以下核心组件构成：
 
 ### 2. FunctionManager
 
-函数管理器，负责函数相关操作：
+函数管理器，负责函数相关操作，同时包含数据模型（`FunctionCall`、`DomainSpec`、`FunctionParameter`、`ParameterType`）：
 - 加载函数Schema定义
 - 验证函数调用
 - 管理函数参数

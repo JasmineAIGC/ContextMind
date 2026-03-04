@@ -3,12 +3,17 @@
 from ..engine import EvolveEngine
 from .registry import PluginRegistry, registry
 
-# 从模块化子包导入
-from .types import (
+from .config import (
     KnowledgeType,
     MemoryType,
     MessageRole,
     ContextSource,
+    ExtractionConfig,
+    RetrievalConfig,
+    SummarizationConfig,
+    CompressionConfig,
+    MemorySystemConfig,
+    DEFAULT_MEMORY_CONFIG,
 )
 
 from .data_models import (
@@ -23,15 +28,6 @@ from .data_models import (
     ScoreInfo,
     VersionRecord,
     MemoryNote,
-)
-
-from .configs import (
-    ExtractionConfig,
-    RetrievalConfig,
-    SummarizationConfig,
-    CompressionConfig,
-    MemorySystemConfig,
-    DEFAULT_MEMORY_CONFIG,
 )
 
 from contextmind.infra.logger import (
@@ -99,4 +95,3 @@ __all__ = [
     "CompressionStrategy",
     "RerankingStrategy",
 ]
-

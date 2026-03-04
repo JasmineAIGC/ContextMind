@@ -16,13 +16,13 @@ from .core.data_models import (
     ProcessedContext,
     Knowledge,
 )
-from .core.types import MessageRole, ContextSource
+from .core.config import MessageRole, ContextSource
 from contextmind.infra.logger import get_logger
 from .memory import SessionManager, MemoryBank
 from .pipeline.response_handler import ResponseHandler
-from .pipeline.preprocessor import InputPreprocessor
-from .pipeline.compressor import ContextCompressor
-from .pipeline.reorderer import ContextReorderer
+from .pipeline.steps import InputPreprocessor
+from .pipeline.steps import ContextCompressor
+from .pipeline.steps import ContextReorderer
 from .pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
 
 logger = get_logger(__name__)
@@ -86,7 +86,7 @@ class EvolveEngine:
         self.reorderer = ContextReorderer()
         
         from .memory import LLMBasedExtractor
-        from .core.configs import DEFAULT_MEMORY_CONFIG
+        from .core.config import DEFAULT_MEMORY_CONFIG
         
         config = extraction_config or DEFAULT_MEMORY_CONFIG.extraction
         config.extraction_method = extraction_method

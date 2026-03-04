@@ -7,7 +7,7 @@ FnCTOD Response Parser
 import re
 import json
 from typing import Dict, List, Optional, Tuple, Any
-from .data_models import FunctionCall
+from .function_manager import FunctionCall
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)

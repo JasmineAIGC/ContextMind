@@ -77,9 +77,9 @@ class PluginRegistry:
             self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
             self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
-            from ..pipeline.compressor import ContextCompressor
-            from ..pipeline.reorderer import ContextReorderer
-            from ..pipeline.preprocessor import InputPreprocessor
+            from ..pipeline.steps import ContextCompressor
+            from ..pipeline.steps import ContextReorderer
+            from ..pipeline.steps import InputPreprocessor
             from ..pipeline.response_handler import ResponseHandler
             from ..pipeline.summarizer import LLMBasedSummarizer
             

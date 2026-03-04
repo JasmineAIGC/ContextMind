@@ -32,7 +32,7 @@ FnCTOD Module - Function Calling for Task-Oriented Dialogue
 """
 
 # 数据模型
-from .data_models import FunctionCall, DomainSpec, FunctionParameter, ParameterType
+from .function_manager import FunctionCall, DomainSpec, FunctionParameter, ParameterType
 
 # 核心组件
 from .function_manager import FunctionManager

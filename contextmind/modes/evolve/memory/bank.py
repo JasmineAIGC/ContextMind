@@ -12,8 +12,8 @@ from ..core.data_models import (
     MemoryNote,
     Knowledge,
 )
-from ..core.types import ContextSource, KnowledgeType, MemoryType
-from ..core.configs import DEFAULT_MEMORY_CONFIG, RetrievalConfig
+from ..core.config import ContextSource, KnowledgeType, MemoryType
+from ..core.config import DEFAULT_MEMORY_CONFIG, RetrievalConfig
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)

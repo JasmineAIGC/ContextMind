@@ -9,7 +9,7 @@ from typing import List, Optional, Any
 from datetime import datetime
 
 from ..core.data_models import Message
-from ..core.types import MessageRole
+from ..core.config import MessageRole
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)

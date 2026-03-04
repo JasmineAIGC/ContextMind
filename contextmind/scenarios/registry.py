@@ -5,11 +5,11 @@
 
 用法示例：
     # 查询场景
-    from scenario_registry import scenario_registry
-    
+    from contextmind.scenarios.registry import scenario_registry
+
     app_class = scenario_registry.get_app_class("chat")
     schema = scenario_registry.get_schema("insurance")
-    
+
     # 添加新场景：只需在 scenarios.yaml 中添加配置
 """
 

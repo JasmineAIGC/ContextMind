@@ -29,10 +29,9 @@ ContextMind/
 contextmind/
 ├── __init__.py          # 包入口，导出主要接口
 ├── infra/               # 基础设施层
-├── config/              # 配置层
 ├── ui/                  # UI层
 ├── modes/               # 对话处理模式
-└── scenarios/           # 场景配置与应用
+└── scenarios/           # 场景配置与应用（含注册表和YAML配置）
 ```
 
 ### 1. 基础设施层 (infra/)
@@ -58,24 +57,7 @@ infra/
 
 **依赖**: 无其他内部依赖
 
-### 2. 配置层 (config/)
-
-**用途**: 管理系统配置和场景注册
-
-```
-config/
-├── __init__.py
-├── registry.py          # 场景注册表
-│   └── ScenarioRegistry    # 注册表类
-│   └── scenario_registry   # 全局实例
-│
-└── scenarios.yaml       # 场景配置文件
-    └── 定义所有场景的元数据
-```
-
-**依赖**: infra
-
-### 3. UI层 (ui/)
+### 2. UI层 (ui/)
 
 **用途**: 用户界面组件
 
@@ -87,9 +69,9 @@ ui/
     └── create_mode_selector()
 ```
 
-**依赖**: infra, config
+**依赖**: infra
 
-### 4. 对话处理模式 (modes/)
+### 3. 对话处理模式 (modes/)
 
 **用途**: 四种核心对话处理算法
 
@@ -98,35 +80,31 @@ modes/
 ├── __init__.py
 ├── base.py                  # BaseTracker 协议（所有追踪器的共享接口）
 │
-├── dst/                 # 对话状态追踪模式
+├── dst/                 # 对话状态追踪模式（3文件）
 │   ├── __init__.py
-│   ├── tracker.py                   # 主追踪器
+│   ├── tracker.py                   # 主追踪器 + DialogueTurn/SpecialValue 数据模型
 │   ├── prompts.py                   # 提示管理器
-│   ├── parser.py                    # DST响应解析器（DSTResponseParser）
-│   └── data_models.py               # 数据模型
+│   └── parser.py                    # DST响应解析器（DSTResponseParser）
 │
-├── fnctod/              # 函数调用模式
+├── fnctod/              # 函数调用模式（4文件）
 │   ├── __init__.py
 │   ├── tracker.py                   # 主追踪器
-│   ├── function_manager.py          # 函数管理器
+│   ├── function_manager.py          # 函数管理器 + 数据模型（FunctionCall、DomainSpec等）
 │   ├── parser.py                    # FnCTOD响应解析器（FnCTODResponseParser）
-│   ├── schemas.py                   # Schema定义
-│   ├── data_models.py               # 数据模型
-│   └── prompts.yaml                 # 提示词配置
+│   └── schemas.py                   # Schema定义
 │
 ├── evolve/              # 演化式上下文模式
 │   ├── __init__.py
 │   ├── engine.py                    # 主引擎
+│   ├── factory.py                   # create_app_for_scenario 工厂函数
 │   │
-│   ├── core/                        # 核心组件
-│   │   ├── configs.py               # 配置
-│   │   ├── data_models.py           # 数据模型
-│   │   ├── models.py                # 模型定义
-│   │   ├── registry.py              # 组件注册
-│   │   ├── strategies.py            # 策略模式
-│   │   └── types.py                 # 类型定义
+│   ├── core/                        # 核心组件（4文件）
+│   │   ├── config.py                # 类型定义（KnowledgeType等）+ 配置数据类（合并）
+│   │   ├── data_models.py           # 数据模型（Message、ContextItem等）
+│   │   ├── strategies.py            # 抽象策略基类
+│   │   └── registry.py              # 插件注册表
 │   │
-│   ├── memory/                      # 记忆系统
+│   ├── memory/                      # 记忆系统（6文件）
 │   │   ├── bank.py                  # 记忆库
 │   │   ├── extractor.py             # 知识提取器
 │   │   ├── retriever.py             # 记忆检索器
@@ -134,19 +112,16 @@ modes/
 │   │   ├── updater.py               # 记忆更新器
 │   │   └── memory_fitness.py        # 适应度评估
 │   │
-│   ├── evolution/                   # 进化学习
+│   ├── evolution/                   # 进化学习（2文件）
 │   │   ├── evolutionary_updater.py  # 进化更新器
 │   │   └── feedback_system.py       # 反馈系统
 │   │
-│   └── pipeline/                    # 五步流水线
-│       ├── compressor.py            # 上下文压缩
-│       ├── context_retriever.py     # 上下文检索
-│       ├── preprocessor.py          # 预处理器
-│       ├── reorderer.py             # 重排序器
-│       ├── response_handler.py      # 响应处理器
-│       └── summarizer.py            # 摘要器
+│   └── pipeline/                    # 上下文处理流水线（3文件）
+│       ├── steps.py                 # InputPreprocessor + ContextRetriever + ContextCompressor + ContextReorderer（合并）
+│       ├── summarizer.py            # LLMBasedSummarizer
+│       └── response_handler.py      # 响应处理器
 │
-└── pytod/               # 可编程任务型对话模式
+└── pytod/               # 可编程任务型对话模式（6文件）
     ├── __init__.py
     ├── tracker.py                   # 主追踪器（三步流程协调）
     ├── prompts.py                   # 动作解析器和对话管理器 prompt 构建
@@ -156,11 +131,11 @@ modes/
     └── api_registry.py              # API注册表
 ```
 
-**依赖**: infra, config
+**依赖**: infra
 
-### 5. 场景配置与应用 (scenarios/)
+### 4. 场景配置与应用 (scenarios/)
 
-**用途**: 定义各种对话场景的配置及对应的应用实现
+**用途**: 定义各种对话场景的配置及对应的应用实现，并集中管理场景注册表和配置文件
 
 ```
 scenarios/
@@ -173,6 +148,12 @@ scenarios/
 │   └── CHAT_SYSTEM_PROMPT
 │   └── CALLCENTER_SYSTEM_PROMPT
 │   └── INSURANCE_SYSTEM_PROMPT
+│
+├── registry.py              # 场景注册表
+│   └── ScenarioRegistry    # 注册表类
+│   └── scenario_registry   # 全局实例
+│
+├── scenarios.yaml           # 场景配置文件（定义所有场景的元数据）
 │
 ├── chat/                    # 闲聊场景包
 │   ├── scenario.py          # get_chat_scenario()
@@ -189,7 +170,7 @@ scenarios/
 └── anyihua/                 # 安意化场景（UNCHANGED）
 ```
 
-**依赖**: config, modes/evolve
+**依赖**: infra, modes/evolve
 
 ---
 
@@ -320,13 +301,11 @@ DEBUG=False
 
 1. infra/                    # 无依赖
    ↓
-2. config/                   # 依赖 infra
+2. ui/ + modes/              # 依赖 infra
    ↓
-3. ui/ + modes/              # 依赖 infra, config
+3. scenarios/                # 依赖 infra, modes/evolve
    ↓
-4. scenarios/                # 依赖 config, modes/evolve
-   ↓
-5. examples/                 # 依赖所有层
+4. examples/                 # 依赖所有层
 ```
 
 **原则**: 
@@ -341,7 +320,7 @@ DEBUG=False
 ### 添加新场景
 
 1. 在 `contextmind/scenarios/` 创建 `xxx/` 子包，包含 `scenario.py` 和 `app.py`
-2. 在 `contextmind/config/scenarios.yaml` 注册
+2. 在 `contextmind/scenarios/scenarios.yaml` 注册
 3. 编写测试
 
 ### 添加新模式

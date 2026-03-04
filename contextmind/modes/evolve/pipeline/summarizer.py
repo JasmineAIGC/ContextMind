@@ -7,7 +7,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 from ..core.data_models import Message, ContextItem
-from ..core.types import MessageRole
+from ..core.config import MessageRole
 from contextmind.infra.logger import get_logger
 from ..core.strategies import SummarizerStrategy  # 使用核心基类
 

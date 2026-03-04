@@ -37,7 +37,6 @@ PyTOD（Programmable Task-Oriented Dialogue）将对话理解建模为**程序�
 | `schemas.py` | `ServiceSchema`, `IntentDefinition`, `SlotDefinition`, `load_schema_from_dict` | **Schema 数据模型**：可选的服务/意图/槽位预定义结构，用于 schema 驱动模式 |
 | `validator.py` | `ActionValidator`, `ValidationResult` | **动作校验器**：校验 LLM 生成的动作合法性，提供反馈用于重试 |
 | `api_registry.py` | `SCENARIO_API_REGISTRY`, `get_scenario_key` | **API 注册表**：按场景注册 API 函数，供执行引擎调用 |
-| `data_models.py` | _(各场景专用模型)_ | **数据模型**：各场景专属的输入/输出数据类 |
 | `__init__.py` | — | 模块入口，导出所有公共接口 |
 
 ---

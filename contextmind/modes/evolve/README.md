@@ -48,10 +48,10 @@ Evolve模式由五大核心组件构成：
 ### 3. Pipeline
 
 上下文处理流水线：
+- **InputPreprocessor**：输入预处理
 - **ContextRetriever**：上下文检索
-- **Preprocessor**：预处理
-- **Compressor**：压缩
-- **Reorderer**：重排序
+- **ContextCompressor**：压缩
+- **ContextReorderer**：重排序
 - **Summarizer**：摘要生成
 
 ### 4. Evolution
@@ -63,10 +63,10 @@ Evolve模式由五大核心组件构成：
 ### 5. Core Framework
 
 核心框架：
-- **DataModels**：数据模型
-- **FrameworkConfig**：配置管理
-- **Strategies**：策略定义
-- **Registry**：组件注册
+- **DataModels**：数据模型（Message、ContextItem等）
+- **Config**：类型定义（KnowledgeType等）和配置数据类（合并）
+- **Strategies**：抽象策略基类
+- **Registry**：插件注册表
 
 ## 计算流程
 
@@ -330,20 +330,16 @@ for mem in recent:
 ### 自定义配置
 
 ```python
-from contextmind.modes.evolve.core.framework_config import FrameworkConfig
+from contextmind.modes.evolve.core.config import MemorySystemConfig
 
-config = FrameworkConfig(
-    max_history_turns=20,          # 最多保留20轮历史
-    memory_capacity=100,            # 记忆库容量100条
-    retrieval_top_k=5,             # 检索top 5相关记忆
-    enable_compression=True,        # 启用压缩
-    enable_reranking=True          # 启用重排序
+config = MemorySystemConfig(
+    # 根据 MemorySystemConfig 的字段进行配置
 )
 
 app = create_app_for_scenario(
     scenario_name="chat",
     llm_client=llm_client,
-    framework_config=config
+    config=config
 )
 ```
 
@@ -421,9 +417,9 @@ class CustomRetriever(MemoryRetriever):
 ### 自定义压缩策略
 
 ```python
-from contextmind.modes.evolve.pipeline.compressor import Compressor
+from contextmind.modes.evolve.pipeline.steps import ContextCompressor
 
-class CustomCompressor(Compressor):
+class CustomCompressor(ContextCompressor):
     def compress(self, context: str) -> str:
         # 自定义压缩逻辑
         pass

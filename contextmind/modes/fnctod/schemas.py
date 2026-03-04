@@ -5,7 +5,7 @@ FnCTOD 预定义函数Schema
 每个Schema定义了domain作为函数的完整规格。
 """
 
-from .data_models import DomainSpec, FunctionParameter, ParameterType
+from .function_manager import DomainSpec, FunctionParameter, ParameterType
 
 
 def get_chat_function_schema() -> DomainSpec:
@@ -794,7 +794,7 @@ def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
         schema = get_function_schema_for_scenario("chat")
         schema = get_function_schema_for_scenario("闲聊")  # 中文别名
     """
-    from contextmind.config.registry import scenario_registry
+    from contextmind.scenarios.registry import scenario_registry
     
     schema = scenario_registry.get_schema(scenario_name)
     if schema is not None:

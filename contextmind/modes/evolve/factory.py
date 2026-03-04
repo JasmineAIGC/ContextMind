@@ -34,7 +34,7 @@ def create_app_for_scenario(
     Example:
         app = create_app_for_scenario("chat", llm_client, config)
     """
-    from contextmind.config.registry import scenario_registry
+    from contextmind.scenarios.registry import scenario_registry
 
     engine = EvolveEngine(
         app_name=f"{app_name_prefix}_{scenario_name}",

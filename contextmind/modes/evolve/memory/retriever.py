@@ -8,8 +8,8 @@ from typing import List, Optional
 import re
 
 from ..core.data_models import ContextItem
-from ..core.types import ContextSource
-from ..core.configs import RetrievalConfig, DEFAULT_MEMORY_CONFIG
+from ..core.config import ContextSource
+from ..core.config import RetrievalConfig, DEFAULT_MEMORY_CONFIG
 from contextmind.infra.logger import get_logger
 from ..core.strategies import RetrievalStrategy as BaseRetriever  # 使用核心基类
 from contextmind.infra.embedding import get_embedding_client, calculate_embedding_similarity
