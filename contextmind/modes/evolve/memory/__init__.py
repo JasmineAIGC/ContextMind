@@ -16,7 +16,6 @@ from .extractor import (
     BaseExtractor,
     RuleBasedExtractor,
     LLMBasedExtractor,
-    ImportancePredictorExtractor,
 )
 from .retriever import (
     BaseRetriever,
@@ -44,7 +43,6 @@ __all__ = [
     "BaseExtractor",
     "RuleBasedExtractor",
     "LLMBasedExtractor",
-    "ImportancePredictorExtractor",
     
     # 检索器 (步骤 2: 检索相关记忆)
     "BaseRetriever",

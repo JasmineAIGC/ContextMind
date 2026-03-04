@@ -4,33 +4,13 @@ Summarizer 模块 - 统一的对话摘要。
 
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
-from dataclasses import dataclass
 
 from ..core.data_models import Message, ContextItem
-from ..core.config import MessageRole
+from ..core.config import MessageRole, SummarizationConfig
 from contextmind.infra.logger import get_logger
 from ..core.strategies import SummarizerStrategy  # 使用核心基类
 
 logger = get_logger(__name__)
-
-
-@dataclass
-class SummarizationConfig:
-    """对话摘要配置"""
-
-    summarize_threshold: int = 5  # 至少5轮对话后才值得摘要，避免对短会话的无效摘要开销
-    keep_recent_turns: int = 3    # 摘要后仍保留最近3轮原始对话，维持对话连贯性
-
-    method: str = "llm"  # 'rule' 或 'llm'；LLM 方式语义更准确但需额外推理延迟
-
-    max_summary_length: int = 200
-    extract_key_points: bool = True
-    max_topics: int = 5
-    topic_length: int = 50
-    include_stats: bool = True
-
-    llm_max_tokens: int = 150
-    llm_temperature: float = 0.3  # 低温度使摘要更确定性、减少幻觉
 
 
 class RuleBasedSummarizer(SummarizerStrategy):

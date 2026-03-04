@@ -48,17 +48,10 @@ class SemanticSearchRetriever(BaseRetriever):
         Returns:
             按相关性排序的记忆列表
         """
-        logger.debug(f"[SemanticRetriever] === 开始记忆检索 ===")
-        logger.debug(f"[SemanticRetriever] 查询: '{query}'")
-        logger.debug(f"[SemanticRetriever] 缓存大小: {len(memory_cache)} 条记忆")
-        logger.debug(f"[SemanticRetriever] Limit: {limit}")
-        
         logger.info(f"[SemanticRetriever] 从缓存检索 - 查询: '{query[:50]}', 缓存大小: {len(memory_cache)}")
         
         if not memory_cache:
             logger.warning("[SemanticRetriever] 缓存为空 - 无法检索记忆")
-            logger.debug(f"[SemanticRetriever] 输出: 0 条记忆")
-            logger.debug(f"[SemanticRetriever] === 记忆检索完成 ===")
             return []
         
         embedding_client = get_embedding_client()
@@ -141,14 +134,10 @@ class SemanticSearchRetriever(BaseRetriever):
         
         if result:
             logger.info(f"[SemanticRetriever] ✓ 检索成功 - 找到 {len(result)} 条相关记忆 (最高分: {filtered_items[0][1]:.2f})")
-            logger.debug(f"[SemanticRetriever] 输出: {len(result)} 条记忆")
             for idx, (item, score) in enumerate(filtered_items[:limit], 1):
                 logger.debug(f"[SemanticRetriever]   [{idx}] 分数={score:.3f}: {item.content[:60]}...")
         else:
             logger.info("[SemanticRetriever] ✗ 未找到相关记忆")
-            logger.debug(f"[SemanticRetriever] 输出: 0 条记忆")
-        
-        logger.debug(f"[SemanticRetriever] === 记忆检索完成 ===")
         
         return result
     
@@ -177,105 +166,3 @@ class SemanticSearchRetriever(BaseRetriever):
             score = self.config.base_score
         
         return score
-    
-    def _deduplicate_memories(self, scored_items: List[tuple]) -> List[tuple]:
-        """Remove near-duplicate memories using Jaccard similarity.
-
-        Uses similarity_threshold_for_dedup from config (typically 0.7) to
-        decide when two memories are close enough to keep only the higher-scored one.
-        Processing in score-descending order ensures the best entry survives.
-        """
-        if not scored_items:
-            return []
-        
-        deduplicated = []
-        seen_contents = []
-        
-        for item, score in scored_items:
-            content = item.content.lower()
-            
-            is_duplicate = False
-            for seen in seen_contents:
-                similarity = self._calculate_similarity(content, seen)
-                if similarity >= self.config.similarity_threshold_for_dedup:
-                    is_duplicate = True
-                    logger.debug(f"跳过重复的记忆（相似度={similarity:.2f}）: {item.content[:40]}...")
-                    break
-            
-            if not is_duplicate:
-                deduplicated.append((item, score))
-                seen_contents.append(content)
-        
-        return deduplicated
-    
-    def _calculate_similarity(self, text1: str, text2: str) -> float:
-        chars1 = set(text1)
-        chars2 = set(text2)
-        
-        if not chars1 or not chars2:
-            return 0.0
-        
-        intersection = len(chars1 & chars2)
-        union = len(chars1 | chars2)
-        
-        return intersection / union if union > 0 else 0.0
-
-
-class HybridRetriever(BaseRetriever):
-    """混合检索器（占位符），结合语义搜索和关键词匹配，当前回退到 SemanticSearchRetriever。"""
-    
-    def __init__(
-        self,
-        config: Optional[RetrievalConfig] = None,
-        semantic_weight: float = 0.7,
-        keyword_weight: float = 0.3
-    ):
-        self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
-        self.semantic_weight = semantic_weight
-        self.keyword_weight = keyword_weight
-        self._fallback = None  # 延迟初始化
-        logger.info(f"[HybridRetriever] 已初始化（占位符）- semantic={semantic_weight}, keyword={keyword_weight}")
-    
-    async def retrieve(
-        self,
-        query: str,
-        memory_cache: List[ContextItem],
-        limit: int = 5
-    ) -> List[ContextItem]:
-        """使用混合语义 + 关键词方法检索（当前为占位符，回退到语义搜索）。"""
-        logger.debug("[HybridRetriever] 使用 SemanticSearchRetriever 的回退方案（尚未实现）")
-        return await self._get_fallback_retriever().retrieve(query, memory_cache, limit)
-    
-    def _get_fallback_retriever(self) -> SemanticSearchRetriever:
-        if self._fallback is None:
-            self._fallback = SemanticSearchRetriever(self.config)
-        return self._fallback
-
-
-class LocatorRetriever(BaseRetriever):
-    """定位器检索器（占位符），基于上下文位置检索记忆，当前回退到 SemanticSearchRetriever。"""
-    
-    def __init__(
-        self,
-        config: Optional[RetrievalConfig] = None,
-        use_metadata: bool = True
-    ):
-        self.config = config or DEFAULT_MEMORY_CONFIG.retrieval
-        self.use_metadata = use_metadata
-        self._fallback = None  # 延迟初始化
-        logger.info(f"[LocatorRetriever] 已初始化（占位符）- metadata={use_metadata}")
-    
-    async def retrieve(
-        self,
-        query: str,
-        memory_cache: List[ContextItem],
-        limit: int = 5
-    ) -> List[ContextItem]:
-        """使用定位器机制检索记忆（当前为占位符，回退到语义搜索）。"""
-        logger.debug("[LocatorRetriever] 使用 SemanticSearchRetriever 的回退方案（尚未实现）")
-        return await self._get_fallback_retriever().retrieve(query, memory_cache, limit)
-    
-    def _get_fallback_retriever(self) -> SemanticSearchRetriever:
-        if self._fallback is None:
-            self._fallback = SemanticSearchRetriever(self.config)
-        return self._fallback

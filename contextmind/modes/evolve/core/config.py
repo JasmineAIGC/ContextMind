@@ -156,9 +156,21 @@ class CompressionConfig:
 
 @dataclass
 class SummarizationConfig:
-    """对话摘要配置"""
-    enabled: bool = False
-    max_turns: int = 10
+    """对话摘要配置（供 ConversationSummarizer 和 MemorySystemConfig 共用）。"""
+
+    summarize_threshold: int = 5   # 至少 N 轮对话后才触发摘要
+    keep_recent_turns: int = 3     # 摘要后仍保留最近 N 轮原始对话
+
+    method: str = "llm"  # 'rule' 或 'llm'
+
+    max_summary_length: int = 200
+    extract_key_points: bool = True
+    max_topics: int = 5
+    topic_length: int = 50
+    include_stats: bool = True
+
+    llm_max_tokens: int = 150
+    llm_temperature: float = 0.3
 
 
 @dataclass

@@ -487,36 +487,8 @@ class LLMBasedExtractor(BaseExtractor):
         return validated
 
 
-class ImportancePredictorExtractor(BaseExtractor):
-    """重要性感知提取器，使用训练好的模型预测提取信息的长期重要性，在存储前过滤低价值记忆。"""
-    
-    def __init__(
-        self,
-        model: Optional[any] = None,
-        config: Optional[ExtractionConfig] = None
-    ):
-        self.model = model
-        self.config = config or DEFAULT_MEMORY_CONFIG.extraction
-        logger.info("[ImportancePredictorExtractor] 已初始化（占位符实现）")
-    
-    async def extract(self, messages: List[Message]) -> List[Knowledge]:
-        """使用重要性预测提取知识，当前回退到基于规则的提取。"""
-        logger.debug("[ImportancePredictorExtractor] 使用回退到 RuleBasedExtractor（尚未实现）")
-        
-        fallback = RuleBasedExtractor(self.config)
-        knowledge = await fallback.extract(messages)
-        
-        return knowledge
-    
-    def _predict_importance(self, knowledge: Knowledge) -> float:
-        """预测知识项的重要性分数（占位符）"""
-        logger.warning("[ImportancePredictorExtractor] 使用占位符实现，返回默认重要性分数 1.0")
-        return 1.0
-
-
 __all__ = [
     "BaseExtractor",
     "RuleBasedExtractor",
     "LLMBasedExtractor",
-    "ImportancePredictorExtractor",
 ]

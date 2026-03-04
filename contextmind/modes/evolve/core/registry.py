@@ -52,30 +52,14 @@ class PluginRegistry:
             return
         
         try:
-            from ..memory.extractor import (
-                LLMBasedExtractor,
-                ImportancePredictorExtractor,
-            )
+            from ..memory.extractor import LLMBasedExtractor
             self.register('extractors', 'llm_based', LLMBasedExtractor)
-            self.register('extractors', 'importance', ImportancePredictorExtractor)
             
-            from ..memory.retriever import (
-                SemanticSearchRetriever,
-                HybridRetriever,
-                LocatorRetriever,
-            )
+            from ..memory.retriever import SemanticSearchRetriever
             self.register('retrievers', 'semantic', SemanticSearchRetriever)
-            self.register('retrievers', 'hybrid', HybridRetriever)
-            self.register('retrievers', 'locator', LocatorRetriever)
             
-            from ..memory.updater import (
-                SimpleUpdater,
-                ConflictResolverUpdater,
-                AdaptiveEvictionUpdater,
-            )
+            from ..memory.updater import SimpleUpdater
             self.register('updaters', 'simple', SimpleUpdater)
-            self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
-            self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
             from ..pipeline.steps import ContextCompressor
             from ..pipeline.steps import ContextReorderer
