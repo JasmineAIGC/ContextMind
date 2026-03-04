@@ -43,13 +43,14 @@ from .data_models import DialogueTurn, SpecialValue
 
 # 核心组件
 from .prompt_manager import PromptManager, Language, LLMFormat
-from .response_parser import ResponseParser
+from .response_parser import DSTResponseParser, ResponseParser
 from .dialogue_state_tracker import DialogueStateTracker
 
 __all__ = [
     'DialogueStateTracker',
     'PromptManager',
     'ResponseParser',
+    'DSTResponseParser',
     'DialogueTurn',
     'SpecialValue',
     'Language',

@@ -2,9 +2,9 @@
 
 ## 概述
 
-**pyTOD**（Programmable Task-Oriented Dialogue，可编程任务型对话）是计划在 ContextMind 中集成的下一个算法。它由 Apple 研究院提出，将任务型对话建模为**程序执行**问题：对话管理器生成可执行的程序语句，由执行引擎实际调用 API 并返回执行反馈。
+**pyTOD**（Programmable Task-Oriented Dialogue，可编程任务型对话）已在 ContextMind 中完整实现。它由 Apple 研究院提出，将任务型对话建模为**程序执行**问题：对话管理器生成可执行的程序语句，由执行引擎实际调用 API 并返回执行反馈。
 
-- **实现状态**: ⏳ 待实现
+- **实现状态**: ✅ 已实现
 - **官方源码**: https://github.com/apple/ml-pytod
 - **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/abs/2508.15456)
 - **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/sgd.md)
@@ -129,27 +129,34 @@ pyTOD 使用 SGD（Schema-Guided Dialogue）数据集，详细说明见 [SGD 数
 
 ---
 
-## ContextMind 中的集成计划
+## ContextMind 中的实现状态
 
-### 预期实现路径
+### 已完成
+
+PyTOD 核心算法已在 `contextmind/modes/pytod/` 目录下完整实现：
 
 ```
-Phase 1：数据集适配
-  - 实现 SGDAdapter（benchmark/datasets/sgd/adapter.py）
-  - 解析 SGD 的 schema.json 和 dialogue_*.json
-  - 提取对话状态和 API 调用序列
-
-Phase 2：算法核心实现
-  - 实现 PyTODEvaluator（benchmark/algorithms/pytod.py）
-  - 集成 API 执行模拟环境
-  - 实现动作解析器接口
-
-Phase 3：评测脚本
-  - run_pytod_sgd.py
-  - 与 DST、FnCTOD 结果对比
+contextmind/modes/pytod/
+├── __init__.py           # 模块入口，导出所有公共接口
+├── tracker.py            # PyTODTracker — 主追踪器（三步流程协调）
+├── prompt_builder.py     # PyTODPromptBuilder — 动作解析器和对话管理器 prompt 构建
+├── execution_engine.py   # ExecutionEngine — 安全解析并执行程序语句
+├── schema.py             # ServiceSchema / IntentDefinition / SlotDefinition
+└── validator.py          # ActionValidator — 动作合法性校验
 ```
 
-### 预期评测指标
+### 待完成（评测集成）
+
+基准评测所需组件尚未实现：
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| P0 | SGD 数据集适配（`benchmark/datasets/sgd/adapter.py`） | ⏳ 待实现 |
+| P0 | pyTOD 评测指标（`benchmark/algorithms/pytod.py`） | ⏳ 待实现 |
+| P1 | 评测脚本（`run_pytod_sgd.py`） | ⏳ 待实现 |
+| P2 | 与 DST/FnCTOD 对比实验 | ⏳ 待实现 |
+
+### 评测指标（待实现）
 
 除标准 DST 指标外，pyTOD 还将引入：
 
@@ -213,18 +220,41 @@ pipenv run python scripts/evaluate_pytod.py split=dev version=v0.9.1
 
 ---
 
+## 快速使用
+
+### 开放域模式（无需预定义意图）
+
+```python
+from contextmind.modes.pytod import PyTODTracker
+from contextmind.infra.llm_client import SimpleLLMClient
+
+tracker = PyTODTracker(llm_client=SimpleLLMClient())
+response = await tracker.process_turn("查一下北京今天的天气")
+```
+
+### Schema 驱动模式（预定义意图和槽位）
+
+```python
+from contextmind.modes.pytod import PyTODTracker, ServiceSchema, load_schema_from_dict
+from contextmind.infra.llm_client import SimpleLLMClient
+
+schema = load_schema_from_dict({...})  # 加载 JSON schema
+tracker = PyTODTracker(llm_client=SimpleLLMClient(), schema=schema)
+response = await tracker.process_turn("我要预订一家餐厅")
+```
+
+---
+
 ## 开发计划
 
-### ContextMind 中的 pyTOD 集成优先级
+### ContextMind 中的 pyTOD 评测集成优先级
 
-| 阶段 | 内容 | 优先级 |
-|------|------|--------|
-| P0 | SGD 数据集适配（`SGDAdapter`） | 高 |
-| P0 | pyTOD 评测指标实现（`PyTODEvaluator`） | 高 |
-| P1 | API 执行引擎集成 | 中 |
-| P1 | 动作解析器实现 | 中 |
-| P2 | 微调数据生成 | 低 |
-| P2 | 与 DST/FnCTOD 对比实验 | 低 |
+| 阶段 | 内容 | 优先级 | 状态 |
+|------|------|--------|------|
+| P0 | SGD 数据集适配（`SGDAdapter`） | 高 | ⏳ 待实现 |
+| P0 | pyTOD 评测指标实现（`PyTODEvaluator`） | 高 | ⏳ 待实现 |
+| P1 | 微调数据生成 | 低 | ⏳ 待实现 |
+| P2 | 与 DST/FnCTOD 对比实验 | 低 | ⏳ 待实现 |
 
 ---
 

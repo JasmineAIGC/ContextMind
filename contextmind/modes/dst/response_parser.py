@@ -1,7 +1,8 @@
 """
-响应解析器（Response Parser）
+DST 响应解析器（DST Response Parser）
 
 鲁棒的JSON响应解析，支持多种格式和容错处理。
+主类为 ``DSTResponseParser``；``ResponseParser`` 是保留的向后兼容别名。
 """
 
 import json
@@ -12,7 +13,7 @@ from contextmind.infra.logger import get_logger
 logger = get_logger(__name__)
 
 
-class ResponseParser:
+class DSTResponseParser:
     """
     响应解析器（支持动态槽位）
     
@@ -346,3 +347,7 @@ class ResponseParser:
                     normalized[slot] = value_str
         
         return normalized
+
+
+# 向后兼容别名
+ResponseParser = DSTResponseParser

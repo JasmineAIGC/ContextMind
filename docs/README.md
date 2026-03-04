@@ -20,7 +20,7 @@
 
 - [DST 算法](algorithms/dst.md) - 对话状态追踪算法（已实现）
 - [FnCTOD 算法](algorithms/fnctod.md) - 函数调用式任务型对话算法（已实现）
-- [pyTOD 算法](algorithms/pytod.md) - 可编程任务型对话算法（待实现）
+- [pyTOD 算法](algorithms/pytod.md) - 可编程任务型对话算法（已实现）
 - [意图评测](algorithms/intent-evaluation.md) - IntentEvaluator 使用指南
 - [上下文工程](algorithms/context-engineering.md) - DST 和 FnCTOD 评测对上下文工程的意义
 
@@ -63,7 +63,7 @@ docs/
 ├── algorithms/                    # 算法文档
 │   ├── dst.md                     # DST 算法（已实现）
 │   ├── fnctod.md                  # FnCTOD 算法（已实现）
-│   ├── pytod.md                   # pyTOD 算法（待实现）
+│   ├── pytod.md                   # pyTOD 算法（已实现）
 │   ├── intent-evaluation.md       # 意图评测使用指南
 │   └── context-engineering.md     # 上下文工程意义
 └── datasets/                      # 数据集文档
@@ -85,7 +85,7 @@ docs/
 |------|------|--------|------|---------|
 | DST | ✅ 已实现 | TransferTOD、RiSAWOZ | [文档](algorithms/dst.md) | `run_dst_transfertod.py` |
 | FnCTOD | ✅ 已实现 | TransferTOD | [文档](algorithms/fnctod.md) | `run_fnctod_transfertod.py` |
-| pyTOD | ⏳ 待实现 | SGD | [文档](algorithms/pytod.md) | — |
+| pyTOD | ✅ 已实现（评测⏳待完成） | SGD | [文档](algorithms/pytod.md) | — |
 
 ### 数据集
 

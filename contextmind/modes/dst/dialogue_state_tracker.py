@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .data_models import DialogueTurn
 from .prompt_manager import PromptManager
-from .response_parser import ResponseParser
+from .response_parser import DSTResponseParser
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
@@ -58,7 +58,7 @@ class DialogueStateTracker:
         
         pm_enable_dynamic = self.prompt_manager.enable_dynamic_slots
         
-        self.response_parser = ResponseParser(
+        self.response_parser = DSTResponseParser(
             ontology_slots=self.prompt_manager.get_slot_names(),
             enable_filtering=not pm_enable_dynamic,
             categorical_slots=categorical_slots

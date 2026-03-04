@@ -8,7 +8,7 @@
 ContextMind/
 ├── contextmind/          # 主包（核心代码）
 ├── examples/             # 示例程序
-├── tests/                # 测试代码
+├── benchmark/            # 评测框架
 ├── docs/                 # 文档
 ├── resources/            # 静态资源
 ├── logs/                 # 日志文件（运行时生成）
@@ -16,9 +16,7 @@ ContextMind/
 ├── requirements.txt      # Python依赖
 ├── .env                  # 环境变量（需创建）
 ├── .gitignore           # Git忽略配置
-├── README.md            # 项目说明
-├── ARCHITECTURE.md      # 架构文档
-└── CONTRIBUTING.md      # 贡献指南
+└── README.md            # 项目说明
 ```
 
 ---
@@ -99,7 +97,7 @@ ui/
 
 ### 4. 对话处理模式 (modes/)
 
-**用途**: 三种核心对话处理算法
+**用途**: 四种核心对话处理算法
 
 ```
 modes/
@@ -109,50 +107,57 @@ modes/
 │   ├── __init__.py
 │   ├── dialogue_state_tracker.py    # 主追踪器
 │   ├── prompt_manager.py            # 提示管理器
-│   ├── response_parser.py           # 响应解析器
+│   ├── response_parser.py           # DST响应解析器（DSTResponseParser）
 │   └── data_models.py               # 数据模型
 │
 ├── fnctod/              # 函数调用模式
 │   ├── __init__.py
 │   ├── fnctod_tracker.py            # 主追踪器
 │   ├── function_manager.py          # 函数管理器
-│   ├── response_parser.py           # 响应解析器
+│   ├── response_parser.py           # FnCTOD响应解析器（FnCTODResponseParser）
 │   ├── schemas.py                   # Schema定义
 │   ├── data_models.py               # 数据模型
 │   └── fnctod_prompts.yaml          # 提示词配置
 │
-└── evolve/              # 演化式上下文模式
+├── evolve/              # 演化式上下文模式
+│   ├── __init__.py
+│   ├── engine.py                    # 主引擎
+│   │
+│   ├── core/                        # 核心组件
+│   │   ├── configs.py               # 配置
+│   │   ├── data_models.py           # 数据模型
+│   │   ├── models.py                # 模型定义
+│   │   ├── registry.py              # 组件注册
+│   │   ├── strategies.py            # 策略模式
+│   │   └── types.py                 # 类型定义
+│   │
+│   ├── memory/                      # 记忆系统
+│   │   ├── bank.py                  # 记忆库
+│   │   ├── extractor.py             # 知识提取器
+│   │   ├── retriever.py             # 记忆检索器
+│   │   ├── session.py               # 会话管理器
+│   │   ├── updater.py               # 记忆更新器
+│   │   └── memory_fitness.py        # 适应度评估
+│   │
+│   ├── evolution/                   # 进化学习
+│   │   ├── evolutionary_updater.py  # 进化更新器
+│   │   └── feedback_system.py       # 反馈系统
+│   │
+│   └── pipeline/                    # 五步流水线
+│       ├── compressor.py            # 上下文压缩
+│       ├── context_retriever.py     # 上下文检索
+│       ├── preprocessor.py          # 预处理器
+│       ├── reorderer.py             # 重排序器
+│       ├── response_handler.py      # 响应处理器
+│       └── summarizer.py            # 摘要器
+│
+└── pytod/               # 可编程任务型对话模式
     ├── __init__.py
-    ├── engine.py                    # 主引擎
-    │
-    ├── core/                        # 核心组件
-    │   ├── configs.py               # 配置
-    │   ├── data_models.py           # 数据模型
-    │   ├── framework_config.py      # 框架配置
-    │   ├── models.py                # 模型定义
-    │   ├── registry.py              # 组件注册
-    │   ├── strategies.py            # 策略模式
-    │   └── types.py                 # 类型定义
-    │
-    ├── memory/                      # 记忆系统
-    │   ├── bank.py                  # 记忆库
-    │   ├── extractor.py             # 知识提取器
-    │   ├── retriever.py             # 记忆检索器
-    │   ├── session.py               # 会话管理器
-    │   ├── updater.py               # 记忆更新器
-    │   └── memory_fitness.py        # 适应度评估
-    │
-    ├── evolution/                   # 进化学习
-    │   ├── evolutionary_updater.py  # 进化更新器
-    │   └── feedback_system.py       # 反馈系统
-    │
-    └── pipeline/                    # 五步流水线
-        ├── compressor.py            # 上下文压缩
-        ├── context_retriever.py     # 上下文检索
-        ├── preprocessor.py          # 预处理器
-        ├── reorderer.py             # 重排序器
-        ├── response_handler.py      # 响应处理器
-        └── summarizer.py            # 摘要器
+    ├── tracker.py                   # 主追踪器（三步流程协调）
+    ├── prompt_builder.py            # 动作解析器和对话管理器 prompt 构建
+    ├── execution_engine.py          # 安全解析并执行程序语句
+    ├── schema.py                    # ServiceSchema / IntentDefinition / SlotDefinition
+    └── validator.py                 # 动作合法性校验
 ```
 
 **依赖**: infra, config
@@ -192,11 +197,8 @@ apps/
 ├── callcenter_app.py        # 客服应用
 │   └── CallCenterApplication
 │
-├── insurance_app.py         # 保险应用
-│   └── InsuranceApplication
-│
-└── plugin_examples.py       # 插件示例
-    └── PluginExamples
+└── insurance_app.py         # 保险应用
+    └── InsuranceApplication
 ```
 
 **依赖**: modes/evolve, scenarios
@@ -207,9 +209,13 @@ apps/
 
 ```
 examples/
-├── cli_demo.py          # 命令行交互示例
-├── web_demo.py          # Web界面示例（Gradio）
-└── batch_demo.py        # 批量测试示例
+├── cli_demo.py                # 命令行交互示例
+├── web_demo.py                # Web界面示例（Gradio）
+├── batch_demo.py              # 批量测试示例
+├── pytod_trace_demo.py        # PyTOD 追踪演示
+├── anyihua_engines_demo.py    # 安意化引擎演示
+├── anyihua_generation_demo.py # 安意化生成演示
+└── anyihua_qc_demo.py         # 安意化质检演示
 ```
 
 **用途**: 展示如何使用 ContextMind
@@ -222,42 +228,33 @@ python examples/web_demo.py
 
 ---
 
-## 测试代码 (tests/)
-
-```
-tests/
-├── __init__.py
-├── test_dst_mode.py     # DST模式测试
-├── test_evolve_mode.py  # Evolve模式测试
-└── fixtures/            # 测试数据（如果有）
-```
-
-**用途**: 单元测试和集成测试
-
-**运行方式**:
-```bash
-python -m pytest tests/
-```
-
----
-
 ## 文档 (docs/)
 
 ```
 docs/
-├── README.md                 # 文档索引
-├── architecture.md           # 架构说明
-├── api-reference.md          # API参考
-├── quick-start.md            # 快速开始
-├── modes.md                  # 模式对比
-├── configuration.md          # 配置指南
-├── extending-scenarios.md    # 扩展场景
-├── naming-standards.md       # 命名规范
-├── directory-structure.md    # 目录结构（本文档）
-├── examples.md               # 示例代码
-├── troubleshooting.md        # 故障排查
-├── migration.md              # 迁移指南
-└── changelog.md              # 更新日志
+├── README.md                      # 文档索引
+├── quick-start.md                 # 快速开始
+├── examples.md                    # 示例代码
+├── directory-structure.md         # 目录结构（本文档）
+├── modes.md                       # 三种对话模式对比
+├── configuration.md               # 配置指南
+├── api-reference.md               # API参考
+├── metrics-explanation.md         # 评测指标说明
+├── extending-scenarios.md         # 扩展场景
+├── troubleshooting.md             # 故障排查
+├── changelog.md                   # 更新日志
+├── CONTRIBUTING.md                # 贡献指南
+├── algorithms/                    # 算法文档
+│   ├── dst.md
+│   ├── fnctod.md
+│   ├── pytod.md
+│   ├── intent-evaluation.md
+│   └── context-engineering.md
+└── datasets/                      # 数据集文档
+    ├── sgd.md
+    ├── transfertod.md
+    ├── risawoz.md
+    └── dialogue-count.md
 ```
 
 ---
@@ -266,10 +263,10 @@ docs/
 
 ```
 resources/
-└── data/                # 数据文件
-    ├── FnCTOD.md       # FnCTOD技术文档
-    ├── dialogue.md     # 对话示例
-    └── script.md       # 脚本模板
+├── data/                # 数据文件
+│   ├── chat_test_100.json   # 闲聊测试数据
+│   └── risawoz_test.json    # RiSAWOZ 测试数据
+└── fonts/               # 字体文件
 ```
 
 ---
@@ -380,7 +377,6 @@ DEBUG=False
 
 ## 相关文档
 
-- [架构说明](architecture.md)
-- [命名规范](naming-standards.md)
+- [模式对比](modes.md)
 - [扩展场景](extending-scenarios.md)
 - [API参考](api-reference.md)
