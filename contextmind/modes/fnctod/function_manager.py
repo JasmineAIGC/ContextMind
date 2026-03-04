@@ -84,7 +84,7 @@ class FunctionManager:
         """返回所有已注册 domain 的名称列表。"""
         return list(self.domains.keys())
     
-    def generate_system_prompt(self, include_all_specs: bool = False) -> str:
+    def build_system_prompt(self, include_all_specs: bool = False) -> str:
         """
         生成系统提示词
         
@@ -160,7 +160,7 @@ class FunctionManager:
         
         return "\n".join(prompt_parts)
     
-    def generate_function_spec_for_domain(self, domain_name: str) -> str:
+    def build_domain_spec_prompt(self, domain_name: str) -> str:
         """
         为特定domain生成函数规格
         
@@ -176,7 +176,7 @@ class FunctionManager:
         
         return domain.to_prompt_format()
     
-    def to_json_schemas(self) -> List[Dict]:
+    def export_json_schemas(self) -> List[Dict]:
         """
         导出所有domain为JSON schemas（OpenAI格式）
         

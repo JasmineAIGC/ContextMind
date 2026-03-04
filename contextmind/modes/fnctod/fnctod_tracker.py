@@ -213,7 +213,7 @@ class FnCTODTracker:
         prompt_start = time.time()
         
         # 根据FnCTOD论文，提示词包含所有domain的简要描述
-        system_prompt = self.function_manager.generate_system_prompt(include_all_specs=False)
+        system_prompt = self.function_manager.build_system_prompt(include_all_specs=False)
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -375,12 +375,12 @@ class FnCTODTracker:
         # 降级到默认示例
         return self.prompt_templates.get('default_examples', {})
     
-    def _build_default_prompt(self, domains: List[str]) -> str:
+    def _build_fallback_prompt(self, domains: List[str]) -> str:
         """
-        构建默认提示词（配置文件不可用时的降级方案）
+        后备提示词（配置文件不可用时使用的内置最小模板）
         
         Args:
-            domains: domain列表
+            domains: 需要生成提示词的 domain 名称列表
         
         Returns:
             提示词文本
@@ -428,7 +428,7 @@ class FnCTODTracker:
             提示词文本
         """
         if not self.prompt_templates:
-            return self._build_default_prompt(domains)
+            return self._build_fallback_prompt(domains)
         
         templates = self.prompt_templates
         prompt_parts = []
@@ -525,32 +525,10 @@ class FnCTODTracker:
     def create_from_config(cls, llm_client, scenario_config,
                           use_two_stage: bool = True,
                           max_history_turns: int = 10):
-        """
-        ``from_scenario`` 的别名，保持向后兼容。
-
-        优先使用预定义 Schema；场景无 Schema 时根据槽位定义动态构建。
-        """
-        function_manager = FunctionManager()
-
-        try:
-            # 优先使用 schemas.py 中的预定义 Schema，精度更高。
-            schema = get_function_schema_for_scenario(scenario_config.name)
-            function_manager.add_domain(schema)
-            logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
-        except ValueError as e:
-            # 场景无预定义 Schema，根据槽位定义动态构建。
-            logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
-            function_manager.add_domain_from_slots(
-                domain_name=scenario_config.name,
-                domain_description=getattr(scenario_config, 'description', f"{scenario_config.name} domain"),
-                slots=scenario_config.dst_slots,
-                categorical_slots=getattr(scenario_config, 'dst_categorical_slots', None),
-                required_slots=[]
-            )
-
-        return cls(
+        """向后兼容别名，请使用 ``from_scenario()``。"""
+        return cls.from_scenario(
             llm_client=llm_client,
-            function_manager=function_manager,
+            scenario_config=scenario_config,
             use_two_stage=use_two_stage,
-            max_history_turns=max_history_turns
+            max_history_turns=max_history_turns,
         )

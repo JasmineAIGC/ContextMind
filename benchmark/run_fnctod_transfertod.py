@@ -9,11 +9,6 @@ FnCTOD模式 - TransferTOD数据集评测脚本
     python benchmark/run_fnctod_transfertod.py --domain 酒店 --data-type clean --limit 10
 """
 
-# ============================================================================
-# 版本标识 - 如果你看到这行输出，说明你在运行新版本的脚本
-# VERSION: 2024-02-10-v3 (Fixed FunctionParameter initialization)
-# ============================================================================
-
 import asyncio
 import argparse
 import json
@@ -38,28 +33,26 @@ from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 logger = get_logger(__name__)
 
 
-class FnCTODTransferTODTest:
-    """
-    FnCTOD模式 - TransferTOD测试类
-    """
-    
+class TransferTODFnCTODEvaluator:
+    """TransferTOD 数据集上的 FnCTOD 评测器。"""
+
     def __init__(self, data_root: str = "./data/TransferTOD", schemas_file: str = None):
         """
-        初始化测试
-        
+        初始化评测器。
+
         Args:
-            data_root: TransferTOD数据集根目录
-            schemas_file: 可选的预加载schemas JSON文件路径
+            data_root: TransferTOD 数据集根目录
+            schemas_file: 可选的预加载 schemas JSON 文件路径
         """
         self.adapter = TransferTODAdapter(data_root, schemas_file=schemas_file)
         self.llm_client = None
         self.tracker = None
-        self.intent_evaluator = IntentEvaluator()  # 意图评测器
-        
-    def initialize(self, domain: str):
+        self.intent_evaluator = IntentEvaluator()
+
+    def setup_tracker(self, domain: str):
         """
-        初始化FnCTOD追踪器
-        
+        为指定领域初始化 LLM 客户端和 FnCTOD 追踪器。
+
         Args:
             domain: 领域名称
         """
@@ -84,36 +77,32 @@ class FnCTODTransferTODTest:
         
         # 获取领域schema
         schema = self.adapter.get_domain_schema(domain)
-        
+
         # 创建FunctionManager并添加领域函数
         function_manager = FunctionManager()
-        
-        # 创建DomainSpec（将TransferTOD schema转换为FnCTOD格式）
-        domain_spec = self._create_domain_spec_from_schema(domain, schema)
+        domain_spec = self._build_domain_spec(domain, schema)
         function_manager.add_domain(domain_spec)
-        
-        # 创建FnCTODTracker
+
+        # 创建FnCTODTracker（两阶段：domain选择 + parameter填充）
         self.tracker = FnCTODTracker(
             llm_client=self.llm_client,
             function_manager=function_manager,
-            use_two_stage=True,  # 使用两阶段处理
+            use_two_stage=True,
             max_history_turns=10
         )
-        
-        logger.info(f"✅ FnCTOD模式初始化完成 - 领域: {domain}")
-        logger.info(f"   函数调用模式: 两阶段（domain选择 + parameter填充）")
-        logger.info(f"   预定义槽位数: {len(schema['slots'])}")
-    
-    def _create_domain_spec_from_schema(self, domain: str, schema: Dict) -> DomainSpec:
+
+        logger.info(f"✅ FnCTOD追踪器初始化完成 - 领域: {domain}，预定义槽位数: {len(schema['slots'])}")
+
+    def _build_domain_spec(self, domain: str, schema: Dict) -> DomainSpec:
         """
-        从TransferTOD schema创建DomainSpec
-        
+        将 TransferTOD schema 转换为 FnCTOD DomainSpec。
+
         Args:
             domain: 领域名称
-            schema: TransferTOD schema
-            
+            schema: TransferTOD schema 字典
+
         Returns:
-            DomainSpec对象
+            DomainSpec 对象
         """
         # 创建函数参数
         parameters = []
@@ -223,16 +212,16 @@ class FnCTODTransferTODTest:
         else:
             raise ValueError(f"Invalid mode: {mode}. Must be 'strict' or 'soft'")
     
-    async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
+    async def evaluate_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
         """
-        测试单个对话
-        
+        对单个对话进行 FnCTOD 评测。
+
         Args:
-            dialogue_id: 对话ID
-            verbose: 是否输出详细信息
-            
+            dialogue_id: 对话 ID
+            verbose: 是否输出逐轮详细信息
+
         Returns:
-            包含评测指标的字典
+            评测指标字典
         """
         # 加载对话数据
         dialogue = self.adapter.load_dialogue(dialogue_id)
@@ -519,7 +508,7 @@ def main():
         print(f"📁 使用预加载的schemas文件: {args.schemas_file}\n")
     
     # 初始化测试
-    test = FnCTODTransferTODTest(data_root=args.data_root, schemas_file=args.schemas_file)
+    test = TransferTODFnCTODEvaluator(data_root=args.data_root, schemas_file=args.schemas_file)
     
     # 获取对话列表
     try:
@@ -545,7 +534,7 @@ def main():
     if args.domain:
         print(f"\n初始化领域: {args.domain}")
         try:
-            test.initialize(args.domain)
+            test.setup_tracker(args.domain)
         except Exception as e:
             print(f"❌ 初始化FnCTOD tracker失败: {e}")
             import traceback
@@ -573,7 +562,7 @@ def main():
                         current_domain = dialogue.domain
                         print(f"\n切换领域: {current_domain}")
                         try:
-                            test.initialize(current_domain)
+                            test.setup_tracker(current_domain)
                         except Exception as e:
                             print(f"❌ 初始化领域 {current_domain} 失败: {e}")
                             import traceback
@@ -589,7 +578,7 @@ def main():
                     current_domain = args.domain
                 
                 # 使用事件循环运行async函数
-                metrics = loop.run_until_complete(test.test_dialogue(dialogue_id, verbose=args.verbose))
+                metrics = loop.run_until_complete(test.evaluate_dialogue(dialogue_id, verbose=args.verbose))
                 all_metrics.append(metrics)
                 domain_metrics[current_domain].append(metrics)
                 print(f"✅ 对话 {dialogue_id} 评测完成")
