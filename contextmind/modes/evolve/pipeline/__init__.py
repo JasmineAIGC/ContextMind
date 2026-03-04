@@ -10,6 +10,7 @@ from .response_handler import ResponseHandler
 from .summarizer import (
     SummarizerStrategy as BaseSummarizer,
     LLMBasedSummarizer,
+    ConversationSummarizer,
 )
 
 
@@ -21,4 +22,5 @@ __all__ = [
     "ResponseHandler",
     "BaseSummarizer",
     "LLMBasedSummarizer",
+    "ConversationSummarizer",
 ]

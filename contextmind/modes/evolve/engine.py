@@ -23,7 +23,7 @@ from .pipeline.response_handler import ResponseHandler
 from .pipeline.steps import InputPreprocessor
 from .pipeline.steps import ContextCompressor
 from .pipeline.steps import ContextReorderer
-from .pipeline.summarizer import LLMBasedSummarizer as ConversationSummarizer
+from .pipeline.summarizer import ConversationSummarizer
 
 logger = get_logger(__name__)
 

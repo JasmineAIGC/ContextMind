@@ -49,6 +49,7 @@ from .pipeline import (
     ResponseHandler,
     BaseSummarizer,
     LLMBasedSummarizer,
+    ConversationSummarizer,
 )
 
 from .memory import (
@@ -73,7 +74,6 @@ from .evolution import (
 
 registry = PluginRegistry()
 InputPreprocessor = Preprocessor
-ConversationSummarizer = LLMBasedSummarizer
 ResponseParser = ResponseHandler
 
 from .factory import create_app_for_scenario
