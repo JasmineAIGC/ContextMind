@@ -78,13 +78,13 @@ class UnifiedGradioDemo:
         
         # 根据模式初始化
         if mode == "dst":
-            self._init_dst_mode()
+            self._setup_dst_tracker()
         elif mode == "fnctod":
-            self._init_fnctod_mode()
+            self._setup_fnctod_tracker()
         elif mode == "pytod":
-            self._init_pytod_mode()
+            self._setup_pytod_tracker()
         else:
-            self._init_evolve_mode()
+            self._setup_evolve_app()
         
         logger.info(f"✅ 场景初始化完成: {scenario}, 模式: {mode}")
     
@@ -92,7 +92,7 @@ class UnifiedGradioDemo:
         """获取欢迎消息"""
         return self.config.welcome_message if self.config.welcome_message else "你好！"
     
-    def _init_dst_mode(self):
+    def _setup_dst_tracker(self):
         """初始化DST模式"""
         try:
             if self.llm_client is None:
@@ -123,7 +123,7 @@ class UnifiedGradioDemo:
         
         logger.info("DST模式初始化完成")
     
-    def _init_fnctod_mode(self):
+    def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
         try:
             if self.llm_client is None:
@@ -153,7 +153,7 @@ class UnifiedGradioDemo:
         
         logger.info("FnCTOD模式初始化完成")
 
-    def _init_pytod_mode(self):
+    def _setup_pytod_tracker(self):
         """初始化PyTOD模式"""
         try:
             if self.llm_client is None:
@@ -174,7 +174,7 @@ class UnifiedGradioDemo:
 
         logger.info("PyTOD模式初始化完成")
 
-    def _init_evolve_mode(self):
+    def _setup_evolve_app(self):
         """初始化Evolve模式"""
         try:
             if self.llm_client is None:

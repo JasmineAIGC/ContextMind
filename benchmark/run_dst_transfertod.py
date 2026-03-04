@@ -22,6 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
+from benchmark.shared.intent_label_loader import IntentLabelLoader
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -29,27 +30,27 @@ from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 logger = get_logger(__name__)
 
 
-class DSTTransferTODTest:
-    """
-    DST模式 - TransferTOD测试类
-    """
-    
+class TransferTODEvaluator:
+    """TransferTOD 数据集上的 DST 评测器。"""
+
     def __init__(self, data_root: str = "./data/TransferTOD"):
         """
-        初始化测试
-        
+        初始化评测器。
+
         Args:
-            data_root: TransferTOD数据集根目录
+            data_root: TransferTOD 数据集根目录
         """
         self.adapter = TransferTODAdapter(data_root)
         self.llm_client = None
         self.tracker = None
-        self.intent_evaluator = IntentEvaluator()  # 意图评测器
-        
-    def initialize(self, domain: str):
+        self.intent_evaluator = IntentEvaluator()
+        # TransferTOD 使用默认意图标签配置（不指定路径则加载内置配置）
+        self.intent_label_loader = IntentLabelLoader()
+
+    def setup_tracker(self, domain: str):
         """
-        初始化DST追踪器
-        
+        为指定领域初始化 LLM 客户端和 DST 追踪器。
+
         Args:
             domain: 领域名称
         """
@@ -60,45 +61,42 @@ class DSTTransferTODTest:
         except Exception as e:
             logger.error(f"❌ LLM客户端初始化失败: {e}")
             raise
-        
+
         # 获取领域schema（可选：用于指导LLM，但在动态模式下非必需）
         schema = self.adapter.get_domain_schema(domain)
-        
-        # 创建PromptManager（启用动态槽位）
-        # 动态槽位模式：LLM可以自由提取任何相关信息，不限于预定义槽位
+
+        # 动态槽位模式：LLM 可自由提取任何相关信息，不限于预定义槽位；
+        # 同时注入 intent_label_loader 以启用意图预测。
         pm = PromptManager(
             domain=domain,
-            enable_dynamic_slots=True
+            enable_dynamic_slots=True,
+            intent_label_loader=self.intent_label_loader,
         )
-        
-        # 可选：添加槽位定义作为指导（在动态模式下，即使未预定义的槽位也会被接受）
+
+        # 添加槽位定义作为指导（动态模式下 LLM 也可提取未预定义的槽位）
         for slot_name, slot_info in schema["slots"].items():
             pm.add_slot(slot_name, slot_info.get("description", slot_name))
-        
-        # 创建DialogueStateTracker
-        # 注意：enable_dynamic_slots=True 会自动禁用槽位过滤，接受所有LLM提取的槽位
+
         self.tracker = DialogueStateTracker(
             llm_client=self.llm_client,
             prompt_manager=pm,
             max_history_turns=10,
             enable_history_summary=True,
-            use_llm_summary=False
+            use_llm_summary=False,
         )
-        
-        logger.info(f"✅ DST模式初始化完成 - 领域: {domain}")
-        logger.info(f"   动态槽位模式: 启用（接受所有LLM提取的槽位）")
-        logger.info(f"   预定义槽位数: {len(schema['slots'])}")
-    
-    async def test_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
+
+        logger.info(f"✅ DST追踪器初始化完成 - 领域: {domain}，预定义槽位数: {len(schema['slots'])}")
+
+    async def evaluate_dialogue(self, dialogue_id: str, verbose: bool = True) -> Dict[str, Any]:
         """
-        测试单个对话
-        
+        对单个对话进行 DST 评测。
+
         Args:
             dialogue_id: 对话ID
-            verbose: 是否输出详细信息
-            
+            verbose: 是否输出逐轮详细信息
+
         Returns:
-            测试指标
+            评测指标字典
         """
         # 加载对话
         dialogue = self.adapter.load_dialogue(dialogue_id)
@@ -396,8 +394,8 @@ def main():
     print(f"领域: {domain_desc}, 数据类型: {data_type_desc}")
     print("=" * 70)
     
-    # 初始化测试
-    test = DSTTransferTODTest(data_root=args.data_root)
+    # 初始化评测器
+    test = TransferTODEvaluator(data_root=args.data_root)
     
     # 获取对话列表
     try:
@@ -422,7 +420,7 @@ def main():
     # 如果指定了domain，初始化DST for that domain
     # 如果没有指定domain，需要按对话的domain分组处理
     if args.domain:
-        test.initialize(args.domain)
+        test.setup_tracker(args.domain)
     
     # 批量测试
     all_metrics = []
@@ -442,12 +440,12 @@ def main():
                     if dialogue.domain != current_domain:
                         current_domain = dialogue.domain
                         print(f"\n初始化领域: {current_domain}")
-                        test.initialize(current_domain)
+                        test.setup_tracker(current_domain)
                 else:
                     current_domain = args.domain
                 
                 # 使用事件循环运行async函数
-                metrics = loop.run_until_complete(test.test_dialogue(dialogue_id, verbose=args.verbose))
+                metrics = loop.run_until_complete(test.evaluate_dialogue(dialogue_id, verbose=args.verbose))
                 all_metrics.append(metrics)
                 domain_metrics[current_domain].append(metrics)
             except Exception as e:

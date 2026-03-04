@@ -33,36 +33,34 @@ from contextmind.infra.embedding import get_embedding_client, calculate_embeddin
 logger = get_logger(__name__)
 
 
-class DSTRiSAWOZTest:
-    """
-    DST模式 - RiSAWOZ测试类
-    """
-    
-    def __init__(self, data_root: str = "./data/RiSAWOZ", file_mapping: Dict[str, str] = None, 
+class RiSAWOZEvaluator:
+    """RiSAWOZ 数据集上的 DST 评测器。"""
+
+    def __init__(self, data_root: str = "./data/RiSAWOZ", file_mapping: Dict[str, str] = None,
                  use_semantic_match: bool = False, semantic_threshold: float = 0.85):
         """
-        初始化测试
-        
+        初始化评测器。
+
         Args:
-            data_root: RiSAWOZ数据集根目录
-            file_mapping: 自定义文件名映射 (可选)
-            use_semantic_match: 是否使用语义embedding匹配
-            semantic_threshold: 语义相似度阈值 (0-1)
+            data_root: RiSAWOZ 数据集根目录
+            file_mapping: 自定义文件名映射（可选）
+            use_semantic_match: 是否使用语义 embedding 匹配
+            semantic_threshold: 语义相似度阈值（0-1）
         """
         self.adapter = RiSAWOZAdapter(data_root, file_mapping=file_mapping)
         self.llm_client = None
         self.tracker = None
-        
+
         # 使用RiSAWOZ专用的意图标签配置
         risawoz_intent_config = Path(__file__).parent / "shared" / "configs" / "intent_labels_risawoz.json"
         self.intent_label_loader = IntentLabelLoader(str(risawoz_intent_config))
-        self.intent_evaluator = IntentEvaluator(intent_label_loader=self.intent_label_loader)  # 意图评测器
-        
+        self.intent_evaluator = IntentEvaluator(intent_label_loader=self.intent_label_loader)
+
         # 语义匹配配置
         self.use_semantic_match = use_semantic_match
         self.semantic_threshold = semantic_threshold
         self.embedding_client = None
-        
+
         # 如果启用语义匹配，初始化embedding客户端
         if use_semantic_match:
             try:
@@ -75,11 +73,11 @@ class DSTRiSAWOZTest:
             except Exception as e:
                 logger.warning(f"⚠️  Embedding客户端初始化失败: {e}，将回退到字符串匹配")
                 self.use_semantic_match = False
-        
-    def initialize(self, domain: str):
+
+    def setup_tracker(self, domain: str):
         """
-        初始化DST追踪器
-        
+        为指定领域初始化 LLM 客户端和 DST 追踪器。
+
         Args:
             domain: 领域名称
         """
@@ -169,17 +167,17 @@ class DSTRiSAWOZTest:
         else:
             return ""  # 没有找到任何意图
     
-    async def test_dialogue(self, dialogue_id: str, split: str = "val", verbose: bool = True) -> Dict[str, Any]:
+    async def evaluate_dialogue(self, dialogue_id: str, split: str = "val", verbose: bool = True) -> Dict[str, Any]:
         """
-        测试单个对话
-        
+        对单个对话进行 DST 评测。
+
         Args:
-            dialogue_id: 对话ID
-            split: 数据集划分
-            verbose: 是否输出详细信息
-            
+            dialogue_id: 对话 ID
+            split: 数据集划分（train/val/test）
+            verbose: 是否输出逐轮详细信息
+
         Returns:
-            测试指标
+            评测指标字典
         """
         # 加载对话
         dialogue = self.adapter.load_dialogue(dialogue_id, split=split)
@@ -665,9 +663,9 @@ class DSTRiSAWOZTest:
         
         # 如果指定了领域，初始化该领域的追踪器
         if domain:
-            self.initialize(domain)
+            self.setup_tracker(domain)
         
-        # 运行测试
+        # 运行评测
         all_metrics = []
         current_domain = domain  # 跟踪当前初始化的领域
         
@@ -684,10 +682,10 @@ class DSTRiSAWOZTest:
                     # 如果领域变化，重新初始化追踪器
                     if dialogue_domain != current_domain:
                         logger.info(f"切换到领域: {dialogue_domain}")
-                        self.initialize(dialogue_domain)
+                        self.setup_tracker(dialogue_domain)
                         current_domain = dialogue_domain
                 
-                metrics = await self.test_dialogue(dialogue_id, split=split, verbose=verbose)
+                metrics = await self.evaluate_dialogue(dialogue_id, split=split, verbose=verbose)
                 all_metrics.append(metrics)
             except Exception as e:
                 logger.error(f"❌ 对话 {dialogue_id} 评测失败: {e}")
@@ -932,7 +930,7 @@ async def main():
         sys.exit(1)
     
     # 创建测试实例（使用自定义文件映射和语义匹配参数）
-    test = DSTRiSAWOZTest(
+    test = RiSAWOZEvaluator(
         data_root=data_root, 
         file_mapping=file_mapping,
         use_semantic_match=args.use_semantic_match,

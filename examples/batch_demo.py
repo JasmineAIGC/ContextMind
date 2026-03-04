@@ -83,17 +83,17 @@ class BatchDialogueTest:
             raise
         
         if mode == "dst":
-            self._init_dst_mode()
+            self._setup_dst_tracker()
         elif mode == "fnctod":
-            self._init_fnctod_mode()
+            self._setup_fnctod_tracker()
         elif mode == "pytod":
-            self._init_pytod_mode()
+            self._setup_pytod_tracker()
         else:
-            self._init_evolve_mode()
+            self._setup_evolve_app()
         
         logger.info(f"✅ {mode.upper()} 模式初始化完成")
     
-    def _init_dst_mode(self):
+    def _setup_dst_tracker(self):
         """
         初始化 DST 模式
         
@@ -110,7 +110,7 @@ class BatchDialogueTest:
         
         logger.info("DST模式初始化完成")
     
-    def _init_fnctod_mode(self):
+    def _setup_fnctod_tracker(self):
         """
         初始化 FnCTOD 模式
         
@@ -126,7 +126,7 @@ class BatchDialogueTest:
         
         logger.info("FnCTOD 模式初始化完成")
 
-    def _init_pytod_mode(self):
+    def _setup_pytod_tracker(self):
         """
         初始化 PyTOD 模式（程序执行型任务对话）
 
@@ -140,7 +140,7 @@ class BatchDialogueTest:
 
         logger.info("PyTOD 模式初始化完成")
 
-    def _init_evolve_mode(self):
+    def _setup_evolve_app(self):
         """
         初始化 Evolve 模式
         
@@ -168,7 +168,7 @@ class BatchDialogueTest:
             self.pytod_tracker.reset()
         elif self.current_mode == "evolve" and self.app:
             # 重新初始化
-            self._init_evolve_mode()
+            self._setup_evolve_app()
 
         self.results_history = []
         logger.info("对话状态已重置")

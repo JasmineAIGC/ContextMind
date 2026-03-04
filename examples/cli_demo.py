@@ -70,13 +70,13 @@ class UnifiedInteractiveDemo:
         
         # 初始化对应模式
         if mode == "dst":
-            self._init_dst_mode()
+            self._setup_dst_tracker()
         elif mode == "fnctod":
-            self._init_fnctod_mode()
+            self._setup_fnctod_tracker()
         elif mode == "pytod":
-            self._init_pytod_mode()
+            self._setup_pytod_tracker()
         else:
-            self._init_evolve_mode()
+            self._setup_evolve_app()
     
     def _load_scenario_config(self):
         """加载场景配置"""
@@ -93,7 +93,7 @@ class UnifiedInteractiveDemo:
         """获取欢迎消息"""
         return self.config.welcome_message if self.config.welcome_message else "你好！"
     
-    def _init_dst_mode(self):
+    def _setup_dst_tracker(self):
         """初始化DST模式"""
         logger.info(f"初始化DST模式 - {self.config.name}")
         
@@ -141,7 +141,7 @@ class UnifiedInteractiveDemo:
         
         self.app = None  # DST模式不使用app
     
-    def _init_fnctod_mode(self):
+    def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
         logger.info(f"初始化FnCTOD模式 - {self.config.name}")
         
@@ -185,7 +185,7 @@ class UnifiedInteractiveDemo:
         
         self.app = None  # FnCTOD模式不使用app
 
-    def _init_pytod_mode(self):
+    def _setup_pytod_tracker(self):
         """初始化PyTOD模式（程序执行型任务对话）"""
         logger.info(f"初始化PyTOD模式 - {self.config.name}")
 
@@ -206,7 +206,7 @@ class UnifiedInteractiveDemo:
         )
         self.app = None  # PyTOD模式不使用app
 
-    def _init_evolve_mode(self):
+    def _setup_evolve_app(self):
         """初始化Evolve模式"""
         logger.info(f"初始化Evolve模式 - {self.config.name}")
         
@@ -399,7 +399,7 @@ class UnifiedInteractiveDemo:
             self.tracker.reset()
         else:
             # Evolve模式重新初始化
-            self._init_evolve_mode()
+            self._setup_evolve_app()
         print("✅ 对话已重置\n")
         
         # 重置后，机器人主动发起对话

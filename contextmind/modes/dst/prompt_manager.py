@@ -11,22 +11,6 @@ from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
-# 延迟导入以避免循环依赖：benchmark 模块导入了 ContextMind 模块，
-# 若在模块加载时直接导入 benchmark 则会产生循环引用。
-_intent_label_loader = None
-
-def _get_intent_label_loader():
-    """懒加载意图标签加载器"""
-    global _intent_label_loader
-    if _intent_label_loader is None:
-        try:
-            from benchmark.shared.intent_label_loader import IntentLabelLoader
-            _intent_label_loader = IntentLabelLoader()
-        except Exception as e:
-            logger.warning(f"Failed to load intent labels: {e}")
-            _intent_label_loader = None
-    return _intent_label_loader
-
 
 class Language(Enum):
     """支持的语言"""
@@ -103,38 +87,39 @@ class PromptManager:
         logger.info(f"初始化PromptManager (领域={domain}, 动态槽位={enable_dynamic_slots}, 意图预测={enable_intent_prediction})")
     
     def _load_domain_intents(self) -> None:
+        """从 intent_label_loader 加载领域意图列表。
+
+        若未注入 intent_label_loader，则静默禁用意图预测，而不是
+        尝试从 benchmark 模块延迟导入（避免 contextmind 对 benchmark 的依赖）。
+        调用方须在构造 PromptManager 时通过参数注入加载器。
         """
-        从intent_labels配置文件中加载领域特定的意图列表
-        """
-        # 优先使用自定义的intent_label_loader
-        loader = self.intent_label_loader if self.intent_label_loader is not None else _get_intent_label_loader()
-        if loader is None:
-            logger.warning(f"Intent label loader not available, intent prediction disabled for domain: {self.domain}")
+        if self.intent_label_loader is None:
+            logger.debug(f"未提供 intent_label_loader，领域 '{self.domain}' 的意图预测已禁用")
             return
-        
+
         try:
-            self.domain_intents = loader.get_domain_intents(self.domain)
+            self.domain_intents = self.intent_label_loader.get_domain_intents(self.domain)
             if self.domain_intents:
-                logger.info(f"Loaded {len(self.domain_intents)} intents for domain: {self.domain}")
+                logger.info(f"已加载 {len(self.domain_intents)} 个意图（领域: {self.domain}）")
             else:
-                logger.warning(f"No intents found for domain: {self.domain}")
+                logger.warning(f"未找到领域 '{self.domain}' 的意图定义")
         except Exception as e:
-            logger.error(f"Failed to load domain intents: {e}")
+            logger.error(f"加载领域意图失败: {e}")
             self.domain_intents = []
-    
+
     def _get_intent_instructions(self) -> str:
-        """
-        生成领域特定的意图识别指令
-        
+        """生成领域意图识别指令段落，供 get_system_instruction() 拼接到 prompt 中。
+
+        仅在 enable_intent_prediction=True 且已成功加载意图列表时才产生内容；
+        否则返回空字符串，不影响整体 prompt 结构。
+
         返回:
-            意图识别指令字符串
+            意图识别指令字符串（可为空）
         """
         if not self.enable_intent_prediction or not self.domain_intents:
             return ""
-        
-        # 优先使用自定义的intent_label_loader
-        loader = self.intent_label_loader if self.intent_label_loader is not None else _get_intent_label_loader()
-        if loader is None:
+
+        if self.intent_label_loader is None:
             return ""
         
         intent_text = f"""## 意图识别指南（{self.domain}领域）
@@ -147,7 +132,7 @@ class PromptManager:
         
         # 添加每个意图的描述和关键词
         for intent in self.domain_intents:
-            desc_info = loader.get_intent_description(self.domain, intent)
+            desc_info = self.intent_label_loader.get_intent_description(self.domain, intent)
             description = desc_info.get("description", "")
             keywords = desc_info.get("keywords", [])
             
@@ -202,9 +187,9 @@ class PromptManager:
         
         # 否则根据模板风格选择不同的指令
         if self.template_style == "concise":
-            return self.get_concise_instruction()
+            return self._build_concise_prompt()
         elif self.template_style == "conversational":
-            return self.get_conversational_instruction()
+            return self._build_conversational_prompt()
         
         # structured 风格（默认，详细指导）
         # 基础指令
@@ -469,31 +454,21 @@ class PromptManager:
         lang_dict = translations.get(self.language, {})
         return lang_dict.get(term, term)
     
-    def get_concise_instruction(self) -> str:
-        """
-        获取简洁版系统指令（节省tokens）
-        
-        返回:
-            简洁的系统指令
-        """
+    def _build_concise_prompt(self) -> str:
+        """生成简洁版系统指令（template_style="concise" 时使用，节省 tokens）。"""
         if self.language == Language.EN_US:
             return """Extract all relevant information from the user's latest message as JSON.
 Required: "intent" field describing user's purpose.
 Optional: any other key information fields.
 Output: JSON only, no explanations."""
-        
+
         return """从用户最新消息中提取所有相关信息，返回JSON格式。
 必需：intent字段（描述用户意图）。
 可选：任何其他关键信息字段。
 输出：仅JSON，无解释。"""
-    
-    def get_conversational_instruction(self) -> str:
-        """
-        获取对话式系统指令（更自然）
-        
-        返回:
-            对话式系统指令
-        """
+
+    def _build_conversational_prompt(self) -> str:
+        """生成对话式系统指令（template_style="conversational" 时使用，语气更自然）。"""
         if self.language == Language.EN_US:
             return """Please analyze this conversation and extract meaningful information.
 Focus on:
@@ -501,7 +476,7 @@ Focus on:
 - What specific information did they provide?
 - What context or constraints are relevant?
 Provide your analysis as a JSON object."""
-        
+
         return """请分析这段对话并提取有意义的信息。
 关注：
 - 用户想达成什么目的？（意图）

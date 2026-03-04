@@ -594,42 +594,15 @@ class DialogueStateTracker:
         return history
     
     @classmethod
-    def create_from_config(cls, llm_client, scenario_config, 
+    def create_from_config(cls, llm_client, scenario_config,
                           max_history_turns: int = 10,
                           enable_summary: bool = True,
                           use_llm_summary: bool = False):
-        """
-        ``from_scenario`` 的别名，保持向后兼容。
-
-        根据 ScenarioConfig 中的槽位定义和提示词模板构建 PromptManager，
-        再用其创建 DialogueStateTracker 实例，调用方无需手动配置 PromptManager。
-
-        参数:
-            llm_client: LLM 客户端实例。
-            scenario_config: 场景配置对象（来自 scenarios 模块）。
-            max_history_turns: 保留在 prompt 中的最大历史轮数。
-            enable_summary: 是否在历史过长时自动生成摘要。
-            use_llm_summary: True 使用 LLM 生成语义摘要，False 使用模板摘要（更快）。
-
-        返回:
-            初始化完成的 DialogueStateTracker 实例。
-        """
-        pm = PromptManager(
-            domain=scenario_config.name,
-            enable_dynamic_slots=scenario_config.enable_dynamic_slots,
-            custom_template=getattr(scenario_config, 'dst_prompt_template', None)
-        )
-        
-        for slot_name, slot_desc in scenario_config.dst_slots.items():
-            categorical_values = None
-            if scenario_config.dst_categorical_slots and slot_name in scenario_config.dst_categorical_slots:
-                categorical_values = scenario_config.dst_categorical_slots[slot_name]
-            pm.add_slot(slot_name, slot_desc, categorical_values=categorical_values)
-        
-        return cls(
+        """向后兼容别名，请使用 ``from_scenario()``。"""
+        return cls.from_scenario(
             llm_client=llm_client,
-            prompt_manager=pm,
+            scenario_config=scenario_config,
             max_history_turns=max_history_turns,
             enable_history_summary=enable_summary,
-            use_llm_summary=use_llm_summary
+            use_llm_summary=use_llm_summary,
         )
