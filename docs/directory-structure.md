@@ -102,6 +102,7 @@ ui/
 ```
 modes/
 ├── __init__.py
+├── base.py                  # BaseTracker 协议（所有追踪器的共享接口）
 │
 ├── dst/                 # 对话状态追踪模式
 │   ├── __init__.py

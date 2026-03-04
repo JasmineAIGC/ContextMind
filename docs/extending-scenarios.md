@@ -358,6 +358,80 @@ python interactive_demo.py --scenario your_scenario --mode evolve
 
 ---
 
+## 添加全新追踪模式
+
+如果需要添加一种**全新的追踪算法**（而非仅增加场景），需要实现 `BaseTracker` 协议。
+
+### 最小实现
+
+```python
+# contextmind/modes/my_mode/tracker.py
+from typing import Any, Dict
+
+class MyTracker:
+    """
+    自定义追踪器示例。
+    结构上满足 contextmind.modes.base.BaseTracker 协议，
+    无需显式继承。
+    """
+
+    def __init__(self, llm_client, **kwargs):
+        self.llm_client = llm_client
+        self._state: Dict[str, Any] = {}
+
+    @classmethod
+    def from_scenario(cls, llm_client, scenario_config, **kwargs):
+        """工厂方法：从场景配置创建实例（必须实现）。"""
+        return cls(llm_client=llm_client, **kwargs)
+
+    async def process_turn(self, user_utterance: str, **kwargs) -> Dict[str, Any]:
+        """处理单轮对话，返回本轮更新的槽位（必须实现）。"""
+        # 在此调用 LLM 并解析结果
+        updates = {}
+        self._state.update(updates)
+        return updates
+
+    def get_current_state(self) -> Dict[str, Any]:
+        """返回累积的对话状态（必须实现）。"""
+        return dict(self._state)
+
+    def reset(self) -> None:
+        """重置所有状态（必须实现）。"""
+        self._state = {}
+```
+
+### 验证协议满足
+
+```python
+from contextmind.modes.base import BaseTracker
+
+tracker = MyTracker(llm_client=None)  # None 仅用于协议验证，实际使用需传入 SimpleLLMClient()
+assert isinstance(tracker, BaseTracker), "未满足 BaseTracker 协议！"
+print("✅ MyTracker 协议验证通过")
+```
+
+### 在示例中使用
+
+由于所有追踪器共享相同接口，现有示例代码无需修改即可使用新追踪器：
+
+```python
+from contextmind.modes.base import BaseTracker
+from my_module import MyTracker
+from contextmind.scenarios import get_chat_scenario
+from contextmind.infra.llm_client import SimpleLLMClient
+
+llm = SimpleLLMClient()
+config = get_chat_scenario()
+
+# 工厂方法创建实例
+tracker: BaseTracker = MyTracker.from_scenario(llm, config)
+
+result = await tracker.process_turn("你好")
+print(tracker.get_current_state())
+```
+
+---
+
 **最后更新**: 2026-02-10 | **版本**: 0.2.1
 
 #### 步骤1: 创建应用类（Evolve模式）

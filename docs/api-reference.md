@@ -5,12 +5,16 @@
 ## 核心导入
 
 ```python
-# 主包导入
+# 主包导入（推荐方式）
 import contextmind
 
-# 模式导入
+# 共享接口协议
+from contextmind.modes.base import BaseTracker
+
+# 追踪器导入
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker  
+from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import PyTODTracker
 from contextmind.modes.evolve import EvolveEngine, create_app_for_scenario
 
 # 场景导入
@@ -24,6 +28,60 @@ from contextmind.scenarios import (
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger
 from contextmind.config.registry import scenario_registry
+```
+
+---
+
+## 共享接口：BaseTracker 协议
+
+### BaseTracker
+
+`contextmind.modes.base.BaseTracker` 是一个 [结构子类型](https://mypy.readthedocs.io/en/stable/protocols.html) Protocol，定义所有对话追踪器的公共接口。内置的 `DialogueStateTracker`、`FnCTODTracker`、`PyTODTracker` 均满足此协议。
+
+```python
+from contextmind.modes.base import BaseTracker
+
+# 以统一类型提示接收任意追踪器
+async def run_conversation(tracker: BaseTracker, user_msg: str) -> None:
+    result = await tracker.process_turn(user_msg)
+    state = tracker.get_current_state()
+    print(state)
+```
+
+#### 方法
+
+| 方法 | 说明 |
+|------|------|
+| `from_scenario(llm_client, scenario_config, **kwargs)` | 工厂方法，从场景配置创建实例 |
+| `async process_turn(user_utterance, **kwargs) -> Dict` | 处理单轮对话，返回本轮更新的状态 |
+| `get_current_state() -> Dict` | 返回累积的完整对话状态 |
+| `reset() -> None` | 清空历史和状态，开始新会话 |
+
+#### 实现新追踪器
+
+新增追踪模式时，实现这四个方法即可与 ContextMind 生态兼容，**无需继承**：
+
+```python
+class MyTracker:
+    """自定义追踪器，结构上满足 BaseTracker 协议。"""
+
+    @classmethod
+    def from_scenario(cls, llm_client, scenario_config, **kwargs):
+        return cls(llm_client=llm_client, ...)
+
+    async def process_turn(self, user_utterance: str, **kwargs):
+        # 调用 LLM，提取结构化信息
+        return {"slot_a": "value"}
+
+    def get_current_state(self):
+        return self._state
+
+    def reset(self):
+        self._state = {}
+
+# 运行时协议检查
+from contextmind.modes.base import BaseTracker
+assert isinstance(MyTracker(), BaseTracker)
 ```
 
 ---
