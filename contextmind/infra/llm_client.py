@@ -205,8 +205,6 @@ class SimpleLLMClient:
         Returns:
             估算的 token 数量
         """
-        import re
-
         chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
         english_words = len(re.findall(r'\b[a-zA-Z]+\b', text))
         estimated_tokens = int((chinese_chars + int(english_words * 1.3)) * 1.1)

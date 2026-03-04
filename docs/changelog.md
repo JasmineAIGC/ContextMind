@@ -8,22 +8,22 @@
 ## [未发布]
 
 ### 新增
-- 完善文档系统，新增多个指南文档
+- **SlotBasedEvaluator**: 新增 `SlotBasedEvaluator` 基类和 `SlotMetrics` 数据类（`benchmark/algorithms/base.py`），
+  消除 `DSTEvaluator` 与 `FnCTODEvaluator` 之间完全重复的槽位指标计算逻辑（~260 行）
+- **PyTOD 模式文档**: `docs/modes.md`、`docs/quick-start.md` 补充 PyTOD 为第四种对话模式
 
 ### 变更
-- 无
-
-### 废弃
-- 无
-
-### 移除
-- 无
+- **DSTEvaluator / FnCTODEvaluator**: 重构为继承 `SlotBasedEvaluator`，保持向后兼容接口
+- **docs/README.md**: 修正仓库 URL（Jasmine66Bloom → JasmineAIGC）；补充 `analysis/` 文档子目录
+- **docs/quick-start.md**: 修正仓库 URL；添加 PyTOD 示例命令
 
 ### 修复
-- 修复文档交叉引用断链问题
+- 移除 `infra/llm_client.py` `_estimate_tokens()` 内重复的 `import re`（顶层已有）
+- 将 `evolution/updater.py`、`memory/retriever.py`、`scenarios/chat/app.py`、
+  `modes/fnctod/tracker.py` 中的内联 `import` 移到模块顶层
 
 ### 安全
-- 无
+- 通过 CodeQL 安全扫描，0 个安全问题
 
 ---
 

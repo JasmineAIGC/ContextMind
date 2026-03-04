@@ -5,7 +5,9 @@ ChatApplication - 通用闲聊应用示例
 适用于日常闲聊、知识问答、娱乐互动等场景。
 """
 
+import asyncio
 import logging
+import time
 from typing import Optional, Dict
 
 from contextmind.modes.evolve import (
@@ -169,7 +171,6 @@ class ChatApplication:
             
             # 获取完整session历史以确定真实轮数（用于增量判断）
             # 从engine的session获取实际轮数
-            import asyncio
             try:
                 # 尝试获取session的完整历史长度
                 session = self.evolve_engine.session_manager.get_session()
@@ -270,8 +271,6 @@ class ChatApplication:
         Returns:
             助手回复，或 (助手回复, 调试信息字典) 当debug=True时
         """
-        import time
-        
         # 初始化步骤计时
         self.step_timings = {}
         

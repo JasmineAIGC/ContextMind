@@ -6,6 +6,7 @@
 
 from typing import List, Optional
 import re
+from datetime import datetime
 
 from ..core.data_models import ContextItem
 from ..core.config import ContextSource
@@ -91,7 +92,6 @@ class SemanticSearchRetriever(BaseRetriever):
             
             if self.config.enable_recency_boost and hasattr(item, 'timestamp') and item.timestamp:
                 try:
-                    from datetime import datetime
                     if isinstance(item.timestamp, datetime):
                         days_ago = (datetime.now() - item.timestamp).days
                         if days_ago <= self.config.recency_days_threshold:

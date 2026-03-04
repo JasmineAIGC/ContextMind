@@ -12,6 +12,7 @@ through Function Calling"的两阶段 DST 实现：
 提取建模为函数调用，输出更结构化，也更易扩展到新业务域。
 """
 
+import json
 import time
 import yaml
 from pathlib import Path
@@ -291,7 +292,6 @@ class FnCTODTracker:
         
         # 添加当前状态提示（帮助LLM维护累积状态）
         if self.current_state:
-            import json
             # 将 "domain-param" 格式转换为 domain分组的字典
             state_by_domain = {}
             for key, value in self.current_state.items():

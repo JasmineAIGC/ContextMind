@@ -14,7 +14,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/Jasmine66Bloom/ContextMind.git
+git clone https://github.com/JasmineAIGC/ContextMind.git
 cd ContextMind
 
 # 2. 创建虚拟环境（推荐）
@@ -101,6 +101,9 @@ python examples/cli_demo.py --scenario callcenter --mode evolve
 
 # 运行 FnCTOD 模式的保险场景
 python examples/cli_demo.py --scenario insurance --mode fnctod
+
+# 运行 PyTOD 模式的保险场景
+python examples/cli_demo.py --scenario insurance --mode pytod
 ```
 
 **交互示例：**
@@ -168,9 +171,9 @@ python my_first_app.py
 
 ### 学习路径
 
-1. **理解三种模式**
+1. **理解四种模式**
    - 阅读 [模式对比文档](modes.md)
-   - 了解 DST、Evolve、FnCTOD 的区别和适用场景
+   - 了解 DST、FnCTOD、PyTOD、Evolve 的区别和适用场景
 
 2. **查看更多示例**
    - 浏览 [示例代码集合](examples.md)
@@ -214,9 +217,9 @@ python examples/cli_demo.py --scenario chat --mode dst --verbose
 ## 相关资源
 
 - [完整文档](README.md)
-- [GitHub 仓库](https://github.com/Jasmine66Bloom/ContextMind)
-- [问题反馈](https://github.com/Jasmine66Bloom/ContextMind/issues)
+- [GitHub 仓库](https://github.com/JasmineAIGC/ContextMind)
+- [问题反馈](https://github.com/JasmineAIGC/ContextMind/issues)
 
 ---
 
-**最后更新**: 2026-02-10 | **版本**: 0.2.1
+**最后更新**: 2026-03-04 | **版本**: 0.2.1

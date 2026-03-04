@@ -6,6 +6,7 @@ InsuranceApplication - 保险应用示例
 """
 
 import logging
+import time
 from typing import Optional
 
 from contextmind.modes.evolve import (
@@ -224,8 +225,6 @@ class InsuranceApplication:
         Returns:
             助手回复，或 (助手回复, 调试信息字典) 当debug=True时
         """
-        import time
-        
         # 初始化步骤计时
         self.step_timings = {}
         

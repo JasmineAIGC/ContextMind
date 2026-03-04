@@ -5,11 +5,12 @@
 """
 
 from typing import List, Optional, Dict, Any, Tuple
+import re
 import time
 from datetime import datetime
 
 from ..core.data_models import ContextItem, Knowledge
-from ..core.config import ContextSource
+from ..core.config import ContextSource, KnowledgeType
 from ..core.strategies import UpdateStrategy as BaseUpdater
 from contextmind.infra.logger import get_logger
 from contextmind.infra.embedding import calculate_embedding_similarity
@@ -156,8 +157,6 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
     
     def _filter_knowledge(self, knowledge_list: List[Knowledge]) -> List[Knowledge]:
         """过滤低质量新知识，确保只添加满足置信度和长度要求的条目。"""
-        from ..core.config import KnowledgeType
-        
         THRESHOLD_PREFERENCE = 0.75
         THRESHOLD_FACT = 0.70
         THRESHOLD_EVENT = 0.70
@@ -270,7 +269,6 @@ class EvolutionaryMemoryUpdater(BaseUpdater):
                 if success:
                     return similarity
         
-        import re
         formatted_content = f"[{knowledge.type.value.upper()}] {knowledge.content}"
         
         # 去除类型前缀标签后再比较，避免 [FACT] vs [PREFERENCE] 标签差异影响内容相似度判断
