@@ -8,6 +8,7 @@
 benchmark/
 ├── algorithms/               # 算法评测器（指标数据类 + 评测器类）
 │   ├── __init__.py           # 统一导出 4 个评测器
+│   ├── base.py               # BaseMetrics、BaseEvaluator 抽象基类
 │   ├── dst.py                # DST — 对话状态追踪
 │   ├── fnctod.py             # FnCTOD — 函数调用型 TOD
 │   ├── pytod.py              # PyTOD — 程序执行型 TOD
@@ -15,6 +16,7 @@ benchmark/
 │
 ├── datasets/                 # 数据集适配器
 │   ├── __init__.py           # 统一导出 2 个适配器
+│   ├── base.py               # BaseDatasetAdapter 抽象基类
 │   ├── transfertod/          # TransferTOD 数据集
 │   │   ├── adapter.py        # 数据适配器（TransferTODAdapter）
 │   │   └── utils.py          # 领域意图配置加载器
@@ -106,13 +108,13 @@ print(ev2.calculate_metrics().to_dict())
 
 ### 添加新数据集
 
-1. 在 `datasets/` 下创建新目录，实现 `adapter.py` 和 `__init__.py`
+1. 在 `datasets/` 下创建新目录，继承 `BaseDatasetAdapter` 实现 `adapter.py` 和 `__init__.py`
 2. 在 `datasets/__init__.py` 中导出新适配器
 3. 在 `runners/` 下创建 `run_<algorithm>_<dataset>.py`
 
 ### 添加新算法
 
-1. 在 `algorithms/` 下创建 `<algorithm>.py`，实现 `<Name>Metrics` + `<Name>Evaluator`
+1. 在 `algorithms/` 下创建 `<algorithm>.py`，继承 `BaseEvaluator` 实现 `<Name>Metrics` + `<Name>Evaluator`
 2. 在 `algorithms/__init__.py` 中导出新评测器
 3. 在 `runners/` 下创建对应的运行脚本
 

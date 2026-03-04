@@ -32,8 +32,7 @@ contextmind/
 ├── config/              # 配置层
 ├── ui/                  # UI层
 ├── modes/               # 对话处理模式
-├── scenarios/           # 场景配置
-└── apps/                # 应用实现
+└── scenarios/           # 场景配置与应用
 ```
 
 ### 1. 基础设施层 (infra/)
@@ -70,13 +69,8 @@ config/
 │   └── ScenarioRegistry    # 注册表类
 │   └── scenario_registry   # 全局实例
 │
-├── scenarios.yaml       # 场景配置文件
-│   └── 定义所有场景的元数据
-│
-└── prompts.py           # 系统提示词
-    └── CHAT_SYSTEM_PROMPT
-    └── CALLCENTER_SYSTEM_PROMPT
-    └── INSURANCE_SYSTEM_PROMPT
+└── scenarios.yaml       # 场景配置文件
+    └── 定义所有场景的元数据
 ```
 
 **依赖**: infra
@@ -106,19 +100,19 @@ modes/
 │
 ├── dst/                 # 对话状态追踪模式
 │   ├── __init__.py
-│   ├── dialogue_state_tracker.py    # 主追踪器
-│   ├── prompt_manager.py            # 提示管理器
-│   ├── response_parser.py           # DST响应解析器（DSTResponseParser）
+│   ├── tracker.py                   # 主追踪器
+│   ├── prompts.py                   # 提示管理器
+│   ├── parser.py                    # DST响应解析器（DSTResponseParser）
 │   └── data_models.py               # 数据模型
 │
 ├── fnctod/              # 函数调用模式
 │   ├── __init__.py
-│   ├── fnctod_tracker.py            # 主追踪器
+│   ├── tracker.py                   # 主追踪器
 │   ├── function_manager.py          # 函数管理器
-│   ├── response_parser.py           # FnCTOD响应解析器（FnCTODResponseParser）
+│   ├── parser.py                    # FnCTOD响应解析器（FnCTODResponseParser）
 │   ├── schemas.py                   # Schema定义
 │   ├── data_models.py               # 数据模型
-│   └── fnctod_prompts.yaml          # 提示词配置
+│   └── prompts.yaml                 # 提示词配置
 │
 ├── evolve/              # 演化式上下文模式
 │   ├── __init__.py
@@ -155,54 +149,47 @@ modes/
 └── pytod/               # 可编程任务型对话模式
     ├── __init__.py
     ├── tracker.py                   # 主追踪器（三步流程协调）
-    ├── prompt_builder.py            # 动作解析器和对话管理器 prompt 构建
+    ├── prompts.py                   # 动作解析器和对话管理器 prompt 构建
     ├── execution_engine.py          # 安全解析并执行程序语句
-    ├── schema.py                    # ServiceSchema / IntentDefinition / SlotDefinition
-    └── validator.py                 # 动作合法性校验
+    ├── schemas.py                   # ServiceSchema / IntentDefinition / SlotDefinition
+    ├── validator.py                 # 动作合法性校验
+    └── api_registry.py              # API注册表
 ```
 
 **依赖**: infra, config
 
-### 5. 场景配置 (scenarios/)
+### 5. 场景配置与应用 (scenarios/)
 
-**用途**: 定义各种对话场景的配置
+**用途**: 定义各种对话场景的配置及对应的应用实现
 
 ```
 scenarios/
 ├── __init__.py
-├── config.py                # 场景配置基类
+├── base.py                  # 场景配置基类
 │   └── ScenarioConfig      # 配置数据类
+│   └── ScenarioType        # 场景类型枚举
 │
-├── chat_scenario.py         # 闲聊场景
-│   └── get_chat_scenario()
+├── prompts.py               # 所有场景系统提示词
+│   └── CHAT_SYSTEM_PROMPT
+│   └── CALLCENTER_SYSTEM_PROMPT
+│   └── INSURANCE_SYSTEM_PROMPT
 │
-├── callcenter_scenario.py   # 客服场景
-│   └── get_callcenter_scenario()
+├── chat/                    # 闲聊场景包
+│   ├── scenario.py          # get_chat_scenario()
+│   └── app.py               # ChatApplication
 │
-└── insurance_scenario.py    # 保险场景
-    └── get_insurance_scenario()
+├── callcenter/              # 客服场景包
+│   ├── scenario.py          # get_callcenter_scenario()
+│   └── app.py               # CallCenterApplication
+│
+├── insurance/               # 保险场景包
+│   ├── scenario.py          # get_insurance_scenario()
+│   └── app.py               # InsuranceApplication
+│
+└── anyihua/                 # 安意化场景（UNCHANGED）
 ```
 
-**依赖**: config
-
-### 6. 应用实现 (apps/)
-
-**用途**: Evolve 模式的场景特定应用
-
-```
-apps/
-├── __init__.py
-├── chat_app.py              # 闲聊应用
-│   └── ChatApplication
-│
-├── callcenter_app.py        # 客服应用
-│   └── CallCenterApplication
-│
-└── insurance_app.py         # 保险应用
-    └── InsuranceApplication
-```
-
-**依赖**: modes/evolve, scenarios
+**依赖**: config, modes/evolve
 
 ---
 
@@ -337,11 +324,9 @@ DEBUG=False
    ↓
 3. ui/ + modes/              # 依赖 infra, config
    ↓
-4. scenarios/                # 依赖 config
+4. scenarios/                # 依赖 config, modes/evolve
    ↓
-5. apps/                     # 依赖 modes/evolve, scenarios
-   ↓
-6. examples/                 # 依赖所有层
+5. examples/                 # 依赖所有层
 ```
 
 **原则**: 
@@ -355,10 +340,9 @@ DEBUG=False
 
 ### 添加新场景
 
-1. 在 `contextmind/scenarios/` 创建 `xxx_scenario.py`
-2. 在 `contextmind/apps/` 创建 `xxx_app.py` （如果使用Evolve）
-3. 在 `contextmind/config/scenarios.yaml` 注册
-4. 编写测试
+1. 在 `contextmind/scenarios/` 创建 `xxx/` 子包，包含 `scenario.py` 和 `app.py`
+2. 在 `contextmind/config/scenarios.yaml` 注册
+3. 编写测试
 
 ### 添加新模式
 

@@ -291,7 +291,7 @@ FnCTOD模式由以下核心组件构成：
 - 典型耗时：~0.01s
 
 #### 步骤2：提示词构建（关键步骤）
-- 加载fnctod_prompts.yaml中的模板
+- 加载`prompts.yaml`中的模板
 - 插入函数Schema定义
 - 添加few-shot示例（参考论文Fig.3、Fig.4）
 - 构建完整的system prompt和对话历史
@@ -326,7 +326,7 @@ FnCTOD模式由以下核心组件构成：
 
 ## 提示词系统
 
-FnCTOD使用YAML配置文件`fnctod_prompts.yaml`管理提示词：
+FnCTOD使用YAML配置文件`prompts.yaml`管理提示词：
 
 ### 系统提示词
 
@@ -667,7 +667,7 @@ def get_my_schema():
 
 ### 自定义提示词
 
-修改`fnctod_prompts.yaml`中的模板，或在初始化时传入自定义提示词。
+修改`prompts.yaml`中的模板，或在初始化时传入自定义提示词。
 
 ## 调试技巧
 

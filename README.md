@@ -154,14 +154,14 @@ response = await tracker.process_turn("查一下北京今天的天气")
 ContextMind/
 ├── contextmind/          # 核心包
 │   ├── infra/           # 基础设施（LLM客户端、日志等）
-│   ├── config/          # 配置管理
+│   ├── config/          # 配置管理（registry.py + scenarios.yaml）
 │   ├── modes/           # 四种对话模式
 │   │   ├── dst/        # 对话状态追踪
 │   │   ├── fnctod/     # 函数调用
 │   │   ├── evolve/     # 演化式上下文
 │   │   └── pytod/      # 可编程任务型对话
-│   ├── scenarios/       # 场景配置
-│   └── apps/            # 应用实现
+│   ├── scenarios/       # 场景配置与应用（chat/、callcenter/、insurance/）
+│   └── ui/              # UI组件
 ├── examples/            # 示例程序
 ├── benchmark/           # 评测框架
 └── docs/                # 文档

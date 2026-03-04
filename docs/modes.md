@@ -232,7 +232,7 @@ Evolve模式显示以下信息：
 
 解决方法：
 - 查看日志中的原始LLM响应
-- 检查response_parser的解析结果
+- 检查parser的解析结果
 - 尝试更明确的用户输入
 - 调整temperature参数（降低随机性）
 
@@ -266,7 +266,7 @@ Evolve模式显示以下信息：
 3. **响应解析**：
    ```python
    # 提取JSON
-   updates = response_parser.extract_json(response)
+   updates = parser.extract_json(response)
    # 更新状态
    current_state.update(updates)
    ```
