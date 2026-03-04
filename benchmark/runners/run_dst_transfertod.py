@@ -5,8 +5,8 @@ DST模式 - TransferTOD数据集评测脚本
 使用TransferTOD数据集测试DialogueStateTracker的槽位提取能力。
 
 使用方式:
-    python benchmark/run_dst_transfertod.py
-    python benchmark/run_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
+    python benchmark/runners/run_dst_transfertod.py
+    python benchmark/runners/run_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
 """
 
 import asyncio
@@ -17,7 +17,7 @@ from typing import Dict, List, Any, Tuple
 from collections import defaultdict, Counter
 
 # 添加项目根目录到Python路径
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter

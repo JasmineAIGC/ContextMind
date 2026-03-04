@@ -5,8 +5,8 @@ FnCTOD模式 - TransferTOD数据集评测脚本
 使用TransferTOD数据集测试FnCTODTracker的函数调用能力。
 
 使用方式:
-    python benchmark/run_fnctod_transfertod.py
-    python benchmark/run_fnctod_transfertod.py --domain 酒店 --data-type clean --limit 10
+    python benchmark/runners/run_fnctod_transfertod.py
+    python benchmark/runners/run_fnctod_transfertod.py --domain 酒店 --data-type clean --limit 10
 """
 
 import asyncio
@@ -20,7 +20,7 @@ from collections import defaultdict, Counter
 import datetime
 
 # 添加项目根目录到Python路径
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
@@ -571,7 +571,7 @@ def main():
                         
                         # 检查tracker是否成功初始化
                         if test.tracker is None:
-                            print(f"❌ 由于初始化失败，跳过剩余 {len(dialogue_ids) - i} 个对话")
+                            print(f"❌ 由于初始化失败，跳过剩余 {len(dialogue_ids) - idx} 个对话")
                             print(f"请检查领域 '{current_domain}' 的schema配置")
                             break
                 else:

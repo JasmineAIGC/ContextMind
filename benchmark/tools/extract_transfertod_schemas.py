@@ -11,13 +11,13 @@
 
 使用方法:
     # 提取数据集中实际存在的所有域（推荐）
-    python benchmark/extract_transfertod_schemas.py --data-root ./data/TransferTOD
+    python benchmark/tools/extract_transfertod_schemas.py --data-root ./data/TransferTOD
     
     # 查看诊断信息（查看域列表详情）
-    python benchmark/extract_transfertod_schemas.py --data-root ./data/TransferTOD --diagnostics
+    python benchmark/tools/extract_transfertod_schemas.py --data-root ./data/TransferTOD --diagnostics
     
     # 保存到文件
-    python benchmark/extract_transfertod_schemas.py --output schemas.json
+    python benchmark/tools/extract_transfertod_schemas.py --output schemas.json
 """
 
 import argparse
@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 # 添加项目根目录到路径
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter

@@ -6,8 +6,8 @@ DST模式 - RiSAWOZ数据集评测脚本
 参考DST模式在TransferTOD的实现，但使用RiSAWOZ一致的评测指标。
 
 使用方式:
-    python benchmark/run_dst_risawoz.py
-    python benchmark/run_dst_risawoz.py --domain 景点 --split val --limit 10
+    python benchmark/runners/run_dst_risawoz.py
+    python benchmark/runners/run_dst_risawoz.py --domain 景点 --split val --limit 10
 """
 
 import asyncio
@@ -19,7 +19,7 @@ from typing import Dict, List, Any, Tuple
 from collections import defaultdict, Counter
 
 # 添加项目根目录到Python路径
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.risawoz.adapter import RiSAWOZAdapter, RISAWOZ_FILE_MAPPINGS
@@ -848,15 +848,15 @@ async def main():
     val_file   = args.val_file   or fmt_mapping.get("val")   or _default_mapping.get("val",   "all_dev600.json")
     test_file  = args.test_file  or fmt_mapping.get("test")  or _default_mapping.get("test",  "all_test600_new.json")
     
-    # 检查test-file是否包含路径
-    test_path = Path(args.test_file)
-    train_path = Path(args.train_file)
-    val_path = Path(args.val_file)
+    # 检查test-file是否包含路径（仅当用户实际提供了路径参数时才解析）
+    test_path = Path(args.test_file) if args.test_file else None
+    train_path = Path(args.train_file) if args.train_file else None
+    val_path = Path(args.val_file) if args.val_file else None
     
     # 检测哪个文件使用了完整路径
     detected_split = None
     
-    if len(test_path.parts) > 1:  # 包含目录
+    if test_path and len(test_path.parts) > 1:  # 包含目录
         # 提取目录和文件名
         data_root = str(test_path.parent)
         test_file = test_path.name
@@ -864,7 +864,7 @@ async def main():
         logger.info(f"检测到完整路径，使用: data_root={data_root}, test_file={test_file}")
     
     # 同样处理 train-file 和 val-file
-    if len(train_path.parts) > 1:
+    if train_path and len(train_path.parts) > 1:
         if data_root != args.data_root:
             logger.warning(f"train-file 路径 {args.train_file} 与 test-file 路径不一致，使用 test-file 的目录")
         else:
@@ -873,7 +873,7 @@ async def main():
         if not detected_split:
             detected_split = "train"
     
-    if len(val_path.parts) > 1:
+    if val_path and len(val_path.parts) > 1:
         if data_root != args.data_root:
             logger.warning(f"val-file 路径 {args.val_file} 与 test-file 路径不一致，使用 test-file 的目录")
         else:

@@ -66,23 +66,23 @@ RiSAWOZ 解压后的实际目录结构如下（--data-root 应指向子目录）
 ----------------------------------------------------------------------
 
     # 使用 source-data/（推荐）
-    python benchmark/convert_risawoz_to_sgd.py \\
+    python benchmark/tools/convert_risawoz_to_sgd.py \\
         --data-root ./data/RiSAWOZ-data/source-data \\
         --source-format source-data \\
         --output-dir ./data/RiSAWOZ_SGD
 
     # 使用 task2-data-DST/
-    python benchmark/convert_risawoz_to_sgd.py \\
+    python benchmark/tools/convert_risawoz_to_sgd.py \\
         --data-root ./data/RiSAWOZ-data/task2-data-DST \\
         --source-format task2-dst
 
     # 只转换验证集
-    python benchmark/convert_risawoz_to_sgd.py \\
+    python benchmark/tools/convert_risawoz_to_sgd.py \\
         --data-root ./data/RiSAWOZ-data/source-data \\
         --source-format source-data --splits val
 
     # 手动指定文件名映射（自定义测试文件）
-    python benchmark/convert_risawoz_to_sgd.py \\
+    python benchmark/tools/convert_risawoz_to_sgd.py \\
         --data-root ./data/RiSAWOZ-data/source-data \\
         --source-format source-data \\
         --file-mapping test=multi_test230_new.json
@@ -108,7 +108,7 @@ import sys
 from pathlib import Path
 
 # 将项目根目录加入 Python 路径
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.risawoz.sgd_converter import RiSAWOZToSGDConverter, SOURCE_FORMATS

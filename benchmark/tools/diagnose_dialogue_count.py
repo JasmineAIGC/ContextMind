@@ -3,7 +3,7 @@
 诊断工具：分析 DST 和 FnCTOD 评测找到的对话数量差异
 
 使用方式:
-    python benchmark/diagnose_dialogue_count.py --data-root ./data/TransferTOD
+    python benchmark/tools/diagnose_dialogue_count.py --data-root ./data/TransferTOD
 """
 
 import argparse
@@ -12,7 +12,7 @@ from pathlib import Path
 from collections import defaultdict
 
 # 添加项目根目录到Python路径
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
