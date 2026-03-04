@@ -1,7 +1,15 @@
 """
-FnCTOD Tracker
+FnCTOD 追踪器（Function Calling for Task-Oriented Dialogue）
 
-主追踪器，实现两阶段function calling的DST
+基于论文"Large Language Models as Zero-shot Dialogue State Tracker
+through Function Calling"的两阶段 DST 实现：
+
+  第一阶段（Domain Selection）：根据用户话语选出候选业务域；
+  第二阶段（Function Calling）：对每个候选域调用对应 function，
+    由 LLM 以 JSON 参数形式填充槽位，并生成自然语言回复。
+
+与传统 DST 的区别：DST 直接提取"槽位-值"对，FnCTOD 将槽位
+提取建模为函数调用，输出更结构化，也更易扩展到新业务域。
 """
 
 import time
@@ -11,6 +19,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from .data_models import FunctionCall, DialogueTurn
 from .function_manager import FunctionManager
 from .response_parser import FnCTODResponseParser
+from .schemas import get_function_schema_for_scenario
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
@@ -72,26 +81,28 @@ class FnCTODTracker:
                      use_two_stage: bool = True,
                      max_history_turns: int = 10):
         """
-        从场景配置创建FnCTODTracker实例的工厂方法
-        
+        从场景配置创建 FnCTODTracker 实例（推荐入口）。
+
+        优先使用 schemas.py 中预定义的结构化 FunctionSchema；
+        若场景未预定义 Schema，则根据 ScenarioConfig.dst_slots 动态构建，
+        降级后提取精度可能略低于预定义版本。
+
         Args:
-            llm_client: LLM客户端实例
-            scenario_config: 场景配置对象（ScenarioConfig）
-            use_two_stage: 是否使用两阶段处理（默认True）
-            max_history_turns: 最大历史轮数（默认10）
-            
+            llm_client: LLM 客户端实例。
+            scenario_config: 场景配置对象（ScenarioConfig）。
+            use_two_stage: 是否启用两阶段处理（默认 True）。
+            max_history_turns: 保留在 prompt 中的最大历史轮数（默认 10）。
+
         Returns:
-            FnCTODTracker实例
+            初始化完成的 FnCTODTracker 实例。
         """
-        from contextmind.modes.fnctod import get_function_schema_for_scenario
-        
         function_manager = FunctionManager()
         try:
             schema = get_function_schema_for_scenario(scenario_config.name)
             function_manager.add_domain(schema)
             logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
         except ValueError as e:
-            # 如果场景不支持，降级为动态创建
+            # 场景无预定义 Schema，根据槽位定义动态构建。
             logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
             function_manager.add_domain_from_slots(
                 domain_name=scenario_config.name,
@@ -100,8 +111,7 @@ class FnCTODTracker:
                 categorical_slots=getattr(scenario_config, 'dst_categorical_slots', None),
                 required_slots=[]
             )
-        
-        # 创建并返回tracker实例
+
         return cls(
             llm_client=llm_client,
             function_manager=function_manager,
@@ -516,21 +526,19 @@ class FnCTODTracker:
                           use_two_stage: bool = True,
                           max_history_turns: int = 10):
         """
-        从场景配置创建FnCTODTracker实例的工厂方法
-        
-        这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
+        ``from_scenario`` 的别名，保持向后兼容。
+
+        优先使用预定义 Schema；场景无 Schema 时根据槽位定义动态构建。
         """
-        from contextmind.modes.fnctod import get_function_schema_for_scenario, FunctionManager
-        
         function_manager = FunctionManager()
-        
+
         try:
-            # 优先使用预定义的函数Schema
+            # 优先使用 schemas.py 中的预定义 Schema，精度更高。
             schema = get_function_schema_for_scenario(scenario_config.name)
             function_manager.add_domain(schema)
             logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
         except ValueError as e:
-            # 如果场景不支持，降级为动态创建
+            # 场景无预定义 Schema，根据槽位定义动态构建。
             logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
             function_manager.add_domain_from_slots(
                 domain_name=scenario_config.name,
@@ -539,7 +547,7 @@ class FnCTODTracker:
                 categorical_slots=getattr(scenario_config, 'dst_categorical_slots', None),
                 required_slots=[]
             )
-        
+
         return cls(
             llm_client=llm_client,
             function_manager=function_manager,

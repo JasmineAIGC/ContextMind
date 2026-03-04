@@ -131,12 +131,7 @@ class DialogueStateTracker:
     
     @property
     def turns(self) -> List[DialogueTurn]:
-        """
-        获取对话历史
-        
-        返回:
-            对话历史列表
-        """
+        """对话历史列表（只读）。"""
         return self.dialogue_history
     
     def reset(self) -> None:
@@ -604,32 +599,20 @@ class DialogueStateTracker:
                           enable_summary: bool = True,
                           use_llm_summary: bool = False):
         """
-        从场景配置创建DialogueStateTracker实例的工厂方法
-        
-        这个方法封装了从demo文件中提取的初始化逻辑，使得demo文件只需要简单调用即可。
-        
+        ``from_scenario`` 的别名，保持向后兼容。
+
+        根据 ScenarioConfig 中的槽位定义和提示词模板构建 PromptManager，
+        再用其创建 DialogueStateTracker 实例，调用方无需手动配置 PromptManager。
+
         参数:
-            llm_client: LLM客户端实例
-            scenario_config: 场景配置对象（来自scenarios模块）
-            max_history_turns: 最大历史轮数
-            enable_summary: 是否启用历史摘要
-            use_llm_summary: 是否使用LLM生成摘要
-            
+            llm_client: LLM 客户端实例。
+            scenario_config: 场景配置对象（来自 scenarios 模块）。
+            max_history_turns: 保留在 prompt 中的最大历史轮数。
+            enable_summary: 是否在历史过长时自动生成摘要。
+            use_llm_summary: True 使用 LLM 生成语义摘要，False 使用模板摘要（更快）。
+
         返回:
-            配置好的DialogueStateTracker实例
-            
-        示例:
-            from contextmind.modes.dst import DialogueStateTracker
-            from scenarios import get_chat_scenario
-            from contextmind.infra.llm_client import SimpleLLMClient
-            
-            llm_client = SimpleLLMClient()
-            config = get_chat_scenario()
-            tracker = DialogueStateTracker.create_from_config(
-                llm_client=llm_client,
-                scenario_config=config,
-                max_history_turns=10
-            )
+            初始化完成的 DialogueStateTracker 实例。
         """
         pm = PromptManager(
             domain=scenario_config.name,

@@ -73,12 +73,15 @@ class FunctionManager:
         logger.info(f"从槽位创建domain函数: {domain_name} ({len(slots)} 个槽位)")
     
     def get_domain(self, name: str) -> Optional[DomainSpec]:
+        """按名称查找已注册的 domain，不存在时返回 None。"""
         return self.domains.get(name)
-    
+
     def get_all_domains(self) -> List[DomainSpec]:
+        """返回所有已注册 domain 的列表（顺序与注册顺序一致）。"""
         return list(self.domains.values())
-    
+
     def get_domain_names(self) -> List[str]:
+        """返回所有已注册 domain 的名称列表。"""
         return list(self.domains.keys())
     
     def generate_system_prompt(self, include_all_specs: bool = False) -> str:
@@ -99,7 +102,11 @@ class FunctionManager:
             return self._generate_domain_selection_prompt()
     
     def _generate_domain_selection_prompt(self) -> str:
-        """生成domain选择提示词（Stage 1）"""
+        """生成第一阶段（Domain Selection）使用的系统提示词。
+
+        仅列出各 domain 的名称和简述，让 LLM 快速判断当前话语属于哪个业务域，
+        避免在第一阶段暴露完整参数规格（减少 token 消耗，降低决策干扰）。
+        """
         prompt_parts = [
             "You are a task-oriented dialogue assistant.",
             "Your task is to identify the relevant domain(s) from the user's utterance.",
@@ -122,7 +129,11 @@ class FunctionManager:
         return "\n".join(prompt_parts)
     
     def _generate_full_spec_prompt(self) -> str:
-        """生成完整规格提示词（Stage 2）"""
+        """生成第二阶段（Function Calling）使用的系统提示词。
+
+        包含每个 domain 的完整函数规格（参数名、类型、枚举值等），
+        引导 LLM 以 XML 标签格式输出结构化的 function call，并附带自然语言回复。
+        """
         prompt_parts = [
             "You are a task-oriented dialogue assistant with function calling capability.",
             "Use the provided functions to track dialogue state and generate appropriate responses.",
