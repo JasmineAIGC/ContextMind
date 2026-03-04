@@ -26,7 +26,7 @@ from .updater import (
     BaseUpdater,
     SimpleUpdater,
 )
-from .memory_fitness import (
+from .fitness import (
     MemoryFitness,
     FitnessCalculator,
     DialogueObservationType,

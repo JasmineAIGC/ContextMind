@@ -42,7 +42,7 @@ zero/few-shot 大模型（如 Qwen-3）prompt 工程模式的适配模块。
     execution_engine - 执行引擎（安全解析并执行程序语句，对接 API/数据库）
     prompt_builder   - Prompt 组装工具（Action Parser / Dialogue Manager）
     validator        - 模型生成 action 的合法性校验与反馈解析
-    api_registry     - 场景 API 注册表（闲聊/客服/保险）及注册工具函数
+    registry        - 场景 API 注册表（闲聊/客服/保险）及注册工具函数
 """
 
 from .schemas import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -59,7 +59,7 @@ from .execution_engine import (
 from .prompts import PyTODPromptBuilder, ConversationTurn, FewShotExample
 from .validator import ActionValidator, ValidationResult
 from .tracker import PyTODTracker, PyTODTurnResult
-from .api_registry import SCENARIO_API_REGISTRY, get_scenario_key
+from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [
     "SlotDefinition",

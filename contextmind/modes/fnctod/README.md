@@ -669,6 +669,15 @@ def get_my_schema():
 
 修改`prompts.yaml`中的模板，或在初始化时传入自定义提示词。
 
+### 自定义场景 Schema
+
+内置三个场景（闲聊/客服/保险）的函数 Schema 定义在 `schemas.yaml` 中（纯数据，无 Python 代码）。
+`schemas.py` 是一个轻量 YAML 加载器，负责将 YAML 数据转换为 `DomainSpec` 对象。
+
+添加新场景 Schema 的方法：
+1. 在 `schemas.yaml` 中添加新的场景条目（YAML 格式，参照已有条目）
+2. 无需修改 Python 代码即可立即生效
+
 ## 调试技巧
 
 ### 启用DEBUG日志

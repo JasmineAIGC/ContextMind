@@ -43,7 +43,7 @@ Evolve模式由五大核心组件构成：
 - **MemoryExtractor**：知识提取器
 - **MemoryRetriever**：记忆检索器
 - **MemoryUpdater**：记忆更新器
-- **MemoryFitness**：适应度评估器
+- **fitness.py**：适应度评估器（MemoryFitness + FitnessCalculator）
 
 ### 3. Pipeline
 
@@ -57,8 +57,8 @@ Evolve模式由五大核心组件构成：
 ### 4. Evolution
 
 演化系统：
-- **EvolutionaryUpdater**：演化更新器
-- **FeedbackSystem**：反馈系统
+- **updater.py**（EvolutionaryMemoryUpdater）：进化式记忆更新器
+- **feedback.py**（FeedbackCollector / ObservationCollector）：反馈与观测收集系统
 
 ### 5. Core Framework
 

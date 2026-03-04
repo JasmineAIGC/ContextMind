@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .api_registry import SCENARIO_API_REGISTRY, get_scenario_key
+from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 from .execution_engine import ExecutionEngine, ProgramExecutionResult
 from .prompts import PyTODPromptBuilder, ConversationTurn
 

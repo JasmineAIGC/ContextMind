@@ -14,7 +14,7 @@ from ..core.strategies import UpdateStrategy as BaseUpdater
 from contextmind.infra.logger import get_logger
 from contextmind.infra.embedding import calculate_embedding_similarity
 
-from ..memory.memory_fitness import MemoryFitness, FitnessCalculator
+from ..memory.fitness import MemoryFitness, FitnessCalculator
 
 logger = get_logger(__name__)
 
