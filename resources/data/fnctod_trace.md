@@ -776,4 +776,147 @@ Available functions:
 
 ---
 
-_本报告由 examples/fnctod_trace_demo.py 自动生成。_
+## 五、深入分析：FnCTOD vs PyTOD 逐轮对比与执行流程问题
+
+> 本节基于 `resources/data/fnctod_trace.md`（FnCTOD）与 `resources/data/pytod_trace.md`（PyTOD）
+> 对同一条安逸花外呼对话（会话 ID：add-20260303，用户：张女士）的三轮处理结果进行对比分析。
+
+### 5.1 逐轮回复对比
+
+#### 第 1 轮：用户"我是什么事"
+
+| | 回复内容 | 评价 |
+|---|---|---|
+| **FnCTOD** | 张女士，这边是安逸花的客服，我们注意到您有一段时间没有使用我们的服务了，今天致电是想跟您分享一下，您目前在安逸花的授信额度有提升，可以方便您在需要的时候使用。请问您现在方便了解具体情况吗？ | ❌ **跳过身份核实**，直接告知账户信息，违反业务规定 |
+| **PyTOD** | 这边是安逸花的客服，想跟您确认一下，您目前账户中还有可用的借款额度，今天致电是想跟您介绍一下最新的借款优惠活动。在开始介绍之前，想确认一下您就是张女士本人对吗？ | ✅ **主动请求身份确认**，符合标准流程；轻微问题：提及"有可用借款额度"早于身份确认 |
+| **实际坐席** | 啊张女士您好，我是马上消费安逸花的工作人员，来电呢是想跟您确认一下，安逸花是您本人在使用的，这边给您临时提额了现在是两万六千六百元，有关注到吗？ | 人工实际核实身份 + 告知临时提额 |
+
+**第 1 轮结论**：PyTOD 优于 FnCTOD。FnCTOD 的动作解析（域选择）仅靠系统提示中的业务背景文字来约束 LLM，但 LLM 在没有明确的 API 调用约束下会直接跳过身份核实；PyTOD 通过 Action Parser 强制调用 `verify_customer` API，在流程层面保证了身份核实这一步骤。
+
+---
+
+#### 第 2 轮：用户"你提额我也提不出来呀你光给我提额有什么用"
+
+| | 回复内容 | 评价 |
+|---|---|---|
+| **FnCTOD** | 张女士，非常理解您的心情。我们这次致电是想告诉您，您目前的可提现额度是26,507元，而且还有临时提额3,500元，临时额度有效期到11月18号。如果您现在有资金需求，可以随时在APP上操作提现。请问您这边是否方便进一步了解下相关操作呢？ | ⚠️ 提供了准确金额，但**忽略用户"提不出来"的核心诉求**，仅重复了额度信息 |
+| **PyTOD** | 我理解您的顾虑，这边给您介绍一下，目前您账户中确实还有可用的借款额度，而且我们最近有一些新的优惠活动，可以帮您更灵活地使用资金。如果您方便的话，可以告诉我您目前有哪方面的资金需求，我这边也帮您看看有没有更适合的方案。 | ⚠️ **无具体金额**（Action Parser 在第 2 轮再次调用 `verify_customer` 而非 `query_account`），回复偏泛化；但对话管理器主动问询用户需求，方向正确 |
+| **实际坐席** | 嗯是这样的哈，因为您这个账户嘛，我看到它目前是处于一个正常的一个状态嘛，所以说您这边如果说有需求的话，您可以再去尝试一下，好吧？ | 宽泛引导，未深入解决诉求 |
+
+**第 2 轮结论**：两个算法均存在不足。FnCTOD 提供了正确的金额数字（从系统提示中的用户信息提取），但未响应"提不出来"的问题；PyTOD 的 Action Parser 在第 2 轮错误地重复了 `verify_customer` 调用（用户已经隐式确认了身份），导致无法获取 `query_account` 数据、回复缺乏具体数字。本轮各有优劣，基本持平。
+
+---
+
+#### 第 3 轮：用户"我每我每个月都尝试但是你那点那额度我根本就提不出来"
+
+| | 回复内容 | 评价 |
+|---|---|---|
+| **FnCTOD** | 张女士，感谢您的反馈。我们这边看到您最近一次借款是9月21日，目前还有一笔未还清的借款金额为92元。如果您的额度无法满足需求，我们可以进一步帮您分析原因，或者看看是否有其他方式可以更好地满足您的资金需求。您是否愿意详细说一下遇到的具体问题呢？ | ⚠️ 提及"未还清借款92元"与用户诉求无关（用户关心的是提额/提现操作），**数据点选择不当** |
+| **PyTOD** | 我理解您的意思，您之前尝试过借款但可能没有成功。其实您账户中目前有26,507元的可用额度，而且临时额度26,600元还有效（剩余26天），是完全可以使用的。您可以告诉我具体是哪方面的问题，比如是额度不够、操作不顺利，还是有其他顾虑，我这边帮您看看有没有办法解决。 | ✅ Action Parser 第 3 轮**正确调用 `query_account`**，获取26,507元等精确数字，直接回应"额度还有多少"的核心问题，并提示用户说明具体障碍 |
+| **实际坐席** | 哦，那您稍后您可以再去尝试操作一下嘛，因为我们这边来电的话也是看到您的这个信用资质还是非常好的，所以说才专门来电话通知到您的，好吧？ | 人工校验标签：答非所问 |
+
+**第 3 轮结论**：PyTOD 明显优于 FnCTOD。PyTOD 通过 `query_account` 调用获得结构化精确数据（26,507元可用额度、临时额度26天有效期），回复直接解答了用户的额度疑虑并引导进一步描述问题。FnCTOD 虽提取到部分数据，但选择了不相关的"92元未还款"字段，反而让回复显得偏题。
+
+---
+
+### 5.2 执行流程问题汇总
+
+#### FnCTOD 执行流程问题
+
+**问题 1（代码 Bug，已修复）：`_select_domains` 中 `user_utterance` 被重复插入消息列表**
+
+位置：`contextmind/modes/fnctod/tracker.py` `FnCTODTracker._select_domains`
+
+修复前（错误）：
+```python
+messages = [
+    {"role": "system", "content": system_prompt},
+    {"role": "user", "content": user_utterance},  # ← 错误：在历史前就插入了当前输入
+]
+for turn in self.dialogue_history[-3:]:
+    messages.append({"role": "user", "content": turn.user_utterance})
+    if turn.system_utterance:
+        messages.append({"role": "assistant", "content": turn.system_utterance})
+messages.append({"role": "user", "content": user_utterance})  # ← 再次插入（正确位置）
+```
+
+修复后（正确）：
+```python
+messages: List[Dict] = [
+    {"role": "system", "content": system_prompt},
+]
+for turn in self.dialogue_history[-3:]:
+    messages.append({"role": "user", "content": turn.user_utterance})
+    if turn.system_utterance:
+        messages.append({"role": "assistant", "content": turn.system_utterance})
+messages.append({"role": "user", "content": user_utterance})  # ← 只在历史之后插入一次
+```
+
+影响：修复前消息列表结构为 `[system, user_current, user_hist1, assistant_hist1, …, user_current]`，`user_current` 出现两次且在历史之前就出现，导致 LLM 看到错误的对话顺序，域选择质量下降。修复后结构为 `[system, user_hist1, assistant_hist1, …, user_current]`，符合标准多轮对话格式。
+
+> 注：`TracingFnCTODTracker`（demo 子类）已在 override 中修正了此问题，因此 trace 文件中的结果未受此 bug 影响；但直接使用 `FnCTODTracker` 基类的场景仍存在此问题，已在本 PR 中修复。
+
+---
+
+**问题 2（代码 Bug，已修复）：`_call_function` 对空 `user_utterance` 的历史轮次产生无效空消息**
+
+位置：`contextmind/modes/fnctod/tracker.py` `FnCTODTracker._call_function`
+
+修复前（错误）：
+```python
+for turn in self.dialogue_history[-self.max_history_turns:]:
+    messages.append({"role": "user", "content": turn.user_utterance})  # 空字符串也会被加入
+    ...
+```
+
+修复后（正确）：
+```python
+for turn in self.dialogue_history[-self.max_history_turns:]:
+    # user_utterance 为空表示预注入的坐席开场白，跳过空的 user 消息
+    if turn.user_utterance:
+        messages.append({"role": "user", "content": turn.user_utterance})
+    ...
+```
+
+影响：预注入坐席开场白时 `user_utterance=""`, 修复前会产生 `{"role": "user", "content": ""}` 的无效消息，可能导致 API 报错或 LLM 行为异常。
+
+---
+
+**问题 3（设计层面）：FnCTOD 依赖 LLM 从自由文本中提取业务数据，选点质量不稳定**
+
+FnCTOD 将全量用户信息（`#` 分隔的文本）注入系统提示，依靠 LLM 自行判断哪些字段与当前回复相关。第 3 轮 LLM 从众多字段中选取了"未还款92元"这一信息，而非更相关的"可提现额度26,507元"，导致回复信息点选择不当。
+
+FnCTOD 的定位是 **DST（对话状态追踪）**而非直接回复生成，其结构化输出（`function_call` 参数）可以交给下游系统处理；但在"同时生成自然语言回复"的使用模式下，LLM 在信息选取上缺乏外部约束，容易偏题。
+
+---
+
+#### PyTOD 执行流程问题
+
+**问题 4（LLM 行为问题）：第 2 轮 Action Parser 重复调用 `verify_customer` 而非 `query_account`**
+
+第 2 轮用户说"你提额我也提不出来呀你光给我提额有什么用"，核心诉求是对账户额度的质疑，Action Parser 应调用 `query_account` 获取账户数据；但实际输出为 `x1 verify_customer(name='张女士')`（与第 1 轮相同），原因是：
+
+- 第 1 轮对话管理器回复中问了"想确认一下您就是张女士本人对吗？"，但用户未明确回答（直接转变话题）
+- Action Parser 的对话历史中只有用户/坐席消息，看不到 API 执行结果（`identity_confirmed: true` 只在对话管理器的提示中可见）
+- 因此 AP 认为身份未确认，合理地再次尝试核实；但这导致 DM 失去了 `query_account` 数据，只能给出模糊回复
+
+**改进建议**：在 AP 的上下文中也注入之前已执行过的 API 名称（不暴露结果），让 AP 能感知到"身份核实已在上一轮尝试过"，从而在当前轮转向 `query_account`。
+
+---
+
+### 5.3 综合结论
+
+| 维度 | FnCTOD | PyTOD |
+|---|---|---|
+| **身份核实流程** | ❌ 依赖 LLM 自行遵循系统提示规则，第 1 轮跳过了核实步骤 | ✅ AP 强制调用 `verify_customer` API，流程层面保证核实 |
+| **数据获取方式** | 从系统提示的自由文本中提取，可能选取不相关字段 | 调用 CRM API 获取结构化数据，精确且可追溯 |
+| **回复精准度** | 第 1、3 轮存在信息点偏差；第 2 轮数字准确但忽略用户诉求 | 第 1、3 轮回复内容恰当；第 2 轮因 AP 重复调用导致数据缺失 |
+| **代码 Bug** | 发现并修复 2 处基类 Bug（`_select_domains` 重复消息、`_call_function` 空消息） | 无代码层面 Bug |
+| **流程一致性** | 两阶段（域选 → 函数调用），共 1 次 LLM 调用/轮 | 三步（AP → Engine → DM），共 2 次 LLM 调用/轮，结构更清晰 |
+| **DST 输出质量** | ✅ 每轮输出结构化 `function_call`，状态提取完整且累积 | 状态累积通过变量赋值维护，粒度更细但形式不如 FnCTOD 统一 |
+
+**整体评价**：PyTOD 在三轮对话中有 2 轮（第 1、3 轮）生成了更贴合业务流程和用户诉求的回复，主要优势来自 API 调用层面的强约束。FnCTOD 在 DST 任务（结构化状态提取）上表现稳定，但在"同时生成优质自然语言回复"方面对 LLM 的依赖更重，受 LLM 决策质量影响较大。两种算法各有适用场景，可按照是否需要外部 API 调用和是否优先 DST 准确性来选择。
+
+---
+
+_本报告由 examples/fnctod_trace_demo.py 自动生成，分析章节手动添加。_

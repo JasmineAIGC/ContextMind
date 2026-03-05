@@ -216,9 +216,8 @@ class FnCTODTracker:
         # 根据FnCTOD论文，提示词包含所有domain的简要描述
         system_prompt = self.function_manager.build_system_prompt(include_all_specs=False)
         
-        messages = [
+        messages: List[Dict] = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_utterance}
         ]
         
         # 添加对话历史（最近几轮）
@@ -280,7 +279,10 @@ class FnCTODTracker:
         
         # 添加对话历史（包含function call和自然语言回复）
         for turn in self.dialogue_history[-self.max_history_turns:]:
-            messages.append({"role": "user", "content": turn.user_utterance})
+            # user_utterance 为空表示该轮是预注入的开场白（无用户发言），
+            # 只将坐席开场白作为 assistant 消息加入上下文，跳过空的 user 消息。
+            if turn.user_utterance:
+                messages.append({"role": "user", "content": turn.user_utterance})
             
             # 构建完整的assistant回复（function call + 自然语言回复）
             if turn.function_call and turn.system_utterance:
