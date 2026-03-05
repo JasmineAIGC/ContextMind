@@ -574,46 +574,18 @@ def render_markdown(trace: Dict[str, Any]) -> str:
             lines.append(f"> {dl}" if dl.strip() else ">")
         lines.append("")
 
-    # 2.4 Prompt 模板（渲染后版本，无占位符）
-    ap_rendered = cfg["prompt_templates"]["action_parser"].replace(
-        "{api_functions_text}", cfg["api_prompt_text"]
-    )
-    dm_annotated = (
-        cfg["prompt_templates"]["dialogue_manager"]
-        .replace("{execution_result_text}", "Step 2 执行结果（运行时动态填充）")
-        .replace("{state_text}", "当前会话累积状态（运行时动态填充）")
-        .replace("{response_language}", cfg.get("response_language", "中文"))
-    )
-    fallback_annotated = (
-        cfg["prompt_templates"]["fallback"]
-        .replace("{scenario_desc}", f"你的服务场景是：{meta['scenario']}。")
-        .replace("{state_text}", "当前会话累积状态（运行时动态填充）")
-        .replace("{response_language}", cfg.get("response_language", "中文"))
-    )
-    lines += [
-        "### 2.4 LLM 系统提示（渲染后）",
-        "",
-        "#### 动作解析器（Action Parser）系统提示",
-        "",
-        _md_code(ap_rendered),
-        "",
-        "#### 对话管理器（Dialogue Manager）系统提示",
-        "",
-        _md_code(dm_annotated),
-        "",
-        "#### 后备模式（Fallback）系统提示",
-        "",
-        _md_code(fallback_annotated),
-        "",
-        "---",
-        "",
-    ]
+    lines += ["---", ""]
 
     # ------------------------------------------------------------------ #
     # 三、PyTOD 三步流水线追踪
     # ------------------------------------------------------------------ #
     lines += [
         "## 三、PyTOD 三步流水线追踪",
+        "",
+        "Step 1（动作解析器）每轮必调用；",
+        "Step 2（执行引擎）执行动作解析器生成的程序；",
+        "Step 3（对话管理器）根据执行结果生成自然语言回复，",
+        "若动作解析器输出 NONE()（无需调用 API）则改用后备模式直接生成回复。",
         "",
         f"本次共处理 {len(turns)} 轮用户输入。",
         "",
@@ -729,8 +701,14 @@ def render_markdown(trace: Dict[str, Any]) -> str:
 
             lines.append("")
 
+        # 本轮汇总：算法回复 vs 数据集实际回复
+        algo_response = turn.get('final_response', '—')
+        actual_response = turn.get('actual_response', '—')
         lines += [
-            f"本轮最终回复：{turn.get('final_response', '—')}",
+            "| 项目 | 内容 |",
+            "|---|---|",
+            f"| 算法生成回复 | {algo_response} |",
+            f"| 数据集实际回复 | {actual_response} |",
             "",
         ]
 
@@ -872,6 +850,25 @@ async def run_trace(
     prior_user_turns = user_turns[:-1]
     injected_history_turns = len(prior_user_turns)
 
+    # 为每轮用户发言找到数据集中对应的实际坐席回复
+    # 规则：history 中紧跟在用户发言之后的坐席发言就是当轮的实际回复；
+    #       最后一轮用户发言的实际回复来自 session["坐席回复"]
+    actual_agent_responses: List[str] = []
+    for i, utt in enumerate(history):
+        if utt.startswith(_USER_PREFIX):
+            if i + 1 < len(history) and history[i + 1].startswith(_AGENT_PREFIX):
+                actual_agent_responses.append(history[i + 1].removeprefix(_AGENT_PREFIX))
+            else:
+                actual_agent_responses.append(session.get("坐席回复", ""))
+
+    # 将出现在第一条用户发言之前的坐席开场白注入对话历史，
+    # 确保算法在处理第一轮用户话语时已具备对话背景（"对话历史有使用到"）。
+    for utt in history:
+        if utt.startswith(_USER_PREFIX):
+            break
+        if utt.startswith(_AGENT_PREFIX):
+            tracker.history.append(ConversationTurn(role="assistant", content=utt.removeprefix(_AGENT_PREFIX)))
+
     if verbose:
         print(f"\n{'='*60}")
         print(f"  会话 ID：{session['session_id']}")
@@ -892,6 +889,11 @@ async def run_trace(
     except Exception as exc:
         result = {"response": f"(运行异常: {exc})", "program_text": "", "state": {}, "execution": None}
         tracker.trace["error"] = traceback.format_exc()
+
+    # 将数据集实际回复注入每轮 turn_trace，用于 Markdown 报告中的逐轮对比
+    for i, turn_trace in enumerate(tracker.trace["turns"]):
+        if i < len(actual_agent_responses):
+            turn_trace["actual_response"] = actual_agent_responses[i]
 
     trace_data: Dict[str, Any] = {
         "metadata": {

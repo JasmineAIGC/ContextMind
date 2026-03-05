@@ -661,18 +661,23 @@ def render_markdown(trace: Dict[str, Any]) -> str:
 
             lines.append("")
 
-        # 本轮汇总
+        # 本轮汇总：算法回复 vs 数据集实际回复
+        algo_response = turn.get('final_response', '—')
+        actual_response = turn.get('actual_response', '—')
         fc_result = turn.get("function_call")
         lines += [
             f"本轮 function_call（DST 结果）：",
             "",
             _md_json(fc_result) if fc_result else "（无 function_call）",
             "",
-            f"本轮自然语言回复：{turn.get('final_response', '—')}",
-            "",
             "本轮累积对话状态：",
             "",
             _md_json(turn.get("final_state", {})),
+            "",
+            "| 项目 | 内容 |",
+            "|---|---|",
+            f"| 算法生成回复 | {algo_response} |",
+            f"| 数据集实际回复 | {actual_response} |",
             "",
         ]
 
@@ -823,6 +828,17 @@ async def run_trace(
     prior_user_turns = user_turns[:-1]
     injected_history_turns = len(prior_user_turns)
 
+    # 为每轮用户发言找到数据集中对应的实际坐席回复
+    # 规则：history 中紧跟在用户发言之后的坐席发言就是当轮的实际回复；
+    #       最后一轮用户发言的实际回复来自 session["坐席回复"]
+    actual_agent_responses: List[str] = []
+    for i, utt in enumerate(history):
+        if utt.startswith(_USER_PREFIX):
+            if i + 1 < len(history) and history[i + 1].startswith(_AGENT_PREFIX):
+                actual_agent_responses.append(history[i + 1].removeprefix(_AGENT_PREFIX))
+            else:
+                actual_agent_responses.append(session.get("坐席回复", ""))
+
     if verbose:
         print(f"\n{'='*60}")
         print(f"  会话 ID：{session['session_id']}")
@@ -851,6 +867,11 @@ async def run_trace(
             "turn_id": tracker.turn_count,
         }
         run_error = traceback.format_exc()
+
+    # 将数据集实际回复注入每轮 turn_trace，用于 Markdown 报告中的逐轮对比
+    for i, turn_trace in enumerate(tracker.trace["turns"]):
+        if i < len(actual_agent_responses):
+            turn_trace["actual_response"] = actual_agent_responses[i]
 
     trace_data: Dict[str, Any] = {
         "metadata": {

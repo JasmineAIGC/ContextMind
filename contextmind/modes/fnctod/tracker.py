@@ -304,7 +304,7 @@ class FnCTODTracker:
             state_json = json.dumps(state_by_domain, ensure_ascii=False, indent=2)
             messages.append({
                 "role": "system",
-                "content": f"Previous cumulative state:\n{state_json}\n\nRemember to include ALL previous parameters in your function call, plus any new ones from the current turn."
+                "content": f"之前各轮累积的对话状态：\n{state_json}\n\n请在本次函数调用中保留上述所有已提取的参数，并补充本轮新增的参数。"
             })
         
         messages.append({"role": "user", "content": user_utterance})
