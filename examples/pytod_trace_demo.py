@@ -498,7 +498,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         "",
         f"> 👤 **用户**：**{test['最后用户输入']}**",
         "",
-        f"_（对话历史中共注入 {test['注入_tracker_history_turns']} 条历史发言到 Tracker）_",
+        f"_（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）_",
         "",
         "### 2.4 实际坐席回复（来自数据集，供对比）",
         "",
@@ -619,7 +619,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += [
         "## 四、PyTOD 三步流水线追踪",
         "",
-        f"> 本次共处理 **{len(turns)} 轮**用户输入（demo 仅处理最后一轮，展示完整三步流程）。",
+        f"> 本次共处理 **{len(turns)} 轮**用户输入，每轮均完整记录算法三步流水线的输入与输出。",
         "",
     ]
 
@@ -831,39 +831,29 @@ async def run_trace(
         verbose=verbose,
     )
 
-    # 注入历史（除最后一轮用户发言）
+    # 提取所有用户发言（按出现顺序），对每一轮都调用一次算法。
     history = session["对话历史"]
-    i = 0
-    while i < len(history) - 2:
-        if history[i].startswith(_AGENT_PREFIX) and history[i + 1].startswith(_USER_PREFIX):
-            tracker.history.append(ConversationTurn(
-                role="assistant", content=history[i].removeprefix(_AGENT_PREFIX)
-            ))
-            tracker.history.append(ConversationTurn(
-                role="user", content=history[i + 1].removeprefix(_USER_PREFIX)
-            ))
-            i += 2
-        else:
-            i += 1
+    user_turns = [utt.removeprefix(_USER_PREFIX) for utt in history if utt.startswith(_USER_PREFIX)]
 
-    # 将倒数第二条坐席发言也注入（让 LLM 知晓上一轮坐席说了什么）
-    if len(history) >= 2 and history[-2].startswith(_AGENT_PREFIX):
-        tracker.history.append(ConversationTurn(
-            role="assistant", content=history[-2].removeprefix(_AGENT_PREFIX)
-        ))
-
-    last_user = history[-1].removeprefix(_USER_PREFIX) if history else ""
-
-    # Capture the injected history count NOW — before process_turn() appends
-    # the current user turn and system response to tracker.history.
-    injected_history_turns = len(tracker.history)
+    last_user = user_turns[-1] if user_turns else ""
+    prior_user_turns = user_turns[:-1]
+    injected_history_turns = len(prior_user_turns)
 
     if verbose:
         print(f"\n{'='*60}")
         print(f"  会话 ID：{session['session_id']}")
+        print(f"  对话轮次总数：{len(user_turns)}（历史 {injected_history_turns} 轮 + 最后 1 轮）")
         print(f"  最后用户输入：{last_user[:80]}")
         print(f"{'='*60}")
 
+    # 对历史中每一轮用户发言逐一调用 PyTOD 算法（记录完整 I/O）
+    for user_utt in prior_user_turns:
+        try:
+            await tracker.process_turn(user_utterance=user_utt)
+        except Exception as exc:
+            tracker.trace.setdefault("errors", []).append(traceback.format_exc())
+
+    # 对最后一轮用户发言调用算法（结果用于最终对比）
     try:
         result = await tracker.process_turn(user_utterance=last_user)
     except Exception as exc:

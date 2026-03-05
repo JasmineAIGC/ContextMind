@@ -60,7 +60,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
-from contextmind.modes.fnctod.function_manager import FunctionCall, DialogueTurn
+from contextmind.modes.fnctod.function_manager import FunctionCall
 from contextmind.modes.fnctod.schemas import get_anyihua_function_schema
 
 # ---------------------------------------------------------------------------
@@ -458,7 +458,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         "",
         f"> 👤 **用户**：**{test['最后用户输入']}**",
         "",
-        f"_（对话历史中共注入 {test['注入_tracker_history_turns']} 轮历史到 Tracker）_",
+        f"_（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）_",
         "",
         "### 2.4 实际坐席回复（来自数据集，供对比）",
         "",
@@ -554,7 +554,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += [
         "## 四、FnCTOD 两阶段流水线追踪",
         "",
-        f"> 本次共处理 **{len(turns)} 轮**用户输入（demo 仅处理最后一轮，展示完整两阶段流程）。",
+        f"> 本次共处理 **{len(turns)} 轮**用户输入，每轮均完整记录算法两阶段的输入与输出。",
         "",
     ]
 
@@ -783,52 +783,32 @@ async def run_trace(
         user_info=user_info,
     )
 
-    # 注入对话历史：配对 (user[i], agent[i+1])，确保 LLM messages 的时间顺序正确。
-    # 每个 DialogueTurn 表示"用户发言 → 坐席立即回应"，
-    # 最后一条用户发言（history[-1]）留给 process_turn() 处理。
+    # 提取所有用户发言（按出现顺序），对每一轮都调用一次算法。
     history = session.get("对话历史", [])
+    user_turns = [utt[len(_USER_PREFIX):] for utt in history if utt.startswith(_USER_PREFIX)]
 
-    # 从第一条用户发言开始（跳过通话开场白中的坐席发言）
-    i = 0
-    while i < len(history) and history[i].startswith(_AGENT_PREFIX):
-        i += 1
-
-    # 配对 (user[i], agent[i+1])；若 history[i] 不是用户发言则向后推进一位
-    while i < len(history) - 1:
-        if not history[i].startswith(_USER_PREFIX):
-            i += 1
-            continue
-        user_utt = history[i]
-        agent_utt = history[i + 1]
-        if agent_utt.startswith(_AGENT_PREFIX):
-            turn = DialogueTurn(
-                turn_id=len(tracker.dialogue_history) + 1,
-                user_utterance=user_utt[len(_USER_PREFIX):],
-                system_utterance=agent_utt[len(_AGENT_PREFIX):],
-                function_call=None,
-                state={},
-            )
-            tracker.dialogue_history.append(turn)
-            i += 2
-        else:
-            # 用户发言后接的不是坐席，跳过该用户发言继续寻找
-            i += 1
-
-    last_user = (
-        history[-1][len(_USER_PREFIX):]
-        if history and history[-1].startswith(_USER_PREFIX)
-        else (history[-1] if history else "")
-    )
-
-    injected_history_turns = len(tracker.dialogue_history)
+    last_user = user_turns[-1] if user_turns else ""
+    prior_user_turns = user_turns[:-1]
+    injected_history_turns = len(prior_user_turns)
 
     if verbose:
         print(f"\n{'='*60}")
         print(f"  会话 ID：{session['session_id']}")
+        print(f"  对话轮次总数：{len(user_turns)}（历史 {injected_history_turns} 轮 + 最后 1 轮）")
         print(f"  最后用户输入：{last_user[:80]}")
         print(f"{'='*60}")
 
     run_error: Optional[str] = None
+
+    # 对历史中每一轮用户发言逐一调用 FnCTOD 算法（记录完整 I/O）
+    for user_utt in prior_user_turns:
+        try:
+            await tracker.process_turn(user_utterance=user_utt)
+        except Exception as exc:
+            if run_error is None:
+                run_error = traceback.format_exc()
+
+    # 对最后一轮用户发言调用算法（结果用于最终对比）
     try:
         result = await tracker.process_turn(user_utterance=last_user)
     except Exception as exc:
@@ -836,7 +816,7 @@ async def run_trace(
             "response": f"(运行异常: {exc})",
             "state": {},
             "function_call": None,
-            "turn_id": 1,
+            "turn_id": tracker.turn_count,
         }
         run_error = traceback.format_exc()
 
