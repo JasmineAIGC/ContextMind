@@ -394,19 +394,20 @@ def _messages_to_md(messages: Optional[List[Dict]]) -> str:
 
 
 def _conv_content_to_md(messages: Optional[List[Dict]]) -> str:
-    """将 messages 列表中的用户/坐席消息渲染为 Markdown（不含系统提示）。"""
+    """将 messages 列表中的用户/坐席消息渲染为单一代码块（不含系统提示）。"""
     if not messages:
         return "_（无对话内容）_"
     conv = [m for m in messages if m.get("role") in ("user", "assistant")]
     if not conv:
         return "_（无对话历史）_"
-    parts = []
+    lines: List[str] = []
     for msg in conv:
         role_label = "USER（用户）" if msg["role"] == "user" else "ASSISTANT（坐席）"
         content = msg.get("content", "")
-        parts.append(f"**`[{role_label}]`**")
-        parts.append(_md_code(content))
-    return "\n\n".join(parts)
+        lines.append(f"[{role_label}]")
+        lines.append(content)
+        lines.append("")
+    return _md_code("\n".join(lines).rstrip())
 
 
 def render_markdown(trace: Dict[str, Any]) -> str:
@@ -455,30 +456,30 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         "",
         _md_code(test["用户信息"]),
         "",
-        "### 1.2 完整对话历史",
+        "### 1.2 对话历史 + 当前对话",
+        "",
+        f"（共 {test['注入_tracker_history_turns']} 轮历史用户发言已通过算法逐一处理，最后 1 轮为当前输入）",
         "",
     ]
-    for idx, utt in enumerate(test["对话历史"]):
+    _conv_lines: List[str] = []
+    for utt in test["对话历史"]:
         if utt.startswith(_AGENT_PREFIX):
-            speaker = "坐席"
+            role_label = "ASSISTANT（坐席）"
             content = utt[len(_AGENT_PREFIX):]
         elif utt.startswith(_USER_PREFIX):
-            speaker = "用户"
+            role_label = "USER（用户）"
             content = utt[len(_USER_PREFIX):]
         else:
-            speaker = "未知"
+            role_label = "UNKNOWN"
             content = utt
-        lines.append(f"第 {idx + 1} 句 · {speaker}：{content}")
-        lines.append("")
+        _conv_lines.append(f"[{role_label}]")
+        _conv_lines.append(content)
+        _conv_lines.append("")
+    lines.append(_md_code("\n".join(_conv_lines).rstrip()))
+    lines.append("")
 
     lines += [
-        "### 1.3 当前用户发言（FnCTOD 输入）",
-        "",
-        f"用户：{test['最后用户输入']}",
-        "",
-        f"（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）",
-        "",
-        "### 1.4 实际坐席回复（来自数据集，供对比）",
+        "### 1.3 实际坐席回复（来自数据集，供对比）",
         "",
         f"实际坐席回复：{test['坐席回复_实际']}",
         "",
