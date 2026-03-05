@@ -128,24 +128,38 @@ class TracingPyTODTracker(PyTODTracker):
             "step": 1,
             "name": "动作解析器（Action Parser）",
             "role": "理解用户意图，决定调用哪些 CRM API",
+            "conversation_content": [
+                m for m in ap_messages if m.get("role") in ("user", "assistant")
+            ],
+            "full_prompt": ap_messages,
             "input_messages": ap_messages,
         }
         if self.verbose:
             _print_step_header(1, "动作解析器（Action Parser）")
-            _print_messages(ap_messages)
+            print("\n  【1 - 对话内容】")
+            _print_conversation_content(ap_messages)
+            print("\n  【2 - 完整的Prompt】")
+            _print_full_prompt(ap_messages)
         try:
             program_text = await self._call_llm(ap_messages, temperature=self.AP_TEMPERATURE)
             ap_step["output_program"] = program_text.strip()
+            ap_step["llm_raw_response"] = program_text.strip()
             ap_step["llm_ok"] = True
         except Exception as exc:
             program_text = "NONE()"
             ap_step["output_program"] = program_text
+            ap_step["llm_raw_response"] = None
             ap_step["llm_ok"] = False
             ap_step["error"] = str(exc)
         program_text = program_text.strip()
         turn_trace["steps"].append(ap_step)
         if self.verbose:
-            print(f"\n  ▶ 程序输出：\n{program_text}\n")
+            print("\n  【3 - 算法输入和输出】")
+            print(f"  输入（用户发言）：{user_utterance[:200]}")
+            print(f"  输出（PyTOD程序）：\n{program_text}")
+            print("\n  【4 - LLM响应输出】")
+            llm_resp = ap_step.get("llm_raw_response") or "（LLM 未调用或调用失败）"
+            print(f"  {str(llm_resp)[:300]}\n")
 
         # ------------------------------------------------------------------ #
         # Step 2：执行引擎（Execution Engine）
@@ -187,14 +201,16 @@ class TracingPyTODTracker(PyTODTracker):
         turn_trace["steps"].append(exec_step)
         if self.verbose:
             _print_step_header(2, "执行引擎（Execution Engine）")
+            print("\n  【3 - 算法输入和输出】")
             out = exec_step["output"]
-            print(f"  success: {out.get('success')}")
+            print(f"  输入（程序文本）：{program_text[:200]}")
+            print(f"  执行成功：{out.get('success')}")
             if out.get("variable_values"):
-                print(f"  变量: {list(out['variable_values'].keys())}")
+                print(f"  变量：{list(out['variable_values'].keys())}")
             if out.get("say_output"):
-                print(f"  say: {out['say_output'][:80]}")
+                print(f"  say()输出：{out['say_output'][:80]}")
             if out.get("errors"):
-                print(f"  错误: {out['errors']}")
+                print(f"  错误：{out['errors']}")
 
         # ------------------------------------------------------------------ #
         # Step 3：对话管理器（Dialogue Manager）
@@ -209,8 +225,11 @@ class TracingPyTODTracker(PyTODTracker):
         if exec_result is not None and exec_result.say_output:
             # say() 直接输出，无需再次调用 LLM
             response = exec_result.say_output
+            dm_step["conversation_content"] = []
+            dm_step["full_prompt"] = None
             dm_step["input_messages"] = None
             dm_step["output_response"] = response
+            dm_step["llm_raw_response"] = None
             dm_step["source"] = "execution_engine_say"
             dm_step["llm_ok"] = True
         elif exec_result is not None:
@@ -221,18 +240,27 @@ class TracingPyTODTracker(PyTODTracker):
                 current_state=self.current_state if self.current_state else None,
                 scenario_context=self.scenario_context,
             )
+            dm_step["conversation_content"] = [
+                m for m in dm_messages if m.get("role") in ("user", "assistant")
+            ]
+            dm_step["full_prompt"] = dm_messages
             dm_step["input_messages"] = dm_messages
             dm_step["source"] = "dialogue_manager_llm"
             if self.verbose:
                 _print_step_header(3, "对话管理器（Dialogue Manager）")
-                _print_messages(dm_messages)
+                print("\n  【1 - 对话内容】")
+                _print_conversation_content(dm_messages)
+                print("\n  【2 - 完整的Prompt】")
+                _print_full_prompt(dm_messages)
             try:
                 response = await self._call_llm(dm_messages)
                 dm_step["output_response"] = response
+                dm_step["llm_raw_response"] = response
                 dm_step["llm_ok"] = True
             except Exception as exc:
                 response = "（LLM 未配置，无法生成回复）"
                 dm_step["output_response"] = response
+                dm_step["llm_raw_response"] = None
                 dm_step["llm_ok"] = False
                 dm_step["error"] = str(exc)
         else:
@@ -243,18 +271,27 @@ class TracingPyTODTracker(PyTODTracker):
                 scenario_description=self.scenario_name,
                 current_state=self.current_state if self.current_state else None,
             )
+            dm_step["conversation_content"] = [
+                m for m in dm_messages if m.get("role") in ("user", "assistant")
+            ]
+            dm_step["full_prompt"] = dm_messages
             dm_step["input_messages"] = dm_messages
             dm_step["source"] = "fallback_llm"
             if self.verbose:
                 _print_step_header(3, "对话管理器（Dialogue Manager）— 后备模式")
-                _print_messages(dm_messages)
+                print("\n  【1 - 对话内容】")
+                _print_conversation_content(dm_messages)
+                print("\n  【2 - 完整的Prompt】")
+                _print_full_prompt(dm_messages)
             try:
                 response = await self._call_llm(dm_messages)
                 dm_step["output_response"] = response
+                dm_step["llm_raw_response"] = response
                 dm_step["llm_ok"] = True
             except Exception as exc:
                 response = "（LLM 未配置，无法生成回复）"
                 dm_step["output_response"] = response
+                dm_step["llm_raw_response"] = None
                 dm_step["llm_ok"] = False
                 dm_step["error"] = str(exc)
 
@@ -263,7 +300,12 @@ class TracingPyTODTracker(PyTODTracker):
         turn_trace["final_response"] = response
 
         if self.verbose:
-            print(f"\n  ▶ 最终回复：{response[:120]}\n")
+            print("\n  【3 - 算法输入和输出】")
+            print(f"  输入（用户发言）：{user_utterance[:200]}")
+            print(f"  输出（最终回复）：{response[:200]}")
+            print("\n  【4 - LLM响应输出】")
+            llm_resp = dm_step.get("llm_raw_response") or "（执行引擎直接输出 / LLM 未调用）"
+            print(f"  {str(llm_resp)[:300]}\n")
 
         # 更新对话历史与状态
         self.history.append(ConversationTurn(role="user", content=user_utterance))
@@ -381,6 +423,22 @@ def _messages_to_md(messages: Optional[List[Dict]]) -> str:
         # 角色标签
         parts.append(f"**`[{role}]`**")
         # 内容放进代码块（保留换行和缩进）
+        parts.append(_md_code(content))
+    return "\n\n".join(parts)
+
+
+def _conv_content_to_md(messages: Optional[List[Dict]]) -> str:
+    """将 messages 列表中的用户/坐席消息渲染为 Markdown（不含系统提示）。"""
+    if not messages:
+        return "_（无对话内容）_"
+    conv = [m for m in messages if m.get("role") in ("user", "assistant")]
+    if not conv:
+        return "_（无对话历史）_"
+    parts = []
+    for msg in conv:
+        role_label = "USER（用户）" if msg["role"] == "user" else "ASSISTANT（坐席）"
+        content = msg.get("content", "")
+        parts.append(f"**`[{role_label}]`**")
         parts.append(_md_code(content))
     return "\n\n".join(parts)
 
@@ -645,47 +703,62 @@ def render_markdown(trace: Dict[str, Any]) -> str:
 
             # ---------- Step 1：动作解析器 ----------
             if s_num == 1:
-                lines.append("**📥 输入（发送给 LLM 的 messages）**")
+                lines.append("**1 - 对话内容**")
                 lines.append("")
-                lines.append(_messages_to_md(step.get("input_messages")))
+                # conversation_content 为新增字段；fallback 兼容旧追踪数据
+                lines.append(_conv_content_to_md(step.get("conversation_content") or step.get("input_messages")))
                 lines.append("")
-                lines.append("**📤 输出（LLM 生成的 PyTOD 程序）**")
+                lines.append("**2 - 完整的Prompt（系统提示词 + 对话历史 + API 列表）**")
+                lines.append("")
+                # full_prompt 为新增字段；fallback 兼容旧追踪数据
+                lines.append(_messages_to_md(step.get("full_prompt") or step.get("input_messages")))
+                lines.append("")
+                lines.append("**3 - 算法输入和输出**")
                 lines.append("")
                 prog = step.get("output_program", "NONE()")
                 if step.get("llm_ok"):
+                    lines.append("- **输出（PyTOD 程序）：**")
+                    lines.append("")
                     lines.append(_md_code(prog, "python"))
                 else:
                     lines.append(f"> ⚠️ **LLM 未配置或调用失败**：{step.get('error', '')}")
                     lines.append("")
                     lines.append(_md_code(prog, "python"))
+                lines.append("")
+                lines.append("**4 - LLM响应输出**")
+                lines.append("")
+                llm_resp = step.get("llm_raw_response") or step.get("output_program") or "（LLM 未调用或调用失败）"
+                lines.append(_md_code(llm_resp, "python"))
 
             # ---------- Step 2：执行引擎 ----------
             elif s_num == 2:
-                lines.append("**📥 输入（待执行的 PyTOD 程序）**")
+                lines.append("**3 - 算法输入和输出**")
+                lines.append("")
+                lines.append("- **输入（待执行的 PyTOD 程序）：**")
                 lines.append("")
                 lines.append(_md_code(step.get("input_program", "NONE()"), "python"))
                 lines.append("")
-                lines.append("**📤 输出（CRM API 执行结果）**")
+                lines.append("- **输出（CRM API 执行结果）：**")
                 lines.append("")
                 out = step.get("output", {})
                 if out.get("note"):
                     lines.append(f"> ℹ️ {out['note']}")
                 else:
-                    lines.append(f"- **执行成功**：`{out.get('success', '—')}`")
+                    lines.append(f"  - **执行成功**：`{out.get('success', '—')}`")
                     var_vals = out.get("variable_values", {})
                     if var_vals:
-                        lines.append("- **API 返回值**：")
+                        lines.append("  - **API 返回值**：")
                         lines.append("")
                         lines.append(_md_json(var_vals))
                     if out.get("hint_messages"):
-                        lines.append(f"- **Hint 消息**：{out['hint_messages']}")
+                        lines.append(f"  - **Hint 消息**：{out['hint_messages']}")
                     if out.get("say_output"):
-                        lines.append(f"- **say() 输出**：{out['say_output']}")
+                        lines.append(f"  - **say() 输出**：{out['say_output']}")
                     if out.get("errors"):
-                        lines.append(f"- **错误**：{out['errors']}")
+                        lines.append(f"  - **错误**：{out['errors']}")
                     if out.get("context_text") and out["context_text"] != "(无执行结果)":
                         lines.append("")
-                        lines.append("**执行结果的上下文文本（注入对话管理器）**：")
+                        lines.append("  - **执行结果上下文文本（注入对话管理器）**：")
                         lines.append("")
                         lines.append(_md_code(out["context_text"]))
 
@@ -697,18 +770,29 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                         "> ℹ️ 执行引擎 `say()` 直接输出回复，本步跳过 LLM 调用。"
                     )
                 else:
-                    lines.append("**📥 输入（发送给 LLM 的 messages，含 CRM 数据）**")
+                    lines.append("**1 - 对话内容**")
                     lines.append("")
-                    lines.append(_messages_to_md(step.get("input_messages")))
+                    # conversation_content 为新增字段；fallback 兼容旧追踪数据
+                    lines.append(_conv_content_to_md(step.get("conversation_content") or step.get("input_messages")))
+                    lines.append("")
+                    lines.append("**2 - 完整的Prompt（系统提示词 + 对话历史 + CRM数据）**")
+                    lines.append("")
+                    # full_prompt 为新增字段；fallback 兼容旧追踪数据
+                    lines.append(_messages_to_md(step.get("full_prompt") or step.get("input_messages")))
                 lines.append("")
-                lines.append("**📤 输出（LLM 生成的自然语言回复）**")
+                lines.append("**3 - 算法输入和输出**")
                 lines.append("")
                 resp = step.get("output_response", "—")
                 if step.get("llm_ok"):
-                    lines.append(f"> 🤖 **PyTOD 生成回复**：{resp}")
+                    lines.append(f"- **输出（自然语言回复）**：{resp}")
                 else:
                     lines.append(f"> ⚠️ **LLM 未配置**：{step.get('error', '')}")
                     lines.append(f"> （示意输出）：{resp}")
+                lines.append("")
+                lines.append("**4 - LLM响应输出**")
+                lines.append("")
+                llm_resp = step.get("llm_raw_response") or step.get("output_response") or "（执行引擎直接输出 / LLM 未调用）"
+                lines.append(_md_code(llm_resp))
 
             lines.append("")
 
@@ -774,15 +858,42 @@ def _print_step_header(step: int, name: str) -> None:
     print(f"{'─'*60}")
 
 
-def _print_messages(messages: Optional[List[Dict]]) -> None:
-    """简洁打印 messages 列表（仅显示 role 和前 200 字）。"""
+# 控制台预览字符数上限
+_CONVERSATION_PREVIEW_LEN = 200   # 对话内容每条消息预览长度
+_FULL_PROMPT_PREVIEW_LEN = 500    # 完整 Prompt 每条消息预览长度
+
+
+def _print_conversation_content(messages: Optional[List[Dict]]) -> None:
+    """打印对话内容（仅用户/坐席发言，不含系统提示）。"""
     if not messages:
+        print("  （无对话内容）")
+        return
+    conv_msgs = [m for m in messages if m.get("role") in ("user", "assistant")]
+    if not conv_msgs:
+        print("  （无对话历史）")
+        return
+    for msg in conv_msgs:
+        role_label = "用户" if msg["role"] == "user" else "坐席"
+        content = msg.get("content", "")
+        preview = content[:_CONVERSATION_PREVIEW_LEN].replace("\n", " ")
+        print(f"  [{role_label}] {preview}{'…' if len(content) > _CONVERSATION_PREVIEW_LEN else ''}")
+
+
+def _print_full_prompt(messages: Optional[List[Dict]]) -> None:
+    """打印完整 Prompt（系统提示词 + 对话历史，每条消息展示前 _FULL_PROMPT_PREVIEW_LEN 字）。"""
+    if not messages:
+        print("  （无 Prompt）")
         return
     for msg in messages:
         role = msg.get("role", "?")
         content = msg.get("content", "")
-        preview = content[:200].replace("\n", " ")
-        print(f"  [{role}] {preview}{'…' if len(content) > 200 else ''}")
+        print(f"  ┌─ [{role}]")
+        preview = content[:_FULL_PROMPT_PREVIEW_LEN]
+        for line in preview.splitlines():
+            print(f"  │  {line}")
+        if len(content) > _FULL_PROMPT_PREVIEW_LEN:
+            print(f"  │  …（共 {len(content)} 字）")
+        print("  └─")
 
 
 # ===========================================================================

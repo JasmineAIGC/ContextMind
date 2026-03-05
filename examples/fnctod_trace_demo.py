@@ -144,12 +144,19 @@ class TracingFnCTODTracker(FnCTODTracker):
             "stage": 1,
             "name": "域选择（Domain Selection）",
             "role": "根据用户发言，从所有可用业务域中选出当前对话涉及的域",
+            "conversation_content": [
+                m for m in messages if m.get("role") in ("user", "assistant")
+            ],
+            "full_prompt": messages,
             "input_messages": messages,
         }
 
         if self.verbose:
             _print_stage_header(1, "域选择（Domain Selection）")
-            _print_messages(messages)
+            print("\n  【1 - 对话内容】")
+            _print_conversation_content(messages)
+            print("\n  【2 - 完整的Prompt】")
+            _print_full_prompt(messages)
 
         try:
             response = await self.llm_client.chat_async(messages)
@@ -159,6 +166,8 @@ class TracingFnCTODTracker(FnCTODTracker):
             stage_trace.update({
                 "llm_raw_response": response,
                 "selected_domains": domains,
+                "algorithm_output": {"selected_domains": domains},
+                "llm_response": response,
                 "llm_ok": True,
             })
         except Exception as exc:
@@ -166,12 +175,19 @@ class TracingFnCTODTracker(FnCTODTracker):
             stage_trace.update({
                 "llm_raw_response": None,
                 "selected_domains": domains,
+                "algorithm_output": {"selected_domains": domains},
+                "llm_response": None,
                 "llm_ok": False,
                 "error": str(exc),
             })
 
         if self.verbose:
-            print(f"\n  ▶ 选出域：{domains}\n")
+            print("\n  【3 - 算法输入和输出】")
+            print(f"  输入（当前用户发言）：{user_utterance[:200]}")
+            print(f"  输出（选出域）：{domains}")
+            print("\n  【4 - LLM响应输出】")
+            resp = stage_trace.get("llm_response") or "（LLM 未调用或调用失败）"
+            print(f"  {str(resp)[:300]}\n")
 
         # 附加到当前轮次的 stages 列表（由 process_turn 创建）
         self._current_turn_stages.append(stage_trace)
@@ -218,13 +234,20 @@ class TracingFnCTODTracker(FnCTODTracker):
             "stage": 2,
             "name": "函数调用（Function Calling）",
             "role": "以 function_call 格式提取对话状态（DST），同时生成自然语言回复",
+            "conversation_content": [
+                m for m in messages if m.get("role") in ("user", "assistant")
+            ],
+            "full_prompt": messages,
             "input_messages": messages,
             "domains": domains,
         }
 
         if self.verbose:
             _print_stage_header(2, "函数调用（Function Calling）")
-            _print_messages(messages)
+            print("\n  【1 - 对话内容】")
+            _print_conversation_content(messages)
+            print("\n  【2 - 完整的Prompt】")
+            _print_full_prompt(messages)
 
         try:
             response = await self.llm_client.chat_async(messages)
@@ -235,6 +258,11 @@ class TracingFnCTODTracker(FnCTODTracker):
                 "llm_raw_response": response,
                 "function_call": function_call.to_dict() if function_call else None,
                 "natural_response": natural_response,
+                "algorithm_output": {
+                    "function_call": function_call.to_dict() if function_call else None,
+                    "natural_response": natural_response,
+                },
+                "llm_response": response,
                 "llm_ok": True,
             })
         except Exception as exc:
@@ -244,6 +272,11 @@ class TracingFnCTODTracker(FnCTODTracker):
                 "llm_raw_response": None,
                 "function_call": None,
                 "natural_response": natural_response,
+                "algorithm_output": {
+                    "function_call": None,
+                    "natural_response": natural_response,
+                },
+                "llm_response": None,
                 "llm_ok": False,
                 "error": str(exc),
             })
@@ -254,8 +287,13 @@ class TracingFnCTODTracker(FnCTODTracker):
                 if stage_trace["function_call"]
                 else "（无 function_call）"
             )
-            print(f"\n  ▶ function_call：{fc_str[:120]}")
-            print(f"  ▶ 自然语言回复：{natural_response[:80]}\n")
+            print("\n  【3 - 算法输入和输出】")
+            print(f"  输入（涉及域）：{domains}")
+            print(f"  输出（function_call）：{fc_str[:200]}")
+            print(f"  输出（自然语言回复）：{natural_response[:200]}")
+            print("\n  【4 - LLM响应输出】")
+            resp = stage_trace.get("llm_response") or "（LLM 未调用或调用失败）"
+            print(f"  {str(resp)[:300]}\n")
 
         self._current_turn_stages.append(stage_trace)
         return function_call, natural_response
@@ -348,6 +386,22 @@ def _messages_to_md(messages: Optional[List[Dict]]) -> str:
         role = msg.get("role", "?").upper()
         content = msg.get("content", "")
         parts.append(f"**`[{role}]`**")
+        parts.append(_md_code(content))
+    return "\n\n".join(parts)
+
+
+def _conv_content_to_md(messages: Optional[List[Dict]]) -> str:
+    """将 messages 列表中的用户/坐席消息渲染为 Markdown（不含系统提示）。"""
+    if not messages:
+        return "_（无对话内容）_"
+    conv = [m for m in messages if m.get("role") in ("user", "assistant")]
+    if not conv:
+        return "_（无对话历史）_"
+    parts = []
+    for msg in conv:
+        role_label = "USER（用户）" if msg["role"] == "user" else "ASSISTANT（坐席）"
+        content = msg.get("content", "")
+        parts.append(f"**`[{role_label}]`**")
         parts.append(_md_code(content))
     return "\n\n".join(parts)
 
@@ -581,20 +635,21 @@ def render_markdown(trace: Dict[str, Any]) -> str:
 
             # ---------- Stage 1：域选择 ----------
             if s_num == 1:
-                lines.append("**📥 输入（发送给 LLM 的 messages）**")
+                lines.append("**1 - 对话内容**")
                 lines.append("")
-                lines.append(_messages_to_md(stage.get("input_messages")))
+                # conversation_content 为新增字段；fallback 兼容旧追踪数据
+                lines.append(_conv_content_to_md(stage.get("conversation_content") or stage.get("input_messages")))
                 lines.append("")
-                lines.append("**📤 输出**")
+                lines.append("**2 - 完整的Prompt（系统提示词 + 对话历史）**")
+                lines.append("")
+                # full_prompt 为新增字段；fallback 兼容旧追踪数据
+                lines.append(_messages_to_md(stage.get("full_prompt") or stage.get("input_messages")))
+                lines.append("")
+                lines.append("**3 - 算法输入和输出**")
                 lines.append("")
                 if stage.get("llm_ok"):
-                    raw = stage.get("llm_raw_response") or "（空）"
-                    lines.append("_LLM 原始响应：_")
-                    lines.append("")
-                    lines.append(_md_code(raw))
-                    lines.append("")
                     lines.append(
-                        f"**选出的域**：{', '.join(f'`{d}`' for d in stage.get('selected_domains', []))}"
+                        f"- **选出的域**：{', '.join(f'`{d}`' for d in stage.get('selected_domains', []))}"
                     )
                 else:
                     lines.append(
@@ -603,6 +658,11 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                     lines.append(
                         f"> 降级使用默认域：{', '.join(f'`{d}`' for d in stage.get('selected_domains', []))}"
                     )
+                lines.append("")
+                lines.append("**4 - LLM响应输出**")
+                lines.append("")
+                raw = stage.get("llm_raw_response") or stage.get("llm_response") or "（LLM 未调用或调用失败）"
+                lines.append(_md_code(raw))
 
             # ---------- Stage 2：函数调用 ----------
             elif s_num == 2:
@@ -610,28 +670,29 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                     f"**目标域**：{', '.join(f'`{d}`' for d in stage.get('domains', []))}"
                 )
                 lines.append("")
-                lines.append("**📥 输入（发送给 LLM 的 messages）**")
+                lines.append("**1 - 对话内容**")
                 lines.append("")
-                lines.append(_messages_to_md(stage.get("input_messages")))
+                # conversation_content 为新增字段；fallback 兼容旧追踪数据
+                lines.append(_conv_content_to_md(stage.get("conversation_content") or stage.get("input_messages")))
                 lines.append("")
-                lines.append("**📤 输出**")
+                lines.append("**2 - 完整的Prompt（系统提示词 + 对话历史 + 累积状态）**")
+                lines.append("")
+                # full_prompt 为新增字段；fallback 兼容旧追踪数据
+                lines.append(_messages_to_md(stage.get("full_prompt") or stage.get("input_messages")))
+                lines.append("")
+                lines.append("**3 - 算法输入和输出**")
                 lines.append("")
                 if stage.get("llm_ok"):
-                    raw = stage.get("llm_raw_response") or "（空）"
-                    lines.append("_LLM 原始响应：_")
-                    lines.append("")
-                    lines.append(_md_code(raw))
-                    lines.append("")
                     fc = stage.get("function_call")
                     if fc:
-                        lines.append("**解析出的 function_call（DST 结果）：**")
+                        lines.append("- **输出（function_call / DST 结果）：**")
                         lines.append("")
                         lines.append(_md_json(fc))
                     else:
                         lines.append("> ⚠️ 未解析到 function_call，使用全文作为自然语言回复。")
                     lines.append("")
                     lines.append(
-                        f"**自然语言回复**：{stage.get('natural_response', '—')}"
+                        f"- **输出（自然语言回复）**：{stage.get('natural_response', '—')}"
                     )
                 else:
                     lines.append(
@@ -640,6 +701,11 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                     lines.append(
                         f"> （回复占位）：{stage.get('natural_response', '—')}"
                     )
+                lines.append("")
+                lines.append("**4 - LLM响应输出**")
+                lines.append("")
+                raw = stage.get("llm_raw_response") or stage.get("llm_response") or "（LLM 未调用或调用失败）"
+                lines.append(_md_code(raw))
 
             lines.append("")
 
@@ -722,15 +788,42 @@ def _print_stage_header(stage: int, name: str) -> None:
     print(f"{'─'*60}")
 
 
-def _print_messages(messages: Optional[List[Dict]]) -> None:
-    """简洁打印 messages 列表（仅显示 role 和前 200 字）。"""
+# 控制台预览字符数上限
+_CONVERSATION_PREVIEW_LEN = 200   # 对话内容每条消息预览长度
+_FULL_PROMPT_PREVIEW_LEN = 500    # 完整 Prompt 每条消息预览长度
+
+
+def _print_conversation_content(messages: Optional[List[Dict]]) -> None:
+    """打印对话内容（仅用户/坐席发言，不含系统提示）。"""
     if not messages:
+        print("  （无对话内容）")
+        return
+    conv_msgs = [m for m in messages if m.get("role") in ("user", "assistant")]
+    if not conv_msgs:
+        print("  （无对话历史）")
+        return
+    for msg in conv_msgs:
+        role_label = "用户" if msg["role"] == "user" else "坐席"
+        content = msg.get("content", "")
+        preview = content[:_CONVERSATION_PREVIEW_LEN].replace("\n", " ")
+        print(f"  [{role_label}] {preview}{'…' if len(content) > _CONVERSATION_PREVIEW_LEN else ''}")
+
+
+def _print_full_prompt(messages: Optional[List[Dict]]) -> None:
+    """打印完整 Prompt（系统提示词 + 对话历史，每条消息展示前 _FULL_PROMPT_PREVIEW_LEN 字）。"""
+    if not messages:
+        print("  （无 Prompt）")
         return
     for msg in messages:
         role = msg.get("role", "?")
         content = msg.get("content", "")
-        preview = content[:200].replace("\n", " ")
-        print(f"  [{role}] {preview}{'…' if len(content) > 200 else ''}")
+        print(f"  ┌─ [{role}]")
+        preview = content[:_FULL_PROMPT_PREVIEW_LEN]
+        for line in preview.splitlines():
+            print(f"  │  {line}")
+        if len(content) > _FULL_PROMPT_PREVIEW_LEN:
+            print(f"  │  …（共 {len(content)} 字）")
+        print("  └─")
 
 
 # ===========================================================================
