@@ -168,11 +168,11 @@ def main() -> None:
             print(f"\ndialogue_id: {first['dialogue_id']}")
             print(f"services: {first['services']}")
             print(f"turns ({len(first['turns'])} 个):")
-            for turn in first["turns"][:6]:
+            for i, turn in enumerate(first["turns"][:6]):
                 frame = turn["frames"][0] if turn["frames"] else {}
                 state = frame.get("state", {})
                 print(
-                    f"  [{turn['turn_id']}] {turn['speaker']:6s}: "
+                    f"  [{i:2d}] {turn['speaker']:6s}: "
                     f"{turn['utterance'][:60]}"
                 )
                 print(
