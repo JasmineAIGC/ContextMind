@@ -221,10 +221,9 @@ class TracingFnCTODTracker(FnCTODTracker):
             messages.append({
                 "role": "system",
                 "content": (
-                    f"Previous cumulative state:\n"
+                    f"之前各轮累积的对话状态：\n"
                     f"{json.dumps(state_by_domain, ensure_ascii=False, indent=2)}\n\n"
-                    "Remember to include ALL previous parameters in your function call, "
-                    "plus any new ones from the current turn."
+                    "请在本次函数调用中保留上述所有已提取的参数，并补充本轮新增的参数。"
                 ),
             })
 
@@ -412,11 +411,10 @@ def render_markdown(trace: Dict[str, Any]) -> str:
 
     文档结构：
       # FnCTOD 对话任务追踪报告
-      ## 一、概述
-      ## 二、对话背景（测试数据）
-      ## 三、FnCTOD 预置配置（运行前定义）
-      ## 四、FnCTOD 两阶段流水线追踪
-      ## 五、结果对比与分析
+      ## 一、对话背景（测试数据）
+      ## 二、FnCTOD 预置配置（运行前定义）
+      ## 三、FnCTOD 两阶段流水线追踪
+      ## 四、结果对比与分析
     """
     meta = trace["metadata"]
     test = trace["test_data"]
@@ -432,169 +430,126 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += [
         "# FnCTOD 对话任务追踪报告",
         "",
-        f"> **生成时间**：{meta['timestamp']}  ",
-        f"> **会话 ID**：`{meta['session_id']}`  ",
-        f"> **算法**：{meta['algorithm']}  ",
-        f"> **场景**：{meta['scenario']}",
+        f"生成时间：{meta['timestamp']}",
+        f"会话 ID：{meta['session_id']}",
+        f"算法：{meta['algorithm']}",
+        f"场景：{meta['scenario']}",
         "",
         "---",
         "",
     ]
 
     # ------------------------------------------------------------------ #
-    # 一、概述
+    # 一、对话背景（测试数据）
     # ------------------------------------------------------------------ #
     lines += [
-        "## 一、概述",
+        "## 一、对话背景（测试数据）",
         "",
-        "本报告记录了 **FnCTOD（Function Calling for Task-Oriented Dialogue）** 算法",
-        "在一条安逸花外呼真实对话上的完整运行过程。",
+        "数据来源：resources/data/chat_test_100.json",
         "",
-        "**FnCTOD 的核心价值**：传统 DST（对话状态追踪）直接提取「槽位-值」对，",
-        "FnCTOD 将槽位提取建模为**函数调用**，输出更结构化、更易扩展，",
-        "同时在同一次 LLM 调用中完成状态提取和自然语言回复生成。",
-        "",
-        "```",
-        "用户输入",
-        "  │",
-        "  ▼",
-        "┌─────────────────────────────────┐",
-        "│  Stage 1  域选择                │  识别当前对话涉及的业务域",
-        "│           Domain Selection      │  （多域场景下启用）",
-        "└──────────────┬──────────────────┘",
-        "               │ 候选 domain 列表",
-        "               ▼",
-        "┌─────────────────────────────────┐",
-        "│  Stage 2  函数调用              │  LLM 以 <function_call> 格式",
-        "│           Function Calling      │  提取对话状态 + 生成自然语言回复",
-        "└──────────────┬──────────────────┘",
-        "               │",
-        "               ▼",
-        "结构化状态（DST 结果）+ 自然语言回复",
-        "```",
-        "",
-        "---",
-        "",
-    ]
-
-    # ------------------------------------------------------------------ #
-    # 二、对话背景（测试数据）
-    # ------------------------------------------------------------------ #
-    lines += [
-        "## 二、对话背景（测试数据）",
-        "",
-        "**数据来源**：`resources/data/chat_test_100.json`，随机抽取一条会话",
-        "",
-        "### 2.1 用户信息",
+        "### 1.1 用户信息",
         "",
         _md_code(test["用户信息"]),
         "",
-        "### 2.2 完整对话历史",
-        "",
-        "> 以下为本条会话的原始对话记录，最后一条用户发言将作为 FnCTOD 的当前输入。",
+        "### 1.2 完整对话历史",
         "",
     ]
     for idx, utt in enumerate(test["对话历史"]):
         if utt.startswith(_AGENT_PREFIX):
-            speaker = "🤖 **坐席**"
+            speaker = "坐席"
             content = utt[len(_AGENT_PREFIX):]
         elif utt.startswith(_USER_PREFIX):
-            speaker = "👤 **用户**"
+            speaker = "用户"
             content = utt[len(_USER_PREFIX):]
         else:
-            speaker = "❓"
+            speaker = "未知"
             content = utt
-        lines.append(f"**第 {idx + 1} 句** · {speaker}：{content}")
+        lines.append(f"第 {idx + 1} 句 · {speaker}：{content}")
         lines.append("")
 
     lines += [
-        "### 2.3 当前待处理的用户发言（FnCTOD 输入）",
+        "### 1.3 当前用户发言（FnCTOD 输入）",
         "",
-        f"> 👤 **用户**：**{test['最后用户输入']}**",
+        f"用户：{test['最后用户输入']}",
         "",
-        f"_（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）_",
+        f"（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）",
         "",
-        "### 2.4 实际坐席回复（来自数据集，供对比）",
+        "### 1.4 实际坐席回复（来自数据集，供对比）",
         "",
-        f"> 🤖 **实际坐席回复**：{test['坐席回复_实际']}",
+        f"实际坐席回复：{test['坐席回复_实际']}",
         "",
-        f"**人工校验标签**：`{test['人工校验']}`",
+        f"人工校验标签：{test['人工校验']}",
         "",
         "---",
         "",
     ]
 
     # ------------------------------------------------------------------ #
-    # 三、FnCTOD 预置配置（运行前定义）
+    # 二、FnCTOD 预置配置（运行前定义）
     # ------------------------------------------------------------------ #
     lines += [
-        "## 三、FnCTOD 预置配置（运行前定义）",
-        "",
-        "> 以下内容在 FnCTOD 启动前已完全定义，不依赖用户输入，是算法的「知识底座」。",
+        "## 二、FnCTOD 预置配置（运行前定义）",
         "",
     ]
 
-    # 3.1 场景上下文
+    # 2.1 场景上下文
     lines += [
-        "### 3.1 场景上下文（注入系统提示的业务背景）",
+        "### 2.1 场景上下文",
         "",
         _md_code(cfg["scenario_context"]),
         "",
     ]
 
-    # 3.2 函数 Schema
+    # 2.2 函数 Schema
     lines += [
-        "### 3.2 函数 Schema（域名、描述与参数定义）",
-        "",
-        "> FnCTOD 将每个业务域建模为一个「函数」，槽位对应函数参数。",
-        "> LLM 通过调用函数并填写参数来完成对话状态追踪（DST）。",
+        "### 2.2 函数 Schema",
         "",
     ]
     for domain in cfg["domains"]:
         lines += [
-            f"#### 域：`{domain['name']}`",
+            f"#### 域：{domain['name']}",
             "",
-            f"**描述**：{domain['description']}  ",
-            f"**参数数量**：{len(domain['parameters'])}",
+            f"描述：{domain['description']}",
+            f"参数数量：{len(domain['parameters'])}",
             "",
         ]
         req_params = [p for p in domain["parameters"] if p["required"]]
         opt_params = [p for p in domain["parameters"] if not p["required"]]
         if req_params:
-            lines.append("**必填参数：**")
+            lines.append("必填参数：")
             lines.append("")
             for p in req_params:
                 enum_str = (
-                    f" ← 枚举值：{', '.join(f'`{v}`' for v in p['enum_values'])}"
+                    f"（枚举值：{', '.join(p['enum_values'])}）"
                     if p["enum_values"]
                     else ""
                 )
-                lines.append(f"- `{p['name']}` — {p['description']}{enum_str}")
+                lines.append(f"- {p['name']}：{p['description']}{enum_str}")
             lines.append("")
         if opt_params:
-            lines.append("**可选参数（部分展示）：**")
+            lines.append("可选参数：")
             lines.append("")
             for p in opt_params[:8]:
-                lines.append(f"- `{p['name']}` — {p['description']}")
+                lines.append(f"- {p['name']}：{p['description']}")
             if len(opt_params) > 8:
-                lines.append(f"- _…（另有 {len(opt_params) - 8} 个可选参数）_")
+                lines.append(f"- （另有 {len(opt_params) - 8} 个可选参数）")
             lines.append("")
         lines += [
-            "**函数提示词格式（注入 LLM 系统消息中的函数规格）：**",
+            "函数提示词格式：",
             "",
             _md_code(domain["prompt_format"]),
             "",
         ]
 
-    # 3.3 系统提示词（两个版本）
+    # 2.3 系统提示词（两个版本）
     lines += [
-        "### 3.3 系统提示词",
+        "### 2.3 系统提示词",
         "",
-        "#### Stage 1 系统提示（域选择，仅包含域描述）",
+        "#### Stage 1 系统提示（域选择）",
         "",
         _md_code(cfg["system_prompt_domain_selection"]),
         "",
-        "#### Stage 2 系统提示（函数调用，包含完整参数规格）",
+        "#### Stage 2 系统提示（函数调用）",
         "",
         _md_code(cfg["system_prompt_function_calling"]),
         "",
@@ -603,12 +558,12 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     ]
 
     # ------------------------------------------------------------------ #
-    # 四、FnCTOD 两阶段流水线追踪
+    # 三、FnCTOD 两阶段流水线追踪
     # ------------------------------------------------------------------ #
     lines += [
-        "## 四、FnCTOD 两阶段流水线追踪",
+        "## 三、FnCTOD 两阶段流水线追踪",
         "",
-        f"> 本次共处理 **{len(turns)} 轮**用户输入，每轮均完整记录算法两阶段的输入与输出。",
+        f"本次共处理 {len(turns)} 轮用户输入。",
         "",
     ]
 
@@ -617,19 +572,16 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         lines += [
             f"### 第 {t_idx} 轮",
             "",
-            f"**用户输入**：{turn['user_input']}",
+            f"用户输入：{turn['user_input']}",
             "",
         ]
 
         for stage in turn["stages"]:
             s_num = stage["stage"]
             s_name = stage["name"]
-            s_role = stage.get("role", "")
 
             lines += [
                 f"#### Stage {s_num}：{s_name}",
-                "",
-                f"**作用**：{s_role}",
                 "",
             ]
 
@@ -649,14 +601,14 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                 lines.append("")
                 if stage.get("llm_ok"):
                     lines.append(
-                        f"- **选出的域**：{', '.join(f'`{d}`' for d in stage.get('selected_domains', []))}"
+                        f"选出的域：{', '.join(stage.get('selected_domains', []))}"
                     )
                 else:
                     lines.append(
-                        f"> ⚠️ **LLM 未配置或调用失败**：{stage.get('error', '')}  "
+                        f"LLM 未配置或调用失败：{stage.get('error', '')}  "
                     )
                     lines.append(
-                        f"> 降级使用默认域：{', '.join(f'`{d}`' for d in stage.get('selected_domains', []))}"
+                        f"降级使用默认域：{', '.join(stage.get('selected_domains', []))}"
                     )
                 lines.append("")
                 lines.append("**4 - LLM响应输出**")
@@ -667,7 +619,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
             # ---------- Stage 2：函数调用 ----------
             elif s_num == 2:
                 lines.append(
-                    f"**目标域**：{', '.join(f'`{d}`' for d in stage.get('domains', []))}"
+                    f"目标域：{', '.join(stage.get('domains', []))}"
                 )
                 lines.append("")
                 lines.append("**1 - 对话内容**")
@@ -685,21 +637,21 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                 if stage.get("llm_ok"):
                     fc = stage.get("function_call")
                     if fc:
-                        lines.append("- **输出（function_call / DST 结果）：**")
+                        lines.append("输出（function_call / DST 结果）：")
                         lines.append("")
                         lines.append(_md_json(fc))
                     else:
-                        lines.append("> ⚠️ 未解析到 function_call，使用全文作为自然语言回复。")
+                        lines.append("未解析到 function_call，使用全文作为自然语言回复。")
                     lines.append("")
                     lines.append(
-                        f"- **输出（自然语言回复）**：{stage.get('natural_response', '—')}"
+                        f"输出（自然语言回复）：{stage.get('natural_response', '—')}"
                     )
                 else:
                     lines.append(
-                        f"> ⚠️ **LLM 未配置或调用失败**：{stage.get('error', '')}"
+                        f"LLM 未配置或调用失败：{stage.get('error', '')}"
                     )
                     lines.append(
-                        f"> （回复占位）：{stage.get('natural_response', '—')}"
+                        f"回复占位：{stage.get('natural_response', '—')}"
                     )
                 lines.append("")
                 lines.append("**4 - LLM响应输出**")
@@ -712,13 +664,13 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         # 本轮汇总
         fc_result = turn.get("function_call")
         lines += [
-            f"**✅ 本轮 function_call（DST 结果）**：",
+            f"本轮 function_call（DST 结果）：",
             "",
-            _md_json(fc_result) if fc_result else "> _（无 function_call）_",
+            _md_json(fc_result) if fc_result else "（无 function_call）",
             "",
-            f"**✅ 本轮自然语言回复**：{turn.get('final_response', '—')}",
+            f"本轮自然语言回复：{turn.get('final_response', '—')}",
             "",
-            "**📊 本轮累积对话状态（Cumulative State）**：",
+            "本轮累积对话状态：",
             "",
             _md_json(turn.get("final_state", {})),
             "",
@@ -727,41 +679,28 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += ["---", ""]
 
     # ------------------------------------------------------------------ #
-    # 五、结果对比与分析
+    # 四、结果对比与分析
     # ------------------------------------------------------------------ #
     final_state = run.get("final_state", {})
     lines += [
-        "## 五、结果对比与分析",
+        "## 四、结果对比",
         "",
-        "| | 内容 |",
+        "| 项目 | 内容 |",
         "|---|---|",
-        f"| 👤 **用户输入** | {test['最后用户输入']} |",
-        f"| 🤖 **FnCTOD 生成回复** | {run['fnctod_response']} |",
-        f"| 📝 **实际坐席回复** | {run['actual_response']} |",
-        f"| 🏷️ **人工校验标签** | `{run['human_label']}` |",
+        f"| 用户输入 | {test['最后用户输入']} |",
+        f"| FnCTOD 生成回复 | {run['fnctod_response']} |",
+        f"| 实际坐席回复 | {run['actual_response']} |",
+        f"| 人工校验标签 | {run['human_label']} |",
         "",
         "### 提取的对话状态（DST 结果）",
         "",
         _md_json(final_state),
         "",
-        "### 算法价值说明",
-        "",
-        "- **Stage 1（域选择）** 的价值：在多业务域场景下，自动聚焦到与当前对话相关的域，",
-        "  减少无关参数噪声，提升 Stage 2 的提取精度。",
-        "",
-        "- **Stage 2（函数调用）** 的价值：将对话状态追踪（DST）建模为函数调用，",
-        "  输出**结构化** `<function_call>` 格式，同时在同一次 LLM 调用中生成自然语言回复，",
-        "  相比传统 DST 更易于扩展到新域（只需增加函数定义，无需重新训练）。",
-        "",
-        "- **累积状态（Cumulative State）** 的价值：FnCTOD 在多轮对话中",
-        "  持续累积已提取的槽位值，形成完整的会话状态，",
-        "  供下游系统（CRM 写入、工单生成等）直接使用。",
-        "",
     ]
 
     if run.get("run_error"):
         lines += [
-            "### ⚠️ 运行异常",
+            "### 运行异常",
             "",
             _md_code(run["run_error"]),
             "",
@@ -770,7 +709,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += [
         "---",
         "",
-        "_本报告由 `examples/fnctod_trace_demo.py` 自动生成。_",
+        "_本报告由 examples/fnctod_trace_demo.py 自动生成。_",
         "",
     ]
 

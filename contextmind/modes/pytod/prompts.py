@@ -121,7 +121,7 @@ class PyTODPromptBuilder:
     _USER_TURN_TEMPLATE = "用户: {content}"
 
     _ACTION_PARSER_TEMPLATE = """\
-你是任务型对话系统的**动作解析器（Action Parser）**。
+你是任务型对话系统的**动作解析器**。
 
 根据对话历史和当前用户输入，生成对应的 PyTOD 程序，供执行引擎执行。
 
@@ -149,9 +149,9 @@ class PyTODPromptBuilder:
 程序：
 x1 get_weather(city='北京', date='今天')
 
-用户: I want to book a hotel in San Jose for 2 nights.
+用户: 我想在上海预订两晚酒店
 程序：
-x1 hotels_1_search_hotel(city='San Jose', number_of_nights=2)
+x1 hotels_1_search_hotel(city='上海', number_of_nights=2)
 x2 Hint('request value: check_in_date')
 x3 say(x2)
 
@@ -352,11 +352,11 @@ NONE()
         if history:
             trimmed = history[-self.max_history_turns:]
             for turn in trimmed:
-                speaker = "user" if turn.role == "user" else "system"
-                context_lines.append(f"[HISTORY] {speaker}: {turn.content}")
-        # [CURRENT] 标签将当前轮与历史对话区分开，
+                speaker = "用户" if turn.role == "user" else "系统"
+                context_lines.append(f"[历史] {speaker}: {turn.content}")
+        # [当前] 标签将当前轮与历史对话区分开，
         # 确保模型仅为当前用户输入生成程序。
-        context_lines.append(f"[CURRENT] user: {user_input}")
+        context_lines.append(f"[当前] 用户: {user_input}")
 
         messages.append({"role": "user", "content": "\n".join(context_lines)})
         return messages

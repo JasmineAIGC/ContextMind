@@ -449,12 +449,10 @@ def render_markdown(trace: Dict[str, Any]) -> str:
 
     文档结构：
       # PyTOD 对话任务追踪报告
-      ## 一、概述
-      ## 二、PyTOD 算法简介
-      ## 三、对话背景（测试数据）
-      ## 四、PyTOD 预置配置（运行前定义）
-      ## 五、PyTOD 三步流水线追踪
-      ## 六、结果对比与分析
+      ## 一、对话背景（测试数据）
+      ## 二、PyTOD 预置配置（运行前定义）
+      ## 三、PyTOD 三步流水线追踪
+      ## 四、结果对比
     """
     meta = trace["metadata"]
     test = trace["test_data"]
@@ -470,135 +468,85 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += [
         "# PyTOD 对话任务追踪报告",
         "",
-        f"> **生成时间**：{meta['timestamp']}  ",
-        f"> **会话 ID**：`{meta['session_id']}`  ",
-        f"> **算法**：{meta['algorithm']}  ",
-        f"> **场景**：{meta['scenario']}",
+        f"生成时间：{meta['timestamp']}",
+        f"会话 ID：{meta['session_id']}",
+        f"算法：{meta['algorithm']}",
+        f"场景：{meta['scenario']}",
         "",
         "---",
         "",
     ]
 
     # ------------------------------------------------------------------ #
-    # 一、概述
+    # 一、对话背景（测试数据）
     # ------------------------------------------------------------------ #
     lines += [
-        "## 一、概述",
+        "## 一、对话背景（测试数据）",
         "",
-        "本报告记录了 **PyTOD（Program-of-Thought Task-Oriented Dialogue）** 算法",
-        "在一条安逸花外呼真实对话上的完整运行过程。",
+        "数据来源：resources/data/chat_test_100.json",
         "",
-        "**PyTOD 的核心价值**：传统对话系统直接用 LLM 凭记忆回答，容易产生幻觉（虚构金额、利率等）。",
-        "PyTOD 在 LLM 生成回复之前，先让它生成一段**结构化程序**，",
-        "由执行引擎调用真实 CRM API 获取客观数据，再将数据注入回复生成，从而保证数据准确性。",
-        "",
-        "```",
-        "用户输入",
-        "  │",
-        "  ▼",
-        "┌─────────────────────────────────┐",
-        "│  Step 1  动作解析器             │  LLM 理解意图 → 生成 PyTOD 程序",
-        "│          Action Parser          │",
-        "└──────────────┬──────────────────┘",
-        "               │ PyTOD 程序（API 调用声明）",
-        "  ▼",
-        "┌─────────────────────────────────┐",
-        "│  Step 2  执行引擎               │  调用真实 CRM API → 返回客观数据",
-        "│          Execution Engine       │",
-        "└──────────────┬──────────────────┘",
-        "               │ CRM 事实数据（额度、利率、借款记录…）",
-        "  ▼",
-        "┌─────────────────────────────────┐",
-        "│  Step 3  对话管理器             │  融合数据 → 生成精准坐席话术",
-        "│          Dialogue Manager       │",
-        "└──────────────┬──────────────────┘",
-        "               │",
-        "  ▼",
-        "坐席回复（基于真实数据，无幻觉）",
-        "```",
-        "",
-        "---",
-        "",
-    ]
-
-    # ------------------------------------------------------------------ #
-    # 二、对话背景（测试数据）
-    # ------------------------------------------------------------------ #
-    lines += [
-        "## 二、对话背景（测试数据）",
-        "",
-        f"**数据来源**：`resources/data/chat_test_100.json`，随机抽取一条会话",
-        "",
-        "### 2.1 用户信息",
+        "### 1.1 用户信息",
         "",
         _md_code(test["用户信息"]),
         "",
-        "### 2.2 完整对话历史",
-        "",
-        "> 以下为本条会话的原始对话记录，最后一条用户发言将作为 PyTOD 的当前输入。",
+        "### 1.2 完整对话历史",
         "",
     ]
     for idx, utt in enumerate(test["对话历史"]):
         if utt.startswith(_AGENT_PREFIX):
-            speaker = "🤖 **坐席**"
+            speaker = "坐席"
             content = utt.removeprefix(_AGENT_PREFIX)
         elif utt.startswith(_USER_PREFIX):
-            speaker = "👤 **用户**"
+            speaker = "用户"
             content = utt.removeprefix(_USER_PREFIX)
         else:
-            speaker = "❓"
+            speaker = "未知"
             content = utt
-        lines.append(f"**第 {idx + 1} 句** · {speaker}：{content}")
+        lines.append(f"第 {idx + 1} 句 · {speaker}：{content}")
         lines.append("")
 
     lines += [
-        "### 2.3 当前待处理的用户发言（PyTOD 输入）",
+        "### 1.3 当前用户发言（PyTOD 输入）",
         "",
-        f"> 👤 **用户**：**{test['最后用户输入']}**",
+        f"用户：{test['最后用户输入']}",
         "",
-        f"_（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）_",
+        f"（对话历史中共 {test['注入_tracker_history_turns']} 轮用户发言已通过算法逐一处理，最后 1 轮为当前输入）",
         "",
-        "### 2.4 实际坐席回复（来自数据集，供对比）",
+        "### 1.4 实际坐席回复（来自数据集，供对比）",
         "",
-        f"> 🤖 **实际坐席回复**：{test['坐席回复_实际']}",
+        f"实际坐席回复：{test['坐席回复_实际']}",
         "",
-        f"**人工校验标签**：`{test['人工校验']}`",
+        f"人工校验标签：{test['人工校验']}",
         "",
         "---",
         "",
     ]
 
     # ------------------------------------------------------------------ #
-    # 三、PyTOD 预置配置（运行前定义）
+    # 二、PyTOD 预置配置（运行前定义）
     # ------------------------------------------------------------------ #
     lines += [
-        "## 三、PyTOD 预置配置（运行前定义）",
-        "",
-        "> 以下内容在 PyTOD 启动前已完全定义，不依赖用户输入，是算法的「知识底座」。",
+        "## 二、PyTOD 预置配置（运行前定义）",
         "",
     ]
 
-    # 3.1 场景上下文
+    # 2.1 场景上下文
     lines += [
-        "### 3.1 场景上下文（注入每一步 LLM 提示的业务背景）",
+        "### 2.1 场景上下文",
         "",
         _md_code(cfg["scenario_context"]),
         "",
     ]
 
-    # 3.2 ServiceSchema
+    # 2.2 ServiceSchema
     schema = cfg["schema"]
     lines += [
-        "### 3.2 ServiceSchema（服务意图与槽位定义）",
+        "### 2.2 ServiceSchema（服务意图与槽位定义）",
         "",
-        f"**服务名**：`{schema.get('service_name', '—')}`  ",
-        f"**描述**：{schema.get('description', '—')}  ",
-        f"**意图数**：{len(schema.get('intents', []))}  ",
-        f"**槽位数**：{len(schema.get('slots', []))}",
-        "",
-        "> ℹ️ **注**：Schema 是服务能力的设计文档，供系统设计者和 Action Parser 作意图参考。",
-        "> 在 PyTOD 流程中，Schema 不直接注入 LLM 提示——Action Parser 实际接收的是",
-        "> 执行引擎的 CRM API 签名列表（见 3.3 节）。",
+        f"服务名：{schema.get('service_name', '—')}",
+        f"描述：{schema.get('description', '—')}",
+        f"意图数：{len(schema.get('intents', []))}",
+        f"槽位数：{len(schema.get('slots', []))}",
         "",
     ]
     if "intents" in schema:
@@ -607,63 +555,53 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         for intent in schema["intents"]:
             req_slots = "、".join(f"`{s}`" for s in intent["required_slots"]) if intent["required_slots"] else "—"
             opt_slots = "、".join(f"`{s}`" for s in intent.get("optional_slots", [])) if intent.get("optional_slots") else "—"
-            lines.append(f"**`{intent['name']}`** — {intent['description']}")
+            lines.append(f"`{intent['name']}` — {intent['description']}")
             lines.append(f"- 必填槽位：{req_slots}")
             lines.append(f"- 可选槽位：{opt_slots}")
             lines.append("")
 
-    # 3.3 注册 API
+    # 2.3 注册 API
     lines += [
-        "### 3.3 执行引擎注册的 CRM API",
-        "",
-        "> 这些 API 是 PyTOD 可调用的「工具箱」，每个函数对应一类真实 CRM 查询操作。",
-        "> 以下签名与 Step 1 动作解析器收到的 SYSTEM 消息中的 API 列表**完全一致**。",
+        "### 2.3 执行引擎注册的 CRM API",
         "",
     ]
     for api in cfg["registered_apis"]:
-        lines.append(f"**`{api['name']}`**")
+        lines.append(f"`{api['name']}`")
         lines.append("")
         lines.append(_md_code(api["signature"]))
-        # Render docstring as blockquote, preserving paragraph breaks
         doc_lines = api["docstring"].splitlines()
         for dl in doc_lines:
             lines.append(f"> {dl}" if dl.strip() else ">")
         lines.append("")
 
-    # 3.4 Prompt 模板（渲染后版本，无占位符）
-    #   - Action Parser：`{api_functions_text}` 已用 3.3 节中的实际 API 列表填充
-    #   - DM / Fallback：运行时动态填充的字段（执行结果、状态等）以说明文字标注
+    # 2.4 Prompt 模板（渲染后版本，无占位符）
     ap_rendered = cfg["prompt_templates"]["action_parser"].replace(
         "{api_functions_text}", cfg["api_prompt_text"]
     )
     dm_annotated = (
         cfg["prompt_templates"]["dialogue_manager"]
-        .replace("{execution_result_text}", "← Step 2 执行结果（见第四章）")
-        .replace("{state_text}", "← 当前会话累积状态（键值对）")
+        .replace("{execution_result_text}", "Step 2 执行结果（运行时动态填充）")
+        .replace("{state_text}", "当前会话累积状态（运行时动态填充）")
         .replace("{response_language}", cfg.get("response_language", "中文"))
     )
     fallback_annotated = (
         cfg["prompt_templates"]["fallback"]
         .replace("{scenario_desc}", f"你的服务场景是：{meta['scenario']}。")
-        .replace("{state_text}", "← 当前会话累积状态（键值对）")
+        .replace("{state_text}", "当前会话累积状态（运行时动态填充）")
         .replace("{response_language}", cfg.get("response_language", "中文"))
     )
     lines += [
-        "### 3.4 LLM 系统提示（渲染后）",
+        "### 2.4 LLM 系统提示（渲染后）",
         "",
-        "> 以下展示三个提示的最终形态。动作解析器提示已填入实际 API 列表，",
-        "> 对话管理器和后备提示中的动态字段（执行结果、状态）以注释标记，",
-        "> 其实际内容可在第四章各步骤的 📥 输入中查看。",
-        "",
-        "#### 动作解析器（Action Parser）— 完整系统提示",
+        "#### 动作解析器（Action Parser）系统提示",
         "",
         _md_code(ap_rendered),
         "",
-        "#### 对话管理器（Dialogue Manager）— 系统提示（动态字段已注释）",
+        "#### 对话管理器（Dialogue Manager）系统提示",
         "",
         _md_code(dm_annotated),
         "",
-        "#### 后备模式（Fallback）— 系统提示（动态字段已注释）",
+        "#### 后备模式（Fallback）系统提示",
         "",
         _md_code(fallback_annotated),
         "",
@@ -672,12 +610,12 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     ]
 
     # ------------------------------------------------------------------ #
-    # 四、PyTOD 三步流水线追踪
+    # 三、PyTOD 三步流水线追踪
     # ------------------------------------------------------------------ #
     lines += [
-        "## 四、PyTOD 三步流水线追踪",
+        "## 三、PyTOD 三步流水线追踪",
         "",
-        f"> 本次共处理 **{len(turns)} 轮**用户输入，每轮均完整记录算法三步流水线的输入与输出。",
+        f"本次共处理 {len(turns)} 轮用户输入。",
         "",
     ]
 
@@ -686,18 +624,15 @@ def render_markdown(trace: Dict[str, Any]) -> str:
         lines += [
             f"### 第 {t_idx} 轮",
             "",
-            f"**用户输入**：{turn['user_input']}",
+            f"用户输入：{turn['user_input']}",
             "",
         ]
 
         for step in turn["steps"]:
             s_num = step["step"]
             s_name = step["name"]
-            s_role = step.get("role", "")
             lines += [
                 f"#### Step {s_num}：{s_name}",
-                "",
-                f"**作用**：{s_role}",
                 "",
             ]
 
@@ -717,11 +652,11 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                 lines.append("")
                 prog = step.get("output_program", "NONE()")
                 if step.get("llm_ok"):
-                    lines.append("- **输出（PyTOD 程序）：**")
+                    lines.append("输出（PyTOD 程序）：")
                     lines.append("")
                     lines.append(_md_code(prog, "python"))
                 else:
-                    lines.append(f"> ⚠️ **LLM 未配置或调用失败**：{step.get('error', '')}")
+                    lines.append(f"LLM 未配置或调用失败：{step.get('error', '')}")
                     lines.append("")
                     lines.append(_md_code(prog, "python"))
                 lines.append("")
@@ -734,31 +669,31 @@ def render_markdown(trace: Dict[str, Any]) -> str:
             elif s_num == 2:
                 lines.append("**3 - 算法输入和输出**")
                 lines.append("")
-                lines.append("- **输入（待执行的 PyTOD 程序）：**")
+                lines.append("输入（待执行的 PyTOD 程序）：")
                 lines.append("")
                 lines.append(_md_code(step.get("input_program", "NONE()"), "python"))
                 lines.append("")
-                lines.append("- **输出（CRM API 执行结果）：**")
+                lines.append("输出（CRM API 执行结果）：")
                 lines.append("")
                 out = step.get("output", {})
                 if out.get("note"):
-                    lines.append(f"> ℹ️ {out['note']}")
+                    lines.append(out['note'])
                 else:
-                    lines.append(f"  - **执行成功**：`{out.get('success', '—')}`")
+                    lines.append(f"- 执行成功：{out.get('success', '—')}")
                     var_vals = out.get("variable_values", {})
                     if var_vals:
-                        lines.append("  - **API 返回值**：")
+                        lines.append("- API 返回值：")
                         lines.append("")
                         lines.append(_md_json(var_vals))
                     if out.get("hint_messages"):
-                        lines.append(f"  - **Hint 消息**：{out['hint_messages']}")
+                        lines.append(f"- Hint 消息：{out['hint_messages']}")
                     if out.get("say_output"):
-                        lines.append(f"  - **say() 输出**：{out['say_output']}")
+                        lines.append(f"- say() 输出：{out['say_output']}")
                     if out.get("errors"):
-                        lines.append(f"  - **错误**：{out['errors']}")
+                        lines.append(f"- 错误：{out['errors']}")
                     if out.get("context_text") and out["context_text"] != "(无执行结果)":
                         lines.append("")
-                        lines.append("  - **执行结果上下文文本（注入对话管理器）**：")
+                        lines.append("执行结果上下文文本（注入对话管理器）：")
                         lines.append("")
                         lines.append(_md_code(out["context_text"]))
 
@@ -766,9 +701,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
             elif s_num == 3:
                 source = step.get("source", "")
                 if source == "execution_engine_say":
-                    lines.append(
-                        "> ℹ️ 执行引擎 `say()` 直接输出回复，本步跳过 LLM 调用。"
-                    )
+                    lines.append("执行引擎 say() 直接输出回复，本步跳过 LLM 调用。")
                 else:
                     lines.append("**1 - 对话内容**")
                     lines.append("")
@@ -784,10 +717,10 @@ def render_markdown(trace: Dict[str, Any]) -> str:
                 lines.append("")
                 resp = step.get("output_response", "—")
                 if step.get("llm_ok"):
-                    lines.append(f"- **输出（自然语言回复）**：{resp}")
+                    lines.append(f"输出（自然语言回复）：{resp}")
                 else:
-                    lines.append(f"> ⚠️ **LLM 未配置**：{step.get('error', '')}")
-                    lines.append(f"> （示意输出）：{resp}")
+                    lines.append(f"LLM 未配置：{step.get('error', '')}")
+                    lines.append(f"占位输出：{resp}")
                 lines.append("")
                 lines.append("**4 - LLM响应输出**")
                 lines.append("")
@@ -797,41 +730,30 @@ def render_markdown(trace: Dict[str, Any]) -> str:
             lines.append("")
 
         lines += [
-            f"**✅ 本轮最终回复**：{turn.get('final_response', '—')}",
+            f"本轮最终回复：{turn.get('final_response', '—')}",
             "",
         ]
 
     lines += ["---", ""]
 
     # ------------------------------------------------------------------ #
-    # 五、结果对比与分析
+    # 四、结果对比
     # ------------------------------------------------------------------ #
     lines += [
-        "## 五、结果对比与分析",
+        "## 四、结果对比",
         "",
-        "| | 内容 |",
+        "| 项目 | 内容 |",
         "|---|---|",
-        f"| 👤 **用户输入** | {test['最后用户输入']} |",
-        f"| 🤖 **PyTOD 生成回复** | {run['pytod_response']} |",
-        f"| 📝 **实际坐席回复** | {run['actual_response']} |",
-        f"| 🏷️ **人工校验标签** | `{run['human_label']}` |",
-        "",
-        "### 算法价值说明",
-        "",
-        "- **Step 1（动作解析器）** 的价值：LLM 不直接回答用户，而是先「读懂意图」，",
-        "  输出结构化的 API 调用程序——这使意图识别结果可审计、可调试。",
-        "",
-        "- **Step 2（执行引擎）** 的价值：用**真实 CRM 数据**替换 LLM 的记忆，",
-        "  彻底消除坐席回复中的金额幻觉、利率幻觉等数据错误。",
-        "",
-        "- **Step 3（对话管理器）** 的价值：LLM 获得了真实数据后，",
-        "  可以生成既符合业务逻辑、又语言自然的坐席话术，兼顾准确与流畅。",
+        f"| 用户输入 | {test['最后用户输入']} |",
+        f"| PyTOD 生成回复 | {run['pytod_response']} |",
+        f"| 实际坐席回复 | {run['actual_response']} |",
+        f"| 人工校验标签 | {run['human_label']} |",
         "",
     ]
 
     if run.get("run_error"):
         lines += [
-            "### ⚠️ 运行异常",
+            "### 运行异常",
             "",
             _md_code(run["run_error"]),
             "",
@@ -840,7 +762,7 @@ def render_markdown(trace: Dict[str, Any]) -> str:
     lines += [
         "---",
         "",
-        "_本报告由 `examples/pytod_trace_demo.py` 自动生成。_",
+        "_本报告由 examples/pytod_trace_demo.py 自动生成。_",
         "",
     ]
 

@@ -90,18 +90,18 @@ class DomainSpec:
         return schema
 
     def to_prompt_format(self) -> str:
-        """转换为提示词格式"""
+        """转换为提示词格式（全中文标签）"""
         lines = [
-            f"Function: {self.name}",
-            f"Description: {self.description}",
-            "Parameters:"
+            f"函数名：{self.name}",
+            f"说明：{self.description}",
+            "参数："
         ]
 
         for param in self.parameters:
-            required_mark = " (required)" if param.required else ""
-            enum_info = f" [options: {', '.join(param.enum_values)}]" if param.enum_values else ""
+            required_mark = "（必填）" if param.required else ""
+            enum_info = f"【可选值：{', '.join(param.enum_values)}】" if param.enum_values else ""
             lines.append(
-                f"  - {param.name} ({param.param_type.value}){required_mark}: "
+                f"  - {param.name}（{param.param_type.value}）{required_mark}："
                 f"{param.description}{enum_info}"
             )
 
@@ -246,62 +246,62 @@ class FunctionManager:
             return self._generate_domain_selection_prompt()
     
     def _generate_domain_selection_prompt(self) -> str:
-        """生成第一阶段（Domain Selection）使用的系统提示词。
+        """生成第一阶段（域选择）使用的系统提示词。
 
         仅列出各 domain 的名称和简述，让 LLM 快速判断当前话语属于哪个业务域，
         避免在第一阶段暴露完整参数规格（减少 token 消耗，降低决策干扰）。
         """
         prompt_parts = [
-            "You are a task-oriented dialogue assistant.",
-            "Your task is to identify the relevant domain(s) from the user's utterance.",
+            "你是一个任务型对话助手。",
+            "你的任务是根据用户的话语识别相关的业务域。",
             "",
-            "Available domains:"
+            "可用业务域："
         ]
-        
+
         for domain in self.domains.values():
-            prompt_parts.append(f"- {domain.name}: {domain.description}")
-        
+            prompt_parts.append(f"- {domain.name}：{domain.description}")
+
         prompt_parts.extend([
             "",
-            "Based on the conversation history and current user utterance, identify the relevant domain(s).",
-            "Output format:",
-            "<domain>domain_name</domain>",
+            "根据对话历史和当前用户话语，识别相关的业务域。",
+            "输出格式：",
+            "<domain>域名称</domain>",
             "",
-            "You can output multiple domains if needed."
+            "如有多个相关域，可输出多个。"
         ])
-        
+
         return "\n".join(prompt_parts)
-    
+
     def _generate_full_spec_prompt(self) -> str:
-        """生成第二阶段（Function Calling）使用的系统提示词。
+        """生成第二阶段（函数调用）使用的系统提示词。
 
         包含每个 domain 的完整函数规格（参数名、类型、枚举值等），
         引导 LLM 以 XML 标签格式输出结构化的 function call，并附带自然语言回复。
         """
         prompt_parts = [
-            "You are a task-oriented dialogue assistant with function calling capability.",
-            "Use the provided functions to track dialogue state and generate appropriate responses.",
+            "你是一个具备函数调用能力的任务型对话助手。",
+            "请使用以下函数来追踪对话状态并生成合适的回复。",
             "",
-            "Available functions:"
+            "可用函数："
         ]
-        
+
         for domain in self.domains.values():
             prompt_parts.append("")
             prompt_parts.append(domain.to_prompt_format())
-        
+
         prompt_parts.extend([
             "",
-            "Instructions:",
-            "1. Based on the conversation, call the appropriate function with relevant parameters",
-            "2. Output the function call in this format:",
-            "   <function_call name=\"function_name\">",
-            "   {\"param1\": \"value1\", \"param2\": \"value2\"}",
+            "使用说明：",
+            "1. 根据对话内容，调用合适的函数并填写相关参数",
+            "2. 以如下格式输出函数调用：",
+            "   <function_call name=\"函数名\">",
+            "   {\"参数1\": \"值1\", \"参数2\": \"值2\"}",
             "   </function_call>",
-            "3. After the function call, provide a natural language response to the user",
+            "3. 在函数调用之后，对用户给出自然语言回复",
             "",
-            "Remember: Only fill parameters that are mentioned or can be inferred from the conversation."
+            "注意：只填写对话中用户明确提及或可推断出的参数。"
         ])
-        
+
         return "\n".join(prompt_parts)
     
     def build_domain_spec_prompt(self, domain_name: str) -> str:
