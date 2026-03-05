@@ -839,6 +839,9 @@ class ChatTestToSGDConverter:
 
         return {
             "service": SERVICE_NAME,
+            # slots: 字符级槽位跨度（SGD 标准字段，本数据集无字符标注，留空）
+            "slots": [],
+            # state 仅出现在 USER turn（SGD 标准）
             "state": {
                 "active_intent": active_intent,
                 "requested_slots": requested_slots,
@@ -893,11 +896,9 @@ class ChatTestToSGDConverter:
 
         return {
             "service": SERVICE_NAME,
-            "state": {
-                "active_intent": "NONE",
-                "requested_slots": [],
-                "slot_values": dict(cumulative_slot_values),
-            },
+            # slots: 字符级槽位跨度（SGD 标准字段，本数据集无字符标注，留空）
+            "slots": [],
+            # SGD 标准：SYSTEM turn 没有 state 字段（state 仅属于 USER turn）
             "actions": actions,
             "service_call": service_call,
             "service_results": service_results,

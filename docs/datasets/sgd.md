@@ -189,7 +189,7 @@ sgd/
       "frames": [
         {
           "service": "Hotels_1",
-          "state": {...},
+          "slots": [],
           "actions": [
             {
               "act": "REQUEST",
@@ -241,10 +241,11 @@ sgd/
 | `turns[].utterance` | 话语文本 |
 | `turns[].frames` | 每个涉及服务的标注帧 |
 | `frames[].service` | 当前帧对应的服务名 |
-| `frames[].state` | 当前累积的对话状态（`active_intent`、`slot_values`） |
+| `frames[].slots` | 话语中的槽位字符级跨度（仅非分类槽位，可为空列表） |
+| `frames[].state` | 当前累积的对话状态（`active_intent`、`slot_values`）**仅 USER 轮次** |
 | `frames[].actions` | 对话行为标注列表 |
-| `frames[].service_call` | 实际调用的 API（仅系统轮次） |
-| `frames[].service_results` | API 返回的结果（仅系统轮次） |
+| `frames[].service_call` | 实际调用的 API（**仅 SYSTEM 轮次**，可选） |
+| `frames[].service_results` | API 返回的结果（**仅 SYSTEM 轮次**，可选） |
 
 ---
 
