@@ -802,7 +802,6 @@ class ChatTestToSGDConverter:
                 )
 
             sgd_turns.append({
-                "turn_id": str(len(sgd_turns)),
                 "speaker": speaker,
                 "utterance": utterance,
                 "frames": [frame],
@@ -833,12 +832,17 @@ class ChatTestToSGDConverter:
         requested_slots: List[str],
         utterance: str,
     ) -> Dict:
-        """构建 USER turn 的 SGD frame。"""
+        """构建 USER turn 的 SGD frame。
+
+        SGD 规范：USER frame 包含 service / slots / state / actions。
+        其中 slots 为字符级标注（本实现留空），state 包含 active_intent / requested_slots / slot_values。
+        """
         # 从话语中提取显式信息槽（如用户提到姓名/尾号/日期）
         actions = self._extract_user_actions(utterance, cumulative_slot_values)
 
         return {
             "service": SERVICE_NAME,
+            "slots": [],  # SGD 规范要求，字符级标注，本实现留空
             "state": {
                 "active_intent": active_intent,
                 "requested_slots": requested_slots,
@@ -853,7 +857,12 @@ class ChatTestToSGDConverter:
         cumulative_slot_values: Dict[str, List[str]],
         user_info: Dict[str, Any],
     ) -> Dict:
-        """构建 SYSTEM turn 的 SGD frame。"""
+        """构建 SYSTEM turn 的 SGD frame。
+
+        SGD 规范：SYSTEM frame 包含 service / slots / actions，
+        仅当实际发生 API 调用时才包含 service_call / service_results。
+        SYSTEM frame 不含 state（只有 USER frame 有 state）。
+        """
         # 系统动作
         act_type = _INTENT_TO_SYSTEM_ACT.get(active_intent, "INFORM")
         actions = []
@@ -887,21 +896,24 @@ class ChatTestToSGDConverter:
                 "canonical_values": [],
             })
 
-        # service_call 和 service_results（模拟 API 调用）
-        service_call = _build_service_call(active_intent, cumulative_slot_values)
-        service_results = _build_service_results(active_intent, user_info)
-
-        return {
+        # SGD 规范：service_call 和 service_results 仅当实际调用 API 时存在
+        # 条件：意图对应有 API 方法，且已有关键槽值（非 general_inquiry 或空状态）
+        api_method = _INTENT_TO_API.get(active_intent)
+        frame: Dict[str, Any] = {
             "service": SERVICE_NAME,
-            "state": {
-                "active_intent": "NONE",
-                "requested_slots": [],
-                "slot_values": dict(cumulative_slot_values),
-            },
+            "slots": [],  # SGD 规范要求，字符级标注，本实现留空
             "actions": actions,
-            "service_call": service_call,
-            "service_results": service_results,
         }
+
+        if api_method and active_intent not in ("general_inquiry",):
+            service_call = _build_service_call(active_intent, cumulative_slot_values)
+            service_results = _build_service_results(active_intent, user_info)
+            if service_call is not None:
+                frame["service_call"] = service_call
+            if service_results:
+                frame["service_results"] = service_results
+
+        return frame
 
     def _extract_user_actions(
         self,
