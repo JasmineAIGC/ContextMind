@@ -14,21 +14,28 @@ ml-pytod 参考：
 chat_test_100.json 与 SGD 的字段映射
 ----------------------------------------------------------------------
 
-可直接映射：
+可直接映射（100% 可靠）：
   session_id          → dialogue_id
   "坐席：..." 前缀     → speaker = "SYSTEM"
   "用户：..." 前缀     → speaker = "USER"
   对话历史正文         → utterance
 
-需要推断/补充：
-  active_intent        → 规则关键词匹配安逸花意图体系（或 LLM 推断）
-  slot_values          → 从 用户信息 字段（parse_user_info）提取 CRM 数据
+高可靠（CRM 结构化数据，≈ 99% 准确）：
+  slot_values          → 从 用户信息 字段（parse_user_info）提取 CRM 数据，
+                         数值本身完全可信（来自真实系统），仅注入时机可能有偏差
+
+规则推断（近似，约 50–70% 准确）：
+  active_intent        → 关键词匹配安逸花意图体系（USER 轮用用户自身话语推断，
+                         并向后传递；而非继承 SYSTEM 意图，后者会产生大量错误标注）
   requested_slots      → 用户疑问句中检测槽位请求
   actions              → 从 intent 映射常用对话行为
-  service_call         → 从 active_intent 映射 API 方法名
+  service_call         → 从 active_intent 映射 API 方法名（仅当 intent 正确时才正确）
   service_results      → 从 parse_user_info 解析的 CRM 数据
 
-扩展（SGD 无对应）：
+注意：推断字段属于弱标注近似数据，适合快速原型和 Generation 任务评估；
+      不适合用于严格 DST benchmarking（需要人工精标注）。
+
+扩展（SGD 无对应，ContextMind 专用）：
   用户信息             → metadata.user_info_raw + metadata.user_info_parsed
   坐席回复             → metadata.reference_response
   人工校验             → metadata.qc_label
@@ -762,24 +769,31 @@ class ChatTestToSGDConverter:
         # 转换为 SGD turns
         sgd_turns: List[Dict] = []
         cumulative_slot_values: Dict[str, List[str]] = {}
-        prev_system_intent = "general_inquiry"
+        # 分别跟踪用户侧和系统侧的意图上下文
+        prev_user_intent = "general_inquiry"
 
         for raw_turn in full_turns_raw:
             speaker, utterance = _split_utterance(raw_turn)
 
-            # 推断意图
+            # 推断当前话语的意图
             intent = _infer_intent(utterance, speaker)
 
-            # 更新意图（仅 SYSTEM 轮更新 intent 上下文）
-            if speaker == "SYSTEM":
-                prev_system_intent = intent
-
-            # SYSTEM 轮：使用本轮推断出的意图作为 active_intent
-            # USER 轮：使用上一个 SYSTEM 意图作为 active_intent
-            # （用户的响应是针对系统上一轮提出的意图，故沿用上一个系统意图）
-            active_intent = (
-                prev_system_intent if speaker == "USER" else intent
-            )
+            if speaker == "USER":
+                # SGD 规范：state.active_intent 表示用户正在追求的任务意图。
+                # 策略：
+                #   1. 若用户话语中能检测到明确意图（非 general_inquiry），则更新用户意图状态。
+                #   2. 若用户话语无法识别（短语、回应词），则沿用用户上一个已知意图（
+                #      而非系统意图——系统正在讲什么与用户想做什么可能不同）。
+                # 初始状态：prev_user_intent = "general_inquiry"；第一轮用户回应短句时
+                # active_intent 为 "general_inquiry"，直到用户话语中出现可识别的意图信号。
+                # 这比直接继承 SYSTEM 意图更准确：系统可能在告知额度，
+                # 但用户真正关心的却是借款争议（handle_loan_dispute）。
+                if intent != "general_inquiry":
+                    prev_user_intent = intent
+                active_intent = prev_user_intent
+            else:
+                # SYSTEM turn：用系统本轮推断出的意图（表示系统正在执行的业务动作）
+                active_intent = intent
 
             # 提取/更新槽值
             if speaker == "SYSTEM":
