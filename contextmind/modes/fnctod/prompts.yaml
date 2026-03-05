@@ -21,12 +21,6 @@ output_format:
        </function_call>
     
     步骤2：然后，向用户提供自然语言响应
-    
-    正确输出示例：
-       <function_call name="insurance">
-       {"intent_level1": "咨询"}
-       </function_call>
-       好的，我理解您想咨询保险。请问您对哪方面的保险感兴趣？
 
   # 单轮示例模板
   single_turn_example_template: |
@@ -115,3 +109,20 @@ scenario_examples:
         user: "订单号是12345"
         params: '{"intent_level1": "投诉", "issue_type": "订单问题", "order_number": "12345"}'
         response: "好的，我已经查到您的订单12345。让我为您查看一下具体问题。"
+  
+  anyihua:
+    single_turn:
+      domain: "anyihua"
+      params: '{"intent_level1": "投诉_借款记录异常", "customer_name": "高先生", "disputed_loan_date": "七月二十三号", "user_emotion": "疑惑"}'
+      response: "高先生，我理解您的疑问，关于七月二十三号这笔借款记录，我马上帮您核查一下，请稍等。"
+    
+    multi_turn:
+      domain: "anyihua"
+      turn1:
+        user: "我没有借过这笔款，为什么有这个记录？"
+        params: '{"intent_level1": "投诉_借款记录异常", "issue_description": "用户质疑存在异常借款记录", "user_emotion": "疑惑"}'
+        response: "您好，我理解您的疑虑。请问您发现的是哪一天的借款记录呢？"
+      turn2:
+        user: "七月二十三号那笔一万四千四"
+        params: '{"intent_level1": "投诉_借款记录异常", "disputed_loan_date": "七月二十三号", "disputed_loan_amount": "一万四千四", "user_emotion": "疑惑", "resolution_status": "查询中"}'
+        response: "明白了，我帮您查询七月二十三号这笔一万四千四百元的借款记录，请您稍等。"

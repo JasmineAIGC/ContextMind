@@ -1,9 +1,9 @@
 # FnCTOD 对话任务追踪报告
 
-> **生成时间**：2026-03-05T01:37:48.793533  
+> **生成时间**：2026-03-05T01:49:40.162093  
 > **会话 ID**：`2025102811215858702023182`  
 > **算法**：FnCTOD（域选择 → 函数调用，两阶段 DST）  
-> **场景**：安逸花外呼促活（callcenter domain）
+> **场景**：安逸花外呼促活（anyihua domain）
 
 ---
 
@@ -119,7 +119,7 @@ FnCTOD 将槽位提取建模为**函数调用**，输出更结构化、更易扩
 
 > 👤 **用户**：**对一万四千四还有一个八月一号。**
 
-_（对话历史中共注入 16 轮历史到 Tracker）_
+_（对话历史中共注入 15 轮历史到 Tracker）_
 
 ### 2.4 实际坐席回复（来自数据集，供对比）
 
@@ -144,62 +144,47 @@ _（对话历史中共注入 16 轮历史到 Tracker）_
 > FnCTOD 将每个业务域建模为一个「函数」，槽位对应函数参数。
 > LLM 通过调用函数并填写参数来完成对话状态追踪（DST）。
 
-#### 域：`callcenter`
+#### 域：`anyihua`
 
-**描述**：客户服务对话场景，全面提取客户意图、问题详情、解决方案、服务质量等多维度信息  
-**参数数量**：29
+**描述**：安逸花外呼促活场景，提取用户意图、身份核实状态、投诉/争议信息、借款意向等关键对话状态  
+**参数数量**：14
 
 **必填参数：**
 
-- `intent_level1` — 一级意图（主意图） ← 枚举值：`咨询`, `投诉`, `售后`, `账户`, `技术支持`, `建议反馈`, `预约服务`, `其他`
+- `intent_level1` — 用户主要意图 ← 枚举值：`投诉_借款记录异常`, `投诉_账单问题`, `投诉_利率问题`, `投诉_其他`, `咨询_额度`, `咨询_利率`, `咨询_还款方式`, `咨询_其他`, `拒绝借款`, `配合/接受`, `告别`, `其他`
 
 **可选参数（部分展示）：**
 
-- `intent_level2` — 二级意图（子意图）：如产品咨询、退换货、登录问题、支付问题等
-- `issue_category` — 问题大类
-- `issue_subcategory` — 问题子类（具体问题类型）
-- `issue_description` — 问题详细描述
-- `customer_name` — 客户姓名
-- `customer_id` — 客户ID或会员号
-- `customer_level` — 客户等级
-- `contact_phone` — 联系电话
-- _…（另有 20 个可选参数）_
+- `intent_level2` — 二级意图（更详细的子意图，如"质疑借款记录真实性"、"确认额度信息"等）
+- `identity_verified` — 用户身份是否已被核实（坐席确认了姓名/手机尾号）
+- `customer_name` — 已确认的客户姓名（如"高先生"）
+- `phone_tail` — 用户手机尾号（已确认的末几位数字）
+- `complaint_type` — 投诉/争议类型
+- `disputed_loan_date` — 用户提出争议的借款日期（如"七月二十三号"）
+- `disputed_loan_amount` — 用户提出争议的借款金额（如"一万四千四"）
+- `issue_description` — 用户对问题的详细描述（用原话或概括性描述）
+- _…（另有 5 个可选参数）_
 
 **函数提示词格式（注入 LLM 系统消息中的函数规格）：**
 
 ```
-Function: callcenter
-Description: 客户服务对话场景，全面提取客户意图、问题详情、解决方案、服务质量等多维度信息
+Function: anyihua
+Description: 安逸花外呼促活场景，提取用户意图、身份核实状态、投诉/争议信息、借款意向等关键对话状态
 Parameters:
-  - intent_level1 (string) (required): 一级意图（主意图） [options: 咨询, 投诉, 售后, 账户, 技术支持, 建议反馈, 预约服务, 其他]
-  - intent_level2 (string): 二级意图（子意图）：如产品咨询、退换货、登录问题、支付问题等
-  - issue_category (string): 问题大类 [options: 产品问题, 订单问题, 支付问题, 物流问题, 账户问题, 技术问题, 服务问题, 其他]
-  - issue_subcategory (string): 问题子类（具体问题类型）
-  - issue_description (string): 问题详细描述
-  - customer_name (string): 客户姓名
-  - customer_id (string): 客户ID或会员号
-  - customer_level (string): 客户等级 [options: 普通, VIP, 黄金, 钻石, 未知]
-  - contact_phone (string): 联系电话
-  - contact_email (string): 联系邮箱
-  - preferred_contact_method (string): 首选联系方式 [options: 电话, 短信, 邮件, 微信, APP推送, 其他]
-  - preferred_contact_time (string): 首选联系时间
-  - order_number (string): 订单号
-  - product_name (string): 产品名称
-  - product_model (string): 产品型号
-  - purchase_date (string): 购买日期
-  - resolution_status (string): 解决状态 [options: 未解决, 处理中, 待回复, 已解决, 需升级, 已转接]
-  - solution_provided (string): 提供的解决方案
-  - follow_up_action (string): 后续跟进行动
-  - estimated_resolution_time (string): 预计解决时间
-  - urgency (string): 紧急程度 [options: 低, 中, 高, 紧急]
-  - priority (string): 处理优先级 [options: P1-最高, P2-高, P3-中, P4-低]
-  - escalation_needed (string): 是否需要升级 [options: 是, 否, 待定]
-  - satisfaction (string): 客户满意度 [options: 非常满意, 满意, 一般, 不满意, 非常不满意, 未知]
-  - service_quality (string): 服务质量评价
-  - agent_name (string): 客服代表姓名
-  - complaint_reason (string): 投诉原因（如果是投诉）
-  - reference_number (string): 工单号或参考号
-  - notes (string): 备注或其他重要信息
+  - intent_level1 (string) (required): 用户主要意图 [options: 投诉_借款记录异常, 投诉_账单问题, 投诉_利率问题, 投诉_其他, 咨询_额度, 咨询_利率, 咨询_还款方式, 咨询_其他, 拒绝借款, 配合/接受, 告别, 其他]
+  - intent_level2 (string): 二级意图（更详细的子意图，如"质疑借款记录真实性"、"确认额度信息"等）
+  - identity_verified (string): 用户身份是否已被核实（坐席确认了姓名/手机尾号） [options: 已核实, 部分核实, 未核实]
+  - customer_name (string): 已确认的客户姓名（如"高先生"）
+  - phone_tail (string): 用户手机尾号（已确认的末几位数字）
+  - complaint_type (string): 投诉/争议类型 [options: 借款记录异常, 账单金额有误, 利率不符, 还款问题, 账户信息有误, 其他]
+  - disputed_loan_date (string): 用户提出争议的借款日期（如"七月二十三号"）
+  - disputed_loan_amount (string): 用户提出争议的借款金额（如"一万四千四"）
+  - issue_description (string): 用户对问题的详细描述（用原话或概括性描述）
+  - borrow_willingness (string): 用户对借款/提现的意向 [options: 有意向, 无意向, 考虑中, 未明确]
+  - user_emotion (string): 用户当前情绪状态 [options: 平静, 疑惑, 不满, 愤怒, 焦虑, 配合, 其他]
+  - resolution_status (string): 问题当前处理状态 [options: 未处理, 查询中, 已解释, 已解决, 需升级]
+  - call_outcome (string): 本次通话结果 [options: 待定, 用户有借款意向, 投诉已处理, 用户拒绝借款, 需回调跟进, 通话结束]
+  - notes (string): 其他重要备注信息
 ```
 
 ### 3.3 系统提示词
@@ -211,7 +196,7 @@ You are a task-oriented dialogue assistant.
 Your task is to identify the relevant domain(s) from the user's utterance.
 
 Available domains:
-- callcenter: 客户服务对话场景，全面提取客户意图、问题详情、解决方案、服务质量等多维度信息
+- anyihua: 安逸花外呼促活场景，提取用户意图、身份核实状态、投诉/争议信息、借款意向等关键对话状态
 
 Based on the conversation history and current user utterance, identify the relevant domain(s).
 Output format:
@@ -228,38 +213,23 @@ Use the provided functions to track dialogue state and generate appropriate resp
 
 Available functions:
 
-Function: callcenter
-Description: 客户服务对话场景，全面提取客户意图、问题详情、解决方案、服务质量等多维度信息
+Function: anyihua
+Description: 安逸花外呼促活场景，提取用户意图、身份核实状态、投诉/争议信息、借款意向等关键对话状态
 Parameters:
-  - intent_level1 (string) (required): 一级意图（主意图） [options: 咨询, 投诉, 售后, 账户, 技术支持, 建议反馈, 预约服务, 其他]
-  - intent_level2 (string): 二级意图（子意图）：如产品咨询、退换货、登录问题、支付问题等
-  - issue_category (string): 问题大类 [options: 产品问题, 订单问题, 支付问题, 物流问题, 账户问题, 技术问题, 服务问题, 其他]
-  - issue_subcategory (string): 问题子类（具体问题类型）
-  - issue_description (string): 问题详细描述
-  - customer_name (string): 客户姓名
-  - customer_id (string): 客户ID或会员号
-  - customer_level (string): 客户等级 [options: 普通, VIP, 黄金, 钻石, 未知]
-  - contact_phone (string): 联系电话
-  - contact_email (string): 联系邮箱
-  - preferred_contact_method (string): 首选联系方式 [options: 电话, 短信, 邮件, 微信, APP推送, 其他]
-  - preferred_contact_time (string): 首选联系时间
-  - order_number (string): 订单号
-  - product_name (string): 产品名称
-  - product_model (string): 产品型号
-  - purchase_date (string): 购买日期
-  - resolution_status (string): 解决状态 [options: 未解决, 处理中, 待回复, 已解决, 需升级, 已转接]
-  - solution_provided (string): 提供的解决方案
-  - follow_up_action (string): 后续跟进行动
-  - estimated_resolution_time (string): 预计解决时间
-  - urgency (string): 紧急程度 [options: 低, 中, 高, 紧急]
-  - priority (string): 处理优先级 [options: P1-最高, P2-高, P3-中, P4-低]
-  - escalation_needed (string): 是否需要升级 [options: 是, 否, 待定]
-  - satisfaction (string): 客户满意度 [options: 非常满意, 满意, 一般, 不满意, 非常不满意, 未知]
-  - service_quality (string): 服务质量评价
-  - agent_name (string): 客服代表姓名
-  - complaint_reason (string): 投诉原因（如果是投诉）
-  - reference_number (string): 工单号或参考号
-  - notes (string): 备注或其他重要信息
+  - intent_level1 (string) (required): 用户主要意图 [options: 投诉_借款记录异常, 投诉_账单问题, 投诉_利率问题, 投诉_其他, 咨询_额度, 咨询_利率, 咨询_还款方式, 咨询_其他, 拒绝借款, 配合/接受, 告别, 其他]
+  - intent_level2 (string): 二级意图（更详细的子意图，如"质疑借款记录真实性"、"确认额度信息"等）
+  - identity_verified (string): 用户身份是否已被核实（坐席确认了姓名/手机尾号） [options: 已核实, 部分核实, 未核实]
+  - customer_name (string): 已确认的客户姓名（如"高先生"）
+  - phone_tail (string): 用户手机尾号（已确认的末几位数字）
+  - complaint_type (string): 投诉/争议类型 [options: 借款记录异常, 账单金额有误, 利率不符, 还款问题, 账户信息有误, 其他]
+  - disputed_loan_date (string): 用户提出争议的借款日期（如"七月二十三号"）
+  - disputed_loan_amount (string): 用户提出争议的借款金额（如"一万四千四"）
+  - issue_description (string): 用户对问题的详细描述（用原话或概括性描述）
+  - borrow_willingness (string): 用户对借款/提现的意向 [options: 有意向, 无意向, 考虑中, 未明确]
+  - user_emotion (string): 用户当前情绪状态 [options: 平静, 疑惑, 不满, 愤怒, 焦虑, 配合, 其他]
+  - resolution_status (string): 问题当前处理状态 [options: 未处理, 查询中, 已解释, 已解决, 需升级]
+  - call_outcome (string): 本次通话结果 [options: 待定, 用户有借款意向, 投诉已处理, 用户拒绝借款, 需回调跟进, 通话结束]
+  - notes (string): 其他重要备注信息
 
 Instructions:
 1. Based on the conversation, call the appropriate function with relevant parameters
@@ -286,51 +256,39 @@ Remember: Only fill parameters that are mentioned or can be inferred from the co
 
 **作用**：以 function_call 格式提取对话状态（DST），同时生成自然语言回复
 
-**目标域**：`callcenter`
+**目标域**：`anyihua`
 
 **📥 输入（发送给 LLM 的 messages）**
 
 **`[SYSTEM]`**
 
 ```
+【场景背景】这是一个外呼小额借款推介场景（安逸花外呼促活）。坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。标准流程：① 核实用户身份（姓名/手机尾号）→ ② 告知可用额度和利率 → ③ 解答疑问（还款方式、账单争议等）→ ④ 引导用户在 APP 完成借款操作 → ⑤ 确认无未解决诉求后礼貌告别。
+【用户信息】现在是上午十一点二十一分#高先生#手机尾号是六七八#注册时间是二零一八年九月二十日#最近登录时间是二零二五年十月二十五日#距离上次登录三天#近30天登录九次#已授信四百五十七天#初始额度为九千六百元#授信额度为一万八千元#可提现额度为七千零四十一元#取现比例是百分之一百#提额时间是二零二五年十月十日#距离上次提额一十七天#末次提额八千五百元#临时额度为二万六千五百元#临时提额为八千五百元#临时提额从二零二五年十月十日到二零二五年十月二十六日#临时提额已过期#借款利率是二十四#账单日是每月二十七号#还款日是二零二五年十一月一日#绑定农业银行#现有三笔借款#累计提现八笔#距离上次借款一百七十八天#最近一次借款是二零二五年五月二日#借款未还清
+
 你是一个具有函数调用能力的任务型对话助手。
 使用提供的函数来追踪对话状态并生成适当的响应。
 
 
 Available functions:
 
-Function: callcenter
-Description: 客户服务对话场景，全面提取客户意图、问题详情、解决方案、服务质量等多维度信息
+Function: anyihua
+Description: 安逸花外呼促活场景，提取用户意图、身份核实状态、投诉/争议信息、借款意向等关键对话状态
 Parameters:
-  - intent_level1 (string) (required): 一级意图（主意图） [options: 咨询, 投诉, 售后, 账户, 技术支持, 建议反馈, 预约服务, 其他]
-  - intent_level2 (string): 二级意图（子意图）：如产品咨询、退换货、登录问题、支付问题等
-  - issue_category (string): 问题大类 [options: 产品问题, 订单问题, 支付问题, 物流问题, 账户问题, 技术问题, 服务问题, 其他]
-  - issue_subcategory (string): 问题子类（具体问题类型）
-  - issue_description (string): 问题详细描述
-  - customer_name (string): 客户姓名
-  - customer_id (string): 客户ID或会员号
-  - customer_level (string): 客户等级 [options: 普通, VIP, 黄金, 钻石, 未知]
-  - contact_phone (string): 联系电话
-  - contact_email (string): 联系邮箱
-  - preferred_contact_method (string): 首选联系方式 [options: 电话, 短信, 邮件, 微信, APP推送, 其他]
-  - preferred_contact_time (string): 首选联系时间
-  - order_number (string): 订单号
-  - product_name (string): 产品名称
-  - product_model (string): 产品型号
-  - purchase_date (string): 购买日期
-  - resolution_status (string): 解决状态 [options: 未解决, 处理中, 待回复, 已解决, 需升级, 已转接]
-  - solution_provided (string): 提供的解决方案
-  - follow_up_action (string): 后续跟进行动
-  - estimated_resolution_time (string): 预计解决时间
-  - urgency (string): 紧急程度 [options: 低, 中, 高, 紧急]
-  - priority (string): 处理优先级 [options: P1-最高, P2-高, P3-中, P4-低]
-  - escalation_needed (string): 是否需要升级 [options: 是, 否, 待定]
-  - satisfaction (string): 客户满意度 [options: 非常满意, 满意, 一般, 不满意, 非常不满意, 未知]
-  - service_quality (string): 服务质量评价
-  - agent_name (string): 客服代表姓名
-  - complaint_reason (string): 投诉原因（如果是投诉）
-  - reference_number (string): 工单号或参考号
-  - notes (string): 备注或其他重要信息
+  - intent_level1 (string) (required): 用户主要意图 [options: 投诉_借款记录异常, 投诉_账单问题, 投诉_利率问题, 投诉_其他, 咨询_额度, 咨询_利率, 咨询_还款方式, 咨询_其他, 拒绝借款, 配合/接受, 告别, 其他]
+  - intent_level2 (string): 二级意图（更详细的子意图，如"质疑借款记录真实性"、"确认额度信息"等）
+  - identity_verified (string): 用户身份是否已被核实（坐席确认了姓名/手机尾号） [options: 已核实, 部分核实, 未核实]
+  - customer_name (string): 已确认的客户姓名（如"高先生"）
+  - phone_tail (string): 用户手机尾号（已确认的末几位数字）
+  - complaint_type (string): 投诉/争议类型 [options: 借款记录异常, 账单金额有误, 利率不符, 还款问题, 账户信息有误, 其他]
+  - disputed_loan_date (string): 用户提出争议的借款日期（如"七月二十三号"）
+  - disputed_loan_amount (string): 用户提出争议的借款金额（如"一万四千四"）
+  - issue_description (string): 用户对问题的详细描述（用原话或概括性描述）
+  - borrow_willingness (string): 用户对借款/提现的意向 [options: 有意向, 无意向, 考虑中, 未明确]
+  - user_emotion (string): 用户当前情绪状态 [options: 平静, 疑惑, 不满, 愤怒, 焦虑, 配合, 其他]
+  - resolution_status (string): 问题当前处理状态 [options: 未处理, 查询中, 已解释, 已解决, 需升级]
+  - call_outcome (string): 本次通话结果 [options: 待定, 用户有借款意向, 投诉已处理, 用户拒绝借款, 需回调跟进, 通话结束]
+  - notes (string): 其他重要备注信息
 
 重要要求：你必须始终为每个用户输入输出一个函数调用。
 不要只用自然语言回复 - 你必须包含 <function_call> 标签。
@@ -345,34 +303,28 @@ Parameters:
 
 步骤2：然后，向用户提供自然语言响应
 
-正确输出示例：
-   <function_call name="insurance">
-   {"intent_level1": "咨询"}
-   </function_call>
-   好的，我理解您想咨询保险。请问您对哪方面的保险感兴趣？
-
 
 示例（你必须遵循此格式）：
-   <function_call name="callcenter">
-   {"intent_level1": "咨询", "issue_type": "产品咨询"}
+   <function_call name="anyihua">
+   {"intent_level1": "投诉_借款记录异常", "customer_name": "高先生", "disputed_loan_date": "七月二十三号", "user_emotion": "疑惑"}
    </function_call>
-   好的，我理解您想咨询产品相关问题。请问具体是哪个产品呢？
+   高先生，我理解您的疑问，关于七月二十三号这笔借款记录，我马上帮您核查一下，请稍等。
 
 
 多轮示例（始终包含 <function_call> 标签）：
-   第1轮 用户：我的订单有问题
+   第1轮 用户：我没有借过这笔款，为什么有这个记录？
    第1轮 助手：
-   <function_call name="callcenter">
-   {"intent_level1": "投诉", "issue_type": "订单问题"}
+   <function_call name="anyihua">
+   {"intent_level1": "投诉_借款记录异常", "issue_description": "用户质疑存在异常借款记录", "user_emotion": "疑惑"}
    </function_call>
-   非常抱歉给您带来不便。请问您的订单号是多少？
+   您好，我理解您的疑虑。请问您发现的是哪一天的借款记录呢？
    
-   第2轮 用户：订单号是12345
+   第2轮 用户：七月二十三号那笔一万四千四
    第2轮 助手：
-   <function_call name="callcenter">
-   {"intent_level1": "投诉", "issue_type": "订单问题", "order_number": "12345"}
+   <function_call name="anyihua">
+   {"intent_level1": "投诉_借款记录异常", "disputed_loan_date": "七月二十三号", "disputed_loan_amount": "一万四千四", "user_emotion": "疑惑", "resolution_status": "查询中"}
    </function_call>
-   好的，我已经查到您的订单12345。让我为您查看一下具体问题。
+   明白了，我帮您查询七月二十三号这笔一万四千四百元的借款记录，请您稍等。
 
 
 每轮对话的关键指令：
@@ -386,7 +338,7 @@ Parameters:
 **`[USER]`**
 
 ```
-我我说的不是这个你帮我你帮我看一下那个七月二十三号七月二十三号我没有借款为什么有一笔借款。
+这有有过。
 ```
 
 **`[ASSISTANT]`**
@@ -398,7 +350,7 @@ Parameters:
 **`[USER]`**
 
 ```
-对还有一个。
+我我说的不是这个你帮我你帮我看一下那个七月二十三号七月二十三号我没有借款为什么有一笔借款。
 ```
 
 **`[ASSISTANT]`**
@@ -410,7 +362,7 @@ Parameters:
 **`[USER]`**
 
 ```
-嗯啊。
+对还有一个。
 ```
 
 **`[ASSISTANT]`**
@@ -422,7 +374,7 @@ Parameters:
 **`[USER]`**
 
 ```
-三号和八七号。
+嗯啊。
 ```
 
 **`[ASSISTANT]`**
@@ -434,7 +386,7 @@ Parameters:
 **`[USER]`**
 
 ```
-七月二十三号。
+三号和八七号。
 ```
 
 **`[ASSISTANT]`**
@@ -446,7 +398,7 @@ Parameters:
 **`[USER]`**
 
 ```
-五月份有呀我是说七月份。
+七月二十三号。
 ```
 
 **`[ASSISTANT]`**
@@ -458,7 +410,7 @@ Parameters:
 **`[USER]`**
 
 ```
-这这个有什么问题吗。
+五月份有呀我是说七月份。
 ```
 
 **`[ASSISTANT]`**
@@ -470,7 +422,7 @@ Parameters:
 **`[USER]`**
 
 ```
-嗯这现在因为现在我不敢用了因为这个上面不对了你这个安逸花上面。
+这这个有什么问题吗。
 ```
 
 **`[ASSISTANT]`**
@@ -482,7 +434,7 @@ Parameters:
 **`[USER]`**
 
 ```
-不是用不了是我没有借款你这个上面。
+嗯这现在因为现在我不敢用了因为这个上面不对了你这个安逸花上面。
 ```
 
 **`[ASSISTANT]`**
@@ -494,7 +446,7 @@ Parameters:
 **`[USER]`**
 
 ```
-
+不是用不了是我没有借款你这个上面。
 ```
 
 **`[ASSISTANT]`**

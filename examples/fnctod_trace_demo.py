@@ -61,7 +61,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
 from contextmind.modes.fnctod.function_manager import FunctionCall, DialogueTurn
-from contextmind.modes.fnctod.schemas import get_callcenter_function_schema
+from contextmind.modes.fnctod.schemas import get_anyihua_function_schema
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -98,11 +98,32 @@ class TracingFnCTODTracker(FnCTODTracker):
             + LLM 响应原文 + 解析出的 FunctionCall + 自然语言回复
     """
 
-    def __init__(self, *args, verbose: bool = False, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        verbose: bool = False,
+        scenario_context: str = "",
+        user_info: str = "",
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.verbose = verbose
+        self.scenario_context = scenario_context
+        self.user_info = user_info
         # 追踪数据根节点
         self.trace: Dict[str, Any] = {"turns": []}
+
+    def _build_function_call_prompt(self, domains: List[str]) -> str:
+        """覆盖父类，在基础系统提示词前注入场景背景和用户信息。"""
+        base = super()._build_function_call_prompt(domains)
+        context_parts: List[str] = []
+        if self.scenario_context:
+            context_parts.append(f"【场景背景】{self.scenario_context}")
+        if self.user_info:
+            context_parts.append(f"【用户信息】{self.user_info}")
+        if context_parts:
+            return "\n".join(context_parts) + "\n\n" + base
+        return base
 
     async def _select_domains(self, user_utterance: str) -> List[str]:
         """覆盖父类，在调用 LLM 前后插入追踪记录。"""
@@ -725,15 +746,18 @@ async def run_trace(
     对单条会话数据执行完整的 FnCTOD 追踪流程，返回结构化追踪数据字典。
 
     流程：
-      1. 加载 callcenter 函数 Schema 并初始化 FunctionManager
+      1. 加载 anyihua 函数 Schema 并初始化 FunctionManager
       2. 采集预定义配置快照（在任何 LLM 调用发生前）
       3. 将对话历史中除最后一条用户发言外的所有轮次注入 tracker.dialogue_history
+         （正确配对：user[i] → agent[i+1]，保证 LLM prompt 的时间顺序正确）
       4. 以最后一条用户发言调用 process_turn()，触发两阶段追踪
     """
-    # 使用 callcenter schema（与安逸花外呼场景匹配）
-    schema = get_callcenter_function_schema()
+    # 使用安逸花外呼专属 Schema（比通用 callcenter 更贴近本场景）
+    schema = get_anyihua_function_schema()
     function_manager = FunctionManager()
     function_manager.add_domain(schema)
+
+    user_info = session.get("用户信息", "")
 
     # 在任何 LLM 调用发生前采集预置配置快照
     predefined_config = collect_predefined_config(function_manager, _SCENARIO_CONTEXT)
@@ -755,17 +779,28 @@ async def run_trace(
         use_two_stage=False,
         max_history_turns=10,
         verbose=verbose,
+        scenario_context=_SCENARIO_CONTEXT,
+        user_info=user_info,
     )
 
-    # 注入对话历史（坐席/用户交替轮次）。
-    # 循环终止于 len(history) - 2，保留最后两条（倒数第二条坐席发言 +
-    # 最后一条用户发言），由循环后的两段代码单独处理，确保正确分开注入。
+    # 注入对话历史：配对 (user[i], agent[i+1])，确保 LLM messages 的时间顺序正确。
+    # 每个 DialogueTurn 表示"用户发言 → 坐席立即回应"，
+    # 最后一条用户发言（history[-1]）留给 process_turn() 处理。
     history = session.get("对话历史", [])
+
+    # 从第一条用户发言开始（跳过通话开场白中的坐席发言）
     i = 0
-    while i < len(history) - 2:
-        agent_utt = history[i]
-        user_utt = history[i + 1]
-        if agent_utt.startswith(_AGENT_PREFIX) and user_utt.startswith(_USER_PREFIX):
+    while i < len(history) and history[i].startswith(_AGENT_PREFIX):
+        i += 1
+
+    # 配对 (user[i], agent[i+1])；若 history[i] 不是用户发言则向后推进一位
+    while i < len(history) - 1:
+        if not history[i].startswith(_USER_PREFIX):
+            i += 1
+            continue
+        user_utt = history[i]
+        agent_utt = history[i + 1]
+        if agent_utt.startswith(_AGENT_PREFIX):
             turn = DialogueTurn(
                 turn_id=len(tracker.dialogue_history) + 1,
                 user_utterance=user_utt[len(_USER_PREFIX):],
@@ -776,18 +811,8 @@ async def run_trace(
             tracker.dialogue_history.append(turn)
             i += 2
         else:
+            # 用户发言后接的不是坐席，跳过该用户发言继续寻找
             i += 1
-
-    # 将倒数第二条坐席发言也注入（让 LLM 知晓上一轮坐席说了什么）
-    if len(history) >= 2 and history[-2].startswith(_AGENT_PREFIX):
-        turn = DialogueTurn(
-            turn_id=len(tracker.dialogue_history) + 1,
-            user_utterance="",
-            system_utterance=history[-2][len(_AGENT_PREFIX):],
-            function_call=None,
-            state={},
-        )
-        tracker.dialogue_history.append(turn)
 
     last_user = (
         history[-1][len(_USER_PREFIX):]
@@ -821,7 +846,7 @@ async def run_trace(
             "script": "examples/fnctod_trace_demo.py",
             "session_id": session.get("session_id", ""),
             "algorithm": "FnCTOD（域选择 → 函数调用，两阶段 DST）",
-            "scenario": "安逸花外呼促活（callcenter domain）",
+            "scenario": "安逸花外呼促活（anyihua domain）",
         },
         "test_data": {
             "session_id": session.get("session_id", ""),

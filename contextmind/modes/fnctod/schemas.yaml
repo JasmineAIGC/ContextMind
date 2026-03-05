@@ -477,3 +477,86 @@ insurance:
     description: 下次跟进行动
   - name: agent_notes
     description: 坐席备注（重要信息记录）
+anyihua:
+  name: anyihua
+  description: 安逸花外呼促活场景，提取用户意图、身份核实状态、投诉/争议信息、借款意向等关键对话状态
+  parameters:
+  - name: intent_level1
+    description: 用户主要意图
+    required: true
+    enum:
+    - 投诉_借款记录异常
+    - 投诉_账单问题
+    - 投诉_利率问题
+    - 投诉_其他
+    - 咨询_额度
+    - 咨询_利率
+    - 咨询_还款方式
+    - 咨询_其他
+    - 拒绝借款
+    - 配合/接受
+    - 告别
+    - 其他
+  - name: intent_level2
+    description: 二级意图（更详细的子意图，如"质疑借款记录真实性"、"确认额度信息"等）
+  - name: identity_verified
+    description: 用户身份是否已被核实（坐席确认了姓名/手机尾号）
+    enum:
+    - 已核实
+    - 部分核实
+    - 未核实
+  - name: customer_name
+    description: 已确认的客户姓名（如"高先生"）
+  - name: phone_tail
+    description: 用户手机尾号（已确认的末几位数字）
+  - name: complaint_type
+    description: 投诉/争议类型
+    enum:
+    - 借款记录异常
+    - 账单金额有误
+    - 利率不符
+    - 还款问题
+    - 账户信息有误
+    - 其他
+  - name: disputed_loan_date
+    description: 用户提出争议的借款日期（如"七月二十三号"）
+  - name: disputed_loan_amount
+    description: 用户提出争议的借款金额（如"一万四千四"）
+  - name: issue_description
+    description: 用户对问题的详细描述（用原话或概括性描述）
+  - name: borrow_willingness
+    description: 用户对借款/提现的意向
+    enum:
+    - 有意向
+    - 无意向
+    - 考虑中
+    - 未明确
+  - name: user_emotion
+    description: 用户当前情绪状态
+    enum:
+    - 平静
+    - 疑惑
+    - 不满
+    - 愤怒
+    - 焦虑
+    - 配合
+    - 其他
+  - name: resolution_status
+    description: 问题当前处理状态
+    enum:
+    - 未处理
+    - 查询中
+    - 已解释
+    - 已解决
+    - 需升级
+  - name: call_outcome
+    description: 本次通话结果
+    enum:
+    - 待定
+    - 用户有借款意向
+    - 投诉已处理
+    - 用户拒绝借款
+    - 需回调跟进
+    - 通话结束
+  - name: notes
+    description: 其他重要备注信息
