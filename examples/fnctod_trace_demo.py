@@ -60,7 +60,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
-from contextmind.modes.fnctod.function_manager import FunctionCall
+from contextmind.modes.fnctod.function_manager import DialogueTurn, FunctionCall
 from contextmind.modes.fnctod.schemas import get_anyihua_function_schema
 
 # ---------------------------------------------------------------------------
@@ -203,7 +203,10 @@ class TracingFnCTODTracker(FnCTODTracker):
             {"role": "system", "content": system_prompt},
         ]
         for turn in self.dialogue_history[-self.max_history_turns:]:
-            messages.append({"role": "user", "content": turn.user_utterance})
+            # user_utterance 为空表示该轮是预注入的开场白（无用户发言），
+            # 只将坐席开场白作为 assistant 消息加入上下文，跳过空的 user 消息。
+            if turn.user_utterance:
+                messages.append({"role": "user", "content": turn.user_utterance})
             if turn.function_call and turn.system_utterance:
                 assistant_content = (
                     f"{turn.function_call.to_xml()}\n{turn.system_utterance}"
@@ -377,16 +380,17 @@ def _md_json(obj: Any) -> str:
 
 
 def _messages_to_md(messages: Optional[List[Dict]]) -> str:
-    """将 OpenAI-style messages 列表渲染为 Markdown 引用块。"""
+    """将 OpenAI-style messages 列表渲染为单一代码块（所有消息合并，角色以 [ROLE] 标注）。"""
     if not messages:
         return "_（无 messages）_"
-    parts = []
+    lines: List[str] = []
     for msg in messages:
         role = msg.get("role", "?").upper()
         content = msg.get("content", "")
-        parts.append(f"**`[{role}]`**")
-        parts.append(_md_code(content))
-    return "\n\n".join(parts)
+        lines.append(f"[{role}]")
+        lines.append(content)
+        lines.append("")
+    return _md_code("\n".join(lines).rstrip())
 
 
 def _conv_content_to_md(messages: Optional[List[Dict]]) -> str:
@@ -838,6 +842,25 @@ async def run_trace(
                 actual_agent_responses.append(history[i + 1].removeprefix(_AGENT_PREFIX))
             else:
                 actual_agent_responses.append(session.get("坐席回复", ""))
+
+    # 将出现在第一条用户发言之前的坐席开场白注入对话历史，
+    # 确保算法在处理第一轮用户话语时已具备对话背景。
+    # DialogueTurn 的 user_utterance 置为空字符串（表示此轮无用户发言），
+    # system_utterance 存坐席开场白；_call_function 会跳过 user_utterance 为空的轮次，
+    # 只保留其 assistant 消息，避免向 LLM 发送空 user 消息。
+    greeting_turn_id = -1
+    for utt in history:
+        if utt.startswith(_USER_PREFIX):
+            break
+        if utt.startswith(_AGENT_PREFIX):
+            tracker.dialogue_history.append(
+                DialogueTurn(
+                    turn_id=greeting_turn_id,
+                    user_utterance="",
+                    system_utterance=utt.removeprefix(_AGENT_PREFIX),
+                )
+            )
+            greeting_turn_id -= 1
 
     if verbose:
         print(f"\n{'='*60}")

@@ -413,18 +413,17 @@ def _md_json(obj: Any) -> str:
 
 
 def _messages_to_md(messages: Optional[List[Dict]]) -> str:
-    """将 OpenAI-style messages 列表渲染为 Markdown 引用块。"""
+    """将 OpenAI-style messages 列表渲染为单一代码块（所有消息合并，角色以 [ROLE] 标注）。"""
     if not messages:
         return "_（无 messages）_"
-    parts = []
+    lines: List[str] = []
     for msg in messages:
         role = msg.get("role", "?").upper()
         content = msg.get("content", "")
-        # 角色标签
-        parts.append(f"**`[{role}]`**")
-        # 内容放进代码块（保留换行和缩进）
-        parts.append(_md_code(content))
-    return "\n\n".join(parts)
+        lines.append(f"[{role}]")
+        lines.append(content)
+        lines.append("")
+    return _md_code("\n".join(lines).rstrip())
 
 
 def _conv_content_to_md(messages: Optional[List[Dict]]) -> str:
