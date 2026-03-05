@@ -29,12 +29,18 @@ chat_test_100.json 与 SGD 的字段映射
   "坐席："前缀话语    → speaker="SYSTEM" + utterance
   "用户："前缀话语    → speaker="USER" + utterance
 
-需要推断（规则 + CRM 数据注入）：
+规则推断（默认模式）：
   active_intent        → 关键词匹配安逸花意图体系
   slot_values          → 从 用户信息 字段（parse_user_info）提取 CRM 数据
   requested_slots      → 用户疑问句检测
   service_call         → active_intent → CRM API 名称映射
   service_results      → parse_user_info 解析后的 CRM 数据
+
+LLM 增强模式（--use-llm 启用）：
+  active_intent        → 大模型结合上下文语义识别，覆盖规则层近似结果
+  requested_slots      → 大模型从用户疑问句中提取正在询问的槽位
+  actions (USER)       → 大模型识别用户主动告知的信息槽及值
+  service_call params  → 大模型从坐席话语中提取 API 调用参数
 
 扩展元数据（非标准 SGD 字段，存入 metadata）：
   用户信息             → metadata.user_info_raw + metadata.user_info_parsed
@@ -45,8 +51,11 @@ chat_test_100.json 与 SGD 的字段映射
 使用方法
 ----------------------------------------------------------------------
 
-  # 基本用法（转换全部 100 条）
+  # 基本用法（规则模式，转换全部 100 条）
   python benchmark/tools/convert_chat_test_to_sgd.py
+
+  # LLM 增强模式（需要配置 API key 环境变量）
+  python benchmark/tools/convert_chat_test_to_sgd.py --use-llm
 
   # 指定输入/输出路径
   python benchmark/tools/convert_chat_test_to_sgd.py \\
@@ -57,6 +66,10 @@ chat_test_100.json 与 SGD 的字段映射
   python benchmark/tools/convert_chat_test_to_sgd.py \\
       --limit 10 \\
       --output /tmp/anyihua_sgd_debug
+
+  # LLM 模式 + 调试：只转换前 5 条
+  python benchmark/tools/convert_chat_test_to_sgd.py \\
+      --use-llm --limit 5 --inspect
 
   # 打印第一条转换结果到控制台
   python benchmark/tools/convert_chat_test_to_sgd.py \\
@@ -118,6 +131,16 @@ def parse_args() -> argparse.Namespace:
         help="每个 dialogues_*.json 最多包含的对话数（默认: 1000）",
     )
     parser.add_argument(
+        "--use-llm",
+        action="store_true",
+        help=(
+            "启用 LLM 语义补全模式（需配置相应的 API key 环境变量，"
+            "参见 contextmind/infra/llm_client.py LLMConfig.from_env() 文档）。"
+            "使用大模型对以下字段进行语义补全："
+            "active_intent、requested_slots、USER actions、service_call params。"
+        ),
+    )
+    parser.add_argument(
         "--inspect",
         action="store_true",
         help="打印第一条转换结果到控制台，不写入文件",
@@ -149,9 +172,21 @@ def main() -> None:
         print(f"记录限制 : 前 {args.limit} 条")
     else:
         print("记录限制 : 全部")
+    print(f"LLM 模式 : {'✅ 启用' if args.use_llm else '❌ 未启用（规则模式）'}")
     print(f"{'='*60}\n")
 
-    converter = ChatTestToSGDConverter()
+    # 可选：初始化 LLM 补全器
+    llm_enricher = None
+    if args.use_llm:
+        try:
+            from benchmark.datasets.anyihua.llm_enricher import LLMEnricher
+            llm_enricher = LLMEnricher.from_env()
+            print("✅ LLM 客户端初始化成功\n")
+        except Exception as exc:
+            print(f"⚠️  LLM 客户端初始化失败，退回规则模式: {exc}\n")
+            llm_enricher = None
+
+    converter = ChatTestToSGDConverter(llm_enricher=llm_enricher)
     schema = converter.build_schema()
 
     print("▶ 正在转换对话数据...")
@@ -175,10 +210,19 @@ def main() -> None:
                     f"  [{i:2d}] {turn['speaker']:6s}: "
                     f"{turn['utterance'][:60]}"
                 )
-                print(
-                    f"         intent={state.get('active_intent', '?'):30s} "
-                    f"slots={list(state.get('slot_values', {}).keys())}"
-                )
+                if turn["speaker"] == "USER":
+                    print(
+                        f"         intent={state.get('active_intent', '?'):30s} "
+                        f"requested={state.get('requested_slots', [])} "
+                        f"slots={list(state.get('slot_values', {}).keys())}"
+                    )
+                else:
+                    actions = frame.get("actions", [])
+                    sc = frame.get("service_call", {})
+                    print(
+                        f"         actions={[a['act'] for a in actions]} "
+                        f"service_call={sc.get('method', '-')}"
+                    )
             if "metadata" in first:
                 meta = first["metadata"]
                 print(f"\nmetadata.qc_label: {meta.get('qc_label')}")

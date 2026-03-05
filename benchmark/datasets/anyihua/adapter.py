@@ -32,8 +32,14 @@ chat_test_100.json 与 SGD 的字段映射
   service_call         → 从 active_intent 映射 API 方法名（仅当 intent 正确时才正确）
   service_results      → 从 parse_user_info 解析的 CRM 数据
 
-注意：推断字段属于弱标注近似数据，适合快速原型和 Generation 任务评估；
-      不适合用于严格 DST benchmarking（需要人工精标注）。
+LLM 增强模式（--use-llm 启用，使用 contextmind/infra/llm_client.py）：
+  active_intent        → 结合上下文窗口进行语义意图识别（更准确）
+  requested_slots      → 从用户疑问句中语义提取正在询问的槽位
+  actions (USER)       → 语义识别用户主动告知的信息槽及值
+  service_call params  → 从坐席话语中提取 API 调用参数（补充规则层漏失的参数）
+
+注意：规则推断字段属于弱标注近似数据，适合快速原型和 Generation 任务评估；
+      生产环境建议使用 --use-llm 启用 LLM 语义补全以获得更准确的标注。
 
 扩展（SGD 无对应，ContextMind 专用）：
   用户信息             → metadata.user_info_raw + metadata.user_info_parsed
@@ -622,8 +628,17 @@ class ChatTestToSGDConverter:
         )
     """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, llm_enricher: Optional[Any] = None) -> None:
+        """
+        初始化转换器。
+
+        参数:
+            llm_enricher: 可选的 LLMEnricher 实例（来自 llm_enricher.py）。
+                          提供时，规则层的近似推断字段将被 LLM 语义补全覆盖：
+                          active_intent、requested_slots、USER actions、service_call params。
+                          未提供时（默认），使用纯规则层（适合快速原型）。
+        """
+        self._llm_enricher = llm_enricher
 
     # ------------------------------------------------------------------ #
     # 公开接口
@@ -658,6 +673,15 @@ class ChatTestToSGDConverter:
         for idx, record in enumerate(raw_data):
             try:
                 sgd_dialogue = self._convert_record(record, idx)
+                # LLM 增强：在规则层结果基础上进行语义补全
+                if self._llm_enricher is not None:
+                    try:
+                        sgd_dialogue = self._llm_enricher.enrich(sgd_dialogue)
+                    except Exception as llm_exc:
+                        logger.warning(
+                            f"LLM 补全失败（session={sgd_dialogue.get('dialogue_id', '?')}），"
+                            f"使用规则层结果: {llm_exc}"
+                        )
                 sgd_dialogues.append(sgd_dialogue)
             except Exception as exc:
                 logger.warning(
