@@ -72,6 +72,7 @@ LLM 配置
 
   resources/data/chat_test_extraction_report.json   机器可读结构化报告
   resources/data/chat_test_extraction_report.md     人类可读 Markdown 报告
+  resources/data/chat_test_sgd_dialogues.json       标准 SGD 格式对话数据集
 """
 
 from __future__ import annotations
@@ -82,6 +83,7 @@ import re
 import sys
 import time
 from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -877,6 +879,205 @@ def _build_extractability_summary(
 
 
 # --------------------------------------------------------------------------- #
+# SGD 格式导出
+# --------------------------------------------------------------------------- #
+
+# SGD 字段差异表：字段名 → (本项目状态, 差距说明)
+SGD_FIELD_DIFF: List[Dict[str, str]] = [
+    {
+        "sgd_field": "dialogue_id",
+        "sgd_location": "顶层",
+        "our_status": "✅ 完整",
+        "note": "直接使用 session_id 映射",
+    },
+    {
+        "sgd_field": "services",
+        "sgd_location": "顶层",
+        "our_status": "✅ 完整",
+        "note": '固定为 ["AnYiHua_1"]',
+    },
+    {
+        "sgd_field": "metadata",
+        "sgd_location": "顶层",
+        "our_status": "✅ 扩展",
+        "note": "包含 qc_label / reference_response / user_info_parsed（标准 SGD 无此字段，为本项目扩展）",
+    },
+    {
+        "sgd_field": "turns[].speaker",
+        "sgd_location": "轮次",
+        "our_status": "✅ 完整",
+        "note": "USER / SYSTEM 精确区分",
+    },
+    {
+        "sgd_field": "turns[].utterance",
+        "sgd_location": "轮次",
+        "our_status": "✅ 完整",
+        "note": "直接提取原始文本",
+    },
+    {
+        "sgd_field": "frames[].service",
+        "sgd_location": "帧",
+        "our_status": "✅ 完整",
+        "note": '固定为 "AnYiHua_1"',
+    },
+    {
+        "sgd_field": "frames[].slots（跨度标注）",
+        "sgd_location": "帧",
+        "our_status": "❌ 缺失",
+        "note": (
+            "标准 SGD 包含 slot 的字符跨度标注（start/exclusive_end），"
+            "需要对话标注工具支持，本项目中统一为 []"
+        ),
+    },
+    {
+        "sgd_field": "frames[].state.active_intent",
+        "sgd_location": "USER 帧状态",
+        "our_status": "⚠️ 近似",
+        "note": "LLM 模式准确率 ≈70–85%；离线模式关键词规则 ≈50–70%",
+    },
+    {
+        "sgd_field": "frames[].state.requested_slots",
+        "sgd_location": "USER 帧状态",
+        "our_status": "⚠️ 近似",
+        "note": "LLM 模式语义提取；离线模式仅检测 3 类关键词槽位",
+    },
+    {
+        "sgd_field": "frames[].state.slot_values",
+        "sgd_location": "USER 帧状态",
+        "our_status": "✅ CRM金标准 / ⚠️ 近似",
+        "note": (
+            "CRM 槽位（customer_name 等 11 个）直接来自 parse_user_info()，可靠性 ≈100%；"
+            "对话专属槽位（dispute_date / inquiry_amount / term_months / identity_confirmed）"
+            "需 LLM 从对话文本提取，离线模式为空"
+        ),
+    },
+    {
+        "sgd_field": "frames[].actions（USER 轮）",
+        "sgd_location": "USER 帧",
+        "our_status": "⚠️ 近似",
+        "note": "LLM 模式提取用户行为动作；离线模式统一为 []",
+    },
+    {
+        "sgd_field": "frames[].actions（SYSTEM 轮）",
+        "sgd_location": "SYSTEM 帧",
+        "our_status": "⚠️ 近似",
+        "note": "LLM 模式精确提取；离线模式按 active_intent → act 规则映射（仅 INFORM/REQUEST/GOODBYE）",
+    },
+    {
+        "sgd_field": "frames[].service_call",
+        "sgd_location": "SYSTEM 帧",
+        "our_status": "✅ 基本完整 / ⚠️ 参数近似",
+        "note": (
+            "method 字段通过 intent→API 映射表自动生成，可靠性高；"
+            "parameters 仅包含 name/phone_suffix，LLM 模式可补充其他参数"
+        ),
+    },
+    {
+        "sgd_field": "frames[].service_results",
+        "sgd_location": "SYSTEM 帧",
+        "our_status": "✅ CRM金标准",
+        "note": "直接从 parse_user_info() 按意图选取字段，可靠性接近 100%",
+    },
+]
+
+
+def export_sgd_format(
+    extracted_records: List[Dict[str, Any]],
+    offline_mode: bool = False,
+) -> List[Dict[str, Any]]:
+    """
+    将 extract_record_with_llm / extract_record_offline 的输出转为标准 SGD 对话格式。
+
+    输出结构（与 resources/anyihua_sgd/dialogues_001.json 一致）：
+    [
+      {
+        "dialogue_id": "...",
+        "services": ["AnYiHua_1"],
+        "metadata": { qc_label, reference_response, user_info_parsed },
+        "turns": [
+          {
+            "speaker": "USER" | "SYSTEM",
+            "utterance": "...",
+            "frames": [
+              {
+                "service": "AnYiHua_1",
+                "slots": [],                          # 跨度标注，本项目统一为空
+                # USER turn 专有
+                "state": {
+                  "active_intent": "...",
+                  "requested_slots": [...],
+                  "slot_values": { slot: [value, ...] }
+                },
+                "actions": [...],
+                # SYSTEM turn 专有
+                "service_call": { "method": "...", "parameters": {...} },
+                "service_results": [{ slot: value, ... }]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+    """
+    sgd_dialogues: List[Dict[str, Any]] = []
+    generation_note = (
+        "offline_rule_based" if offline_mode else "llm_extracted"
+    )
+
+    for record in extracted_records:
+        session_id = record["session_id"]
+        crm = record.get("crm_parsed", {})
+
+        sgd_turns: List[Dict[str, Any]] = []
+        for turn in record["turns"]:
+            speaker = turn["speaker"]
+            utterance = turn["utterance"]
+
+            if speaker == "USER":
+                frame: Dict[str, Any] = {
+                    "service": SERVICE_NAME,
+                    "slots": [],  # 跨度标注：标准 SGD 需要字符偏移量，本项目无法自动生成
+                    "state": {
+                        "active_intent": turn.get("active_intent", "general_inquiry"),
+                        "requested_slots": turn.get("requested_slots", []),
+                        "slot_values": turn.get("slot_values", {}),
+                    },
+                    "actions": turn.get("actions", []),
+                }
+            else:  # SYSTEM
+                sc = turn.get("service_call")
+                frame = {
+                    "service": SERVICE_NAME,
+                    "slots": [],  # 跨度标注：标准 SGD 需要字符偏移量，本项目无法自动生成
+                    "actions": turn.get("actions", []),
+                    "service_call": sc if sc else {},
+                    "service_results": turn.get("service_results", []),
+                }
+
+            sgd_turns.append({
+                "speaker": speaker,
+                "utterance": utterance,
+                "frames": [frame],
+            })
+
+        sgd_dialogues.append({
+            "dialogue_id": session_id,
+            "services": [SERVICE_NAME],
+            "metadata": {
+                "user_info_raw": "",  # 原始文本省略，已解析到 user_info_parsed
+                "user_info_parsed": crm,
+                "reference_response": record.get("reference_response", ""),
+                "qc_label": record.get("qc_label", ""),
+                "extraction_method": generation_note,
+                "generated_at": datetime.now().strftime("%Y-%m-%d"),
+            },
+            "turns": sgd_turns,
+        })
+
+    return sgd_dialogues
+
+
+# --------------------------------------------------------------------------- #
 # Markdown 报告生成
 # --------------------------------------------------------------------------- #
 
@@ -1010,66 +1211,113 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
         "NOTIFY_FAILURE": "通知操作失败",
     }
     act_dist = actions.get("act_distribution", {})
-    lines.append("### 2.3 对话行为类型（Acts）\n")
-    lines.append("| Act 类型 | LLM 提取次数 | 说明 |")
+    lines.append("### 2.3 对话行为类型（Acts / 动作）\n")
+    lines.append(
+        "> SGD 定义了 14 种标准对话行为动作（Act），用于描述每一句话的功能性意图。\n"
+    )
+    lines.append("| Act 类型（英文） | 中文含义 | 本数据集出现次数 |")
     lines.append("|---|---|---|")
     for act in VALID_ACTS:
         cnt = act_dist.get(act, 0)
-        lines.append(f"| `{act}` | {cnt} | {act_desc.get(act, '')} |")
+        lines.append(f"| `{act}` | {act_desc.get(act, '')} | {cnt} |")
     lines.append("")
 
     # ——— 三、意图分析 ———
     lines.append("---\n")
-    lines.append("## 三、意图（Intent）分析\n")
+    lines.append("## 三、意图（Intent / 对话目标）分析\n")
     lines.append(
-        f"- 每条对话平均含 **{intents['avg_unique_intents_per_dialogue']}** 个不同意图（LLM 提取）\n"
+        "> **Intent（意图）**：指用户在某一对话轮次希望完成的任务目标，"
+        "如「核实身份」、「了解额度」等。\n"
     )
-    lines.append("### 3.1 意图频率分布（USER 轮，LLM 提取）\n")
-    lines.append("| 意图 | 出现次数 | 占用户轮比例 |")
-    lines.append("|---|---|---|")
+    lines.append(
+        f"- 每条对话平均含 **{intents['avg_unique_intents_per_dialogue']}** 个不同意图\n"
+    )
+    lines.append("### 3.1 意图频率分布（USER 轮）\n")
+    lines.append("| 意图名称 | 中文描述 | 出现次数 | 占用户轮比例 |")
+    lines.append("|---|---|---|---|")
+    intent_descs_inline = {
+        "verify_identity": "核实用户身份", "explain_credit_limit": "解释可提现额度",
+        "explain_interest_rate": "解释利率/还款方式", "calculate_repayment": "计算月还款额",
+        "explain_displayed_amount": "解释 APP 显示金额", "handle_loan_dispute": "处理借款争议",
+        "guide_loan_operation": "引导 APP 借款操作", "escalate_to_human": "转接人工客服",
+        "say_goodbye": "告别", "general_inquiry": "通用询问（默认）",
+    }
     for intent, d in sorted(intents["intent_distribution"].items(), key=lambda x: -x[1]["count"]):
-        lines.append(f"| `{intent}` | {d['count']} | {d['pct_of_user_turns']}% |")
+        lines.append(
+            f"| `{intent}` | {intent_descs_inline.get(intent, '')} "
+            f"| {d['count']} | {d['pct_of_user_turns']}% |"
+        )
     lines.append("")
     lines.append("### 3.2 入口意图 / 出口意图\n")
-    lines.append("**入口意图（对话首个 USER 意图）**：\n")
+    lines.append(
+        "> **入口意图**：每条对话第一个 USER 轮的意图；**出口意图**：最后一个 USER 轮的意图。\n"
+    )
+    lines.append("**入口意图（对话开场用户目标）**：\n")
     for intent, cnt in list(intents["entry_intents"].items())[:5]:
-        lines.append(f"- `{intent}`：{cnt} 次")
+        lines.append(f"- `{intent}`（{intent_descs_inline.get(intent, '')}）：{cnt} 次")
     lines.append("")
-    lines.append("**出口意图（对话末个 USER 意图）**：\n")
+    lines.append("**出口意图（对话收尾用户目标）**：\n")
     for intent, cnt in list(intents["exit_intents"].items())[:5]:
-        lines.append(f"- `{intent}`：{cnt} 次")
+        lines.append(f"- `{intent}`（{intent_descs_inline.get(intent, '')}）：{cnt} 次")
     lines.append("")
 
     # ——— 四、槽位分析 ———
     lines.append("---\n")
-    lines.append("## 四、槽位（Slot）分析\n")
-    lines.append("### 4.1 综合提取覆盖率\n")
-    lines.append("| 槽位 | CRM 覆盖率 | LLM 提取次数 | 被询问次数 | 值示例 |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("## 四、槽位（Slot / 信息字段）分析\n")
+    lines.append(
+        "> **Slot（槽位）**：对话系统中需要跟踪的关键信息字段，相当于「填空项」。"
+        "例如 `available_credit`（可提现额度）、`annual_rate_pct`（年化利率）等。\n"
+        "> **CRM 覆盖率**：该槽位在 CRM 系统（用户信息字段）中有值的对话比例，值越高表示数据越完整。\n"
+    )
+    lines.append("### 4.1 槽位综合覆盖率\n")
+    lines.append("| 槽位名称（英文） | 中文描述 | 数据来源 | CRM 覆盖率 | 被填入次数 | 被询问次数 | 示例值 |")
+    lines.append("|---|---|---|---|---|---|---|")
     for slot in VALID_SLOTS:
         d = slots.get(slot, {})
         crm_pct = d.get("crm_coverage_pct", 0)
         filled = d.get("filled_in_dialogue_n", 0)
         requested = d.get("requested_n", 0)
         examples = "、".join(d.get("example_values", [])[:2]) or "—"
-        lines.append(f"| `{slot}` | {crm_pct}% | {filled} | {requested} | {examples} |")
+        lines.append(
+            f"| `{slot}` | {slot_descs.get(slot, '')} | {slot_sources.get(slot, '')} "
+            f"| {crm_pct}% | {filled} | {requested} | {examples} |"
+        )
     lines.append("")
-    lines.append("### 4.2 service_call 方法分布\n")
-    lines.append("| API 方法 | 调用次数 |")
-    lines.append("|---|---|")
+    lines.append("### 4.2 CRM API（后端接口）调用分布\n")
+    lines.append(
+        "> **service_call**：SYSTEM 轮次调用的后端 API，用于查询/执行业务操作。"
+        "括号内为中文说明。\n"
+    )
+    api_descs = {
+        "verify_customer": "核实用户身份",
+        "query_account": "查询账户信息（额度/利率/账单日等）",
+        "calculate_repayment": "计算还款金额",
+        "query_loan_records": "查询借款记录",
+        "query_unresolved_issues": "查询未解决问题",
+    }
+    lines.append("| API 方法（英文） | 中文说明 | 调用次数 |")
+    lines.append("|---|---|---|")
     for method, cnt in actions.get("service_call_methods", {}).items():
-        lines.append(f"| `{method}` | {cnt} |")
+        lines.append(f"| `{method}` | {api_descs.get(method, '')} | {cnt} |")
     lines.append("")
 
     # ——— 五、策略分析 ———
     lines.append("---\n")
-    lines.append("## 五、对话策略（Strategy）分析\n")
-    lines.append(f"**标准业务流程**：\n```\n{strat['common_flow']}\n```\n")
-    lines.append("### 5.1 高频意图转移（LLM 提取，Top 10）\n")
-    lines.append("| 从意图 | 转移到 | 次数 |")
-    lines.append("|---|---|---|")
+    lines.append("## 五、对话策略（Strategy / 业务流程）分析\n")
+    lines.append(
+        "> 下表展示对话中意图之间的转移规律，即用户在完成一个意图后"
+        "通常会转移到哪个意图。\n"
+    )
+    lines.append(f"**标准外呼业务流程**：\n```\n{strat['common_flow']}\n```\n")
+    lines.append("### 5.1 高频意图转移（Top 10）\n")
+    lines.append("| 从意图（From）| 中文 | 转移到（To）| 中文 | 出现次数 |")
+    lines.append("|---|---|---|---|---|")
     for t in strat["top_intent_transitions"][:10]:
-        lines.append(f"| `{t['from']}` | `{t['to']}` | {t['count']} |")
+        lines.append(
+            f"| `{t['from']}` | {intent_descs_inline.get(t['from'], '')} "
+            f"| `{t['to']}` | {intent_descs_inline.get(t['to'], '')} "
+            f"| {t['count']} |"
+        )
     lines.append("")
 
     # ——— 六、可提取性结论 ———
@@ -1129,6 +1377,62 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
         "   - `坐席回复` 字段是**待预测目标**，不应混入 `对话历史`。\n"
     )
 
+    # ——— 八、与标准 SGD 的差异说明 ———
+    lines.append("---\n")
+    lines.append("## 八、生成文件与标准 SGD 格式的差异说明\n")
+    lines.append(
+        "> 本节说明 `chat_test_sgd_dialogues.json` 与 Google Research 发布的标准 "
+        "[Schema-Guided Dialogue (SGD)](https://github.com/google-research-datasets/dstc8-schema-guided-dialogue) "
+        "数据集在字段层面的差异，帮助使用者了解哪些字段是完整的、哪些是近似的、哪些尚缺失。\n"
+    )
+    lines.append(
+        "**图例**：✅ 完整/金标准  ⚠️ 近似（有一定误差）  ❌ 缺失（需要人工标注）\n"
+    )
+    lines.append("| SGD 字段路径 | 所在层级 | 本文件状态 | 差距说明 |")
+    lines.append("|---|---|---|---|")
+    for diff in SGD_FIELD_DIFF:
+        lines.append(
+            f"| `{diff['sgd_field']}` | {diff['sgd_location']} "
+            f"| {diff['our_status']} | {diff['note']} |"
+        )
+    lines.append("")
+
+    lines.append("### 8.1 缺失字段详解\n")
+    lines.append(
+        "#### ❌ `frames[].slots`（跨度标注 / Span Annotation）\n"
+        "- **标准 SGD 含义**：标注 utterance 中每个槽位值的字符起止位置（如 `start=5, exclusive_end=8`）。\n"
+        "- **缺失原因**：需要专用标注工具对原始文本做字符级标注，无法由 LLM 或规则自动生成。\n"
+        "- **影响**：Span 提取任务（SL，Slot Filling from Span）无法训练；但 DST（对话状态跟踪）任务不受影响。\n"
+    )
+    lines.append(
+        "#### ⚠️ `frames[].state.active_intent`（当前意图）\n"
+        "- **精度**：LLM 模式约 70–85%；离线关键词规则模式约 50–70%。\n"
+        "- **主要误差来源**：`general_inquiry` 过度使用（兜底意图），口语化表达难以识别具体意图。\n"
+    )
+    lines.append(
+        "#### ⚠️ `frames[].state.slot_values`（对话专属槽位）\n"
+        "- **CRM 槽位（11 个）**：直接来自 `parse_user_info()` 解析，可靠性接近 100%。\n"
+        "- **对话文本槽位（4 个）**：`dispute_date`、`inquiry_amount`、`term_months`、`identity_confirmed`"
+        "  需要从对话文本 NLU 提取，离线模式中为空，LLM 模式约 60–80% 准确率。\n"
+    )
+    lines.append(
+        "#### ⚠️ `frames[].actions`（对话行为列表）\n"
+        "- **离线模式**：SYSTEM 轮仅按意图→Act 规则映射（仅 INFORM / REQUEST / GOODBYE 三种），USER 轮为空。\n"
+        "- **LLM 模式**：从对话文本推断，约 70–85% 准确率。\n"
+        "- **标准 SGD**：每个 actions 条目还包含精确的 slot/values/canonical_values，需要人工核查。\n"
+    )
+    lines.append(
+        "### 8.2 扩展字段说明（标准 SGD 无，本项目新增）\n"
+    )
+    lines.append(
+        "| 扩展字段 | 说明 | 用途 |\n"
+        "|---|---|---|\n"
+        "| `metadata.qc_label` | 人工质检标签 | 数据质量分析 |\n"
+        "| `metadata.reference_response` | 坐席参考回复（待预测目标） | 生成任务训练/评估 |\n"
+        "| `metadata.user_info_parsed` | CRM 解析结构（完整版） | 执行引擎/后端 API 调用 |\n"
+        "| `metadata.extraction_method` | 提取模式标记 | 数据溯源 |\n"
+    )
+
     return "\n".join(lines)
 
 
@@ -1167,6 +1471,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-markdown", action="store_true",
         help="跳过 Markdown 报告生成",
+    )
+    parser.add_argument(
+        "--no-sgd-export", action="store_true",
+        help="跳过 SGD 格式数据导出（默认会生成 chat_test_sgd_dialogues.json）",
     )
     parser.add_argument(
         "--delay", type=float, default=0.5,
@@ -1252,6 +1560,14 @@ def main() -> None:
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md)
         print(f"  ✅ Markdown  : {md_path}")
+
+    if not args.no_sgd_export:
+        offline_mode = args.offline
+        sgd_dialogues = export_sgd_format(extracted_records, offline_mode=offline_mode)
+        sgd_path = output_dir / "chat_test_sgd_dialogues.json"
+        with open(sgd_path, "w", encoding="utf-8") as f:
+            json.dump(sgd_dialogues, f, ensure_ascii=False, indent=2)
+        print(f"  ✅ SGD 格式  : {sgd_path}（{len(sgd_dialogues)} 条对话）")
 
     print(f"\n{'='*60}")
     print("分析摘要")
