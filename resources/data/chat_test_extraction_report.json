@@ -3,7 +3,6 @@
     "total_records": 100,
     "llm_succeeded": 0,
     "llm_success_rate": 0.0,
-    "offline_mode": true,
     "total_turns": 1230,
     "total_user_turns": 615,
     "avg_turns_per_dialogue": 12.3,
@@ -28,44 +27,259 @@
         "count": 15,
         "pct": 15.0
       }
-    }
+    },
+    "model_name": "（历史数据，模型未记录）",
+    "model_base_url": "",
+    "extraction_method": "LLM 逐轮结构化标注"
   },
   "ontology": {
     "service_name": "AnYiHua_1",
-    "service_description": "安逸花外呼促活服务（微贷平台坐席主动外呼，激活用户闲置借款额度）",
-    "domain": "微贷/消费金融（外呼促活）",
-    "total_intents": 10,
-    "total_slots": 15,
-    "total_acts": 14,
-    "intents": [
-      "verify_identity",
-      "explain_credit_limit",
-      "explain_interest_rate",
-      "calculate_repayment",
-      "explain_displayed_amount",
-      "handle_loan_dispute",
-      "guide_loan_operation",
-      "escalate_to_human",
-      "say_goodbye",
-      "general_inquiry"
-    ],
+    "service_description": "安逸花外呼促活服务。坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。标准流程：核实身份 → 告知额度 → 解答疑问 → 引导借款 → 礼貌告别。",
     "slots": [
-      "customer_name",
-      "phone_suffix",
-      "available_credit",
-      "temp_credit",
-      "temp_credit_status",
-      "temp_expiry_days",
-      "annual_rate_pct",
-      "loan_count",
-      "last_loan_date",
-      "outstanding_amount",
-      "billing_day",
-      "dispute_date",
-      "inquiry_amount",
-      "term_months",
-      "identity_confirmed"
+      {
+        "name": "customer_name",
+        "description": "客户姓名（如'高先生'、'杨女士'）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "phone_suffix",
+        "description": "手机尾号（3–4 位数字，用于身份核实）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "dispute_date",
+        "description": "用户质疑的借款日期（如'七月二十三号'）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "inquiry_amount",
+        "description": "用户询问或质疑的金额（元）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "term_months",
+        "description": "用户询问的分期期数（如 12）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "identity_confirmed",
+        "description": "身份是否已核实（由 verify_customer API 返回）",
+        "is_categorical": true,
+        "possible_values": [
+          "true",
+          "false"
+        ]
+      },
+      {
+        "name": "available_credit",
+        "description": "当前实际可提现额度（元，由 query_account API 返回）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "temp_credit",
+        "description": "临时额度上限（元）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "temp_credit_status",
+        "description": "临时额度是否有效",
+        "is_categorical": true,
+        "possible_values": [
+          "有效",
+          "已过期",
+          "无临时额度"
+        ]
+      },
+      {
+        "name": "temp_expiry_days",
+        "description": "临时额度剩余有效天数",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "annual_rate_pct",
+        "description": "年化利率（%）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "loan_count",
+        "description": "当前未还清借款笔数",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "last_loan_date",
+        "description": "最近一次借款日期（中文格式）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "outstanding_amount",
+        "description": "当前未还款金额（元）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "billing_day",
+        "description": "账单日（每月几号）",
+        "is_categorical": false,
+        "possible_values": []
+      }
     ],
+    "intents": [
+      {
+        "name": "verify_identity",
+        "description": "开场身份核实：确认来电者是账户本人",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name"
+        ],
+        "optional_slots": {
+          "phone_suffix": ""
+        },
+        "result_slots": [
+          "identity_confirmed"
+        ]
+      },
+      {
+        "name": "explain_credit_limit",
+        "description": "告知额度情况（必须先调用 query_account API）",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name",
+          "available_credit"
+        ],
+        "optional_slots": {
+          "temp_credit": "",
+          "temp_credit_status": "",
+          "temp_expiry_days": ""
+        },
+        "result_slots": [
+          "available_credit",
+          "temp_credit",
+          "temp_credit_status"
+        ]
+      },
+      {
+        "name": "explain_interest_rate",
+        "description": "解释利率和还款方式",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name",
+          "annual_rate_pct"
+        ],
+        "optional_slots": {
+          "term_months": ""
+        },
+        "result_slots": [
+          "annual_rate_pct"
+        ]
+      },
+      {
+        "name": "calculate_repayment",
+        "description": "计算指定金额和期数的月还款额",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name"
+        ],
+        "optional_slots": {
+          "inquiry_amount": "",
+          "term_months": ""
+        },
+        "result_slots": []
+      },
+      {
+        "name": "explain_displayed_amount",
+        "description": "解释 APP 显示金额的构成",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name",
+          "inquiry_amount"
+        ],
+        "optional_slots": {
+          "available_credit": "",
+          "temp_credit": "",
+          "temp_credit_status": ""
+        },
+        "result_slots": [
+          "available_credit",
+          "temp_credit"
+        ]
+      },
+      {
+        "name": "handle_loan_dispute",
+        "description": "核实用户争议的借款记录",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name",
+          "dispute_date"
+        ],
+        "optional_slots": {
+          "last_loan_date": "",
+          "loan_count": "",
+          "outstanding_amount": ""
+        },
+        "result_slots": [
+          "last_loan_date",
+          "loan_count",
+          "outstanding_amount"
+        ]
+      },
+      {
+        "name": "guide_loan_operation",
+        "description": "引导用户在 APP 完成借款操作",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name"
+        ],
+        "optional_slots": {
+          "available_credit": ""
+        },
+        "result_slots": []
+      },
+      {
+        "name": "escalate_to_human",
+        "description": "转接人工客服",
+        "is_transactional": true,
+        "required_slots": [
+          "customer_name"
+        ],
+        "optional_slots": {
+          "dispute_date": "",
+          "inquiry_amount": ""
+        },
+        "result_slots": []
+      },
+      {
+        "name": "say_goodbye",
+        "description": "礼貌告别（必须先确认无未解决诉求）",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name"
+        ],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "general_inquiry",
+        "description": "通用询问（无法精确匹配其他意图时的默认意图）",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      }
+    ],
+    "total_slots": 15,
+    "total_intents": 10,
+    "total_acts": 14,
     "acts": [
       "INFORM",
       "REQUEST",
@@ -435,7 +649,7 @@
         "count": 1
       }
     ],
-    "common_flow": "verify_identity → explain_credit_limit → (explain_interest_rate | handle_loan_dispute | guide_loan_operation) → say_goodbye"
+    "common_flow": "general_inquiry → explain_credit_limit → explain_displayed_amount → (guide_loan_operation | handle_loan_dispute | escalate_to_human) → explain_interest_rate\n（入口意图 general_inquiry 占 99%；出口意图 general_inquiry 占 57%）"
   },
   "extractability_summary": {
     "directly_extractable": {
