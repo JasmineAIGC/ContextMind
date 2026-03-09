@@ -1055,7 +1055,7 @@ def export_sgd_format(
 # --------------------------------------------------------------------------- #
 
 def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int) -> str:
-    """生成人类可读的 Markdown 分析报告。"""
+    """生成简洁、可读的 Markdown 分析报告（5 节结构）。"""
     try:
         display_path = str(Path(input_path).relative_to(_PROJECT_ROOT))
     except ValueError:
@@ -1067,370 +1067,157 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
     slots = agg["slot_analysis"]
     actions = agg["action_analysis"]
     strat = agg["strategy_analysis"]
-    ext = agg["extractability_summary"]
 
-    lines: List[str] = []
-    lines.append("# chat_test_100.json 信息提取分析报告（LLM 版）\n")
-    lines.append(f"**数据来源**：`{display_path}`  ")
     model_name = ov.get("model_name", "unknown")
     base_url = ov.get("model_base_url", "")
     model_label = f"{model_name}（{base_url}）" if base_url else model_name
     llm_rate = ov["llm_success_rate"]
-    lines.append(
-        f"**分析记录数**：{ov['total_records']} 条"
-        f"（LLM 成功提取：{ov['llm_succeeded']} 条，成功率 {llm_rate}%）  "
-    )
-    lines.append(
-        "**分析目标**：基于 SGD Schema-Guided Dialogue 规范，使用 LLM 从安逸花外呼数据中提取"
-        "所有可用于标准 TOD 任务的结构化信息。  "
-    )
-    lines.append(f"**提取方法**：LLM 逐轮结构化标注（模型：{model_label}）\n")
+    n = ov["total_records"]
 
-    # ——— 一、数据集概览 ———
-    lines.append("---\n")
-    lines.append("## 一、数据集概览\n")
-    lines.append("| 指标 | 值 |")
-    lines.append("|---|---|")
-    lines.append(f"| 分析记录数 | {ov['total_records']} 条 |")
-    lines.append(f"| 总轮次数 | {ov['total_turns']} 轮 |")
-    lines.append(f"| 平均对话长度 | {ov['avg_turns_per_dialogue']} 轮/对话 |")
-    lines.append(f"| 用户轮次数 | {ov['total_user_turns']} 轮 |")
-    lines.append(f"| LLM 提取成功率 | {ov['llm_success_rate']}%（{ov['llm_succeeded']}/{ov['total_records']} 条） |")
-    lines.append(f"| 提取模型 | {model_label} |")
-    lines.append("")
-    lines.append("**人工校验标签分布**：\n")
-    total_records = ov["total_records"]
-    for label, d in ov["qc_label_distribution"].items():
-        lines.append(f"- `{label}`：{d['count']} 条（{d['pct']}%）")
-    lines.append("")
-
-    # ——— 二、本体 ———
-    lines.append("---\n")
-    lines.append("## 二、服务本体（Ontology / Schema）\n")
-    lines.append(
-        "> **SGD 本体（Schema）** 是服务的形式化规范，定义了系统能理解和处理的概念边界。\n"
-        "> 与传统封闭本体（只有名称列表）不同，SGD schema 为每个意图和槽位提供**自然语言描述**，\n"
-        "> 使 LLM 在 zero-shot 条件下能泛化到未见服务（Schema-Guided 范式）。\n"
-        "> 本体来源：`resources/anyihua_sgd/schema.json`\n"
-    )
-    lines.append(f"- **服务名称**：`{ont['service_name']}`")
-    lines.append(f"- **服务描述**：{ont['service_description']}")
-    lines.append(f"- **意图数量**：{ont['total_intents']} 个（来自 schema.json intents 列表）")
-    lines.append(f"- **槽位数量**：{ont['total_slots']} 个（来自 schema.json slots 列表）")
-    lines.append(f"- **对话行为类型**：{ont['total_acts']} 种（SGD 标准 Acts 列表）\n")
-
-    # 意图表（含完整 schema 信息）
-    lines.append("### 2.1 意图列表（来自 schema.json）\n")
-    lines.append(
-        "> SGD intents 包含 required_slots（必填槽位）、optional_slots（可选槽位）、"
-        "result_slots（API 返回槽位），用于指导系统何时触发 API 调用。\n"
-    )
-    lines.append("| 意图名称 | 自然语言描述 | 必填槽位 | 可选槽位 | 结果槽位 | is_transactional |")
-    lines.append("|---|---|---|---|---|---|")
-    for intent_obj in ont.get("intents", []):
-        name = intent_obj.get("name", "")
-        desc = intent_obj.get("description", "")
-        required = ", ".join(f"`{s}`" for s in intent_obj.get("required_slots", [])) or "—"
-        optional = ", ".join(f"`{s}`" for s in intent_obj.get("optional_slots", {}).keys()) or "—"
-        result = ", ".join(f"`{s}`" for s in intent_obj.get("result_slots", [])) or "—"
-        is_trans = "✅ 是" if intent_obj.get("is_transactional") else "否"
-        lines.append(f"| `{name}` | {desc} | {required} | {optional} | {result} | {is_trans} |")
-    lines.append("")
-
-    # 槽位表（含完整 schema 信息）
-    lines.append("### 2.2 槽位列表（来自 schema.json）\n")
-    lines.append(
-        "> SGD slots 包含 is_categorical（是否为枚举类型）和 possible_values（枚举值列表），\n"
-        "> 非枚举槽位（is_categorical=false）的值由对话文本或 API 返回，无固定取值范围。\n"
-    )
-    lines.append("| 槽位名称 | 自然语言描述 | is_categorical | 可能取值 | CRM 覆盖率 | LLM 提取次数 |")
-    lines.append("|---|---|---|---|---|---|")
-    for slot_obj in ont.get("slots", []):
-        name = slot_obj.get("name", "")
-        desc = slot_obj.get("description", "")
-        is_cat = "✅ 是" if slot_obj.get("is_categorical") else "否"
-        pv = ", ".join(f"`{v}`" for v in slot_obj.get("possible_values", [])) or "自由文本"
-        d = slots.get(name, {})
-        crm_pct = d.get("crm_coverage_pct", 0)
-        filled = d.get("filled_in_dialogue_n", 0)
-        lines.append(
-            f"| `{name}` | {desc} | {is_cat} | {pv} | {crm_pct}% | {filled} |"
-        )
-    lines.append("")
-
-    act_desc = {
-        "INFORM": "告知槽位信息", "REQUEST": "请求槽位信息", "CONFIRM": "确认槽位值",
-        "SELECT": "从选项中选择", "OFFER": "提供服务选项", "GOODBYE": "告别",
-        "INFORM_INTENT": "明确告知意图", "NEGATE_INTENT": "否定意图", "AFFIRM_INTENT": "肯定意图",
-        "AFFIRM": "肯定（非意图）", "NEGATE": "否定（非意图）",
-        "CANT_UNDERSTAND": "无法理解", "NOTIFY_SUCCESS": "通知操作成功",
-        "NOTIFY_FAILURE": "通知操作失败",
-    }
-    act_dist = actions.get("act_distribution", {})
-    lines.append("### 2.3 对话行为类型（Acts / 动作）\n")
-    lines.append(
-        "> SGD 定义了 14 种标准对话行为动作（Act），用于描述每一句话的功能性意图。\n"
-        "> 本次提取次数来自 LLM 标注结果（LLM 未成功的轮次动作为空）。\n"
-    )
-    lines.append("| Act 类型（英文） | 中文含义 | 本次提取次数 |")
-    lines.append("|---|---|---|")
-    for act in VALID_ACTS:
-        cnt = act_dist.get(act, 0)
-        lines.append(f"| `{act}` | {act_desc.get(act, '')} | {cnt} |")
-    lines.append("")
-
-    # ——— 三、意图分析 ———
-    lines.append("---\n")
-    lines.append("## 三、意图（Intent / 对话目标）分析\n")
-    lines.append(
-        "> **Intent（意图）**：指用户在某一对话轮次希望完成的任务目标，"
-        "如「核实身份」、「了解额度」等。\n"
-        "> 以下分布来自 LLM 对本次处理的所有对话的逐轮标注结果。\n"
-    )
-    lines.append(
-        f"- 本次处理 {ov['total_records']} 条对话，共 {ov['total_user_turns']} 个用户轮次，"
-        f"平均每条对话含 **{intents['avg_unique_intents_per_dialogue']}** 个不同意图\n"
-    )
-
-    # 从 schema.json 构建意图描述映射
-    intent_descs_inline: Dict[str, str] = {
-        i["name"]: i.get("description", "") for i in ont.get("intents", [])
-    }
-
-    lines.append("### 3.1 意图频率分布（USER 轮，基于本次 LLM 提取结果）\n")
-    lines.append("| 意图名称 | 描述（来自 schema.json） | 出现次数 | 占用户轮比例 |")
-    lines.append("|---|---|---|---|")
-    for intent, d in sorted(intents["intent_distribution"].items(), key=lambda x: -x[1]["count"]):
-        lines.append(
-            f"| `{intent}` | {intent_descs_inline.get(intent, '')} "
-            f"| {d['count']} | {d['pct_of_user_turns']}% |"
-        )
-    lines.append("")
-    lines.append("### 3.2 入口意图 / 出口意图\n")
-    lines.append(
-        "> **入口意图**：每条对话第一个 USER 轮的意图；**出口意图**：最后一个 USER 轮的意图。\n"
-        "> 以下统计基于本次提取的实际数据。\n"
-    )
-    lines.append("**入口意图（对话开场用户目标）**：\n")
-    for intent, cnt in list(intents["entry_intents"].items())[:5]:
-        lines.append(f"- `{intent}`（{intent_descs_inline.get(intent, '')}）：{cnt} 次")
-    lines.append("")
-    lines.append("**出口意图（对话收尾用户目标）**：\n")
-    for intent, cnt in list(intents["exit_intents"].items())[:5]:
-        lines.append(f"- `{intent}`（{intent_descs_inline.get(intent, '')}）：{cnt} 次")
-    lines.append("")
-
-    # ——— 四、槽位分析 ———
-    lines.append("---\n")
-    lines.append("## 四、槽位（Slot / 信息字段）分析\n")
-    lines.append(
-        "> **Slot（槽位）**：对话系统需要跟踪的关键信息字段。\n"
-        "> **CRM 覆盖率**：该槽位在 CRM 数据中有值的对话比例（来自实际数据统计）。\n"
-        "> **LLM 提取次数**：本次提取中该槽位出现在 slot_values 中的对话数量。\n"
-    )
-    lines.append("### 4.1 槽位综合统计（基于本次提取数据）\n")
-    # 从 schema.json 构建槽位描述映射和 CRM/对话来源标记
-    crm_slot_names = {  # CRM 来源槽位（无法从对话文本推断）
+    crm_slot_names = {
         "customer_name", "phone_suffix", "available_credit", "temp_credit",
         "temp_credit_status", "temp_expiry_days", "annual_rate_pct", "loan_count",
         "last_loan_date", "outstanding_amount", "billing_day",
     }
-    slot_descs_from_schema: Dict[str, str] = {
-        s["name"]: s.get("description", "") for s in ont.get("slots", [])
-    }
-    lines.append("| 槽位名称 | 描述（来自 schema.json） | 数据来源 | CRM 覆盖率 | LLM 提取次数 | 被询问次数 | 示例值 |")
-    lines.append("|---|---|---|---|---|---|---|")
+
+    lines: List[str] = []
+
+    # ——— 标题 ———
+    lines.append("# 安逸花外呼数据 → SGD 转换报告\n")
+    lines.append(f"- **数据文件**：`{display_path}`（{n} 条对话，{ov['total_turns']} 轮，平均 {ov['avg_turns_per_dialogue']} 轮/对话）")
+    lines.append(f"- **提取模型**：{model_label}（LLM 成功率 {llm_rate}%，{ov['llm_succeeded']}/{n} 条）")
+    lines.append(f"- **本体来源**：`resources/anyihua_sgd/schema.json`（{ont['total_intents']} 个意图，{ont['total_slots']} 个槽位）")
+    lines.append("")
+
+    # ——— 一、SGD 字段覆盖情况 ———
+    lines.append("---\n")
+    lines.append("## 一、转换后 SGD 字段：具备哪些 / 缺少哪些\n")
+
+    lines.append("### ✅ 具备字段\n")
+    lines.append("| SGD 字段 | 质量 | 说明 |")
+    lines.append("|---|---|---|")
+    lines.append("| `dialogue_id` / `services` | 完整 | session_id 直接映射；services 固定为 AnYiHua_1 |")
+    lines.append("| `turns[].speaker` / `utterance` | 完整 | 原文直接保留，USER/SYSTEM 精确区分 |")
+    lines.append("| `metadata`（扩展字段） | 完整 | qc_label / reference_response / user_info_parsed（SGD 标准无此字段，为本项目扩展）|")
+    lines.append("| `frames[].service` | 完整 | 固定为 AnYiHua_1 |")
+    lines.append("| `frames[].state.slot_values`（CRM 槽位） | 金标准 | 11 个 CRM 槽位来自 parse_user_info()，覆盖率 32%–100% |")
+    lines.append("| `frames[].service_results` | 金标准 | CRM 数据按意图选取，可靠性 ≈100% |")
+    lines.append("| `frames[].service_call.method` | 高可靠 | intent→API 映射表自动生成 |")
+    lines.append(f"| `frames[].state.active_intent` | LLM 近似 | 成功率 {llm_rate}%；失败时兜底为 general_inquiry |")
+    lines.append(f"| `frames[].state.requested_slots` | LLM 近似 | 成功率 {llm_rate}%；失败时为空列表 |")
+    lines.append(f"| `frames[].state.slot_values`（对话专属槽位） | LLM 近似 | 4 个槽位（dispute_date / inquiry_amount / term_months / identity_confirmed）仅 LLM 可提取；失败时为空 |")
+    lines.append(f"| `frames[].actions` | LLM 近似 | 成功率 {llm_rate}%；失败时为空列表 |")
+    lines.append("")
+
+    lines.append("### ❌ 缺少字段\n")
+    lines.append("| 缺失字段 | 原因 |")
+    lines.append("|---|---|")
+    lines.append("| `frames[].slots`（字符跨度标注） | 需标注工具手动标注字符级 start/exclusive_end 偏移量，LLM 无法自动生成 |")
+    lines.append("| `frames[].actions[].canonical_values` | 标准 SGD 要求规范化值，需额外后处理 |")
+    lines.append("| DST 金标准（完整 ground truth） | 需人工逐轮核验 LLM 标注结果 |")
+    lines.append("")
+
+    # ——— 二、服务本体 ———
+    lines.append("---\n")
+    lines.append("## 二、服务本体（Schema）\n")
+    lines.append(f"> 服务：`{ont['service_name']}`　{ont['service_description']}\n")
+
+    lines.append("**意图列表**\n")
+    lines.append("| 意图 | 描述 | 必填槽位 | 结果槽位 |")
+    lines.append("|---|---|---|---|")
+    for intent_obj in ont.get("intents", []):
+        name = intent_obj.get("name", "")
+        desc = intent_obj.get("description", "")
+        required = " / ".join(intent_obj.get("required_slots", [])) or "—"
+        result = " / ".join(intent_obj.get("result_slots", [])) or "—"
+        lines.append(f"| `{name}` | {desc} | {required} | {result} |")
+    lines.append("")
+
+    lines.append("**槽位列表**\n")
+    lines.append("| 槽位 | 描述 | 来源 | CRM 覆盖率 |")
+    lines.append("|---|---|---|---|")
+    for slot_obj in ont.get("slots", []):
+        slot = slot_obj.get("name", "")
+        desc = slot_obj.get("description", "")
+        source = "CRM" if slot in crm_slot_names else "对话文本"
+        crm_pct = slots.get(slot, {}).get("crm_coverage_pct", 0)
+        crm_str = f"{crm_pct}%" if slot in crm_slot_names else "—"
+        lines.append(f"| `{slot}` | {desc} | {source} | {crm_str} |")
+    lines.append("")
+
+    # ——— 三、数据统计 ———
+    lines.append("---\n")
+    lines.append("## 三、数据统计\n")
+
+    lines.append("**质检标签分布**\n")
+    for label, d in ov["qc_label_distribution"].items():
+        lines.append(f"- `{label}`：{d['count']} 条（{d['pct']}%）")
+    lines.append("")
+
+    lines.append("**意图频率分布（USER 轮，仅显示出现次数 > 0）**\n")
+    lines.append("| 意图 | 出现次数 | 占用户轮比例 |")
+    lines.append("|---|---|---|")
+    for intent, d in sorted(intents["intent_distribution"].items(), key=lambda x: -x[1]["count"]):
+        if d["count"] == 0:
+            continue
+        lines.append(f"| `{intent}` | {d['count']} | {d['pct_of_user_turns']}% |")
+    lines.append("")
+
+    lines.append("**槽位覆盖率与提取次数**\n")
+    lines.append("| 槽位 | 来源 | CRM 覆盖率 | LLM 提取次数 |")
+    lines.append("|---|---|---|---|")
     for slot_obj in ont.get("slots", []):
         slot = slot_obj.get("name", "")
         d = slots.get(slot, {})
         crm_pct = d.get("crm_coverage_pct", 0)
         filled = d.get("filled_in_dialogue_n", 0)
-        requested = d.get("requested_n", 0)
-        examples = "、".join(d.get("example_values", [])[:2]) or "—"
         source = "CRM" if slot in crm_slot_names else "对话文本"
-        lines.append(
-            f"| `{slot}` | {slot_descs_from_schema.get(slot, '')} | {source} "
-            f"| {crm_pct}% | {filled} | {requested} | {examples} |"
-        )
+        crm_str = f"{crm_pct}%" if slot in crm_slot_names else "—"
+        lines.append(f"| `{slot}` | {source} | {crm_str} | {filled} |")
     lines.append("")
-    lines.append("### 4.2 后端 API（service_call）调用分布（基于本次提取数据）\n")
-    lines.append(
-        "> **service_call**：SYSTEM 轮次调用的后端 API。以下次数来自 LLM 标注结果。\n"
-    )
-    api_descs = {
-        "verify_customer": "核实用户身份",
-        "query_account": "查询账户信息（额度/利率/账单日等）",
-        "calculate_repayment": "计算还款金额",
-        "query_loan_records": "查询借款记录",
-        "query_unresolved_issues": "查询未解决问题",
-    }
-    lines.append("| API 方法 | 中文说明 | 本次调用次数 |")
-    lines.append("|---|---|---|")
+
     sc_methods = actions.get("service_call_methods", {})
     if sc_methods:
+        lines.append("**后端 API 调用次数（service_call）**\n")
+        lines.append("| API 方法 | 调用次数 |")
+        lines.append("|---|---|")
         for method, cnt in sc_methods.items():
-            lines.append(f"| `{method}` | {api_descs.get(method, '')} | {cnt} |")
-    else:
-        lines.append("| — | LLM 未提取到 service_call 数据（可能 LLM 成功率为 0） | — |")
-    lines.append("")
+            lines.append(f"| `{method}` | {cnt} |")
+        lines.append("")
 
-    # ——— 五、策略分析 ———
+    act_dist = actions.get("act_distribution", {})
+    act_nonzero = {k: v for k, v in act_dist.items() if v > 0}
+    if act_nonzero:
+        lines.append("**对话行为（Act）分布（仅出现过的类型）**\n")
+        lines.append("| Act | 提取次数 |")
+        lines.append("|---|---|")
+        for act, cnt in sorted(act_nonzero.items(), key=lambda x: -x[1]):
+            lines.append(f"| `{act}` | {cnt} |")
+        lines.append("")
+
+    # ——— 四、对话业务流程 ———
     lines.append("---\n")
-    lines.append("## 五、对话策略（Strategy / 业务流程）分析\n")
-    lines.append(
-        "> 以下业务流程和意图转移矩阵均从本次 LLM 提取结果推导，非人工定义。\n"
-        "> 仅处理 LLM 成功标注的对话；LLM 失败轮次统一标记为 general_inquiry，"
-        "可能导致 general_inquiry 频率偏高。\n"
-    )
-    lines.append(f"**从数据推导的外呼业务流程（本次 {ov['total_records']} 条）**：\n```\n{strat['common_flow']}\n```\n")
-    lines.append("### 5.1 高频意图转移（Top 10，基于本次提取数据）\n")
-    lines.append("| 从意图 | 描述 | 转移到 | 描述 | 出现次数 |")
-    lines.append("|---|---|---|---|---|")
-    for t in strat["top_intent_transitions"][:10]:
-        lines.append(
-            f"| `{t['from']}` | {intent_descs_inline.get(t['from'], '')} "
-            f"| `{t['to']}` | {intent_descs_inline.get(t['to'], '')} "
-            f"| {t['count']} |"
-        )
-    lines.append("")
+    lines.append("## 四、对话业务流程（从数据推导）\n")
+    lines.append(f"```\n{strat['common_flow']}\n```\n")
 
-    # ——— 六、可提取性结论 ———
+    top10 = strat["top_intent_transitions"][:10]
+    if top10:
+        lines.append("**高频意图转移（Top 10）**\n")
+        lines.append("| 从意图 | 转移到 | 次数 |")
+        lines.append("|---|---|---|")
+        for t in top10:
+            lines.append(f"| `{t['from']}` | `{t['to']}` | {t['count']} |")
+        lines.append("")
+
+    # ——— 五、提取方法说明 ———
     lines.append("---\n")
-    lines.append("## 六、SGD 字段可提取性结论（基于本次提取数据）\n")
-    lines.append(
-        "> 所有结论来自本次实际提取结果，不使用固定假设。\n"
-        f"> **LLM**：{model_label}（本次成功率 {llm_rate}%）\n"
-    )
-    cat_labels = {
-        "directly_extractable": "直接提取（100% 可靠）",
-        "crm_high_coverage": f"CRM 高覆盖（实测 ≥80%）",
-        "crm_medium_coverage": f"CRM 中覆盖（实测 50–80%）",
-        "crm_low_coverage": f"CRM 低覆盖（实测 <50%）",
-        "llm_extractable": f"LLM 提取（成功率 {llm_rate}%）",
-        "dialogue_only_slots": "对话专属槽位",
-        "not_extractable": "无法自动提取（需人工标注）",
-    }
-    lines.append("| 提取类别 | 涉及字段 | 实测可靠性 | 提取方法 |")
-    lines.append("|---|---|---|---|")
-    for cat, info in ext.items():
-        reliability = info.get("reliability", "—")
-        method = info.get("method", "—")
-        fields_list = info["fields"]
-        fields = ", ".join(f"`{f}`" for f in fields_list[:_MAX_FIELDS_DISPLAY])
-        if len(fields_list) > _MAX_FIELDS_DISPLAY:
-            fields += f" 等{len(fields_list)}个"
-        lines.append(f"| {cat_labels.get(cat, cat)} | {fields} | {reliability} | {method} |")
+    lines.append("## 五、提取方法说明\n")
+    lines.append(f"- **模型**：{model_label}")
+    lines.append(f"- **方式**：LLM 逐轮结构化标注（每条对话整体输入，逐轮输出 active_intent / requested_slots / slot_values / actions / service_call）")
+    lines.append(f"- **CRM 数据**：通过 `parse_user_info()` 解析，直接注入 slot_values 和 service_results，可靠性 ≈100%")
+    lines.append(f"- **LLM 成功率**：{llm_rate}%（{ov['llm_succeeded']}/{n} 条）；失败时意图为 general_inquiry，动作/槽位为空")
+    lines.append(f"- **不使用**：关键词规则、正则匹配等规则方法，所有语义字段均由 LLM 推断")
     lines.append("")
-    for cat, info in ext.items():
-        lines.append(f"**{cat_labels.get(cat, cat)}**：{info['description']}\n")
-
-    # ——— 七、建议 ———
-    lines.append("---\n")
-    lines.append("## 七、TOD 数据集构建建议\n")
-
-    # 找 CRM 高覆盖槽位
-    high_crm_slots = [s for s, d in slots.items() if d.get("crm_coverage_pct", 0) >= 80]
-    high_crm_avg = (
-        round(sum(slots[s]["crm_coverage_pct"] for s in high_crm_slots) / len(high_crm_slots), 1)
-        if high_crm_slots else 0
-    )
-    top_act = max(actions.get("act_distribution", {}).items(), key=lambda x: x[1], default=("—", 0))
-
-    lines.append(
-        f"1. **对话骨架（100% 可用）**："
-        f"本次 {ov['total_records']} 条对话、{ov['total_turns']} 个轮次可完整保留。\n"
-        "\n"
-        f"2. **CRM 槽位作为 slot_values 金标准（{len(high_crm_slots)} 个槽位覆盖率 ≥80%，均值 {high_crm_avg}%）**：\n"
-        f"   - 高覆盖槽位：{', '.join(f'`{s}`' for s in high_crm_slots[:6])}{'等' if len(high_crm_slots)>6 else ''}。\n"
-        "   - 可直接注入 `slot_values` 和 `service_results` 作为金标准。\n"
-        "\n"
-        f"3. **LLM 提取 active_intent / actions（本次成功率 {llm_rate}%）**：\n"
-        f"   - 使用 {model_label} 对每条对话进行逐轮结构化标注。\n"
-        f"   - 最高频 Act 类型：`{top_act[0]}`（{top_act[1]} 次），可用于验证标注合理性。\n"
-        "\n"
-        "4. **service_call 生成**：\n"
-        "   - `service_call.method` 可由 active_intent → API 映射表自动生成，参数由 LLM 提取。\n"
-        "\n"
-        "5. **补充人工标注（不可自动生成的字段）**：\n"
-        "   - `frames[].slots`（字符跨度标注）：需要标注工具手动标注。\n"
-        "   - 完整 DST 金标准需人工核验 LLM 输出。\n"
-        "\n"
-        "6. **保留扩展字段 metadata**：\n"
-        "   - `metadata.qc_label`：质检标签（质量分析用）\n"
-        "   - `metadata.reference_response`：坐席参考回复（生成任务评估用）\n"
-        "   - `metadata.user_info_parsed`：完整 CRM 数据（执行引擎查询用）\n"
-        "\n"
-        "7. **注意外呼数据特殊性**：\n"
-        "   - 首轮发言者是 SYSTEM（坐席），与标准 SGD（USER 首轮）相反。\n"
-        "   - `坐席回复` 字段是**待预测目标**，不应混入 `对话历史`。\n"
-    )
-
-    # ——— 八、与标准 SGD 的差异说明 ———
-    lines.append("---\n")
-    lines.append("## 八、生成文件与标准 SGD 格式的差异说明\n")
-    lines.append(
-        "> 本节说明 `chat_test_sgd_dialogues.json` 与 Google Research 发布的标准 "
-        "[Schema-Guided Dialogue (SGD)](https://github.com/google-research-datasets/dstc8-schema-guided-dialogue) "
-        "数据集在字段层面的差异。\n"
-        f"> 本次提取模型：{model_label}，LLM 成功率 {llm_rate}%。\n"
-    )
-    lines.append(
-        "**图例**：✅ 完整/金标准  ⚠️ 近似（LLM 提取，有误差）  ❌ 缺失（需人工标注）\n"
-    )
-
-    # 计算 LLM 实际提取到的字段统计
-    total_acts_extracted = sum(actions.get("act_distribution", {}).values())
-    total_sc = sum(actions.get("service_call_methods", {}).values())
-    llm_note_suffix = f"（本次 LLM 提取 {total_acts_extracted} 条动作记录，{total_sc} 次 service_call）"
-
-    lines.append("| SGD 字段路径 | 所在层级 | 本文件状态 | 差距说明 |")
-    lines.append("|---|---|---|---|")
-    for diff in SGD_FIELD_DIFF:
-        note = diff["note"]
-        # 为 actions 字段附加实际提取统计
-        if "actions" in diff["sgd_field"] and "SYSTEM" in diff["sgd_field"]:
-            note = note + f"；{llm_note_suffix}"
-        lines.append(
-            f"| `{diff['sgd_field']}` | {diff['sgd_location']} "
-            f"| {diff['our_status']} | {note} |"
-        )
-    lines.append("")
-
-    lines.append("### 8.1 缺失字段详解\n")
-    lines.append(
-        "#### ❌ `frames[].slots`（字符跨度标注 / Span Annotation）\n"
-        "- **标准 SGD 含义**：标注 utterance 中每个槽位值的字符起止位置（如 `start=5, exclusive_end=8`）。\n"
-        "- **缺失原因**：需要专用标注工具对原始文本做字符级标注，LLM 无法自动生成精确偏移量。\n"
-        "- **影响**：Span 提取（Slot Filling from Span）任务无法训练；DST（对话状态跟踪）任务不受影响。\n"
-    )
-    lines.append(
-        "#### ⚠️ `frames[].state.active_intent`（当前意图）\n"
-        f"- **本次 LLM 提取**：{ov['llm_succeeded']} 条成功（{llm_rate}%）。\n"
-        "- **主要误差来源**：口语化短回复（如「对」「嗯」）难以识别意图；"
-        "`general_inquiry` 作为兜底意图可能被过度使用。\n"
-    )
-    lines.append(
-        "#### ⚠️ `frames[].state.slot_values`（槽位值）\n"
-        f"- **CRM 槽位（{len(crm_slot_names)} 个）**：来自 `parse_user_info()` 解析，"
-        f"高覆盖槽位平均覆盖率 {high_crm_avg}%，可靠性接近 100%。\n"
-        "- **对话专属槽位**（`dispute_date`、`inquiry_amount`、`term_months`、`identity_confirmed`）："
-        "需 LLM 从对话文本 NLU 提取，LLM 失败时为空。\n"
-    )
-    lines.append(
-        "#### ⚠️ `frames[].actions`（对话行为列表）\n"
-        f"- **本次提取**：{total_acts_extracted} 条动作记录，来自 LLM 标注。\n"
-        "- **标准 SGD**：每个 actions 条目包含精确的 slot/values/canonical_values，需人工核查。\n"
-        "- **LLM 失败时**：动作列表为空（`[]`）。\n"
-    )
-    lines.append("### 8.2 扩展字段说明（标准 SGD 无，本项目新增）\n")
-    lines.append(
-        "| 扩展字段 | 说明 | 用途 |\n"
-        "|---|---|---|\n"
-        "| `metadata.qc_label` | 人工质检标签 | 数据质量分析 |\n"
-        "| `metadata.reference_response` | 坐席参考回复（待预测目标） | 生成任务训练/评估 |\n"
-        "| `metadata.user_info_parsed` | CRM 解析结构（完整版） | 执行引擎/后端 API 调用 |\n"
-        f"| `metadata.extraction_method` | 提取模型标记（本次：{model_name}） | 数据溯源 |\n"
-    )
 
     return "\n".join(lines)
 
