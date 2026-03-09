@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
 """
-chat_test_100.json 信息提取分析工具（LLM 版）
+chat_test_100.json 信息提取分析工具（LLM 版，数据驱动本体）
 
-基于 SGD 数据集的完整字段规范，使用 LLM 从安逸花外呼数据中精准提取所有可提取字段，
-用于后续构建类似 SGD 的标准 TOD（Task-Oriented Dialogue）数据集。
-
-本工具只使用 LLM 进行提取，不使用关键词规则降级。LLM 不可用时请检查 .env 配置。
+两阶段流程：
+  Phase 0（本体归纳）：从安逸花外呼对话数据中归纳可靠本体（意图/槽位/对话行为），
+                       不使用任何预定义列表，完全从数据中提炼。
+  Phase 1（SGD 转换）：以归纳本体为指导，使用 LLM 将对话数据转换为 SGD 格式。
 
 ----------------------------------------------------------------------
-SGD 本体（Ontology / Schema）说明
+设计原则
 ----------------------------------------------------------------------
 
-SGD 本体即 schema.json，它是服务的形式化规范，包含：
-  service_name       服务名称
-  description        服务自然语言描述（供 LLM 理解，不依赖硬编码知识）
-  slots              槽位列表：name, description, is_categorical, possible_values
-  intents            意图列表：name, description, is_transactional,
-                              required_slots, optional_slots, result_slots
-
-SGD 区别于传统封闭本体的关键：每个 slot/intent 都带有自然语言 description，
-使模型能在 zero-shot 条件下泛化到未见服务（Schema-Guided 范式）。
-
-本体来源：resources/anyihua_sgd/schema.json
+本工具遵循数据驱动（data-driven）原则：
+  - 意图列表、槽位列表、对话行为类型等均从实际对话数据中归纳，不预先定义。
+  - 预定义常量（VALID_INTENTS / VALID_SLOTS / VALID_ACTS）仅作为 LLM 不可用时的
+    兜底回退，不在正常流程中作为硬约束使用。
+  - 采用开放词汇（open vocabulary）策略：验证和清洗时接受 LLM 归纳的任意命名，
+    名称规范化为 小写_下划线（意图/槽位）或 大写（对话行为）格式。
 
 ----------------------------------------------------------------------
 SGD 对话字段（dialogues_*.json）
@@ -34,7 +29,7 @@ metadata           → 扩展字段（qc_label, reference_response, user_info_pa
 USER turn：
   speaker          → "USER"
   utterance        → 对话原文
-  active_intent    → LLM 提取（用户本轮任务意图）
+  active_intent    → LLM 提取（用户本轮任务意图，来自归纳本体）
   requested_slots  → LLM 提取（用户正在询问的槽位）
   slot_values      → LLM 提取（累积对话状态 {slot: [value]}）
   actions          → LLM 提取（用户对话行为动作）
@@ -80,9 +75,10 @@ LLM 配置
 输出
 ----------------------------------------------------------------------
 
-  resources/data/chat_test_extraction_report.json   机器可读结构化报告
-  resources/data/chat_test_extraction_report.md     人类可读 Markdown 报告
-  resources/data/chat_test_sgd_dialogues.json       标准 SGD 格式对话数据集
+  resources/data/chat_test_discovered_ontology.json  Phase 0 归纳的服务本体
+  resources/data/chat_test_extraction_report.json    机器可读结构化报告
+  resources/data/chat_test_extraction_report.md      人类可读 Markdown 报告
+  resources/data/chat_test_sgd_dialogues.json        标准 SGD 格式对话数据集
 """
 
 from __future__ import annotations
@@ -195,10 +191,186 @@ _DEFAULT_OUTPUT_DIR = str(_PROJECT_ROOT / "resources" / "data")
 _DEFAULT_SAMPLE = 5
 
 # --------------------------------------------------------------------------- #
+# 本体归纳（Phase 0）：从原始对话数据中提炼意图/槽位/对话行为
+# --------------------------------------------------------------------------- #
+
+_ONTOLOGY_SYSTEM_PROMPT = (
+    "你是专业的对话数据分析专家，精通任务型对话（TOD）系统设计和本体工程。\n"
+    "你的任务是从实际对话数据中归纳出可靠的服务本体（Ontology）。\n"
+    "严格要求：仅根据对话中实际出现的内容归纳，不要添加未观察到的内容。\n"
+    "槽位命名规范：英文小写下划线格式（如 customer_name）；"
+    "意图命名同理（如 verify_identity）；对话行为使用大写（如 INFORM）。"
+)
+
+
+def _normalize_name_snake(name: str) -> str:
+    """将任意名称规范化为 小写_下划线 格式。"""
+    name = name.strip().lower()
+    # replace spaces, hyphens, dots with underscore
+    name = re.sub(r"[\s\-\.]+", "_", name)
+    # remove any character that isn't alphanumeric or underscore
+    name = re.sub(r"[^\w]", "", name)
+    return name
+
+
+def _normalize_discovered_ontology(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """对 LLM 发现的本体进行规范化处理。"""
+    intents_raw = raw.get("intents", [])
+    slots_raw = raw.get("slots", [])
+    acts_raw = raw.get("dialog_acts", [])
+
+    seen_intents: set = set()
+    normalized_intents = []
+    for item in intents_raw:
+        if not isinstance(item, dict):
+            continue
+        name = _normalize_name_snake(item.get("name", ""))
+        if not name or name in seen_intents:
+            continue
+        seen_intents.add(name)
+        normalized_intents.append({
+            "name": name,
+            "description": item.get("description", ""),
+            "frequency": item.get("frequency", ""),
+            "typical_phrases": item.get("typical_phrases", []),
+            # SGD-compatible fields (empty until mapping is done)
+            "required_slots": item.get("required_slots", []),
+            "optional_slots": item.get("optional_slots", {}),
+            "result_slots": item.get("result_slots", []),
+        })
+
+    seen_slots: set = set()
+    normalized_slots = []
+    for item in slots_raw:
+        if not isinstance(item, dict):
+            continue
+        name = _normalize_name_snake(item.get("name", ""))
+        if not name or name in seen_slots:
+            continue
+        seen_slots.add(name)
+        data_type = item.get("data_type", "text")
+        normalized_slots.append({
+            "name": name,
+            "description": item.get("description", ""),
+            "source": item.get("source", ""),
+            "data_type": data_type,
+            "is_categorical": data_type == "enum",
+            "possible_values": item.get("possible_values", []),
+            "example_values": item.get("example_values", []),
+        })
+
+    seen_acts: set = set()
+    normalized_acts = []
+    for item in acts_raw:
+        if not isinstance(item, dict):
+            continue
+        act = item.get("act", "").strip().upper().replace(" ", "_").replace("-", "_")
+        if not act or act in seen_acts:
+            continue
+        seen_acts.add(act)
+        normalized_acts.append({
+            "act": act,
+            "description": item.get("description", ""),
+            "speaker": item.get("speaker", "BOTH"),
+            "example": item.get("example", ""),
+        })
+
+    return {
+        "service_name": raw.get("service_name", SERVICE_NAME),
+        "service_description": raw.get("service_description", ""),
+        "intents": normalized_intents,
+        "slots": normalized_slots,
+        "dialog_acts": normalized_acts,
+        "total_intents": len(normalized_intents),
+        "total_slots": len(normalized_slots),
+        "total_acts": len(normalized_acts),
+        # Flat lists for quick membership tests
+        "intent_names": [i["name"] for i in normalized_intents],
+        "slot_names": [s["name"] for s in normalized_slots],
+        "act_names": [a["act"] for a in normalized_acts],
+        "acts": [a["act"] for a in normalized_acts],  # backward compat alias
+        "source": "data_driven",
+    }
+
+
+def extract_ontology_from_dialogues(
+    records: List[Dict[str, Any]],
+    llm_client: Any,
+    sample_n: int = 30,
+) -> Dict[str, Any]:
+    """Phase 0：从实际对话数据归纳服务本体（意图/槽位/对话行为）。
+
+    不使用任何预定义列表，完全从原始对话文本中提炼。
+    失败时退化为读取 schema.json。
+    """
+    sample = records[: min(sample_n, len(records))]
+
+    dialogue_texts: List[str] = []
+    for i, record in enumerate(sample):
+        turns = record.get("对话历史", [])
+        lines = []
+        for t in turns:
+            if t.startswith(_AGENT_PREFIX):
+                lines.append(f"  坐席: {t[len(_AGENT_PREFIX):]}")
+            elif t.startswith(_USER_PREFIX):
+                lines.append(f"  用户: {t[len(_USER_PREFIX):]}")
+        dialogue_texts.append(f"=== 对话 {i + 1} ===\n" + "\n".join(lines))
+
+    dialogues_text = "\n\n".join(dialogue_texts)
+
+    prompt = (
+        "请分析以下安逸花外呼对话数据，归纳出完整的服务本体。\n\n"
+        "归纳要求：\n"
+        "1. 意图（intent）：用户在对话中期望达成的具体任务目标，用英文小写下划线命名\n"
+        "2. 槽位（slot）：对话中出现的所有关键信息字段，用英文小写下划线命名\n"
+        "   - CRM来源：坐席从系统读取的用户账户信息（如姓名、额度、利率等）\n"
+        "   - 对话来源：用户在对话中主动提供或询问的信息\n"
+        "3. 对话行为（dialog act）：坐席和用户实际表现出的对话行为类型，用大写英文命名\n\n"
+        "重要：只归纳在对话中实际观察到的内容，不要添加未出现的内容。\n\n"
+        f"{dialogues_text}\n\n"
+        "输出合法 JSON（仅输出 JSON，不要任何说明）：\n"
+        "{\n"
+        '  "service_name": "安逸花外呼促活",\n'
+        '  "service_description": "对该服务的简短自然语言描述",\n'
+        '  "intents": [\n'
+        '    {"name": "英文小写名", "description": "中文描述", "frequency": "高/中/低",\n'
+        '     "typical_phrases": ["典型用户话语（可选）"]}\n'
+        "  ],\n"
+        '  "slots": [\n'
+        '    {"name": "英文小写名", "description": "中文描述", "source": "CRM/对话",\n'
+        '     "data_type": "text/number/date/enum",\n'
+        '     "example_values": ["示例值1", "示例值2"]}\n'
+        "  ],\n"
+        '  "dialog_acts": [\n'
+        '    {"act": "大写英文名", "description": "中文描述",\n'
+        '     "speaker": "USER/SYSTEM/BOTH", "example": "示例话语（可选）"}\n'
+        "  ]\n"
+        "}"
+    )
+
+    try:
+        _, response_text = llm_client.generate(_ONTOLOGY_SYSTEM_PROMPT + "\n\n" + prompt)
+        parsed = _extract_json_from_text(response_text)
+        if parsed and isinstance(parsed, dict) and parsed.get("intents"):
+            print(
+                f"  ✅ 本体归纳成功：{len(parsed.get('intents', []))} 意图，"
+                f"{len(parsed.get('slots', []))} 槽位，"
+                f"{len(parsed.get('dialog_acts', []))} 对话行为"
+            )
+            return _normalize_discovered_ontology(parsed)
+        else:
+            print("  ⚠️  本体归纳响应格式异常，退化为 schema.json")
+    except Exception as exc:
+        print(f"  ⚠️  本体归纳 LLM 调用失败：{exc}，退化为 schema.json")
+
+    return _load_ontology()
+
+
+# --------------------------------------------------------------------------- #
 # LLM 提取提示模板
 # --------------------------------------------------------------------------- #
 
-_EXTRACTION_SYSTEM_PROMPT = (
+_EXTRACTION_SYSTEM_PROMPT_BASE = (
     "你是专业的任务型对话（TOD）结构化标注助手，熟悉 SGD（Schema-Guided Dialogue）数据集格式规范。\n"
     "你的任务是对安逸花外呼数据进行完整、精准的 SGD 字段提取，用于构建标准 TOD 数据集。\n\n"
     "业务背景：\n"
@@ -206,26 +378,15 @@ _EXTRACTION_SYSTEM_PROMPT = (
     "- 坐席（SYSTEM）主动致电老用户，目标是激活用户闲置的借款额度\n"
     "- 标准流程：核实身份 → 告知额度 → 解答疑问 → 引导借款 → 礼貌告别\n"
     "- 坐席掌握完整的 CRM 数据（用户信息字段），用户只能确认或询问\n\n"
-    "合法意图（valid_intents，必须从中选择）：\n"
-    "verify_identity, explain_credit_limit, explain_interest_rate, calculate_repayment,\n"
-    "explain_displayed_amount, handle_loan_dispute, guide_loan_operation,\n"
-    "escalate_to_human, say_goodbye, general_inquiry\n\n"
-    "合法槽位（valid_slots，必须从中选择）：\n"
-    "customer_name, phone_suffix, available_credit, temp_credit, temp_credit_status,\n"
-    "temp_expiry_days, annual_rate_pct, loan_count, last_loan_date, outstanding_amount,\n"
-    "billing_day, dispute_date, inquiry_amount, term_months, identity_confirmed\n\n"
-    "合法对话行为（valid_acts）：\n"
-    "INFORM, REQUEST, CONFIRM, SELECT, OFFER, GOODBYE, INFORM_INTENT, NEGATE_INTENT,\n"
-    "AFFIRM_INTENT, AFFIRM, NEGATE, CANT_UNDERSTAND, NOTIFY_SUCCESS, NOTIFY_FAILURE\n\n"
     "SGD 字段说明：\n\n"
     "USER turn 需提取：\n"
-    "  active_intent     — 用户本轮期望坐席帮助完成的任务意图（从 valid_intents 选一个）\n"
+    "  active_intent     — 用户本轮期望坐席帮助完成的任务意图（从本体意图列表选择，若无匹配可填 general_inquiry）\n"
     "                      注意：用户说「对」「嗯」等短回应时，继承上一轮的意图\n"
     "  requested_slots   — 用户明确询问但尚未获知的槽位（如「利率是多少」→ [\"annual_rate_pct\"]）\n"
     "  slot_values       — 截至本轮已确认的累积对话状态 {\"slot_name\": [\"value\"]}\n"
     "                      包括用户主动提供的信息（如告知争议日期、分期期数等）\n"
     "  actions           — 用户对话行为列表，格式：{\"act\":\"...\",\"slot\":\"...\",\"values\":[...],\"canonical_values\":[...]}\n"
-    "                      act 从 valid_acts 选择；INFORM 表示用户提供信息，REQUEST 表示用户请求信息\n\n"
+    "                      INFORM 表示用户提供信息，REQUEST 表示用户请求信息\n\n"
     "SYSTEM turn 需提取：\n"
     "  actions           — 系统对话行为列表，格式同上\n"
     "                      REQUEST 表示系统请求信息，INFORM 表示系统提供信息\n"
@@ -237,13 +398,45 @@ _EXTRACTION_SYSTEM_PROMPT = (
     "1. 精准 > 完整：不确定时留空，不要猜测\n"
     "2. slot_values 是累积状态，每轮必须包含之前轮次已确认的所有槽位值\n"
     "3. SYSTEM 的 actions 反映坐席的沟通行为\n"
-    "4. 只有坐席引用 CRM 数据时才填写 service_call 和 service_results\n"
-    "5. 所有槽位名称必须来自 valid_slots；所有意图名称必须来自 valid_intents"
+    "4. 只有坐席引用 CRM 数据时才填写 service_call 和 service_results"
 )
 
 
-def _build_extraction_prompt(record: Dict[str, Any]) -> str:
-    """构建单条记录的完整 LLM 提取 Prompt。"""
+def _build_extraction_system_prompt(discovered_ontology: Optional[Dict[str, Any]] = None) -> str:
+    """构建提取阶段的 System Prompt，使用已归纳的本体（而非预定义列表）。"""
+    if discovered_ontology and discovered_ontology.get("intent_names"):
+        intent_list = ", ".join(discovered_ontology["intent_names"])
+        slot_list = ", ".join(discovered_ontology["slot_names"])
+        act_list = ", ".join(discovered_ontology["act_names"])
+        ontology_section = (
+            f"已从数据归纳的本体（优先使用以下名称，如有新发现可扩展）：\n"
+            f"意图列表：{intent_list}\n"
+            f"槽位列表：{slot_list}\n"
+            f"对话行为列表：{act_list}\n"
+        )
+    else:
+        # Fallback to hardcoded defaults
+        ontology_section = (
+            "参考意图列表（可根据实际对话扩展）：\n"
+            "verify_identity, explain_credit_limit, explain_interest_rate, calculate_repayment,\n"
+            "explain_displayed_amount, handle_loan_dispute, guide_loan_operation,\n"
+            "escalate_to_human, say_goodbye, general_inquiry\n\n"
+            "参考槽位列表（可根据实际对话扩展）：\n"
+            "customer_name, phone_suffix, available_credit, temp_credit, temp_credit_status,\n"
+            "temp_expiry_days, annual_rate_pct, loan_count, last_loan_date, outstanding_amount,\n"
+            "billing_day, dispute_date, inquiry_amount, term_months, identity_confirmed\n\n"
+            "参考对话行为列表（可根据实际对话扩展）：\n"
+            "INFORM, REQUEST, CONFIRM, SELECT, OFFER, GOODBYE, INFORM_INTENT, NEGATE_INTENT,\n"
+            "AFFIRM_INTENT, AFFIRM, NEGATE, CANT_UNDERSTAND, NOTIFY_SUCCESS, NOTIFY_FAILURE\n"
+        )
+    return _EXTRACTION_SYSTEM_PROMPT_BASE + "\n\n" + ontology_section
+
+
+def _build_extraction_prompt(
+    record: Dict[str, Any],
+    discovered_ontology: Optional[Dict[str, Any]] = None,
+) -> str:
+    """构建单条记录的完整 LLM 提取 Prompt（使用从数据归纳的本体）。"""
     crm = parse_user_info(record.get("用户信息", ""))
     raw_turns = record.get("对话历史", [])
 
@@ -309,10 +502,10 @@ def _build_extraction_prompt(record: Dict[str, Any]) -> str:
         "- SYSTEM turn 不填 active_intent/requested_slots/slot_values；没有 service_call 时填 null\n"
         "- USER turn 不填 service_call/service_results\n"
         "- slot_values 是累积状态（包含之前所有已确认的槽位值）\n"
-        "- 所有槽位名、意图名、行为名必须来自合法列表\n"
+        "- 意图名、槽位名、行为名优先使用本体列表中的名称；如对话中出现新的概念，可使用英文小写下划线格式新增\n"
         "- 仅输出 JSON，不要任何解释文字"
     )
-    return _EXTRACTION_SYSTEM_PROMPT + "\n\n" + prompt
+    return _build_extraction_system_prompt(discovered_ontology) + "\n\n" + prompt
 
 
 # --------------------------------------------------------------------------- #
@@ -352,8 +545,27 @@ def _extract_json_from_text(text: str) -> Optional[Dict]:
     return None
 
 
-def _validate_and_clean_turn(turn: Dict[str, Any]) -> Dict[str, Any]:
-    """对单轮提取结果进行合规性校验和清洗。"""
+def _validate_and_clean_turn(
+    turn: Dict[str, Any],
+    discovered_ontology: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """对单轮提取结果进行规范化清洗。
+
+    使用从数据归纳的本体（open vocabulary）：
+    - 意图/槽位/行为名称做轻量规范化（小写下划线/大写），但不过滤掉未知值
+    - 若本体中有发现列表，优先使用其中的名称；否则接受任何合法格式的值
+    - 空意图时兜底为 general_inquiry
+    """
+    # Build lookup sets from discovered ontology (or fall back to hardcoded)
+    if discovered_ontology:
+        valid_acts_set = set(discovered_ontology.get("act_names", []))
+        valid_slots_set = set(discovered_ontology.get("slot_names", []))
+        valid_intents_set = set(discovered_ontology.get("intent_names", []))
+    else:
+        valid_acts_set = _VALID_ACTS_SET
+        valid_slots_set = _VALID_SLOTS_SET
+        valid_intents_set = _VALID_INTENTS_SET
+
     speaker = turn.get("speaker", "")
     cleaned: Dict[str, Any] = {
         "turn_idx": turn.get("turn_idx", -1),
@@ -366,31 +578,41 @@ def _validate_and_clean_turn(turn: Dict[str, Any]) -> Dict[str, Any]:
     for a in raw_actions:
         if not isinstance(a, dict):
             continue
-        act = a.get("act", "")
-        slot = a.get("slot", "") or ""
+        act_raw = (a.get("act", "") or "").strip().upper().replace(" ", "_")
+        if not act_raw:
+            continue
+        # Accept: known acts from ontology, or any UPPER_SNAKE non-empty string
+        act = act_raw if act_raw in valid_acts_set else act_raw
+        slot_raw = (a.get("slot", "") or "").strip()
+        slot = _normalize_name_snake(slot_raw) if slot_raw else ""
+        # Keep slot even if not in known set — it may be a newly discovered slot
         values = a.get("values", []) or []
         canonical_values = a.get("canonical_values", []) or []
-        if act in _VALID_ACTS_SET:
-            actions.append({
-                "act": act,
-                "slot": slot if slot in _VALID_SLOTS_SET else "",
-                "values": [str(v) for v in values] if isinstance(values, list) else [],
-                "canonical_values": [str(v) for v in canonical_values] if isinstance(canonical_values, list) else [],
-            })
+        actions.append({
+            "act": act,
+            "slot": slot,
+            "values": [str(v) for v in values] if isinstance(values, list) else [],
+            "canonical_values": [str(v) for v in canonical_values] if isinstance(canonical_values, list) else [],
+        })
     cleaned["actions"] = actions
 
     if speaker == "USER":
-        intent = turn.get("active_intent", "general_inquiry")
-        cleaned["active_intent"] = intent if intent in _VALID_INTENTS_SET else "general_inquiry"
+        intent_raw = (turn.get("active_intent", "") or "").strip()
+        intent = _normalize_name_snake(intent_raw) if intent_raw else ""
+        # Accept discovered intents; unknown intents kept as-is; empty → general_inquiry
+        cleaned["active_intent"] = intent if intent else "general_inquiry"
 
         raw_req = turn.get("requested_slots", []) or []
-        cleaned["requested_slots"] = [s for s in raw_req if s in _VALID_SLOTS_SET]
+        cleaned["requested_slots"] = [
+            _normalize_name_snake(s) for s in raw_req
+            if isinstance(s, str) and s.strip()
+        ]
 
         raw_sv = turn.get("slot_values", {}) or {}
         cleaned["slot_values"] = {
-            k: (v if isinstance(v, list) else [str(v)])
+            _normalize_name_snake(k): (v if isinstance(v, list) else [str(v)])
             for k, v in raw_sv.items()
-            if k in _VALID_SLOTS_SET and v
+            if isinstance(k, str) and k.strip() and v
         }
 
     elif speaker == "SYSTEM":
@@ -406,7 +628,11 @@ def _validate_and_clean_turn(turn: Dict[str, Any]) -> Dict[str, Any]:
         sr = turn.get("service_results")
         if sr and isinstance(sr, list):
             cleaned["service_results"] = [
-                {k: str(v) for k, v in item.items() if k in _VALID_SLOTS_SET}
+                {
+                    _normalize_name_snake(k): str(v)
+                    for k, v in item.items()
+                    if isinstance(k, str) and k.strip()
+                }
                 for item in sr if isinstance(item, dict)
             ]
         else:
@@ -485,13 +711,17 @@ def _backfill_service_results(turns: List[Dict], crm: Dict[str, Any]) -> None:
 # LLM 提取
 # --------------------------------------------------------------------------- #
 
-def extract_record_with_llm(record: Dict[str, Any], llm_client: Any) -> Dict[str, Any]:
-    """使用 LLM 对单条记录进行完整 SGD 字段提取。"""
+def extract_record_with_llm(
+    record: Dict[str, Any],
+    llm_client: Any,
+    discovered_ontology: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """使用 LLM 对单条记录进行完整 SGD 字段提取（使用从数据归纳的本体）。"""
     session_id = record["session_id"]
     crm = parse_user_info(record.get("用户信息", ""))
     raw_turns = record.get("对话历史", [])
 
-    prompt = _build_extraction_prompt(record)
+    prompt = _build_extraction_prompt(record, discovered_ontology=discovered_ontology)
     parsed = None
 
     try:
@@ -503,7 +733,7 @@ def extract_record_with_llm(record: Dict[str, Any], llm_client: Any) -> Dict[str
     extracted_turns: List[Dict[str, Any]] = []
     if parsed and isinstance(parsed, dict):
         for t in parsed.get("turns", []):
-            extracted_turns.append(_validate_and_clean_turn(t))
+            extracted_turns.append(_validate_and_clean_turn(t, discovered_ontology=discovered_ontology))
     else:
         # 降级：生成空骨架
         for i, raw in enumerate(raw_turns):
@@ -541,15 +771,22 @@ def _load_ontology() -> Dict[str, Any]:
         with open(_SCHEMA_PATH, encoding="utf-8") as f:
             schemas = json.load(f)
         schema = schemas[0] if isinstance(schemas, list) else schemas
+        intents = schema.get("intents", [])
+        slots = schema.get("slots", [])
         return {
             "service_name": schema.get("service_name", SERVICE_NAME),
             "service_description": schema.get("description", ""),
-            "slots": schema.get("slots", []),
-            "intents": schema.get("intents", []),
-            "total_slots": len(schema.get("slots", [])),
-            "total_intents": len(schema.get("intents", [])),
+            "slots": slots,
+            "intents": intents,
+            "total_slots": len(slots),
+            "total_intents": len(intents),
             "total_acts": len(VALID_ACTS),
             "acts": VALID_ACTS,
+            # Flat name lists for membership tests and prompt building
+            "intent_names": [i["name"] for i in intents if isinstance(i, dict)],
+            "slot_names": [s["name"] for s in slots if isinstance(s, dict)],
+            "act_names": list(VALID_ACTS),
+            "source": "schema_json",
         }
     except Exception:
         # schema.json 缺失时退化为内置常量列表
@@ -562,6 +799,10 @@ def _load_ontology() -> Dict[str, Any]:
             "total_intents": len(VALID_INTENTS),
             "total_acts": len(VALID_ACTS),
             "acts": VALID_ACTS,
+            "intent_names": list(VALID_INTENTS),
+            "slot_names": list(VALID_SLOTS),
+            "act_names": list(VALID_ACTS),
+            "source": "hardcoded_fallback",
         }
 
 
@@ -624,6 +865,44 @@ def _derive_common_flow(
     )
 
 
+def _enrich_ontology_with_observed(
+    ontology: Dict[str, Any],
+    slot_analysis: Dict[str, Any],
+    intent_dist: Dict[str, Any],
+) -> None:
+    """将实际观察到但本体中缺失的意图/槽位补充进本体（in-place）。
+
+    确保本体真实反映数据中发现的所有概念。
+    """
+    known_slots = {s["name"] for s in ontology.get("slots", []) if isinstance(s, dict)}
+    for slot in slot_analysis:
+        if slot and slot not in known_slots:
+            ontology.setdefault("slots", []).append({
+                "name": slot,
+                "description": "（从对话数据中发现，非预定义）",
+                "source": "observed",
+                "is_categorical": False,
+                "possible_values": [],
+            })
+    # Update flat name list
+    ontology["slot_names"] = [s["name"] for s in ontology.get("slots", []) if isinstance(s, dict)]
+    ontology["total_slots"] = len(ontology["slot_names"])
+
+    known_intents = {i["name"] for i in ontology.get("intents", []) if isinstance(i, dict)}
+    for intent in intent_dist:
+        if intent and intent not in known_intents:
+            ontology.setdefault("intents", []).append({
+                "name": intent,
+                "description": "（从对话数据中发现，非预定义）",
+                "required_slots": [],
+                "optional_slots": {},
+                "result_slots": [],
+            })
+    # Update flat name list
+    ontology["intent_names"] = [i["name"] for i in ontology.get("intents", []) if isinstance(i, dict)]
+    ontology["total_intents"] = len(ontology["intent_names"])
+
+
 # --------------------------------------------------------------------------- #
 # 统计汇总
 # --------------------------------------------------------------------------- #
@@ -631,12 +910,14 @@ def _derive_common_flow(
 def aggregate_results(
     records: List[Dict[str, Any]],
     model_info: Optional[Dict[str, str]] = None,
+    discovered_ontology: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """对所有已提取记录进行统计汇总。
-    
+
     Args:
         records: extract_record_with_llm 的输出列表
         model_info: 实际使用的 LLM 信息（model, base_url 等），来自 LLMConfig
+        discovered_ontology: Phase 0 从数据归纳的本体；若无则退化为 schema.json
     """
     n = len(records)
     n_llm_ok = sum(1 for r in records if r.get("llm_succeeded", False))
@@ -668,6 +949,15 @@ def aggregate_results(
             intent_transitions.append((strategy[i], strategy[i + 1]))
 
     intent_counter: Counter = Counter(all_intents)
+
+    # Build intent_dist from ALL actually-observed intents (not just predefined list)
+    # Merge: discovered ontology names first, then add any extra found in data
+    discovered_intent_names: List[str] = []
+    if discovered_ontology:
+        discovered_intent_names = discovered_ontology.get("intent_names", [])
+    all_observed_intents = list(
+        dict.fromkeys(discovered_intent_names + [i for i in intent_counter if i not in discovered_intent_names])
+    )
     intent_dist = {
         intent: {
             "count": intent_counter.get(intent, 0),
@@ -675,7 +965,7 @@ def aggregate_results(
                 intent_counter.get(intent, 0) / len(all_intents) * 100, 1
             ) if all_intents else 0,
         }
-        for intent in VALID_INTENTS
+        for intent in (all_observed_intents or VALID_INTENTS)
     }
 
     slot_filled: Dict[str, int] = defaultdict(int)
@@ -686,15 +976,14 @@ def aggregate_results(
     for r in records:
         for t in r["turns"]:
             for slot, vals in t.get("slot_values", {}).items():
-                if slot in _VALID_SLOTS_SET:
-                    slot_filled[slot] += 1
-                    if vals and len(slot_examples[slot]) < 3:
-                        slot_examples[slot].extend(vals[:1])
+                # Accept any slot name (open vocabulary)
+                slot_filled[slot] += 1
+                if vals and len(slot_examples[slot]) < 3:
+                    slot_examples[slot].extend(vals[:1])
             for slot in t.get("requested_slots", []):
-                if slot in _VALID_SLOTS_SET:
-                    slot_requested[slot] += 1
+                slot_requested[slot] += 1
             for a in t.get("actions", []):
-                if a.get("act") == "INFORM" and a.get("slot") in _VALID_SLOTS_SET:
+                if a.get("act") == "INFORM" and a.get("slot"):
                     slot_informed[a["slot"]] += 1
 
     crm_key_map = {
@@ -706,16 +995,26 @@ def aggregate_results(
         "billing_day": "billing_day",
     }
 
+    # Build slot list from: discovered ontology names + any additional observed in data
+    discovered_slot_names: List[str] = []
+    if discovered_ontology:
+        discovered_slot_names = discovered_ontology.get("slot_names", [])
+    all_observed_slots = list(
+        dict.fromkeys(
+            discovered_slot_names
+            + [s for s in slot_filled if s not in discovered_slot_names]
+        )
+    ) or list(VALID_SLOTS)
+
     slot_analysis: Dict[str, Any] = {}
-    for slot in VALID_SLOTS:
+    for slot in all_observed_slots:
         crm_coverage = 0
         if slot in crm_key_map:
             crm_key = crm_key_map[slot]
             crm_coverage = sum(
                 1 for r in records
-                # Treat None and "" as missing; 0 and False are intentionally
-                # excluded too since CRM fields with value 0 indicate "not set"
-                # (e.g., loan_count=0 means no loans, billing_day=0 means unknown).
+                # None/"" = missing; 0/False = "not set" for CRM numeric fields
+                # (e.g., loan_count=0 → no loans, billing_day=0 → unknown date)
                 if r["crm_parsed"].get(crm_key) not in (None, "", 0, False)
             )
         slot_analysis[slot] = {
@@ -747,8 +1046,10 @@ def aggregate_results(
     # 从实际转移数据派生常见业务流程
     common_flow = _derive_common_flow(entry_intents, exit_intents, top_transitions)
 
-    # 加载 schema.json 作为本体数据源
-    ontology_data = _load_ontology()
+    # Use discovered_ontology as the source of truth; fall back to schema.json
+    ontology_data = discovered_ontology if discovered_ontology else _load_ontology()
+    # Ensure the ontology has all slots/intents that were actually observed
+    _enrich_ontology_with_observed(ontology_data, slot_analysis, intent_dist)
 
     return {
         "extraction_overview": {
@@ -760,7 +1061,7 @@ def aggregate_results(
             "avg_turns_per_dialogue": round(sum(turn_counts) / n, 1) if n else 0,
             "model_name": (model_info or {}).get("model", "unknown"),
             "model_base_url": (model_info or {}).get("base_url", ""),
-            "extraction_method": "LLM 逐轮结构化标注",
+            "extraction_method": "LLM 逐轮结构化标注（本体由数据归纳）",
             "qc_label_distribution": {
                 label: {"count": cnt, "pct": round(cnt / n * 100, 1)}
                 for label, cnt in qc_counter.most_common()
@@ -1074,11 +1375,30 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
     llm_rate = ov["llm_success_rate"]
     n = ov["total_records"]
 
+    # Determine ontology source label
+    ont_source = ont.get("source", "schema_json")
+    if ont_source == "data_driven":
+        ont_source_label = "从对话数据归纳（data-driven，Phase 0）"
+        ont_file_label = "`chat_test_discovered_ontology.json`"
+    elif ont_source == "schema_json":
+        ont_source_label = "`resources/anyihua_sgd/schema.json`（预定义）"
+        ont_file_label = "`resources/anyihua_sgd/schema.json`"
+    else:
+        ont_source_label = "内置常量（兜底）"
+        ont_file_label = "hardcoded"
+
+    # Determine which slots came from CRM (have CRM coverage > 0)
     crm_slot_names = {
+        slot for slot, d in slots.items()
+        if d.get("crm_coverage_pct", 0) > 0
+    }
+    # Also include known CRM slots by name as fallback
+    _known_crm_slots = {
         "customer_name", "phone_suffix", "available_credit", "temp_credit",
         "temp_credit_status", "temp_expiry_days", "annual_rate_pct", "loan_count",
         "last_loan_date", "outstanding_amount", "billing_day",
     }
+    crm_slot_names = crm_slot_names | _known_crm_slots
 
     lines: List[str] = []
 
@@ -1086,12 +1406,15 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
     lines.append("# 安逸花外呼数据 → SGD 转换报告\n")
     lines.append(f"- **数据文件**：`{display_path}`（{n} 条对话，{ov['total_turns']} 轮，平均 {ov['avg_turns_per_dialogue']} 轮/对话）")
     lines.append(f"- **提取模型**：{model_label}（LLM 成功率 {llm_rate}%，{ov['llm_succeeded']}/{n} 条）")
-    lines.append(f"- **本体来源**：`resources/anyihua_sgd/schema.json`（{ont['total_intents']} 个意图，{ont['total_slots']} 个槽位）")
+    lines.append(f"- **本体来源**：{ont_source_label}（{ont['total_intents']} 个意图，{ont['total_slots']} 个槽位，{ont.get('total_acts', 0)} 种对话行为）")
     lines.append("")
 
     # ——— 一、SGD 字段覆盖情况 ———
     lines.append("---\n")
     lines.append("## 一、转换后 SGD 字段：具备哪些 / 缺少哪些\n")
+
+    dialogue_slot_count = len([s for s in slots if s not in crm_slot_names])
+    crm_slot_count = len([s for s in slots if s in crm_slot_names])
 
     lines.append("### ✅ 具备字段\n")
     lines.append("| SGD 字段 | 质量 | 说明 |")
@@ -1100,12 +1423,12 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
     lines.append("| `turns[].speaker` / `utterance` | 完整 | 原文直接保留，USER/SYSTEM 精确区分 |")
     lines.append("| `metadata`（扩展字段） | 完整 | qc_label / reference_response / user_info_parsed（SGD 标准无此字段，为本项目扩展）|")
     lines.append("| `frames[].service` | 完整 | 固定为 AnYiHua_1 |")
-    lines.append("| `frames[].state.slot_values`（CRM 槽位） | 金标准 | 11 个 CRM 槽位来自 parse_user_info()，覆盖率 32%–100% |")
+    lines.append(f"| `frames[].state.slot_values`（CRM 槽位） | 金标准 | {crm_slot_count} 个 CRM 槽位来自 parse_user_info()，可靠性 ≈100% |")
     lines.append("| `frames[].service_results` | 金标准 | CRM 数据按意图选取，可靠性 ≈100% |")
     lines.append("| `frames[].service_call.method` | 高可靠 | intent→API 映射表自动生成 |")
     lines.append(f"| `frames[].state.active_intent` | LLM 近似 | 成功率 {llm_rate}%；失败时兜底为 general_inquiry |")
     lines.append(f"| `frames[].state.requested_slots` | LLM 近似 | 成功率 {llm_rate}%；失败时为空列表 |")
-    lines.append(f"| `frames[].state.slot_values`（对话专属槽位） | LLM 近似 | 4 个槽位（dispute_date / inquiry_amount / term_months / identity_confirmed）仅 LLM 可提取；失败时为空 |")
+    lines.append(f"| `frames[].state.slot_values`（对话专属槽位） | LLM 近似 | {dialogue_slot_count} 个对话文本槽位仅 LLM 可提取；失败时为空 |")
     lines.append(f"| `frames[].actions` | LLM 近似 | 成功率 {llm_rate}%；失败时为空列表 |")
     lines.append("")
 
@@ -1119,30 +1442,64 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
 
     # ——— 二、服务本体 ———
     lines.append("---\n")
-    lines.append("## 二、服务本体（Schema）\n")
+    lines.append(f"## 二、服务本体（{ont_source_label}）\n")
     lines.append(f"> 服务：`{ont['service_name']}`　{ont['service_description']}\n")
 
     lines.append("**意图列表**\n")
-    lines.append("| 意图 | 描述 | 必填槽位 | 结果槽位 |")
-    lines.append("|---|---|---|---|")
-    for intent_obj in ont.get("intents", []):
-        name = intent_obj.get("name", "")
-        desc = intent_obj.get("description", "")
-        required = " / ".join(intent_obj.get("required_slots", [])) or "—"
-        result = " / ".join(intent_obj.get("result_slots", [])) or "—"
-        lines.append(f"| `{name}` | {desc} | {required} | {result} |")
+    if ont_source == "data_driven":
+        lines.append("| 意图 | 描述（从数据归纳） | 出现频率 |")
+        lines.append("|---|---|---|")
+        for intent_obj in ont.get("intents", []):
+            name = intent_obj.get("name", "")
+            desc = intent_obj.get("description", "")
+            freq = intent_obj.get("frequency", "")
+            lines.append(f"| `{name}` | {desc} | {freq} |")
+    else:
+        lines.append("| 意图 | 描述 | 必填槽位 | 结果槽位 |")
+        lines.append("|---|---|---|---|")
+        for intent_obj in ont.get("intents", []):
+            name = intent_obj.get("name", "")
+            desc = intent_obj.get("description", "")
+            required = " / ".join(intent_obj.get("required_slots", [])) or "—"
+            result = " / ".join(intent_obj.get("result_slots", [])) or "—"
+            lines.append(f"| `{name}` | {desc} | {required} | {result} |")
     lines.append("")
 
     lines.append("**槽位列表**\n")
-    lines.append("| 槽位 | 描述 | 来源 | CRM 覆盖率 |")
-    lines.append("|---|---|---|---|")
-    for slot_obj in ont.get("slots", []):
-        slot = slot_obj.get("name", "")
-        desc = slot_obj.get("description", "")
-        source = "CRM" if slot in crm_slot_names else "对话文本"
-        crm_pct = slots.get(slot, {}).get("crm_coverage_pct", 0)
-        crm_str = f"{crm_pct}%" if slot in crm_slot_names else "—"
-        lines.append(f"| `{slot}` | {desc} | {source} | {crm_str} |")
+    if ont_source == "data_driven":
+        lines.append("| 槽位 | 描述（从数据归纳） | 来源 | 数据类型 | CRM 覆盖率 |")
+        lines.append("|---|---|---|---|---|")
+        for slot_obj in ont.get("slots", []):
+            slot = slot_obj.get("name", "")
+            desc = slot_obj.get("description", "")
+            source_lbl = slot_obj.get("source", "CRM" if slot in crm_slot_names else "对话")
+            data_type = slot_obj.get("data_type", "text")
+            crm_pct = slots.get(slot, {}).get("crm_coverage_pct", 0)
+            crm_str = f"{crm_pct}%" if slot in crm_slot_names else "—"
+            lines.append(f"| `{slot}` | {desc} | {source_lbl} | {data_type} | {crm_str} |")
+    else:
+        lines.append("| 槽位 | 描述 | 来源 | CRM 覆盖率 |")
+        lines.append("|---|---|---|---|")
+        for slot_obj in ont.get("slots", []):
+            slot = slot_obj.get("name", "")
+            desc = slot_obj.get("description", "")
+            source = "CRM" if slot in crm_slot_names else "对话文本"
+            crm_pct = slots.get(slot, {}).get("crm_coverage_pct", 0)
+            crm_str = f"{crm_pct}%" if slot in crm_slot_names else "—"
+            lines.append(f"| `{slot}` | {desc} | {source} | {crm_str} |")
+
+    # Dialog acts (only show if data-driven with discovery info)
+    dialog_acts = ont.get("dialog_acts", [])
+    if dialog_acts and ont_source == "data_driven":
+        lines.append("")
+        lines.append("**对话行为类型（从数据归纳）**\n")
+        lines.append("| Act | 描述 | 说话方 |")
+        lines.append("|---|---|---|")
+        for act_obj in dialog_acts:
+            act = act_obj.get("act", "")
+            desc = act_obj.get("description", "")
+            speaker = act_obj.get("speaker", "BOTH")
+            lines.append(f"| `{act}` | {desc} | {speaker} |")
     lines.append("")
 
     # ——— 三、数据统计 ———
@@ -1213,10 +1570,13 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
     lines.append("---\n")
     lines.append("## 五、提取方法说明\n")
     lines.append(f"- **模型**：{model_label}")
-    lines.append(f"- **方式**：LLM 逐轮结构化标注（每条对话整体输入，逐轮输出 active_intent / requested_slots / slot_values / actions / service_call）")
+    lines.append(f"- **Phase 0（本体归纳）**：LLM 分析原始对话数据，从中归纳意图/槽位/对话行为，不使用预定义列表")
+    lines.append(f"  - 本体来源：{ont_source_label}")
+    lines.append(f"  - 归纳结果：{ont['total_intents']} 意图，{ont['total_slots']} 槽位，{ont.get('total_acts', 0)} 对话行为")
+    lines.append(f"- **Phase 1（SGD 转换）**：以归纳本体为指导，LLM 逐轮提取 active_intent / requested_slots / slot_values / actions / service_call")
     lines.append(f"- **CRM 数据**：通过 `parse_user_info()` 解析，直接注入 slot_values 和 service_results，可靠性 ≈100%")
     lines.append(f"- **LLM 成功率**：{llm_rate}%（{ov['llm_succeeded']}/{n} 条）；失败时意图为 general_inquiry，动作/槽位为空")
-    lines.append(f"- **不使用**：关键词规则、正则匹配等规则方法，所有语义字段均由 LLM 推断")
+    lines.append(f"- **开放词汇**：意图/槽位/行为名称从数据归纳，不受预定义列表约束，可发现新概念")
     lines.append("")
 
     return "\n".join(lines)
@@ -1297,12 +1657,27 @@ def main() -> None:
         f"{'（全量）' if args.process_all else f'（用 --all 处理全部 {len(raw_data)} 条）'}"
     )
 
+    # ——— Phase 0：从数据中归纳服务本体 ———
+    print(f"\n▶ Phase 0：从对话数据归纳服务本体（意图/槽位/对话行为）...")
+    # Use up to 30 dialogues for ontology discovery (representative sample)
+    ontology_sample_n = min(30, len(raw_data))
+    discovered_ontology = extract_ontology_from_dialogues(
+        raw_data[:ontology_sample_n], llm_client, sample_n=ontology_sample_n
+    )
+
+    # Save discovered ontology as a separate file for reference
+    ontology_path = output_dir / "chat_test_discovered_ontology.json"
+    with open(ontology_path, "w", encoding="utf-8") as f:
+        json.dump(discovered_ontology, f, ensure_ascii=False, indent=2)
+    print(f"  ✅ 本体文件  : {ontology_path}")
+
+    # ——— Phase 1：使用本体指导 LLM 逐轮提取 SGD 字段 ———
     extracted_records: List[Dict[str, Any]] = []
-    print(f"\n▶ 使用 LLM 提取 SGD 字段（{config.model}，每条间隔 {args.delay}s）...")
+    print(f"\n▶ Phase 1：使用 LLM 提取 SGD 字段（{config.model}，每条间隔 {args.delay}s）...")
     for i, record in enumerate(records_to_process):
         sid = record.get("session_id", "?")[:20]
         print(f"  [{i+1:3d}/{sample_n}] {sid}...", end="", flush=True)
-        result = extract_record_with_llm(record, llm_client)
+        result = extract_record_with_llm(record, llm_client, discovered_ontology=discovered_ontology)
         extracted_records.append(result)
         status = "✅" if result["llm_succeeded"] else "⚠️"
         print(f" {status} ({len(result['turns'])}/{result['turn_count']} 轮)")
@@ -1313,7 +1688,11 @@ def main() -> None:
     print(f"\n  ✅ 提取完成：{n_ok}/{sample_n} 条 LLM 成功")
 
     print("▶ 汇总统计...")
-    agg = aggregate_results(extracted_records, model_info=model_info)
+    agg = aggregate_results(
+        extracted_records,
+        model_info=model_info,
+        discovered_ontology=discovered_ontology,
+    )
 
     json_path = output_dir / "chat_test_extraction_report.json"
     with open(json_path, "w", encoding="utf-8") as f:
@@ -1340,11 +1719,14 @@ def main() -> None:
     ov = agg["extraction_overview"]
     intents = agg["intent_analysis"]
     slots_agg = agg["slot_analysis"]
+    ont = agg["ontology"]
     print(
         f"  处理记录   : {ov['total_records']} 条，"
         f"LLM 成功 {ov['llm_succeeded']} 条 ({ov['llm_success_rate']}%)"
     )
     print(f"  提取模型   : {ov['model_name']} ({ov['model_base_url'] or 'OpenAI'})")
+    print(f"  本体来源   : {'数据归纳（data_driven）' if ont.get('source') == 'data_driven' else 'schema.json 预定义'}")
+    print(f"  本体规模   : {ont.get('total_intents', 0)} 意图 / {ont.get('total_slots', 0)} 槽位 / {ont.get('total_acts', 0)} 对话行为")
     print(f"  总轮次     : {ov['total_turns']}（用户轮 {ov['total_user_turns']}）")
     print(
         f"  每对话平均 : {ov['avg_turns_per_dialogue']} 轮 / "
