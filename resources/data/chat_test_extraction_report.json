@@ -1,0 +1,483 @@
+{
+  "dataset_overview": {
+    "total_records": 100,
+    "total_turns": 1230,
+    "turn_count_min": 2,
+    "turn_count_max": 52,
+    "turn_count_avg": 12.3,
+    "qc_label_distribution": {
+      "不当告别": 15,
+      "数据错误": 15,
+      "无标签命中": 40,
+      "答非所问": 15,
+      "重复询问": 15
+    }
+  },
+  "ontology": {
+    "service_name": "AnYiHua_1",
+    "service_description": "安逸花外呼促活服务（微贷平台坐席主动外呼，激活用户闲置借款额度）",
+    "domain": "微贷/消费金融（外呼促活）",
+    "data_source": "真实外呼通话录音（已脱敏）",
+    "total_slots_defined": 15,
+    "crm_slots": [
+      "customer_name",
+      "phone_suffix",
+      "available_credit",
+      "temp_credit",
+      "temp_credit_status",
+      "temp_expiry_days",
+      "annual_rate_pct",
+      "loan_count",
+      "last_loan_date",
+      "outstanding_amount",
+      "billing_day"
+    ],
+    "dialogue_slots": [
+      "dispute_date",
+      "inquiry_amount",
+      "term_months",
+      "identity_confirmed"
+    ],
+    "total_intents_defined": 10,
+    "intents": [
+      "verify_identity",
+      "handle_loan_dispute",
+      "explain_credit_limit",
+      "explain_interest_rate",
+      "calculate_repayment",
+      "explain_displayed_amount",
+      "guide_loan_operation",
+      "escalate_to_human",
+      "say_goodbye",
+      "general_inquiry"
+    ]
+  },
+  "slot_analysis": {
+    "crm_slots_coverage": {
+      "customer_name": 100.0,
+      "phone_suffix": 100.0,
+      "available_credit": 99.0,
+      "temp_credit": 89.0,
+      "temp_credit_status": 100.0,
+      "temp_expiry_days": 68.0,
+      "annual_rate_pct": 100.0,
+      "loan_count": 56.0,
+      "last_loan_date": 95.0,
+      "outstanding_amount": 52.0,
+      "billing_day": 100.0
+    },
+    "dialogue_slots_hint_coverage": {
+      "dispute_date": 1.0,
+      "inquiry_amount": 3.0,
+      "term_months": 1.0,
+      "identity_confirmed": 39.0
+    },
+    "crm_value_stats": {
+      "available_credit": {
+        "n_with_value": 99,
+        "min": 510,
+        "max": 59093,
+        "mean": 16648.8
+      },
+      "annual_rate_pct": {
+        "n_with_value": 100,
+        "min": 24,
+        "max": 24,
+        "mean": 24.0
+      },
+      "loan_count": {
+        "n_with_value": 56,
+        "min": 1,
+        "max": 13,
+        "mean": 3.1
+      },
+      "temp_expiry_days": {
+        "n_with_value": 68,
+        "min": 3,
+        "max": 29,
+        "mean": 20.0
+      },
+      "outstanding_amount": {
+        "n_with_value": 52,
+        "min": 509,
+        "max": 31044,
+        "mean": 5369.5
+      }
+    },
+    "high_coverage_slots": [
+      "customer_name",
+      "phone_suffix",
+      "available_credit",
+      "temp_credit",
+      "temp_credit_status",
+      "annual_rate_pct",
+      "last_loan_date",
+      "billing_day"
+    ],
+    "low_coverage_slots": []
+  },
+  "intent_analysis": {
+    "intent_distribution": {
+      "verify_identity": {
+        "count": 196,
+        "pct_of_total_turns": 15.9
+      },
+      "handle_loan_dispute": {
+        "count": 21,
+        "pct_of_total_turns": 1.7
+      },
+      "explain_credit_limit": {
+        "count": 165,
+        "pct_of_total_turns": 13.4
+      },
+      "explain_interest_rate": {
+        "count": 40,
+        "pct_of_total_turns": 3.3
+      },
+      "calculate_repayment": {
+        "count": 3,
+        "pct_of_total_turns": 0.2
+      },
+      "explain_displayed_amount": {
+        "count": 22,
+        "pct_of_total_turns": 1.8
+      },
+      "guide_loan_operation": {
+        "count": 43,
+        "pct_of_total_turns": 3.5
+      },
+      "escalate_to_human": {
+        "count": 1,
+        "pct_of_total_turns": 0.1
+      },
+      "say_goodbye": {
+        "count": 1,
+        "pct_of_total_turns": 0.1
+      },
+      "general_inquiry": {
+        "count": 738,
+        "pct_of_total_turns": 60.0
+      }
+    },
+    "top_intents": [
+      [
+        "general_inquiry",
+        738
+      ],
+      [
+        "verify_identity",
+        196
+      ],
+      [
+        "explain_credit_limit",
+        165
+      ],
+      [
+        "guide_loan_operation",
+        43
+      ],
+      [
+        "explain_interest_rate",
+        40
+      ]
+    ],
+    "entry_intent_distribution": {
+      "verify_identity": 99,
+      "general_inquiry": 1
+    },
+    "exit_intent_distribution": {
+      "handle_loan_dispute": 1,
+      "general_inquiry": 76,
+      "explain_credit_limit": 17,
+      "explain_displayed_amount": 3,
+      "guide_loan_operation": 1,
+      "calculate_repayment": 1,
+      "explain_interest_rate": 1
+    },
+    "avg_unique_intents_per_dialogue": 3.2,
+    "min_unique_intents": 2,
+    "max_unique_intents": 7
+  },
+  "strategy_analysis": {
+    "top_intent_transitions": [
+      {
+        "from": "verify_identity",
+        "to": "general_inquiry",
+        "count": 184
+      },
+      {
+        "from": "general_inquiry",
+        "to": "explain_credit_limit",
+        "count": 113
+      },
+      {
+        "from": "general_inquiry",
+        "to": "verify_identity",
+        "count": 95
+      },
+      {
+        "from": "explain_credit_limit",
+        "to": "general_inquiry",
+        "count": 94
+      },
+      {
+        "from": "guide_loan_operation",
+        "to": "general_inquiry",
+        "count": 29
+      },
+      {
+        "from": "general_inquiry",
+        "to": "guide_loan_operation",
+        "count": 26
+      },
+      {
+        "from": "explain_interest_rate",
+        "to": "general_inquiry",
+        "count": 23
+      },
+      {
+        "from": "general_inquiry",
+        "to": "explain_interest_rate",
+        "count": 21
+      },
+      {
+        "from": "handle_loan_dispute",
+        "to": "general_inquiry",
+        "count": 13
+      },
+      {
+        "from": "general_inquiry",
+        "to": "handle_loan_dispute",
+        "count": 13
+      },
+      {
+        "from": "explain_displayed_amount",
+        "to": "general_inquiry",
+        "count": 13
+      },
+      {
+        "from": "general_inquiry",
+        "to": "explain_displayed_amount",
+        "count": 11
+      },
+      {
+        "from": "verify_identity",
+        "to": "explain_credit_limit",
+        "count": 8
+      },
+      {
+        "from": "explain_credit_limit",
+        "to": "guide_loan_operation",
+        "count": 7
+      },
+      {
+        "from": "explain_credit_limit",
+        "to": "explain_displayed_amount",
+        "count": 7
+      },
+      {
+        "from": "guide_loan_operation",
+        "to": "explain_credit_limit",
+        "count": 4
+      },
+      {
+        "from": "explain_credit_limit",
+        "to": "handle_loan_dispute",
+        "count": 3
+      },
+      {
+        "from": "explain_displayed_amount",
+        "to": "explain_credit_limit",
+        "count": 3
+      },
+      {
+        "from": "handle_loan_dispute",
+        "to": "explain_interest_rate",
+        "count": 2
+      },
+      {
+        "from": "calculate_repayment",
+        "to": "explain_credit_limit",
+        "count": 2
+      }
+    ],
+    "top_strategy_patterns": [
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry"
+        ],
+        "count": 18
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry"
+        ],
+        "count": 8
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry"
+        ],
+        "count": 8
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry"
+        ],
+        "count": 5
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry"
+        ],
+        "count": 3
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry",
+          "explain_credit_limit"
+        ],
+        "count": 3
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry"
+        ],
+        "count": 3
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry"
+        ],
+        "count": 2
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "general_inquiry"
+        ],
+        "count": 2
+      },
+      {
+        "pattern": [
+          "verify_identity",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "explain_credit_limit",
+          "handle_loan_dispute",
+          "general_inquiry",
+          "explain_interest_rate",
+          "general_inquiry",
+          "verify_identity",
+          "handle_loan_dispute",
+          "general_inquiry",
+          "handle_loan_dispute",
+          "general_inquiry",
+          "handle_loan_dispute",
+          "explain_interest_rate",
+          "general_inquiry",
+          "verify_identity",
+          "general_inquiry",
+          "handle_loan_dispute"
+        ],
+        "count": 1
+      }
+    ],
+    "common_flow_description": "verify_identity → explain_credit_limit → (explain_interest_rate | handle_loan_dispute | guide_loan_operation) → say_goodbye"
+  },
+  "extractability_summary": {
+    "directly_extractable": {
+      "fields": [
+        "dialogue_id",
+        "speaker",
+        "utterance",
+        "qc_label",
+        "reference_response"
+      ],
+      "reliability": "100%",
+      "description": "对话结构、发言者、话语内容、质检标签和参考回复可直接映射，无需推断。"
+    },
+    "crm_extractable": {
+      "fields": [
+        "customer_name",
+        "phone_suffix",
+        "available_credit",
+        "temp_credit",
+        "temp_credit_status",
+        "annual_rate_pct",
+        "last_loan_date",
+        "billing_day"
+      ],
+      "reliability": "≈95–99%",
+      "description": "来自 用户信息 字段的 CRM 数据，通过 parse_user_info() 解析，可靠性极高。覆盖率 ≥70% 的槽位适合直接用于 TOD 训练数据。"
+    },
+    "rule_inferrable": {
+      "fields": [
+        "active_intent",
+        "requested_slots",
+        "service_call",
+        "actions"
+      ],
+      "reliability": "≈50–70%",
+      "description": "基于关键词规则从对话文本中推断，适合快速原型。生产环境建议使用 LLM 进行语义补全以提升准确率。"
+    },
+    "dialogue_inferrable": {
+      "fields": [
+        "dispute_date",
+        "inquiry_amount",
+        "term_months",
+        "identity_confirmed"
+      ],
+      "reliability": "≈30–60%",
+      "description": "只能从对话文本中提取（CRM 无对应字段），依赖用户在对话中明确提及。覆盖率较低，建议使用 LLM 进行 NLU 提取。"
+    },
+    "not_extractable": {
+      "fields": [
+        "service_results",
+        "full_dst_annotation"
+      ],
+      "description": "完整的对话状态追踪（DST）标注和 API 调用结果无法从原始数据中提取，需要人工标注或 LLM 自动标注。"
+    }
+  }
+}
