@@ -14,6 +14,7 @@ from .dst import DSTMetrics, DSTEvaluator
 from .fnctod import FnCTODMetrics, FnCTODEvaluator
 from .pytod import PyTODMetrics, PyTODEvaluator
 from .evolve import EvolveMetrics, EvolveEvaluator
+from .anyihua_sgd import AnYiHuaSGDMetrics, AnYiHuaSGDEvaluator
 
 __all__ = [
     # 基类
@@ -34,4 +35,7 @@ __all__ = [
     # Evolve — 进化式上下文优化
     "EvolveMetrics",
     "EvolveEvaluator",
+    # AnYiHua SGD — 安逸花外呼 SGD 知识库提取质量
+    "AnYiHuaSGDMetrics",
+    "AnYiHuaSGDEvaluator",
 ]

@@ -754,6 +754,22 @@ class ChatTestToSGDConverter:
         return summary
 
     # ------------------------------------------------------------------ #
+    def convert_record(self, record: Dict, idx: int = 0) -> Dict:
+        """
+        将单条 chat_test_100.json 记录转换为 SGD dialogue 字典。
+
+        这是 :meth:`_convert_record` 的公共包装，供外部评测器和工具直接调用，
+        无需依赖私有方法约定。
+
+        参数:
+            record: 原始对话记录（含 session_id / 用户信息 / 对话历史 等字段）
+            idx:    记录索引（用于生成 dialogue_id 的备用值，默认为 0）
+
+        返回:
+            SGD 格式的 dialogue 字典
+        """
+        return self._convert_record(record, idx)
+
     # 内部转换逻辑
     # ------------------------------------------------------------------ #
 

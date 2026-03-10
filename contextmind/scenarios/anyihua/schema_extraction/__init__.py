@@ -69,6 +69,7 @@
 
 from langextract.data import AlignmentStatus
 
+from .data_cleaner import clean_dialogues, CleanConfig, CleanReport
 from .extractor import (
     dialogue_to_langextract_example,
     dialogues_to_langextract_examples,
@@ -116,6 +117,10 @@ __all__ = [
     "MATCH_EXACT",
     "MATCH_LESSER",
     "MATCH_FUZZY",
+    # 1.1 数据清洗（data_cleaner.py）
+    "clean_dialogues",
+    "CleanConfig",
+    "CleanReport",
     # Schema 持久化与格式对比
     "save_schema_as_sgd",
     "align_schema_with_sgd",
