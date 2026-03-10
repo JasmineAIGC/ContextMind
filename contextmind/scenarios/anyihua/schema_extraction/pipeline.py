@@ -11,20 +11,22 @@
     将 Step 1 发现的 Schema 与预定义 Schema（resources/anyihua_sgd/schema.json）
     合并，产出包含两者信息的完整 merged_schema。
 
-  Step 3: LLM 驱动的 SGD 全量转换（附 langextract 对齐）
+  Step 3: LLM 驱动的 SGD 全量转换（附 langextract 溯源对齐）
     对全量对话数据逐条调用 LLM 提取意图和槽位，然后将提取结果
-    回溯对齐（grounding）到对话原文，组装为标准 SGD 格式。
+    通过 langextract WordAligner 批量回溯对齐到对话原文的字符区间
+    （char_interval），构建标准 SGD 格式，每条提取均有完整溯源。
 
-全程通过 .env 中定义的 LLM（SimpleLLMClient）调用，
-不使用 langextract 库的内置 Gemini 模型。
-
-安逸花外呼对话的特殊处理（langextract 对齐约束）：
-  · 对话文本格式为"坐席：..."/"用户：..."前缀，alignment 基于完整对话文本
-  · extraction_text 必须是对话中出现过的原始文本片段
-  · 用户意图（intent）：extraction_text = 用户发言原话，意图编码放入 attributes["intent_name"]
-  · 槽位值（slot_value）：extraction_text = 槽位的原始值文本，槽位名放入 attributes["slot_name"]
-  · 系统意图（system_intent）：extraction_text = 坐席发言原话，方法名放入 attributes["method_name"]
-  · 若 extraction_text 未在原文中找到，char_interval=None，alignment_status=None
+langextract 使用说明（安逸花外呼对话特殊处理）：
+  · 所有 LLM 调用通过 .env 中定义的 SimpleLLMClient，
+    不使用 langextract 内置的 Gemini 模型。
+  · 使用 langextract.data.Extraction / ExampleData / CharInterval / AlignmentStatus
+    作为溯源数据的正式表示，使每个意图/槽位可追溯到原文字符区间。
+  · 使用 langextract.resolver.WordAligner 和 langextract.tokenizer.UnicodeTokenizer
+    将 extraction_text 批量回溯定位到对话原文。
+  · extraction_text 必须是对话中出现过的原始文本片段（verbatim）：
+    - 用户意图（intent）：extraction_text = 用户发言原话，意图编码放入 attributes["intent_name"]
+    - 槽位值（slot_value）：extraction_text = 槽位的原始值文本，槽位名放入 attributes["slot_name"]
+    - 系统意图（system_intent）：extraction_text = 坐席发言原话，方法名放入 attributes["method_name"]
 
 典型使用::
 
@@ -44,12 +46,23 @@
 
 from __future__ import annotations
 
-import difflib
 import json
 import random
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+# ---------------------------------------------------------------------------
+# langextract — 溯源对齐核心依赖
+# 用于将每一个意图/槽位提取结果回溯定位到对话原文的字符区间（char_interval），
+# 实现完整的溯源可追踪性（provenance traceability）。
+# 注意：仅使用 langextract 的数据结构与 WordAligner；
+#       所有 LLM 调用仍通过 SimpleLLMClient（.env 配置），
+#       不调用 langextract 内置的 Gemini 模型。
+# ---------------------------------------------------------------------------
+from langextract.data import AlignmentStatus, CharInterval, ExampleData, Extraction
+from langextract.resolver import WordAligner
+from langextract.tokenizer import UnicodeTokenizer
 
 from contextmind.infra.logger import get_logger
 
@@ -85,96 +98,88 @@ _INTENT_TO_API: Dict[str, Optional[str]] = {
 
 
 # ---------------------------------------------------------------------------
-# 工具函数：langextract 对齐（不依赖 langextract 库）
+# langextract 对齐工具
 # ---------------------------------------------------------------------------
 
-#: alignment_status 枚举值（与 langextract AlignmentStatus 对应）
-MATCH_EXACT = "match_exact"
-MATCH_LESSER = "match_lesser"
-MATCH_FUZZY = "match_fuzzy"
+#: 向后兼容的 AlignmentStatus 字符串别名（保持现有调用不受影响）
+MATCH_EXACT: str = AlignmentStatus.MATCH_EXACT.value
+MATCH_LESSER: str = AlignmentStatus.MATCH_LESSER.value
+MATCH_FUZZY: str = AlignmentStatus.MATCH_FUZZY.value
+
+#: 模块级 UnicodeTokenizer 单例（线程安全，可复用）
+_TOKENIZER = UnicodeTokenizer()
+#: 模块级 WordAligner 单例
+_WORD_ALIGNER = WordAligner()
 
 
-def _align_text(source: str, target: str, fuzzy_threshold: float = 0.75) -> Optional[Dict[str, Any]]:
-    """
-    将 target 文本回溯对齐到 source 文本，返回 char_interval 和 alignment_status。
-
-    模拟 langextract 的 WordAligner 行为，不依赖 langextract 库：
-      1. 精确匹配（MATCH_EXACT）：target 是 source 的完整子串
-      2. 部分匹配（MATCH_LESSER）：source 的某个子串是 target 的子串且长度接近
-      3. 模糊匹配（MATCH_FUZZY）：difflib 最长公共子串覆盖率 >= fuzzy_threshold
-      4. 对齐失败：返回 None（char_interval=None，alignment_status=None）
-
-    参数:
-        source:           全文（对话文本）
-        target:           extraction_text（待对齐文本片段）
-        fuzzy_threshold:  模糊对齐接受阈值（默认 0.75，与 langextract 默认值一致）
-
-    返回:
-        字典 {"start_pos": int, "end_pos": int, "alignment_status": str}
-        或 None（对齐失败）
-    """
-    if not target or not source:
-        return None
-
-    # 1. 精确匹配
-    idx = source.find(target)
-    if idx != -1:
-        return {
-            "start_pos": idx,
-            "end_pos": idx + len(target),
-            "alignment_status": MATCH_EXACT,
-        }
-
-    # 2. 忽略空格后精确匹配（应对全角/半角空格差异）
-    target_stripped = target.strip()
-    idx2 = source.find(target_stripped)
-    if idx2 != -1:
-        return {
-            "start_pos": idx2,
-            "end_pos": idx2 + len(target_stripped),
-            "alignment_status": MATCH_EXACT,
-        }
-
-    # 3. difflib 模糊匹配（覆盖率达到阈值时接受）
-    matcher = difflib.SequenceMatcher(None, source, target, autojunk=False)
-    match = matcher.find_longest_match(0, len(source), 0, len(target))
-    if match.size > 0:
-        coverage = match.size / max(len(target), 1)
-        if coverage >= fuzzy_threshold:
-            return {
-                "start_pos": match.a,
-                "end_pos": match.a + match.size,
-                "alignment_status": MATCH_FUZZY,
-            }
-
-    return None
-
-
-def _make_extraction(
-    extraction_class: str,
-    extraction_text: str,
-    attributes: Optional[Dict[str, Any]],
+def _align_extractions(
+    extractions: List[Extraction],
     source_text: str,
-) -> Dict[str, Any]:
+) -> List[Extraction]:
     """
-    构造 langextract Extraction 兼容字典，含原文对齐信息。
+    使用 langextract WordAligner 将一组 Extraction 回溯对齐到对话原文。
+
+    每个 Extraction 的 ``char_interval`` 和 ``alignment_status`` 将被
+    填充为对齐结果，使每条提取信息可精确追溯到原文字符区间（溯源）。
 
     参数:
-        extraction_class: "slot_value" / "intent" / "system_intent"
-        extraction_text:  原文中存在的文本片段（verbatim）
-        attributes:       附加元信息字典
-        source_text:      完整对话文本（用于对齐）
+        extractions:  待对齐的 Extraction 列表（extraction_text 必须是对话原文片段）
+        source_text:  完整对话文本（含"坐席："/"用户："前缀）
 
     返回:
-        Extraction 兼容字典（含 char_interval 和 alignment_status）
+        对齐后的 Extraction 列表（char_interval / alignment_status 已填充）
     """
-    interval = _align_text(source_text, extraction_text)
+    if not extractions or not source_text:
+        return extractions
+    try:
+        aligned_groups = _WORD_ALIGNER.align_extractions(
+            [extractions],
+            source_text,
+            token_offset=0,
+            char_offset=0,
+            tokenizer_impl=_TOKENIZER,
+        )
+        if not aligned_groups:
+            logger.warning("langextract WordAligner 返回空结果，溯源对齐跳过")
+            return extractions
+        return list(aligned_groups[0])
+    except Exception as exc:
+        logger.warning(f"langextract WordAligner 对齐失败，溯源对齐跳过: {exc}")
+        return extractions
+
+
+def _extraction_to_dict(ext: Extraction) -> Dict[str, Any]:
+    """
+    将 langextract Extraction 对象序列化为可 JSON 化的字典。
+
+    注意：AlignmentStatus 枚举转换为字符串值，CharInterval 转换为
+    {"start_pos": int, "end_pos": int} 字典，保持与旧版 dict 格式兼容。
+    """
+    char_interval: Optional[Dict[str, Any]] = None
+    if ext.char_interval is not None:
+        char_interval = {
+            "start_pos": ext.char_interval.start_pos,
+            "end_pos": ext.char_interval.end_pos,
+        }
     return {
-        "extraction_class": extraction_class,
-        "extraction_text": extraction_text,
-        "char_interval": interval,  # {"start_pos":..., "end_pos":..., "alignment_status":...} or None
-        "alignment_status": interval["alignment_status"] if interval else None,
-        "attributes": attributes,
+        "extraction_class": ext.extraction_class,
+        "extraction_text": ext.extraction_text,
+        "char_interval": char_interval,
+        "alignment_status": ext.alignment_status.value if ext.alignment_status else None,
+        "attributes": ext.attributes,
+    }
+
+
+def _example_data_to_dict(example: ExampleData) -> Dict[str, Any]:
+    """
+    将 langextract ExampleData 对象序列化为可 JSON 化的字典。
+
+    输出格式与旧版 dict-based ``langextract_example`` 字段完全兼容，
+    确保下游代码无需修改。
+    """
+    return {
+        "text": example.text,
+        "extractions": [_extraction_to_dict(e) for e in example.extractions],
     }
 
 
@@ -538,10 +543,11 @@ def build_sgd_dialogue_step3(
     Step 3（单条）：将原始安逸花对话转换为 SGD 格式，附 langextract 对齐信息。
 
     安逸花外呼对话特殊处理：
-    - 对话文本保留"坐席："/"用户："前缀（用于 langextract 对齐）
+    - 对话文本保留"坐席："/"用户："前缀（用于 langextract WordAligner 对齐）
     - extraction_text 使用对话中实际出现的原始文本（verbatim），而非意图/方法编码
     - 意图编码放入 attributes["intent_name"]，服务调用方法放入 attributes["method_name"]
-    - 通过 _align_text 将 extraction_text 回溯定位到对话原文的 char_interval
+    - 所有 Extraction 先不做对齐，待全部收集完毕后由 langextract WordAligner
+      一次性批量回溯对齐，填充 char_interval 和 alignment_status，实现溯源。
 
     参数:
         raw_dialogue: 原始对话条目（chat_test 或 SGD 格式）
@@ -565,7 +571,7 @@ def build_sgd_dialogue_step3(
         }
 
     # ------------------------------------------------------------------
-    # 调用 LLM 获取逐轮标注
+    # 调用 LLM 获取逐轮标注（用于填充 SGD turns 的 intent / slot_values）
     # ------------------------------------------------------------------
     prompt = _build_per_turn_extraction_prompt(lines, schema)
     try:
@@ -582,13 +588,16 @@ def build_sgd_dialogue_step3(
     }
 
     # ------------------------------------------------------------------
-    # 逐轮构建 SGD turns，同时构建 langextract ExampleData 兼容的标注
+    # 逐轮构建 SGD turns，同时收集 langextract Extraction 对象（溯源）
+    # 注意：Extraction 对象在此阶段尚未对齐（char_interval=None），
+    #       全部收集完毕后由 WordAligner 批量回溯对齐（见下方）。
     # ------------------------------------------------------------------
     valid_intent_names = {intent.name for intent in schema.intents}
     valid_slot_names = {slot.name for slot in schema.slots}
 
     sgd_turns: List[Dict[str, Any]] = []
-    langextract_extractions: List[Dict[str, Any]] = []  # 供审查
+    # 收集未对齐的 Extraction 对象（langextract 数据类型）
+    raw_extractions: List[Extraction] = []
 
     cumulative_slot_values: Dict[str, List[str]] = {}
     prev_user_intent = "general_inquiry"
@@ -624,28 +633,28 @@ def build_sgd_dialogue_step3(
                 if s in valid_slot_names
             ]
 
-            # langextract：intent extraction_text = 用户发言原话
+            # langextract Extraction（溯源）：
+            #   extraction_text = 用户发言原话（verbatim，不是意图编码）
+            #   char_interval / alignment_status 在批量对齐阶段由 WordAligner 填充
             if utterance and active_intent != "NONE":
-                langextract_extractions.append(
-                    _make_extraction(
-                        extraction_class="intent",
-                        extraction_text=utterance,         # 用户原话，可在原文中对齐
-                        attributes={"intent_name": active_intent},
-                        source_text=source_text,
-                    )
-                )
+                raw_extractions.append(Extraction(
+                    extraction_class="intent",
+                    extraction_text=utterance,
+                    attributes={"intent_name": active_intent},
+                    # char_interval & alignment_status 故意留空，由 _align_extractions() 批量填充
+                ))
 
-            # langextract：slot_value extraction_text = 原始值文本
+            # langextract Extraction（溯源）：
+            #   extraction_text = 槽位的原始值文本（verbatim，不是槽位名）
+            #   char_interval / alignment_status 在批量对齐阶段由 WordAligner 填充
             for slot_name, values in cumulative_slot_values.items():
                 if values:
-                    langextract_extractions.append(
-                        _make_extraction(
-                            extraction_class="slot_value",
-                            extraction_text=values[0],    # 原始值文本，可在原文中对齐
-                            attributes={"slot_name": slot_name},
-                            source_text=source_text,
-                        )
-                    )
+                    raw_extractions.append(Extraction(
+                        extraction_class="slot_value",
+                        extraction_text=values[0],
+                        attributes={"slot_name": slot_name},
+                        # char_interval & alignment_status 故意留空，由 _align_extractions() 批量填充
+                    ))
 
             # 构建 USER frame
             user_actions = []
@@ -675,16 +684,16 @@ def build_sgd_dialogue_step3(
             # 过滤不在 schema slot 中的参数
             params = {k: v for k, v in raw_params.items() if k in valid_slot_names}
 
-            # langextract：system_intent extraction_text = 坐席发言原话
+            # langextract Extraction（溯源）：
+            #   extraction_text = 坐席发言原话（verbatim，不是方法名编码）
+            #   char_interval / alignment_status 在批量对齐阶段由 WordAligner 填充
             if utterance and method:
-                langextract_extractions.append(
-                    _make_extraction(
-                        extraction_class="system_intent",
-                        extraction_text=utterance,         # 坐席原话，可在原文中对齐
-                        attributes={"method_name": method},
-                        source_text=source_text,
-                    )
-                )
+                raw_extractions.append(Extraction(
+                    extraction_class="system_intent",
+                    extraction_text=utterance,
+                    attributes={"method_name": method},
+                    # char_interval & alignment_status 故意留空，由 _align_extractions() 批量填充
+                ))
 
             # 系统动作
             system_actions: List[Dict[str, Any]] = []
@@ -721,12 +730,20 @@ def build_sgd_dialogue_step3(
         })
 
     # ------------------------------------------------------------------
-    # 计算对齐统计
+    # 批量回溯对齐（langextract WordAligner + UnicodeTokenizer）
+    # 将所有 Extraction 的 extraction_text 定位到对话原文的字符区间，
+    # 实现完整的溯源可追踪性（provenance traceability）。
     # ------------------------------------------------------------------
+    aligned_extractions = _align_extractions(raw_extractions, source_text)
+
+    # 构建 langextract ExampleData 对象（正式的溯源数据结构）
+    example_data = ExampleData(text=source_text, extractions=aligned_extractions)
+
+    # 对齐统计
     aligned_count = sum(
-        1 for ex in langextract_extractions if ex["alignment_status"] is not None
+        1 for ex in aligned_extractions if ex.alignment_status is not None
     )
-    total_extractions = len(langextract_extractions)
+    total_extractions = len(aligned_extractions)
 
     metadata = {
         "user_info_raw": raw_dialogue.get("用户信息", ""),
@@ -738,11 +755,8 @@ def build_sgd_dialogue_step3(
             "aligned_count": aligned_count,
             "alignment_rate": round(aligned_count / total_extractions, 3) if total_extractions else 0.0,
         },
-        # ExampleData 兼容字典（可直接序列化后传入 lx.extract() 的 examples 参数）
-        "langextract_example": {
-            "text": source_text,
-            "extractions": langextract_extractions,
-        },
+        # langextract ExampleData 序列化（可重新传入 lx.extract() 的 examples 参数）
+        "langextract_example": _example_data_to_dict(example_data),
     }
 
     return {
@@ -753,9 +767,6 @@ def build_sgd_dialogue_step3(
     }
 
 
-# ---------------------------------------------------------------------------
-# 管道输出工具
-# ---------------------------------------------------------------------------
 
 
 def _save_sgd_files(

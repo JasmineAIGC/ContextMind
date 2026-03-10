@@ -8,26 +8,33 @@
     · 格式参考 SGD（Schema-Guided Dialogue），但允许部分字段缺失：
       PartialSlot / PartialIntent / PartialServiceSchema 的非核心字段均为可选。
     · 提供 to_langextract_* 系列接口，可将标注对话转换为 langextract
-      ExampleData-兼容字典列表，直接传入 lx.extract()。
+      ExampleData 列表，直接传入 lx.extract()。
+    · 3 步管道（pipeline.py）直接使用 langextract.data 与 langextract.resolver，
+      每个意图/槽位提取结果通过 WordAligner 溯源到对话原文的字符区间。
 
 主要组件:
     schema.py    — PartialSlot / PartialIntent / PartialServiceSchema
     extractor.py — dialogue_to_langextract_example / dialogues_to_langextract_examples
                    schema_from_sgd_file / extract_partial_schema_from_dialogue
+    pipeline.py  — 3 步 SGD 管道（discover_schema_step1 / merge_schemas_step2 /
+                   build_sgd_dialogue_step3 / run_pipeline）
 
-典型使用（无需安装 langextract）::
+典型使用（3 步管道）::
 
-    from contextmind.scenarios.anyihua.schema_extraction import (
-        PartialServiceSchema,
-        PartialSlot,
-        PartialIntent,
-        dialogue_to_langextract_example,
-        dialogues_to_langextract_examples,
-        schema_from_sgd_file,
-        extract_partial_schema_from_dialogue,
+    import langextract as lx
+    from pathlib import Path
+    from contextmind.infra.llm_client import SimpleLLMClient
+    from contextmind.scenarios.anyihua.schema_extraction import run_pipeline
+
+    llm = SimpleLLMClient()
+    summary = run_pipeline(
+        input_path=Path("resources/data/chat_test_100.json"),
+        predefined_schema_path=Path("resources/anyihua_sgd/schema.json"),
+        output_dir=Path("data/anyihua_sgd_pipeline"),
+        llm_client=llm,
     )
 
-典型使用（安装 langextract 后）::
+典型使用（langextract 与现有标注数据互操作）::
 
     import langextract as lx
     from contextmind.scenarios.anyihua.schema_extraction import (
@@ -59,6 +66,8 @@
         model_id="gemini-2.5-flash",
     )
 """
+
+from langextract.data import AlignmentStatus
 
 from .extractor import (
     dialogue_to_langextract_example,
@@ -101,7 +110,9 @@ __all__ = [
     "merge_schemas_step2",
     "build_sgd_dialogue_step3",
     "run_pipeline",
-    # 对齐状态常量（langextract AlignmentStatus 兼容）
+    # langextract 对齐状态（直接使用 langextract.data.AlignmentStatus 枚举）
+    "AlignmentStatus",
+    # 向后兼容别名（与旧版 MATCH_* 字符串常量兼容）
     "MATCH_EXACT",
     "MATCH_LESSER",
     "MATCH_FUZZY",
