@@ -67,6 +67,15 @@ from .extractor import (
     schema_from_sgd_file,
 )
 from .llm_induction import extract_dialogue_info, induce_schema_with_llm
+from .pipeline import (
+    MATCH_EXACT,
+    MATCH_FUZZY,
+    MATCH_LESSER,
+    build_sgd_dialogue_step3,
+    discover_schema_step1,
+    merge_schemas_step2,
+    run_pipeline,
+)
 from .schema import PartialIntent, PartialServiceSchema, PartialSlot
 from .schema_io import (
     align_schema_with_sgd,
@@ -87,6 +96,15 @@ __all__ = [
     # LLM 驱动的 Schema 归纳与信息提取
     "induce_schema_with_llm",
     "extract_dialogue_info",
+    # 3 步管道（docs/analysis/dialogue-to-knowledge-pipeline.md）
+    "discover_schema_step1",
+    "merge_schemas_step2",
+    "build_sgd_dialogue_step3",
+    "run_pipeline",
+    # 对齐状态常量（langextract AlignmentStatus 兼容）
+    "MATCH_EXACT",
+    "MATCH_LESSER",
+    "MATCH_FUZZY",
     # Schema 持久化与格式对比
     "save_schema_as_sgd",
     "align_schema_with_sgd",

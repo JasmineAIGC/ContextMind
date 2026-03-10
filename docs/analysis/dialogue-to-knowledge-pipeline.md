@@ -120,7 +120,7 @@ Extraction(
 
 **关键优势**：与旧方案用普通 LLM 归纳不同，langextract 的每条归纳结果都携带原文定位（`char_interval`）。对于槽位值，`extraction_text` 本身就是原文片段；对于意图，`extraction_text` 是触发该意图的用户原话，意图编码存入 `attributes["intent_name"]`。凡是 `alignment_status=None` 的提取项（无法在原文中找到对应文本），均视为无原文证据，可在后处理中过滤——**发现即校验**。
 
-**注意**：这一步只做"发现"，不做最终判断，允许低频意图被遗漏（低频意图因抽样覆盖不足可能未出现在样本中，Step 2 通过引入预定义 schema 来补充这些边缘场景）。现有相关代码：`dialogue_to_langextract_example()`、`dialogues_to_langextract_examples()`。
+**注意**：这一步只做"发现"，不做最终判断，允许低频意图被遗漏（低频意图因抽样覆盖不足可能未出现在样本中，Step 2 通过引入预定义 schema 来补充这些边缘场景）。现有相关代码：`discover_schema_step1()`（`contextmind/scenarios/anyihua/schema_extraction/pipeline.py`）、`dialogue_to_langextract_example()`、`dialogues_to_langextract_examples()`。
 
 ---
 
@@ -136,9 +136,9 @@ Extraction(
   - **发现有、预定义无**：追加（标注 `source: discovered`，已有 Step 1 原文证据支撑）
 - 输出：`merged_schema`，每个条目携带 `source` 字段（`both` / `predefined` / `discovered`）
 
-现有代码：`merge_ontologies()`，`chat_test_merged_schema.json`。
+现有代码：`merge_schemas_step2()`（`contextmind/scenarios/anyihua/schema_extraction/pipeline.py`）。
 
-**可选人工干预点**：查看合并结果，手动剔除明显错误的条目，然后再进入 Step 3。由于 Step 1 的发现结果已经过 langextract 的原文定位筛选，此处需要剔除的噪声比旧方案更少。
+**可选人工干预点**：查看合并结果，手动剔除明显错误的条目，然后再进入 Step 3。由于 Step 1 的发现结果已经过 LLM 过滤，此处需要剔除的噪声比旧方案更少。
 
 ---
 
@@ -146,14 +146,23 @@ Extraction(
 
 **目标**：以 `merged_schema` 为标准，对全量对话数据调用 langextract 进行结构化提取，直接输出 SGD 格式数据。每次 langextract 调用均携带原文定位，相当于在转换的同时完成校验。
 
-#### 3.1 langextract 在转换中的角色
+#### 3.1 实现方案：LLM 提取 + langextract 对齐
 
-[google/langextract](https://github.com/google/langextract) 以 SGD 对话为 few-shot 示例进行结构化信息提取。在 Step 3 中，langextract 承担双重职责：
+由于 langextract 库的内置模型调用需要 Gemini API，本项目使用 `.env` 中定义的 `SimpleLLMClient`（OpenAI 兼容接口）替代 langextract 的模型调用，但保留 langextract 的数据结构和对齐设计原则：
 
-1. **转换**：按 `merged_schema` 定义从对话中提取意图、槽位值，直接组装为 SGD 格式
-2. **校验**：每个提取项都必须能在原文中定位，无法定位的项不输出，避免幻觉
+1. **LLM 提取**（`SimpleLLMClient`，从 `.env` 配置加载）：按 `merged_schema` 定义，对每条对话逐轮调用 LLM，提取意图、槽位值和系统调用
+2. **原文对齐**（`_align_text()`，模拟 langextract WordAligner）：将提取的 `extraction_text` 回溯定位到对话原文，填充 `char_interval` 和 `alignment_status`
+3. **SGD 组装**：将 LLM 提取结果和对齐信息组装为标准 SGD 格式
 
-与旧方案"先用普通 LLM 转换、再单独校验"相比，langextract 将转换和校验合并为单次调用。
+与旧方案"先用普通 LLM 转换、再单独校验"相比，新方案将转换和校验合并为单次 LLM 调用，每次调用的提取结果直接携带原文对齐信息。
+
+**安逸花外呼对话特殊处理**（`build_sgd_dialogue_step3()` 关键约束）：
+- `extraction_text` 必须是对话中出现过的**原始文本片段**（verbatim），而非编码
+- **用户意图**：`extraction_text` = 触发该意图的**用户原话**；意图编码存入 `attributes["intent_name"]`
+- **槽位值**：`extraction_text` = 槽位的**原始值文本**（如"高先生"、"六七八"）；槽位名存入 `attributes["slot_name"]`
+- **系统意图**：`extraction_text` = 坐席执行该意图时的**发言原话**；方法名存入 `attributes["method_name"]`
+
+违反此规则（如用意图编码 `"verify_identity"` 作为 `extraction_text`）会导致 `alignment_status=None`，原文证据丢失。
 
 #### 3.2 具体操作
 
@@ -187,7 +196,7 @@ output/
 └── README.md                # 数据集说明
 ```
 
-现有相关代码：`dialogue_to_langextract_example()`、`export_sgd_format()`、`save_sgd_to_directory()`。
+现有相关代码：`build_sgd_dialogue_step3()`、`run_pipeline()`（`contextmind/scenarios/anyihua/schema_extraction/pipeline.py`）；`run_anyihua_sgd_pipeline.py`（`benchmark/tools/`）。
 
 ---
 
@@ -199,7 +208,20 @@ Step 2  →  merged_schema.json          （预定义 + 发现合并，typical_p
 Step 3  →  schema.json  +  dialogues_*.json  +  extraction_summary.json
 ```
 
-Step 2 之后有一个可选人工确认窗口（查看 `merged_schema.json` 后决定是否手动调整），之后 Step 3 完全自动化。由于 Step 1 和 Step 3 都使用 langextract，schema 中的每个条目和每条 SGD 记录均可追溯到原文证据。
+Step 2 之后有一个可选人工确认窗口（查看 `merged_schema.json` 后决定是否手动调整），之后 Step 3 完全自动化。由于 Step 1 和 Step 3 均通过 LLM 提取 + 原文对齐，schema 中的每个条目和每条 SGD 记录均可追溯到原文证据（`langextract_example` 字段存入每条对话的 `metadata` 中）。
+
+**运行管道**：
+
+```bash
+# 使用 .env 中定义的 LLM，完整 3 步管道
+python benchmark/tools/run_anyihua_sgd_pipeline.py
+
+# 仅转换前 10 条（调试用）
+python benchmark/tools/run_anyihua_sgd_pipeline.py --limit 10
+
+# 跳过 Step 1（直接用预定义 Schema）
+python benchmark/tools/run_anyihua_sgd_pipeline.py --skip-step1
+```
 
 ---
 
