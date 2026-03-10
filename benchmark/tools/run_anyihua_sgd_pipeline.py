@@ -85,7 +85,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="安逸花外呼数据 → SGD 格式 3 步管道（基于 .env LLM）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
+        epilog=(
+            "示例:\n"
+            "  python benchmark/tools/run_anyihua_sgd_pipeline.py\n"
+            "  python benchmark/tools/run_anyihua_sgd_pipeline.py --limit 10\n"
+            "  python benchmark/tools/run_anyihua_sgd_pipeline.py --skip-step1\n"
+            "  python benchmark/tools/run_anyihua_sgd_pipeline.py --save-alignment-data\n"
+        ),
     )
     parser.add_argument(
         "--input",
@@ -133,6 +139,14 @@ def parse_args() -> argparse.Namespace:
         "--save-merged",
         default=None,
         help="Step 2 合并后的 Schema 保存路径（可选）",
+    )
+    parser.add_argument(
+        "--save-alignment-data",
+        action="store_true",
+        help=(
+            "额外保存 alignment_data_*.json（含 langextract 对齐数据和 metadata，"
+            "供质量审查和调试使用）"
+        ),
     )
     parser.add_argument(
         "--dialogues-per-file",
@@ -205,6 +219,7 @@ def main() -> None:
                 Path(args.save_merged) if args.save_merged else None
             ),
             dialogues_per_file=args.dialogues_per_file,
+            save_alignment_data=args.save_alignment_data,
         )
     except Exception as exc:
         print(f"\n❌ 管道运行失败: {exc}")

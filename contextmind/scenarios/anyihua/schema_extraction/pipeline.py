@@ -135,17 +135,16 @@ def _align_text(source: str, target: str, fuzzy_threshold: float = 0.75) -> Opti
             "alignment_status": MATCH_EXACT,
         }
 
-    # 3. difflib 模糊匹配
+    # 3. difflib 模糊匹配（覆盖率达到阈值时接受）
     matcher = difflib.SequenceMatcher(None, source, target, autojunk=False)
     match = matcher.find_longest_match(0, len(source), 0, len(target))
     if match.size > 0:
         coverage = match.size / max(len(target), 1)
         if coverage >= fuzzy_threshold:
-            status = MATCH_LESSER if coverage >= 1.0 else MATCH_FUZZY
             return {
                 "start_pos": match.a,
                 "end_pos": match.a + match.size,
-                "alignment_status": status,
+                "alignment_status": MATCH_FUZZY,
             }
 
     return None
@@ -205,6 +204,9 @@ def _parse_dialogue_lines(raw_dialogue: Dict[str, Any]) -> List[Tuple[str, str]]
             elif line.startswith(_USER_PREFIX):
                 lines.append(("USER", line[len(_USER_PREFIX):]))
             else:
+                logger.warning(
+                    f"对话行缺少角色前缀（期望'坐席：'或'用户：'），默认当作 USER 处理: {line[:40]!r}"
+                )
                 lines.append(("USER", line))
         # 追加参考坐席回复作为最后一个 SYSTEM turn
         reference_response = raw_dialogue.get("坐席回复", "")
@@ -422,8 +424,8 @@ def _build_per_turn_extraction_prompt(
         dialogue_text += f"[{idx}] {prefix}{utterance}\n"
 
     # 构建 schema 描述
-    intent_list = ", ".join(intent_names) if intent_names else "general_inquiry"
-    slot_list = ", ".join(slot_names) if slot_names else ""
+    intent_list = ", ".join(intent_names) if intent_names else "（无预定义意图）"
+    slot_list = ", ".join(slot_names) if slot_names else "（无预定义槽位）"
 
     # 构建 API 方法映射说明
     api_mapping_lines = []
@@ -595,13 +597,21 @@ def build_sgd_dialogue_step3(
         ann = ann_by_index.get(turn_idx, {})
 
         if speaker == "USER":
-            # 意图（从 LLM 标注取，不在 schema 则降级）
+            # 意图（从 LLM 标注取）：
+            #   - 若 LLM 返回无效意图，降级到 prev_user_intent
+            #   - 若 LLM 返回 "general_inquiry" 且已有更具体的意图上下文，
+            #     则继承 prev_user_intent（避免短回应词重置意图）
+            #   - 若 LLM 返回具体意图，则更新 prev_user_intent
             raw_intent = ann.get("active_intent", prev_user_intent)
             if raw_intent not in valid_intent_names:
                 raw_intent = prev_user_intent
-            if raw_intent not in ("general_inquiry",) or raw_intent in valid_intent_names:
-                prev_user_intent = raw_intent
-            active_intent = raw_intent
+            if raw_intent == "general_inquiry" and prev_user_intent != "general_inquiry":
+                # LLM 标注为通用意图，但已有更具体的历史意图，继承它
+                active_intent = prev_user_intent
+            else:
+                active_intent = raw_intent
+                if raw_intent != "general_inquiry":
+                    prev_user_intent = raw_intent
 
             # 槽位值（过滤不在 schema 中的）
             raw_slots: Dict[str, str] = ann.get("slot_values", {}) or {}
@@ -753,16 +763,30 @@ def _save_sgd_files(
     schema: PartialServiceSchema,
     output_dir: Path,
     dialogues_per_file: int = _DIALOGUES_PER_FILE,
+    save_alignment_data: bool = False,
 ) -> Dict[str, Any]:
     """
     将 SGD 数据保存到输出目录。
 
     输出结构：
         output_dir/
-            schema.json              # merged_schema 转换而来
-            dialogues_001.json       # 对话数据（每文件 dialogues_per_file 条）
-            dialogues_002.json       # ...
-            extraction_summary.json  # 提取统计
+            schema.json                  # merged_schema 转换而来
+            dialogues_001.json           # 对话数据（每文件 dialogues_per_file 条，纯 SGD 标准格式）
+            dialogues_002.json           # ...
+            extraction_summary.json      # 提取统计（含对齐率等）
+            alignment_data_001.json      # 对齐元数据（仅当 save_alignment_data=True 时生成）
+              └── 含 langextract_example（ExampleData 兼容格式）和 langextract_stats
+
+    注意：对话数据文件（dialogues_*.json）不含 metadata 字段，
+    以保持标准 SGD 格式兼容性。如需 langextract 对齐信息，
+    请使用 ``save_alignment_data=True`` 生成 alignment_data_*.json。
+
+    参数:
+        dialogues:          SGD 对话列表（含 metadata）
+        schema:             合并后的 PartialServiceSchema
+        output_dir:         输出目录路径
+        dialogues_per_file: 每文件最大对话数
+        save_alignment_data: 是否额外保存包含 langextract 对齐数据的 alignment_data_*.json
 
     返回:
         汇总统计字典
@@ -778,6 +802,7 @@ def _save_sgd_files(
     logger.info(f"[输出] schema.json 已保存: {schema_path}")
 
     # 保存 dialogues_*.json（metadata 字段不写入，保持 SGD 标准格式）
+    # 如需 langextract 对齐数据，使用 save_alignment_data=True 生成 alignment_data_*.json
     n_files = 0
     for file_idx, start in enumerate(range(0, len(dialogues), dialogues_per_file), 1):
         chunk = dialogues[start : start + dialogues_per_file]
@@ -790,6 +815,22 @@ def _save_sgd_files(
         )
         n_files += 1
         logger.info(f"[输出] {file_path.name} 已保存（{len(chunk)} 条对话）")
+
+        # 可选：保存含 langextract 对齐信息的完整 metadata（供质量审查）
+        if save_alignment_data:
+            align_data = [
+                {
+                    "dialogue_id": d.get("dialogue_id"),
+                    **d.get("metadata", {}),
+                }
+                for d in chunk
+            ]
+            align_file = output_dir / f"alignment_data_{file_idx:03d}.json"
+            align_file.write_text(
+                json.dumps(align_data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            logger.info(f"[输出] {align_file.name} 已保存（含 langextract 对齐数据）")
 
     # 计算提取统计
     all_stats = [
@@ -848,6 +889,7 @@ def run_pipeline(
     discovered_schema_save_path: Optional[Path] = None,
     merged_schema_save_path: Optional[Path] = None,
     dialogues_per_file: int = _DIALOGUES_PER_FILE,
+    save_alignment_data: bool = False,
 ) -> Dict[str, Any]:
     """
     运行完整的安逸花外呼数据 → SGD 知识库构建 3 步管道。
@@ -876,6 +918,8 @@ def run_pipeline(
         discovered_schema_save_path: Step 1 结果保存路径（可选）
         merged_schema_save_path:     Step 2 结果保存路径（可选）
         dialogues_per_file:          每个 dialogues_*.json 文件包含的对话数
+        save_alignment_data:         是否额外保存 alignment_data_*.json（含 langextract 对齐数据，
+                                     默认 False；设为 True 可供质量审查和调试）
 
     返回:
         汇总统计字典（与 extraction_summary.json 内容相同）
@@ -971,6 +1015,7 @@ def run_pipeline(
         merged_schema,
         Path(output_dir),
         dialogues_per_file=dialogues_per_file,
+        save_alignment_data=save_alignment_data,
     )
 
     logger.info(
