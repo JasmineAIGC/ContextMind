@@ -37,6 +37,12 @@
 - [扩展场景](extending-scenarios.md) - 添加新场景的指南
 - [贡献指南](CONTRIBUTING.md) - 如何参与贡献
 
+### 数据工程与知识库构建
+
+- [对话数据知识库构建：流程分析与通用化设计](analysis/dialogue-to-knowledge-pipeline.md) - 从原始对话数据到 SGD 知识库的 5 阶段流程、通用化模式、动态扩充设计
+- [安逸花数据 SGD 格式验证与 PyTOD 运行分析](analysis/anyihua-sgd-pytod-integration.md) - SGD 转换正确性验证与 PyTOD 集成
+- [Schema 格式统一分析](analysis/sgd-schema-unification-analysis.md) - 内部 schema 与 SGD 规范统一方案
+
 ### 帮助和支持
 
 - [故障排查](troubleshooting.md) - 常见问题和解决方案
@@ -67,6 +73,9 @@ docs/
 │   ├── intent-evaluation.md       # 意图评测使用指南
 │   └── context-engineering.md     # 上下文工程意义
 ├── analysis/                      # 实验分析报告
+│   ├── dialogue-to-knowledge-pipeline.md  # 对话数据知识库构建：流程分析与通用化设计
+│   ├── anyihua-sgd-pytod-integration.md   # 安逸花数据 SGD 验证与 PyTOD 集成
+│   ├── sgd-schema-unification-analysis.md # Schema 格式统一分析
 │   ├── pytod-anyihua-label-prediction-analysis.md
 │   ├── pytod-engine-api-explained.md
 │   ├── pytod-on-chat-test-100.md
