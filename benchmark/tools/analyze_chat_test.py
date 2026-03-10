@@ -75,11 +75,13 @@ LLM 配置
 输出
 ----------------------------------------------------------------------
 
-  resources/data/chat_test_discovered_ontology.json  Phase 0 归纳的服务本体
+  resources/data/chat_test_discovered_ontology.json  Phase 0 归纳的服务本体（原始格式）
+  resources/data/chat_test_derived_schema.json        数据驱动 SGD Schema（标准提取模板，SGD 格式）
   resources/data/chat_test_extraction_report.json    机器可读结构化报告
   resources/data/chat_test_extraction_report.md      人类可读 Markdown 报告
+  resources/data/chat_test_predefined_comparison.json 预定义本体对比（矫正/更新/扩充）
   resources/data/anyihua_sgd_extracted/              SGD 格式对话数据集目录
-    schema.json                                        服务 Schema（预定义意图/槽位）
+    schema.json                                        数据驱动 Schema（由 Phase 0 归纳，非预定义）
     dialogues_001.json                                 分块对话数据（每块 50 条）
     dialogues_002.json                                 ...
     extraction_summary.json                            转换摘要与元数据
@@ -1588,14 +1590,85 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
 
 
 # --------------------------------------------------------------------------- #
+# 数据驱动 SGD Schema 生成
+# --------------------------------------------------------------------------- #
+
+def discovered_ontology_to_sgd_schema_list(
+    discovered_ontology: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """将 Phase 0 归纳的本体转换为标准 SGD schema.json 格式。
+
+    生成的 schema 列表可直接写入 schema.json，作为所有安逸花外呼数据信息提取的标准模板。
+    格式与 resources/anyihua_sgd/schema.json 完全一致，但内容由真实对话数据归纳得出
+    （而非人工预定义），可供其他未处理的安逸花外呼数据基于此 schema 生成 SGD 格式提取结果。
+
+    SGD schema 格式：
+        [{"service_name": ..., "description": ..., "slots": [...], "intents": [...]}]
+
+    Slots 字段：name / description / is_categorical / possible_values
+    Intents 字段：name / description / is_transactional / required_slots / optional_slots / result_slots
+    """
+    service_name = discovered_ontology.get("service_name", SERVICE_NAME)
+    service_description = discovered_ontology.get("service_description", "")
+
+    # 转换槽位：只保留 SGD 需要的字段
+    sgd_slots: List[Dict[str, Any]] = []
+    for slot in discovered_ontology.get("slots", []):
+        if not isinstance(slot, dict):
+            continue
+        data_type = slot.get("data_type", "text")
+        is_categorical = slot.get("is_categorical", data_type == "enum")
+        sgd_slots.append({
+            "name": slot.get("name", ""),
+            "description": slot.get("description", ""),
+            "is_categorical": bool(is_categorical),
+            "possible_values": list(slot.get("possible_values", [])),
+        })
+
+    # 转换意图：optional_slots 统一为 dict，补充 is_transactional
+    sgd_intents: List[Dict[str, Any]] = []
+    for intent in discovered_ontology.get("intents", []):
+        if not isinstance(intent, dict):
+            continue
+        optional_raw = intent.get("optional_slots", [])
+        if isinstance(optional_raw, list):
+            optional_slots: Dict[str, str] = {s: "" for s in optional_raw}
+        elif isinstance(optional_raw, dict):
+            optional_slots = {k: str(v) for k, v in optional_raw.items()}
+        else:
+            optional_slots = {}
+        sgd_intents.append({
+            "name": intent.get("name", ""),
+            "description": intent.get("description", ""),
+            "is_transactional": bool(intent.get("is_transactional", False)),
+            "required_slots": list(intent.get("required_slots", [])),
+            "optional_slots": optional_slots,
+            "result_slots": list(intent.get("result_slots", [])),
+        })
+
+    return [
+        {
+            "service_name": service_name,
+            "description": service_description,
+            "slots": sgd_slots,
+            "intents": sgd_intents,
+        }
+    ]
+
+
+# --------------------------------------------------------------------------- #
 # 预定义本体对比（矫正、更新、扩充分析）
 # --------------------------------------------------------------------------- #
 
 def load_predefined_schema(schema_path: Optional[Path] = None) -> Dict[str, Any]:
-    """加载预定义 schema（优先从 schema_path，否则从 resources/anyihua_sgd/schema.json）。
+    """加载预定义 schema（用于与数据归纳本体进行对比分析）。
+
+    优先从 schema_path 加载，否则使用 resources/anyihua_sgd/schema.json。
+    加载失败时退化为内置常量（VALID_INTENTS / VALID_SLOTS）。
 
     返回：
-        {"intents": [{"name": ..., "description": ...}], "slots": [...]}
+        包含 service_name / description / intents / slots / intent_names / slot_names 的字典，
+        其中 intent_names 和 slot_names 为快速成员测试用的名称列表。
     """
     path = schema_path or (_PROJECT_ROOT / "resources" / "anyihua_sgd" / "schema.json")
     try:
@@ -1801,16 +1874,19 @@ def generate_comparison_markdown(comparison: Dict[str, Any]) -> str:
 def save_sgd_to_directory(
     sgd_dialogues: List[Dict[str, Any]],
     output_sgd_dir: Path,
-    predefined_schema: Dict[str, Any],
+    schema_list: List[Dict[str, Any]],
     model_info: Optional[Dict[str, str]],
     sample_n: int,
     dialogues_per_file: int = 50,
 ) -> Dict[str, Any]:
     """将 SGD 对话数据保存为标准多文件目录结构。
 
+    schema_list 应为数据驱动 Schema（由 discovered_ontology_to_sgd_schema_list() 生成），
+    格式与 SGD schema.json 完全一致：[{"service_name": ..., "slots": [...], "intents": [...]}]
+
     输出文件：
       <output_sgd_dir>/
-        schema.json              服务 Schema（预定义意图/槽位）
+        schema.json              服务 Schema（由 Phase 0 从数据归纳生成，非预定义）
         dialogues_001.json       分块对话数据（每块最多 dialogues_per_file 条）
         dialogues_002.json       ...
         extraction_summary.json  转换摘要与元数据
@@ -1820,15 +1896,10 @@ def save_sgd_to_directory(
     """
     output_sgd_dir.mkdir(parents=True, exist_ok=True)
 
-    # 写 schema.json（使用预定义 schema，转为 SGD list 格式）
-    schema_list = [
-        {
-            "service_name": predefined_schema.get("service_name", SERVICE_NAME),
-            "description": predefined_schema.get("description", ""),
-            "slots": predefined_schema.get("slots", []),
-            "intents": predefined_schema.get("intents", []),
-        }
-    ]
+    # 写 schema.json（直接使用数据驱动 Schema 列表）
+    schema_service_name = (
+        schema_list[0].get("service_name", SERVICE_NAME) if schema_list else SERVICE_NAME
+    )
     schema_path = output_sgd_dir / "schema.json"
     schema_path.write_text(json.dumps(schema_list, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -1848,13 +1919,20 @@ def save_sgd_to_directory(
     # 写 extraction_summary.json
     model_name = (model_info or {}).get("model", "unknown")
     base_url = (model_info or {}).get("base_url", "")
+    schema_slots_count = len(schema_list[0].get("slots", [])) if schema_list else 0
+    schema_intents_count = len(schema_list[0].get("intents", [])) if schema_list else 0
     summary = {
         "description": (
             "安逸花外呼对话数据 SGD 格式提取结果。"
             "使用 LLM 两阶段流程（Phase 0 本体归纳 + Phase 1 逐轮标注）生成。"
+            "schema.json 为数据驱动 Schema，由 Phase 0 从真实对话数据归纳得出，"
+            "可作为其他安逸花外呼数据 SGD 格式提取的标准模板。"
         ),
         "source_file": "resources/data/chat_test_100.json",
-        "service_name": SERVICE_NAME,
+        "service_name": schema_service_name,
+        "schema_source": "data_driven（Phase 0 从对话数据归纳）",
+        "schema_intents_count": schema_intents_count,
+        "schema_slots_count": schema_slots_count,
         "dialogues": len(sgd_dialogues),
         "turns": total_turns,
         "dialogue_files": file_count,
@@ -1865,7 +1943,10 @@ def save_sgd_to_directory(
         "extraction_method": "LLM 两阶段：Phase 0 本体归纳 + Phase 1 逐轮标注",
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "files": {
-            "schema.json": "服务 Schema 定义（预定义意图和槽位）",
+            "schema.json": (
+                f"数据驱动服务 Schema（由 Phase 0 从对话数据归纳，"
+                f"{schema_intents_count} 个意图 / {schema_slots_count} 个槽位）"
+            ),
             **{
                 f"dialogues_{i:03d}.json": f"第 {(i-1)*dialogues_per_file+1}–{min(i*dialogues_per_file, len(sgd_dialogues))} 条 SGD 对话数据"
                 for i in range(1, file_count + 1)
@@ -1883,13 +1964,23 @@ def save_sgd_to_directory(
         "",
         f"> 生成时间：{summary['generated_at']}  ",
         f"> 提取模型：{model_name}（{base_url}）  ",
-        f"> 数据来源：`{summary['source_file']}`",
+        f"> 数据来源：`{summary['source_file']}`  ",
+        f"> Schema 来源：**数据驱动（Phase 0 从对话数据归纳）**，{schema_intents_count} 个意图 / {schema_slots_count} 个槽位",
+        "",
+        "## Schema 说明",
+        "",
+        "`schema.json` 是本目录的核心文件，定义了安逸花外呼对话的信息提取标准格式。",
+        "该 schema **由 LLM 从真实对话数据中归纳得出**（而非人工预定义），",
+        "可作为其他未处理安逸花外呼数据的 SGD 格式信息提取模板。",
+        "",
+        "**使用方法**：其他安逸花外呼数据可基于此 `schema.json` 中定义的意图和槽位，",
+        "按照 SGD 格式（`turns[].frames[].state.active_intent` / `slot_values` 等）进行信息提取。",
         "",
         "## 目录说明",
         "",
         "| 文件 | 说明 |",
         "|---|---|",
-        "| `schema.json` | 安逸花外呼服务 Schema（意图和槽位定义） |",
+        f"| `schema.json` | 数据驱动服务 Schema（{schema_intents_count} 个意图 / {schema_slots_count} 个槽位，由 Phase 0 归纳）|",
     ]
     for i in range(1, file_count + 1):
         start_idx = (i - 1) * dialogues_per_file + 1
@@ -1920,8 +2011,8 @@ def save_sgd_to_directory(
         "",
         "## 提取方法",
         "",
-        "1. **Phase 0（本体归纳）**：LLM 从原始对话数据中归纳意图/槽位/对话行为，不使用预定义列表",
-        "2. **Phase 1（逐轮标注）**：以归纳本体为指导，LLM 逐轮提取 SGD 字段",
+        "1. **Phase 0（本体归纳）**：LLM 从原始对话数据中归纳意图/槽位/对话行为 → 生成 `schema.json`",
+        "2. **Phase 1（逐轮标注）**：以 Phase 0 归纳的 schema 为指导，LLM 逐轮提取 SGD 字段",
         "3. **CRM 数据**：通过 `parse_user_info()` 解析，注入 `slot_values` 和 `service_results`",
         "",
         "详见 `resources/data/chat_test_extraction_report.md` 完整分析报告。",
@@ -2026,6 +2117,17 @@ def main() -> None:
         json.dump(discovered_ontology, f, ensure_ascii=False, indent=2)
     print(f"  ✅ 本体文件  : {ontology_path}")
 
+    # 将归纳本体转换为 SGD schema.json 格式（数据驱动 Schema）
+    derived_schema_list = discovered_ontology_to_sgd_schema_list(discovered_ontology)
+    derived_schema_path = output_dir / "chat_test_derived_schema.json"
+    with open(derived_schema_path, "w", encoding="utf-8") as f:
+        json.dump(derived_schema_list, f, ensure_ascii=False, indent=2)
+    _ds = derived_schema_list[0] if derived_schema_list else {}
+    print(
+        f"  ✅ 数据驱动 Schema : {derived_schema_path}"
+        f"（{len(_ds.get('intents', []))} 意图 / {len(_ds.get('slots', []))} 槽位）"
+    )
+
     # ——— Phase 1：使用本体指导 LLM 逐轮提取 SGD 字段 ———
     extracted_records: List[Dict[str, Any]] = []
     print(f"\n▶ Phase 1：使用 LLM 提取 SGD 字段（{config.model}，每条间隔 {args.delay}s）...")
@@ -2078,7 +2180,7 @@ def main() -> None:
         sgd_summary = save_sgd_to_directory(
             sgd_dialogues=sgd_dialogues,
             output_sgd_dir=output_sgd_dir,
-            predefined_schema=predefined,
+            schema_list=derived_schema_list,
             model_info=model_info,
             sample_n=sample_n,
             dialogues_per_file=args.dialogues_per_file,
@@ -2125,13 +2227,14 @@ def main() -> None:
 
     print(f"\n  --- 输出文件 ---")
     print(f"  {output_dir}/")
-    print(f"    ├── chat_test_discovered_ontology.json    （Phase 0 归纳的服务本体）")
+    print(f"    ├── chat_test_discovered_ontology.json    （Phase 0 归纳的服务本体，原始格式）")
+    print(f"    ├── chat_test_derived_schema.json          （数据驱动 SGD Schema，可作为提取模板）")
     print(f"    ├── chat_test_extraction_report.json       （机器可读统计报告）")
     print(f"    ├── chat_test_extraction_report.md         （人类可读 Markdown 报告，含对比分析）")
     print(f"    ├── chat_test_predefined_comparison.json   （预定义本体对比：矫正/更新/扩充）")
     if not args.no_sgd_export:
-        print(f"    └── anyihua_sgd_extracted/")
-        print(f"          ├── schema.json")
+        print(f"    └── anyihua_sgd_extracted/         （SGD 格式对话数据集）")
+        print(f"          ├── schema.json                  （数据驱动 Schema，{len(_ds.get('intents', []))} 意图/{len(_ds.get('slots', []))} 槽位）")
         for i in range(1, sgd_summary["dialogue_files"] + 1):
             print(f"          ├── dialogues_{i:03d}.json")
         print(f"          ├── extraction_summary.json")
