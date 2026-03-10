@@ -66,6 +66,7 @@ from .extractor import (
     extract_partial_schema_from_dialogue,
     schema_from_sgd_file,
 )
+from .llm_induction import extract_dialogue_info, induce_schema_with_llm
 from .schema import PartialIntent, PartialServiceSchema, PartialSlot
 
 __all__ = [
@@ -73,9 +74,12 @@ __all__ = [
     "PartialSlot",
     "PartialIntent",
     "PartialServiceSchema",
-    # 转换工具
+    # 转换工具（规则 / 标注数据）
     "dialogue_to_langextract_example",
     "dialogues_to_langextract_examples",
     "schema_from_sgd_file",
     "extract_partial_schema_from_dialogue",
+    # LLM 驱动的 Schema 归纳与信息提取
+    "induce_schema_with_llm",
+    "extract_dialogue_info",
 ]

@@ -67,6 +67,8 @@ from .schema_extraction import (
     dialogues_to_langextract_examples,
     schema_from_sgd_file,
     extract_partial_schema_from_dialogue,
+    induce_schema_with_llm,
+    extract_dialogue_info,
 )
 
 __all__ = [
@@ -93,4 +95,6 @@ __all__ = [
     "dialogues_to_langextract_examples",
     "schema_from_sgd_file",
     "extract_partial_schema_from_dialogue",
+    "induce_schema_with_llm",
+    "extract_dialogue_info",
 ]
