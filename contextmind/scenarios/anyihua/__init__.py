@@ -1,7 +1,7 @@
 """
 安逸花外呼促活场景 · PyTOD 实现
 
-本场景包含两个独立任务，代码完全隔离：
+本场景包含三个独立任务，代码完全隔离：
 
 任务一：离线质检（Label Prediction / QC）
     位置: contextmind/scenarios/anyihua/qc/
@@ -30,6 +30,24 @@
         ANYIHUA_SCHEMA,
     )
 
+任务三：Schema 提取（Schema Extraction）
+    位置: contextmind/scenarios/anyihua/schema_extraction/
+    入口: examples/anyihua_schema_extraction_demo.py
+
+    从安逸花外呼对话数据中提取部分字段 SGD Schema，并提供与
+    https://github.com/google/langextract 库的互操作接口。
+    格式参考 SGD，但允许部分字段缺失（因安逸花数据中字段可能无法提取）。
+
+    from contextmind.scenarios.anyihua.schema_extraction import (
+        PartialServiceSchema,
+        PartialSlot,
+        PartialIntent,
+        dialogue_to_langextract_example,
+        dialogues_to_langextract_examples,
+        schema_from_sgd_file,
+        extract_partial_schema_from_dialogue,
+    )
+
 共享工具:
     from contextmind.scenarios.anyihua.utils import (
         cn2int, extract_amounts, parse_user_info,
@@ -41,6 +59,15 @@
 from .utils import cn2int, extract_amounts, parse_user_info
 from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, classify_session_llm, ANYIHUA_QC_SCHEMA, ANYIHUA_QC_SCHEMA_DICT
 from .generation import build_generation_engine, ANYIHUA_SCHEMA, ANYIHUA_SCHEMA_DICT
+from .schema_extraction import (
+    PartialServiceSchema,
+    PartialSlot,
+    PartialIntent,
+    dialogue_to_langextract_example,
+    dialogues_to_langextract_examples,
+    schema_from_sgd_file,
+    extract_partial_schema_from_dialogue,
+)
 
 __all__ = [
     # 共享工具
@@ -58,4 +85,12 @@ __all__ = [
     "build_generation_engine",
     "ANYIHUA_SCHEMA",
     "ANYIHUA_SCHEMA_DICT",
+    # 任务三：Schema Extraction
+    "PartialServiceSchema",
+    "PartialSlot",
+    "PartialIntent",
+    "dialogue_to_langextract_example",
+    "dialogues_to_langextract_examples",
+    "schema_from_sgd_file",
+    "extract_partial_schema_from_dialogue",
 ]
