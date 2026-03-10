@@ -78,7 +78,12 @@ LLM 配置
   resources/data/chat_test_discovered_ontology.json  Phase 0 归纳的服务本体
   resources/data/chat_test_extraction_report.json    机器可读结构化报告
   resources/data/chat_test_extraction_report.md      人类可读 Markdown 报告
-  resources/data/chat_test_sgd_dialogues.json        标准 SGD 格式对话数据集
+  resources/data/anyihua_sgd_extracted/              SGD 格式对话数据集目录
+    schema.json                                        服务 Schema（预定义意图/槽位）
+    dialogues_001.json                                 分块对话数据（每块 50 条）
+    dialogues_002.json                                 ...
+    extraction_summary.json                            转换摘要与元数据
+    README.md                                          目录说明文件
 """
 
 from __future__ import annotations
@@ -1583,6 +1588,352 @@ def generate_markdown_report(agg: Dict[str, Any], input_path: str, sample_n: int
 
 
 # --------------------------------------------------------------------------- #
+# 预定义本体对比（矫正、更新、扩充分析）
+# --------------------------------------------------------------------------- #
+
+def load_predefined_schema(schema_path: Optional[Path] = None) -> Dict[str, Any]:
+    """加载预定义 schema（优先从 schema_path，否则从 resources/anyihua_sgd/schema.json）。
+
+    返回：
+        {"intents": [{"name": ..., "description": ...}], "slots": [...]}
+    """
+    path = schema_path or (_PROJECT_ROOT / "resources" / "anyihua_sgd" / "schema.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            schemas = json.load(f)
+        schema = schemas[0] if isinstance(schemas, list) else schemas
+        return {
+            "service_name": schema.get("service_name", SERVICE_NAME),
+            "description": schema.get("description", ""),
+            "intents": schema.get("intents", []),
+            "slots": schema.get("slots", []),
+            "intent_names": [i["name"] for i in schema.get("intents", []) if isinstance(i, dict)],
+            "slot_names": [s["name"] for s in schema.get("slots", []) if isinstance(s, dict)],
+        }
+    except Exception:
+        # 退化为内置常量
+        return {
+            "service_name": SERVICE_NAME,
+            "description": "",
+            "intents": [{"name": n, "description": ""} for n in VALID_INTENTS],
+            "slots": [{"name": n, "description": "", "is_categorical": False, "possible_values": []} for n in VALID_SLOTS],
+            "intent_names": list(VALID_INTENTS),
+            "slot_names": list(VALID_SLOTS),
+        }
+
+
+def compare_with_predefined(
+    discovered_ontology: Dict[str, Any],
+    predefined: Dict[str, Any],
+) -> Dict[str, Any]:
+    """对比数据归纳的本体与预定义本体，生成矫正/更新/扩充分析。
+
+    对比逻辑：
+      - confirmed（已验证）：预定义中存在 且 数据中也观察到 → 说明预定义正确
+      - missing（缺失）：  预定义中存在 但 数据中未观察到 → 说明预定义可能冗余或未覆盖
+      - new（新增）：      数据中发现   但 预定义中没有   → 说明预定义需要扩充
+
+    返回：包含意图和槽位对比结果的字典。
+    """
+    discovered_intent_names: set = set(discovered_ontology.get("intent_names", []))
+    discovered_slot_names: set = set(discovered_ontology.get("slot_names", []))
+    predefined_intent_names: set = set(predefined.get("intent_names", []))
+    predefined_slot_names: set = set(predefined.get("slot_names", []))
+
+    # 意图对比
+    intent_confirmed = sorted(predefined_intent_names & discovered_intent_names)
+    intent_missing = sorted(predefined_intent_names - discovered_intent_names)
+    intent_new = sorted(discovered_intent_names - predefined_intent_names)
+
+    # 槽位对比
+    slot_confirmed = sorted(predefined_slot_names & discovered_slot_names)
+    slot_missing = sorted(predefined_slot_names - discovered_slot_names)
+    slot_new = sorted(discovered_slot_names - predefined_slot_names)
+
+    # 从 discovered_ontology 获取新意图/槽位的描述
+    discovered_intents_by_name = {
+        i["name"]: i for i in discovered_ontology.get("intents", []) if isinstance(i, dict)
+    }
+    discovered_slots_by_name = {
+        s["name"]: s for s in discovered_ontology.get("slots", []) if isinstance(s, dict)
+    }
+    predefined_intents_by_name = {
+        i["name"]: i for i in predefined.get("intents", []) if isinstance(i, dict)
+    }
+    predefined_slots_by_name = {
+        s["name"]: s for s in predefined.get("slots", []) if isinstance(s, dict)
+    }
+
+    return {
+        "predefined_source": str(_PROJECT_ROOT / "resources" / "anyihua_sgd" / "schema.json"),
+        "intents": {
+            "confirmed": [
+                {
+                    "name": n,
+                    "predefined_desc": predefined_intents_by_name.get(n, {}).get("description", ""),
+                    "discovered_desc": discovered_intents_by_name.get(n, {}).get("description", ""),
+                    "conclusion": "✅ 预定义正确，数据已验证",
+                }
+                for n in intent_confirmed
+            ],
+            "missing": [
+                {
+                    "name": n,
+                    "predefined_desc": predefined_intents_by_name.get(n, {}).get("description", ""),
+                    "conclusion": "⚠️ 预定义存在但数据未观察到，建议检查是否冗余或场景罕见",
+                }
+                for n in intent_missing
+            ],
+            "new": [
+                {
+                    "name": n,
+                    "discovered_desc": discovered_intents_by_name.get(n, {}).get("description", ""),
+                    "frequency": discovered_intents_by_name.get(n, {}).get("frequency", ""),
+                    "conclusion": "🆕 数据中发现，预定义未覆盖，建议扩充",
+                }
+                for n in intent_new
+            ],
+            "summary": {
+                "predefined_total": len(predefined_intent_names),
+                "discovered_total": len(discovered_intent_names),
+                "confirmed_count": len(intent_confirmed),
+                "missing_count": len(intent_missing),
+                "new_count": len(intent_new),
+            },
+        },
+        "slots": {
+            "confirmed": [
+                {
+                    "name": n,
+                    "predefined_desc": predefined_slots_by_name.get(n, {}).get("description", ""),
+                    "discovered_desc": discovered_slots_by_name.get(n, {}).get("description", ""),
+                    "conclusion": "✅ 预定义正确，数据已验证",
+                }
+                for n in slot_confirmed
+            ],
+            "missing": [
+                {
+                    "name": n,
+                    "predefined_desc": predefined_slots_by_name.get(n, {}).get("description", ""),
+                    "conclusion": "⚠️ 预定义存在但数据未观察到，建议检查是否冗余或场景罕见",
+                }
+                for n in slot_missing
+            ],
+            "new": [
+                {
+                    "name": n,
+                    "discovered_desc": discovered_slots_by_name.get(n, {}).get("description", ""),
+                    "source": discovered_slots_by_name.get(n, {}).get("source", ""),
+                    "conclusion": "🆕 数据中发现，预定义未覆盖，建议扩充",
+                }
+                for n in slot_new
+            ],
+            "summary": {
+                "predefined_total": len(predefined_slot_names),
+                "discovered_total": len(discovered_slot_names),
+                "confirmed_count": len(slot_confirmed),
+                "missing_count": len(slot_missing),
+                "new_count": len(slot_new),
+            },
+        },
+    }
+
+
+def generate_comparison_markdown(comparison: Dict[str, Any]) -> str:
+    """生成预定义本体 vs. 数据归纳本体的对比 Markdown 节。"""
+    lines: List[str] = []
+    lines.append("---\n")
+    lines.append("## 六、预定义本体对比（矫正 / 更新 / 扩充分析）\n")
+    lines.append(
+        f"> 预定义来源：`{comparison.get('predefined_source', 'resources/anyihua_sgd/schema.json')}`\n"
+    )
+
+    for section, label in [("intents", "意图"), ("slots", "槽位")]:
+        data = comparison[section]
+        s = data["summary"]
+        lines.append(f"### {label}对比\n")
+        lines.append(
+            f"预定义 {s['predefined_total']} 个，数据归纳 {s['discovered_total']} 个；"
+            f"已验证 {s['confirmed_count']} 个 ✅，"
+            f"缺失 {s['missing_count']} 个 ⚠️，"
+            f"新增 {s['new_count']} 个 🆕\n"
+        )
+
+        if data["confirmed"]:
+            lines.append(f"**✅ 已验证（预定义正确，数据已确认）**\n")
+            lines.append(f"| {label} | 预定义描述 | 归纳描述 |")
+            lines.append("|---|---|---|")
+            for item in data["confirmed"]:
+                lines.append(
+                    f"| `{item['name']}` | {item.get('predefined_desc', '')} | {item.get('discovered_desc', '')} |"
+                )
+            lines.append("")
+
+        if data["missing"]:
+            lines.append(f"**⚠️ 缺失（预定义存在，数据未观察到）— 建议检查是否冗余**\n")
+            lines.append(f"| {label} | 预定义描述 | 建议 |")
+            lines.append("|---|---|---|")
+            for item in data["missing"]:
+                lines.append(
+                    f"| `{item['name']}` | {item.get('predefined_desc', '')} | {item['conclusion']} |"
+                )
+            lines.append("")
+
+        if data["new"]:
+            lines.append(f"**🆕 新增（数据发现，预定义未覆盖）— 建议扩充**\n")
+            cols = f"| {label} | 归纳描述 | 出现频率 | 建议 |"
+            lines.append(cols)
+            lines.append("|---|---|---|---|")
+            for item in data["new"]:
+                freq = item.get("frequency", item.get("source", ""))
+                lines.append(
+                    f"| `{item['name']}` | {item.get('discovered_desc', '')} | {freq} | {item['conclusion']} |"
+                )
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# SGD 多文件保存
+# --------------------------------------------------------------------------- #
+
+def save_sgd_to_directory(
+    sgd_dialogues: List[Dict[str, Any]],
+    output_sgd_dir: Path,
+    predefined_schema: Dict[str, Any],
+    model_info: Optional[Dict[str, str]],
+    sample_n: int,
+    dialogues_per_file: int = 50,
+) -> Dict[str, Any]:
+    """将 SGD 对话数据保存为标准多文件目录结构。
+
+    输出文件：
+      <output_sgd_dir>/
+        schema.json              服务 Schema（预定义意图/槽位）
+        dialogues_001.json       分块对话数据（每块最多 dialogues_per_file 条）
+        dialogues_002.json       ...
+        extraction_summary.json  转换摘要与元数据
+        README.md                目录说明
+
+    返回：包含统计信息的字典。
+    """
+    output_sgd_dir.mkdir(parents=True, exist_ok=True)
+
+    # 写 schema.json（使用预定义 schema，转为 SGD list 格式）
+    schema_list = [
+        {
+            "service_name": predefined_schema.get("service_name", SERVICE_NAME),
+            "description": predefined_schema.get("description", ""),
+            "slots": predefined_schema.get("slots", []),
+            "intents": predefined_schema.get("intents", []),
+        }
+    ]
+    schema_path = output_sgd_dir / "schema.json"
+    schema_path.write_text(json.dumps(schema_list, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # 写 dialogues_*.json（分块）
+    file_count = 0
+    total_turns = 0
+    for start in range(0, len(sgd_dialogues), dialogues_per_file):
+        chunk = sgd_dialogues[start:start + dialogues_per_file]
+        file_count += 1
+        file_name = f"dialogues_{file_count:03d}.json"
+        (output_sgd_dir / file_name).write_text(
+            json.dumps(chunk, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        for dlg in chunk:
+            total_turns += len(dlg.get("turns", []))
+
+    # 写 extraction_summary.json
+    model_name = (model_info or {}).get("model", "unknown")
+    base_url = (model_info or {}).get("base_url", "")
+    summary = {
+        "description": (
+            "安逸花外呼对话数据 SGD 格式提取结果。"
+            "使用 LLM 两阶段流程（Phase 0 本体归纳 + Phase 1 逐轮标注）生成。"
+        ),
+        "source_file": "resources/data/chat_test_100.json",
+        "service_name": SERVICE_NAME,
+        "dialogues": len(sgd_dialogues),
+        "turns": total_turns,
+        "dialogue_files": file_count,
+        "dialogues_per_file": dialogues_per_file,
+        "sample_processed": sample_n,
+        "extraction_model": model_name,
+        "extraction_base_url": base_url,
+        "extraction_method": "LLM 两阶段：Phase 0 本体归纳 + Phase 1 逐轮标注",
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "files": {
+            "schema.json": "服务 Schema 定义（预定义意图和槽位）",
+            **{
+                f"dialogues_{i:03d}.json": f"第 {(i-1)*dialogues_per_file+1}–{min(i*dialogues_per_file, len(sgd_dialogues))} 条 SGD 对话数据"
+                for i in range(1, file_count + 1)
+            },
+            "extraction_summary.json": "本文件：转换摘要与元数据",
+            "README.md": "目录说明文件",
+        },
+    }
+    summary_path = output_sgd_dir / "extraction_summary.json"
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # 写 README.md
+    readme_lines = [
+        f"# 安逸花外呼 SGD 数据集（LLM 提取版）",
+        "",
+        f"> 生成时间：{summary['generated_at']}  ",
+        f"> 提取模型：{model_name}（{base_url}）  ",
+        f"> 数据来源：`{summary['source_file']}`",
+        "",
+        "## 目录说明",
+        "",
+        "| 文件 | 说明 |",
+        "|---|---|",
+        "| `schema.json` | 安逸花外呼服务 Schema（意图和槽位定义） |",
+    ]
+    for i in range(1, file_count + 1):
+        start_idx = (i - 1) * dialogues_per_file + 1
+        end_idx = min(i * dialogues_per_file, len(sgd_dialogues))
+        readme_lines.append(
+            f"| `dialogues_{i:03d}.json` | 第 {start_idx}–{end_idx} 条 SGD 对话数据 |"
+        )
+    readme_lines += [
+        "| `extraction_summary.json` | 转换摘要与元数据 |",
+        "| `README.md` | 本文件 |",
+        "",
+        "## 数据规格",
+        "",
+        f"- **对话数量**：{len(sgd_dialogues)} 条",
+        f"- **总轮次**：{total_turns} 轮",
+        f"- **对话文件数**：{file_count} 个",
+        f"- **每文件对话数**：最多 {dialogues_per_file} 条",
+        "",
+        "## 字段说明",
+        "",
+        "每条对话包含：",
+        "- `dialogue_id`：会话唯一 ID（映射自 session_id）",
+        "- `services`：固定为 `[\"AnYiHua_1\"]`",
+        "- `metadata`：扩展字段（`qc_label` / `reference_response` / `user_info_parsed`）",
+        "- `turns`：对话轮次列表",
+        "  - USER 轮：`active_intent` / `requested_slots` / `slot_values` / `actions`",
+        "  - SYSTEM 轮：`actions` / `service_call` / `service_results`",
+        "",
+        "## 提取方法",
+        "",
+        "1. **Phase 0（本体归纳）**：LLM 从原始对话数据中归纳意图/槽位/对话行为，不使用预定义列表",
+        "2. **Phase 1（逐轮标注）**：以归纳本体为指导，LLM 逐轮提取 SGD 字段",
+        "3. **CRM 数据**：通过 `parse_user_info()` 解析，注入 `slot_values` 和 `service_results`",
+        "",
+        "详见 `resources/data/chat_test_extraction_report.md` 完整分析报告。",
+        "",
+    ]
+    readme_path = output_sgd_dir / "README.md"
+    readme_path.write_text("\n".join(readme_lines), encoding="utf-8")
+
+    return summary
+
+
+# --------------------------------------------------------------------------- #
 # 主程序
 # --------------------------------------------------------------------------- #
 
@@ -1613,7 +1964,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--no-sgd-export", action="store_true",
-        help="跳过 SGD 格式数据导出（默认会生成 chat_test_sgd_dialogues.json）",
+        help="跳过 SGD 格式数据导出（默认会生成多文件 anyihua_sgd_extracted 目录）",
+    )
+    parser.add_argument(
+        "--dialogues-per-file", type=int, default=50,
+        help="每个 dialogues_*.json 最多包含的对话数（默认：50）",
     )
     parser.add_argument(
         "--delay", type=float, default=0.5,
@@ -1699,19 +2054,37 @@ def main() -> None:
         json.dump(agg, f, ensure_ascii=False, indent=2)
     print(f"  ✅ JSON 报告 : {json_path}")
 
+    # ——— 对比预定义本体 ———
+    print("▶ 对比预定义本体（矫正/更新/扩充分析）...")
+    predefined = load_predefined_schema()
+    comparison = compare_with_predefined(discovered_ontology, predefined)
+    comparison_path = output_dir / "chat_test_predefined_comparison.json"
+    with open(comparison_path, "w", encoding="utf-8") as f:
+        json.dump(comparison, f, ensure_ascii=False, indent=2)
+    print(f"  ✅ 对比报告 : {comparison_path}")
+
     if not args.no_markdown:
         md_path = output_dir / "chat_test_extraction_report.md"
         md = generate_markdown_report(agg, str(input_path), sample_n)
+        # 追加对比节
+        md += "\n" + generate_comparison_markdown(comparison)
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md)
         print(f"  ✅ Markdown  : {md_path}")
 
     if not args.no_sgd_export:
         sgd_dialogues = export_sgd_format(extracted_records, model_info=model_info)
-        sgd_path = output_dir / "chat_test_sgd_dialogues.json"
-        with open(sgd_path, "w", encoding="utf-8") as f:
-            json.dump(sgd_dialogues, f, ensure_ascii=False, indent=2)
-        print(f"  ✅ SGD 格式  : {sgd_path}（{len(sgd_dialogues)} 条对话）")
+        output_sgd_dir = output_dir / "anyihua_sgd_extracted"
+        sgd_summary = save_sgd_to_directory(
+            sgd_dialogues=sgd_dialogues,
+            output_sgd_dir=output_sgd_dir,
+            predefined_schema=predefined,
+            model_info=model_info,
+            sample_n=sample_n,
+            dialogues_per_file=args.dialogues_per_file,
+        )
+        print(f"  ✅ SGD 目录  : {output_sgd_dir}/")
+        print(f"               schema.json + {sgd_summary['dialogue_files']} 个对话文件 + README.md + extraction_summary.json")
 
     print(f"\n{'='*60}")
     print("分析摘要")
@@ -1742,6 +2115,27 @@ def main() -> None:
         pct = slots_agg[slot]["crm_coverage_pct"]
         bar = "█" * int(pct / 10)
         print(f"  {slot:<30s}: {pct:5.1f}%  {bar}")
+
+    # 打印预定义对比摘要
+    ci = comparison["intents"]["summary"]
+    cs = comparison["slots"]["summary"]
+    print(f"\n  --- 预定义本体对比 ---")
+    print(f"  意图：预定义 {ci['predefined_total']} / 已验证 {ci['confirmed_count']} ✅ / 缺失 {ci['missing_count']} ⚠️ / 新增 {ci['new_count']} 🆕")
+    print(f"  槽位：预定义 {cs['predefined_total']} / 已验证 {cs['confirmed_count']} ✅ / 缺失 {cs['missing_count']} ⚠️ / 新增 {cs['new_count']} 🆕")
+
+    print(f"\n  --- 输出文件 ---")
+    print(f"  {output_dir}/")
+    print(f"    ├── chat_test_discovered_ontology.json    （Phase 0 归纳的服务本体）")
+    print(f"    ├── chat_test_extraction_report.json       （机器可读统计报告）")
+    print(f"    ├── chat_test_extraction_report.md         （人类可读 Markdown 报告，含对比分析）")
+    print(f"    ├── chat_test_predefined_comparison.json   （预定义本体对比：矫正/更新/扩充）")
+    if not args.no_sgd_export:
+        print(f"    └── anyihua_sgd_extracted/")
+        print(f"          ├── schema.json")
+        for i in range(1, sgd_summary["dialogue_files"] + 1):
+            print(f"          ├── dialogues_{i:03d}.json")
+        print(f"          ├── extraction_summary.json")
+        print(f"          └── README.md")
     print(f"\n{'='*60}\n")
 
 
