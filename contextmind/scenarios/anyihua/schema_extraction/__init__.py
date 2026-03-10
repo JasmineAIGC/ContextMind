@@ -68,6 +68,11 @@ from .extractor import (
 )
 from .llm_induction import extract_dialogue_info, induce_schema_with_llm
 from .schema import PartialIntent, PartialServiceSchema, PartialSlot
+from .schema_io import (
+    align_schema_with_sgd,
+    format_comparison_report,
+    save_schema_as_sgd,
+)
 
 __all__ = [
     # Schema 数据类
@@ -82,4 +87,8 @@ __all__ = [
     # LLM 驱动的 Schema 归纳与信息提取
     "induce_schema_with_llm",
     "extract_dialogue_info",
+    # Schema 持久化与格式对比
+    "save_schema_as_sgd",
+    "align_schema_with_sgd",
+    "format_comparison_report",
 ]

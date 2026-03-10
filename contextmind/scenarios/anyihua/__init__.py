@@ -69,6 +69,9 @@ from .schema_extraction import (
     extract_partial_schema_from_dialogue,
     induce_schema_with_llm,
     extract_dialogue_info,
+    save_schema_as_sgd,
+    align_schema_with_sgd,
+    format_comparison_report,
 )
 
 __all__ = [
@@ -97,4 +100,7 @@ __all__ = [
     "extract_partial_schema_from_dialogue",
     "induce_schema_with_llm",
     "extract_dialogue_info",
+    "save_schema_as_sgd",
+    "align_schema_with_sgd",
+    "format_comparison_report",
 ]
