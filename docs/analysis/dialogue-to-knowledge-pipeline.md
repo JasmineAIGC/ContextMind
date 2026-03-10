@@ -6,9 +6,63 @@
 
 ## 一、设计原则：每一步都用 langextract
 
-langextract 的核心特性是：**每次提取同时输出结果值和该值在原文中的精确定位（字符偏移量或原句引用）**。这意味着每次调用 langextract 本身就是一次隐式校验——若某个意图或槽位值无法在原文中定位，langextract 就不会输出它。
+langextract 的核心特性是：**每次提取同时输出结果值和该值在原文中的精确字符位置**。这意味着每次调用 langextract 本身就是一次隐式校验——若某个槽位值或意图触发原话无法在原文中定位，`char_interval` 和 `alignment_status` 均为 `None`，该提取项视为无原文证据。
 
 基于这一特性，新方案将 langextract 贯穿 Schema 发现和 SGD 转换两个核心环节，**无需再设置独立的校验步骤**。每一次提取计算都自带原文定位，相当于每一步都在做校验。
+
+### langextract 的实际输出格式
+
+调用 `lx.extract()` 返回 `AnnotatedDocument` 对象，其中每个 `Extraction` 的实际字段为：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `extraction_class` | `str` | 提取类别，如 `"slot_value"`、`"intent"`、`"system_intent"` |
+| `extraction_text` | `str` | 从原文提取的**原始文本片段**（必须是原文的 verbatim 子串） |
+| `char_interval` | `CharInterval \| None` | 字符位置区间：`.start_pos`（含）和 `.end_pos`（不含） |
+| `alignment_status` | `AlignmentStatus \| None` | 对齐质量：`match_exact` / `match_lesser` / `match_fuzzy` / `None` |
+| `attributes` | `dict \| None` | 附加元信息（意图编码、槽位名、描述等） |
+
+**注意**：langextract 没有名为 `"evidence"` 的字段。原文证据就是 `extraction_text` 本身，其在原文中的位置通过 `char_interval` 表达。
+
+**关键约束**：`extraction_text` 必须是 source text 中出现过的原始文本才能被 `WordAligner`（基于 difflib）成功对齐：
+- **槽位值**（`slot_value`）：`extraction_text` = 槽位的原始值文本（如 `"六七八"`），直接出现在对话中，对齐成功率高。
+  - *注意*：langextract 的默认分词器将连续汉字视为一个 token（无空格分词）。若槽位值是更长汉字序列的子串（如 `"六七八"` 包含在 token `"尾号六七八"` 中），可能因 token 边界问题导致 `alignment_status=None`。槽位值文本本身仍然正确，仅位置信息缺失。
+- **用户意图**（`intent`）：`extraction_text` = 触发该意图的**用户原话**；意图编码（如 `"verify_identity"`）放入 `attributes["intent_name"]`。
+  - *注意*：不要将意图编码用作 `extraction_text`——编码不出现在中文对话里，对齐必然失败（`alignment_status=None`）。
+- **系统意图**（`system_intent`）：`extraction_text` = 坐席执行该意图时的**发言原话**；方法名放入 `attributes["method_name"]`。
+
+槽位值提取结果示例（对齐成功）：
+
+```python
+Extraction(
+    extraction_class="slot_value",
+    extraction_text="六七八",            # 原文中存在，可对齐
+    char_interval=CharInterval(start_pos=42, end_pos=45),
+    alignment_status=AlignmentStatus.MATCH_EXACT,
+    attributes={"slot_name": "phone_suffix"},
+)
+```
+
+用户意图提取结果示例（以触发原话为 extraction_text）：
+
+```python
+Extraction(
+    extraction_class="intent",
+    extraction_text="我的尾号是六七八",    # 原文中存在，可对齐
+    char_interval=CharInterval(start_pos=20, end_pos=32),
+    alignment_status=AlignmentStatus.MATCH_EXACT,
+    attributes={"intent_name": "verify_identity"},
+)
+```
+
+`alignment_status` 取值含义：
+
+| 值 | 含义 |
+|----|------|
+| `match_exact` | 完全精确匹配，原文定位最可靠 |
+| `match_lesser` | 部分精确匹配（提取文本长于匹配段） |
+| `match_fuzzy` | 模糊匹配（满足 `fuzzy_alignment_threshold`，默认 0.75） |
+| `None` | 对齐失败，该提取项无原文定位证据 |
 
 ---
 
@@ -40,19 +94,31 @@ SGD 知识库（schema.json + dialogues_*.json）
 - 以少量预标注的 SGD 对话作为 few-shot 示例，调用 langextract 对每条抽样对话提取：
   - `intent`：对话轮次的主要意图及触发原句
   - `slot_value`：提及的槽位值及其在对话中的原文位置
-- langextract 提取结果示例：
+- langextract 提取结果示例（槽位值，Python 对象形式）：
 
-```json
-{
-  "intent": "verify_identity",
-  "evidence": "请问您的手机尾号是多少？",
-  "span": {"start": 42, "end": 57}
-}
+```python
+# 槽位值：extraction_text 直接出现在对话中，成功对齐
+Extraction(
+    extraction_class="slot_value",
+    extraction_text="六七八",
+    char_interval=CharInterval(start_pos=42, end_pos=45),
+    alignment_status=AlignmentStatus.MATCH_EXACT,
+    attributes={"slot_name": "phone_suffix"},
+)
+
+# 用户意图：extraction_text = 触发原话（非意图编码）
+Extraction(
+    extraction_class="intent",
+    extraction_text="我的尾号是六七八",
+    char_interval=CharInterval(start_pos=20, end_pos=32),
+    alignment_status=AlignmentStatus.MATCH_EXACT,
+    attributes={"intent_name": "verify_identity"},
+)
 ```
 
 - 汇总抽样结果，归纳出候选的意图名称列表和槽位名称列表，形成 `discovered_ontology`
 
-**关键优势**：与旧方案用普通 LLM 归纳不同，langextract 的每条归纳结果都携带原文证据。没有原文证据的意图或槽位不会出现在输出中——**发现即校验**。
+**关键优势**：与旧方案用普通 LLM 归纳不同，langextract 的每条归纳结果都携带原文定位（`char_interval`）。对于槽位值，`extraction_text` 本身就是原文片段；对于意图，`extraction_text` 是触发该意图的用户原话，意图编码存入 `attributes["intent_name"]`。凡是 `alignment_status=None` 的提取项（无法在原文中找到对应文本），均视为无原文证据，可在后处理中过滤——**发现即校验**。
 
 **注意**：这一步只做"发现"，不做最终判断，允许低频意图被遗漏（低频意图因抽样覆盖不足可能未出现在样本中，Step 2 通过引入预定义 schema 来补充这些边缘场景）。现有相关代码：`dialogue_to_langextract_example()`、`dialogues_to_langextract_examples()`。
 
@@ -93,17 +159,18 @@ SGD 知识库（schema.json + dialogues_*.json）
 
 - **输入**：全量原始对话 + `merged_schema`（作为 few-shot 描述和提取目标定义）
 - **对每条对话**，调用 langextract 提取：
-  - `active_intent`：该轮用户主要意图及触发原句
-  - `slot_values`：提及的槽位值及其在对话中的原文位置
-  - `system_intent`：坐席执行的服务调用动作及对应发言
+  - `intent`：触发用户意图的原话（`extraction_text`），意图编码存入 `attributes["intent_name"]`
+  - `slot_value`：槽位的原始值文本（`extraction_text`），槽位名存入 `attributes["slot_name"]`
+  - `system_intent`：坐席执行该意图时的发言原话（`extraction_text`），方法名存入 `attributes["method_name"]`
 - **质量指标**（在 `extraction_summary.json` 中记录）：
 
 | 指标 | 计算方式 | 说明 |
 |------|---------|------|
-| `evidence_rate` | 有原文证据的提取项占比 | langextract 内建，反映提取质量 |
+| `alignment_rate` | `alignment_status != None` 的提取项占比 | 反映提取结果的原文定位成功率 |
+| `exact_match_rate` | `alignment_status == match_exact` 的占比 | 精确对齐率，越高说明提取文本越贴近原文 |
 | `slot_fill_rate` | 各槽位在全量数据中的填充率 | 反映 schema 覆盖度 |
 | `intent_distribution` | 各意图出现频次分布 | 供后续分析使用 |
-| `sample_quotes` | 各 schema 项的原文证据示例 | 供人工抽查 |
+| `sample_quotes` | 各 schema 项的原文 `extraction_text` 示例（含 `char_interval`） | 供人工抽查 |
 
 - **容错设计**：schema 中定义的意图/槽位不要求每条对话都出现，缺失字段留空或使用默认值
 
@@ -140,14 +207,21 @@ Step 2 之后有一个可选人工确认窗口（查看 `merged_schema.json` 后
 
 ### 与旧方案的对比
 
-旧方案共四步：Step 1 普通 LLM 归纳 → Step 2 Schema 合并 → Step 3 langextract 独立校验 → Step 4 普通 LLM SGD 转换。新方案共三步，去掉了独立的校验步骤，并将 Step 1 和 Step 3 均改为 langextract。两方案的 LLM 调用总量基本持平（旧方案 Step 3 校验全量数据 + Step 4 转换全量数据，新方案 Step 1 对抽样数据调用 langextract + Step 3 对全量数据调用 langextract），但新方案每次调用都自带原文定位，质量更高、流程更简洁。
+- **旧方案**（4 步）：Step 1 普通 LLM 归纳 → Step 2 Schema 合并 → Step 3 langextract 独立校验 → Step 4 普通 LLM SGD 转换
+- **新方案**（3 步）：Step 1 langextract Schema 发现 → Step 2 Schema 合并 → Step 3 langextract SGD 转换
+
+去掉了独立的校验步骤，Step 1 和 Step 3 均改为 langextract。LLM 调用总量基本持平：
+- 旧方案：Step 3 校验全量 + Step 4 转换全量
+- 新方案：Step 1 抽样 langextract + Step 3 全量 langextract
+
+新方案每次调用都自带原文定位（`char_interval` + `alignment_status`），质量更高、流程更简洁。
 
 ### 优点
 
 | 优点 | 说明 |
 |------|------|
 | **每步都有据可查** | langextract 在 Step 1 和 Step 3 均输出原文定位，Schema 发现和 SGD 转换结果均可追溯 |
-| **校验内嵌，无需额外步骤** | 每次 langextract 调用即是一次原文校验，无法在原文中定位的项不会出现在输出中 |
+| **校验内嵌，无需额外步骤** | 每次 langextract 调用均通过 WordAligner 将 `extraction_text` 定位到原文，`alignment_status=None` 的项可在后处理中过滤，无需独立校验步骤 |
 | **降低幻觉风险** | Step 1 的 Schema 发现已通过 langextract 过滤，噪声意图/槽位在发现阶段即被淘汰 |
 | **流程更简洁** | 三步替代旧方案四步，去掉了独立的校验步骤，逻辑链更清晰 |
 | **容错性强** | Step 3 允许 schema 与对话数据部分不匹配，不因单条数据缺字段而失败 |
