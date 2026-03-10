@@ -76,12 +76,14 @@ LLM 配置
 ----------------------------------------------------------------------
 
   resources/data/chat_test_discovered_ontology.json  Phase 0 归纳的服务本体（原始格式）
-  resources/data/chat_test_derived_schema.json        数据驱动 SGD Schema（标准提取模板，SGD 格式）
+  resources/data/chat_test_derived_schema.json        仅数据驱动 SGD Schema（Phase 0 归纳，参考用）
+  resources/data/chat_test_merged_ontology.json       完整合并本体（预定义 + 归纳，去重，含 source 标注）
+  resources/data/chat_test_merged_schema.json         完整 SGD Schema（合并本体转换，标准提取模板）
   resources/data/chat_test_extraction_report.json    机器可读结构化报告
   resources/data/chat_test_extraction_report.md      人类可读 Markdown 报告
   resources/data/chat_test_predefined_comparison.json 预定义本体对比（矫正/更新/扩充）
   resources/data/anyihua_sgd_extracted/              SGD 格式对话数据集目录
-    schema.json                                        数据驱动 Schema（由 Phase 0 归纳，非预定义）
+    schema.json                                        完整 Schema（预定义 + 归纳合并，非仅数据驱动）
     dialogues_001.json                                 分块对话数据（每块 50 条）
     dialogues_002.json                                 ...
     extraction_summary.json                            转换摘要与元数据
@@ -1868,8 +1870,318 @@ def generate_comparison_markdown(comparison: Dict[str, Any]) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# SGD 多文件保存
+# 完整本体合并（预定义 + 数据归纳 → 去重后合并）
 # --------------------------------------------------------------------------- #
+
+def merge_ontologies(
+    predefined: Dict[str, Any],
+    discovered_ontology: Dict[str, Any],
+) -> Dict[str, Any]:
+    """将预定义本体与 Phase 0 数据归纳本体合并，生成完整的关键信息定义列表。
+
+    合并策略：
+      - 对于同名意图/槽位：以预定义字段为基础，用归纳数据补充空缺字段（描述优先取较长者）。
+      - 仅在预定义中存在的：原样保留，source="predefined"。
+      - 仅在归纳中存在的：原样保留，source="discovered"。
+      - 同时存在的：合并字段，source="both"。
+      - 对话行为（dialog_acts）：VALID_ACTS（预定义）∪ 归纳中新发现的行为，去重后合并。
+
+    返回：
+        与 discovered_ontology 格式相同的字典，额外包含每条记录的 ``source`` 字段，
+        可直接传给 discovered_ontology_to_sgd_schema_list() 生成完整 SGD Schema。
+    """
+    # -------- 意图合并 --------
+    predefined_intents_by_name: Dict[str, Dict] = {
+        i["name"]: i for i in predefined.get("intents", []) if isinstance(i, dict)
+    }
+    discovered_intents_by_name: Dict[str, Dict] = {
+        i["name"]: i for i in discovered_ontology.get("intents", []) if isinstance(i, dict)
+    }
+
+    merged_intents: List[Dict[str, Any]] = []
+    seen_intents: set = set()
+
+    def _best_desc(a: str, b: str) -> str:
+        """返回两个描述中较长（更具体）的那个；若其中一个为空则取另一个。"""
+        a, b = (a or "").strip(), (b or "").strip()
+        if not a:
+            return b
+        if not b:
+            return a
+        return a if len(a) >= len(b) else b
+
+    def _to_dict(v: Any) -> Dict[str, str]:
+        """将 optional_slots 统一转为 dict 格式（list → {slot: ""}）。"""
+        if isinstance(v, dict):
+            return {k: str(val) for k, val in v.items()}
+        if isinstance(v, list):
+            return {s: "" for s in v if isinstance(s, str)}
+        return {}
+
+    # 先遍历预定义（保持顺序）
+    for name, pi in predefined_intents_by_name.items():
+        if name in seen_intents:
+            continue
+        seen_intents.add(name)
+        di = discovered_intents_by_name.get(name, {})
+        source = "both" if di else "predefined"
+
+        pre_optional = _to_dict(pi.get("optional_slots", {}))
+        dis_optional = _to_dict(di.get("optional_slots", {}))
+        # Predefined has priority for existing keys; discovered adds new keys only
+        merged_optional = {**dis_optional, **pre_optional}
+
+        merged_intents.append({
+            "name": name,
+            "description": _best_desc(
+                pi.get("description", ""), di.get("description", "")
+            ),
+            "frequency": di.get("frequency", ""),
+            "typical_phrases": di.get("typical_phrases", []),
+            "required_slots": sorted(set(
+                list(pi.get("required_slots", []))
+                + list(di.get("required_slots", []))
+            )),
+            "optional_slots": merged_optional,
+            "result_slots": sorted(set(
+                list(pi.get("result_slots", []))
+                + list(di.get("result_slots", []))
+            )),
+            "is_transactional": bool(
+                pi.get("is_transactional", False) or di.get("is_transactional", False)
+            ),
+            "source": source,
+        })
+
+    # 再追加仅在归纳中发现的新意图
+    for name, di in discovered_intents_by_name.items():
+        if name in seen_intents:
+            continue
+        seen_intents.add(name)
+        optional_slots = _to_dict(di.get("optional_slots", {}))
+        merged_intents.append({
+            "name": name,
+            "description": di.get("description", ""),
+            "frequency": di.get("frequency", ""),
+            "typical_phrases": di.get("typical_phrases", []),
+            "required_slots": list(di.get("required_slots", [])),
+            "optional_slots": optional_slots,
+            "result_slots": list(di.get("result_slots", [])),
+            "is_transactional": bool(di.get("is_transactional", False)),
+            "source": "discovered",
+        })
+
+    # -------- 槽位合并 --------
+    predefined_slots_by_name: Dict[str, Dict] = {
+        s["name"]: s for s in predefined.get("slots", []) if isinstance(s, dict)
+    }
+    discovered_slots_by_name: Dict[str, Dict] = {
+        s["name"]: s for s in discovered_ontology.get("slots", []) if isinstance(s, dict)
+    }
+
+    merged_slots: List[Dict[str, Any]] = []
+    seen_slots: set = set()
+
+    for name, ps in predefined_slots_by_name.items():
+        if name in seen_slots:
+            continue
+        seen_slots.add(name)
+        ds = discovered_slots_by_name.get(name, {})
+        source = "both" if ds else "predefined"
+
+        pre_pv = list(ps.get("possible_values", []))
+        dis_pv = list(ds.get("possible_values", []))
+        combined_pv = sorted(set(pre_pv + dis_pv))
+
+        merged_slots.append({
+            "name": name,
+            "description": _best_desc(
+                ps.get("description", ""), ds.get("description", "")
+            ),
+            "source": source,
+            "data_type": ps.get("data_type") or ds.get("data_type", "text"),
+            "is_categorical": bool(
+                ps.get("is_categorical", False) or ds.get("is_categorical", False)
+            ),
+            "possible_values": combined_pv,
+            "example_values": ds.get("example_values", []),
+        })
+
+    for name, ds in discovered_slots_by_name.items():
+        if name in seen_slots:
+            continue
+        seen_slots.add(name)
+        merged_slots.append({
+            "name": name,
+            "description": ds.get("description", ""),
+            "source": "discovered",
+            "data_type": ds.get("data_type", "text"),
+            "is_categorical": bool(ds.get("is_categorical", False)),
+            "possible_values": list(ds.get("possible_values", [])),
+            "example_values": list(ds.get("example_values", [])),
+        })
+
+    # -------- 对话行为合并 --------
+    discovered_acts_by_name: Dict[str, Dict] = {
+        a["act"]: a for a in discovered_ontology.get("dialog_acts", []) if isinstance(a, dict)
+    }
+
+    merged_acts: List[Dict[str, Any]] = []
+    seen_acts: set = set()
+
+    # 预定义 VALID_ACTS 先入
+    # 注：VALID_ACTS 仅含行为名称，无描述/说话方等元数据，故"两者均有"时元数据取自归纳结果
+    for act_name in VALID_ACTS:
+        if act_name in seen_acts:
+            continue
+        seen_acts.add(act_name)
+        da = discovered_acts_by_name.get(act_name, {})
+        source = "both" if da else "predefined"
+        merged_acts.append({
+            "act": act_name,
+            "description": da.get("description", ""),
+            "speaker": da.get("speaker", "BOTH"),
+            "example": da.get("example", ""),
+            "source": source,
+        })
+
+    # 追加归纳中新发现的对话行为
+    for act_name, da in discovered_acts_by_name.items():
+        if act_name in seen_acts:
+            continue
+        seen_acts.add(act_name)
+        merged_acts.append({
+            "act": act_name,
+            "description": da.get("description", ""),
+            "speaker": da.get("speaker", "BOTH"),
+            "example": da.get("example", ""),
+            "source": "discovered",
+        })
+
+    return {
+        "service_name": discovered_ontology.get("service_name", SERVICE_NAME),
+        "service_description": discovered_ontology.get(
+            "service_description", predefined.get("description", "")
+        ),
+        "intents": merged_intents,
+        "slots": merged_slots,
+        "dialog_acts": merged_acts,
+        "total_intents": len(merged_intents),
+        "total_slots": len(merged_slots),
+        "total_acts": len(merged_acts),
+        "intent_names": [i["name"] for i in merged_intents],
+        "slot_names": [s["name"] for s in merged_slots],
+        "act_names": [a["act"] for a in merged_acts],
+        "source": "merged",
+        "merge_stats": {
+            "intents_from_predefined_only": sum(
+                1 for i in merged_intents if i.get("source") == "predefined"
+            ),
+            "intents_in_both": sum(
+                1 for i in merged_intents if i.get("source") == "both"
+            ),
+            "intents_from_discovered_only": sum(
+                1 for i in merged_intents if i.get("source") == "discovered"
+            ),
+            "slots_from_predefined_only": sum(
+                1 for s in merged_slots if s.get("source") == "predefined"
+            ),
+            "slots_in_both": sum(
+                1 for s in merged_slots if s.get("source") == "both"
+            ),
+            "slots_from_discovered_only": sum(
+                1 for s in merged_slots if s.get("source") == "discovered"
+            ),
+            "acts_from_predefined_only": sum(
+                1 for a in merged_acts if a.get("source") == "predefined"
+            ),
+            "acts_in_both": sum(
+                1 for a in merged_acts if a.get("source") == "both"
+            ),
+            "acts_from_discovered_only": sum(
+                1 for a in merged_acts if a.get("source") == "discovered"
+            ),
+        },
+    }
+
+
+def generate_merged_ontology_markdown(merged: Dict[str, Any]) -> str:
+    """生成合并本体（预定义 + 数据归纳）的 Markdown 节（Section 七）。"""
+    lines: List[str] = []
+    lines.append("---\n")
+    lines.append("## 七、完整本体定义（预定义 + 数据归纳，去重合并）\n")
+    lines.append(
+        "> 本节汇总所有来源（预定义常量、resources/anyihua_sgd/schema.json、Phase 0 数据归纳）的"
+        "意图、槽位和对话行为，去重合并后得到完整的安逸花外呼数据关键信息定义列表。\n"
+    )
+
+    stats = merged.get("merge_stats", {})
+    ni, ns, na = (
+        merged.get("total_intents", 0),
+        merged.get("total_slots", 0),
+        merged.get("total_acts", 0),
+    )
+    lines.append(
+        f"**合并结果**：{ni} 个意图 / {ns} 个槽位 / {na} 个对话行为\n"
+    )
+
+    _SOURCE_LABEL = {"predefined": "预定义", "discovered": "🆕 归纳新增", "both": "✅ 两者均有"}
+
+    # -------- 意图 --------
+    lines.append("### 意图（Intents）\n")
+    lines.append(
+        f"共 {ni} 个（预定义独有 {stats.get('intents_from_predefined_only', 0)} + "
+        f"两者均有 {stats.get('intents_in_both', 0)} + "
+        f"归纳新增 {stats.get('intents_from_discovered_only', 0)}）\n"
+    )
+    lines.append("| 意图 | 来源 | 描述 | 必填槽位 |")
+    lines.append("|---|---|---|---|")
+    for intent in merged.get("intents", []):
+        src_label = _SOURCE_LABEL.get(intent.get("source", ""), intent.get("source", ""))
+        req_slots = ", ".join(f"`{s}`" for s in intent.get("required_slots", [])) or "—"
+        lines.append(
+            f"| `{intent['name']}` | {src_label} | {intent.get('description', '')} | {req_slots} |"
+        )
+    lines.append("")
+
+    # -------- 槽位 --------
+    lines.append("### 槽位（Slots）\n")
+    lines.append(
+        f"共 {ns} 个（预定义独有 {stats.get('slots_from_predefined_only', 0)} + "
+        f"两者均有 {stats.get('slots_in_both', 0)} + "
+        f"归纳新增 {stats.get('slots_from_discovered_only', 0)}）\n"
+    )
+    lines.append("| 槽位 | 来源 | 类型 | 描述 | 可能值 |")
+    lines.append("|---|---|---|---|---|")
+    for slot in merged.get("slots", []):
+        src_label = _SOURCE_LABEL.get(slot.get("source", ""), slot.get("source", ""))
+        data_type = "枚举" if slot.get("is_categorical") else slot.get("data_type", "text")
+        pv = ", ".join(slot.get("possible_values", [])) or "—"
+        lines.append(
+            f"| `{slot['name']}` | {src_label} | {data_type} | {slot.get('description', '')} | {pv} |"
+        )
+    lines.append("")
+
+    # -------- 对话行为 --------
+    lines.append("### 对话行为（Dialog Acts）\n")
+    lines.append(
+        f"共 {na} 个（预定义独有 {stats.get('acts_from_predefined_only', 0)} + "
+        f"两者均有 {stats.get('acts_in_both', 0)} + "
+        f"归纳新增 {stats.get('acts_from_discovered_only', 0)}）\n"
+    )
+    lines.append("| 对话行为 | 来源 | 说话方 | 描述 |")
+    lines.append("|---|---|---|---|")
+    for act in merged.get("dialog_acts", []):
+        src_label = _SOURCE_LABEL.get(act.get("source", ""), act.get("source", ""))
+        lines.append(
+            f"| `{act['act']}` | {src_label} | {act.get('speaker', 'BOTH')} | {act.get('description', '')} |"
+        )
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+
 
 def save_sgd_to_directory(
     sgd_dialogues: List[Dict[str, Any]],
@@ -1900,6 +2212,8 @@ def save_sgd_to_directory(
     schema_service_name = (
         schema_list[0].get("service_name", SERVICE_NAME) if schema_list else SERVICE_NAME
     )
+    schema_slots_count = len(schema_list[0].get("slots", [])) if schema_list else 0
+    schema_intents_count = len(schema_list[0].get("intents", [])) if schema_list else 0
     schema_path = output_sgd_dir / "schema.json"
     schema_path.write_text(json.dumps(schema_list, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -1925,12 +2239,12 @@ def save_sgd_to_directory(
         "description": (
             "安逸花外呼对话数据 SGD 格式提取结果。"
             "使用 LLM 两阶段流程（Phase 0 本体归纳 + Phase 1 逐轮标注）生成。"
-            "schema.json 为数据驱动 Schema，由 Phase 0 从真实对话数据归纳得出，"
+            "schema.json 为完整合并 Schema（预定义 + 数据归纳合并去重），"
             "可作为其他安逸花外呼数据 SGD 格式提取的标准模板。"
         ),
         "source_file": "resources/data/chat_test_100.json",
         "service_name": schema_service_name,
-        "schema_source": "data_driven（Phase 0 从对话数据归纳）",
+        "schema_source": "merged（预定义 + Phase 0 数据归纳合并去重）",
         "schema_intents_count": schema_intents_count,
         "schema_slots_count": schema_slots_count,
         "dialogues": len(sgd_dialogues),
@@ -1944,7 +2258,7 @@ def save_sgd_to_directory(
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "files": {
             "schema.json": (
-                f"数据驱动服务 Schema（由 Phase 0 从对话数据归纳，"
+                f"完整 SGD Schema（预定义 + 数据归纳合并，"
                 f"{schema_intents_count} 个意图 / {schema_slots_count} 个槽位）"
             ),
             **{
@@ -1965,12 +2279,12 @@ def save_sgd_to_directory(
         f"> 生成时间：{summary['generated_at']}  ",
         f"> 提取模型：{model_name}（{base_url}）  ",
         f"> 数据来源：`{summary['source_file']}`  ",
-        f"> Schema 来源：**数据驱动（Phase 0 从对话数据归纳）**，{schema_intents_count} 个意图 / {schema_slots_count} 个槽位",
+        f"> Schema 来源：**预定义 + 数据归纳合并**，{schema_intents_count} 个意图 / {schema_slots_count} 个槽位",
         "",
         "## Schema 说明",
         "",
         "`schema.json` 是本目录的核心文件，定义了安逸花外呼对话的信息提取标准格式。",
-        "该 schema **由 LLM 从真实对话数据中归纳得出**（而非人工预定义），",
+        "该 schema 由**预定义本体**和 **Phase 0 数据归纳本体**合并去重得出，是最完整的定义列表。",
         "可作为其他未处理安逸花外呼数据的 SGD 格式信息提取模板。",
         "",
         "**使用方法**：其他安逸花外呼数据可基于此 `schema.json` 中定义的意图和槽位，",
@@ -1980,7 +2294,7 @@ def save_sgd_to_directory(
         "",
         "| 文件 | 说明 |",
         "|---|---|",
-        f"| `schema.json` | 数据驱动服务 Schema（{schema_intents_count} 个意图 / {schema_slots_count} 个槽位，由 Phase 0 归纳）|",
+        f"| `schema.json` | 完整 SGD Schema（预定义 + 归纳合并，{schema_intents_count} 个意图 / {schema_slots_count} 个槽位）|",
     ]
     for i in range(1, file_count + 1):
         start_idx = (i - 1) * dialogues_per_file + 1
@@ -2011,9 +2325,10 @@ def save_sgd_to_directory(
         "",
         "## 提取方法",
         "",
-        "1. **Phase 0（本体归纳）**：LLM 从原始对话数据中归纳意图/槽位/对话行为 → 生成 `schema.json`",
-        "2. **Phase 1（逐轮标注）**：以 Phase 0 归纳的 schema 为指导，LLM 逐轮提取 SGD 字段",
-        "3. **CRM 数据**：通过 `parse_user_info()` 解析，注入 `slot_values` 和 `service_results`",
+        "1. **Phase 0（本体归纳）**：LLM 从原始对话数据中归纳意图/槽位/对话行为",
+        "2. **本体合并**：预定义常量 + Phase 0 归纳结果合并去重 → `schema.json`（最完整定义列表）",
+        "3. **Phase 1（逐轮标注）**：以合并 schema 为指导，LLM 逐轮提取 SGD 字段",
+        "4. **CRM 数据**：通过 `parse_user_info()` 解析，注入 `slot_values` 和 `service_results`",
         "",
         "详见 `resources/data/chat_test_extraction_report.md` 完整分析报告。",
         "",
@@ -2165,11 +2480,38 @@ def main() -> None:
         json.dump(comparison, f, ensure_ascii=False, indent=2)
     print(f"  ✅ 对比报告 : {comparison_path}")
 
+    # ——— 合并本体（预定义 + 归纳，去重）———
+    print("▶ 合并本体（预定义 + 数据归纳，去重）...")
+    merged_ontology = merge_ontologies(predefined, discovered_ontology)
+    merged_path = output_dir / "chat_test_merged_ontology.json"
+    with open(merged_path, "w", encoding="utf-8") as f:
+        json.dump(merged_ontology, f, ensure_ascii=False, indent=2)
+    ms = merged_ontology["merge_stats"]
+    print(
+        f"  ✅ 合并本体 : {merged_path}"
+        f"（{merged_ontology['total_intents']} 意图 / "
+        f"{merged_ontology['total_slots']} 槽位 / "
+        f"{merged_ontology['total_acts']} 对话行为）"
+    )
+
+    # 用合并本体生成完整 SGD Schema（替代仅数据驱动的版本）
+    merged_schema_list = discovered_ontology_to_sgd_schema_list(merged_ontology)
+    merged_schema_path = output_dir / "chat_test_merged_schema.json"
+    with open(merged_schema_path, "w", encoding="utf-8") as f:
+        json.dump(merged_schema_list, f, ensure_ascii=False, indent=2)
+    _ms = merged_schema_list[0] if merged_schema_list else {}
+    print(
+        f"  ✅ 完整 SGD Schema : {merged_schema_path}"
+        f"（{len(_ms.get('intents', []))} 意图 / {len(_ms.get('slots', []))} 槽位）"
+    )
+
     if not args.no_markdown:
         md_path = output_dir / "chat_test_extraction_report.md"
         md = generate_markdown_report(agg, str(input_path), sample_n)
         # 追加对比节
         md += "\n" + generate_comparison_markdown(comparison)
+        # 追加合并本体节
+        md += "\n" + generate_merged_ontology_markdown(merged_ontology)
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md)
         print(f"  ✅ Markdown  : {md_path}")
@@ -2180,7 +2522,7 @@ def main() -> None:
         sgd_summary = save_sgd_to_directory(
             sgd_dialogues=sgd_dialogues,
             output_sgd_dir=output_sgd_dir,
-            schema_list=derived_schema_list,
+            schema_list=merged_schema_list,
             model_info=model_info,
             sample_n=sample_n,
             dialogues_per_file=args.dialogues_per_file,
@@ -2225,16 +2567,33 @@ def main() -> None:
     print(f"  意图：预定义 {ci['predefined_total']} / 已验证 {ci['confirmed_count']} ✅ / 缺失 {ci['missing_count']} ⚠️ / 新增 {ci['new_count']} 🆕")
     print(f"  槽位：预定义 {cs['predefined_total']} / 已验证 {cs['confirmed_count']} ✅ / 缺失 {cs['missing_count']} ⚠️ / 新增 {cs['new_count']} 🆕")
 
+    # 打印合并本体摘要
+    print(f"\n  --- 完整合并本体（预定义 + 归纳）---")
+    print(f"  意图：{merged_ontology['total_intents']} 个  "
+          f"（预定义独有 {ms['intents_from_predefined_only']}，"
+          f"两者均有 {ms['intents_in_both']}，"
+          f"归纳新增 {ms['intents_from_discovered_only']}）")
+    print(f"  槽位：{merged_ontology['total_slots']} 个  "
+          f"（预定义独有 {ms['slots_from_predefined_only']}，"
+          f"两者均有 {ms['slots_in_both']}，"
+          f"归纳新增 {ms['slots_from_discovered_only']}）")
+    print(f"  对话行为：{merged_ontology['total_acts']} 个  "
+          f"（预定义独有 {ms['acts_from_predefined_only']}，"
+          f"两者均有 {ms['acts_in_both']}，"
+          f"归纳新增 {ms['acts_from_discovered_only']}）")
+
     print(f"\n  --- 输出文件 ---")
     print(f"  {output_dir}/")
     print(f"    ├── chat_test_discovered_ontology.json    （Phase 0 归纳的服务本体，原始格式）")
-    print(f"    ├── chat_test_derived_schema.json          （数据驱动 SGD Schema，可作为提取模板）")
+    print(f"    ├── chat_test_derived_schema.json          （仅数据驱动 SGD Schema）")
+    print(f"    ├── chat_test_merged_ontology.json         （完整合并本体，含 source 标注，去重）")
+    print(f"    ├── chat_test_merged_schema.json           （完整 SGD Schema，预定义 + 归纳合并）")
     print(f"    ├── chat_test_extraction_report.json       （机器可读统计报告）")
-    print(f"    ├── chat_test_extraction_report.md         （人类可读 Markdown 报告，含对比分析）")
+    print(f"    ├── chat_test_extraction_report.md         （人类可读 Markdown 报告，含对比+合并本体）")
     print(f"    ├── chat_test_predefined_comparison.json   （预定义本体对比：矫正/更新/扩充）")
     if not args.no_sgd_export:
         print(f"    └── anyihua_sgd_extracted/         （SGD 格式对话数据集）")
-        print(f"          ├── schema.json                  （数据驱动 Schema，{len(_ds.get('intents', []))} 意图/{len(_ds.get('slots', []))} 槽位）")
+        print(f"          ├── schema.json                  （完整 Schema，预定义 + 归纳合并，{len(_ms.get('intents', []))} 意图/{len(_ms.get('slots', []))} 槽位）")
         for i in range(1, sgd_summary["dialogue_files"] + 1):
             print(f"          ├── dialogues_{i:03d}.json")
         print(f"          ├── extraction_summary.json")
