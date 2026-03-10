@@ -129,8 +129,10 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "注意：仅当坐席在陈述用户当前可提现额度时才检测；"
                 "促销奖励额度、活动固定额度等不纳入检测范围"
             ),
+            "is_transactional": False,
             "required_slots": ["system_credit"],
             "optional_slots": ["credit_discrepancy", "discrepant_amount_text"],
+            "result_slots": ["system_credit", "credit_discrepancy", "discrepant_amount_text"],
         },
         {
             "name": "check_reply_repetition",
@@ -141,8 +143,10 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "精确重复（exact_repeat=True）时须标注为【重复询问】；"
                 "高相似度时由 LLM 进一步判断是否为实质重复"
             ),
+            "is_transactional": False,
             "required_slots": ["exact_repeat", "repeat_count"],
             "optional_slots": ["similarity_score"],
+            "result_slots": ["exact_repeat", "repeat_count", "similarity_score"],
         },
         {
             "name": "check_farewell_context",
@@ -153,8 +157,10 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "has_farewell=True 且 unresolved_issue_count > 0 时，"
                 "由 LLM 判断未解决诉求是否真实，是则标注为【不当告别】"
             ),
+            "is_transactional": False,
             "required_slots": ["has_farewell", "unresolved_issue_count"],
             "optional_slots": ["last_unresolved_issue"],
+            "result_slots": ["has_farewell", "unresolved_issue_count", "last_unresolved_issue"],
         },
         {
             "name": "check_topic_relevance",
@@ -165,8 +171,10 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "由 LLM 判断坐席回复是否与用户问题在同一话题范围内；"
                 "仅当回复与问题完全无关时才标注为【答非所问】"
             ),
+            "is_transactional": False,
             "required_slots": ["last_user_question", "user_has_inquiry"],
             "optional_slots": ["topic_mismatch_hint"],
+            "result_slots": ["last_user_question", "user_has_inquiry", "topic_mismatch_hint"],
         },
         {
             "name": "assign_quality_label",
@@ -176,6 +184,7 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "第一个明确成立的即为最终标签；均不成立则返回【无标签命中】。"
                 "此意图不调用额外 API，由 LLM 基于已填充的槽位进行综合推理"
             ),
+            "is_transactional": False,
             "required_slots": ["quality_label"],
             "optional_slots": [
                 "system_credit",
@@ -186,6 +195,7 @@ ANYIHUA_QC_SCHEMA_DICT = {
                 "unresolved_issue_count",
                 "last_user_question",
             ],
+            "result_slots": ["quality_label"],
         },
     ],
 }

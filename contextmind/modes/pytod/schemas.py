@@ -52,6 +52,15 @@ class SlotDefinition:
             "is_required": self.is_required,
         }
 
+    def to_sgd_dict(self) -> Dict[str, Any]:
+        """导出为标准 SGD 格式字典（不含 is_required，与 SGD 规范对齐）。"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "is_categorical": self.is_categorical,
+            "possible_values": self.possible_values,
+        }
+
 
 @dataclass
 class IntentDefinition:
@@ -61,6 +70,8 @@ class IntentDefinition:
     description: str
     required_slots: List[str] = field(default_factory=list)
     optional_slots: List[str] = field(default_factory=list)
+    result_slots: List[str] = field(default_factory=list)
+    is_transactional: bool = False
 
     def to_prompt_text(self) -> str:
         """生成适合嵌入 prompt 的意图说明文本。"""
@@ -73,21 +84,54 @@ class IntentDefinition:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "IntentDefinition":
-        """从字典构造 IntentDefinition。"""
+        """从字典构造 IntentDefinition。
+
+        支持两种 optional_slots 格式：
+        - SGD 原始格式：dict {slot_name: default_value}
+        - 内部列表格式：list [slot_name, ...]
+        """
+        raw_optional = data.get("optional_slots", [])
+        if isinstance(raw_optional, dict):
+            optional_slots: List[str] = list(raw_optional.keys())
+        else:
+            optional_slots = list(raw_optional)
         return cls(
             name=data["name"],
             description=data.get("description", ""),
             required_slots=data.get("required_slots", []),
-            optional_slots=data.get("optional_slots", []),
+            optional_slots=optional_slots,
+            result_slots=data.get("result_slots", []),
+            is_transactional=data.get("is_transactional", False),
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        """导出为字典（可序列化为 JSON）。"""
+        """导出为内部字典格式（可序列化为 JSON）。"""
         return {
             "name": self.name,
             "description": self.description,
+            "is_transactional": self.is_transactional,
             "required_slots": self.required_slots,
             "optional_slots": self.optional_slots,
+            "result_slots": self.result_slots,
+        }
+
+    def to_sgd_dict(self) -> Dict[str, Any]:
+        """导出为标准 SGD 格式字典。
+
+        与 to_dict() 的区别：optional_slots 输出为 dict {slot_name: ""}
+        （SGD 规范要求），而非 list。
+
+        使用场景：
+        - 需要输出标准 SGD schema.json 时使用本方法
+        - 需要保持内部 list 格式时使用 to_dict()
+        """
+        return {
+            "name": self.name,
+            "description": self.description,
+            "is_transactional": self.is_transactional,
+            "required_slots": self.required_slots,
+            "optional_slots": {s: "" for s in self.optional_slots},
+            "result_slots": self.result_slots,
         }
 
 
@@ -170,6 +214,30 @@ class ServiceSchema:
             "slots": [s.to_dict() for s in self.slots],
             "intents": [i.to_dict() for i in self.intents],
         }
+
+    def to_sgd_dict(self) -> Dict[str, Any]:
+        """导出为标准 SGD 格式字典。
+
+        与 to_dict() 的区别：
+        - slots 使用 to_sgd_dict()（不含 is_required）
+        - intents 使用 to_sgd_dict()（optional_slots 为 dict 格式）
+        输出可直接嵌入 SGD schema.json 的服务条目列表中。
+        """
+        return {
+            "service_name": self.service_name,
+            "description": self.description,
+            "slots": [s.to_sgd_dict() for s in self.slots],
+            "intents": [i.to_sgd_dict() for i in self.intents],
+        }
+
+    def to_sgd_json(self, indent: int = 2) -> str:
+        """导出为 SGD 格式 JSON 字符串（顶层为数组，符合 schema.json 规范）。
+
+        SGD 的 schema.json 即使只有一个服务，也必须使用 JSON 数组格式：
+        ``[{"service_name": "...", ...}]``。这一约定来自 SGD 官方数据集规范，
+        允许一个 schema 文件中包含多个服务定义（训练集包含 26 个服务）。
+        """
+        return json.dumps([self.to_sgd_dict()], ensure_ascii=False, indent=indent)
 
     @classmethod
     def from_json(cls, json_str: str) -> "ServiceSchema":

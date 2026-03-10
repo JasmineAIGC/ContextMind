@@ -85,8 +85,10 @@ ANYIHUA_SCHEMA_DICT = {
                 "调用 verify_customer API 传入用户提供的姓名和手机尾号，"
                 "通过 identity_confirmed 字段确认身份后才可进行后续账户信息告知"
             ),
+            "is_transactional": False,
             "required_slots": ["customer_name", "identity_confirmed"],
             "optional_slots": ["phone_suffix"],
+            "result_slots": ["identity_confirmed"],
         },
         {
             "name": "explain_credit_limit",
@@ -95,14 +97,18 @@ ANYIHUA_SCHEMA_DICT = {
                 "必须先调用 query_account API 获取 available_credit，"
                 "不得自行计算或估算金额（防止数据错误）"
             ),
+            "is_transactional": False,
             "required_slots": ["customer_name", "available_credit"],
             "optional_slots": ["temp_credit", "temp_credit_status", "temp_expiry_days"],
+            "result_slots": ["available_credit", "temp_credit", "temp_credit_status"],
         },
         {
             "name": "explain_interest_rate",
             "description": "解释利率和还款方式，可调用 calculate_repayment API 获取具体数据",
+            "is_transactional": False,
             "required_slots": ["customer_name", "annual_rate_pct"],
             "optional_slots": ["term_months"],
+            "result_slots": ["annual_rate_pct"],
         },
         {
             "name": "calculate_repayment",
@@ -110,8 +116,12 @@ ANYIHUA_SCHEMA_DICT = {
                 "计算指定金额和期数的月还款额。"
                 "调用 calculate_repayment API，传入用户指定的 amount 和 months"
             ),
+            "is_transactional": False,
             "required_slots": ["customer_name"],
             "optional_slots": ["inquiry_amount", "term_months"],
+            # result_slots 为空：计算结果由对话管理器（LLM）直接在回复中告知用户，
+            # 不作为持久槽位存储，无需通过 slot_values 传递
+            "result_slots": [],
         },
         {
             "name": "explain_displayed_amount",
@@ -120,14 +130,18 @@ ANYIHUA_SCHEMA_DICT = {
                 "调用 query_account 获取 available_credit 和 temp_credit，"
                 "结合用户提到的 inquiry_amount 进行说明"
             ),
+            "is_transactional": False,
             "required_slots": ["customer_name", "inquiry_amount"],
             "optional_slots": ["available_credit", "temp_credit", "temp_credit_status"],
+            "result_slots": ["available_credit", "temp_credit"],
         },
         {
             "name": "handle_loan_dispute",
             "description": "核实用户争议的借款记录，调用 query_loan_records API 获取事实数据",
+            "is_transactional": False,
             "required_slots": ["customer_name", "dispute_date"],
             "optional_slots": ["last_loan_date", "loan_count", "outstanding_amount"],
+            "result_slots": ["last_loan_date", "loan_count", "outstanding_amount"],
         },
         {
             "name": "guide_loan_operation",
@@ -136,8 +150,10 @@ ANYIHUA_SCHEMA_DICT = {
                 "先调用 query_account 获取 available_credit，再调用 get_agent_history API；"
                 "历史中同一话术出现 2 次以上时改为 escalate_to_human"
             ),
+            "is_transactional": False,
             "required_slots": ["customer_name"],
             "optional_slots": ["available_credit"],
+            "result_slots": [],
         },
         {
             "name": "escalate_to_human",
@@ -145,8 +161,10 @@ ANYIHUA_SCHEMA_DICT = {
                 "转接人工客服。"
                 "触发条件：同一问题重复解释 2 次以上无效、用户明确投诉、复杂账单争议"
             ),
+            "is_transactional": True,
             "required_slots": ["customer_name"],
             "optional_slots": ["dispute_date", "inquiry_amount"],
+            "result_slots": [],
         },
         {
             "name": "say_goodbye",
@@ -155,8 +173,10 @@ ANYIHUA_SCHEMA_DICT = {
                 "必须先调用 query_unresolved_issues API，"
                 "确认 issue_count=0（无未解决诉求）才可执行告别，否则继续解决用户问题或转人工"
             ),
+            "is_transactional": False,
             "required_slots": ["customer_name"],
             "optional_slots": [],
+            "result_slots": [],
         },
     ],
 }
