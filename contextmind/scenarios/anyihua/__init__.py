@@ -1,7 +1,7 @@
 """
 安逸花外呼促活场景 · PyTOD 实现
 
-本场景包含三个独立任务，代码完全隔离：
+本场景包含四个独立任务，代码完全隔离：
 
 任务一：离线质检（Label Prediction / QC）
     位置: contextmind/scenarios/anyihua/qc/
@@ -48,6 +48,21 @@
         extract_partial_schema_from_dialogue,
     )
 
+任务四：增量精准知识库（Incremental Knowledge Base）
+    位置: contextmind/scenarios/anyihua/knowledge_base/
+    入口: KnowledgeStore + IncrementalMerger
+
+    将 Schema 提取管线（任务三）产出的 SGD 格式对话增量摄入到结构化
+    知识库，提供完整 CRUD 接口，支持精准查询和冲突可溯追踪。
+
+    from contextmind.scenarios.anyihua.knowledge_base import (
+        KnowledgeStore,
+        IncrementalMerger,
+        SlotEvidence, SlotFact, CustomerRecord, ConflictEntry, KBStats,
+        MergeReport,
+        ConfidenceFirstStrategy, NewerFirstStrategy, ServiceResultFirstStrategy,
+    )
+
 共享工具:
     from contextmind.scenarios.anyihua.utils import (
         cn2int, extract_amounts, parse_user_info,
@@ -72,6 +87,19 @@ from .schema_extraction import (
     save_schema_as_sgd,
     align_schema_with_sgd,
     format_comparison_report,
+)
+from .knowledge_base import (
+    KnowledgeStore,
+    IncrementalMerger,
+    MergeReport,
+    SlotEvidence,
+    SlotFact,
+    CustomerRecord,
+    ConflictEntry,
+    KBStats,
+    ConfidenceFirstStrategy,
+    NewerFirstStrategy,
+    ServiceResultFirstStrategy,
 )
 
 __all__ = [
@@ -103,4 +131,16 @@ __all__ = [
     "save_schema_as_sgd",
     "align_schema_with_sgd",
     "format_comparison_report",
+    # 任务四：Incremental Knowledge Base
+    "KnowledgeStore",
+    "IncrementalMerger",
+    "MergeReport",
+    "SlotEvidence",
+    "SlotFact",
+    "CustomerRecord",
+    "ConflictEntry",
+    "KBStats",
+    "ConfidenceFirstStrategy",
+    "NewerFirstStrategy",
+    "ServiceResultFirstStrategy",
 ]
