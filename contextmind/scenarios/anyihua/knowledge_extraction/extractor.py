@@ -304,35 +304,41 @@ def _build_provenance(
 # LLM 提取 Prompt（轮次感知 + Schema 引导）
 # --------------------------------------------------------------------------- #
 
-# 安逸花外呼业务 Schema（基于 anyihua_schema_induction_demo.py）
+# 安逸花外呼业务 Schema（与 resources/anyihua_sgd/schema.json 对齐）
 _SCHEMA_CONTEXT = """\
 【提取 Schema（安逸花外呼业务）】
 
-槽位值（slot_value）：
-  - customer_name       : 客户姓名（如"高先生"）
-  - phone_suffix        : 手机尾号（如"六七八"）
-  - available_credit    : 可用额度（如"两万一千九百块钱"）
-  - loan_amount         : 借款金额（如"六百块钱"）
-  - loan_status         : 借款状态（如"已还清"、"未还清"）
-  - repayment_date      : 还款日（如"十一月一日"）
-  - interest_rate       : 借款利率（如"百分之二十四"）
-  - bank_name           : 绑定银行（如"农业银行"）
-  - loan_date           : 借款时间（如"二五年五月份"）
-  - overdue_days        : 逾期天数（如"几天"）
-  - credit_limit        : 授信额度（如"一万八千元"）
+槽位值（slot_value）——与 resources/anyihua_sgd/schema.json 一致：
+  - customer_name       : 客户姓名（如"高先生"、"杨女士"）
+  - phone_suffix        : 手机尾号（3–4 位数字，用于身份核实）
+  - dispute_date        : 用户质疑的借款日期（如"七月二十三号"）
+  - inquiry_amount      : 用户询问或质疑的金额（元）
+  - term_months         : 用户询问的分期期数（如 12）
+  - identity_confirmed  : 身份是否已核实（true / false）
+  - available_credit    : 当前可提现额度（元）
+  - temp_credit         : 临时额度上限（元）
+  - temp_credit_status  : 临时额度是否有效（有效 / 已过期 / 无临时额度）
+  - temp_expiry_days    : 临时额度剩余有效天数
+  - annual_rate_pct     : 年化利率（%）
+  - loan_count          : 当前未还清借款笔数
+  - last_loan_date      : 最近一次借款日期（中文格式）
+  - outstanding_amount  : 当前未还款金额（元）
+  - billing_day         : 账单日（每月几号）
 
-用户意图（intent）：
-  - verify_identity     : 核实身份
-  - handle_loan_dispute : 处理借款纠纷（投诉不明借款记录）
-  - inquire_credit      : 询问额度
-  - inquire_interest    : 询问利率
-  - request_repayment_plan : 请求还款方案
-  - say_goodbye         : 结束通话
-  - confirm_account_usage  : 确认账户使用情况
-  - reject_promotion    : 拒绝促销推荐
+用户意图（intent）——与 resources/anyihua_sgd/schema.json 一致：
+  - verify_identity       : 开场身份核实，确认来电者是账户本人
+  - explain_credit_limit  : 告知额度情况
+  - explain_interest_rate : 解释利率和还款方式
+  - calculate_repayment   : 计算指定金额和期数的月还款额
+  - explain_displayed_amount : 解释 APP 显示金额的构成
+  - handle_loan_dispute   : 核实用户争议的借款记录
+  - guide_loan_operation  : 引导用户在 APP 完成借款操作
+  - escalate_to_human     : 转接人工客服
+  - say_goodbye           : 礼貌告别
+  - general_inquiry       : 通用询问（无法匹配其他意图时的默认意图）
 
 关键事实（fact）：
-  不属于上述两类的重要业务事实（如逾期记录、临时额度到期等）"""
+  不属于上述两类的重要业务事实（如逾期记录、临时额度到期、已授信天数等）"""
 
 _EXTRACTION_SYSTEM_PROMPT = f"""\
 你是安逸花外呼对话的知识提取专家。
@@ -722,6 +728,72 @@ class AnyihuaKnowledgeExtractor:
             save_results(results, Path(save_path))
 
         return results
+
+    def convert_to_sgd(
+        self,
+        result: ExtractionResult,
+        raw_dialogue: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        将单条提取结果与原始对话合并，转换为 SGD 格式对话字典。
+
+        参数:
+            result:       extract() 返回的 ExtractionResult
+            raw_dialogue: 对应的原始对话条目
+
+        返回:
+            SGD 格式对话字典（可直接序列化为 JSON）
+        """
+        from .sgd_converter import to_sgd_dialogue
+        return to_sgd_dialogue(result, raw_dialogue)
+
+    def convert_to_sgd_batch(
+        self,
+        results: List[ExtractionResult],
+        raw_dialogues: Sequence[Dict[str, Any]],
+        output_dir: Optional[Path] = None,
+        schema_source: Optional[Path] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        批量将提取结果与原始对话合并，转换为 SGD 格式对话列表。
+
+        参数:
+            results:       extract_batch() 返回的 ExtractionResult 列表
+            raw_dialogues: 原始对话条目列表（与 results 一一对应）
+            output_dir:    若指定，自动调用 save_as_sgd() 保存文件
+            schema_source: schema.json 来源路径（传给 save_as_sgd）
+
+        返回:
+            SGD 格式对话字典列表
+        """
+        from .sgd_converter import save_as_sgd, to_sgd_dialogue
+        n = min(len(results), len(raw_dialogues))
+        logger.info(f"[AnyihuaExtractor] ═══ 开始 SGD 格式转换，共 {n} 条对话 ═══")
+
+        sgd_dialogues: List[Dict[str, Any]] = []
+        for i in range(n):
+            try:
+                sgd_dialogues.append(to_sgd_dialogue(results[i], raw_dialogues[i]))
+            except Exception as exc:
+                logger.error(
+                    f"[AnyihuaExtractor] ✗ SGD 转换失败 [{i}] "
+                    f"({results[i].dialogue_id}): {exc}"
+                )
+
+        logger.info(
+            f"[AnyihuaExtractor] SGD 转换完成: {len(sgd_dialogues)} 条对话，"
+            f"共 {sum(len(d['turns']) for d in sgd_dialogues)} 轮"
+        )
+
+        if output_dir is not None:
+            save_as_sgd(
+                results=results,
+                raw_dialogues=list(raw_dialogues),
+                output_dir=Path(output_dir),
+                schema_source=schema_source,
+            )
+
+        return sgd_dialogues
 
     # ------------------------------------------------------------------
     # 内部方法
