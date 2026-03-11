@@ -68,6 +68,7 @@ docs/
 │   └── context-engineering.md     # 上下文工程意义
 ├── analysis/                      # 实验分析报告
 │   ├── pytod-vs-fnctod-comparison.md
+│   └── pytod-engine-api-explained.md  # 安逸花双任务引擎架构说明
 └── datasets/                      # 数据集文档
     ├── sgd.md                     # SGD 数据集（PyTOD 使用）
     ├── transfertod.md             # TransferTOD 数据集

@@ -44,6 +44,7 @@ from .schemas import (
     get_chat_function_schema,
     get_callcenter_function_schema,
     get_insurance_function_schema,
+    get_anyihua_function_schema,
     get_function_schema_for_scenario,
 )
 
@@ -59,6 +60,7 @@ __all__ = [
     'get_chat_function_schema',
     'get_callcenter_function_schema',
     'get_insurance_function_schema',
+    'get_anyihua_function_schema',
     'get_function_schema_for_scenario',
 ]
 

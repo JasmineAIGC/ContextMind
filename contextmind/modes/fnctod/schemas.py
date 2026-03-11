@@ -69,6 +69,11 @@ def get_insurance_function_schema() -> DomainSpec:
     return _get_all_schemas()["insurance"]
 
 
+def get_anyihua_function_schema() -> DomainSpec:
+    """获取安逸花外呼促活场景的函数 Schema。"""
+    return _get_all_schemas()["anyihua"]
+
+
 def get_function_schema_for_scenario(scenario_name: str) -> DomainSpec:
     """
     根据场景名称获取对应的函数 Schema。
