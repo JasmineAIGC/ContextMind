@@ -137,6 +137,13 @@ _CHINESE_QUOTE_RE = re.compile(r"^「(.+)」$")
 # 最多嵌套 3 层，加 1 次收敛确认，共 4 次迭代足够覆盖所有实际情况
 _MAX_CLEANING_ITERATIONS = 4
 
+# 溯源对齐的临近轮次搜索窗口（±N 轮）。
+# 设为 3 可覆盖 LLM 最常见的 ±1 偏差（含跨说话人的转换），保留余量到 ±3。
+_NEARBY_SEARCH_WINDOW = 3
+
+# 全量搜索时要求 provenance_text 最少字符数，避免超短文本在无关轮次中误匹配。
+_MIN_PROVENANCE_LEN_FOR_GLOBAL_SEARCH = 4
+
 
 # --------------------------------------------------------------------------- #
 # 提取统计字段说明
@@ -151,12 +158,19 @@ STATS_FIELD_DESCRIPTIONS: Dict[str, str] = {
         "成功完成字符区间溯源的条目数，即 provenance_text 能在对应轮次话语中精确定位"
     ),
     "unaligned": (
-        "溯源失败的条目数：provenance_text 无法在对应轮次话语中定位，"
-        "通常因 LLM 改写了原话、或 turn_idx 指向了错误的轮次"
+        "溯源失败的条目数：provenance_text 无法在任何轮次话语中定位，"
+        "通常因 LLM 改写了原话，或 provenance_text 本身不是对话原文"
     ),
     "alignment_rate": (
         "溯源成功率 = aligned / total，介于 0.0（完全失败）和 1.0（全部成功）之间，"
         "越高说明 LLM 返回的 provenance_text 质量越好"
+    ),
+    "turn_corrected": (
+        "溯源时发现 LLM 给出的 turn_idx 有偏差，系统通过临近轮次搜索自动修正的条目数。"
+        "常见原因：LLM 将 turn_idx 偏移了 ±1（典型的说话人混淆）"
+    ),
+    "global_search_found": (
+        "turn_idx 无效或临近搜索失败后，通过全量扫描所有轮次成功定位 provenance_text 的条目数"
     ),
     "skipped_incomplete": (
         "因字段缺失（extraction_class / label / value / provenance_text 任一为空）"
@@ -589,6 +603,83 @@ def _align_to_turn(
         return None, None
 
 
+def _find_turn_by_search(
+    provenance_text: str,
+    turn_idx: int,
+    turn_map: Dict[int, Tuple[str, str]],
+) -> Tuple[int, str, Optional[int], Optional[int], bool, bool]:
+    """
+    当主对齐失败后，在临近轮次及全量轮次中搜索 provenance_text。
+
+    对齐策略（调用方已对 turn_idx 尝试过 _align_to_turn 且失败）：
+
+    1. **临近窗口搜索**（仅当 turn_idx ≥ 0，即 extract() 已验证为合法索引）
+       在 ±_NEARBY_SEARCH_WINDOW 范围内，按距离由近到远逐轮尝试。
+       这修正了 LLM 最常见的偏差：把相邻轮（尤其是说话人不同的那一轮）
+       的文本标注到了错误的 turn_idx 上。
+
+    2. **全量搜索**（兜底）
+       若窗口内找不到，扫描所有其余轮次（turn_idx ≥ 0 时扫描窗口外的轮次）。
+       当 turn_idx < 0（调用方已将无效或超出范围的索引归一化为 -1）时，
+       跳过阶段 1，直接全量扫描所有轮次。
+       为避免超短文本误匹配，要求 cleaned provenance_text 长度 ≥
+       _MIN_PROVENANCE_LEN_FOR_GLOBAL_SEARCH 个字符。
+
+    注意：extract() 会在调用本函数前将所有超出范围或非整数的 turn_idx 归一化为 -1，
+    因此本函数收到的 turn_idx 只有两类：合法索引（≥ 0）或 -1。
+
+    返回:
+        (corrected_turn_idx, corrected_speaker, char_start, char_end,
+         turn_was_corrected, found_by_global_search)
+
+        · turn_was_corrected = True  表示找到的轮次与原 turn_idx 不同，
+          或原 turn_idx 无效（< 0），任何找到的轮次都算修正
+        · found_by_global_search = True  表示是通过全量扫描找到的（距离 > 窗口，或 turn_idx < 0）
+        · 所有尝试均失败时返回 (turn_idx, orig_speaker, None, None, False, False)
+    """
+    orig_speaker = turn_map.get(turn_idx, ("", ""))[0]
+    cleaned = _clean_provenance_text(provenance_text)
+    is_invalid_idx = turn_idx < 0
+
+    if not is_invalid_idx:
+        # ── 阶段 1：临近窗口搜索 ──
+        others_sorted = sorted(
+            [t for t in turn_map if t != turn_idx],
+            key=lambda t: abs(t - turn_idx),
+        )
+        for t in others_sorted:
+            if abs(t - turn_idx) > _NEARBY_SEARCH_WINDOW:
+                break  # 已按距离升序排列，超出窗口后无需继续
+            sp, utt = turn_map[t]
+            s, e = _align_to_turn(provenance_text, utt)
+            if s is not None:
+                logger.debug(
+                    f"[AnyihuaExtractor] 临近修正 turn_idx: {turn_idx}→{t}"
+                    f" (Δ={t - turn_idx:+d})"
+                )
+                return t, sp, s, e, True, False
+
+        # ── 阶段 2：全量扫描（窗口外的轮次） ──
+        outer_cands = [t for t in others_sorted if abs(t - turn_idx) > _NEARBY_SEARCH_WINDOW]
+    else:
+        # turn_idx 无效（-1），直接全量扫描所有轮次
+        outer_cands = sorted(turn_map.keys())
+
+    if len(cleaned) >= _MIN_PROVENANCE_LEN_FOR_GLOBAL_SEARCH:
+        for t in outer_cands:
+            sp, utt = turn_map[t]
+            s, e = _align_to_turn(provenance_text, utt)
+            if s is not None:
+                logger.debug(
+                    f"[AnyihuaExtractor] 全量搜索找到 turn_idx: {turn_idx}→{t}"
+                    + (f" (Δ={t - turn_idx:+d})" if not is_invalid_idx else "")
+                )
+                # 任何 turn_idx 变化都算修正（is_invalid_idx 时 t ≥ 0 ≠ -1，必然修正）
+                return t, sp, s, e, True, True
+
+    return turn_idx, orig_speaker, None, None, False, False
+
+
 # --------------------------------------------------------------------------- #
 # 溯源字符串构建
 # --------------------------------------------------------------------------- #
@@ -869,7 +960,8 @@ class AnyihuaKnowledgeExtractor:
                 source_text="",
                 turns=[],
                 knowledge_items=[],
-                stats={"total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0, "turns": 0},
+                stats={"total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0,
+                       "turn_corrected": 0, "global_search_found": 0, "skipped_incomplete": 0, "turns": 0},
             )
 
         logger.info(
@@ -888,7 +980,8 @@ class AnyihuaKnowledgeExtractor:
                 source_text=source_text,
                 turns=turns,
                 knowledge_items=[],
-                stats={"total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0, "turns": len(turns)},
+                stats={"total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0,
+                       "turn_corrected": 0, "global_search_found": 0, "skipped_incomplete": 0, "turns": len(turns)},
             )
 
         logger.info(f"[AnyihuaExtractor] LLM 返回 {len(raw_items)} 条候选提取结果")
@@ -898,6 +991,8 @@ class AnyihuaKnowledgeExtractor:
         knowledge_items: List[KnowledgeItem] = []
         aligned_count = 0
         skipped_count = 0
+        turn_corrected_count = 0   # LLM turn_idx 偏差被自动修正的条目数
+        global_search_count = 0    # 通过全量扫描找到溯源的条目数
 
         for i, item in enumerate(raw_items):
             cls = str(item.get("extraction_class", "")).strip()
@@ -932,19 +1027,44 @@ class AnyihuaKnowledgeExtractor:
                 turn_text = ""
                 turn_idx = -1
 
-            # 轮级 WordAligner 对齐（只对该轮短文本对齐）
+            # 主路径：轮级 WordAligner 对齐（只对该轮短文本对齐）
             char_start, char_end = _align_to_turn(prov_text, turn_text)
+            turn_corrected = False
+            by_global = False
+
+            # 主路径失败时，通过临近搜索 / 全量搜索自动修正 turn_idx 偏差
+            if char_start is None:
+                (
+                    turn_idx,
+                    speaker,
+                    char_start,
+                    char_end,
+                    turn_corrected,
+                    by_global,
+                ) = _find_turn_by_search(prov_text, turn_idx, turn_map)
+                if char_start is not None and turn_corrected:
+                    logger.info(
+                        f"[AnyihuaExtractor] 修正 turn_idx → 第{turn_idx + 1}轮({speaker})"
+                        f"（{'全量' if by_global else '临近'}搜索）"
+                        f" [{cls}] {label}: {value[:20]}"
+                    )
 
             if char_start is not None:
                 aligned_count += 1
+                if turn_corrected:
+                    turn_corrected_count += 1
+                if by_global:
+                    global_search_count += 1
                 logger.debug(
                     f"[AnyihuaExtractor] ✓ [{cls}] {label}: {value[:30]} "
                     f"← 第{turn_idx+1}轮({speaker}) 位置[{char_start}:{char_end}]"
+                    + (" (修正)" if turn_corrected else "")
                 )
             else:
+                turn_display = f"{turn_idx + 1}" if turn_idx >= 0 else "?"
                 logger.debug(
                     f"[AnyihuaExtractor] △ [{cls}] {label}: {value[:30]} "
-                    f"← 第{turn_idx+1}轮({speaker}) 溯源失败（「{prov_text[:20]}」）"
+                    f"← 第{turn_display}轮({speaker}) 溯源失败（「{prov_text[:20]}」）"
                 )
 
             provenance = _build_provenance(prov_text, turn_idx, speaker, char_start, char_end)
@@ -965,6 +1085,8 @@ class AnyihuaKnowledgeExtractor:
             "aligned": aligned_count,
             "unaligned": total - aligned_count,
             "alignment_rate": round(aligned_count / total, 3) if total else 0.0,
+            "turn_corrected": turn_corrected_count,
+            "global_search_found": global_search_count,
             "skipped_incomplete": skipped_count,
             "turns": len(turns),
         }
@@ -1041,6 +1163,9 @@ class AnyihuaKnowledgeExtractor:
                             "aligned": 0,
                             "unaligned": 0,
                             "alignment_rate": 0.0,
+                            "turn_corrected": 0,
+                            "global_search_found": 0,
+                            "skipped_incomplete": 0,
                             "turns": len(turns),
                             "error": str(exc),
                         },
