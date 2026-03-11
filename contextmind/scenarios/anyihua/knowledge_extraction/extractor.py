@@ -112,6 +112,18 @@ _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 _SPEAKER_LABEL = {"SYSTEM": "坐席", "USER": "用户"}
 
+# 匹配 LLM 可能在 provenance_text 中附加的轮次前缀，如 [第1轮(坐席)] 或 [第12轮(用户)]
+_TURN_LABEL_RE = re.compile(r"^\[第\d+轮\([^)]*\)\]\s*")
+# 匹配说话人前缀（LLM 偶尔把原始文件里的 "坐席：" 或 "用户：" 带入 provenance_text）
+_SPEAKER_PREFIX_RE = re.compile(r"^(坐席|用户)[：:]\s*")
+# 匹配被「」包裹的文本（LLM 有时会给 provenance_text 加引号）
+_CHINESE_QUOTE_RE = re.compile(r"^「(.+)」$")
+
+# 最多清除轮次：3 种前缀/包裹可能相互嵌套（如 [第N轮(坐席)] 「坐席：xxx」），
+# 最多嵌套 3 层，加 1 次收敛确认，共 4 次迭代足够覆盖所有实际情况
+_MAX_CLEANING_ITERATIONS = 4
+
+
 
 # --------------------------------------------------------------------------- #
 # 数据模型
@@ -236,6 +248,43 @@ def _parse_turns(dialogue: Dict[str, Any]) -> Tuple[str, List[Tuple[int, str, st
 # --------------------------------------------------------------------------- #
 
 
+def _clean_provenance_text(raw: str) -> str:
+    """
+    清除 LLM 在 provenance_text 中附加的冗余前缀或包裹符号。
+
+    处理以下三类 LLM 常见错误（反复应用直到稳定，支持多层嵌套）：
+    1. 轮次前缀：`[第N轮(说话人)] ` — LLM 从 source_text 直接复制了整行（含标记）
+    2. 说话人前缀：`坐席：` / `用户：` — LLM 带入了原始文件的话者标签
+    3. 中文引号包裹：`「…」` — LLM 使用引号包裹 verbatim 文本
+
+    每种清除仅去除前缀或外层包裹，不会改写话语内容本身，因此不存在"过度清除"。
+    例如：`[第3轮(坐席)] 「您好，我是坐席：小李」` → `您好，我是坐席：小李`
+    （内部的"坐席："不会被误删，因为 _SPEAKER_PREFIX_RE 只匹配行首）
+
+    参数:
+        raw: LLM 原始返回的 provenance_text 字段
+
+    返回:
+        去除上述噪声后的干净文本，若结果为空则返回原始值（避免全部丢失）
+    """
+    text = raw.strip()
+    # 反复清除，直到稳定（处理多层嵌套，如 [第3轮(坐席)] 「您好」 → 「您好」 → 您好）
+    # _MAX_CLEANING_ITERATIONS 次足以覆盖最多 3 层嵌套 + 1 次收敛确认
+    for _ in range(_MAX_CLEANING_ITERATIONS):
+        prev = text
+        # 1. 去除「」包裹
+        m = _CHINESE_QUOTE_RE.match(text)
+        if m:
+            text = m.group(1).strip()
+        # 2. 去除轮次标签前缀 [第N轮(xxx)]
+        text = _TURN_LABEL_RE.sub("", text).strip()
+        # 3. 去除说话人前缀 坐席：/ 用户：
+        text = _SPEAKER_PREFIX_RE.sub("", text).strip()
+        if text == prev:
+            break  # 已稳定，不再循环
+    return text if text else raw
+
+
 def _align_to_turn(
     provenance_text: str,
     turn_text: str,
@@ -243,17 +292,43 @@ def _align_to_turn(
     """
     将 provenance_text 精确对齐到单轮话语文本的字符区间。
 
+    对齐策略（依优先级）：
+    1. 预处理：清除 LLM 在 provenance_text 中附加的轮次前缀/引号/说话人前缀
+    2. 快速路径：直接 str.find()，处理精确子串（最常见、最可靠）
+    3. WordAligner 回退：处理近似匹配（LLM 轻微改写等边缘情况）
+
+    注意：_clean_provenance_text 只去除行首前缀/外层包裹，不会过度清除话语内容。
+    因此清除前后的两种 provenance_text 都尝试 str.find()，仅当两者不同时才
+    额外尝试 raw（防御性措施，应对极端边缘情况）。
+
     参数:
-        provenance_text: LLM 给出的 verbatim 原文片段
-        turn_text:       该轮次的原始话语文本（单段）
+        provenance_text: LLM 给出的 verbatim 原文片段（可能含噪声前缀）
+        turn_text:       该轮次的原始话语文本（单段，已去掉说话人前缀）
 
     返回:
         (char_start, char_end) 或 (None, None)（对齐失败）
     """
     if not provenance_text or not turn_text:
         return None, None
+
+    # Step 1: 预处理——清除 LLM 附加的冗余前缀 / 引号
+    cleaned = _clean_provenance_text(provenance_text)
+
+    # Step 2: 快速路径——精确子串查找（O(n)，最可靠）
+    pos = turn_text.find(cleaned)
+    if pos >= 0:
+        return pos, pos + len(cleaned)
+
+    # 若 cleaned 与 raw 不同（清除了某些前缀），也尝试原始文本——
+    # 防御极端边缘情况（如 provenance_text 本身就是话语全文，含本应属于内容的「」）
+    if cleaned != provenance_text:
+        pos_raw = turn_text.find(provenance_text)
+        if pos_raw >= 0:
+            return pos_raw, pos_raw + len(provenance_text)
+
+    # Step 3: WordAligner 回退（处理 LLM 轻微改写 / 近似匹配）
     try:
-        exts = [Extraction(extraction_class="x", extraction_text=provenance_text)]
+        exts = [Extraction(extraction_class="x", extraction_text=cleaned)]
         groups = _WORD_ALIGNER.align_extractions(
             [exts],
             turn_text,
@@ -268,7 +343,7 @@ def _align_to_turn(
             return aligned.char_interval.start_pos, aligned.char_interval.end_pos
         return None, None
     except Exception as exc:
-        logger.debug(f"[WordAligner] 对齐异常（{provenance_text!r}）: {exc}")
+        logger.debug(f"[WordAligner] 对齐异常（{cleaned!r}）: {exc}")
         return None, None
 
 
@@ -377,7 +452,8 @@ _EXTRACTION_SYSTEM_PROMPT = f"""\
 
 关键约束：
 - turn_idx 必须是整数，从 0 开始；第1轮对应 0，第2轮对应 1，以此类推
-- provenance_text 必须是对应轮次话语中完全相同的文本片段（verbatim），不能改写
+- provenance_text 必须是对应轮次 **话语内容** 部分的逐字子串，不包含 "[第N轮(说话人)]" 前缀，不能改写
+- provenance_text 只写话语内容本身，不要加引号「」，不要加"坐席："/"用户："前缀
 - 如果一个信息在对话中多次出现，只提取一次（选最早出现的轮次）
 - 只提取对话中明确出现的信息，不猜测不推断
 - 只输出 JSON，不要任何额外说明"""
