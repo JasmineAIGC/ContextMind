@@ -168,7 +168,6 @@ scenarios/
 │   ├── scenario.py          # get_insurance_scenario()
 │   └── app.py               # InsuranceApplication
 │
-└── anyihua/                 # 安意化场景（UNCHANGED）
 ```
 
 **依赖**: infra, modes/evolve
@@ -183,9 +182,7 @@ examples/
 ├── web_demo.py                # Web界面示例（Gradio）
 ├── batch_demo.py              # 批量测试示例
 ├── pytod_trace_demo.py        # PyTOD 追踪演示
-├── anyihua_engines_demo.py    # 安意化引擎演示
-├── anyihua_generation_demo.py # 安意化生成演示
-└── anyihua_qc_demo.py         # 安意化质检演示
+└── anyihua_schema_induction_demo.py  # 安逸花 Schema 归纳演示
 ```
 
 **用途**: 展示如何使用 ContextMind
@@ -234,7 +231,6 @@ docs/
 ```
 resources/
 ├── data/                # 数据文件
-│   ├── chat_test_100.json   # 闲聊测试数据
 │   └── risawoz_test.json    # RiSAWOZ 测试数据
 └── fonts/               # 字体文件
 ```

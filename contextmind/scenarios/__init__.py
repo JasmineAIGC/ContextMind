@@ -6,7 +6,6 @@ ContextMind 场景定义和应用
 - 系统提示词（prompts）
 - 场景注册表（scenario_registry）及 YAML 配置（scenarios.yaml）
 - 三个内置场景包（chat / callcenter / insurance）
-- 安意化（anyihua）专属场景
 
 每个场景子包均提供：
   - ``get_<name>_scenario()`` — 返回 ScenarioConfig 配置对象

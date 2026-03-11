@@ -16,9 +16,8 @@
 7. [输出格式对比](#7-输出格式对比)
 8. [失败降级与容错对比](#8-失败降级与容错对比)
 9. [性能特征对比](#9-性能特征对比)
-10. [实际应用：安逸花质检场景](#10-实际应用安逸花质检场景)
-11. [选型决策指南](#11-选型决策指南)
-12. [核心结论](#12-核心结论)
+10. [选型决策指南](#10-选型决策指南)
+11. [核心结论](#11-核心结论)
 
 ---
 
@@ -31,7 +30,7 @@
 | **核心隐喻** | **程序执行**——对话管理器生成可执行程序，引擎真实运行它 | **函数调用**——LLM 像调用函数一样填充 Schema 定义的参数 |
 | **ContextMind 实现路径** | `contextmind/modes/pytod/` | `contextmind/modes/fnctod/` |
 | **入口追踪器** | `PyTODTracker` | `FnCTODTracker` |
-| **已知测试数据集** | SGD（Schema-Guided Dialogue）、安逸花外呼质检 | TransferTOD、安逸花外呼质检 |
+| **已知测试数据集** | SGD（Schema-Guided Dialogue） | TransferTOD |
 
 ---
 
@@ -486,80 +485,18 @@ if not domains:
 
 基于 ContextMind 文档中记录的评测数据：
 
-| 场景 | PyTOD（安逸花质检） | FnCTOD（TransferTOD） |
+| 场景 | PyTOD（SGD） | FnCTOD（TransferTOD） |
 |------|-------------------|--------------------|
-| **总体准确率** | 71%（修复后目标） | ~85–90%（TransferTOD 槽位准确率） |
-| **机械性错误检测** | P=87% R=87%（数据错误、重复询问） | 依赖 Schema 覆盖度 |
+| **总体准确率** | SGD 基准 | ~85–90%（TransferTOD 槽位准确率） |
+| **机械性错误检测** | 高确定性规则覆盖 | 依赖 Schema 覆盖度 |
 | **语义性错误** | LLM 语义推理，规则辅助 | LLM 槽位填充 |
 | **新领域扩展** | 注册新 API 即可 | 需更新 Schema |
 
 ---
 
-## 10. 实际应用：安逸花质检场景
+## 10. 选型决策指南
 
-安逸花 QC 场景是 ContextMind 中两个框架**共同实际使用**的最好案例，提供了罕见的直接对比机会。
-
-### 10.1 PyTOD 在安逸花 QC 中的角色
-
-在 `contextmind/scenarios/anyihua/qc/` 中，PyTOD 执行引擎被用于**事实数据提取 API**：
-
-```python
-# build_qc_engine(session) 注册 4 个事实数据 API：
-engine = build_qc_engine(session)
-
-# API 1：额度事实（数据错误检测）
-credit = engine.registry["get_credit_data"]()
-# → {"system_credit": 48897, "discrepant_amounts": [("五万一千两百", 51200, 2303)], ...}
-
-# API 2：重复度量（重复询问检测）
-rep = engine.registry["get_repetition_data"]()
-# → {"exact_repeat": True, "max_similarity": 1.0, ...}
-
-# API 3：告别事实（不当告别检测）
-fare = engine.registry["get_farewell_data"]()
-# → {"has_farewell": True, "unresolved_count": 2, "hint": "⚠️ 用户有未解决诉求..."}
-
-# API 4：话题相关性（答非所问检测）
-topic = engine.registry["get_topic_data"]()
-# → {"user_has_inquiry": True, "topic_mismatch_hint": ""}
-```
-
-**关键洞见**：PyTOD 在此场景的核心价值不是"对话状态追踪"，而是提供**客观事实数据**（金额偏差、重复匹配、告别词检测），让 LLM 判断质量标签时有可靠依据而非依赖自身记忆/幻觉。
-
-### 10.2 Hybrid 模式：PyTOD 规则优先 + LLM 兜底
-
-```python
-# predict_label_pytod() 纯规则预测（无 LLM）
-label, confidence, reason = predict_label_pytod(session)
-
-if label is not None:
-    return {"label": label, "source": "pytod"}  # 直接输出，无 LLM 消耗
-else:
-    # 规则无法判断 → 走 LLM 路径（classify_session_llm）
-    # LLM 收到 PyTOD 引擎的结构化 hints 作为预分析辅助
-    label, reason = await classify_session_llm(session, llm_client)
-```
-
-**实测效果**：
-- 32/100 会话无需 LLM 调用（精度 81%）
-- 数据错误、重复询问：P=87% R=87%（规则完全可覆盖）
-- 答非所问：P=0%（纯规则无法检测，必须 LLM）
-
-### 10.3 FnCTOD 在安逸花质检中的对比路径
-
-若用 FnCTOD 完成同样任务，需要：
-1. 预定义 5 个标签的 Schema（数据错误/重复询问/不当告别/答非所问/无标签命中）
-2. LLM 调用时填充"predicted_label"槽位
-3. **无法实现 PyTOD 的规则短路**（FnCTOD 无执行引擎，无法运行 Python 逻辑）
-4. **无法访问真实系统数据**（FnCTOD 无 API 调用，extra_credit 对比等需要规则代码）
-
-**结论**：安逸花质检场景中，PyTOD 的执行引擎是关键差异点——它能运行 Python 代码（精确字符串匹配、SequenceMatcher 相似度、正则提取金额），这是 FnCTOD 无法做到的。
-
----
-
-## 11. 选型决策指南
-
-### 11.1 应选 PyTOD 的场景
+### 10.1 应选 PyTOD 的场景
 
 ```
 ✅ 需要调用真实 API（CRM 查询、数据库查询、计算）
@@ -577,7 +514,7 @@ else:
 - 天气播报（需要实时数据 API）
 - 订单查询（需要数据库查询）
 
-### 11.2 应选 FnCTOD 的场景
+### 10.2 应选 FnCTOD 的场景
 
 ```
 ✅ 对话状态追踪（DST）任务，Schema 稳定清晰
@@ -594,7 +531,7 @@ else:
 - 客服工单创建（收集结构化信息）
 - 保险咨询（提取意图类型、险种、客户信息）
 
-### 11.3 决策流程图
+### 10.3 决策流程图
 
 ```
                     需要执行真实 Python 代码 / 调用 API？
@@ -607,7 +544,7 @@ else:
                                         单领域？ → 单阶段（快 30%）
 ```
 
-### 11.4 关键取舍汇总
+### 10.4 关键取舍汇总
 
 | 决策维度 | 选 PyTOD | 选 FnCTOD |
 |---------|--------|---------|
@@ -621,14 +558,14 @@ else:
 
 ---
 
-## 12. 核心结论
+## 11. 核心结论
 
-### 12.1 本质区别一句话
+### 11.1 本质区别一句话
 
 > **PyTOD = 程序员写函数，LLM 调用它们**
 > **FnCTOD = 设计师定义 Schema，LLM 填充它**
 
-### 12.2 三个最重要的差异
+### 11.2 三个最重要的差异
 
 1. **执行反馈（PyTOD 独有）**  
    PyTOD 的执行引擎真实运行代码，返回客观数据；FnCTOD 的"函数调用"只是 LLM 输出的格式约定，不真正执行代码。这一差异在数据准确性上至关重要。
@@ -639,7 +576,7 @@ else:
 3. **LLM 调用中的职责分配**  
    PyTOD 将"理解意图"和"生成回复"拆成两次 LLM 调用，中间插入真实执行；FnCTOD 将"提取参数"和"生成回复"合并在一次 LLM 调用中，更高效但无真实执行。
 
-### 12.3 互补关系
+### 11.3 互补关系
 
 两个框架并非竞争关系，而是**互补**的：
 
@@ -652,10 +589,10 @@ else:
                     最优架构建议
               混合使用：PyTOD 执行引擎提供可靠
               事实数据，FnCTOD Schema 约束输出格式
-              （如安逸花 QC 的 Hybrid 模式）
+
 ```
 
-安逸花 QC 场景已经证明：PyTOD 执行引擎（事实提取）+ LLM 语义推理（classify_session_llm）的组合，比单独使用任何一方都更准确和高效。
+两个框架的最优实践是混合使用：PyTOD 执行引擎（事实提取）+ LLM 语义推理的组合，比单独使用任何一方都更准确和高效。
 
 ---
 
