@@ -1,7 +1,7 @@
 """
 安逸花外呼 · 知识提取（单轮对话 + langextract 溯源版）
 
-核心设计：逐轮提取 + 轮级溯源
+核心设计：逐轮提取 + 轮级溯源 + 动态 Schema
 ==================================
 
 安逸花外呼数据是多轮对话。langextract 的 WordAligner 设计用于对单段文本做字符
@@ -16,18 +16,8 @@
    WordAligner 输入为短单段文本，对齐精度大幅提升。
 4. **单一溯源字段**：对齐成功时为 ``「原文片段」[第N轮(说话人) 位置 s:e]``，
    对齐失败时为 ``「原文片段」[第N轮(说话人) 溯源失败]``。
-
-提取 Schema（基于 anyihua_schema_induction_demo.py）:
-    槽位（slot_value）:
-        customer_name, phone_suffix, available_credit, loan_amount,
-        loan_status, repayment_date, interest_rate, bank_name,
-        loan_date, overdue_days, credit_limit
-    意图（intent）:
-        verify_identity, handle_loan_dispute, inquire_credit,
-        inquire_interest, request_repayment_plan, say_goodbye,
-        confirm_account_usage, reject_promotion
-    事实（fact）:
-        任意其他对话中提及的业务事实
+5. **动态 Schema**：槽位、意图、事实定义均可通过 ``ExtractionSchema`` 灵活配置，
+   支持开放式提取（LLM 自由命名 label）或预定义受限提取。
 
 工作流程::
 
@@ -38,7 +28,7 @@
     [(idx, speaker, utterance), ...]
         │
         ▼
-    LLM 提取（含轮次感知 prompt）
+    LLM 提取（含轮次感知 prompt + ExtractionSchema 生成的 schema 段落）
     ┌──────────────────────────────────────────────┐
     │ extraction_class, label, value               │
     │ turn_idx（来自哪一轮）                        │
@@ -53,7 +43,7 @@
     └──────────────────────────────────────────────┘
         │
         ▼
-    ExtractionResult（可 JSON 序列化，可保存文件）
+    ExtractionResult（可 JSON 序列化，可保存文件，可转为 SGD 格式）
 
 LLM 客户端通过 ``contextmind/infra/llm_client.py`` + ``.env`` 统一初始化。
 
@@ -61,18 +51,42 @@ LLM 客户端通过 ``contextmind/infra/llm_client.py`` + ``.env`` 统一初始�
 
     import json
     from pathlib import Path
-    from contextmind.scenarios.anyihua.knowledge_extraction import AnyihuaKnowledgeExtractor
+    from contextmind.scenarios.anyihua.knowledge_extraction import (
+        AnyihuaKnowledgeExtractor,
+        ExtractionSchema, SlotDefinition, IntentDefinition,
+        DEFAULT_SCHEMA, STATS_FIELD_DESCRIPTIONS,
+    )
 
     dialogues = json.loads(Path("resources/data/chat_test_100.json").read_text())
 
-    # LLM 从 .env 自动加载，无需手动传入
+    # 使用默认 Schema（安逸花外呼预定义槽位 + 意图）
     extractor = AnyihuaKnowledgeExtractor()
+
+    # 或使用自定义 Schema（如换一个业务场景，或增加/修改槽位名称）
+    custom_schema = ExtractionSchema(
+        scene_name="银行信用卡外呼",
+        slots=[
+            SlotDefinition("customer_name", "客户姓名"),
+            SlotDefinition("card_limit", "信用卡额度"),
+        ],
+        intents=[
+            IntentDefinition("verify_identity", "身份核实"),
+            IntentDefinition("explain_bill", "账单说明"),
+        ],
+        fact_description="其他重要信用卡业务事实",
+        slot_open_ended=True,  # 允许 LLM 在上述列表之外自由提取新槽位
+    )
+    extractor = AnyihuaKnowledgeExtractor(schema=custom_schema)
 
     # 单条提取
     result = extractor.extract(dialogues[0])
     for item in result.knowledge_items:
         print(f"[第{item.turn_idx+1}轮({item.speaker})] [{item.extraction_class}] {item.label}: {item.value}")
         print(f"  溯源: {item.provenance}")
+
+    # 查看统计字段说明
+    for key, info in result.stats_explained.items():
+        print(f"{key}={info['value']}  —— {info['description']}")
 
     # 批量提取，结果自动保存为文件
     results = extractor.extract_batch(dialogues[:10], save_path=Path("data/results.json"))
@@ -85,7 +99,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 # --------------------------------------------------------------------------- #
 # langextract — 数据类型 + 溯源对齐工具
@@ -124,10 +138,219 @@ _CHINESE_QUOTE_RE = re.compile(r"^「(.+)」$")
 _MAX_CLEANING_ITERATIONS = 4
 
 
+# --------------------------------------------------------------------------- #
+# 提取统计字段说明
+# --------------------------------------------------------------------------- #
+
+#: 每个统计字段的中文说明，可用于展示给用户。
+STATS_FIELD_DESCRIPTIONS: Dict[str, str] = {
+    "total": (
+        "本次提取出的知识条目总数（槽位值 + 意图 + 事实之和，不含被跳过的不完整条目）"
+    ),
+    "aligned": (
+        "成功完成字符区间溯源的条目数，即 provenance_text 能在对应轮次话语中精确定位"
+    ),
+    "unaligned": (
+        "溯源失败的条目数：provenance_text 无法在对应轮次话语中定位，"
+        "通常因 LLM 改写了原话、或 turn_idx 指向了错误的轮次"
+    ),
+    "alignment_rate": (
+        "溯源成功率 = aligned / total，介于 0.0（完全失败）和 1.0（全部成功）之间，"
+        "越高说明 LLM 返回的 provenance_text 质量越好"
+    ),
+    "skipped_incomplete": (
+        "因字段缺失（extraction_class / label / value / provenance_text 任一为空）"
+        "而被丢弃的 LLM 返回条目数，不计入 total"
+    ),
+    "turns": (
+        "本条对话拆解后的总轮次数（每句坐席话语或用户话语为一轮）"
+    ),
+    "error": (
+        "批量处理时捕获的异常信息（仅在该条对话提取出错时出现）"
+    ),
+}
+
 
 # --------------------------------------------------------------------------- #
-# 数据模型
+# 动态提取 Schema
 # --------------------------------------------------------------------------- #
+
+
+@dataclass
+class SlotDefinition:
+    """
+    单个槽位定义。
+
+    属性:
+        name:        槽位名称（英文，作为 JSON key 和 label 使用）
+        description: 槽位含义说明（中文，用于生成提示词）
+    """
+
+    name: str
+    description: str
+
+
+@dataclass
+class IntentDefinition:
+    """
+    单个意图定义。
+
+    属性:
+        name:        意图名称（英文）
+        description: 意图含义说明（中文）
+    """
+
+    name: str
+    description: str
+
+
+@dataclass
+class ExtractionSchema:
+    """
+    动态提取 Schema：定义本次提取所用的槽位、意图和事实描述。
+
+    不同业务场景可定义不同的 Schema，传入 ``AnyihuaKnowledgeExtractor``
+    以替换默认的安逸花外呼 Schema。
+
+    属性:
+        scene_name:      业务场景名称（中文，用于提示词标题，如"安逸花外呼"）
+        slots:           槽位定义列表；为空时允许 LLM 自由命名槽位（开放槽位模式）
+        intents:         意图定义列表；为空时允许 LLM 自由命名意图（开放意图模式）
+        fact_description:对话中"事实（fact）"类知识的补充说明，用于 prompt
+        slot_open_ended: True = 允许 LLM 提取不在 slots 列表中的槽位（仅当 slots 非空）
+        intent_open_ended:True = 允许 LLM 提取不在 intents 列表中的意图（仅当 intents 非空）
+
+    示例::
+
+        from contextmind.scenarios.anyihua.knowledge_extraction import ExtractionSchema, SlotDefinition, IntentDefinition
+
+        schema = ExtractionSchema(
+            scene_name="银行贷款外呼",
+            slots=[
+                SlotDefinition("customer_name", "客户姓名"),
+                SlotDefinition("loan_amount", "贷款金额（元）"),
+                SlotDefinition("repayment_date", "还款日期"),
+            ],
+            intents=[
+                IntentDefinition("verify_identity", "核实身份"),
+                IntentDefinition("explain_terms", "解释贷款条款"),
+            ],
+            fact_description="其他重要的贷款业务事实",
+            slot_open_ended=True,   # 允许 LLM 提取 schema 之外的槽位
+            intent_open_ended=False,
+        )
+        extractor = AnyihuaKnowledgeExtractor(schema=schema)
+    """
+
+    scene_name: str = "安逸花外呼"
+    slots: List[SlotDefinition] = field(default_factory=list)
+    intents: List[IntentDefinition] = field(default_factory=list)
+    fact_description: str = (
+        "不属于上述两类的重要业务事实（如逾期记录、临时额度到期、已授信天数等）"
+    )
+    slot_open_ended: bool = False
+    intent_open_ended: bool = False
+
+
+#: 默认安逸花外呼业务 Schema（与 resources/anyihua_sgd/schema.json 对齐）。
+#: 可作为模板 clone 后修改，传给 AnyihuaKnowledgeExtractor(schema=...)。
+DEFAULT_SCHEMA = ExtractionSchema(
+    scene_name="安逸花外呼",
+    slots=[
+        SlotDefinition("customer_name", '客户姓名（如"高先生"、"杨女士"）'),
+        SlotDefinition("phone_suffix", "手机尾号（3–4 位数字，用于身份核实）"),
+        SlotDefinition("dispute_date", '用户质疑的借款日期（如"七月二十三号"）'),
+        SlotDefinition("inquiry_amount", "用户询问或质疑的金额（元）"),
+        SlotDefinition("term_months", "用户询问的分期期数（如 12）"),
+        SlotDefinition("identity_confirmed", "身份是否已核实（true / false）"),
+        SlotDefinition("available_credit", "当前可提现额度（元）"),
+        SlotDefinition("temp_credit", "临时额度上限（元）"),
+        SlotDefinition("temp_credit_status", "临时额度是否有效（有效 / 已过期 / 无临时额度）"),
+        SlotDefinition("temp_expiry_days", "临时额度剩余有效天数"),
+        SlotDefinition("annual_rate_pct", "年化利率（%）"),
+        SlotDefinition("loan_count", "当前未还清借款笔数"),
+        SlotDefinition("last_loan_date", "最近一次借款日期（中文格式）"),
+        SlotDefinition("outstanding_amount", "当前未还款金额（元）"),
+        SlotDefinition("billing_day", "账单日（每月几号）"),
+    ],
+    intents=[
+        IntentDefinition("verify_identity", "开场身份核实，确认来电者是账户本人"),
+        IntentDefinition("explain_credit_limit", "告知额度情况"),
+        IntentDefinition("explain_interest_rate", "解释利率和还款方式"),
+        IntentDefinition("calculate_repayment", "计算指定金额和期数的月还款额"),
+        IntentDefinition("explain_displayed_amount", "解释 APP 显示金额的构成"),
+        IntentDefinition("handle_loan_dispute", "核实用户争议的借款记录"),
+        IntentDefinition("guide_loan_operation", "引导用户在 APP 完成借款操作"),
+        IntentDefinition("escalate_to_human", "转接人工客服"),
+        IntentDefinition("say_goodbye", "礼貌告别"),
+        IntentDefinition("general_inquiry", "通用询问（无法匹配其他意图时的默认意图）"),
+    ],
+    fact_description="不属于上述两类的重要业务事实（如逾期记录、临时额度到期、已授信天数等）",
+    slot_open_ended=False,
+    intent_open_ended=False,
+)
+
+
+def _build_schema_context(schema: ExtractionSchema) -> str:
+    """
+    将 ExtractionSchema 转换为 prompt 中的 Schema 说明段落。
+
+    参数:
+        schema: 动态提取 Schema 对象
+
+    返回:
+        格式化好的中文 Schema 说明字符串（直接嵌入 system prompt）
+    """
+    lines: List[str] = [f"【提取 Schema（{schema.scene_name}业务）】"]
+
+    # 槽位部分
+    if schema.slots:
+        lines.append("")
+        lines.append("槽位值（slot_value）——提取时 label 必须从以下名称中选取：")
+        max_name_len = max((len(s.name) for s in schema.slots), default=0)
+        for s in schema.slots:
+            padding = " " * (max_name_len - len(s.name))
+            lines.append(f"  - {s.name}{padding} : {s.description}")
+        if schema.slot_open_ended:
+            lines.append(
+                "  （以上为参考列表，如对话中出现以上未涵盖的重要槽位，"
+                "可自行命名并提取）"
+            )
+    else:
+        lines.append("")
+        lines.append(
+            "槽位值（slot_value）——对话中涉及的所有业务槽位，"
+            "请根据对话内容自行命名 label（无预定义列表）。"
+        )
+
+    # 意图部分
+    if schema.intents:
+        lines.append("")
+        lines.append("用户意图（intent）——提取时 label 必须从以下名称中选取：")
+        max_name_len = max((len(i.name) for i in schema.intents), default=0)
+        for i in schema.intents:
+            padding = " " * (max_name_len - len(i.name))
+            lines.append(f"  - {i.name}{padding} : {i.description}")
+        if schema.intent_open_ended:
+            lines.append(
+                "  （以上为参考列表，如对话中出现以上未涵盖的意图，"
+                "可自行命名并提取）"
+            )
+    else:
+        lines.append("")
+        lines.append(
+            "用户意图（intent）——对话中体现的所有意图，"
+            "请根据对话内容自行命名 label（无预定义列表）。"
+        )
+
+    # 事实部分
+    lines.append("")
+    lines.append(f"关键事实（fact）：\n  {schema.fact_description}")
+
+    return "\n".join(lines)
+
+
+
 
 
 @dataclass
@@ -168,7 +391,7 @@ class ExtractionResult:
         source_text:    完整对话文本（含轮次标记）
         turns:          解析后的轮次列表 [(turn_idx, speaker, utterance)]
         knowledge_items:提取出的知识列表，每条的 provenance 标明轮次与位置
-        stats:          提取统计：total / aligned / unaligned / alignment_rate / turns
+        stats:          提取统计字典，各字段含义见 STATS_FIELD_DESCRIPTIONS
         extracted_at:   提取时间戳
     """
 
@@ -191,6 +414,25 @@ class ExtractionResult:
             "stats": self.stats,
             "extracted_at": self.extracted_at,
         }
+
+    @property
+    def stats_explained(self) -> Dict[str, Dict[str, Any]]:
+        """
+        返回带字段说明的统计信息，格式为 ``{字段名: {"value": ..., "description": ...}}``。
+
+        示例::
+
+            for key, info in result.stats_explained.items():
+                print(f"{key}: {info['value']}  —— {info['description']}")
+        """
+        return {
+            key: {
+                "value": val,
+                "description": STATS_FIELD_DESCRIPTIONS.get(key, ""),
+            }
+            for key, val in self.stats.items()
+        }
+
 
 
 # --------------------------------------------------------------------------- #
@@ -379,46 +621,17 @@ def _build_provenance(
 # LLM 提取 Prompt（轮次感知 + Schema 引导）
 # --------------------------------------------------------------------------- #
 
-# 安逸花外呼业务 Schema（与 resources/anyihua_sgd/schema.json 对齐）
-_SCHEMA_CONTEXT = """\
-【提取 Schema（安逸花外呼业务）】
+# 旧版硬编码 schema context 仅作向后兼容保留，提取器内部已改用 _build_schema_context()
+_SCHEMA_CONTEXT = _build_schema_context(DEFAULT_SCHEMA)
 
-槽位值（slot_value）——与 resources/anyihua_sgd/schema.json 一致：
-  - customer_name       : 客户姓名（如"高先生"、"杨女士"）
-  - phone_suffix        : 手机尾号（3–4 位数字，用于身份核实）
-  - dispute_date        : 用户质疑的借款日期（如"七月二十三号"）
-  - inquiry_amount      : 用户询问或质疑的金额（元）
-  - term_months         : 用户询问的分期期数（如 12）
-  - identity_confirmed  : 身份是否已核实（true / false）
-  - available_credit    : 当前可提现额度（元）
-  - temp_credit         : 临时额度上限（元）
-  - temp_credit_status  : 临时额度是否有效（有效 / 已过期 / 无临时额度）
-  - temp_expiry_days    : 临时额度剩余有效天数
-  - annual_rate_pct     : 年化利率（%）
-  - loan_count          : 当前未还清借款笔数
-  - last_loan_date      : 最近一次借款日期（中文格式）
-  - outstanding_amount  : 当前未还款金额（元）
-  - billing_day         : 账单日（每月几号）
 
-用户意图（intent）——与 resources/anyihua_sgd/schema.json 一致：
-  - verify_identity       : 开场身份核实，确认来电者是账户本人
-  - explain_credit_limit  : 告知额度情况
-  - explain_interest_rate : 解释利率和还款方式
-  - calculate_repayment   : 计算指定金额和期数的月还款额
-  - explain_displayed_amount : 解释 APP 显示金额的构成
-  - handle_loan_dispute   : 核实用户争议的借款记录
-  - guide_loan_operation  : 引导用户在 APP 完成借款操作
-  - escalate_to_human     : 转接人工客服
-  - say_goodbye           : 礼貌告别
-  - general_inquiry       : 通用询问（无法匹配其他意图时的默认意图）
+def _build_system_prompt(schema: ExtractionSchema) -> str:
+    """根据 schema 动态生成 system prompt。"""
+    schema_ctx = _build_schema_context(schema)
+    return f"""\
+你是{schema.scene_name}对话的知识提取专家。
 
-关键事实（fact）：
-  不属于上述两类的重要业务事实（如逾期记录、临时额度到期、已授信天数等）"""
-
-_EXTRACTION_SYSTEM_PROMPT = f"""\
-你是安逸花外呼对话的知识提取专家。
-
-{_SCHEMA_CONTEXT}
+{schema_ctx}
 
 你的任务是从多轮对话中提取上述三类结构化知识。
 对话中每轮格式为：[第N轮(说话人)] 话语内容
@@ -428,14 +641,14 @@ _EXTRACTION_SYSTEM_PROMPT = f"""\
   "extractions": [
     {{
       "extraction_class": "slot_value",
-      "label": "<槽位名，来自上方列表>",
+      "label": "<槽位名>",
       "value": "<提取到的值>",
       "turn_idx": <0-based 整数，该信息来自第几轮，从0开始>,
       "provenance_text": "<该轮话语中原始出现的完整文本片段，必须是逐字子串>"
     }},
     {{
       "extraction_class": "intent",
-      "label": "<意图编码，来自上方列表>",
+      "label": "<意图编码>",
       "value": "<自然语言描述>",
       "turn_idx": <0-based 整数>,
       "provenance_text": "<触发此意图的原话，必须是该轮话语的逐字子串>"
@@ -458,19 +671,37 @@ _EXTRACTION_SYSTEM_PROMPT = f"""\
 - 只提取对话中明确出现的信息，不猜测不推断
 - 只输出 JSON，不要任何额外说明"""
 
+
+# 向后兼容：模块级常量（保持旧导入不报错）
+_EXTRACTION_SYSTEM_PROMPT = _build_system_prompt(DEFAULT_SCHEMA)
+
 _EXTRACTION_USER_TEMPLATE = """\
-请从以下安逸花外呼对话中提取结构化知识（每条须标注 turn_idx 和 provenance_text）：
+请从以下{scene_name}对话中提取结构化知识（每条须标注 turn_idx 和 provenance_text）：
 
 {dialogue_text}
 
 请输出 JSON："""
 
 
-def _build_extraction_prompt(source_text: str) -> str:
-    return (
-        f"{_EXTRACTION_SYSTEM_PROMPT}\n\n"
-        + _EXTRACTION_USER_TEMPLATE.format(dialogue_text=source_text)
+def _build_extraction_prompt(source_text: str, schema: Optional[ExtractionSchema] = None) -> str:
+    """
+    构建发送给 LLM 的完整提取 prompt。
+
+    参数:
+        source_text: 带轮次标记的对话文本
+        schema:      提取 Schema；为 None 时使用 DEFAULT_SCHEMA
+
+    返回:
+        完整 prompt 字符串（system + user 拼接）
+    """
+    if schema is None:
+        schema = DEFAULT_SCHEMA
+    system = _build_system_prompt(schema)
+    user = _EXTRACTION_USER_TEMPLATE.format(
+        scene_name=schema.scene_name,
+        dialogue_text=source_text,
     )
+    return f"{system}\n\n{user}"
 
 
 def _parse_llm_extraction(llm_response: str) -> List[Dict[str, Any]]:
@@ -564,12 +795,37 @@ class AnyihuaKnowledgeExtractor:
     LLM 通过 ``contextmind/infra/llm_client.py`` + ``.env`` 统一初始化。
 
     参数:
-        llm_client: 可选的 SimpleLLMClient 实例；不传则自动从 .env 加载
+        llm_client:  可选的 SimpleLLMClient 实例；不传则自动从 .env 加载
+        schema:      提取 Schema（槽位、意图、事实定义）；不传则使用内置的
+                     ``DEFAULT_SCHEMA``（安逸花外呼 Schema）。
+                     传入自定义 ``ExtractionSchema`` 可适配任意业务场景。
+
+    示例（自定义 Schema）::
+
+        from contextmind.scenarios.anyihua.knowledge_extraction import (
+            AnyihuaKnowledgeExtractor, ExtractionSchema, SlotDefinition, IntentDefinition,
+        )
+
+        schema = ExtractionSchema(
+            scene_name="银行贷款外呼",
+            slots=[
+                SlotDefinition("customer_name", "客户姓名"),
+                SlotDefinition("loan_amount", "贷款金额（元）"),
+            ],
+            intents=[
+                IntentDefinition("verify_identity", "核实身份"),
+                IntentDefinition("explain_terms", "解释贷款条款"),
+            ],
+            fact_description="其他重要贷款业务事实",
+            slot_open_ended=True,   # 允许 LLM 自由扩展槽位
+        )
+        extractor = AnyihuaKnowledgeExtractor(schema=schema)
     """
 
     def __init__(
         self,
         llm_client: Optional[SimpleLLMClient] = None,
+        schema: Optional[ExtractionSchema] = None,
     ) -> None:
         if llm_client is None:
             try:
@@ -581,6 +837,8 @@ class AnyihuaKnowledgeExtractor:
                     f"原始错误: {exc}"
                 ) from exc
         self._llm: SimpleLLMClient = llm_client
+        self._schema: ExtractionSchema = schema if schema is not None else DEFAULT_SCHEMA
+
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -882,7 +1140,7 @@ class AnyihuaKnowledgeExtractor:
         通过 SimpleLLMClient.generate() 统一调用，与 .env 配置对应。
         LLM 输出中包含 turn_idx 字段，用于后续轮级 WordAligner 对齐。
         """
-        prompt = _build_extraction_prompt(source_text)
+        prompt = _build_extraction_prompt(source_text, self._schema)
         try:
             _reasoning, response = self._llm.generate(prompt)  # _reasoning = chain-of-thought (DeepSeek-R1 etc.)
             return _parse_llm_extraction(response)
@@ -899,6 +1157,7 @@ class AnyihuaKnowledgeExtractor:
 def extract_knowledge_with_provenance(
     dialogue: Dict[str, Any],
     llm_client: Optional[SimpleLLMClient] = None,
+    schema: Optional[ExtractionSchema] = None,
 ) -> ExtractionResult:
     """
     从单条安逸花外呼对话中提取带轮次归属与溯源的结构化知识（便捷函数）。
@@ -906,9 +1165,10 @@ def extract_knowledge_with_provenance(
     参数:
         dialogue:    原始对话条目（chat_test_100.json 单条）
         llm_client:  可选的 SimpleLLMClient 实例；若不传入则自动从 .env 加载
+        schema:      提取 Schema（槽位、意图定义）；不传则使用 DEFAULT_SCHEMA
 
     返回:
         ExtractionResult，每条知识项的 provenance 字段含轮次归属与字符位置
     """
-    extractor = AnyihuaKnowledgeExtractor(llm_client=llm_client)
+    extractor = AnyihuaKnowledgeExtractor(llm_client=llm_client, schema=schema)
     return extractor.extract(dialogue)

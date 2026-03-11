@@ -10,6 +10,11 @@
     from contextmind.scenarios.anyihua.knowledge_extraction import (
         AnyihuaKnowledgeExtractor,
         ExtractionResult,
+        ExtractionSchema,
+        SlotDefinition,
+        IntentDefinition,
+        DEFAULT_SCHEMA,
+        STATS_FIELD_DESCRIPTIONS,
         KnowledgeItem,
         extract_knowledge_with_provenance,
         save_results,
@@ -20,8 +25,13 @@
 
 from .extractor import (
     AnyihuaKnowledgeExtractor,
+    DEFAULT_SCHEMA,
     ExtractionResult,
+    ExtractionSchema,
+    IntentDefinition,
     KnowledgeItem,
+    SlotDefinition,
+    STATS_FIELD_DESCRIPTIONS,
     extract_knowledge_with_provenance,
     save_results,
 )
@@ -32,8 +42,13 @@ from .sgd_converter import (
 
 __all__ = [
     "AnyihuaKnowledgeExtractor",
+    "DEFAULT_SCHEMA",
     "ExtractionResult",
+    "ExtractionSchema",
+    "IntentDefinition",
     "KnowledgeItem",
+    "SlotDefinition",
+    "STATS_FIELD_DESCRIPTIONS",
     "extract_knowledge_with_provenance",
     "save_results",
     "to_sgd_dialogue",
