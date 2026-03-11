@@ -2,7 +2,10 @@
 安逸花外呼 · 知识提取（langextract 溯源版）
 
 以 langextract 为提取工具，从原始安逸花外呼对话数据中提取结构化知识，
-每条知识均携带完整的原文溯源信息（char_interval + alignment_status）。
+每条知识均携带一个 ``provenance`` 字段表示溯源内容（原文出处及字符位置）。
+
+LLM 客户端通过 ``contextmind/infra/llm_client.py`` + ``.env`` 统一初始化，
+无需在调用处手动传入。
 
 工作流程::
 
@@ -12,7 +15,7 @@
     对话文本化（_dialogue_to_text）
         │
         ▼
-    LLM 提取（SimpleLLMClient）
+    LLM 提取（SimpleLLMClient，从 .env 自动加载）
     ┌──────────────────────────────────┐
     │ 槽位值（slot_value）              │
     │ 用户意图（intent）                │
@@ -22,42 +25,36 @@
         │   verbatim 溯源文本片段
         ▼
     langextract WordAligner
-    ┌──────────────────────────────────┐
-    │ extraction_text → char_interval  │
-    │ alignment_status 对齐质量标记    │
-    └──────────────────────────────────┘
+    ┌──────────────────────────────────────────┐
+    │ 原文片段 → 字符区间（start_pos:end_pos） │
+    │ 整合为单一 provenance 字符串             │
+    └──────────────────────────────────────────┘
         │
         ▼
     ExtractionResult（可 JSON 序列化）
 
 溯源字段说明::
 
-    KnowledgeItem.provenance_text   : 原文中用于定位的原始文本片段（verbatim）
-    KnowledgeItem.char_start        : 在对话文本中的字符起始位置（含）
-    KnowledgeItem.char_end          : 在对话文本中的字符结束位置（不含）
-    KnowledgeItem.alignment_status  : 对齐质量
-                                      "match_exact"  — 精确匹配
-                                      "match_lesser" — 部分精确匹配
-                                      "match_fuzzy"  — 模糊匹配
-                                      None           — 对齐失败
+    KnowledgeItem.provenance : 单一溯源字段，格式为
+                               "「原文片段」[位置 start:end]"（对齐成功时）
+                               "「原文片段」"（对齐失败时，仍保留 LLM 给出的原文片段）
 
 典型使用::
 
     import json
     from pathlib import Path
-    from contextmind.infra.llm_client import SimpleLLMClient
     from contextmind.scenarios.anyihua.knowledge_extraction import AnyihuaKnowledgeExtractor
 
     dialogues = json.loads(Path("resources/data/chat_test_100.json").read_text())
-    llm = SimpleLLMClient()
-    extractor = AnyihuaKnowledgeExtractor(llm_client=llm)
+
+    # LLM 从 .env 自动加载，无需手动传入
+    extractor = AnyihuaKnowledgeExtractor()
 
     # 单条提取
     result = extractor.extract(dialogues[0])
     for item in result.knowledge_items:
         print(f"[{item.extraction_class}] {item.label}: {item.value}")
-        print(f"  溯源: {item.provenance_text!r}  @{item.char_start}:{item.char_end}")
-        print(f"  对齐质量: {item.alignment_status}")
+        print(f"  溯源: {item.provenance}")
 
     # 批量提取
     results = extractor.extract_batch(dialogues[:10])
@@ -80,6 +77,7 @@ from langextract.data import AlignmentStatus, CharInterval, ExampleData, Extract
 from langextract.resolver import WordAligner
 from langextract.tokenizer import UnicodeTokenizer
 
+from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
@@ -105,33 +103,22 @@ _USER_PREFIX = "用户："
 @dataclass
 class KnowledgeItem:
     """
-    单条提取知识，含完整原文溯源信息。
+    单条提取知识，含原文溯源信息。
 
     属性:
         extraction_class:  知识类别，"slot_value" / "intent" / "fact"
         label:             知识标签，槽位名 / 意图编码 / 事实标签
         value:             提取出的知识内容（自然语言文本）
-        provenance_text:   在对话原文中用于回溯定位的原始文本片段（verbatim）
-                           此字段直接传入 langextract WordAligner 做对齐
-        char_start:        在对话文本中的字符起始位置（含）；对齐失败时为 None
-        char_end:          在对话文本中的字符结束位置（不含）；对齐失败时为 None
-        alignment_status:  对齐质量（"match_exact" / "match_lesser" /
-                           "match_fuzzy" / None）
-        confidence:        置信度（由 alignment_status 自动推导）
+        provenance:        溯源内容（单一字段），格式：
+                           对齐成功时："「原文片段」[位置 start:end]"
+                           对齐失败时："「原文片段」"
+                           此字段直接告知该知识条目来自对话的哪段原文。
     """
 
     extraction_class: str
     label: str
     value: str
-    provenance_text: str
-    char_start: Optional[int] = None
-    char_end: Optional[int] = None
-    alignment_status: Optional[str] = None
-    confidence: float = 0.5
-
-    def is_aligned(self) -> bool:
-        """是否成功回溯定位到原文。"""
-        return self.char_start is not None and self.char_end is not None
+    provenance: str
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -140,12 +127,12 @@ class KnowledgeItem:
 @dataclass
 class ExtractionResult:
     """
-    单条对话的完整提取结果，含每条知识的原文溯源信息。
+    单条对话的完整提取结果，含每条知识的溯源信息。
 
     属性:
         dialogue_id:    对话唯一标识（来自 session_id 字段）
         source_text:    完整对话文本（含"坐席："/"用户："前缀）
-        knowledge_items:提取出的知识列表，每条附带 char_start/char_end 溯源
+        knowledge_items:提取出的知识列表，每条的 provenance 字段标明原文出处
         stats:          对齐统计：total / aligned / unaligned / alignment_rate
         extracted_at:   提取时间戳
     """
@@ -167,19 +154,26 @@ class ExtractionResult:
 
 
 # --------------------------------------------------------------------------- #
-# 对齐质量 → 置信度映射
+# 溯源字符串构建
 # --------------------------------------------------------------------------- #
 
-_ALIGNMENT_CONFIDENCE: Dict[Optional[str], float] = {
-    "match_exact": 1.0,
-    "match_lesser": 0.85,
-    "match_fuzzy": 0.70,
-    None: 0.50,
-}
 
+def _build_provenance(
+    verbatim_text: str,
+    char_start: Optional[int],
+    char_end: Optional[int],
+) -> str:
+    """
+    将对齐结果整合为单一溯源字符串。
 
-def _confidence_from_status(status: Optional[str]) -> float:
-    return _ALIGNMENT_CONFIDENCE.get(status, 0.50)
+    对齐成功时格式：「原文片段」[位置 start:end]
+    对齐失败时格式：「原文片段」
+
+    该字段直接告知知识条目来自对话中的哪段原文。
+    """
+    if char_start is not None and char_end is not None:
+        return f"「{verbatim_text}」[位置 {char_start}:{char_end}]"
+    return f"「{verbatim_text}」"
 
 
 # --------------------------------------------------------------------------- #
@@ -398,30 +392,34 @@ class AnyihuaKnowledgeExtractor:
     结合 SimpleLLMClient（知识识别）和 langextract WordAligner（原文定位），
     从原始外呼对话数据中提取带溯源的结构化知识。
 
+    LLM 通过 ``contextmind/infra/llm_client.py`` 统一初始化，从 ``.env`` 文件读取
+    API Key / Base URL / Model 等配置，与项目其他模块保持一致。
+
     每条提取结果包含：
     - 知识类别（extraction_class）：slot_value / intent / fact
     - 知识标签（label）：槽位名 / 意图编码 / 事实标签
     - 知识内容（value）：提取出的自然语言文本
-    - 溯源原文（provenance_text）：在对话中定位用的 verbatim 片段
-    - 字符位置（char_start / char_end）：对话文本中的精确位置
-    - 对齐质量（alignment_status）：match_exact / match_lesser / match_fuzzy / None
-    - 置信度（confidence）：由对齐质量自动推导
+    - 溯源内容（provenance）：单一字段，格式 "「原文片段」[位置 start:end]"
 
     参数:
-        llm_client:              SimpleLLMClient 实例（OpenAI-compatible 接口）
-        min_alignment_confidence:过滤阈值，低于此置信度的结果将从 knowledge_items
-                                 中移除（但仍会在日志中记录）；默认 0.5（不过滤 None）
+        llm_client:  可选的 SimpleLLMClient 实例。若不传入，则自动通过
+                     LLMConfig.from_env() 从 .env 文件加载配置后初始化。
     """
 
     def __init__(
         self,
-        llm_client: Any,
-        min_alignment_confidence: float = 0.5,
+        llm_client: Optional[SimpleLLMClient] = None,
     ) -> None:
         if llm_client is None:
-            raise ValueError("llm_client 不能为 None，请传入 SimpleLLMClient 实例")
-        self._llm = llm_client
-        self._min_confidence = min_alignment_confidence
+            try:
+                llm_client = SimpleLLMClient(LLMConfig.from_env())
+            except Exception as exc:
+                raise RuntimeError(
+                    "LLM 客户端初始化失败，请确认 .env 文件中已正确配置 API Key、"
+                    "Base URL 和 Model（如 LLM_API_KEY、LLM_BASE_URL、LLM_MODEL）。"
+                    f"原始错误: {exc}"
+                ) from exc
+        self._llm: SimpleLLMClient = llm_client
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -435,7 +433,7 @@ class AnyihuaKnowledgeExtractor:
             dialogue: chat_test_100.json 中的单条对话条目（含 session_id 和 对话历史）
 
         返回:
-            ExtractionResult，含每条知识的 char_start/char_end 溯源位置
+            ExtractionResult，每条知识的 provenance 字段标明原文出处及字符位置
         """
         dialogue_id = dialogue.get("session_id") or dialogue.get("dialogue_id", "")
         logger.info(f"[AnyihuaExtractor] 开始提取: {dialogue_id}")
@@ -489,47 +487,25 @@ class AnyihuaKnowledgeExtractor:
         # 4. langextract WordAligner：批量回溯对齐 → 填充 char_interval + alignment_status
         aligned_extractions = _align_and_annotate(raw_extractions, source_text)
 
-        # 5. 将对齐结果转换为 KnowledgeItem
+        # 5. 将对齐结果转换为 KnowledgeItem（provenance 为单一溯源字段）
         knowledge_items: List[KnowledgeItem] = []
         aligned_count = 0
 
         for ext, meta in zip(aligned_extractions, item_meta):
             char_start: Optional[int] = None
             char_end: Optional[int] = None
-            alignment_status_str: Optional[str] = None
 
             if ext.char_interval is not None:
                 char_start = ext.char_interval.start_pos
                 char_end = ext.char_interval.end_pos
                 aligned_count += 1
 
-            if ext.alignment_status is not None:
-                alignment_status_str = (
-                    ext.alignment_status.value
-                    if hasattr(ext.alignment_status, "value")
-                    else str(ext.alignment_status)
-                )
-
-            confidence = _confidence_from_status(alignment_status_str)
-
-            # 置信度过滤（None 对应 0.5，通常保留）
-            if confidence < self._min_confidence:
-                logger.debug(
-                    f"[AnyihuaExtractor] 过滤低置信度提取 "
-                    f"({confidence:.2f} < {self._min_confidence}): {meta['label']}: {meta['value'][:40]}"
-                )
-                continue
-
             knowledge_items.append(
                 KnowledgeItem(
                     extraction_class=meta["extraction_class"],
                     label=meta["label"],
                     value=meta["value"],
-                    provenance_text=meta["provenance_text"],
-                    char_start=char_start,
-                    char_end=char_end,
-                    alignment_status=alignment_status_str,
-                    confidence=confidence,
+                    provenance=_build_provenance(meta["provenance_text"], char_start, char_end),
                 )
             )
 
@@ -539,7 +515,6 @@ class AnyihuaKnowledgeExtractor:
             "aligned": aligned_count,
             "unaligned": total - aligned_count,
             "alignment_rate": round(aligned_count / total, 3) if total else 0.0,
-            "after_filter": len(knowledge_items),
         }
 
         logger.info(
@@ -600,37 +575,14 @@ class AnyihuaKnowledgeExtractor:
         """
         调用 LLM 提取结构化知识。
 
-        LLM 负责：
-        1. 识别对话中的知识（槽位值、意图、事实）
-        2. 为每条知识提供 verbatim 溯源原文（provenance_text）
-
-        WordAligner 随后将 provenance_text 精确对齐到 source_text 的字符区间。
+        通过 SimpleLLMClient.generate() 统一调用（与 .env 配置对应），
+        LLM 负责识别知识并为每条知识提供 verbatim 溯源原文（provenance_text），
+        WordAligner 随后将其精确对齐到 source_text 的字符区间。
         """
         prompt = _build_extraction_prompt(source_text)
         try:
-            if hasattr(self._llm, "generate"):
-                _, response = self._llm.generate(prompt)
-            elif hasattr(self._llm, "generate_async"):
-                import asyncio
-                try:
-                    loop = asyncio.get_running_loop()
-                    # Already inside an event loop; cannot call run_until_complete.
-                    # Caller should use an async wrapper instead.
-                    raise RuntimeError(
-                        "llm_client 仅实现了 generate_async()，但当前在同步上下文中调用。"
-                        "请使用 asyncio.run(extractor.extract_async(dialogue)) 或改用实现了 "
-                        "generate() 的 LLM 客户端。"
-                    )
-                except RuntimeError as inner:
-                    if "no running event loop" in str(inner).lower() or "no current event loop" in str(inner).lower():
-                        _, response = asyncio.run(self._llm.generate_async(prompt))
-                    else:
-                        raise
-            else:
-                raise ValueError("llm_client 须实现 generate() 或 generate_async() 方法")
-
+            _reasoning, response = self._llm.generate(prompt)  # _reasoning = chain-of-thought (DeepSeek-R1 etc.)
             return _parse_llm_extraction(response)
-
         except Exception as exc:
             logger.error(f"[AnyihuaExtractor] LLM 调用失败: {exc}")
             raise
@@ -643,22 +595,17 @@ class AnyihuaKnowledgeExtractor:
 
 def extract_knowledge_with_provenance(
     dialogue: Dict[str, Any],
-    llm_client: Any,
-    min_alignment_confidence: float = 0.5,
+    llm_client: Optional[SimpleLLMClient] = None,
 ) -> ExtractionResult:
     """
     从单条安逸花外呼对话中提取带溯源的结构化知识（便捷函数）。
 
     参数:
-        dialogue:                原始对话条目（chat_test_100.json 单条）
-        llm_client:              SimpleLLMClient 实例
-        min_alignment_confidence:置信度过滤阈值（默认 0.5）
+        dialogue:    原始对话条目（chat_test_100.json 单条）
+        llm_client:  可选的 SimpleLLMClient 实例；若不传入则自动从 .env 加载
 
     返回:
-        ExtractionResult，每条知识项均附带 char_start/char_end 和 alignment_status
+        ExtractionResult，每条知识项的 provenance 字段标明原文出处
     """
-    extractor = AnyihuaKnowledgeExtractor(
-        llm_client=llm_client,
-        min_alignment_confidence=min_alignment_confidence,
-    )
+    extractor = AnyihuaKnowledgeExtractor(llm_client=llm_client)
     return extractor.extract(dialogue)

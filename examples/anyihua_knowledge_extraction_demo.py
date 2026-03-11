@@ -3,6 +3,8 @@
 
 演示如何使用 AnyihuaKnowledgeExtractor 从原始外呼对话中提取带溯源的结构化知识。
 
+LLM 通过 contextmind/infra/llm_client.py 统一初始化，配置从 .env 文件自动加载。
+
 运行::
 
     python examples/anyihua_knowledge_extraction_demo.py
@@ -23,7 +25,6 @@ _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.scenarios.anyihua.knowledge_extraction import AnyihuaKnowledgeExtractor
 
 
@@ -35,21 +36,8 @@ def _print_result(result) -> None:
     print(f"\n── 提取结果 ({len(result.knowledge_items)} 条，对齐率 {result.stats.get('alignment_rate', 0):.1%}) ──")
 
     for i, item in enumerate(result.knowledge_items, 1):
-        status_icon = {
-            "match_exact": "✅",
-            "match_lesser": "🔶",
-            "match_fuzzy": "🔸",
-            None: "❌",
-        }.get(item.alignment_status, "❓")
-
-        print(f"\n  [{i}] {status_icon} [{item.extraction_class}] {item.label}: {item.value}")
-        print(f"      溯源原文: {item.provenance_text!r}")
-        if item.is_aligned():
-            snippet = result.source_text[item.char_start:item.char_end]  # type: ignore[index]
-            print(f"      字符位置: [{item.char_start}:{item.char_end}]  →  {snippet!r}")
-        else:
-            print(f"      字符位置: 对齐失败（provenance_text 未在原文中找到）")
-        print(f"      对齐质量: {item.alignment_status}  置信度: {item.confidence:.2f}")
+        print(f"\n  [{i}] [{item.extraction_class}] {item.label}: {item.value}")
+        print(f"      溯源: {item.provenance}")
 
     print(f"\n── 统计 ──")
     for k, v in result.stats.items():
@@ -65,9 +53,8 @@ def main() -> None:
     dialogues = json.loads(data_path.read_text(encoding="utf-8"))
     print(f"已加载 {len(dialogues)} 条对话，选取前 2 条进行演示")
 
-    # 初始化 LLM 客户端（从 .env 读取配置）
-    llm = SimpleLLMClient()
-    extractor = AnyihuaKnowledgeExtractor(llm_client=llm)
+    # LLM 从 .env 自动加载，无需手动传入
+    extractor = AnyihuaKnowledgeExtractor()
 
     # 单条提取演示
     print("\n【演示一：单条提取】")
