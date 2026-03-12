@@ -7,16 +7,19 @@
 ```
 ContextMind/
 ├── contextmind/          # 主包（核心代码）
-├── examples/             # 示例程序
-├── benchmark/            # 评测框架
-├── docs/                 # 文档
-├── resources/            # 静态资源
+├── data/                 # 运行时输出数据（如知识提取结果 JSON）
+├── examples/             # 示例程序（10个演示脚本）
+├── benchmark/            # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
+├── docs/                 # 文档（quick-start / modes / api-reference 等）
+├── resources/            # 静态资源与测试数据
 ├── logs/                 # 日志文件（运行时生成）
 ├── setup.py              # 安装配置
 ├── requirements.txt      # Python依赖
+├── guide.md              # 安逸花场景开发指南（Phase 分析与分工）
+├── NEXT_STEPS.md         # 后续任务规划（T1–T11 详细执行计划）
 ├── .env                  # 环境变量（需创建）
-├── .gitignore           # Git忽略配置
-└── README.md            # 项目说明
+├── .gitignore            # Git忽略配置
+└── README.md             # 项目说明
 ```
 
 ---
@@ -168,10 +171,43 @@ scenarios/
 │   ├── scenario.py          # get_insurance_scenario()
 │   └── app.py               # InsuranceApplication
 │
-└── anyihua/                 # 安意化场景
+└── anyihua/                 # 安逸花外呼场景（4个独立子任务）
+    ├── __init__.py          # 统一导出所有子任务接口
+    ├── utils.py             # 公共工具（cn2int / extract_amounts / 前缀常量等）
+    │
+    ├── qc/                  # 任务一：离线质检（Label Prediction / QC）
+    │   ├── engine.py        # build_qc_engine()  — 注册 4 个事实查询 API
+    │   ├── predictor.py     # 规则阈值 + predict_label_pytod()
+    │   └── schema.py        # ANYIHUA_QC_SCHEMA（5 个标签意图定义）
+    │
+    ├── generation/          # 任务二：在线回复生成（Response Generation）
+    │   ├── engine.py        # build_generation_engine()  — 注册 7 个 CRM 查询 API
+    │   └── schema.py        # ANYIHUA_SCHEMA（槽位 / 意图 PyTOD schema）
+    │
+    ├── schema_extraction/   # 任务三：Schema 归纳提取（Schema Induction）
+    │   ├── pipeline.py      # 主流水线（run_schema_induction_pipeline）
+    │   ├── extractor.py     # extract_partial_schema_from_dialogue()
+    │   ├── llm_induction.py # induce_schema_with_llm()
+    │   ├── data_cleaner.py  # 对话清洗与格式统一
+    │   ├── schema.py        # PartialServiceSchema / PartialSlot / PartialIntent
+    │   └── schema_io.py     # save_schema_as_sgd() / align_schema_with_sgd()
+    │
+    └── knowledge_base/      # 任务四：增量精准知识库（Incremental KB）
+        ├── schema.py        # SlotEvidence / SlotFact / CustomerRecord / ConflictEntry / KBStats
+        ├── store.py         # KnowledgeStore（CRUD + 持久化 + 统计）
+        └── merger.py        # IncrementalMerger + ConflictStrategy 协议 + 三种内置策略
 ```
 
-**依赖**: infra, modes/evolve
+还有一个独立的知识提取桥接模块（内部使用，位于 `anyihua/knowledge_extraction/`）：
+
+```
+anyihua/knowledge_extraction/  # langextract 桥接层（供 merger 调用）
+    ├── extractor.py            # AnyihuaKnowledgeExtractor（主提取器）
+    ├── langextract_bridge.py   # langextract 对齐 + dedup 逻辑
+    └── sgd_converter.py        # dict → SGD dialogue 格式转换
+```
+
+**依赖**: infra, modes/pytod（anyihua/qc、anyihua/generation 使用 ExecutionEngine）
 
 ---
 
@@ -179,14 +215,17 @@ scenarios/
 
 ```
 examples/
-├── cli_demo.py                # 命令行交互示例
-├── web_demo.py                # Web界面示例（Gradio）
-├── batch_demo.py              # 批量测试示例
-├── pytod_trace_demo.py        # PyTOD 追踪演示
-├── anyihua_engines_demo.py    # 安意化引擎演示
-├── anyihua_generation_demo.py # 安意化生成演示
-├── anyihua_qc_demo.py         # 安意化质检演示
-└── anyihua_schema_induction_demo.py  # 安逸花 Schema 归纳演示
+├── cli_demo.py                          # 命令行交互示例（支持四种模式）
+├── web_demo.py                          # Web界面示例（Gradio）
+├── batch_demo.py                        # 批量测试示例
+├── fnctod_trace_demo.py                 # FnCTOD 追踪演示（trace 可视化）
+├── pytod_trace_demo.py                  # PyTOD 追踪演示（trace 可视化）
+│
+├── anyihua_engines_demo.py              # 安逸花 QC / Generation 引擎演示
+├── anyihua_generation_demo.py           # 安逸花 在线回复生成演示
+├── anyihua_qc_demo.py                   # 安逸花 离线质检演示
+├── anyihua_schema_induction_demo.py     # 安逸花 Schema 归纳演示
+└── anyihua_knowledge_extraction_demo.py # 安逸花 知识提取 + 知识库摄入演示
 ```
 
 **用途**: 展示如何使用 ContextMind
@@ -207,7 +246,7 @@ docs/
 ├── quick-start.md                 # 快速开始
 ├── examples.md                    # 示例代码
 ├── directory-structure.md         # 目录结构（本文档）
-├── modes.md                       # 三种对话模式对比
+├── modes.md                       # 四种对话模式对比
 ├── configuration.md               # 配置指南
 ├── api-reference.md               # API参考
 ├── metrics-explanation.md         # 评测指标说明
@@ -219,13 +258,13 @@ docs/
 │   ├── dst.md
 │   ├── fnctod.md
 │   ├── pytod.md
+│   ├── pytod-vs-fnctod-comparison.md
 │   ├── intent-evaluation.md
 │   └── context-engineering.md
 └── datasets/                      # 数据集文档
     ├── sgd.md
     ├── transfertod.md
-    ├── risawoz.md
-    └── dialogue-count.md
+    └── risawoz.md
 ```
 
 ---
@@ -234,11 +273,31 @@ docs/
 
 ```
 resources/
-├── data/                # 数据文件
-│   ├── chat_test_100.json   # 安逸花外呼原始数据集
-│   └── risawoz_test.json    # RiSAWOZ 测试数据
-└── fonts/               # 字体文件
+├── anyihua_sgd/             # 安逸花 SGD 格式对话数据
+│   ├── dialogues_001.json   # SGD 对话批次（结构化格式）
+│   ├── schema.json          # SGD 服务 schema 定义
+│   └── conversion_summary.json  # 原始数据 → SGD 转换摘要
+│
+├── data/                    # 测试数据文件
+│   ├── chat_test_100.json   # 安逸花外呼原始数据集（100条）
+│   ├── risawoz_test.json    # RiSAWOZ 测试数据
+│   ├── fnctod_trace.md      # FnCTOD 示例 trace（可视化参考）
+│   └── pytod_trace.md       # PyTOD 示例 trace（可视化参考）
+│
+└── fonts/                   # 字体文件（报告渲染用）
+    └── NotoSansCJKsc-Regular.otf
 ```
+
+---
+
+## 运行时数据 (data/)
+
+```
+data/
+└── anyihua_knowledge_extraction_results.json  # 知识提取运行产物（提取器输出）
+```
+
+> 此目录由运行时脚本写入，不需要手动维护。
 
 ---
 

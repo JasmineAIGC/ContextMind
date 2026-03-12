@@ -152,19 +152,35 @@ response = await tracker.process_turn("查一下北京今天的天气")
 
 ```
 ContextMind/
-├── contextmind/          # 核心包
-│   ├── infra/           # 基础设施（LLM客户端、日志等）
-│   ├── modes/           # 四种对话模式
-│   │   ├── dst/        # 对话状态追踪（3文件）
-│   │   ├── fnctod/     # 函数调用（4文件）
-│   │   ├── evolve/     # 演化式上下文
-│   │   └── pytod/      # 可编程任务型对话（6文件）
-│   ├── scenarios/       # 场景配置与应用（registry.py + scenarios.yaml + chat/、callcenter/、insurance/）
-│   └── ui/              # UI组件
-├── examples/            # 示例程序
-├── benchmark/           # 评测框架
-└── docs/                # 文档
+├── contextmind/               # 核心包
+│   ├── infra/                # 基础设施（LLM客户端、日志、嵌入向量等）
+│   ├── modes/                # 四种对话模式
+│   │   ├── dst/             # 对话状态追踪（3文件）
+│   │   ├── fnctod/          # 函数调用（5文件）
+│   │   ├── evolve/          # 演化式上下文（core/ + memory/ + evolution/ + pipeline/）
+│   │   └── pytod/           # 可编程任务型对话（7文件）
+│   ├── scenarios/            # 场景配置与应用
+│   │   ├── chat/            # 闲聊场景
+│   │   ├── callcenter/      # 客服场景
+│   │   ├── insurance/       # 保险场景
+│   │   └── anyihua/         # 安逸花外呼场景（4个子任务）
+│   │       ├── qc/          #   任务一：离线质检
+│   │       ├── generation/  #   任务二：在线回复生成
+│   │       ├── schema_extraction/  # 任务三：Schema 归纳提取
+│   │       └── knowledge_base/     # 任务四：增量精准知识库
+│   └── ui/                  # UI组件（Gradio）
+├── data/                     # 运行时输出数据（提取结果等）
+├── examples/                 # 示例程序（10个）
+├── benchmark/                # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
+├── resources/                # 静态资源与测试数据
+│   ├── anyihua_sgd/         # 安逸花 SGD 格式对话（dialogues + schema）
+│   └── data/                # 测试数据集（chat_test_100 / risawoz 等）
+├── docs/                     # 文档（quick-start / modes / api-reference 等）
+├── guide.md                  # 安逸花场景开发指南（Phase 分析与分工）
+└── NEXT_STEPS.md             # 后续任务规划（T1–T11 详细执行计划）
 ```
+
+详细结构说明见 [docs/directory-structure.md](docs/directory-structure.md)。
 
 ---
 
