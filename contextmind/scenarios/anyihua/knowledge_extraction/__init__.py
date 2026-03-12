@@ -22,12 +22,13 @@
         save_as_sgd,
     )
 
-    # 更好地利用 langextract 库能力（逐轮 Annotator 模式）
+    # 官方 lx.extract(model=...) 模式（含历史上下文 + 跨轮去重）
     from contextmind.scenarios.anyihua.knowledge_extraction import (
         SimpleLLMClientAdapter,
+        build_langextract_schema_prompt,
+        build_langextract_examples,
         create_per_turn_annotator,
         extract_with_per_turn_annotator,
-        build_langextract_schema_prompt,
     )
 """
 
@@ -45,6 +46,7 @@ from .extractor import (
 )
 from .langextract_bridge import (
     SimpleLLMClientAdapter,
+    build_langextract_examples,
     build_langextract_schema_prompt,
     create_per_turn_annotator,
     extract_with_per_turn_annotator,
@@ -67,8 +69,9 @@ __all__ = [
     "save_results",
     "to_sgd_dialogue",
     "save_as_sgd",
-    # langextract 深度集成（逐轮 Annotator 模式）
+    # langextract 深度集成（官方 lx.extract(model=...) 模式）
     "SimpleLLMClientAdapter",
+    "build_langextract_examples",
     "build_langextract_schema_prompt",
     "create_per_turn_annotator",
     "extract_with_per_turn_annotator",
