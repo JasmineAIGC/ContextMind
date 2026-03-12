@@ -279,44 +279,71 @@ class ExtractionSchema:
 
 #: 默认安逸花外呼业务 Schema（与 resources/anyihua_sgd/schema.json 对齐）。
 #: 可作为模板 clone 后修改，传给 AnyihuaKnowledgeExtractor(schema=...)。
+#:
+#: 意图分类说明：
+#:   【坐席意图】前缀为 "agent_" 或无前缀（verify_identity / explain_* / calculate_* 等）
+#:   【用户意图】前缀为 "user_" 或明确说明"用户..."（complain_* / express_* 等）
+#:   · 坐席意图从坐席轮次提取，用户意图从用户轮次提取
+#:   · general_inquiry 是最后兜底意图，仅当用户回复完全无法匹配其他任何意图时才使用
 DEFAULT_SCHEMA = ExtractionSchema(
     scene_name="安逸花外呼",
     slots=[
+        # ── 身份核实相关 ──
         SlotDefinition("customer_name", '客户姓名（如"高先生"、"杨女士"）'),
         SlotDefinition("phone_suffix", "手机尾号（3–4 位数字，用于身份核实）"),
-        SlotDefinition("dispute_date", '用户质疑的借款日期（如"七月二十三号"）'),
-        SlotDefinition("inquiry_amount", "用户询问或质疑的金额（元）"),
-        SlotDefinition("term_months", "用户询问的分期期数（如 12）"),
         SlotDefinition("identity_confirmed", "身份是否已核实（true / false）"),
+        # ── 额度相关 ──
         SlotDefinition("available_credit", "当前可提现额度（元）"),
+        SlotDefinition("credit_limit", "账户授信总额度（元）"),
         SlotDefinition("temp_credit", "临时额度上限（元）"),
         SlotDefinition("temp_credit_status", "临时额度是否有效（有效 / 已过期 / 无临时额度）"),
         SlotDefinition("temp_expiry_days", "临时额度剩余有效天数"),
-        SlotDefinition("annual_rate_pct", "年化利率（%）"),
+        SlotDefinition("temp_credit_expiry_date", '临时额度到期日期（如"十月二十六号"）'),
+        # ── 利率与还款相关 ──
+        SlotDefinition("annual_rate_pct", "年化利率（%，如 24 表示 24%）"),
+        SlotDefinition("daily_rate_pct", "日利率（%，如 0.065 表示 0.065%）"),
+        SlotDefinition("monthly_payment", "用户询问或坐席告知的月还款额（元）"),
+        SlotDefinition("total_interest", "用户询问或坐席告知的总利息（元）"),
+        SlotDefinition("term_months", "用户询问的分期期数（如 12）"),
+        SlotDefinition("billing_day", "账单日（每月几号）"),
+        SlotDefinition("repayment_date", '还款日（如"十一月一号"）'),
+        # ── 借款记录相关 ──
         SlotDefinition("loan_count", "当前未还清借款笔数"),
         SlotDefinition("last_loan_date", "最近一次借款日期（中文格式）"),
         SlotDefinition("outstanding_amount", "当前未还款金额（元）"),
-        SlotDefinition("billing_day", "账单日（每月几号）"),
+        SlotDefinition("dispute_date", '用户质疑的借款日期（如"七月二十三号"）'),
+        SlotDefinition("inquiry_amount", "用户询问或质疑的金额（元）"),
+        SlotDefinition("overdue_days", "逾期天数"),
+        # ── 用户态度与期望相关 ──
+        SlotDefinition("user_expected_interest", '用户对合理利息的期望金额（元），如"一万块一年应该八九百"'),
+        SlotDefinition("user_complaint_reason", "用户抱怨或拒绝的具体原因（如还款太麻烦、利率太高等）"),
     ],
     intents=[
-        IntentDefinition("verify_identity", "开场身份核实，确认来电者是账户本人"),
-        IntentDefinition("explain_credit_limit", "告知额度情况"),
-        IntentDefinition("explain_interest_rate", "解释利率和还款方式"),
-        IntentDefinition("calculate_repayment", "计算指定金额和期数的月还款额"),
-        IntentDefinition("explain_displayed_amount", "解释 APP 显示金额的构成"),
-        IntentDefinition("handle_loan_dispute", "核实用户争议的借款记录"),
-        IntentDefinition("guide_loan_operation", "引导用户在 APP 完成借款操作"),
-        IntentDefinition("escalate_to_human", "转接人工客服"),
-        IntentDefinition("say_goodbye", "礼貌告别"),
-        IntentDefinition("complain_repayment", "用户抱怨月还款额太高或还款方式太麻烦"),
-        IntentDefinition("complain_interest_rate", "用户质疑或抱怨利率偏高，难以接受"),
-        IntentDefinition("express_interest_expectation", "用户表达其对利率或利息费用的期望、认知或比较（如一万块一年应该八九百之类的表述）"),
-        IntentDefinition("confirm_information", "用户确认或认可坐席提供的信息（如对、好的、明白等表述）"),
-        IntentDefinition("reject_offer", "用户明确拒绝当前借款方案或产品"),
-        IntentDefinition("ask_for_clarification", "用户要求坐席进一步解释或说明"),
-        IntentDefinition("general_inquiry", "通用询问（无法匹配其他意图时的默认意图）"),
+        # ── 坐席主导意图（从坐席轮次提取）──
+        IntentDefinition("verify_identity", "【坐席】开场身份核实，确认来电者是账户本人"),
+        IntentDefinition("explain_credit_limit", "【坐席】告知用户当前可提现额度及授信额度情况"),
+        IntentDefinition("explain_interest_rate", "【坐席】解释贷款利率（年化/日利率）和还款方式"),
+        IntentDefinition("calculate_repayment", "【坐席】根据用户需求计算指定金额和期数的月还款额及总利息"),
+        IntentDefinition("explain_displayed_amount", "【坐席】解释 APP 页面显示金额的构成或计算逻辑"),
+        IntentDefinition("handle_loan_dispute", "【坐席】核实并回应用户对某笔借款记录（日期/金额）的争议"),
+        IntentDefinition("guide_loan_operation", "【坐席】引导用户在 APP 完成借款操作步骤"),
+        IntentDefinition("promote_loan_offer", "【坐席】主动推介借款优惠、介绍产品亮点或邀请用户使用额度"),
+        IntentDefinition("explain_temp_credit", "【坐席】解释临时额度的有效期、金额及使用规则"),
+        IntentDefinition("escalate_to_human", "【坐席/用户】请求或承诺转接人工客服"),
+        IntentDefinition("say_goodbye", "【坐席/用户】礼貌结束对话、道别"),
+        # ── 用户主导意图（从用户轮次提取）──
+        IntentDefinition("complain_repayment", "【用户】抱怨月还款额太高、还款方式太麻烦或还款压力大；关键词：还款太麻烦、要还多少、还起太恼火、月供太高"),
+        IntentDefinition("complain_interest_rate", "【用户】质疑或抱怨利率偏高、利息太贵；关键词：利息有点高、太高了、利率高"),
+        IntentDefinition("express_interest_expectation", "【用户】表达对合理利率/利息的期望或认知，或将当前利息与期望金额比较；关键词：一万块一年应该八九百、一千多太高了、应该只有八百多"),
+        IntentDefinition("confirm_information", "【用户】确认或认可坐席提供的信息；关键词：对、好的、明白、是的、嗯"),
+        IntentDefinition("reject_offer", "【用户】明确拒绝当前借款方案或产品；关键词：不用了、不需要、不借了"),
+        IntentDefinition("ask_for_clarification", "【用户】要求坐席进一步解释某项内容；关键词：为什么、怎么算的、能说清楚吗"),
+        IntentDefinition("dispute_loan_record", "【用户】对某笔借款记录提出质疑或否认；关键词：我没有借这笔、这不是我的借款"),
+        IntentDefinition("inquire_repayment_method", "【用户】询问还款方式、还款渠道或操作步骤"),
+        IntentDefinition("express_hesitation", "【用户】表示犹豫、考虑中或需要时间决定；关键词：我想想、再看看、暂时不用"),
+        IntentDefinition("general_inquiry", "【用户·兜底】用户回复完全无法匹配以上任何具体意图时的最后兜底；仅在穷尽所有其他意图后仍无法归类时使用"),
     ],
-    fact_description="不属于上述两类的重要业务事实（如逾期记录、临时额度到期、已授信天数等）",
+    fact_description="对话中出现的重要业务事实，不属于槽位值也不属于意图（如：逾期记录说明、临时额度已到期的告知、账户异常状态、坐席的关键承诺等）",
     slot_open_ended=False,
     intent_open_ended=False,
 )
@@ -874,7 +901,30 @@ def _build_system_prompt(schema: ExtractionSchema) -> str:
 你的任务是从多轮对话中提取上述三类结构化知识。
 对话中每轮格式为：[第N轮(说话人)] 话语内容
 
-输出格式（严格 JSON）：
+## 意图提取规则（重要）
+
+意图提取必须遵循以下原则：
+
+1. **按说话人选择意图**：
+   - 标注【坐席】的意图（verify_identity / explain_* / calculate_* / handle_* / guide_* / promote_* / explain_temp_credit）必须从**坐席轮次**提取
+   - 标注【用户】的意图（complain_* / express_* / confirm_* / reject_* / ask_* / dispute_* / inquire_* / express_*）必须从**用户轮次**提取
+   - 不要将用户意图标注在坐席轮次，也不要将坐席意图标注在用户轮次
+
+2. **general_inquiry 是最后兜底**：
+   - general_inquiry 仅当用户轮次的内容**完全无法**归入其他任何用户意图时才使用
+   - 以下情况必须使用对应的具体意图，**不得**使用 general_inquiry：
+     * 用户说还款麻烦/月供高/压力大 → complain_repayment
+     * 用户说利息高/利率贵 → complain_interest_rate
+     * 用户说一万块应该多少利息/和某个金额比较 → express_interest_expectation
+     * 用户说好/对/嗯/明白/是的 → confirm_information
+     * 用户说不用/不借/不需要 → reject_offer
+     * 用户质疑某笔借款记录 → dispute_loan_record
+   - 如果一条用户话语表达了以上任一含义，就使用对应的具体意图
+
+3. **意图去重**：同一意图若在对话中多次出现，只提取最有代表性的一条；不同意图均需提取
+
+## 输出格式（严格 JSON）
+
 {{
   "extractions": [
     {{
@@ -901,11 +951,12 @@ def _build_system_prompt(schema: ExtractionSchema) -> str:
   ]
 }}
 
-关键约束：
+## 关键约束
+
 - turn_idx 必须是整数，从 0 开始；第1轮对应 0，第2轮对应 1，以此类推
 - provenance_text 必须是对应轮次 **话语内容** 部分的逐字子串，不包含 "[第N轮(说话人)]" 前缀，不能改写
 - provenance_text 只写话语内容本身，不要加引号「」，不要加"坐席："/"用户："前缀
-- 如果同一槽位/事实在对话中多次出现（如用户纠正了之前的信息），每次出现均提取，以便系统追踪值的变化；意图若完全相同则只提取最有代表性的一次
+- 如果同一槽位/事实在对话中多次出现（如用户纠正了之前的信息），每次出现均提取，以便系统追踪值的变化
 - 只提取对话中明确出现的信息，不猜测不推断
 - 只输出 JSON，不要任何额外说明"""
 

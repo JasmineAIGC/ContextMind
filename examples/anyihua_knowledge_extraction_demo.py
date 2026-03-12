@@ -57,6 +57,7 @@ import dataclasses
 import json
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 # 确保项目根目录在 sys.path 中
 _ROOT = Path(__file__).parent.parent
@@ -67,6 +68,8 @@ from contextmind.scenarios.anyihua.knowledge_extraction import (
     AnyihuaKnowledgeExtractor,
     DEFAULT_SCHEMA,
     ExtractionSchema,
+    IntentDefinition,
+    SlotDefinition,
     save_as_sgd,
     save_results,
 )
@@ -137,27 +140,137 @@ def _print_result(result, show_turns: bool = True, show_stats_desc: bool = True)
             print(f"  {k}: {v}")
 
 
+def _parse_slot_additions(specs: Optional[List[str]]) -> List[SlotDefinition]:
+    """
+    将命令行 --add-slot 参数解析为 SlotDefinition 列表。
+
+    格式：``name:description``（冒号分隔）
+    示例：``loan_purpose:用户借款目的（如装修、教育）``
+
+    参数:
+        specs: 原始字符串列表，每项格式为 ``name:description``
+
+    返回:
+        SlotDefinition 列表；格式错误的项将被跳过并打印警告。
+    """
+    if not specs:
+        return []
+    result: List[SlotDefinition] = []
+    for spec in specs:
+        if ":" not in spec:
+            print(f"[警告] --add-slot 格式错误（应为 name:description）：{spec!r}，已跳过")
+            continue
+        name, _, desc = spec.partition(":")
+        name = name.strip()
+        desc = desc.strip()
+        if not name:
+            print(f"[警告] --add-slot 槽位名为空：{spec!r}，已跳过")
+            continue
+        result.append(SlotDefinition(name, desc or f"动态新增槽位：{name}"))
+    return result
+
+
+def _parse_intent_additions(specs: Optional[List[str]]) -> List[IntentDefinition]:
+    """
+    将命令行 --add-intent 参数解析为 IntentDefinition 列表。
+
+    格式：``name:description``（冒号分隔）
+    示例：``complain_service:用户对服务质量表达不满``
+
+    参数:
+        specs: 原始字符串列表，每项格式为 ``name:description``
+
+    返回:
+        IntentDefinition 列表；格式错误的项将被跳过并打印警告。
+    """
+    if not specs:
+        return []
+    result: List[IntentDefinition] = []
+    for spec in specs:
+        if ":" not in spec:
+            print(f"[警告] --add-intent 格式错误（应为 name:description）：{spec!r}，已跳过")
+            continue
+        name, _, desc = spec.partition(":")
+        name = name.strip()
+        desc = desc.strip()
+        if not name:
+            print(f"[警告] --add-intent 意图名为空：{spec!r}，已跳过")
+            continue
+        result.append(IntentDefinition(name, desc or f"动态新增意图：{name}"))
+    return result
+
+
 def _build_schema(args: argparse.Namespace) -> ExtractionSchema:
     """
     根据命令行参数构造 ExtractionSchema。
 
-    · 若 --scene-name 与默认值相同且无开放模式标志，使用 DEFAULT_SCHEMA（全套预定义）。
-    · 若指定了 --scene-name 不同的名称或开放模式，克隆 DEFAULT_SCHEMA 并应用修改。
+    · 若无任何修改标志，使用 DEFAULT_SCHEMA（全套预定义）。
+    · 若指定了 --add-slot / --add-intent，在 DEFAULT_SCHEMA 基础上新增对应项。
+    · 若指定了 --scene-name 不同的名称或开放模式，同时应用对应修改。
+
+    动态新增规则：
+        - 新增槽位/意图会追加到预定义列表末尾（`general_inquiry` 意图始终保持最后）
+        - 与预定义列表中已有名称相同的项将被跳过，并打印提示信息
     """
-    if (
-        args.scene_name == DEFAULT_SCHEMA.scene_name
-        and not args.slot_open_ended
-        and not args.intent_open_ended
-    ):
+    extra_slots = _parse_slot_additions(getattr(args, "add_slot", None))
+    extra_intents = _parse_intent_additions(getattr(args, "add_intent", None))
+
+    has_modifications = (
+        args.scene_name != DEFAULT_SCHEMA.scene_name
+        or args.slot_open_ended
+        or args.intent_open_ended
+        or extra_slots
+        or extra_intents
+    )
+
+    if not has_modifications:
         return DEFAULT_SCHEMA
 
-    # 克隆默认 schema，仅修改指定字段
+    # 构建最终槽位列表：预定义 + 去重后的新增项
+    existing_slot_names = {s.name for s in DEFAULT_SCHEMA.slots}
+    new_slots: List[SlotDefinition] = []
+    for slot in extra_slots:
+        if slot.name in existing_slot_names:
+            print(f"[提示] 槽位 '{slot.name}' 已在预定义 Schema 中存在，跳过新增")
+        else:
+            new_slots.append(slot)
+            existing_slot_names.add(slot.name)
+
+    # 构建最终意图列表：预定义（含 general_inquiry 兜底）+ 去重后的新增项
+    existing_intent_names = {i.name for i in DEFAULT_SCHEMA.intents}
+    # 将 general_inquiry（兜底意图）移到末尾
+    base_intents_without_fallback = [
+        i for i in DEFAULT_SCHEMA.intents if i.name != "general_inquiry"
+    ]
+    fallback_intent = [i for i in DEFAULT_SCHEMA.intents if i.name == "general_inquiry"]
+
+    new_intents: List[IntentDefinition] = []
+    for intent in extra_intents:
+        if intent.name in existing_intent_names:
+            print(f"[提示] 意图 '{intent.name}' 已在预定义 Schema 中存在，跳过新增")
+        else:
+            new_intents.append(intent)
+            existing_intent_names.add(intent.name)
+
+    final_intents = base_intents_without_fallback + new_intents + fallback_intent
+
     schema = dataclasses.replace(
         DEFAULT_SCHEMA,
         scene_name=args.scene_name,
+        slots=DEFAULT_SCHEMA.slots + new_slots,
+        intents=final_intents,
         slot_open_ended=args.slot_open_ended,
         intent_open_ended=args.intent_open_ended,
     )
+
+    # 打印变更摘要
+    if new_slots or new_intents:
+        print(f"\n[Schema 扩展] 在预定义 Schema 基础上新增：")
+        if new_slots:
+            print(f"  新增槽位 ({len(new_slots)} 个)：{[s.name for s in new_slots]}")
+        if new_intents:
+            print(f"  新增意图 ({len(new_intents)} 个)：{[i.name for i in new_intents]}")
+
     return schema
 
 
@@ -179,6 +292,15 @@ def _parse_args() -> argparse.Namespace:
 
   # 使用开放 Schema（LLM 可自由命名槽位和意图）
   python examples/anyihua_knowledge_extraction_demo.py --slot-open-ended --intent-open-ended
+
+  # 动态新增槽位（格式：name:description）
+  python examples/anyihua_knowledge_extraction_demo.py \\
+      --add-slot "loan_purpose:用户借款目的（如装修、教育）" \\
+      --add-slot "preferred_term:用户偏好的还款期数"
+
+  # 动态新增意图
+  python examples/anyihua_knowledge_extraction_demo.py \\
+      --add-intent "complain_service:用户对服务质量或态度表达不满"
 
   # 不输出 SGD 格式
   python examples/anyihua_knowledge_extraction_demo.py --no-sgd
@@ -243,6 +365,30 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help="允许 LLM 在预定义意图之外自由提取新意图（开放意图模式）",
+    )
+    schema_group.add_argument(
+        "--add-slot",
+        action="append",
+        dest="add_slot",
+        metavar="name:description",
+        default=None,
+        help=(
+            "动态新增槽位（格式：name:description，可重复使用）。"
+            "新槽位追加到预定义槽位之后，与已有槽位同名时跳过。"
+            "示例：--add-slot \"loan_purpose:用户借款目的\""
+        ),
+    )
+    schema_group.add_argument(
+        "--add-intent",
+        action="append",
+        dest="add_intent",
+        metavar="name:description",
+        default=None,
+        help=(
+            "动态新增意图（格式：name:description，可重复使用）。"
+            "新意图追加到 general_inquiry 兜底意图之前，与已有意图同名时跳过。"
+            "示例：--add-intent \"complain_service:用户对服务质量表达不满\""
+        ),
     )
 
     # ── 显示设置 ──
