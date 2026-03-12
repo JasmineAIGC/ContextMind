@@ -179,13 +179,14 @@ STATS_FIELD_DESCRIPTIONS: Dict[str, str] = {
         "而被丢弃的 LLM 返回条目数，不计入 total"
     ),
     "dedup_removed": (
-        "跨轮去重时移除的重复槽位/事实条目数。"
-        "当同一 label 在多轮中重复出现时，保留最后一次（最新值），"
-        "其余早期重复条目被移除，移除数即为此值"
+        "跨轮去重时移除的重复条目数（槽位、事实、意图均参与去重）。"
+        "包含两个阶段：① 同一 label 在多轮重复出现时保留最新值，移除早期重复；"
+        "② 不同 label 但值高度相似（≥ 85%）时移除早期重复。移除数即为此值"
     ),
     "updated_count": (
-        "跨轮去重中检测到的值变更次数（旧值 → 新值的更新数）。"
-        "值变更记录在 ExtractionResult.updates 列表中，可用于追踪用户对信息的纠正"
+        "跨轮去重中检测到的值变更次数（旧值 → 新值的 UPDATE 数）。"
+        "涵盖槽位（slot_value）、事实（fact）、意图（intent）三类知识的更新，"
+        "变更记录在 ExtractionResult.updates 列表中，可用于追踪用户对信息的纠正或意图变化"
     ),
     "turns": (
         "本条对话拆解后的总轮次数（每句坐席话语或用户话语为一轮）"
@@ -442,14 +443,14 @@ class KnowledgeItem:
 @dataclass
 class ValueUpdate:
     """
-    记录跨轮槽位/事实值更新。
+    记录跨轮知识值更新（动态处理：UPDATE 操作）。
 
-    当同一 ``label`` 的 ``slot_value`` 或 ``fact`` 在多轮中出现不同的值时，
-    表明用户或坐席对该信息进行了纠正或更新。
+    当同一 ``label`` 的 ``slot_value``、``fact`` 或 ``intent`` 在多轮中
+    出现不同的值时，表明用户或坐席对该信息进行了纠正或更新。
 
     属性:
-        extraction_class: 知识类别，"slot_value" 或 "fact"
-        label:            槽位名或事实标签
+        extraction_class: 知识类别，"slot_value" / "fact" / "intent"
+        label:            槽位名、事实标签或意图编码
         old_value:        首次出现的旧值（已被覆盖）
         new_value:        最终确定的新值（最后一次出现）
         old_turn_idx:     旧值出现的轮次（0-based）
@@ -887,20 +888,40 @@ def _build_provenance(
 # --------------------------------------------------------------------------- #
 
 
+def _normalize_text(text: str) -> str:
+    """规范化文本，用于值相似度比较（折叠空白、去标点、转小写）。
+
+    此处保留单词间的单个空格（仅折叠多余空白），而非完全去除空格，
+    以保持词边界的语义意义（例如"用户 拒绝"与"用户拒绝"视为等效）。
+    """
+    text = text.strip().lower()
+    # 将全角空格 \u3000 及多个连续空白折叠为单个半角空格
+    text = re.sub(r'[\u3000\s]+', ' ', text).strip()
+    # 去除常见中英文标点
+    text = re.sub(r'[，。！？,.!?；：""''【】()（）—、/／-]', '', text)
+    return text
+
+
 def _deduplicate_knowledge_items(
     items: List[KnowledgeItem],
 ) -> Tuple[List[KnowledgeItem], List[ValueUpdate]]:
     """
-    对提取结果进行槽位/事实去重，同时记录值变更。
+    对提取结果进行全类别去重，同时记录值变更（动态处理：ADD / DELETE / UPDATE）。
 
-    在多轮对话中，同一槽位可能多次被提取：
-    - 用户重复提及同一信息（如反复强调日期）→ 保留最后一次（通常最准确）
-    - 用户纠正之前的信息（如"不是一万三，是一万五"）→ 保留最后一次，
-      并将旧值 → 新值的变更记录到 ``ValueUpdate`` 列表中
+    **去重规则（所有三类知识均参与去重）：**
 
-    **去重规则：**
-    - ``slot_value`` 和 ``fact``：相同 ``label`` 的条目只保留最后一次（最新值）
-    - ``intent``：每轮意图独立保留，不去重（不同轮次意图均有业务价值）
+    第一阶段 — 标签去重（label-based dedup）
+        ``slot_value``、``fact``、``intent``：
+        相同 ``label`` 的条目只保留最后一次（最新值）。
+        - 重复提及（值不变）：早期条目视为 DELETE，仅保留最新 ADD
+        - 值发生变更：记录 ``ValueUpdate``（旧值→新值，即 UPDATE 操作）
+        这样，三类知识均完整支持动态处理语义：ADD / DELETE / UPDATE。
+
+    第二阶段 — 值相似度去重（value-based cross-label dedup）
+        在标签去重之后，进一步检测同类知识中值高度相似（≥ 0.85）但标签不同的条目。
+        此类情况通常由 LLM 对同一信息用不同标签重复提取导致（如"客户态度"
+        与"用户态度"、"refuse_loan" 与 "拒绝借款"）。
+        保留轮次最靠后的条目（最终状态），删除早期重复条目。
 
     参数:
         items: 所有轮次的知识条目列表（按轮次顺序）
@@ -908,17 +929,20 @@ def _deduplicate_knowledge_items(
     返回:
         (deduplicated_items, value_updates)
         deduplicated_items: 去重后的知识条目列表，严格按时序排列
-        value_updates:      值变更记录列表（旧值 → 新值）
+        value_updates:      值变更记录列表（旧值 → 新值，含标签去重与值相似度去重产生的更新）
     """
-    _DEDUP_CLASSES = {"slot_value", "fact"}
+    # ------------------------------------------------------------------ #
+    # 第一阶段：标签去重（三类知识均参与）
+    # ------------------------------------------------------------------ #
+    _DEDUP_CLASSES = {"slot_value", "fact", "intent"}
 
-    # 第一遍：找每个 dedup key 的最后出现位置
+    # 第一遍：找每个 dedup key 的最后出现位置（按时序保留最新值）
     last_occurrence_index: Dict[Tuple[str, str], int] = {}
     for i, item in enumerate(items):
         if item.extraction_class in _DEDUP_CLASSES:
             last_occurrence_index[(item.extraction_class, item.label)] = i
 
-    # 第二遍：按时序输出，去重类只在最后出现位置输出，记录值变更
+    # 第二遍：按时序输出，去重类只在最后出现位置输出；值变更 → ValueUpdate
     result: List[KnowledgeItem] = []
     first_occurrence: Dict[Tuple[str, str], KnowledgeItem] = {}
     value_updates: List[ValueUpdate] = []
@@ -945,7 +969,83 @@ def _deduplicate_knowledge_items(
         else:
             result.append(item)
 
-    return result, value_updates
+    # ------------------------------------------------------------------ #
+    # 第二阶段：值相似度去重（cross-label dedup）
+    # 检测同类知识中值高度相似但标签不同的条目，删除早期重复条目。
+    # ------------------------------------------------------------------ #
+    _VALUE_DEDUP_CLASSES = {"fact", "intent"}
+    # 0.85 的阈值在实践中可有效捕获 LLM 对同一信息使用不同标签的情况
+    # （如"客户态度"与"用户态度"，相似度约 0.89），同时避免将语义不同的
+    # 短句误判为重复（如"拒绝借款"与"接受借款"，相似度约 0.67）。
+    _SIMILARITY_THRESHOLD = 0.85
+
+    # 按类别分组处理，保持时序
+    final_result: List[KnowledgeItem] = []
+    # 记录每个类别中已保留条目的归一化值（(norm_value, item) 列表）
+    retained_by_class: Dict[str, List[Tuple[str, KnowledgeItem]]] = {}
+
+    for item in result:
+        cls = item.extraction_class
+        if cls not in _VALUE_DEDUP_CLASSES:
+            final_result.append(item)
+            continue
+
+        norm_val = _normalize_text(item.value)
+        if not norm_val:
+            # 空值直接保留，不参与相似度比较
+            final_result.append(item)
+            retained_by_class.setdefault(cls, []).append((norm_val, item))
+            continue
+
+        retained = retained_by_class.get(cls, [])
+        is_duplicate = False
+        matcher = SequenceMatcher(None, norm_val, norm_val)  # 复用实例以提升性能
+        for existing_norm, existing_item in retained:
+            if not existing_norm:
+                continue
+            # 用 quick_ratio() 做廉价预筛，避免对明显不相似的文本计算完整相似度
+            matcher.set_seq2(existing_norm)
+            if matcher.quick_ratio() < _SIMILARITY_THRESHOLD:
+                continue
+            ratio = matcher.ratio()
+            if ratio >= _SIMILARITY_THRESHOLD:
+                # 高度相似：当前条目（时序更靠后）替换已有条目
+                # 从 final_result 中移除已有条目，用当前条目替换。
+                # 注：若 existing_item 在第一阶段已被移出（极罕见），remove 会抛
+                # ValueError，此处安全忽略——final_result 中必然已无该条目。
+                try:
+                    final_result.remove(existing_item)
+                except ValueError:
+                    logger.debug(
+                        "[AnyihuaExtractor] cross-label dedup: existing_item 已不在 "
+                        "final_result 中（可能已被前一轮去重移除），安全跳过"
+                    )
+                # 如果值实际发生变化，记录 UPDATE
+                if existing_item.value != item.value:
+                    value_updates.append(
+                        ValueUpdate(
+                            extraction_class=item.extraction_class,
+                            label=existing_item.label,  # 用已有条目的 label 作为主 key
+                            old_value=existing_item.value,
+                            new_value=item.value,
+                            old_turn_idx=existing_item.turn_idx,
+                            new_turn_idx=item.turn_idx,
+                        )
+                    )
+                # 从 retained 中移除旧条目，加入新条目
+                retained_by_class[cls] = [
+                    (n, it) for n, it in retained if it is not existing_item
+                ]
+                retained_by_class[cls].append((norm_val, item))
+                final_result.append(item)
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            final_result.append(item)
+            retained_by_class.setdefault(cls, []).append((norm_val, item))
+
+    return final_result, value_updates
 
 
 # --------------------------------------------------------------------------- #
