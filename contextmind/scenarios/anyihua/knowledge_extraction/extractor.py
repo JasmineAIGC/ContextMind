@@ -308,6 +308,12 @@ DEFAULT_SCHEMA = ExtractionSchema(
         IntentDefinition("guide_loan_operation", "引导用户在 APP 完成借款操作"),
         IntentDefinition("escalate_to_human", "转接人工客服"),
         IntentDefinition("say_goodbye", "礼貌告别"),
+        IntentDefinition("complain_repayment", "用户抱怨月还款额太高或还款方式太麻烦"),
+        IntentDefinition("complain_interest_rate", "用户质疑或抱怨利率偏高，难以接受"),
+        IntentDefinition("express_interest_expectation", "用户表达其对利率或利息费用的期望、认知或比较（如一万块一年应该八九百之类的表述）"),
+        IntentDefinition("confirm_information", "用户确认或认可坐席提供的信息（如对、好的、明白等表述）"),
+        IntentDefinition("reject_offer", "用户明确拒绝当前借款方案或产品"),
+        IntentDefinition("ask_for_clarification", "用户要求坐席进一步解释或说明"),
         IntentDefinition("general_inquiry", "通用询问（无法匹配其他意图时的默认意图）"),
     ],
     fact_description="不属于上述两类的重要业务事实（如逾期记录、临时额度到期、已授信天数等）",
@@ -899,7 +905,7 @@ def _build_system_prompt(schema: ExtractionSchema) -> str:
 - turn_idx 必须是整数，从 0 开始；第1轮对应 0，第2轮对应 1，以此类推
 - provenance_text 必须是对应轮次 **话语内容** 部分的逐字子串，不包含 "[第N轮(说话人)]" 前缀，不能改写
 - provenance_text 只写话语内容本身，不要加引号「」，不要加"坐席："/"用户："前缀
-- 如果一个信息在对话中多次出现，只提取一次（选最早出现的轮次）
+- 如果同一槽位/事实在对话中多次出现（如用户纠正了之前的信息），每次出现均提取，以便系统追踪值的变化；意图若完全相同则只提取最有代表性的一次
 - 只提取对话中明确出现的信息，不猜测不推断
 - 只输出 JSON，不要任何额外说明"""
 
