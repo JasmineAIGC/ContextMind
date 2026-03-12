@@ -21,6 +21,14 @@
         to_sgd_dialogue,
         save_as_sgd,
     )
+
+    # 更好地利用 langextract 库能力（逐轮 Annotator 模式）
+    from contextmind.scenarios.anyihua.knowledge_extraction import (
+        SimpleLLMClientAdapter,
+        create_per_turn_annotator,
+        extract_with_per_turn_annotator,
+        build_langextract_schema_prompt,
+    )
 """
 
 from .extractor import (
@@ -34,6 +42,12 @@ from .extractor import (
     STATS_FIELD_DESCRIPTIONS,
     extract_knowledge_with_provenance,
     save_results,
+)
+from .langextract_bridge import (
+    SimpleLLMClientAdapter,
+    build_langextract_schema_prompt,
+    create_per_turn_annotator,
+    extract_with_per_turn_annotator,
 )
 from .sgd_converter import (
     save_as_sgd,
@@ -53,4 +67,9 @@ __all__ = [
     "save_results",
     "to_sgd_dialogue",
     "save_as_sgd",
+    # langextract 深度集成（逐轮 Annotator 模式）
+    "SimpleLLMClientAdapter",
+    "build_langextract_schema_prompt",
+    "create_per_turn_annotator",
+    "extract_with_per_turn_annotator",
 ]

@@ -98,13 +98,14 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 # --------------------------------------------------------------------------- #
 # langextract — 数据类型 + 溯源对齐工具
 # --------------------------------------------------------------------------- #
-from langextract.data import Extraction
+from langextract.data import AlignmentStatus, Extraction
 from langextract.resolver import WordAligner
 from langextract.tokenizer import UnicodeTokenizer
 
@@ -156,10 +157,11 @@ STATS_FIELD_DESCRIPTIONS: Dict[str, str] = {
     ),
     "aligned": (
         "成功完成字符区间溯源的条目数，即 provenance_text 能在对应轮次话语中精确定位"
+        "（含精确匹配、WordAligner 模糊匹配、difflib 滑窗模糊匹配三种方式）"
     ),
     "unaligned": (
         "溯源失败的条目数：provenance_text 无法在任何轮次话语中定位，"
-        "通常因 LLM 改写了原话，或 provenance_text 本身不是对话原文"
+        "通常因 LLM 大幅改写了原话（相似度低于 80%），或 provenance_text 本身不是对话原文"
     ),
     "alignment_rate": (
         "溯源成功率 = aligned / total，介于 0.0（完全失败）和 1.0（全部成功）之间，"
@@ -541,6 +543,90 @@ def _clean_provenance_text(raw: str) -> str:
     return text if text else raw
 
 
+# --------------------------------------------------------------------------- #
+# difflib 滑窗模糊匹配（辅助函数）
+# --------------------------------------------------------------------------- #
+
+# 滑窗模糊匹配使用的最小相似度阈值（0.0-1.0）。
+# 0.80 表示至少 80% 字符相匹配，可处理 LLM 小幅改写（删减/替换 1-2 个字）。
+_FUZZY_MIN_RATIO: float = 0.80
+
+# 启用滑窗模糊匹配的最短查询长度（字符数）。
+# 短于此长度的 provenance_text 在滑窗中极易误匹配，不做模糊处理。
+_FUZZY_MIN_QUERY_LEN: int = 6
+
+# 滑窗长度相对于查询长度的浮动范围（±N 字符）。
+# ±2 允许 LLM 轻微缩减或扩展文本（如省略标点、添加"啊/嘛"语气词等）。
+_FUZZY_WINDOW_DELTA: int = 2
+
+
+def _fuzzy_align_provenance(
+    query: str,
+    text: str,
+    min_ratio: float = _FUZZY_MIN_RATIO,
+    min_length: int = _FUZZY_MIN_QUERY_LEN,
+) -> Tuple[Optional[int], Optional[int]]:
+    """
+    使用 SequenceMatcher 滑窗算法在 text 中查找与 query 最相似的子串。
+
+    此函数作为 _align_to_turn() 的最终兜底：当精确匹配（str.find）和
+    WordAligner 均失败后调用，处理 LLM 在 provenance_text 中做出轻微改写的情况
+    （例如：省略虚词、插入语气词"嘛/吧"、替换同义字符等）。
+
+    算法：
+    1. 对长度在 [max(min_length, qlen-DELTA), min(text_len, qlen+DELTA)] 范围内
+       的所有子串滑窗，计算与 query 的 SequenceMatcher 相似度。
+    2. 返回相似度 ≥ min_ratio 的最佳匹配区间；否则返回 (None, None)。
+
+    注意：
+    - 若 query 长于 text，退化为整段文本比较。
+    - 滑窗计算复杂度为 O(text_len × query_len)，对话轮次文本通常 ≤ 200 字，
+      延迟可忽略。
+
+    参数:
+        query:      经过 _clean_provenance_text 清理后的 provenance_text
+        text:       该轮次的原始话语文本
+        min_ratio:  最低相似度阈值（默认 0.80）
+        min_length: 启用模糊匹配的最短查询长度（默认 6 字符）
+
+    返回:
+        (char_start, char_end) 或 (None, None)（无满足阈值的匹配）
+    """
+    if not query or not text or len(query) < min_length:
+        return None, None
+
+    qlen = len(query)
+    text_len = len(text)
+
+    if qlen > text_len:
+        # 查询比文本更长：退化为整段比较
+        ratio = SequenceMatcher(None, query, text).ratio()
+        return (0, text_len) if ratio >= min_ratio else (None, None)
+
+    best_ratio = 0.0
+    best_start: Optional[int] = None
+    best_end: Optional[int] = None
+
+    # 滑窗长度范围：[max(min_length, qlen-δ), min(text_len, qlen+δ)]
+    # 由于 qlen <= text_len（上方已处理 qlen > text_len 的情况），
+    # window_len 始终 <= text_len，故 range(text_len - window_len + 1) 不会为负。
+    window_min = max(min_length, qlen - _FUZZY_WINDOW_DELTA)
+    window_max = min(text_len, qlen + _FUZZY_WINDOW_DELTA) + 1  # +1 使区间右开
+
+    for window_len in range(window_min, window_max):
+        for start in range(text_len - window_len + 1):
+            window = text[start : start + window_len]
+            ratio = SequenceMatcher(None, query, window).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_start = start
+                best_end = start + window_len
+
+    if best_ratio >= min_ratio and best_start is not None:
+        return best_start, best_end
+    return None, None
+
+
 def _align_to_turn(
     provenance_text: str,
     turn_text: str,
@@ -552,6 +638,7 @@ def _align_to_turn(
     1. 预处理：清除 LLM 在 provenance_text 中附加的轮次前缀/引号/说话人前缀
     2. 快速路径：直接 str.find()，处理精确子串（最常见、最可靠）
     3. WordAligner 回退：处理近似匹配（LLM 轻微改写等边缘情况）
+    4. difflib 滑窗模糊匹配：最终兜底，处理 WordAligner 仍无法对齐的轻微改写
 
     注意：_clean_provenance_text 只去除行首前缀/外层包裹，不会过度清除话语内容。
     因此清除前后的两种 provenance_text 都尝试 str.find()，仅当两者不同时才
@@ -583,6 +670,8 @@ def _align_to_turn(
             return pos_raw, pos_raw + len(provenance_text)
 
     # Step 3: WordAligner 回退（处理 LLM 轻微改写 / 近似匹配）
+    # 仅接受 MATCH_EXACT 或 MATCH_FUZZY 状态；MATCH_LESSER / MATCH_GREATER
+    # 表示部分匹配（词元数量不足），这类结果交由 Step 4 的 difflib 重新处理。
     try:
         exts = [Extraction(extraction_class="x", extraction_text=cleaned)]
         groups = _WORD_ALIGNER.align_extractions(
@@ -592,15 +681,27 @@ def _align_to_turn(
             char_offset=0,
             tokenizer_impl=_TOKENIZER,
         )
-        if not groups or not groups[0]:
-            return None, None
-        aligned = groups[0][0]
-        if aligned.char_interval is not None:
-            return aligned.char_interval.start_pos, aligned.char_interval.end_pos
-        return None, None
+        if groups and groups[0]:
+            aligned = groups[0][0]
+            is_full_match = aligned.alignment_status in (
+                AlignmentStatus.MATCH_EXACT,
+                AlignmentStatus.MATCH_FUZZY,
+            )
+            if is_full_match and aligned.char_interval is not None:
+                return aligned.char_interval.start_pos, aligned.char_interval.end_pos
     except Exception as exc:
         logger.debug(f"[WordAligner] 对齐异常（{cleaned!r}）: {exc}")
-        return None, None
+
+    # Step 4: difflib 滑窗模糊匹配（最终兜底）
+    # 处理 WordAligner 仍无法覆盖的 LLM 轻微改写（如语气词插删、同义字替换）
+    s, e = _fuzzy_align_provenance(cleaned, turn_text)
+    if s is not None:
+        logger.debug(
+            f"[FuzzyAlign] 滑窗模糊匹配成功 [{s}:{e}]（{cleaned[:20]!r}）"
+        )
+        return s, e
+
+    return None, None
 
 
 def _find_turn_by_search(
