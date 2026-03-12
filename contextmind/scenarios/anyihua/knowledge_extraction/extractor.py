@@ -883,11 +883,74 @@ def _build_provenance(
 
 
 # --------------------------------------------------------------------------- #
-# LLM 提取 Prompt（轮次感知 + Schema 引导）
+# 跨轮去重
 # --------------------------------------------------------------------------- #
 
-# 旧版硬编码 schema context 仅作向后兼容保留，提取器内部已改用 _build_schema_context()
-_SCHEMA_CONTEXT = _build_schema_context(DEFAULT_SCHEMA)
+
+def _deduplicate_knowledge_items(
+    items: List[KnowledgeItem],
+) -> Tuple[List[KnowledgeItem], List[ValueUpdate]]:
+    """
+    对提取结果进行槽位/事实去重，同时记录值变更。
+
+    在多轮对话中，同一槽位可能多次被提取：
+    - 用户重复提及同一信息（如反复强调日期）→ 保留最后一次（通常最准确）
+    - 用户纠正之前的信息（如"不是一万三，是一万五"）→ 保留最后一次，
+      并将旧值 → 新值的变更记录到 ``ValueUpdate`` 列表中
+
+    **去重规则：**
+    - ``slot_value`` 和 ``fact``：相同 ``label`` 的条目只保留最后一次（最新值）
+    - ``intent``：每轮意图独立保留，不去重（不同轮次意图均有业务价值）
+
+    参数:
+        items: 所有轮次的知识条目列表（按轮次顺序）
+
+    返回:
+        (deduplicated_items, value_updates)
+        deduplicated_items: 去重后的知识条目列表，严格按时序排列
+        value_updates:      值变更记录列表（旧值 → 新值）
+    """
+    _DEDUP_CLASSES = {"slot_value", "fact"}
+
+    # 第一遍：找每个 dedup key 的最后出现位置
+    last_occurrence_index: Dict[Tuple[str, str], int] = {}
+    for i, item in enumerate(items):
+        if item.extraction_class in _DEDUP_CLASSES:
+            last_occurrence_index[(item.extraction_class, item.label)] = i
+
+    # 第二遍：按时序输出，去重类只在最后出现位置输出，记录值变更
+    result: List[KnowledgeItem] = []
+    first_occurrence: Dict[Tuple[str, str], KnowledgeItem] = {}
+    value_updates: List[ValueUpdate] = []
+
+    for i, item in enumerate(items):
+        if item.extraction_class in _DEDUP_CLASSES:
+            key = (item.extraction_class, item.label)
+            if key not in first_occurrence:
+                first_occurrence[key] = item
+            if i == last_occurrence_index[key]:
+                result.append(item)
+                orig = first_occurrence[key]
+                if orig.value != item.value:
+                    value_updates.append(
+                        ValueUpdate(
+                            extraction_class=item.extraction_class,
+                            label=item.label,
+                            old_value=orig.value,
+                            new_value=item.value,
+                            old_turn_idx=orig.turn_idx,
+                            new_turn_idx=item.turn_idx,
+                        )
+                    )
+        else:
+            result.append(item)
+
+    return result, value_updates
+
+
+# --------------------------------------------------------------------------- #
+# LLM 提取 Prompt（轮次感知 + Schema 引导）
+# --------------------------------------------------------------------------- #
 
 
 def _build_system_prompt(schema: ExtractionSchema) -> str:
@@ -959,10 +1022,6 @@ def _build_system_prompt(schema: ExtractionSchema) -> str:
 - 如果同一槽位/事实在对话中多次出现（如用户纠正了之前的信息），每次出现均提取，以便系统追踪值的变化
 - 只提取对话中明确出现的信息，不猜测不推断
 - 只输出 JSON，不要任何额外说明"""
-
-
-# 向后兼容：模块级常量（保持旧导入不报错）
-_EXTRACTION_SYSTEM_PROMPT = _build_system_prompt(DEFAULT_SCHEMA)
 
 _EXTRACTION_USER_TEMPLATE = """\
 请从以下{scene_name}对话中提取结构化知识（每条须标注 turn_idx 和 provenance_text）：
@@ -1158,8 +1217,11 @@ class AnyihuaKnowledgeExtractor:
                 source_text="",
                 turns=[],
                 knowledge_items=[],
-                stats={"total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0,
-                       "turn_corrected": 0, "global_search_found": 0, "skipped_incomplete": 0, "turns": 0},
+                stats={
+                    "total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0,
+                    "turn_corrected": 0, "global_search_found": 0, "skipped_incomplete": 0,
+                    "dedup_removed": 0, "updated_count": 0, "turns": 0,
+                },
             )
 
         logger.info(
@@ -1178,8 +1240,11 @@ class AnyihuaKnowledgeExtractor:
                 source_text=source_text,
                 turns=turns,
                 knowledge_items=[],
-                stats={"total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0,
-                       "turn_corrected": 0, "global_search_found": 0, "skipped_incomplete": 0, "turns": len(turns)},
+                stats={
+                    "total": 0, "aligned": 0, "unaligned": 0, "alignment_rate": 0.0,
+                    "turn_corrected": 0, "global_search_found": 0, "skipped_incomplete": 0,
+                    "dedup_removed": 0, "updated_count": 0, "turns": len(turns),
+                },
             )
 
         logger.info(f"[AnyihuaExtractor] LLM 返回 {len(raw_items)} 条候选提取结果")
@@ -1278,6 +1343,21 @@ class AnyihuaKnowledgeExtractor:
             )
 
         total = len(knowledge_items)
+
+        # 跨轮槽位/事实去重（保留最新值，记录值变更）
+        updates: List[ValueUpdate] = []
+        dedup_removed = 0
+        if knowledge_items:
+            before_dedup = total
+            knowledge_items, updates = _deduplicate_knowledge_items(knowledge_items)
+            dedup_removed = before_dedup - len(knowledge_items)
+            if dedup_removed:
+                logger.info(
+                    f"[AnyihuaExtractor] 跨轮去重: 删除 {dedup_removed} 条重复槽位/事实"
+                    f"，其中值发生变更 {len(updates)} 条"
+                )
+            total = len(knowledge_items)
+
         stats = {
             "total": total,
             "aligned": aligned_count,
@@ -1286,6 +1366,8 @@ class AnyihuaKnowledgeExtractor:
             "turn_corrected": turn_corrected_count,
             "global_search_found": global_search_count,
             "skipped_incomplete": skipped_count,
+            "dedup_removed": dedup_removed,
+            "updated_count": len(updates),
             "turns": len(turns),
         }
 
@@ -1305,6 +1387,7 @@ class AnyihuaKnowledgeExtractor:
             source_text=source_text,
             turns=turns,
             knowledge_items=knowledge_items,
+            updates=updates,
             stats=stats,
         )
 
@@ -1364,6 +1447,8 @@ class AnyihuaKnowledgeExtractor:
                             "turn_corrected": 0,
                             "global_search_found": 0,
                             "skipped_incomplete": 0,
+                            "dedup_removed": 0,
+                            "updated_count": 0,
                             "turns": len(turns),
                             "error": str(exc),
                         },
