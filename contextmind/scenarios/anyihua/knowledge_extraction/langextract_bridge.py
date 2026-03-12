@@ -63,7 +63,6 @@ langextract 官方示例（README.md）的标准用法::
 - :func:`build_langextract_schema_prompt` — 从 ``ExtractionSchema`` 生成
   langextract 兼容的提示词描述字符串
 - :func:`build_langextract_examples` — 从内置 few-shot 示例生成 ``ExampleData`` 列表
-- :func:`create_per_turn_annotator` — 构建可复用的 ``Annotator`` 实例（低层 API）
 - :func:`extract_with_per_turn_annotator` — 完整逐轮提取流程（推荐入口）：
   对每轮话语调用 ``lx.extract()``，传入历史上下文，最后跨轮去重
 
@@ -98,12 +97,9 @@ import langextract as lx  # `lx` is the official alias from langextract's own RE
 from collections.abc import Iterator, Sequence
 from typing import Any, Dict, List, Optional, Tuple
 
-from langextract.annotation import Annotator
 from langextract.core.base_model import BaseLanguageModel
-from langextract.core.types import FormatType, ScoredOutput
+from langextract.core.types import ScoredOutput
 from langextract.data import ExampleData, Extraction
-from langextract.prompting import PromptTemplateStructured
-from langextract.tokenizer import UnicodeTokenizer
 
 from contextmind.infra.llm_client import SimpleLLMClient
 from contextmind.infra.logger import get_logger
@@ -322,47 +318,6 @@ def build_langextract_schema_prompt(schema: ExtractionSchema) -> str:
     return "\n".join(lines)
 
 
-def create_per_turn_annotator(
-    client: SimpleLLMClient,
-    schema: ExtractionSchema,
-) -> Annotator:
-    """
-    创建逐轮知识注解器（langextract ``Annotator`` 实例）。
-
-    此函数是低层 API，适合需要精细控制的场景。通常推荐使用更高层的
-    :func:`extract_with_per_turn_annotator`，它通过 ``lx.extract(model=...)``
-    调用相同的底层管道，但接口更简洁，更贴近官方示例。
-
-    参数:
-        client: 已初始化的 SimpleLLMClient 实例
-        schema: 提取 Schema（槽位、意图、事实定义）
-
-    返回:
-        可重复使用的 ``Annotator`` 实例
-
-    示例::
-
-        annotator = create_per_turn_annotator(client, DEFAULT_SCHEMA)
-        annotated = annotator.annotate_text(
-            "您在安逸花账户有一笔两万一千九百块钱的额度嘛，对吧？",
-            show_progress=False,
-        )
-        for ext in annotated.extractions:
-            print(ext.extraction_class, ext.extraction_text, ext.char_interval)
-    """
-    adapter = SimpleLLMClientAdapter(client)
-    description = build_langextract_schema_prompt(schema)
-    examples = build_langextract_examples()
-    prompt_template = PromptTemplateStructured(
-        description=description,
-        examples=examples,
-    )
-    return Annotator(
-        language_model=adapter,
-        prompt_template=prompt_template,
-        format_type=FormatType.YAML,
-        fence_output=False,
-    )
 
 
 # --------------------------------------------------------------------------- #

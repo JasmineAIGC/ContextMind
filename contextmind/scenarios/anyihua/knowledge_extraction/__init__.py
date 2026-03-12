@@ -27,7 +27,6 @@
         SimpleLLMClientAdapter,
         build_langextract_schema_prompt,
         build_langextract_examples,
-        create_per_turn_annotator,
         extract_with_per_turn_annotator,
     )
 """
@@ -48,7 +47,6 @@ from .langextract_bridge import (
     SimpleLLMClientAdapter,
     build_langextract_examples,
     build_langextract_schema_prompt,
-    create_per_turn_annotator,
     extract_with_per_turn_annotator,
 )
 from .sgd_converter import (
@@ -73,6 +71,5 @@ __all__ = [
     "SimpleLLMClientAdapter",
     "build_langextract_examples",
     "build_langextract_schema_prompt",
-    "create_per_turn_annotator",
     "extract_with_per_turn_annotator",
 ]

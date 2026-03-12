@@ -266,3 +266,45 @@ response = await tracker.process_turn("我要预订一家餐厅")
 - [SGD 原始论文](https://arxiv.org/abs/1909.05855)
 - [DST 算法文档](dst.md)
 - [FnCTOD 算法文档](fnctod.md)
+
+---
+
+## 安逸花外呼场景：双任务引擎架构
+
+> 可配合 `examples/anyihua_engine_api_demo.py` 直接运行验证（无需 LLM）。
+
+安逸花外呼场景包含**两个完全隔离的任务**：
+
+```
+contextmind/scenarios/anyihua/
+    utils.py                   ← 共享工具（cn2int, parse_user_info, 检测常量）
+    qc/                        ← 任务一：离线质检（Label Prediction）
+        engine.py              ← build_qc_engine()：5 个标签检测 API
+        predictor.py           ← predict_label_pytod / detect_session_llm / PyTODQualityChecker
+    generation/                ← 任务二：在线生成（Response Generation）
+        engine.py              ← build_generation_engine()：5 个 CRM 查询 API
+        schema.py              ← ANYIHUA_SCHEMA：约束动作解析器意图范围
+
+examples/
+    anyihua_qc_pipeline.py     ← 任务一入口（批量质检）
+    anyihua_online_demo.py     ← 任务二入口（Gradio 坐席回复生成）
+    anyihua_engine_api_demo.py ← 双引擎演示（零 LLM）
+```
+
+两个引擎**目的不同、数据不同、不可共用**：
+
+| 维度 | 任务一（QC） | 任务二（Generation） |
+|------|------------|---------------------|
+| **目标** | 判断坐席回复的质量标签 | 生成更好的坐席回复 |
+| **API 类型** | 标签检测器 | CRM 数据查询器 |
+| **API 数量** | 5 个（对应 5 个标签类别） | 5 个（对应业务数据需求） |
+| **返回值** | `{label, detected, confidence, evidence}` | CRM 结构化数据 |
+
+**文件索引**
+
+| 文件 | 内容 |
+|------|------|
+| `contextmind/scenarios/anyihua/qc/engine.py` | QC 引擎：5 个标签检测 API |
+| `contextmind/scenarios/anyihua/qc/predictor.py` | `predict_label_pytod` + `detect_session_llm` |
+| `contextmind/scenarios/anyihua/generation/engine.py` | Generation 引擎：5 个 CRM 查询 API |
+| `contextmind/scenarios/anyihua/generation/schema.py` | `ANYIHUA_SCHEMA`：意图/槽位约束 |

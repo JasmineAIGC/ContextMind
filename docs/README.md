@@ -20,16 +20,16 @@
 
 - [DST 算法](algorithms/dst.md) - 对话状态追踪算法（已实现）
 - [FnCTOD 算法](algorithms/fnctod.md) - 函数调用式任务型对话算法（已实现）
-- [pyTOD 算法](algorithms/pytod.md) - 可编程任务型对话算法（已实现）
+- [pyTOD 算法](algorithms/pytod.md) - 可编程任务型对话算法（已实现，含安逸花双引擎架构说明）
+- [PyTOD vs FnCTOD 对比](algorithms/pytod-vs-fnctod-comparison.md) - 两种框架深度对比分析
 - [意图评测](algorithms/intent-evaluation.md) - IntentEvaluator 使用指南
 - [上下文工程](algorithms/context-engineering.md) - DST 和 FnCTOD 评测对上下文工程的意义
 
 ### 数据集文档
 
 - [SGD 数据集](datasets/sgd.md) - Schema-Guided Dialogue 数据集（pyTOD 使用）
-- [TransferTOD 数据集](datasets/transfertod.md) - TransferTOD 数据集文件与目录结构说明
+- [TransferTOD 数据集](datasets/transfertod.md) - TransferTOD 数据集说明（含数量差异解析）
 - [RiSAWOZ 数据集](datasets/risawoz.md) - RiSAWOZ 数据集文件与目录结构说明
-- [对话数量差异说明](datasets/dialogue-count.md) - DST 与 FnCTOD 评测对话数量不同的原因
 
 ### 开发指南
 
@@ -63,17 +63,14 @@ docs/
 ├── algorithms/                    # 算法文档
 │   ├── dst.md                     # DST 算法（已实现）
 │   ├── fnctod.md                  # FnCTOD 算法（已实现）
-│   ├── pytod.md                   # PyTOD 算法（已实现）
+│   ├── pytod.md                   # PyTOD 算法（已实现，含安逸花双引擎架构说明）
+│   ├── pytod-vs-fnctod-comparison.md  # PyTOD vs FnCTOD 深度对比分析
 │   ├── intent-evaluation.md       # 意图评测使用指南
 │   └── context-engineering.md     # 上下文工程意义
-├── analysis/                      # 实验分析报告
-│   ├── pytod-vs-fnctod-comparison.md
-│   └── pytod-engine-api-explained.md  # 安逸花双任务引擎架构说明
 └── datasets/                      # 数据集文档
     ├── sgd.md                     # SGD 数据集（PyTOD 使用）
-    ├── transfertod.md             # TransferTOD 数据集
-    ├── risawoz.md                 # RiSAWOZ 数据集
-    └── dialogue-count.md          # 对话数量差异说明
+    ├── transfertod.md             # TransferTOD 数据集（含数量差异解析）
+    └── risawoz.md                 # RiSAWOZ 数据集
 ```
 
 文档命名规范：使用小写字母，单词间用连字符 `-` 分隔，扩展名 `.md`。

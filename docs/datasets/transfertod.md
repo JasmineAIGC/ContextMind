@@ -408,7 +408,7 @@ python benchmark/extract_transfertod_schemas.py \
 | `noise` | 仅 noise 数据 | ~3,013 |
 | 未指定（默认） | clean + noise 全量 | ~9,013 |
 
-> 详见 [对话数量差异说明](dialogue-count.md)
+> 详见本文末尾"数据数量差异说明"章节
 
 ---
 
@@ -448,4 +448,21 @@ TransferTOD 使用以下评测指标：
 - [ContextMind FnCTOD 评测脚本](../../benchmark/run_fnctod_transfertod.py)
 - [ContextMind TransferTOD 适配器](../../benchmark/datasets/transfertod/adapter.py)
 - [评测指标说明](../metrics-explanation.md)
-- [对话数量差异说明](dialogue-count.md)
+
+---
+
+## 数据数量差异说明
+
+**常见问题**：DST 评测找到 9013 个对话，FnCTOD 评测找到 6000 个对话，为什么不同？
+
+TransferTOD 包含两种数据类型：
+
+| 类型 | 数量（约） | 特点 |
+|------|-----------|------|
+| Clean | ~6000 | 干净、高质量，适合标准评测 |
+| Noise | ~3013 | 含拼写错误、口语化表达，适合鲁棒性测试 |
+
+- 未指定 `--data-type` 时默认加载全部（clean + noise）→ 约 9013 条
+- 指定 `--data-type clean` 时只加载 clean 数据 → 约 6000 条
+
+**建议**：始终明确指定 `--data-type` 参数，以确保评测结果可复现。
