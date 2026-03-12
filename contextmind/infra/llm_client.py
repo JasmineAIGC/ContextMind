@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 import os
 import re
@@ -253,30 +254,36 @@ class SimpleLLMClient:
 
         return safe_max_tokens
 
-    def generate(self, prompt: str) -> Tuple[str, str]:
-        """基于 Prompt 调用 LLM，返回 (reasoning_content, response_content)。
+    def _call_openai_sync(
+        self, messages: list, temperature: Optional[float] = None
+    ) -> Tuple[str, str]:
+        """真正执行 OpenAI 兼容 API 调用，返回 (reasoning_content, content)。
+
+        这是所有公开接口（generate / chat / *_async）的唯一 HTTP 调用入口，
+        消除代码重复，使错误处理和响应解析只需维护一份。
 
         Args:
-            prompt: 完整的 Prompt
+            messages: OpenAI 兼容的消息列表。
+            temperature: 采样温度；传入 ``None`` 时使用 ``LLMConfig.temperature``。
 
         Returns:
-            (reasoning_content, response_content)，reasoning_content 仅部分模型（如 DeepSeek-R1）支持
+            ``(reasoning_content, content)``——``reasoning_content`` 仅在支持
+            思维链的模型（如 DeepSeek-R1）中非空，``content`` 为最终回复文本。
         """
-        messages = [{"role": "user", "content": prompt}]
-
+        temp = temperature if temperature is not None else self.config.temperature
+        safe_max_tokens = self._calculate_safe_max_tokens(messages)
+        extra_body = {
+            "top_k": self.config.top_k,
+            # 关闭响应内容中的思维链 token；
+            # 否则 Qwen3、DeepSeek-R1 等推理模型会在 content 字段中
+            # 输出 <think>…</think> 块。
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
         try:
-            safe_max_tokens = self._calculate_safe_max_tokens(messages)
-            extra_body = {
-                "top_k": self.config.top_k,
-                # 关闭响应内容中的思维链 token；
-                # 否则 Qwen3、DeepSeek-R1 等推理模型会在 content 字段中
-                # 输出 <think>…</think> 块。
-                "chat_template_kwargs": {"enable_thinking": False},
-            }
             response = self._client.chat.completions.create(
                 model=self.config.model,
                 messages=messages,
-                temperature=self.config.temperature,
+                temperature=temp,
                 max_tokens=safe_max_tokens,
                 stream=False,
                 extra_body=extra_body,
@@ -312,13 +319,29 @@ class SimpleLLMClient:
 
         return str(reasoning_content), final_text
 
-    async def generate_async(self, prompt: str) -> Tuple[str, str]:
-        """异步版本的 generate（当前封装同步版本，生产环境应使用 AsyncOpenAI）。
+    def generate(self, prompt: str) -> Tuple[str, str]:
+        """基于 Prompt 调用 LLM，返回 (reasoning_content, response_content)。
 
-        Wraps the synchronous call to satisfy async callers without blocking the
-        event loop correctly.  Replace with ``AsyncOpenAI`` for production use.
+        Args:
+            prompt: 完整的 Prompt
+
+        Returns:
+            (reasoning_content, response_content)，reasoning_content 仅部分模型（如 DeepSeek-R1）支持
         """
-        return self.generate(prompt)
+        messages = [{"role": "user", "content": prompt}]
+        return self._call_openai_sync(messages)
+
+    async def generate_async(self, prompt: str) -> Tuple[str, str]:
+        """异步版本的 generate，在线程池中运行同步调用，不阻塞事件循环。
+
+        Args:
+            prompt: 完整的 Prompt
+
+        Returns:
+            (reasoning_content, response_content)
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, lambda: self.generate(prompt))
 
     def chat(self, messages: list, temperature: float = None) -> str:
         """基于消息列表调用 LLM（同步版本）。
@@ -330,51 +353,11 @@ class SimpleLLMClient:
         Returns:
             助手的回复内容
         """
-        try:
-            temp = temperature if temperature is not None else self.config.temperature
-            safe_max_tokens = self._calculate_safe_max_tokens(messages)
-            extra_body = {
-                "top_k": self.config.top_k,
-                "chat_template_kwargs": {"enable_thinking": False},
-            }
-            response = self._client.chat.completions.create(
-                model=self.config.model,
-                messages=messages,
-                temperature=temp,
-                max_tokens=safe_max_tokens,
-                stream=False,
-                extra_body=extra_body,
-            )
-        except Exception as e:
-            logger.error(f"LLM API调用失败: {str(e)}", exc_info=True)
-            raise RuntimeError(
-                f"调用 LLM API 失败 (model: {self.config.model}): {str(e)}"
-            ) from e
-
-        if not response.choices:
-            raise ValueError(f"API 返回空的 choices (model: {self.config.model})")
-
-        choice = response.choices[0].message
-
-        if not choice:
-            raise ValueError(f"API 返回无效的 message (model: {self.config.model})")
-
-        content = choice.content
-
-        if isinstance(content, list):
-            content = "".join(
-                part.get("text", "") for part in content if isinstance(part, dict)
-            )
-
-        if content is None:
-            return ""
-        elif isinstance(content, str):
-            return self._strip_thinking(content)
-        else:
-            return self._strip_thinking(str(content))
+        _, content = self._call_openai_sync(messages, temperature)
+        return content
 
     async def chat_async(self, messages: list, temperature: float = None) -> str:
-        """异步版本的 chat（当前封装同步版本，生产环境应使用 AsyncOpenAI）。
+        """异步版本的 chat，在线程池中运行同步调用，不阻塞事件循环。
 
         Args:
             messages: 消息列表
@@ -383,4 +366,7 @@ class SimpleLLMClient:
         Returns:
             助手的回复内容
         """
-        return self.chat(messages, temperature)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, lambda: self.chat(messages, temperature)
+        )
