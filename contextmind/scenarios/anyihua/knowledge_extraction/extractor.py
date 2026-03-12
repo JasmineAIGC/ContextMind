@@ -178,6 +178,15 @@ STATS_FIELD_DESCRIPTIONS: Dict[str, str] = {
         "因字段缺失（extraction_class / label / value / provenance_text 任一为空）"
         "而被丢弃的 LLM 返回条目数，不计入 total"
     ),
+    "dedup_removed": (
+        "跨轮去重时移除的重复槽位/事实条目数。"
+        "当同一 label 在多轮中重复出现时，保留最后一次（最新值），"
+        "其余早期重复条目被移除，移除数即为此值"
+    ),
+    "updated_count": (
+        "跨轮去重中检测到的值变更次数（旧值 → 新值的更新数）。"
+        "值变更记录在 ExtractionResult.updates 列表中，可用于追踪用户对信息的纠正"
+    ),
     "turns": (
         "本条对话拆解后的总轮次数（每句坐席话语或用户话语为一轮）"
     ),
@@ -398,6 +407,34 @@ class KnowledgeItem:
 
 
 @dataclass
+class ValueUpdate:
+    """
+    记录跨轮槽位/事实值更新。
+
+    当同一 ``label`` 的 ``slot_value`` 或 ``fact`` 在多轮中出现不同的值时，
+    表明用户或坐席对该信息进行了纠正或更新。
+
+    属性:
+        extraction_class: 知识类别，"slot_value" 或 "fact"
+        label:            槽位名或事实标签
+        old_value:        首次出现的旧值（已被覆盖）
+        new_value:        最终确定的新值（最后一次出现）
+        old_turn_idx:     旧值出现的轮次（0-based）
+        new_turn_idx:     新值出现的轮次（0-based）
+    """
+
+    extraction_class: str
+    label: str
+    old_value: str
+    new_value: str
+    old_turn_idx: int
+    new_turn_idx: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class ExtractionResult:
     """
     单条对话的完整提取结果，含每条知识的溯源信息。
@@ -407,6 +444,7 @@ class ExtractionResult:
         source_text:    完整对话文本（含轮次标记）
         turns:          解析后的轮次列表 [(turn_idx, speaker, utterance)]
         knowledge_items:提取出的知识列表，每条的 provenance 标明轮次与位置
+        updates:        跨轮值变更记录，仅当 slot_value/fact 的 value 发生变化时有条目
         stats:          提取统计字典，各字段含义见 STATS_FIELD_DESCRIPTIONS
         extracted_at:   提取时间戳
     """
@@ -415,6 +453,7 @@ class ExtractionResult:
     source_text: str
     turns: List[Tuple[int, str, str]] = field(default_factory=list)
     knowledge_items: List[KnowledgeItem] = field(default_factory=list)
+    updates: List[ValueUpdate] = field(default_factory=list)
     stats: Dict[str, Any] = field(default_factory=dict)
     extracted_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
@@ -427,6 +466,7 @@ class ExtractionResult:
                 for idx, sp, utt in self.turns
             ],
             "knowledge_items": [item.to_dict() for item in self.knowledge_items],
+            "updates": [u.to_dict() for u in self.updates],
             "stats": self.stats,
             "extracted_at": self.extracted_at,
         }

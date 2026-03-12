@@ -109,6 +109,7 @@ from .extractor import (
     ExtractionResult,
     ExtractionSchema,
     KnowledgeItem,
+    ValueUpdate,
     _build_provenance,
     _parse_turns,
 )
@@ -361,50 +362,73 @@ def _build_history_context(
 
 def _deduplicate_knowledge_items(
     items: List[KnowledgeItem],
-) -> List[KnowledgeItem]:
+) -> Tuple[List[KnowledgeItem], List[ValueUpdate]]:
     """
-    对跨轮提取结果进行槽位去重。
+    对跨轮提取结果进行槽位去重，同时记录值变更。
 
     在多轮对话中，同一槽位可能多次被提取：
     - 用户重复提及同一信息（如反复强调日期）→ 保留最后一次（通常最准确）
-    - 用户纠正之前的信息（如"不是一万三，是一万五"）→ 同样保留最后一次
+    - 用户纠正之前的信息（如"不是一万三，是一万五"）→ 同样保留最后一次，
+      并将旧值 → 新值的变更记录到 ``ValueUpdate`` 列表中
 
     **去重规则：**
-    - ``slot_value`` 和 ``fact``：相同 ``label`` 的条目只保留最后一次（最新值）
+    - ``slot_value`` 和 ``fact``：相同 ``label`` 的条目只保留最后一次（最新值），
+      保留位置为最后出现的时序位置（不破坏对话时间顺序）
     - ``intent``：每轮意图独立保留，不去重（不同轮次意图均有业务价值）
+
+    **两阶段算法：**
+    1. 第一遍扫描：找到每个需去重 key 的最后出现位置索引
+    2. 第二遍扫描：按时序逐一输出，去重 key 仅在其最后出现位置输出，
+       同时比较首次出现值与最终值，差异则记录为 ``ValueUpdate``
 
     参数:
         items: 所有轮次合并后的知识条目列表（按轮次顺序）
 
     返回:
-        去重后的知识条目列表，顺序按最后出现位置排列
+        (deduplicated_items, value_updates)
+        deduplicated_items: 去重后的知识条目列表，严格按时序排列
+        value_updates:      值变更记录列表（旧值 → 新值）
     """
-    # 需要去重的类别
     _DEDUP_CLASSES = {"slot_value", "fact"}
 
-    # 最终结果列表（不需要去重的类别直接追加）
-    result: List[KnowledgeItem] = []
-    # 需要去重的类别：{(cls, label) → item}，后来的覆盖前面的
-    dedup_latest: Dict[Tuple[str, str], KnowledgeItem] = {}
-    # 保存 dedup 条目的插入顺序（按 key 首次出现）
-    dedup_order: List[Tuple[str, str]] = []
+    # 第一遍：找每个 dedup key 的最后出现位置
+    last_occurrence_index: Dict[Tuple[str, str], int] = {}
+    for i, item in enumerate(items):
+        if item.extraction_class in _DEDUP_CLASSES:
+            last_occurrence_index[(item.extraction_class, item.label)] = i
 
-    for item in items:
+    # 第二遍：按时序输出，去重类只在最后出现位置输出，记录值变更
+    result: List[KnowledgeItem] = []
+    first_occurrence: Dict[Tuple[str, str], KnowledgeItem] = {}  # 记录首次出现的条目（用于比较）
+    value_updates: List[ValueUpdate] = []
+
+    for i, item in enumerate(items):
         if item.extraction_class in _DEDUP_CLASSES:
             key = (item.extraction_class, item.label)
-            if key not in dedup_latest:
-                dedup_order.append(key)
-            dedup_latest[key] = item  # 后出现的（更新的）覆盖旧值
+            if key not in first_occurrence:
+                first_occurrence[key] = item
+            if i == last_occurrence_index[key]:
+                # 该 key 的最后一次出现：加入结果
+                result.append(item)
+                # 若与首次出现的值不同，记录更新
+                orig = first_occurrence[key]
+                if orig.value != item.value:
+                    value_updates.append(
+                        ValueUpdate(
+                            extraction_class=item.extraction_class,
+                            label=item.label,
+                            old_value=orig.value,
+                            new_value=item.value,
+                            old_turn_idx=orig.turn_idx,
+                            new_turn_idx=item.turn_idx,
+                        )
+                    )
+            # 非最后出现位置：跳过（不加入结果）
         else:
             # intent 及其他类别：不去重，直接保留
             result.append(item)
 
-    # 将去重后的条目（按首次出现顺序）插入 result
-    # 为保持时序合理性，将 dedup 结果整体追加（slot/fact 通常与 intent 交织出现）
-    for key in dedup_order:
-        result.append(dedup_latest[key])
-
-    return result
+    return result, value_updates
 
 
 # --------------------------------------------------------------------------- #
@@ -575,18 +599,21 @@ def extract_with_per_turn_annotator(
             )
 
     # 跨轮槽位去重
+    value_updates: List[ValueUpdate] = []
     if deduplicate_slots and knowledge_items:
         before_dedup = len(knowledge_items)
-        knowledge_items = _deduplicate_knowledge_items(knowledge_items)
+        knowledge_items, value_updates = _deduplicate_knowledge_items(knowledge_items)
         dedup_removed = before_dedup - len(knowledge_items)
         if dedup_removed:
             logger.info(
                 f"[PerTurnAnnotator] 跨轮去重: 删除 {dedup_removed} 条重复槽位/事实"
+                f"，其中值发生变更 {len(value_updates)} 条"
             )
     else:
         dedup_removed = 0
 
     total = len(knowledge_items)
+    updated_count = len(value_updates)
     stats = {
         "total": total,
         "aligned": aligned_count,
@@ -594,12 +621,13 @@ def extract_with_per_turn_annotator(
         "alignment_rate": round(aligned_count / total, 3) if total else 0.0,
         "skipped_incomplete": skipped_count,
         "dedup_removed": dedup_removed,
+        "updated_count": updated_count,
         "turns": len(turns),
     }
 
     logger.info(
         f"[PerTurnAnnotator] 提取完成: {dialogue_id} | "
-        f"共 {total} 条（去重删除 {dedup_removed}） | "
+        f"共 {total} 条（去重删除 {dedup_removed}，值更新 {updated_count}） | "
         f"溯源成功 {aligned_count}/{total}（{stats['alignment_rate']:.1%}）"
     )
 
@@ -608,5 +636,6 @@ def extract_with_per_turn_annotator(
         source_text=source_text,
         turns=turns,
         knowledge_items=knowledge_items,
+        updates=value_updates,
         stats=stats,
     )

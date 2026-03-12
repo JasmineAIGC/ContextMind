@@ -16,6 +16,7 @@
         DEFAULT_SCHEMA,
         STATS_FIELD_DESCRIPTIONS,
         KnowledgeItem,
+        ValueUpdate,
         extract_knowledge_with_provenance,
         save_results,
         to_sgd_dialogue,
@@ -40,6 +41,7 @@ from .extractor import (
     KnowledgeItem,
     SlotDefinition,
     STATS_FIELD_DESCRIPTIONS,
+    ValueUpdate,
     extract_knowledge_with_provenance,
     save_results,
 )
@@ -63,6 +65,7 @@ __all__ = [
     "KnowledgeItem",
     "SlotDefinition",
     "STATS_FIELD_DESCRIPTIONS",
+    "ValueUpdate",
     "extract_knowledge_with_provenance",
     "save_results",
     "to_sgd_dialogue",
