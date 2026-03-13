@@ -74,20 +74,36 @@
 from .utils import cn2int, extract_amounts, parse_user_info
 from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, classify_session_llm, ANYIHUA_QC_SCHEMA, ANYIHUA_QC_SCHEMA_DICT
 from .generation import build_generation_engine, ANYIHUA_SCHEMA, ANYIHUA_SCHEMA_DICT
-from .schema_extraction import (
-    PartialServiceSchema,
-    PartialSlot,
-    PartialIntent,
-    dialogue_to_langextract_example,
-    dialogues_to_langextract_examples,
-    schema_from_sgd_file,
-    extract_partial_schema_from_dialogue,
-    induce_schema_with_llm,
-    extract_dialogue_info,
-    save_schema_as_sgd,
-    align_schema_with_sgd,
-    format_comparison_report,
-)
+try:
+    from .schema_extraction import (
+        PartialServiceSchema,
+        PartialSlot,
+        PartialIntent,
+        dialogue_to_langextract_example,
+        dialogues_to_langextract_examples,
+        schema_from_sgd_file,
+        extract_partial_schema_from_dialogue,
+        induce_schema_with_llm,
+        extract_dialogue_info,
+        save_schema_as_sgd,
+        align_schema_with_sgd,
+        format_comparison_report,
+    )
+    _SCHEMA_EXTRACTION_AVAILABLE = True
+except ImportError:
+    _SCHEMA_EXTRACTION_AVAILABLE = False
+    PartialServiceSchema = None
+    PartialSlot = None
+    PartialIntent = None
+    dialogue_to_langextract_example = None
+    dialogues_to_langextract_examples = None
+    schema_from_sgd_file = None
+    extract_partial_schema_from_dialogue = None
+    induce_schema_with_llm = None
+    extract_dialogue_info = None
+    save_schema_as_sgd = None
+    align_schema_with_sgd = None
+    format_comparison_report = None
 from .knowledge_base import (
     KnowledgeStore,
     IncrementalMerger,

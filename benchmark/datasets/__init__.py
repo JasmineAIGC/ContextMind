@@ -9,9 +9,13 @@ Benchmark 数据集适配器
 from .base import BaseDatasetAdapter
 from .transfertod.adapter import TransferTODAdapter
 from .risawoz.adapter import RiSAWOZAdapter
+from .anyihua.adapter import AnyihuaSGDAdapter, AnyihuaDialogue, AnyihuaTurn
 
 __all__ = [
     "BaseDatasetAdapter",
     "TransferTODAdapter",
     "RiSAWOZAdapter",
+    "AnyihuaSGDAdapter",
+    "AnyihuaDialogue",
+    "AnyihuaTurn",
 ]
