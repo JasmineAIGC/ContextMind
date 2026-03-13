@@ -412,6 +412,18 @@
         "result_slots": []
       },
       {
+        "name": "explain_repayment",
+        "description": "explain repayment（示例：坐席解释提前还款的条件和方式）",
+        "is_transactional": false,
+        "required_slots": [
+          "available_credit",
+          "credit_limit",
+          "customer_name"
+        ],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
         "name": "general_inquiry",
         "description": "【用户·兜底】用户回复完全无法匹配以上任何具体意图时的最后兜底；仅在穷尽所有其他意图后仍无法归类时使用",
         "is_transactional": false,
