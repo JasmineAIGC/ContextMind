@@ -481,9 +481,12 @@ def main() -> None:
             results=results,
             raw_dialogues=selected[:len(results)],
             output_dir=args.sgd_dir,
+            extraction_schema=schema,
         )
         print(f"  对话数:   {summary['dialogues']}")
         print(f"  总轮次:   {summary['turns']}")
+        if summary.get("discovered_schema_items"):
+            print(f"  Schema 新增: {summary['discovered_schema_items']} 项（开放模式发现）")
         print(f"  输出目录: {summary['output_dir']}")
         print(f"✅ SGD 格式已保存至: {args.sgd_dir}/")
 

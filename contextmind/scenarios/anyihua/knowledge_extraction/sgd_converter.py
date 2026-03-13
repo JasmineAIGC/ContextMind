@@ -80,7 +80,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from contextmind.infra.logger import get_logger
 from contextmind.scenarios.anyihua.utils import parse_user_info
 
-from .extractor import ExtractionResult, KnowledgeItem
+from .extractor import ExtractionResult, ExtractionSchema, KnowledgeItem
 
 logger = get_logger(__name__)
 
@@ -313,12 +313,96 @@ def to_sgd_dialogue(
 # --------------------------------------------------------------------------- #
 
 
+def _merge_discovered_into_schema(
+    schema_data: List[Dict[str, Any]],
+    results: List[ExtractionResult],
+    extraction_schema: ExtractionSchema,
+) -> int:
+    """
+    将开放模式下 LLM 新发现的槽位和意图合并进 SGD schema 结构（就地修改）。
+
+    仅在 ``extraction_schema.slot_open_ended`` 或
+    ``extraction_schema.intent_open_ended`` 为 True 时有效。
+
+    算法：
+    1. 收集所有提取结果中出现的 slot_value / intent 标签。
+    2. 与当前 schema 中已有的名称对比，找出新增项。
+    3. 将新槽位追加到 ``slots`` 列表末尾。
+    4. 将新意图插入到 ``general_inquiry`` 兜底意图之前（如果存在），
+       否则追加到末尾。
+
+    返回:
+        新增到 schema 中的条目总数（slots + intents）。
+    """
+    if not schema_data:
+        return 0
+
+    service = schema_data[0]  # 仅处理第一个 service（AnYiHua_1）
+    added = 0
+
+    # ── 新槽位发现 ──────────────────────────────────────────────────────────
+    if extraction_schema.slot_open_ended:
+        existing_slot_names = {s["name"] for s in service.get("slots", [])}
+        # 从所有提取结果中收集槽位标签（保持首次出现的顺序）
+        discovered_slot_labels: List[str] = []
+        seen_slot_labels: set = set()
+        for result in results:
+            for item in result.knowledge_items:
+                if item.extraction_class == "slot_value" and item.label not in seen_slot_labels:
+                    seen_slot_labels.add(item.label)
+                    if item.label not in existing_slot_names:
+                        discovered_slot_labels.append(item.label)
+
+        for label in discovered_slot_labels:
+            service.setdefault("slots", []).append({
+                "name": label,
+                "description": f"（开放提取发现）{label}",
+                "is_categorical": False,
+                "possible_values": [],
+            })
+            added += 1
+            logger.info(f"[SGDConverter] 新增槽位到 schema.json: {label}")
+
+    # ── 新意图发现 ──────────────────────────────────────────────────────────
+    if extraction_schema.intent_open_ended:
+        existing_intent_names = {i["name"] for i in service.get("intents", [])}
+        discovered_intent_labels: List[str] = []
+        seen_intent_labels: set = set()
+        for result in results:
+            for item in result.knowledge_items:
+                if item.extraction_class == "intent" and item.label not in seen_intent_labels:
+                    seen_intent_labels.add(item.label)
+                    if item.label not in existing_intent_names:
+                        discovered_intent_labels.append(item.label)
+
+        intents_list = service.setdefault("intents", [])
+        # 找到 general_inquiry 兜底意图的位置（新意图插入在它之前）
+        fallback_idx = next(
+            (i for i, it in enumerate(intents_list) if it.get("name") == "general_inquiry"),
+            len(intents_list),
+        )
+        for offset, label in enumerate(discovered_intent_labels):
+            intents_list.insert(fallback_idx + offset, {
+                "name": label,
+                "description": f"（开放提取发现）{label}",
+                "is_transactional": False,
+                "required_slots": [],
+                "optional_slots": {},
+                "result_slots": [],
+            })
+            added += 1
+            logger.info(f"[SGDConverter] 新增意图到 schema.json: {label}")
+
+    return added
+
+
 def save_as_sgd(
     results: List[ExtractionResult],
     raw_dialogues: List[Dict[str, Any]],
     output_dir: Path,
     schema_source: Optional[Path] = None,
     dialogues_per_file: int = 1000,
+    extraction_schema: Optional[ExtractionSchema] = None,
 ) -> Dict[str, Any]:
     """
     将批量提取结果与原始对话数据合并，保存为 SGD-like 格式文件集合。
@@ -326,7 +410,7 @@ def save_as_sgd(
     输出结构::
 
         <output_dir>/
-            schema.json              # 服务 Schema（复制自 schema_source 或内置默认）
+            schema.json              # 服务 Schema（基于预定义，融合开放模式新发现项）
             dialogues_001.json       # 对话数据（每 dialogues_per_file 条一个文件）
             conversion_summary.json  # 转换统计信息
 
@@ -337,6 +421,9 @@ def save_as_sgd(
         schema_source:     schema.json 来源路径；None 时使用内置默认
                            （默认为 resources/anyihua_sgd/schema.json）
         dialogues_per_file: 每个 dialogues_*.json 文件包含的对话数量
+        extraction_schema: 用于提取的 ExtractionSchema；当其 slot_open_ended
+                           或 intent_open_ended 为 True 时，从 results 中收集
+                           LLM 新发现的槽位/意图标签并合并到 schema.json。
 
     返回:
         转换统计字典（dialogues / turns / dialogue_files / output_dir 等）
@@ -360,6 +447,20 @@ def save_as_sgd(
         logger.warning(
             f"[SGDConverter] schema.json 未找到 ({schema_source})，使用内置默认 Schema"
         )
+
+    # ---- 开放模式：将 LLM 新发现的槽位/意图合并入 schema ----
+    discovered_count = 0
+    if extraction_schema is not None and (
+        extraction_schema.slot_open_ended or extraction_schema.intent_open_ended
+    ):
+        discovered_count = _merge_discovered_into_schema(
+            schema_data, results, extraction_schema
+        )
+        if discovered_count:
+            logger.info(
+                f"[SGDConverter] 开放模式：共新增 {discovered_count} 项到 schema.json"
+            )
+
     (output_dir / "schema.json").write_text(
         json.dumps(schema_data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -401,13 +502,14 @@ def save_as_sgd(
 
     # ---- 写入 conversion_summary.json ----
     summary: Dict[str, Any] = {
-        "dialogues":      len(sgd_dialogues),
-        "turns":          total_turns,
-        "failed":         failed,
-        "dialogue_files": dialogue_files,
-        "services":       [SERVICE_NAME],
-        "output_dir":     str(output_dir),
-        "converted_at":   datetime.now().isoformat(),
+        "dialogues":               len(sgd_dialogues),
+        "turns":                   total_turns,
+        "failed":                  failed,
+        "dialogue_files":          dialogue_files,
+        "services":                [SERVICE_NAME],
+        "output_dir":              str(output_dir),
+        "converted_at":            datetime.now().isoformat(),
+        "discovered_schema_items": discovered_count,
     }
     (output_dir / "conversion_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
