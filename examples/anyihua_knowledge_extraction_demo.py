@@ -4,11 +4,30 @@
 演示如何使用 AnyihuaKnowledgeExtractor 从安逸花外呼多轮对话中提取带轮次归属
 和字符级溯源的结构化知识，并可选择将结果转换为 SGD 数据集格式。
 
+完整处理流程（4 步）：
+  步骤 1：加载测试对话数据
+    · 支持 chat_test_100.json（标准格式，含 session_id / 用户信息 / 对话历史）
+    · 支持 chat_test_500.json（嵌套格式，含 label / query{用户信息/对话历史/坐席回复}）
+    · 两种格式自动检测并归一化为统一结构
+
+  步骤 2：基于 langextract 提取结构化知识（含溯源）
+    · 逐轮解析对话，每轮作为独立文本单元，解决多轮对话对齐问题
+    · LLM 输出 turn_idx（来自哪一轮）和 provenance_text（该轮话语的逐字片段）
+    · WordAligner 仅对对应轮次的短文本做字符对齐，精度高
+    · 提取结果（含溯源）保存为 JSON 文件
+
+  步骤 3：将提取结果转换为 SGD 数据集格式
+    · 每条对话生成带 frames / state / service_call 的标准 SGD 结构
+    · 累积槽位状态（slot_values 跨轮合并）
+    · 自动生成 schema.json（服务定义 + 槽位 + 意图）
+    · 结果保存到指定输出目录
+
+  步骤 4：统计 schema.json 与知识提取结果的匹配程度
+    · 计算槽位覆盖率：提取出现的槽位有多少在 schema 中已预定义
+    · 计算意图覆盖率：提取出现的意图有多少在 schema 中已预定义
+    · 列出未覆盖的槽位和意图（可用于完善 schema 或启用开放模式）
+
 核心特点：
-  · 逐轮解析对话，每轮作为 langextract 的独立文本输入（解决多轮对话对齐问题）
-  · LLM 输出包含 turn_idx（来自哪一轮）和 provenance_text（该轮话语的 verbatim 片段）
-  · WordAligner 仅对对应轮次的短文本做字符对齐，精度高
-  · 提取结果保存为 JSON 文件，可同步输出 SGD 格式
   · 支持动态 Schema：槽位、意图均可自定义，不局限于预定义列表
   · 统计指标带中文说明
 
@@ -25,6 +44,10 @@ LLM 通过 contextmind/infra/llm_client.py 统一初始化，配置从 .env 文�
         --output data/my_results.json \\
         --sgd-dir data/my_sgd/
 
+    # 同时处理两个文件（chat_test_100.json 前 2 条 + chat_test_500.json 前 5 条）
+    python examples/anyihua_knowledge_extraction_demo.py \\
+        --num 2 --num2 5
+
     # 使用开放 Schema（允许 LLM 自由命名槽位/意图，适合探索新业务）
     python examples/anyihua_knowledge_extraction_demo.py \\
         --scene-name 银行贷款外呼 \\
@@ -35,11 +58,13 @@ LLM 通过 contextmind/infra/llm_client.py 统一初始化，配置从 .env 文�
     python examples/anyihua_knowledge_extraction_demo.py --no-sgd
 
 参数说明（见 --help）：
-    --data              原始对话 JSON 文件路径
+    --data              原始对话 JSON 文件路径（默认：chat_test_100.json）
+    --data2             第二个对话 JSON 文件路径（默认：chat_test_500.json）
+    --num               从 --data 文件处理的对话数量（默认：2；-1 表示全部）
+    --num2              从 --data2 文件处理的对话数量（默认：0，即不处理）
     --output            提取结果 JSON 保存路径
     --sgd-dir           SGD 格式输出目录（默认：data/anyihua_sgd/）
     --no-sgd            禁用 SGD 格式输出
-    --num               处理对话数量（默认：2）
     --scene-name        业务场景名称（影响 LLM 提示词）
     --slot-open-ended   允许 LLM 在预定义槽位之外自由提取新槽位
     --intent-open-ended 允许 LLM 在预定义意图之外自由提取新意图
@@ -76,8 +101,98 @@ from contextmind.scenarios.anyihua.knowledge_extraction import (
 
 # 默认路径
 _DEFAULT_DATA_PATH = _ROOT / "resources" / "data" / "chat_test_100.json"
+_DEFAULT_DATA2_PATH = _ROOT / "resources" / "data" / "chat_test_500.json"
 _DEFAULT_SAVE_PATH = _ROOT / "data" / "anyihua_knowledge_extraction_results.json"
 _DEFAULT_SGD_DIR = _ROOT / "data" / "anyihua_sgd"
+
+
+# --------------------------------------------------------------------------- #
+# 数据格式归一化
+# --------------------------------------------------------------------------- #
+
+
+def _normalize_record(record: dict, source_file: Optional[str] = None) -> dict:
+    """
+    将不同来源的对话记录归一化为统一的标准格式。
+
+    支持两种格式：
+
+    **格式 A — chat_test_100.json 标准格式**（直接透传）::
+
+        {
+          "session_id": "...",
+          "用户信息": "...",
+          "对话历史": [...],
+          "坐席回复": "...",
+          "人工校验": "..."
+        }
+
+    **格式 B — chat_test_500.json 嵌套格式**（展平后透传）::
+
+        {
+          "label": "无标签命中",
+          "query": {
+            "用户信息": "...",
+            "对话历史": [...],
+            "坐席回复": "..."
+          }
+        }
+
+    参数:
+        record:      原始对话记录字典
+        source_file: 来源文件名（用于生成 session_id，可选）
+
+    返回:
+        归一化后的对话记录字典（标准格式）
+    """
+    # 格式 A：已含 对话历史 字段，直接返回
+    if "对话历史" in record:
+        return record
+
+    # 格式 B：含 query 嵌套结构，展平
+    if "query" in record and isinstance(record["query"], dict):
+        query = record["query"]
+        normalized: dict = dict(query)  # 复制 用户信息 / 对话历史 / 坐席回复
+        # 将 label 映射到 人工校验
+        if "label" in record:
+            normalized.setdefault("人工校验", record["label"])
+        # 生成唯一 session_id（格式 B 无此字段）
+        if "session_id" not in normalized:
+            import hashlib
+            raw = json.dumps(record, ensure_ascii=False, sort_keys=True)
+            h = hashlib.md5(raw.encode("utf-8")).hexdigest()[:12]
+            prefix = Path(source_file).stem if source_file else "dlg"
+            normalized["session_id"] = f"{prefix}_{h}"
+        return normalized
+
+    # 未知格式：原样返回，让提取器自行处理（或记录警告）
+    return record
+
+
+def _load_and_normalize(
+    file_path: Path,
+    num: int,
+) -> List[dict]:
+    """
+    加载并归一化指定 JSON 文件中的对话记录。
+
+    参数:
+        file_path: JSON 文件路径
+        num:       最多加载的记录数（-1 表示全部）
+
+    返回:
+        归一化后的对话记录列表
+    """
+    if not file_path.exists():
+        print(f"[警告] 数据文件不存在，跳过: {file_path}")
+        return []
+
+    raw: List[dict] = json.loads(file_path.read_text(encoding="utf-8"))
+    total = len(raw)
+    take = total if num == -1 else min(num, total)
+    records = [_normalize_record(r, source_file=str(file_path)) for r in raw[:take]]
+    print(f"  · {file_path.name}: 共 {total} 条，本次加载前 {take} 条")
+    return records
 
 
 # --------------------------------------------------------------------------- #
@@ -200,6 +315,69 @@ def _parse_intent_additions(specs: Optional[List[str]]) -> List[IntentDefinition
     return result
 
 
+def _print_schema_coverage_report(coverage: dict) -> None:
+    """
+    格式化打印 schema.json 与知识提取结果的匹配程度报告。
+
+    参数:
+        coverage: save_as_sgd() 返回的 summary["schema_coverage"] 字典，包含：
+            extracted_slots    - 提取结果中出现的所有槽位名
+            extracted_intents  - 提取结果中出现的所有意图名
+            schema_slots       - schema.json 中预定义的所有槽位名
+            schema_intents     - schema.json 中预定义的所有意图名
+            uncovered_slots    - 提取出现但 schema 未预定义的槽位（未覆盖）
+            uncovered_intents  - 提取出现但 schema 未预定义的意图（未覆盖）
+            slot_coverage_pct  - 槽位覆盖率（%）
+            intent_coverage_pct- 意图覆盖率（%）
+            note               - 覆盖情况文字说明
+    """
+    print(f"\n{'=' * 72}")
+    print("【步骤 4：schema.json 与知识提取结果匹配度统计】")
+    print(f"{'=' * 72}")
+
+    slot_cov = coverage.get("slot_coverage_pct", 0.0)
+    intent_cov = coverage.get("intent_coverage_pct", 0.0)
+    extracted_slots = coverage.get("extracted_slots", [])
+    extracted_intents = coverage.get("extracted_intents", [])
+    schema_slots = coverage.get("schema_slots", [])
+    schema_intents = coverage.get("schema_intents", [])
+    uncovered_slots = coverage.get("uncovered_slots", [])
+    uncovered_intents = coverage.get("uncovered_intents", [])
+
+    covered_slots = sorted(set(extracted_slots) & set(schema_slots))
+    covered_intents = sorted(set(extracted_intents) & set(schema_intents))
+
+    print(f"\n  ── 槽位（Slot）匹配 ──")
+    print(f"  schema.json 预定义槽位数 : {len(schema_slots)}")
+    print(f"  提取结果中出现的槽位数   : {len(extracted_slots)}")
+    print(f"  已覆盖（交集）           : {len(covered_slots)} 个  {covered_slots}")
+    if uncovered_slots:
+        print(f"  未覆盖（仅在提取中出现） : {len(uncovered_slots)} 个  {uncovered_slots}")
+    print(f"  槽位覆盖率               : {slot_cov:.1f}%")
+
+    print(f"\n  ── 意图（Intent）匹配 ──")
+    print(f"  schema.json 预定义意图数 : {len(schema_intents)}")
+    print(f"  提取结果中出现的意图数   : {len(extracted_intents)}")
+    print(f"  已覆盖（交集）           : {len(covered_intents)} 个  {covered_intents}")
+    if uncovered_intents:
+        print(f"  未覆盖（仅在提取中出现） : {len(uncovered_intents)} 个  {uncovered_intents}")
+    print(f"  意图覆盖率               : {intent_cov:.1f}%")
+
+    print(f"\n  备注: {coverage.get('note', '')}")
+
+    # 总结行
+    overall = (slot_cov + intent_cov) / 2
+    print(f"\n  综合覆盖率（槽位+意图均值）: {overall:.1f}%")
+    if uncovered_slots or uncovered_intents:
+        print(
+            "  💡 建议：将上述未覆盖项加入 schema 或使用 --slot-open-ended / "
+            "--intent-open-ended 启用开放模式自动发现。"
+        )
+    else:
+        print("  ✅ 所有提取项均已在 schema.json 中预定义，覆盖完整。")
+    print(f"{'=' * 72}")
+
+
 def _build_schema(args: argparse.Namespace) -> ExtractionSchema:
     """
     根据命令行参数构造 ExtractionSchema。
@@ -287,8 +465,11 @@ def _parse_args() -> argparse.Namespace:
   # 默认（前 2 条对话，输出 SGD 格式）
   python examples/anyihua_knowledge_extraction_demo.py
 
-  # 批量处理前 10 条
+  # 批量处理前 10 条（含 schema 覆盖率报告）
   python examples/anyihua_knowledge_extraction_demo.py --num 10
+
+  # 同时处理两个文件（chat_test_100.json 前 2 条 + chat_test_500.json 前 5 条）
+  python examples/anyihua_knowledge_extraction_demo.py --num 2 --num2 5
 
   # 使用开放 Schema（LLM 可自由命名槽位和意图）
   python examples/anyihua_knowledge_extraction_demo.py --slot-open-ended --intent-open-ended
@@ -313,7 +494,17 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=_DEFAULT_DATA_PATH,
         metavar="PATH",
-        help=f"原始对话 JSON 文件路径（默认：{_DEFAULT_DATA_PATH.relative_to(_ROOT)}）",
+        help=f"第一个对话 JSON 文件路径（默认：{_DEFAULT_DATA_PATH.relative_to(_ROOT)}）",
+    )
+    parser.add_argument(
+        "--data2",
+        type=Path,
+        default=_DEFAULT_DATA2_PATH,
+        metavar="PATH",
+        help=(
+            f"第二个对话 JSON 文件路径，支持 chat_test_500.json 的嵌套格式"
+            f"（默认：{_DEFAULT_DATA2_PATH.relative_to(_ROOT)}）"
+        ),
     )
     parser.add_argument(
         "--output",
@@ -342,7 +533,17 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=2,
         metavar="N",
-        help="处理对话数量（默认：2；-1 表示全部）",
+        help="从 --data 文件处理的对话数量（默认：2；-1 表示全部）",
+    )
+    parser.add_argument(
+        "--num2",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "从 --data2 文件（chat_test_500.json）额外加载的对话数量"
+            "（默认：0，即不加载；-1 表示全部）"
+        ),
     )
 
     # ── Schema 设置 ──
@@ -417,19 +618,33 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
 
-    # ── 加载数据 ──
-    data_path: Path = args.data
-    if not data_path.exists():
-        print(f"[错误] 数据文件不存在: {data_path}")
+    # ════════════════════════════════════════════════════════════════════════ #
+    # 步骤 1：加载测试对话数据
+    # ════════════════════════════════════════════════════════════════════════ #
+    print(f"{'=' * 72}")
+    print("【步骤 1：加载测试对话数据】")
+    print(f"{'=' * 72}")
+
+    # 从 --data（默认 chat_test_100.json）加载
+    selected: List[dict] = _load_and_normalize(args.data, args.num)
+
+    # 从 --data2（默认 chat_test_500.json）额外加载（num2 > 0 时）
+    if args.num2 != 0:
+        extra = _load_and_normalize(args.data2, args.num2)
+        selected.extend(extra)
+        print(f"  合并后共 {len(selected)} 条对话待处理")
+    elif args.data2.exists():
+        print(f"  提示：可通过 --num2 N 同时加载 {args.data2.name}（当前跳过）")
+
+    if not selected:
+        print("[错误] 未加载到任何对话数据，请检查 --data / --num 参数")
         sys.exit(1)
 
-    dialogues = json.loads(data_path.read_text(encoding="utf-8"))
-    num = len(dialogues) if args.num == -1 else min(args.num, len(dialogues))
-    selected = dialogues[:num]
-    print(f"已加载 {len(dialogues)} 条对话，本次处理前 {num} 条")
-    print(f"提取结果将保存至: {args.output}")
+    num = len(selected)
+    print(f"\n  本次共处理 {num} 条对话")
+    print(f"  提取结果将保存至: {args.output}")
     if not args.no_sgd:
-        print(f"SGD 格式将保存至: {args.sgd_dir}/")
+        print(f"  SGD 格式将保存至: {args.sgd_dir}/")
 
     # ── 构建 Schema ──
     schema = _build_schema(args)
@@ -444,9 +659,16 @@ def main() -> None:
     # ── 初始化提取器 ──
     extractor = AnyihuaKnowledgeExtractor(schema=schema)
 
+    # ════════════════════════════════════════════════════════════════════════ #
+    # 步骤 2：基于 langextract 提取结构化知识（含溯源），保存为 JSON
+    # ════════════════════════════════════════════════════════════════════════ #
+    print(f"{'=' * 72}")
+    print("【步骤 2：基于 langextract 提取结构化知识（含知识溯源）】")
+    print(f"{'=' * 72}")
+
     # ── 单条提取演示（仅在 num >= 1 时执行）──
     if num >= 1:
-        print("【演示一：单条提取（含轮次归属与字符级溯源）】")
+        print("\n── 演示：单条提取（含轮次归属与字符级溯源）──")
         result = extractor.extract(selected[0])
         _print_result(
             result,
@@ -456,39 +678,51 @@ def main() -> None:
 
     # ── 批量提取（结果自动保存为 JSON 文件）──
     if num > 1:
-        print(f"\n\n【演示二：批量提取（共 {num} 条）— 结果自动保存为 JSON 文件】")
+        print(f"\n── 批量提取（共 {num} 条）— 结果自动保存为 JSON 文件 ──")
         results = extractor.extract_batch(
             selected,
             save_path=args.output,
         )
-        for r in results[1:]:  # 第 0 条已在演示一中打印
+        for r in results[1:]:  # 第 0 条已在演示中打印
             _print_result(
                 r,
                 show_turns=args.show_turns,
                 show_stats_desc=not args.no_stats_desc,
             )
-        print(f"\n✅ 提取结果已保存至: {args.output}")
+        print(f"\n✅ 步骤 2 完成：提取结果（含溯源）已保存至: {args.output}")
     else:
         # 仅 1 条时也保存
         results = [result]
         save_results(results, args.output)
-        print(f"\n✅ 提取结果已保存至: {args.output}")
+        print(f"\n✅ 步骤 2 完成：提取结果（含溯源）已保存至: {args.output}")
 
-    # ── SGD 格式转换 ──
+    # ════════════════════════════════════════════════════════════════════════ #
+    # 步骤 3 & 4：转换为 SGD 格式 + schema 覆盖率统计
+    # ════════════════════════════════════════════════════════════════════════ #
     if not args.no_sgd:
-        print(f"\n\n【SGD 格式转换：将提取结果转换为 SGD 数据集格式】")
+        print(f"\n{'=' * 72}")
+        print("【步骤 3：将原始对话数据转换为 SGD 数据集格式】")
+        print(f"{'=' * 72}")
         summary = save_as_sgd(
             results=results,
             raw_dialogues=selected[:len(results)],
             output_dir=args.sgd_dir,
             extraction_schema=schema,
         )
-        print(f"  对话数:   {summary['dialogues']}")
-        print(f"  总轮次:   {summary['turns']}")
+        print(f"  对话数  : {summary['dialogues']}")
+        print(f"  总轮次  : {summary['turns']}")
         if summary.get("discovered_schema_items"):
             print(f"  Schema 新增: {summary['discovered_schema_items']} 项（开放模式发现）")
         print(f"  输出目录: {summary['output_dir']}")
-        print(f"✅ SGD 格式已保存至: {args.sgd_dir}/")
+        print(f"  生成文件: schema.json, dialogues_*.json, conversion_summary.json")
+        print(f"\n✅ 步骤 3 完成：SGD 格式已保存至: {args.sgd_dir}/")
+
+        # 步骤 4：打印覆盖率报告
+        if "schema_coverage" in summary:
+            _print_schema_coverage_report(summary["schema_coverage"])
+            print(f"✅ 步骤 4 完成：schema 覆盖率报告已打印（完整数据见 conversion_summary.json）")
+
+
 
 
 if __name__ == "__main__":
