@@ -112,6 +112,14 @@ _SCHEMA_SLOTS = {
     "last_loan_date", "outstanding_amount", "billing_day",
 }
 
+# 开放模式 schema 推断阈值
+# 新发现槽位的不同取值数量落在 [_MIN_CATEGORICAL, _MAX_CATEGORICAL] 范围内时，
+# 视为枚举型（is_categorical=True）并填充 possible_values。
+_MIN_CATEGORICAL_VALUES: int = 2
+_MAX_CATEGORICAL_VALUES: int = 10
+# 某槽位在新意图出现的对话中，共现频率 ≥ 此阈值时才纳入 required_slots。
+_REQUIRED_SLOT_FREQUENCY_THRESHOLD: float = 0.5
+
 _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 
@@ -313,6 +321,21 @@ def to_sgd_dialogue(
 # --------------------------------------------------------------------------- #
 
 
+def _infer_description_from_values(label: str, values: List[str]) -> str:
+    """
+    当 ExtractionSchema 中找不到对应描述时，根据标签名和提取值生成可读描述。
+
+    - 将 label 中的下划线/连字符替换为空格，作为描述主体。
+    - 若有提取值样本，附加最多 3 个值作为示例。
+    """
+    readable = label.replace("_", " ").replace("-", " ").strip()
+    if values:
+        samples = list(dict.fromkeys(v for v in values if v))[:3]  # 去重保序，取前3
+        if samples:
+            return f"{readable}（示例：{'、'.join(samples)}）"
+    return readable
+
+
 def _merge_discovered_into_schema(
     schema_data: List[Dict[str, Any]],
     results: List[ExtractionResult],
@@ -325,11 +348,17 @@ def _merge_discovered_into_schema(
     ``extraction_schema.intent_open_ended`` 为 True 时有效。
 
     算法：
-    1. 收集所有提取结果中出现的 slot_value / intent 标签。
-    2. 与当前 schema 中已有的名称对比，找出新增项。
-    3. 将新槽位追加到 ``slots`` 列表末尾。
-    4. 将新意图插入到 ``general_inquiry`` 兜底意图之前（如果存在），
-       否则追加到末尾。
+    1. 收集所有提取结果中出现的 slot_value / intent 标签及其提取值。
+    2. 与当前 schema 中已有的名称对比，找出新增项和需更新的项。
+    3. 新槽位：
+       · 优先使用 ExtractionSchema 中的 description；若不存在则从提取值推导。
+       · 若提取出的不同值数量 ≥ 3，推断为 categorical 并填充 possible_values。
+       · 追加到 slots 列表末尾。
+    4. 新意图：
+       · 优先使用 ExtractionSchema 中的 description；若不存在则从提取值推导。
+       · 从提取结果中推断该意图出现时共现的槽位，作为 required_slots 候选。
+       · 插入到 general_inquiry 兜底意图之前（如果存在），否则追加到末尾。
+    5. 已存在的 is_categorical=True 槽位：将新出现的值追加到 possible_values。
 
     返回:
         新增到 schema 中的条目总数（slots + intents）。
@@ -340,10 +369,49 @@ def _merge_discovered_into_schema(
     service = schema_data[0]  # 仅处理第一个 service（AnYiHua_1）
     added = 0
 
+    # ── 预建索引：ExtractionSchema 中的描述查找表 ────────────────────────────
+    schema_slot_desc: Dict[str, str] = {
+        s.name: s.description for s in extraction_schema.slots
+    }
+    schema_intent_desc: Dict[str, str] = {
+        i.name: i.description for i in extraction_schema.intents
+    }
+
+    # ── 预建索引：从所有 results 中收集每个 label 的所有提取值 ────────────────
+    # slot_values_map: {label -> [value, ...]}
+    slot_values_map: Dict[str, List[str]] = {}
+    # intent_slots_map: {intent_label -> set of slot labels co-occurring in same dialogue}
+    intent_slots_map: Dict[str, set] = {}
+
+    for result in results:
+        # 先收集本条对话里出现的所有 slot label
+        dialogue_slots = {
+            item.label
+            for item in result.knowledge_items
+            if item.extraction_class == "slot_value"
+        }
+        for item in result.knowledge_items:
+            if item.extraction_class == "slot_value":
+                slot_values_map.setdefault(item.label, []).append(item.value)
+            elif item.extraction_class == "intent":
+                intent_slots_map.setdefault(item.label, set()).update(dialogue_slots)
+
     # ── 新槽位发现 ──────────────────────────────────────────────────────────
     if extraction_schema.slot_open_ended:
-        existing_slot_names = {s["name"] for s in service.get("slots", [])}
-        # 从所有提取结果中收集槽位标签（保持首次出现的顺序）
+        existing_slots = service.get("slots", [])
+        existing_slot_names = {s["name"] for s in existing_slots}
+
+        # 更新已存在的 categorical 槽位的 possible_values
+        for slot_entry in existing_slots:
+            if slot_entry.get("is_categorical") and slot_entry["name"] in slot_values_map:
+                new_vals = slot_values_map[slot_entry["name"]]
+                existing_pv = set(slot_entry.get("possible_values") or [])
+                for v in new_vals:
+                    if v and v not in existing_pv:
+                        slot_entry.setdefault("possible_values", []).append(v)
+                        existing_pv.add(v)
+
+        # 收集新发现的槽位（按首次出现顺序）
         discovered_slot_labels: List[str] = []
         seen_slot_labels: set = set()
         for result in results:
@@ -354,14 +422,27 @@ def _merge_discovered_into_schema(
                         discovered_slot_labels.append(item.label)
 
         for label in discovered_slot_labels:
+            values = slot_values_map.get(label, [])
+            distinct_values = list(dict.fromkeys(v for v in values if v))
+
+            # 描述：优先从 ExtractionSchema 查找，否则从提取值推导
+            description = schema_slot_desc.get(label) or _infer_description_from_values(
+                label, distinct_values
+            )
+
+            # 推断是否为枚举型：不同值数 ≥ _MIN_CATEGORICAL_VALUES
+            # 且 ≤ _MAX_CATEGORICAL_VALUES 时视为 categorical
+            is_categorical = _MIN_CATEGORICAL_VALUES <= len(distinct_values) <= _MAX_CATEGORICAL_VALUES
+            possible_values = distinct_values if is_categorical else []
+
             service.setdefault("slots", []).append({
                 "name": label,
-                "description": f"（开放提取发现）{label}",
-                "is_categorical": False,
-                "possible_values": [],
+                "description": description,
+                "is_categorical": is_categorical,
+                "possible_values": possible_values,
             })
             added += 1
-            logger.info(f"[SGDConverter] 新增槽位到 schema.json: {label}")
+            logger.info(f"[SGDConverter] 新增槽位到 schema.json: {label}（categorical={is_categorical}）")
 
     # ── 新意图发现 ──────────────────────────────────────────────────────────
     if extraction_schema.intent_open_ended:
@@ -375,6 +456,33 @@ def _merge_discovered_into_schema(
                     if item.label not in existing_intent_names:
                         discovered_intent_labels.append(item.label)
 
+        # 已知预定义槽位集合（用于筛选 required_slots 候选）
+        all_known_slot_names = {s["name"] for s in service.get("slots", [])}
+
+        # 预先计算每个 (intent_label, slot_label) 对在多少条对话中共现，
+        # 避免对每个槽位重复扫描全量 results（O(n*m*k) → O(n*k)）。
+        # intent_dialogue_count[label] = 该意图出现的对话数
+        # intent_slot_cooccurrence[(intent_label, slot_label)] = 共现对话数
+        intent_dialogue_count: Dict[str, int] = {}
+        intent_slot_cooccurrence: Dict[tuple, int] = {}
+        for result in results:
+            intent_labels_in_dialogue = {
+                item.label
+                for item in result.knowledge_items
+                if item.extraction_class == "intent"
+                and item.label in set(discovered_intent_labels)
+            }
+            slot_labels_in_dialogue = {
+                item.label
+                for item in result.knowledge_items
+                if item.extraction_class == "slot_value"
+            }
+            for ilabel in intent_labels_in_dialogue:
+                intent_dialogue_count[ilabel] = intent_dialogue_count.get(ilabel, 0) + 1
+                for slabel in slot_labels_in_dialogue:
+                    key = (ilabel, slabel)
+                    intent_slot_cooccurrence[key] = intent_slot_cooccurrence.get(key, 0) + 1
+
         intents_list = service.setdefault("intents", [])
         # 找到 general_inquiry 兜底意图的位置（新意图插入在它之前）
         fallback_idx = next(
@@ -382,16 +490,41 @@ def _merge_discovered_into_schema(
             len(intents_list),
         )
         for offset, label in enumerate(discovered_intent_labels):
+            # 描述：优先从 ExtractionSchema 查找，否则从提取值推导
+            intent_values = list(dict.fromkeys(
+                item.value
+                for result in results
+                for item in result.knowledge_items
+                if item.extraction_class == "intent" and item.label == label
+            ))
+            description = schema_intent_desc.get(label) or _infer_description_from_values(
+                label, intent_values
+            )
+
+            # 推断 required_slots：与该意图共现且在 schema 中存在的槽位，
+            # 且共现频率 ≥ _REQUIRED_SLOT_FREQUENCY_THRESHOLD
+            co_slots = intent_slots_map.get(label, set()) & all_known_slot_names
+            n_intent = intent_dialogue_count.get(label, 0)
+            required_slots: List[str] = []
+            if n_intent > 0:
+                for slot_name in sorted(co_slots):
+                    n_cooccur = intent_slot_cooccurrence.get((label, slot_name), 0)
+                    if n_cooccur / n_intent >= _REQUIRED_SLOT_FREQUENCY_THRESHOLD:
+                        required_slots.append(slot_name)
+
             intents_list.insert(fallback_idx + offset, {
                 "name": label,
-                "description": f"（开放提取发现）{label}",
+                "description": description,
                 "is_transactional": False,
-                "required_slots": [],
+                "required_slots": required_slots,
                 "optional_slots": {},
                 "result_slots": [],
             })
             added += 1
-            logger.info(f"[SGDConverter] 新增意图到 schema.json: {label}")
+            logger.info(
+                f"[SGDConverter] 新增意图到 schema.json: {label}，"
+                f"推断 required_slots={required_slots}"
+            )
 
     return added
 
