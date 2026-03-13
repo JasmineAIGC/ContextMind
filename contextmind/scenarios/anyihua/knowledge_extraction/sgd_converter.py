@@ -633,6 +633,67 @@ def save_as_sgd(
             f"({len(chunk)} 条对话，{sum(len(d['turns']) for d in chunk)} 轮)"
         )
 
+    # ---- Schema 覆盖率统计 ----
+    # 从所有提取结果中收集实际出现的槽位名和意图名
+    extracted_slots: set = set()
+    extracted_intents: set = set()
+    for result in results:
+        for item in result.knowledge_items:
+            if item.extraction_class == "slot_value" and item.label:
+                extracted_slots.add(item.label)
+            elif item.extraction_class == "intent" and item.label:
+                extracted_intents.add(item.label)
+
+    # 从已写入的 schema_data 中获取预定义名称集合
+    service_entry = schema_data[0] if schema_data else {}
+    schema_slot_names: set = {s["name"] for s in service_entry.get("slots", [])}
+    schema_intent_names: set = {i["name"] for i in service_entry.get("intents", [])}
+
+    uncovered_slots = sorted(extracted_slots - schema_slot_names)
+    uncovered_intents = sorted(extracted_intents - schema_intent_names)
+
+    slot_cov = (
+        round(len(extracted_slots & schema_slot_names) / len(extracted_slots) * 100, 1)
+        if extracted_slots else 100.0
+    )
+    intent_cov = (
+        round(len(extracted_intents & schema_intent_names) / len(extracted_intents) * 100, 1)
+        if extracted_intents else 100.0
+    )
+
+    if uncovered_slots or uncovered_intents:
+        note = (
+            f"存在未覆盖项：槽位 {uncovered_slots}，意图 {uncovered_intents}。"
+            "建议将其加入 _default_schema() 或启用开放模式。"
+        )
+    else:
+        note = (
+            "所有提取结果中出现的槽位和意图均已在 schema.json 中预定义，"
+            "无需开放模式新增。"
+        )
+
+    schema_coverage: Dict[str, Any] = {
+        "extracted_slots":    sorted(extracted_slots),
+        "extracted_intents":  sorted(extracted_intents),
+        "schema_slots":       sorted(schema_slot_names),
+        "schema_intents":     sorted(schema_intent_names),
+        "uncovered_slots":    uncovered_slots,
+        "uncovered_intents":  uncovered_intents,
+        "slot_coverage_pct":  slot_cov,
+        "intent_coverage_pct": intent_cov,
+        "note":               note,
+    }
+
+    logger.info(
+        f"[SGDConverter] Schema 覆盖率 — "
+        f"槽位 {slot_cov}%（{len(extracted_slots & schema_slot_names)}/{len(extracted_slots)}）"
+        f"，意图 {intent_cov}%（{len(extracted_intents & schema_intent_names)}/{len(extracted_intents)}）"
+    )
+    if uncovered_slots:
+        logger.warning(f"[SGDConverter] 未覆盖槽位: {uncovered_slots}")
+    if uncovered_intents:
+        logger.warning(f"[SGDConverter] 未覆盖意图: {uncovered_intents}")
+
     # ---- 写入 conversion_summary.json ----
     summary: Dict[str, Any] = {
         "dialogues":               len(sgd_dialogues),
@@ -643,6 +704,7 @@ def save_as_sgd(
         "output_dir":              str(output_dir),
         "converted_at":            datetime.now().isoformat(),
         "discovered_schema_items": discovered_count,
+        "schema_coverage":         schema_coverage,
     }
     (output_dir / "conversion_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
