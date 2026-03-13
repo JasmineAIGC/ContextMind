@@ -35,18 +35,21 @@ LLM 通过 contextmind/infra/llm_client.py 统一初始化，配置从 .env 文�
 
 运行示例::
 
-    # 使用默认参数（读取前 2 条对话，同时输出 SGD 格式）
+    # 使用默认参数（处理两个文件的全部对话，同时输出 SGD 格式）
     python examples/anyihua_knowledge_extraction_demo.py
 
-    # 批量处理前 10 条，指定输出路径，并导出 SGD 格式
+    # 批量处理 chat_test_100.json 前 10 条，指定输出路径，并导出 SGD 格式
     python examples/anyihua_knowledge_extraction_demo.py \\
         --num 10 \\
         --output data/my_results.json \\
         --sgd-dir data/my_sgd/
 
-    # 同时处理两个文件（chat_test_100.json 前 2 条 + chat_test_500.json 前 5 条）
+    # 同时处理两个文件（chat_test_100.json 前 5 条 + chat_test_500.json 前 5 条）
     python examples/anyihua_knowledge_extraction_demo.py \\
-        --num 2 --num2 5
+        --num 5 --num2 5
+
+    # 仅处理 chat_test_100.json（跳过 chat_test_500.json）
+    python examples/anyihua_knowledge_extraction_demo.py --num2 0
 
     # 使用开放 Schema（允许 LLM 自由命名槽位/意图，适合探索新业务）
     python examples/anyihua_knowledge_extraction_demo.py \\
@@ -60,8 +63,8 @@ LLM 通过 contextmind/infra/llm_client.py 统一初始化，配置从 .env 文�
 参数说明（见 --help）：
     --data              原始对话 JSON 文件路径（默认：chat_test_100.json）
     --data2             第二个对话 JSON 文件路径（默认：chat_test_500.json）
-    --num               从 --data 文件处理的对话数量（默认：2；-1 表示全部）
-    --num2              从 --data2 文件处理的对话数量（默认：0，即不处理）
+    --num               从 --data 文件处理的对话数量（默认：-1，即全部；0 表示跳过）
+    --num2              从 --data2 文件处理的对话数量（默认：-1，即全部；0 表示跳过）
     --output            提取结果 JSON 保存路径
     --sgd-dir           SGD 格式输出目录（默认：data/anyihua_sgd/）
     --no-sgd            禁用 SGD 格式输出
@@ -462,14 +465,14 @@ def _parse_args() -> argparse.Namespace:
         description="安逸花外呼对话知识提取演示（支持 SGD 格式输出 + 动态 Schema）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""示例：
-  # 默认（前 2 条对话，输出 SGD 格式）
+  # 默认（处理两个文件的全部对话，输出 SGD 格式）
   python examples/anyihua_knowledge_extraction_demo.py
 
-  # 批量处理前 10 条（含 schema 覆盖率报告）
-  python examples/anyihua_knowledge_extraction_demo.py --num 10
+  # 仅处理 chat_test_100.json 前 10 条（跳过 chat_test_500.json）
+  python examples/anyihua_knowledge_extraction_demo.py --num 10 --num2 0
 
-  # 同时处理两个文件（chat_test_100.json 前 2 条 + chat_test_500.json 前 5 条）
-  python examples/anyihua_knowledge_extraction_demo.py --num 2 --num2 5
+  # 同时处理两个文件（chat_test_100.json 前 5 条 + chat_test_500.json 前 5 条）
+  python examples/anyihua_knowledge_extraction_demo.py --num 5 --num2 5
 
   # 使用开放 Schema（LLM 可自由命名槽位和意图）
   python examples/anyihua_knowledge_extraction_demo.py --slot-open-ended --intent-open-ended
@@ -531,18 +534,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--num",
         type=int,
-        default=2,
+        default=-1,
         metavar="N",
-        help="从 --data 文件处理的对话数量（默认：2；-1 表示全部）",
+        help="从 --data 文件处理的对话数量（默认：-1，即处理全部）",
     )
     parser.add_argument(
         "--num2",
         type=int,
-        default=0,
+        default=-1,
         metavar="N",
         help=(
-            "从 --data2 文件（chat_test_500.json）额外加载的对话数量"
-            "（默认：0，即不加载；-1 表示全部）"
+            "从 --data2 文件额外加载的对话数量"
+            "（默认：-1，即处理全部；0 表示跳过该文件）"
         ),
     )
 
@@ -628,13 +631,13 @@ def main() -> None:
     # 从 --data（默认 chat_test_100.json）加载
     selected: List[dict] = _load_and_normalize(args.data, args.num)
 
-    # 从 --data2（默认 chat_test_500.json）额外加载（num2 > 0 时）
+    # 从 --data2（默认 chat_test_500.json）额外加载（num2 != 0 时；0 表示跳过）
     if args.num2 != 0:
         extra = _load_and_normalize(args.data2, args.num2)
         selected.extend(extra)
         print(f"  合并后共 {len(selected)} 条对话待处理")
     elif args.data2.exists():
-        print(f"  提示：可通过 --num2 N 同时加载 {args.data2.name}（当前跳过）")
+        print(f"  提示：可通过 --num2 -1 同时加载 {args.data2.name} 全部数据（当前跳过）")
 
     if not selected:
         print("[错误] 未加载到任何对话数据，请检查 --data / --num 参数")
