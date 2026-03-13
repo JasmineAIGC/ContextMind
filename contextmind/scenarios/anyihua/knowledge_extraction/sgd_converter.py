@@ -336,6 +336,72 @@ def _infer_description_from_values(label: str, values: List[str]) -> str:
     return readable
 
 
+def _merge_schema_definitions_into_schema(
+    schema_data: List[Dict[str, Any]],
+    extraction_schema: ExtractionSchema,
+) -> int:
+    """
+    将 ExtractionSchema 中明确定义的槽位和意图合并进 SGD schema 结构（就地修改）。
+
+    与开放模式的 :func:`_merge_discovered_into_schema` 不同，本函数处理的是用户
+    通过 ``--add-slot`` / ``--add-intent`` 显式新增的槽位和意图——这些项已写入
+    ``ExtractionSchema``，但在基础 ``schema.json``（resources/anyihua_sgd/schema.json）
+    中尚不存在。
+
+    算法：
+    1. 对 ``extraction_schema.slots``：将不在 ``schema_data`` 中的项追加到 slots 列表末尾。
+    2. 对 ``extraction_schema.intents``：将不在 ``schema_data`` 中的项插入到
+       ``general_inquiry`` 兜底意图之前（如果存在），否则追加到末尾。
+    3. 保持幂等性：已存在同名项时跳过，不重复添加。
+
+    返回:
+        新增到 schema 中的条目总数（slots + intents）。
+    """
+    if not schema_data:
+        return 0
+
+    service = schema_data[0]
+    added = 0
+
+    # ── 合并槽位 ──────────────────────────────────────────────────────────────
+    existing_slot_names: set = {s["name"] for s in service.get("slots", [])}
+    for slot_def in extraction_schema.slots:
+        if slot_def.name not in existing_slot_names:
+            service.setdefault("slots", []).append({
+                "name": slot_def.name,
+                "description": slot_def.description,
+                "is_categorical": False,
+                "possible_values": [],
+            })
+            existing_slot_names.add(slot_def.name)
+            added += 1
+            logger.info(f"[SGDConverter] 新增用户定义槽位到 schema.json: {slot_def.name}")
+
+    # ── 合并意图 ──────────────────────────────────────────────────────────────
+    intents_list = service.setdefault("intents", [])
+    existing_intent_names: set = {i["name"] for i in intents_list}
+    new_intents = [i for i in extraction_schema.intents if i.name not in existing_intent_names]
+
+    # 在 general_inquiry 兜底意图之前插入（保持语义顺序）
+    fallback_idx = next(
+        (idx for idx, it in enumerate(intents_list) if it.get("name") == "general_inquiry"),
+        len(intents_list),
+    )
+    for offset, intent_def in enumerate(new_intents):
+        intents_list.insert(fallback_idx + offset, {
+            "name": intent_def.name,
+            "description": intent_def.description,
+            "is_transactional": False,
+            "required_slots": [],
+            "optional_slots": {},
+            "result_slots": [],
+        })
+        added += 1
+        logger.info(f"[SGDConverter] 新增用户定义意图到 schema.json: {intent_def.name}")
+
+    return added
+
+
 def _merge_discovered_into_schema(
     schema_data: List[Dict[str, Any]],
     results: List[ExtractionResult],
@@ -543,7 +609,7 @@ def save_as_sgd(
     输出结构::
 
         <output_dir>/
-            schema.json              # 服务 Schema（基于预定义，融合开放模式新发现项）
+            schema.json              # 服务 Schema（基于预定义，融合用户新增项和开放模式新发现项）
             dialogues_001.json       # 对话数据（每 dialogues_per_file 条一个文件）
             conversion_summary.json  # 转换统计信息
 
@@ -554,9 +620,12 @@ def save_as_sgd(
         schema_source:     schema.json 来源路径；None 时使用内置默认
                            （默认为 resources/anyihua_sgd/schema.json）
         dialogues_per_file: 每个 dialogues_*.json 文件包含的对话数量
-        extraction_schema: 用于提取的 ExtractionSchema；当其 slot_open_ended
-                           或 intent_open_ended 为 True 时，从 results 中收集
-                           LLM 新发现的槽位/意图标签并合并到 schema.json。
+        extraction_schema: 用于提取的 ExtractionSchema；
+                           · 始终将 ExtractionSchema 中显式定义但基础 schema.json 中
+                             尚未包含的槽位/意图（如通过 ``--add-slot`` / ``--add-intent``
+                             新增的项）合并到输出 schema.json；
+                           · 当 slot_open_ended 或 intent_open_ended 为 True 时，
+                             还会从 results 中收集 LLM 新发现的槽位/意图标签并合并。
 
     返回:
         转换统计字典（dialogues / turns / dialogue_files / output_dir 等）
@@ -580,6 +649,17 @@ def save_as_sgd(
         logger.warning(
             f"[SGDConverter] schema.json 未找到 ({schema_source})，使用内置默认 Schema"
         )
+
+    # ---- 合并用户显式定义的槽位/意图（--add-slot / --add-intent 新增项）----
+    user_defined_count = 0
+    if extraction_schema is not None:
+        user_defined_count = _merge_schema_definitions_into_schema(
+            schema_data, extraction_schema
+        )
+        if user_defined_count:
+            logger.info(
+                f"[SGDConverter] 用户定义项：共新增 {user_defined_count} 项到 schema.json"
+            )
 
     # ---- 开放模式：将 LLM 新发现的槽位/意图合并入 schema ----
     discovered_count = 0
@@ -703,6 +783,7 @@ def save_as_sgd(
         "services":                [SERVICE_NAME],
         "output_dir":              str(output_dir),
         "converted_at":            datetime.now().isoformat(),
+        "user_defined_schema_items": user_defined_count,
         "discovered_schema_items": discovered_count,
         "schema_coverage":         schema_coverage,
     }
