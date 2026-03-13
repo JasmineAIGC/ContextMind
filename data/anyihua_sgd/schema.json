@@ -1,41 +1,23 @@
 [
   {
     "service_name": "AnYiHua_1",
-    "description": "安逸花外呼促活服务。坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。",
+    "description": "安逸花外呼促活服务。坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。标准流程：核实身份 → 告知额度 → 解答疑问 → 引导借款 → 礼貌告别。",
     "slots": [
       {
         "name": "customer_name",
-        "description": "客户姓名",
+        "description": "客户姓名（如\"高先生\"、\"杨女士\"）",
         "is_categorical": false,
         "possible_values": []
       },
       {
         "name": "phone_suffix",
-        "description": "手机尾号",
-        "is_categorical": false,
-        "possible_values": []
-      },
-      {
-        "name": "dispute_date",
-        "description": "用户质疑的借款日期",
-        "is_categorical": false,
-        "possible_values": []
-      },
-      {
-        "name": "inquiry_amount",
-        "description": "用户询问的金额",
-        "is_categorical": false,
-        "possible_values": []
-      },
-      {
-        "name": "term_months",
-        "description": "分期期数",
+        "description": "手机尾号（3–4 位数字，用于身份核实）",
         "is_categorical": false,
         "possible_values": []
       },
       {
         "name": "identity_confirmed",
-        "description": "身份是否已核实",
+        "description": "身份是否已核实（true / false）",
         "is_categorical": true,
         "possible_values": [
           "true",
@@ -44,19 +26,25 @@
       },
       {
         "name": "available_credit",
-        "description": "可提现额度",
+        "description": "当前实际可提现额度（元，由 query_account API 返回）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "credit_limit",
+        "description": "账户授信总额度（元）",
         "is_categorical": false,
         "possible_values": []
       },
       {
         "name": "temp_credit",
-        "description": "临时额度上限",
+        "description": "临时额度上限（元）",
         "is_categorical": false,
         "possible_values": []
       },
       {
         "name": "temp_credit_status",
-        "description": "临时额度有效性",
+        "description": "临时额度是否有效（有效 / 已过期 / 无临时额度）",
         "is_categorical": true,
         "possible_values": [
           "有效",
@@ -65,56 +53,113 @@
         ]
       },
       {
+        "name": "temp_credit_expiry_date",
+        "description": "临时额度到期日期（如\"十月二十六号\"）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
         "name": "temp_expiry_days",
-        "description": "临时额度剩余天数",
+        "description": "临时额度剩余有效天数",
         "is_categorical": false,
         "possible_values": []
       },
       {
         "name": "annual_rate_pct",
-        "description": "年化利率（%）",
+        "description": "年化利率（%，如 24 表示 24%）",
         "is_categorical": false,
         "possible_values": []
       },
       {
-        "name": "loan_count",
-        "description": "未还清借款笔数",
+        "name": "daily_rate_pct",
+        "description": "日利率（%，如 0.065 表示 0.065%）",
         "is_categorical": false,
         "possible_values": []
       },
       {
-        "name": "last_loan_date",
-        "description": "最近借款日期",
+        "name": "monthly_payment",
+        "description": "用户询问或坐席告知的月还款额（元）",
         "is_categorical": false,
         "possible_values": []
       },
       {
-        "name": "outstanding_amount",
-        "description": "未还款金额（元）",
+        "name": "total_interest",
+        "description": "用户询问或坐席告知的总利息（元）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "term_months",
+        "description": "用户询问的分期期数（如 12）",
         "is_categorical": false,
         "possible_values": []
       },
       {
         "name": "billing_day",
-        "description": "账单日",
+        "description": "账单日（每月几号）",
         "is_categorical": false,
         "possible_values": []
       },
       {
-        "name": "credit_limit",
-        "description": "账户授信总额度（元）",
-        "is_categorical": true,
-        "possible_values": [
-          "21900",
-          "200000",
-          "24000"
-        ]
+        "name": "repayment_date",
+        "description": "还款日（如\"十一月一号\"）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "loan_count",
+        "description": "当前未还清借款笔数",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "last_loan_date",
+        "description": "最近一次借款日期（中文格式）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "outstanding_amount",
+        "description": "当前未还款金额（元）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "dispute_date",
+        "description": "用户质疑的借款日期（如\"七月二十三号\"）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "inquiry_amount",
+        "description": "用户询问或质疑的金额（元）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "overdue_days",
+        "description": "逾期天数",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "user_expected_interest",
+        "description": "用户对合理利息的期望金额（元），如\"一万块一年应该八九百\"",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "user_complaint_reason",
+        "description": "用户抱怨或拒绝的具体原因（如还款太麻烦、利率太高等）",
+        "is_categorical": false,
+        "possible_values": []
       }
     ],
     "intents": [
       {
         "name": "verify_identity",
-        "description": "开场身份核实",
+        "description": "【坐席】开场身份核实，确认来电者是账户本人",
+        "is_transactional": false,
         "required_slots": [
           "customer_name"
         ],
@@ -127,12 +172,14 @@
       },
       {
         "name": "explain_credit_limit",
-        "description": "告知额度情况",
+        "description": "【坐席】告知用户当前可提现额度及授信额度情况",
+        "is_transactional": false,
         "required_slots": [
           "customer_name",
           "available_credit"
         ],
         "optional_slots": {
+          "credit_limit": "",
           "temp_credit": "",
           "temp_credit_status": "",
           "temp_expiry_days": ""
@@ -145,12 +192,14 @@
       },
       {
         "name": "explain_interest_rate",
-        "description": "解释利率和还款方式",
+        "description": "【坐席】解释贷款利率（年化/日利率）和还款方式",
+        "is_transactional": false,
         "required_slots": [
           "customer_name",
           "annual_rate_pct"
         ],
         "optional_slots": {
+          "daily_rate_pct": "",
           "term_months": ""
         },
         "result_slots": [
@@ -159,7 +208,8 @@
       },
       {
         "name": "calculate_repayment",
-        "description": "计算月还款额",
+        "description": "【坐席】根据用户需求计算指定金额和期数的月还款额及总利息",
+        "is_transactional": false,
         "required_slots": [
           "customer_name"
         ],
@@ -167,17 +217,22 @@
           "inquiry_amount": "",
           "term_months": ""
         },
-        "result_slots": []
+        "result_slots": [
+          "monthly_payment",
+          "total_interest"
+        ]
       },
       {
         "name": "explain_displayed_amount",
-        "description": "解释 APP 显示金额",
+        "description": "【坐席】解释 APP 页面显示金额的构成或计算逻辑",
+        "is_transactional": false,
         "required_slots": [
           "customer_name",
           "inquiry_amount"
         ],
         "optional_slots": {
           "available_credit": "",
+          "credit_limit": "",
           "temp_credit": "",
           "temp_credit_status": ""
         },
@@ -188,7 +243,8 @@
       },
       {
         "name": "handle_loan_dispute",
-        "description": "核实争议借款记录",
+        "description": "【坐席】核实并回应用户对某笔借款记录（日期/金额）的争议",
+        "is_transactional": false,
         "required_slots": [
           "customer_name",
           "dispute_date"
@@ -206,7 +262,8 @@
       },
       {
         "name": "guide_loan_operation",
-        "description": "引导 APP 借款操作",
+        "description": "【坐席】引导用户在 APP 完成借款操作步骤",
+        "is_transactional": false,
         "required_slots": [
           "customer_name"
         ],
@@ -216,8 +273,41 @@
         "result_slots": []
       },
       {
+        "name": "promote_loan_offer",
+        "description": "【坐席】主动推介借款优惠、介绍产品亮点或邀请用户使用额度",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name"
+        ],
+        "optional_slots": {
+          "available_credit": "",
+          "credit_limit": "",
+          "temp_credit": ""
+        },
+        "result_slots": []
+      },
+      {
+        "name": "explain_temp_credit",
+        "description": "【坐席】解释临时额度的有效期、金额及使用规则",
+        "is_transactional": false,
+        "required_slots": [
+          "customer_name",
+          "temp_credit"
+        ],
+        "optional_slots": {
+          "temp_credit_status": "",
+          "temp_expiry_days": "",
+          "temp_credit_expiry_date": ""
+        },
+        "result_slots": [
+          "temp_credit_status",
+          "temp_expiry_days"
+        ]
+      },
+      {
         "name": "escalate_to_human",
-        "description": "转接人工客服",
+        "description": "【坐席/用户】请求或承诺转接人工客服",
+        "is_transactional": true,
         "required_slots": [
           "customer_name"
         ],
@@ -229,34 +319,10 @@
       },
       {
         "name": "say_goodbye",
-        "description": "礼貌告别",
+        "description": "【坐席/用户】礼貌结束对话、道别",
+        "is_transactional": false,
         "required_slots": [
           "customer_name"
-        ],
-        "optional_slots": {},
-        "result_slots": []
-      },
-      {
-        "name": "confirm_information",
-        "description": "【用户】确认或认可坐席提供的信息；关键词：对、好的、明白、是的、嗯",
-        "is_transactional": false,
-        "required_slots": [
-          "credit_limit",
-          "customer_name",
-          "temp_credit"
-        ],
-        "optional_slots": {},
-        "result_slots": []
-      },
-      {
-        "name": "dispute_loan_record",
-        "description": "【用户】对某笔借款记录提出质疑或否认；关键词：我没有借这笔、这不是我的借款",
-        "is_transactional": false,
-        "required_slots": [
-          "credit_limit",
-          "customer_name",
-          "dispute_date",
-          "temp_credit"
         ],
         "optional_slots": {},
         "result_slots": []
@@ -265,56 +331,39 @@
         "name": "complain_repayment",
         "description": "【用户】抱怨月还款额太高、还款方式太麻烦或还款压力大；关键词：还款太麻烦、要还多少、还起太恼火、月供太高",
         "is_transactional": false,
-        "required_slots": [
-          "credit_limit",
-          "customer_name"
-        ],
-        "optional_slots": {},
-        "result_slots": []
-      },
-      {
-        "name": "ask_for_clarification",
-        "description": "【用户】要求坐席进一步解释某项内容；关键词：为什么、怎么算的、能说清楚吗",
-        "is_transactional": false,
-        "required_slots": [
-          "credit_limit",
-          "customer_name",
-          "temp_credit"
-        ],
-        "optional_slots": {},
-        "result_slots": []
-      },
-      {
-        "name": "promote_loan_offer",
-        "description": "【坐席】主动推介借款优惠、介绍产品亮点或邀请用户使用额度",
-        "is_transactional": false,
-        "required_slots": [
-          "available_credit",
-          "customer_name",
-          "temp_credit"
-        ],
-        "optional_slots": {},
+        "required_slots": [],
+        "optional_slots": {
+          "monthly_payment": "",
+          "term_months": ""
+        },
         "result_slots": []
       },
       {
         "name": "complain_interest_rate",
         "description": "【用户】质疑或抱怨利率偏高、利息太贵；关键词：利息有点高、太高了、利率高",
         "is_transactional": false,
-        "required_slots": [
-          "available_credit",
-          "customer_name"
-        ],
-        "optional_slots": {},
+        "required_slots": [],
+        "optional_slots": {
+          "annual_rate_pct": "",
+          "user_complaint_reason": ""
+        },
         "result_slots": []
       },
       {
         "name": "express_interest_expectation",
         "description": "【用户】表达对合理利率/利息的期望或认知，或将当前利息与期望金额比较；关键词：一万块一年应该八九百、一千多太高了、应该只有八百多",
         "is_transactional": false,
-        "required_slots": [
-          "available_credit",
-          "customer_name"
-        ],
+        "required_slots": [],
+        "optional_slots": {
+          "user_expected_interest": ""
+        },
+        "result_slots": []
+      },
+      {
+        "name": "confirm_information",
+        "description": "【用户】确认或认可坐席提供的信息；关键词：对、好的、明白、是的、嗯",
+        "is_transactional": false,
+        "required_slots": [],
         "optional_slots": {},
         "result_slots": []
       },
@@ -322,38 +371,50 @@
         "name": "reject_offer",
         "description": "【用户】明确拒绝当前借款方案或产品；关键词：不用了、不需要、不借了",
         "is_transactional": false,
-        "required_slots": [
-          "customer_name",
-          "temp_credit"
-        ],
+        "required_slots": [],
+        "optional_slots": {
+          "user_complaint_reason": ""
+        },
+        "result_slots": []
+      },
+      {
+        "name": "ask_for_clarification",
+        "description": "【用户】要求坐席进一步解释某项内容；关键词：为什么、怎么算的、能说清楚吗",
+        "is_transactional": false,
+        "required_slots": [],
         "optional_slots": {},
         "result_slots": []
       },
       {
-        "name": "explain_temp_credit",
-        "description": "【坐席】解释临时额度的有效期、金额及使用规则",
+        "name": "dispute_loan_record",
+        "description": "【用户】对某笔借款记录提出质疑或否认；关键词：我没有借这笔、这不是我的借款",
         "is_transactional": false,
-        "required_slots": [
-          "customer_name",
-          "temp_credit"
-        ],
-        "optional_slots": {},
+        "required_slots": [],
+        "optional_slots": {
+          "dispute_date": ""
+        },
         "result_slots": []
       },
       {
         "name": "inquire_repayment_method",
         "description": "【用户】询问还款方式、还款渠道或操作步骤",
         "is_transactional": false,
-        "required_slots": [
-          "customer_name",
-          "temp_credit"
-        ],
+        "required_slots": [],
+        "optional_slots": {},
+        "result_slots": []
+      },
+      {
+        "name": "express_hesitation",
+        "description": "【用户】表示犹豫、考虑中或需要时间决定；关键词：我想想、再看看、暂时不用",
+        "is_transactional": false,
+        "required_slots": [],
         "optional_slots": {},
         "result_slots": []
       },
       {
         "name": "general_inquiry",
-        "description": "通用询问（默认）",
+        "description": "【用户·兜底】用户回复完全无法匹配以上任何具体意图时的最后兜底；仅在穷尽所有其他意图后仍无法归类时使用",
+        "is_transactional": false,
         "required_slots": [],
         "optional_slots": {},
         "result_slots": []
