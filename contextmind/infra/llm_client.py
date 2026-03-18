@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import os
-from typing import Any, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 try:
     from dotenv import load_dotenv
@@ -18,17 +18,11 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_MODEL = "Qwen3-32B"
-# 对话管理器（Dialogue Manager）使用此温度生成自然语言坐席话术。
-# 0.3 在语言流畅度与输出稳定性之间取得平衡；动作解析器（Action Parser）
-# 单独使用 PyTODTracker.AP_TEMPERATURE = 0.1，以确保代码生成的确定性。
 DEFAULT_TEMPERATURE = 0.3
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
-    """按顺序读取环境变量，返回首个非空值。
-    
-    支持多个环境变量名，便于适配不同的部署环境（Qwen、DeepSeek、OpenAI 等）。
-    """
+    """按顺序读取环境变量，返回首个非空值。"""
     for key in keys:
         if value := os.getenv(key):
             return value
@@ -43,120 +37,60 @@ class LLMConfig:
     model: str = DEFAULT_MODEL
     base_url: Optional[str] = None
     temperature: float = DEFAULT_TEMPERATURE
-    access_key: Optional[str] = None
-    top_k: int = 20  # vLLM/Qwen top-k 采样参数；20 是合理的初始值
-    max_tokens: int = 4096  # 保守上限；输入过长时每次请求会动态缩减
+    top_k: int = 20
+    max_tokens: int = 4096
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
         """从环境变量加载配置。"""
-        api_key = _first_env(
-            [
-                "QWEN3_API_KEY",
-                "CONTEXTMIND_API_KEY",
-                "LLM_API_KEY",
-                "OPENAI_API_KEY",
-                "DEEPSEEK_API_KEY",
-                "QWEN_API_KEY",
-            ]
-        )
+        api_key = _first_env([
+            "QWEN3_API_KEY", "CONTEXTMIND_API_KEY", "LLM_API_KEY",
+            "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "QWEN_API_KEY",
+        ])
         if not api_key:
             raise ValueError(
-                "缺少 API key。请在 .env 文件中设置以下变量之一: QWEN3_API_KEY, "
-                "LLM_API_KEY, OPENAI_API_KEY 等"
+                "缺少 API key。请在 .env 文件中设置以下变量之一: "
+                "QWEN3_API_KEY, LLM_API_KEY, OPENAI_API_KEY 等"
             )
 
-        base_url = _first_env(
-            [
-                "QWEN3_BASE_URL",
-                "CONTEXTMIND_BASE_URL",
-                "LLM_BASE_URL",
-                "OPENAI_BASE_URL",
-                "DEEPSEEK_BASE_URL",
-                "QWEN_BASE_URL",
-            ]
-        )
-
-        model = _first_env(
-            [
-                "QWEN3_MODEL",
-                "CONTEXTMIND_MODEL",
-                "LLM_MODEL",
-                "OPENAI_MODEL",
-                "DEEPSEEK_MODEL",
-                "QWEN_MODEL",
-            ],
-            default=DEFAULT_MODEL,
-        )
-
-        temperature_str = _first_env(
-            [
-                "CONTEXTMIND_TEMPERATURE",
-                "LLM_TEMPERATURE",
-                "OPENAI_TEMPERATURE",
-            ]
-        )
-        temperature = (
-            float(temperature_str) if temperature_str is not None else DEFAULT_TEMPERATURE
-        )
-
-        access_key = _first_env(
-            [
-                "QWEN3_ACCESS_KEY",
-                "CONTEXTMIND_ACCESS_KEY",
-                "LLM_ACCESS_KEY",
-                "ACCESS_KEY",
-            ]
-        )
-
-        top_k_str = _first_env(["QWEN3_TOP_K", "LLM_TOP_K", "TOP_K"])
-        top_k = int(top_k_str) if top_k_str else 20
-
-        max_tokens_str = _first_env(["QWEN3_MAX_TOKENS", "LLM_MAX_TOKENS", "MAX_TOKENS"])
-        max_tokens = int(max_tokens_str) if max_tokens_str else 4096
+        base_url = _first_env([
+            "QWEN3_BASE_URL", "CONTEXTMIND_BASE_URL", "LLM_BASE_URL",
+            "OPENAI_BASE_URL", "DEEPSEEK_BASE_URL", "QWEN_BASE_URL",
+        ])
+        model = _first_env([
+            "QWEN3_MODEL", "CONTEXTMIND_MODEL", "LLM_MODEL",
+            "OPENAI_MODEL", "DEEPSEEK_MODEL", "QWEN_MODEL",
+        ], default=DEFAULT_MODEL)
+        temperature_str = _first_env([
+            "CONTEXTMIND_TEMPERATURE", "LLM_TEMPERATURE", "OPENAI_TEMPERATURE",
+        ])
+        temperature = float(temperature_str) if temperature_str else DEFAULT_TEMPERATURE
+        top_k = int(v) if (v := _first_env(["QWEN3_TOP_K", "LLM_TOP_K", "TOP_K"])) else 20
+        max_tokens = int(v) if (v := _first_env(["QWEN3_MAX_TOKENS", "LLM_MAX_TOKENS", "MAX_TOKENS"])) else 4096
 
         return cls(
             api_key=api_key,
             model=model,
             base_url=base_url,
             temperature=temperature,
-            access_key=access_key,
             top_k=top_k,
             max_tokens=max_tokens,
         )
 
 
-# ---------------------------------------------------------------------------
-# ADK 辅助函数：创建本地部署 LiteLlm 模型
-# ---------------------------------------------------------------------------
-
-def create_local_adk_model(config: Optional["LLMConfig"] = None) -> Any:
+def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
     """从 LLMConfig 创建 ADK LiteLlm 模型实例，接入本地 vLLM/OpenAI 兼容端点。
-
-    将 ``.env`` 中的 ``QWEN3_BASE_URL`` / ``QWEN3_MODEL`` / ``QWEN3_API_KEY``
-    等配置包装为 ADK 兼容的 ``LiteLlm`` 对象，供 ``LlmAgent`` / ``AdkFnCTODAgent``
-    / ``AdkPyTODAgent`` 等直接使用。
-
-    ADK 内部通过 LiteLLM 库将请求转发至 OpenAI 兼容端点，因此支持所有基于
-    vLLM / Ollama / Qwen / DeepSeek 等本地部署的模型。
-
-    参数:
-        config: 本地 LLM 配置；若为 None 则调用 ``LLMConfig.from_env()``。
-
-    返回:
-        ``google.adk.models.lite_llm.LiteLlm`` 实例。
 
     示例::
 
         from contextmind.infra.llm_client import create_local_adk_model
         from google.adk.agents import LlmAgent
 
-        adk_model = create_local_adk_model()
-        agent = LlmAgent(model=adk_model, name="my_agent", instruction="你是助手。")
+        model = create_local_adk_model()
+        agent = LlmAgent(model=model, name="my_agent", instruction="你是助手。")
     """
     if config is None:
         config = LLMConfig.from_env()
-
     try:
         from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
     except ImportError as exc:
@@ -165,63 +99,33 @@ def create_local_adk_model(config: Optional["LLMConfig"] = None) -> Any:
             "请运行: pip install google-adk litellm"
         ) from exc
 
-    # LiteLlm 使用 litellm 库的 model string 格式：
-    # "openai/<model>" 表示 OpenAI 兼容端点（vLLM 默认协议）
-    model_string = f"openai/{config.model}"
     return LiteLlm(
-        model=model_string,
+        model=f"openai/{config.model}",
         api_base=config.base_url,
         api_key=config.api_key,
     )
 
 
-# ---------------------------------------------------------------------------
-# Google ADK 驱动的 LLM 客户端（本地部署版）
-# ---------------------------------------------------------------------------
-
 class AdkLLMClient:
-    """Google ADK（Agent Development Kit）驱动的 LLM 客户端（本地部署版）。
+    """基于 Google ADK 的无状态 LLM 客户端。
 
-    使用 ADK + LiteLlm 将请求转发至本地 vLLM / OpenAI 兼容端点，
-    提供与 :class:`SimpleLLMClient` 完全相同的公共接口
-    （``chat`` / ``chat_async`` / ``generate`` / ``generate_async``），
-    因此可作为任意 Tracker 或 Application 中 ``llm_client=`` 参数的
-    **直接替换品**，无需修改调用方代码。
-
-    LLM 配置通过 ``.env`` 文件或 ``LLMConfig`` 实例统一管理，
-    与 ``SimpleLLMClient`` 保持一致。
-
-    与 ``SimpleLLMClient`` 的主要差异
-    ------------------------------------
-    * 底层使用 **Google ADK** + ``LlmAgent`` + ``InMemoryRunner``，
-      所有请求都通过 ADK 的 session 管理和 event-streaming 机制完成。
-    * 每次 ``chat()`` / ``generate()`` 调用均为**无状态**（Stateless）——
-      消息历史由调用方传入；ADK session 在每次调用结束后丢弃。
-    * 若需要在连续调用间保持有状态 session，请直接使用
-      :class:`contextmind.modes.pytod.adk_bridge.AdkLlmClientBridge`。
+    通过 ADK + LiteLlm 将请求转发至本地 vLLM / OpenAI 兼容端点。
+    每次调用创建一次性 session，适合无状态的单次 LLM 调用场景。
+    有状态多轮对话请直接使用 ADK 的 LlmAgent + InMemoryRunner。
 
     参数
     ----
     system_instruction : str
-        传递给 LlmAgent 的系统指令；可在创建后通过 :attr:`system_instruction`
-        属性动态替换。
+        传递给 LlmAgent 的系统指令。
     config : LLMConfig | None
-        本地 LLM 配置；若为 None 则从 ``.env`` 环境变量自动加载。
+        本地 LLM 配置；若为 None 则从 ``.env`` 自动加载。
 
-    示例
-    ----
-    替换任意使用 ``SimpleLLMClient`` 的 Tracker::
+    示例::
 
         from contextmind.infra.llm_client import AdkLLMClient
-        from contextmind.modes.dst import DialogueStateTracker
-
         llm = AdkLLMClient()
-        tracker = DialogueStateTracker.from_scenario(llm, scenario_config)
-        result = await tracker.process_turn("我想预约明天下午三点")
+        reply = await llm.chat_async([{"role": "user", "content": "你好"}])
     """
-
-    #: sync chat() 的最大等待秒数（可通过子类覆盖）
-    SYNC_CALL_TIMEOUT: float = 120.0
 
     def __init__(
         self,
@@ -240,26 +144,14 @@ class AdkLLMClient:
         self._config = config or LLMConfig.from_env()
         self._adk_model = create_local_adk_model(self._config)
         self.system_instruction = system_instruction
-
-        # 延迟创建 agent（system_instruction 可在调用前修改）
         self._LlmAgent = LlmAgent
         self._InMemoryRunner = InMemoryRunner
-
         logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
 
-    # ------------------------------------------------------------------ #
-    # 内部辅助方法
-    # ------------------------------------------------------------------ #
-
-    def _build_user_content(self, messages: list) -> str:
-        """将 OpenAI 消息列表拼合为单个用户消息字符串。
-
-        ADK 的 ``runner.run()`` 接受单条用户消息；多轮历史以
-        ``Human: … Assistant: …`` 格式嵌入，使模型感知上下文。
-        """
+    def _build_user_content(self, messages: List[dict]) -> str:
+        """将 OpenAI messages 列表拼合为 ADK 单条用户消息字符串。"""
         parts: list[str] = []
         system_parts: list[str] = []
-
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
@@ -269,128 +161,50 @@ class AdkLLMClient:
                 parts.append(f"Human: {content}")
             elif role in ("assistant", "model"):
                 parts.append(f"Assistant: {content}")
-
-        # 将额外的 system 内容追加到最后一条 user 消息前
         if system_parts and parts:
-            system_text = "\n".join(system_parts)
-            parts.insert(0, f"[System Instruction]\n{system_text}\n[/System Instruction]\n")
-
+            parts.insert(0, f"[System]\n{chr(10).join(system_parts)}\n[/System]\n")
         return "\n".join(parts) if parts else ""
 
-    async def _run_async(
+    async def chat_async(
         self,
-        user_content: str,
-        system_instruction: Optional[str] = None,
+        messages: List[dict],
+        temperature: Optional[float] = None,  # noqa: ARG002 – ADK 由模型配置控制
     ) -> str:
-        """核心异步执行：创建一次性 ADK session 并返回最终文本响应。"""
+        """异步多轮对话。
+
+        Args:
+            messages: OpenAI 格式消息列表（role/content 字典）。
+
+        Returns:
+            助手的回复文本。
+        """
         from google.adk.agents import LlmAgent  # type: ignore[import]
         from google.adk.runners import InMemoryRunner  # type: ignore[import]
+        from google.genai import types as genai_types  # type: ignore[import]
 
-        instruction = system_instruction or self.system_instruction
         agent = LlmAgent(
             name="adk_llm_client",
             model=self._adk_model,
-            instruction=instruction,
+            instruction=self.system_instruction,
         )
         runner = InMemoryRunner(agent=agent, app_name="contextmind_adk")
         session = await runner.session_service.create_session(
-            app_name="contextmind_adk",
-            user_id="default",
+            app_name="contextmind_adk", user_id="default",
         )
-
-        from google.genai import types as genai_types  # type: ignore[import]
-
         content = genai_types.Content(
             role="user",
-            parts=[genai_types.Part(text=user_content)],
+            parts=[genai_types.Part(text=self._build_user_content(messages))],
         )
-
         final_text = ""
         async for event in runner.run_async(
-            user_id="default",
-            session_id=session.id,
-            new_message=content,
+            user_id="default", session_id=session.id, new_message=content,
         ):
             if event.is_final_response() and event.content:
                 for part in event.content.parts or []:
                     if hasattr(part, "text") and part.text:
                         final_text += part.text
-
         return final_text.strip()
 
-    # ------------------------------------------------------------------ #
-    # 公共接口（与 SimpleLLMClient 完全兼容）
-    # ------------------------------------------------------------------ #
-
-    async def chat_async(
-        self,
-        messages: list,
-        temperature: Optional[float] = None,
-    ) -> str:
-        """异步多轮对话接口（与 SimpleLLMClient.chat_async 签名兼容）。
-
-        Args:
-            messages: OpenAI 格式消息列表（role/content 字典）。
-            temperature: 保留参数，ADK 通过模型配置控制，此处忽略。
-
-        Returns:
-            助手的回复文本。
-        """
-        user_content = self._build_user_content(messages)
-        return await self._run_async(user_content)
-
-    def chat(
-        self,
-        messages: list,
-        temperature: Optional[float] = None,
-    ) -> str:
-        """同步多轮对话接口（与 SimpleLLMClient.chat 签名兼容）。"""
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is not None and loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    asyncio.run,
-                    self.chat_async(messages=messages, temperature=temperature),
-                )
-                return future.result(timeout=self.SYNC_CALL_TIMEOUT)
-        else:
-            return asyncio.run(
-                self.chat_async(messages=messages, temperature=temperature)
-            )
-
     async def generate_async(self, prompt: str) -> tuple[str, str]:
-        """异步 prompt 生成接口（与 SimpleLLMClient.generate_async 签名兼容）。
-
-        Returns:
-            ``(reasoning_content, response_content)``——ADK 不暴露 CoT，
-            ``reasoning_content`` 始终为空字符串。
-        """
-        messages = [{"role": "user", "content": prompt}]
-        content = await self.chat_async(messages)
-        return "", content
-
-    def generate(self, prompt: str) -> tuple[str, str]:
-        """同步 prompt 生成接口。"""
-        messages = [{"role": "user", "content": prompt}]
-        content = self.chat(messages)
-        return "", content
-
-
-# ---------------------------------------------------------------------------
-# 向后兼容别名
-# ---------------------------------------------------------------------------
-
-class SimpleLLMClient(AdkLLMClient):
-    """向后兼容别名，等同于 :class:`AdkLLMClient`。
-
-    保留原有构造函数签名 ``SimpleLLMClient(config=None)``
-    以避免修改现有调用方代码。新代码请直接使用 :class:`AdkLLMClient`。
-    """
-
-    def __init__(self, config: Optional[LLMConfig] = None) -> None:
-        super().__init__(config=config)
+        """异步 prompt 生成，返回 ``("", response_text)``。"""
+        return "", await self.chat_async([{"role": "user", "content": prompt}])

@@ -37,14 +37,13 @@ from benchmark.algorithms.pytod import PyTODEvaluator
 from benchmark.datasets.anyihua.adapter import AnyihuaSGDAdapter, AnyihuaDialogue
 from contextmind.modes.pytod import (
     ExecutionEngine,
-    PyTODPromptBuilder,
-    PyTODTracker,
+    PyTODAgent,
     ServiceSchema,
     load_schema_from_dict,
 )
 from contextmind.scenarios.anyihua.generation.engine import build_generation_engine
 from contextmind.scenarios.anyihua.generation.schema import ANYIHUA_SCHEMA
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
@@ -96,28 +95,10 @@ class AnyihuaPyTODEvaluator:
             dialogues_path=dialogues_path,
         )
         self.evaluator = PyTODEvaluator()
-        self.llm_client: Optional[SimpleLLMClient] = None
         self._service_schema: Optional[ServiceSchema] = None
 
     def setup(self) -> None:
-        """初始化 LLM 客户端并加载 schema。"""
-        try:
-            self.llm_client = SimpleLLMClient()
-            logger.info("✅ LLM 客户端初始化成功")
-        except Exception as exc:
-            logger.error(f"❌ LLM 客户端初始化失败: {exc}")
-            print(f"\n{'='*70}")
-            print("❌ 错误: 无法初始化 LLM 客户端")
-            print(f"{'='*70}")
-            print(f"原因: {exc}")
-            print("\nPyTOD 模式需要 LLM 来生成程序和对话回复。")
-            print("请确认:")
-            print("  1. 已安装 OpenAI 包: pip install openai")
-            print("  2. 已设置 API 密钥环境变量 (如 QWEN3_API_KEY 或 OPENAI_API_KEY)")
-            print("  3. API 密钥有效且有足够配额")
-            print(f"{'='*70}\n")
-            raise
-
+        """加载 schema（ADK 配置由 LLMConfig.from_env() 自动加载）。"""
         # 从 data/anyihua_sgd/schema.json 加载 ServiceSchema
         schema_raw = self.adapter.load_schema()
         self._service_schema = load_schema_from_dict(schema_raw)
@@ -127,33 +108,11 @@ class AnyihuaPyTODEvaluator:
             f"槽位数: {len(self._service_schema.slots)})"
         )
 
-    def _build_tracker(self, dialogue: AnyihuaDialogue) -> PyTODTracker:
-        """
-        为单条对话构建 PyTODTracker。
-
-        每条对话使用独立的 ExecutionEngine（含会话特定的 CRM API），
-        共享同一个基于 anyihua_sgd/schema.json 的 ServiceSchema。
-
-        Args:
-            dialogue: 单条安逸花对话实例
-
-        Returns:
-            已初始化的 PyTODTracker
-        """
+    def _build_tracker(self, dialogue: AnyihuaDialogue) -> PyTODAgent:
+        """为单条对话构建 PyTODAgent（每条对话使用独立的 ExecutionEngine）。"""
         engine = build_generation_engine(dialogue.raw_session)
-
-        builder = PyTODPromptBuilder(
-            schema=self._service_schema,
-            max_history_turns=10,
-            response_language="中文",
-        )
-
-        return PyTODTracker(
-            llm_client=self.llm_client,
-            execution_engine=engine,
-            prompt_builder=builder,
-            scenario_name="anyihua_outbound",
-            max_history_turns=10,
+        return PyTODAgent(
+            engine=engine,
             scenario_context=_SCENARIO_CONTEXT,
         )
 

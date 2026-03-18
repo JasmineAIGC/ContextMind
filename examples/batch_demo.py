@@ -31,10 +31,10 @@ from typing import Dict, List, Optional, Tuple
 
 import gradio as gr
 
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.modes.pytod import PyTODTracker
+from contextmind.modes.fnctod import FnCTODAgent
+from contextmind.modes.pytod import PyTODAgent
 from contextmind.scenarios import get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -76,7 +76,7 @@ class BatchDialogueTest:
         # 创建 LLM 客户端
         try:
             if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = AdkLLMClient()
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             logger.error(f"❌ LLM客户端初始化失败: {e}")
@@ -352,7 +352,7 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         # ✅ 为每个对话创建新的tracker实例，确保测试结果独立
-        from contextmind.modes.fnctod import FnCTODTracker
+        from contextmind.modes.fnctod import FnCTODAgent
         tracker = FnCTODTracker.from_scenario(
             self.llm_client,
             self.config,

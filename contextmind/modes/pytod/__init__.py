@@ -1,48 +1,25 @@
 """
-PyTOD Schema 适配模块
+PyTOD — ADK 原生函数调用任务型对话模块
 
-将 PyTOD schema（service/intent/slot 格式）迁移到直接支持
-zero/few-shot 大模型（如 Qwen-3）prompt 工程模式的适配模块。
-
-无需依赖 PyTOD 官方代码，仅以 schema + prompt 驱动主流程。
-
-**重要：** function / action / 意图 / 槽位**不需要预定义**。
-
-本模块完整实现 PyTOD 算法的四步流程：
-
-    用户输入
-      ↓
-    动作解析器（Action Parser）— build_action_parser_messages()
-      → 生成程序语句（如：restaurants_1_find(city='San Jose')）
-      ↓
-    执行引擎（Execution Engine）— ExecutionEngine.execute()
-      → 实际调用已注册的 API 函数 / 数据库查询
-      → 返回执行结果（如：[{"name": "海底捞", "rating": 4.8}]）
-      ↓
-    对话管理器（Dialogue Manager）— build_dialogue_manager_messages()
-      → 基于执行结果生成系统回复
-      ↓
-    系统输出
-
-此外还支持两种简化运行模式：
-
-1. **Schema 驱动模式**（传入 ``ServiceSchema``）
-   - 将预定义的意图列表、槽位描述和枚举值注入 prompt
-   - ``ActionValidator`` 根据 schema 校验意图合法性和枚举槽位值
-   - 适合有明确业务场景的生产环境
-
-2. **开放域模式**（``schema=None``，默认）
-   - **无需预定义任何意图、action 或槽位**
-   - LLM 根据对话上下文自由命名意图并提取任意信息槽位
-   - ``ActionValidator`` 仅校验 JSON 结构，不约束内容
-   - 适合快速原型开发或意图/槽位尚未确定的早期阶段
+通过 Google ADK 原生 Function Calling 实现任务型对话，
+ExecutionEngine 中注册的 API 函数自动成为 ADK 工具。
 
 子模块:
-    schema           - PyTOD schema 数据模型（Service/Intent/Slot）
-    execution_engine - 执行引擎（安全解析并执行程序语句，对接 API/数据库）
-    prompt_builder   - Prompt 组装工具（Action Parser / Dialogue Manager）
-    validator        - 模型生成 action 的合法性校验与反馈解析
-    registry        - 场景 API 注册表（闲聊/客服/保险）及注册工具函数
+    execution_engine — 执行引擎（安全解析并执行程序语句）
+    registry        — 场景 API 注册表（chat / callcenter / insurance）
+    schemas         — PyTOD schema 数据模型（可选，开放域无需预定义）
+    tracker         — PyTODAgent 主追踪器
+
+使用示例::
+
+    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+
+    engine = ExecutionEngine()
+    SCENARIO_API_REGISTRY["callcenter"](engine)
+    agent = PyTODAgent(engine=engine)
+    result = await agent.process_turn("查询订单状态")
+    print(result["response"])
 """
 
 from .schemas import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -56,17 +33,15 @@ from .execution_engine import (
     ProgramBlock,
     ProgramExecutionResult,
 )
-from .prompts import PyTODPromptBuilder, ConversationTurn, FewShotExample
-from .validator import ActionValidator, ValidationResult
-from .tracker import PyTODTracker, PyTODTurnResult
+from .tracker import PyTODAgent, adk_tools_from_engine
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
-from .adk_bridge import adk_tools_from_engine, AdkLlmClientBridge, AdkPyTODAgent
 
 __all__ = [
-    "SlotDefinition",
-    "IntentDefinition",
-    "ServiceSchema",
-    "load_schema_from_dict",
+    # 主追踪器
+    "PyTODAgent",
+    # 工具转换
+    "adk_tools_from_engine",
+    # 执行引擎
     "ExecutionEngine",
     "ProgramStatement",
     "ExecutionResult",
@@ -75,17 +50,12 @@ __all__ = [
     "SayStatement",
     "ProgramBlock",
     "ProgramExecutionResult",
-    "PyTODPromptBuilder",
-    "ConversationTurn",
-    "FewShotExample",
-    "ActionValidator",
-    "ValidationResult",
-    "PyTODTracker",
-    "PyTODTurnResult",
+    # Schema 数据模型（可选）
+    "SlotDefinition",
+    "IntentDefinition",
+    "ServiceSchema",
+    "load_schema_from_dict",
+    # API 注册表
     "SCENARIO_API_REGISTRY",
     "get_scenario_key",
-    # ADK 集成
-    "adk_tools_from_engine",
-    "AdkLlmClientBridge",
-    "AdkPyTODAgent",
 ]

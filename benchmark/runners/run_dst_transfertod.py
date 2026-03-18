@@ -24,7 +24,7 @@ from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
 from benchmark.shared.intent_label_loader import IntentLabelLoader
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
@@ -56,7 +56,7 @@ class TransferTODEvaluator:
         """
         # 创建LLM客户端
         try:
-            self.llm_client = SimpleLLMClient()
+            self.llm_client = AdkLLMClient()
             logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             logger.error(f"❌ LLM客户端初始化失败: {e}")

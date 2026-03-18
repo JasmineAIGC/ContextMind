@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-ContextMind 命令行交互Demo
+ContextMind 命令行交互 Demo
 
 支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
-支持四种模式：dst（对话状态追踪）、evolve（基于AlphaEvolve/ThetaEvolve算法）、fnctod（函数调用DST）、pytod（程序执行型任务对话）
+支持四种模式：dst / evolve / fnctod / pytod
 
 使用方式:
     python examples/cli_demo.py --scenario chat --mode evolve
     python examples/cli_demo.py --scenario callcenter --mode dst
-    python examples/cli_demo.py --scenario insurance --mode fnctod --log-level DEBUG
+    python examples/cli_demo.py --scenario insurance --mode fnctod
     python examples/cli_demo.py --scenario insurance --mode pytod
 """
 
 import sys
 from pathlib import Path
 
-# 添加项目根目录到 Python 路径，使得可以直接运行而无需安装
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -24,447 +23,202 @@ import asyncio
 import argparse
 import logging
 from typing import Optional
-from datetime import datetime
 
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.modes.pytod import PyTODTracker
+from contextmind.modes.fnctod import FnCTODAgent
+from contextmind.modes.pytod import PyTODAgent
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
-# 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)
 
 
-class UnifiedInteractiveDemo:
-    """统一的交互式Demo类"""
-    
+class InteractiveDemo:
+    """统一的命令行交互 Demo。"""
+
     def __init__(
-        self, 
-        scenario: str = "chat", 
+        self,
+        scenario: str = "chat",
         mode: str = "evolve",
         max_history_turns: int = 10,
-        enable_summary: bool = True,
-        use_llm_summary: bool = False
     ):
-        """
-        初始化Demo
-        
-        Args:
-            scenario: 场景类型 (chat/callcenter/insurance)
-            mode: 对话模式 (dst/evolve)
-            max_history_turns: DST模式的最大历史轮数
-            enable_summary: 是否启用历史摘要
-            use_llm_summary: 是否使用LLM生成摘要
-        """
         self.scenario = scenario
         self.mode = mode
         self.max_history_turns = max_history_turns
-        self.enable_summary = enable_summary
-        self.use_llm_summary = use_llm_summary
         self.config = self._load_scenario_config()
-        
-        # 延迟初始化LLM客户端（只在需要时创建）
-        self.llm_client = None
-        
-        # 初始化对应模式
+        self.llm_client: Optional[AdkLLMClient] = None
+        self.tracker = None
+        self.app = None
+        self.last_system_reply: str = ""
+
         if mode == "dst":
-            self._setup_dst_tracker()
+            self._setup_dst()
         elif mode == "fnctod":
-            self._setup_fnctod_tracker()
+            self._setup_fnctod()
         elif mode == "pytod":
-            self._setup_pytod_tracker()
+            self._setup_pytod()
         else:
-            self._setup_evolve_app()
-    
+            self._setup_evolve()
+
     def _load_scenario_config(self):
-        """加载场景配置"""
-        if self.scenario == "chat":
-            return get_chat_scenario()
-        elif self.scenario == "callcenter":
-            return get_callcenter_scenario()
-        elif self.scenario == "insurance":
-            return get_insurance_scenario()
-        else:
-            raise ValueError(f"未知场景: {self.scenario}")
-    
-    def _get_welcome_message(self) -> str:
-        """获取欢迎消息"""
-        return self.config.welcome_message if self.config.welcome_message else "你好！"
-    
-    def _init_llm_client(self):
-        """初始化LLM客户端（若已初始化则跳过），失败时打印帮助信息并退出。"""
-        if self.llm_client is not None:
-            return
-        try:
-            self.llm_client = SimpleLLMClient()
-        except (ValueError, RuntimeError) as e:
-            logger.error(f"LLM客户端初始化失败: {e}")
-            print(f"\n{'='*60}")
-            print(f"❌ 错误: {e}")
-            print(f"{'='*60}")
-            error_str = str(e)
-            if "API key" in error_str or "API_KEY" in error_str:
-                print("\n📝 请配置.env文件，添加以下内容：")
-                print("=" * 60)
-                print("# 选择一个配置即可")
-                print("QWEN3_API_KEY=sk-your-api-key-here")
-                print("QWEN3_BASE_URL=http://your-api-endpoint/v1")
-                print("QWEN3_MODEL=Qwen3-32B")
-                print("=" * 60)
-                print("\n支持的环境变量名：")
-                print("  - QWEN3_API_KEY, QWEN3_BASE_URL, QWEN3_MODEL")
-                print("  - LLM_API_KEY, LLM_BASE_URL, LLM_MODEL")
-                print("  - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL")
-            elif "OpenAI" in error_str:
-                print("\n请安装OpenAI包：")
-                print("  pip install openai")
-            print()
-            sys.exit(1)
+        scenarios = {
+            "chat": get_chat_scenario,
+            "callcenter": get_callcenter_scenario,
+            "insurance": get_insurance_scenario,
+        }
+        if self.scenario not in scenarios:
+            raise ValueError(f"未知场景: {self.scenario}，可选: {list(scenarios.keys())}")
+        return scenarios[self.scenario]()
 
-    def _setup_dst_tracker(self):
-        """初始化DST模式"""
-        logger.info(f"初始化DST模式 - {self.config.name}")
-        self._init_llm_client()
+    def _get_llm_client(self) -> AdkLLMClient:
+        if self.llm_client is None:
+            try:
+                self.llm_client = AdkLLMClient()
+            except ValueError as e:
+                print(f"\n❌ 错误: {e}")
+                print("\n请在 .env 文件中设置：")
+                print("  QWEN3_API_KEY=sk-...")
+                print("  QWEN3_BASE_URL=http://localhost:8000/v1")
+                print("  QWEN3_MODEL=Qwen3-32B")
+                sys.exit(1)
+        return self.llm_client
+
+    def _setup_dst(self):
+        logger.info(f"初始化 DST 模式 - {self.config.name}")
         self.tracker = DialogueStateTracker.from_scenario(
-            llm_client=self.llm_client,
-            scenario_config=self.config,
-            max_history_turns=self.max_history_turns,
-            enable_history_summary=self.enable_summary,
-            use_llm_summary=self.use_llm_summary
-        )
-        self.last_system_reply = self._get_welcome_message()
-        self.app = None  # DST模式不使用app
-
-    def _setup_fnctod_tracker(self):
-        """初始化FnCTOD模式"""
-        logger.info(f"初始化FnCTOD模式 - {self.config.name}")
-        self._init_llm_client()
-        self.tracker = FnCTODTracker.from_scenario(
-            llm_client=self.llm_client,
-            scenario_config=self.config,
-            use_two_stage=True,
-            max_history_turns=self.max_history_turns
-        )
-        self.app = None  # FnCTOD模式不使用app
-
-    def _setup_pytod_tracker(self):
-        """初始化PyTOD模式（程序执行型任务对话）"""
-        logger.info(f"初始化PyTOD模式 - {self.config.name}")
-        self._init_llm_client()
-        self.tracker = PyTODTracker.from_scenario(
-            llm_client=self.llm_client,
+            llm_client=self._get_llm_client(),
             scenario_config=self.config,
             max_history_turns=self.max_history_turns,
         )
-        self.app = None  # PyTOD模式不使用app
+        self.last_system_reply = self.config.welcome_message or "你好！"
 
-    def _setup_evolve_app(self):
-        """初始化Evolve模式"""
-        logger.info(f"初始化Evolve模式 - {self.config.name}")
-        self._init_llm_client()
-        try:
-            from contextmind.modes.evolve import create_app_for_scenario
-            self.app = create_app_for_scenario(
-                scenario_name=self.scenario,
-                llm_client=self.llm_client,
-                scenario_config=self.config,
-                app_name_prefix="interactive_demo"
-            )
-        except Exception as e:
-            logger.error(f"应用初始化失败: {e}", exc_info=True)
-            print(f"\n{'='*60}")
-            print(f"❌ 错误: 应用初始化失败")
-            print(f"详细信息: {e}")
-            print(f"{'='*60}\n")
-            sys.exit(1)
+    def _setup_fnctod(self):
+        logger.info(f"初始化 FnCTOD 模式 - {self.config.name}")
+        self.tracker = FnCTODAgent.from_scenario(self.config)
+
+    def _setup_pytod(self):
+        logger.info(f"初始化 PyTOD 模式 - {self.config.name}")
+        self.tracker = PyTODAgent.from_scenario(self.config)
+
+    def _setup_evolve(self):
+        logger.info(f"初始化 Evolve 模式 - {self.config.name}")
+        from contextmind.modes.evolve import create_app_for_scenario
+        self.app = create_app_for_scenario(
+            scenario_name=self.scenario,
+            llm_client=self._get_llm_client(),
+            scenario_config=self.config,
+            app_name_prefix="cli_demo",
+        )
 
     def print_welcome(self):
-        """打印欢迎信息"""
-        print("\n" + "="*60)
-        print(f"📱 ContextMind 命令行交互Demo v0.2.1")
-        print("="*60)
-        print(f"场景: {self.config.name}")
-        mode_name = {
-            'dst': 'DST (对话状态追踪)',
-            'evolve': 'Evolve (基于记忆进化)',
-            'fnctod': 'FnCTOD (函数调用DST)',
-            'pytod': 'PyTOD (程序执行型任务对话)',
-        }.get(self.mode, self.mode)
-        print(f"模式: {mode_name}")
-        print(f"日志级别: {logging.getLevelName(logger.level)}")
-        print(f"最大历史轮数: {self.max_history_turns}")
-        print("="*60)
-        
-        if self.mode == "dst":
-            print(f"✓ 已加载 {len(self.config.dst_slots)} 个槽位")
-            if self.config.dst_intents:
-                print(f"✓ 已加载 {len(self.config.dst_intents)} 个意图类别")
-            print(f"✓ 历史摘要: {'启用' if self.enable_summary else '禁用'}")
-            print(f"✓ 摘要方式: {'LLM生成' if self.use_llm_summary else '模板生成'}")
-        elif self.mode == "fnctod":
-            print(f"✓ 已加载 {len(self.config.dst_slots)} 个参数（槽位）")
-            print(f"✓ 两阶段处理: Domain选择 → 函数调用")
-            print(f"✓ 输出格式: <function_call> + 自然语言回复")
-        elif self.mode == "pytod":
-            api_list = self.tracker.execution_engine.list_functions()
-            print(f"✓ 已注册 {len(api_list)} 个 API 函数: {', '.join(api_list)}")
-            print("✓ 三步流程: 动作解析器 → 执行引擎 → 对话管理器")
-            print("✓ 开放域模式：LLM 自由生成程序语句，无需预定义 schema")
-        else:
-            print("✓ 五层架构: 感知层、记忆层、上下文层、生成层、进化层")
-            print(f"✓ 记忆功能: {'启用' if self.config.enable_memory else '禁用'}")
-            print(f"✓ 进化学习: {'启用' if self.config.enable_evolution else '禁用'}")
+        mode_labels = {
+            "dst": "DST（对话状态追踪）",
+            "evolve": "Evolve（演化式记忆）",
+            "fnctod": "FnCTOD（ADK 原生函数调用）",
+            "pytod": "PyTOD（ADK 原生工具调用）",
+        }
+        print("\n" + "=" * 60)
+        print("📱 ContextMind 命令行 Demo")
+        print("=" * 60)
+        print(f"场景: {self.config.name}   模式: {mode_labels.get(self.mode, self.mode)}")
+        print("=" * 60)
+        print("命令: /quit 退出  /reset 重置  /state 查看状态")
+        print("=" * 60 + "\n")
 
-        print("\n💡 使用提示:")
-        print("  - 输入 /quit 或 /exit 退出程序")
-        print("  - 输入 /reset 重置对话")
-        if self.mode in ["dst", "fnctod", "pytod"]:
-            print("  - 输入 /state 查看当前对话状态")
-        print("="*60 + "\n")
-    
-    async def chat_dst_mode(self, user_message: str) -> str:
-        """DST模式对话"""
-        try:
-            # 处理对话轮次 - 使用上一轮的系统回复
+    async def _chat(self, user_message: str) -> str:
+        if self.mode == "dst":
             state = await self.tracker.process_turn(
                 system_utterance=self.last_system_reply,
-                user_utterance=user_message
+                user_utterance=user_message,
             )
-            
-            # 构建回复prompt
             messages = [
                 {"role": "system", "content": self.config.system_prompt},
-                {"role": "user", "content": f"用户说：{user_message}\n当前状态：{state}\n请生成合适的回复。"}
+                {"role": "user", "content": f"用户: {user_message}\n状态: {state}\n请回复用户。"},
             ]
-            
-            # 生成回复
-            reply = await self.llm_client.chat_async(messages=messages)
-            
-            # 保存这轮的系统回复，供下一轮使用
+            reply = await self._get_llm_client().chat_async(messages=messages)
             self.last_system_reply = reply
-            
             return reply
-            
-        except Exception as e:
-            logger.error(f"DST模式处理失败: {e}")
-            return f"抱歉，处理您的消息时出现了问题：{str(e)}"
-    
-    async def chat_fnctod_mode(self, user_message: str) -> str:
-        """FnCTOD模式对话"""
-        try:
-            # 处理对话轮次
-            result = await self.tracker.process_turn(
-                user_utterance=user_message,
-                system_utterance=""  # FnCTOD自己管理历史
-            )
-            
-            # 返回自然语言回复
-            return result.get("response", "")
-            
-        except Exception as e:
-            logger.error(f"FnCTOD模式处理失败: {e}")
-            return f"抱歉，处理您的消息时出现了问题：{str(e)}"
-    
-    async def chat_pytod_mode(self, user_message: str) -> str:
-        """PyTOD模式对话（程序执行型任务对话）"""
-        try:
+        elif self.mode in ("fnctod", "pytod"):
             result = await self.tracker.process_turn(user_utterance=user_message)
-            return result.get("response", "")
-        except Exception as e:
-            logger.error(f"PyTOD模式处理失败: {e}")
-            return f"抱歉，处理您的消息时出现了问题：{str(e)}"
-
-    async def chat_evolve_mode(self, user_message: str) -> str:
-        """Evolve模式对话"""
-        try:
-            result = await self.app.process_turn(user_input=user_message, debug=False)
-            return result
-        except Exception as e:
-            logger.error(f"Evolve模式处理失败: {e}")
-            return f"抱歉，处理您的消息时出现了问题：{str(e)}"
-
-    async def chat(self, user_message: str) -> str:
-        """统一的对话接口"""
-        if self.mode == "dst":
-            return await self.chat_dst_mode(user_message)
-        elif self.mode == "fnctod":
-            return await self.chat_fnctod_mode(user_message)
-        elif self.mode == "pytod":
-            return await self.chat_pytod_mode(user_message)
+            return result.get("response", str(result))
         else:
-            return await self.chat_evolve_mode(user_message)
+            return await self.app.process_turn(user_input=user_message, debug=False)
 
     def show_state(self):
-        """显示当前状态（DST/FnCTOD/PyTOD模式）"""
-        if self.mode not in ["dst", "fnctod", "pytod"]:
-            print("⚠️  状态查看功能仅在DST/FnCTOD/PyTOD模式下可用")
+        if self.mode not in ("dst", "fnctod", "pytod") or self.tracker is None:
+            print("⚠️  状态查看仅在 dst/fnctod/pytod 模式下可用")
             return
-
         state = self.tracker.get_current_state()
-
-        print("\n" + "="*60)
+        print("\n" + "=" * 40)
         print("📊 当前对话状态:")
-        print("="*60)
-        for key, value in state.items():
-            print(f"  {key}: {value}")
-        print("="*60 + "\n")
-    
+        for k, v in state.items():
+            print(f"  {k}: {v}")
+        print("=" * 40 + "\n")
+
     def reset(self):
-        """重置对话"""
-        if self.mode == "dst":
+        if self.mode == "dst" and self.tracker:
             self.tracker.reset_dialogue()
-            self.last_system_reply = self._get_welcome_message()
-        elif self.mode == "fnctod":
-            self.tracker.reset()
-        elif self.mode == "pytod":
+            self.last_system_reply = self.config.welcome_message or "你好！"
+        elif self.mode in ("fnctod", "pytod") and self.tracker:
             self.tracker.reset()
         else:
-            # Evolve模式重新初始化
-            self._setup_evolve_app()
+            self._setup_evolve()
         print("✅ 对话已重置\n")
-        
-        # 重置后，机器人主动发起对话
-        welcome_msg = self._get_welcome_message()
-        print(f"\n助手: {welcome_msg}\n")
-        print("-" * 60 + "\n")
-    
+
     async def run(self):
-        """运行交互循环"""
         self.print_welcome()
-        
-        # 机器人主动发起对话 - 显示欢迎消息
-        welcome_msg = self._get_welcome_message()
-        print(f"\n助手: {welcome_msg}\n")
-        print("-" * 60 + "\n")
-        
+        welcome = self.config.welcome_message or "你好！"
+        print(f"助手: {welcome}\n" + "-" * 60 + "\n")
         turn = 0
         while True:
             try:
-                # 获取用户输入
                 user_input = input("你: ").strip()
-                
                 if not user_input:
                     continue
-                
-                # 处理特殊命令
-                if user_input.lower() in ['/quit', '/exit']:
+                if user_input.lower() in ("/quit", "/exit"):
                     print("\n👋 再见！")
                     break
-                elif user_input.lower() == '/reset':
+                elif user_input.lower() == "/reset":
                     self.reset()
                     turn = 0
                     continue
-                elif user_input.lower() == '/state':
+                elif user_input.lower() == "/state":
                     self.show_state()
                     continue
-                
-                # 处理正常对话
                 turn += 1
-                print(f"\n[轮次 {turn}] 处理中...")
-                
-                reply = await self.chat(user_input)
-                print(f"\n助手: {reply}\n")
-                print("-" * 60 + "\n")
-                
+                reply = await self._chat(user_input)
+                print(f"\n助手: {reply}\n" + "-" * 60 + "\n")
             except KeyboardInterrupt:
-                print("\n\n👋 检测到中断信号，退出程序")
+                print("\n\n👋 检测到中断，退出")
                 break
             except Exception as e:
                 logger.error(f"处理错误: {e}", exc_info=True)
-                print(f"\n❌ 错误: {str(e)}\n")
+                print(f"\n❌ 错误: {e}\n")
 
 
 def parse_args():
-    """解析命令行参数"""
-    parser = argparse.ArgumentParser(
-        description="ContextMind 命令行交互Demo",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-使用示例:
-  python examples/cli_demo.py --scenario chat --mode evolve
-  python examples/cli_demo.py --scenario callcenter --mode dst
-  python examples/cli_demo.py --scenario insurance --mode fnctod
-  python examples/cli_demo.py --scenario insurance --mode pytod
-  python examples/cli_demo.py --scenario chat --mode pytod --log-level DEBUG
-  python examples/cli_demo.py --scenario insurance --mode dst --max-history-turns 20 --log-level DEBUG
-        """
-    )
-    
-    parser.add_argument(
-        '--scenario',
-        choices=['chat', 'callcenter', 'insurance'],
-        default='chat',
-        help='选择场景: chat(闲聊) / callcenter(客服) / insurance(保险)'
-    )
-    
-    parser.add_argument(
-        '--mode',
-        choices=['dst', 'evolve', 'fnctod', 'pytod'],
-        default='evolve',
-        help='选择模式: dst(对话状态追踪) / evolve(基于记忆进化) / fnctod(函数调用DST) / pytod(程序执行型任务对话)'
-    )
-    
-    parser.add_argument(
-        '--log-level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default='INFO',
-        help='日志级别 (默认: INFO)'
-    )
-    
-    parser.add_argument(
-        '--max-history-turns',
-        type=int,
-        default=10,
-        metavar='N',
-        help='DST模式的最大历史轮数 (默认: 10)'
-    )
-    
-    parser.add_argument(
-        '--enable-summary',
-        dest='enable_summary',
-        action='store_true',
-        default=True,
-        help='启用历史摘要 (默认: 启用)'
-    )
-    
-    parser.add_argument(
-        '--no-summary',
-        dest='enable_summary',
-        action='store_false',
-        help='禁用历史摘要'
-    )
-    
-    parser.add_argument(
-        '--use-llm-summary',
-        action='store_true',
-        default=False,
-        help='使用LLM生成摘要而非模板 (默认: False, 使用模板更快)'
-    )
-    
+    parser = argparse.ArgumentParser(description="ContextMind 命令行 Demo")
+    parser.add_argument("--scenario", choices=["chat", "callcenter", "insurance"],
+                        default="chat", help="场景")
+    parser.add_argument("--mode", choices=["dst", "evolve", "fnctod", "pytod"],
+                        default="evolve", help="对话模式")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                        default="INFO", help="日志级别")
+    parser.add_argument("--max-history-turns", type=int, default=10,
+                        metavar="N", help="最大历史轮数")
     return parser.parse_args()
 
 
 async def main():
-    """主函数"""
     args = parse_args()
-    
-    # 使用setup_logging配置日志系统
-    log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="logs")
-    
-    # 显示配置信息
-    logger.info(f"启动参数: scenario={args.scenario}, mode={args.mode}, log_level={args.log_level}, max_history_turns={args.max_history_turns}")
-    
-    demo = UnifiedInteractiveDemo(
+    level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
+    setup_logging(level=level, save_to_file=True, log_dir="logs")
+    demo = InteractiveDemo(
         scenario=args.scenario,
         mode=args.mode,
         max_history_turns=args.max_history_turns,
-        enable_summary=args.enable_summary,
-        use_llm_summary=args.use_llm_summary
     )
-    
     await demo.run()
 
 

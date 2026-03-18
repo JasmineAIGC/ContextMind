@@ -25,9 +25,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
-from contextmind.modes.fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
-from contextmind.modes.fnctod.data_models import DomainSpec, FunctionParameter, ParameterType
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.modes.fnctod import FnCTODAgent, FunctionManager, get_function_schema_for_scenario
+from contextmind.modes.fnctod.function_manager import DomainSpec, FunctionParameter, ParameterType
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
@@ -56,25 +56,13 @@ class TransferTODFnCTODEvaluator:
         Args:
             domain: 领域名称
         """
-        # 创建LLM客户端
         try:
-            self.llm_client = SimpleLLMClient()
+            self.llm_client = AdkLLMClient()
             logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             logger.error(f"❌ LLM客户端初始化失败: {e}")
-            print(f"\n{'='*70}")
-            print(f"❌ 错误: 无法初始化LLM客户端")
-            print(f"{'='*70}")
-            print(f"原因: {e}")
-            print(f"\nFnCTOD 模式需要 LLM 来提取槽位信息。")
-            print(f"请确认:")
-            print(f"  1. 已安装 OpenAI 包: pip install openai")
-            print(f"  2. 已设置API密钥环境变量 (如 QWEN3_API_KEY 或 OPENAI_API_KEY)")
-            print(f"  3. API密钥有效且有足够的配额")
-            print(f"\n提示: 如果没有LLM访问权限，所有指标将为 0.00%")
-            print(f"{'='*70}\n")
             raise
-        
+
         # 获取领域schema
         schema = self.adapter.get_domain_schema(domain)
 
@@ -83,12 +71,9 @@ class TransferTODFnCTODEvaluator:
         domain_spec = self._build_domain_spec(domain, schema)
         function_manager.add_domain(domain_spec)
 
-        # 创建FnCTODTracker（两阶段：domain选择 + parameter填充）
-        self.tracker = FnCTODTracker(
-            llm_client=self.llm_client,
+        # 创建FnCTODAgent（ADK 原生函数调用）
+        self.tracker = FnCTODAgent(
             function_manager=function_manager,
-            use_two_stage=True,
-            max_history_turns=10
         )
 
         logger.info(f"✅ FnCTOD追踪器初始化完成 - 领域: {domain}，预定义槽位数: {len(schema['slots'])}")

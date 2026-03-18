@@ -161,7 +161,7 @@ def main() -> None:
     # ---- 初始化 LLM 客户端（必须）----
     try:
         config = LLMConfig.from_env()
-        llm_client = SimpleLLMClient(config)
+        llm_client = AdkLLMClient(config=config)
         print(f"\n✅ LLM 客户端初始化成功 (model: {config.model})")
     except Exception as exc:
         print(f"\n❌ LLM 客户端初始化失败: {exc}")

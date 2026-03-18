@@ -1,536 +1,250 @@
 """
-FnCTOD 追踪器（Function Calling for Task-Oriented Dialogue）
+FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 
-基于论文"Large Language Models as Zero-shot Dialogue State Tracker
-through Function Calling"的两阶段 DST 实现：
+基于 Google ADK 原生 Function Calling 能力，将 FunctionManager 中定义的
+DomainSpec 自动转换为 ADK FunctionTool，无需手写 XML 提示词。
 
-  第一阶段（Domain Selection）：根据用户话语选出候选业务域；
-  第二阶段（Function Calling）：对每个候选域调用对应 function，
-    由 LLM 以 JSON 参数形式填充槽位，并生成自然语言回复。
+使用示例::
 
-与传统 DST 的区别：DST 直接提取"槽位-值"对，FnCTOD 将槽位
-提取建模为函数调用，输出更结构化，也更易扩展到新业务域。
+    from contextmind.modes.fnctod import FnCTODAgent, FunctionManager
+    from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
+
+    fm = FunctionManager()
+    fm.add_domain(get_function_schema_for_scenario("callcenter"))
+    agent = FnCTODAgent(function_manager=fm)
+    updates = await agent.process_turn("我的订单什么时候到？")
+    print(agent.get_current_state())
 """
 
-import json
-import time
-import yaml
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
-from .function_manager import FunctionCall, DialogueTurn
-from .function_manager import FunctionManager
-from .parser import FnCTODResponseParser
-from .schemas import get_function_schema_for_scenario
+from __future__ import annotations
+
+import inspect
+import types
+from typing import Any, Dict, List, Optional
+
+from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class FnCTODTracker:
+def _domain_to_adk_tool(domain_spec: Any) -> Any:
+    """将 DomainSpec 转换为 ADK FunctionTool。
+
+    动态生成与 DomainSpec.parameters 一一对应的 Python 函数，
+    再包装为 FunctionTool，ADK 会自动从签名生成 JSON Schema。
     """
-    FnCTOD 追踪器
-    
-    实现基于函数调用的对话状态追踪，特点：
-    1. 两阶段处理：domain选择 → parameter填充
-    2. 自动维护累积状态
-    3. 支持多domain场景
-    4. 输出结构化function call + 自然语言回复
-    
-    与DST的主要区别：
-    - DST: 直接提取槽位-值
-    - FnCTOD: 通过function calling间接提取，更结构化
+    from google.adk.tools import FunctionTool  # type: ignore[import]
+
+    param_names: List[str] = [p.name for p in domain_spec.parameters]
+
+    doc_lines = [domain_spec.description, ""]
+    for p in domain_spec.parameters:
+        mark = "(required)" if p.required else "(optional)"
+        enum_info = f", values: {p.enum_values}" if p.enum_values else ""
+        doc_lines.append(f"    {p.name}: {p.description} {mark}{enum_info}")
+
+    parameters = [
+        inspect.Parameter(
+            name,
+            kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=None,
+            annotation=Optional[str],
+        )
+        for name in param_names
+    ]
+    sig = inspect.Signature(parameters, return_annotation=Dict[str, Any])
+
+    def _extractor(**kwargs: Any) -> Dict[str, Any]:
+        return {k: v for k, v in kwargs.items() if v is not None}
+
+    func = types.FunctionType(
+        _extractor.__code__,
+        _extractor.__globals__,
+        name=domain_spec.name,
+        argdefs=_extractor.__defaults__,
+        closure=_extractor.__closure__,
+    )
+    func.__doc__ = "\n".join(doc_lines)
+    func.__signature__ = sig  # type: ignore[attr-defined]
+    return FunctionTool(func=func)
+
+
+def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
+    """将 FunctionManager 中所有 DomainSpec 转换为 ADK FunctionTool 列表。
+
+    Args:
+        function_manager: 已注册了一个或多个 domain 的 FunctionManager 实例。
+
+    Returns:
+        可直接传给 ``LlmAgent(tools=...)`` 的 ADK FunctionTool 列表。
     """
-    
+    try:
+        from google.adk.tools import FunctionTool  # noqa: F401 – ensure available
+    except ImportError as exc:
+        raise ImportError(
+            "google-adk 未安装，无法创建 ADK FunctionTool。\n"
+            "请运行: pip install google-adk"
+        ) from exc
+
+    tools = [_domain_to_adk_tool(d) for d in function_manager.get_all_domains()]
+    logger.info(
+        f"adk_tools_from_function_manager: 共 {len(tools)} 个工具: "
+        f"{function_manager.get_domain_names()}"
+    )
+    return tools
+
+
+class FnCTODAgent:
+    """ADK 原生函数调用对话状态追踪器。
+
+    利用 ADK 原生 Function Calling 替代 XML 提示词解析，
+    实现对话状态的结构化提取。接口与原 FnCTODTracker 完全兼容。
+
+    参数
+    ----
+    function_manager : FunctionManager
+        已注册 domain 的函数管理器。
+    system_instruction : str | None
+        系统指令；若为 None 则自动从 FunctionManager 生成。
+    config : LLMConfig | None
+        本地 LLM 配置；若为 None 则从 ``.env`` 自动加载。
+    """
+
     def __init__(
         self,
-        llm_client=None,
-        function_manager: Optional[FunctionManager] = None,
-        scenario_config=None,
-        use_two_stage: bool = True,
-        max_history_turns: int = 10
-    ):
-        """
-        初始化FnCTOD追踪器
-        
-        Args:
-            llm_client: LLM客户端
-            function_manager: 函数管理器
-            scenario_config: 场景配置对象（可选，用于优化域选择）
-            use_two_stage: 是否使用两阶段处理（默认True）
-            max_history_turns: 最大历史轮数
-        """
-        self.llm_client = llm_client
-        self.function_manager = function_manager or FunctionManager()
-        self.parser = FnCTODResponseParser()
-        self.scenario_config = scenario_config
-        self.use_two_stage = use_two_stage
-        self.max_history_turns = max_history_turns
-        
-        self.current_state: Dict[str, Any] = {}
-        self.dialogue_history: List[DialogueTurn] = []
-        self.turn_count = 0
-        self.step_timings: Dict[str, float] = {}
-        
-        self._load_prompt_templates()
-        
-        logger.info(f"FnCTODTracker 初始化完成 (两阶段模式: {use_two_stage}, 场景: {scenario_config.name if scenario_config else '未指定'})")
-    
+        function_manager: Any,
+        system_instruction: Optional[str] = None,
+        config: Optional[LLMConfig] = None,
+    ) -> None:
+        try:
+            from google.adk.agents import LlmAgent  # type: ignore[import]
+            from google.adk.runners import InMemoryRunner  # type: ignore[import]
+        except ImportError as exc:
+            raise ImportError(
+                "google-adk 未安装，无法创建 FnCTODAgent。\n"
+                "请运行: pip install google-adk litellm"
+            ) from exc
+
+        self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
+        adk_model = create_local_adk_model(self._llm_config)
+        self.function_manager = function_manager
+
+        if system_instruction is None:
+            domain_names = function_manager.get_domain_names()
+            system_instruction = (
+                "你是一个任务型对话助手，能够通过调用函数提取对话中的关键信息。\n"
+                f"可用的业务域: {', '.join(domain_names)}。\n"
+                "根据用户的话语调用对应函数，将槽位值作为参数传入。"
+            )
+        self.system_instruction = system_instruction
+
+        tools = adk_tools_from_function_manager(function_manager)
+        self._agent = LlmAgent(
+            name="fnctod_agent",
+            model=adk_model,
+            instruction=system_instruction,
+            tools=tools,
+        )
+        self._runner = InMemoryRunner(agent=self._agent, app_name="contextmind_fnctod")
+
+        self._current_state: Dict[str, Any] = {}
+        self._dialogue_history: List[Dict[str, str]] = []
+        self.turn_count: int = 0
+        self._session_id: Optional[str] = None
+
+        logger.info(
+            f"FnCTODAgent 初始化完成 (model={self._llm_config.model}, "
+            f"domains={function_manager.get_domain_names()})"
+        )
+
     @classmethod
-    def from_scenario(cls,
-                     llm_client,
-                     scenario_config,
-                     use_two_stage: bool = True,
-                     max_history_turns: int = 10):
-        """
-        从场景配置创建 FnCTODTracker 实例（推荐入口）。
-
-        优先使用 schemas.py 中预定义的结构化 FunctionSchema；
-        若场景未预定义 Schema，则根据 ScenarioConfig.dst_slots 动态构建，
-        降级后提取精度可能略低于预定义版本。
+    def from_scenario(
+        cls,
+        scenario_config: Any,
+        **kwargs: Any,
+    ) -> "FnCTODAgent":
+        """从场景配置创建 FnCTODAgent。
 
         Args:
-            llm_client: LLM 客户端实例。
-            scenario_config: 场景配置对象（ScenarioConfig）。
-            use_two_stage: 是否启用两阶段处理（默认 True）。
-            max_history_turns: 保留在 prompt 中的最大历史轮数（默认 10）。
-
-        Returns:
-            初始化完成的 FnCTODTracker 实例。
+            scenario_config: ScenarioConfig 实例。
+            **kwargs: 其他传递给构造函数的参数（如 config、system_instruction）。
         """
-        function_manager = FunctionManager()
+        from contextmind.modes.fnctod.function_manager import FunctionManager
+        from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
+
+        fm = FunctionManager()
         try:
             schema = get_function_schema_for_scenario(scenario_config.name)
-            function_manager.add_domain(schema)
-            logger.info(f"✅ 已加载预定义FnCTOD Schema: {schema.name}")
-        except ValueError as e:
-            # 场景无预定义 Schema，根据槽位定义动态构建。
-            logger.warning(f"未找到预定义Schema，使用动态创建: {e}")
-            function_manager.add_domain_from_slots(
-                domain_name=scenario_config.name,
-                domain_description=getattr(scenario_config, 'description', f"{scenario_config.name} domain"),
-                slots=scenario_config.dst_slots,
-                categorical_slots=getattr(scenario_config, 'dst_categorical_slots', None),
-                required_slots=[]
-            )
+            fm.add_domain(schema)
+        except (ValueError, KeyError):
+            if hasattr(scenario_config, "dst_slots") and scenario_config.dst_slots:
+                fm.add_domain_from_slots(
+                    domain_name=scenario_config.name,
+                    domain_description=getattr(scenario_config, "description", scenario_config.name),
+                    slots=dict(scenario_config.dst_slots),
+                )
+            else:
+                logger.warning(f"场景 '{scenario_config.name}' 无预定义 schema，使用空 FunctionManager")
+        return cls(function_manager=fm, **kwargs)
 
-        return cls(
-            llm_client=llm_client,
-            function_manager=function_manager,
-            scenario_config=scenario_config,
-            use_two_stage=use_two_stage,
-            max_history_turns=max_history_turns
-        )
-    
-    async def process_turn(
-        self,
-        user_utterance: str,
-        system_utterance: str = ""
-    ) -> Dict[str, Any]:
-        """
-        处理一轮对话
-        
-        Args:
-            user_utterance: 用户输入
-            system_utterance: 系统输出（上一轮）
-        
-        Returns:
-            包含state, response, function_call的字典
-        """
-        self.turn_count += 1
-        start_time = time.time()
-        
-        self.step_timings = {}
-        
-        logger.info(f"\n{'='*60}")
-        logger.info(f"处理第 {self.turn_count} 轮对话")
-        logger.info(f"用户: {user_utterance}")
-        logger.info(f"{'='*60}")
-        
-        selected_domains = []
-        
-        # 智能检测：如果场景已确定，跳过域选择
-        if self.scenario_config:
-            # 注意：使用FunctionManager中实际注册的domain名称，而不是scenario_config.name
-            # 因为scenario名称（如"保险挽回"）可能与domain名称（如"insurance"）不同
-            available_domains = self.function_manager.get_domain_names()
-            if available_domains:
-                selected_domains = available_domains
-                logger.info(f"✅ 场景已确定，跳过域选择，直接使用domain: {selected_domains}")
-            else:
-                # 如果没有注册的domain，回退到域选择
-                logger.warning("⚠️ 场景已确定但没有注册的domain，执行域选择")
-                selected_domains = await self._select_domains(user_utterance)
-        elif self.use_two_stage and len(self.function_manager.get_all_domains()) > 1:
-            selected_domains = await self._select_domains(user_utterance)
-        else:
-            # 单阶段或单domain场景，直接使用所有domain
-            selected_domains = self.function_manager.get_domain_names()
-        
-        function_call, natural_response = await self._call_function(
-            user_utterance,
-            selected_domains
-        )
-        
-        step_start = time.time()
-        if function_call:
-            self._update_state(function_call)
-        
-        turn = DialogueTurn(
-            turn_id=self.turn_count,
-            user_utterance=user_utterance,
-            system_utterance=natural_response,
-            function_call=function_call,
-            state=self.current_state.copy()
-        )
-        self.dialogue_history.append(turn)
-        
-        if len(self.dialogue_history) > self.max_history_turns:
-            self.dialogue_history = self.dialogue_history[-self.max_history_turns:]
-        
-        self.step_timings['状态更新'] = time.time() - step_start
-        
-        elapsed = time.time() - start_time
-        logger.info(f"✅ 对话处理完成 (耗时: {elapsed:.2f}s)")
-        
-        return {
-            "state": self.current_state.copy(),
-            "response": natural_response,
-            "function_call": function_call.to_dict() if function_call else None,
-            "turn_id": self.turn_count
-        }
-    
-    async def _select_domains(self, user_utterance: str) -> List[str]:
-        """
-        Stage 1: 选择相关的domain（FnCTOD论文Fig.2第一阶段）
-        
-        Args:
-            user_utterance: 用户输入
-        
-        Returns:
-            domain名称列表
-        """
-        logger.info("Stage 1: Domain Selection")
-        
-        prompt_start = time.time()
-        
-        # 根据FnCTOD论文，提示词包含所有domain的简要描述
-        system_prompt = self.function_manager.build_system_prompt(include_all_specs=False)
-        
-        messages: List[Dict] = [
-            {"role": "system", "content": system_prompt},
-        ]
-        
-        # 添加对话历史（最近几轮）
-        for turn in self.dialogue_history[-3:]:
-            messages.append({"role": "user", "content": turn.user_utterance})
-            if turn.system_utterance:
-                messages.append({"role": "assistant", "content": turn.system_utterance})
-        
-        messages.append({"role": "user", "content": user_utterance})
-        
-        self.step_timings['提示词构建'] = time.time() - prompt_start
-        
-        llm_start = time.time()
-        try:
-            response = await self.llm_client.chat_async(messages)
-            logger.debug(f"Domain选择响应: {response}")
-            
-            domains = self.parser.parse_domain_selection(response)
-            
-            if not domains:
-                # 如果没有检测到domain，使用默认策略
-                logger.warning("未检测到domain，使用第一个domain作为默认")
-                domains = [self.function_manager.get_domain_names()[0]]
-            
-            self.step_timings['域选择'] = time.time() - llm_start
-            logger.info(f"✅ Domain选择完成: {domains}")
-            
-            return domains
-        except Exception as e:
-            logger.error(f"Domain选择失败: {e}")
-            # 降级：返回所有domain
-            return self.function_manager.get_domain_names()
-    
-    async def _call_function(
-        self,
-        user_utterance: str,
-        domains: List[str]
-    ) -> Tuple[Optional[FunctionCall], str]:
-        """
-        Stage 2: 调用函数填充参数（FnCTOD论文Fig.2第二阶段）
-        
-        Args:
-            user_utterance: 用户输入
-            domains: 候选domain列表
-        
-        Returns:
-            (FunctionCall对象, 自然语言回复)
-        """
-        logger.info(f"Stage 2: Function Calling for domains: {domains}")
-        
-        # 根据FnCTOD论文Fig.3，提示词包含整体指令、函数规格（JSON schema）和few-shot示例
-        prompt_start = time.time()
-        
-        system_prompt = self._build_function_call_prompt(domains)
-        
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
-        
-        # 添加对话历史（包含function call和自然语言回复）
-        for turn in self.dialogue_history[-self.max_history_turns:]:
-            # user_utterance 为空表示该轮是预注入的开场白（无用户发言），
-            # 只将坐席开场白作为 assistant 消息加入上下文，跳过空的 user 消息。
-            if turn.user_utterance:
-                messages.append({"role": "user", "content": turn.user_utterance})
-            
-            # 构建完整的assistant回复（function call + 自然语言回复）
-            if turn.function_call and turn.system_utterance:
-                assistant_content = f"{turn.function_call.to_xml()}\n{turn.system_utterance}"
-                messages.append({"role": "assistant", "content": assistant_content})
-            elif turn.system_utterance:
-                # 只有自然语言回复（降级情况）
-                messages.append({"role": "assistant", "content": turn.system_utterance})
-        
-        # 添加当前状态提示（帮助LLM维护累积状态）
-        if self.current_state:
-            # 将 "domain-param" 格式转换为 domain分组的字典
-            state_by_domain = {}
-            for key, value in self.current_state.items():
-                if '-' in key:
-                    domain, param = key.split('-', 1)
-                    if domain not in state_by_domain:
-                        state_by_domain[domain] = {}
-                    state_by_domain[domain][param] = value
-            
-            state_json = json.dumps(state_by_domain, ensure_ascii=False, indent=2)
-            messages.append({
-                "role": "system",
-                "content": f"之前各轮累积的对话状态：\n{state_json}\n\n请在本次函数调用中保留上述所有已提取的参数，并补充本轮新增的参数。"
-            })
-        
-        messages.append({"role": "user", "content": user_utterance})
-        
-        self.step_timings['提示词构建'] = time.time() - prompt_start
-        
-        # 根据FnCTOD论文，LLM输出 <function_call name="domain">{"param": "value"}</function_call> + 自然语言回复
-        llm_start = time.time()
-        try:
-            response = await self.llm_client.chat_async(messages)
-            logger.info(f"✅ 收到LLM响应，长度: {len(response)}")
-            logger.debug(f"LLM响应前300字符: {response[:300]}...")
-            
-            self.step_timings['函数调用'] = time.time() - llm_start
-            
-            # 根据FnCTOD论文，需要提取：
-            # 1. <function_call> 标签内的JSON参数
-            # 2. 标签后的自然语言回复
-            parse_start = time.time()
-            logger.info("开始解析function call...")
-            function_call, natural_response = self.parser.parse_function_call(response)
-            
-            if not function_call:
-                logger.warning("⚠️ 未检测到function call，使用响应作为自然语言回复")
-                logger.warning(f"⚠️ 完整响应: {response}")
-                natural_response = response
-            else:
-                logger.info(f"✅ Function call解析成功: {function_call.function_name}")
-                logger.info(f"✅ 提取的参数: {function_call.arguments}")
-            
-            self.step_timings['响应解析'] = time.time() - parse_start
-            
-            return function_call, natural_response
-        except Exception as e:
-            logger.error(f"❌ Function calling失败: {e}", exc_info=True)
-            return None, "抱歉，我遇到了一些问题，请重新表述您的需求。"
-    
-    def _load_prompt_templates(self) -> None:
-        """加载提示词模板配置文件"""
-        template_path = Path(__file__).parent / "prompts.yaml"
-        
-        try:
-            with open(template_path, 'r', encoding='utf-8') as f:
-                self.prompt_templates = yaml.safe_load(f)
-            logger.debug("成功加载FnCTOD提示词模板")
-        except Exception as e:
-            logger.warning(f"无法加载提示词模板: {e}，将使用默认配置")
-            self.prompt_templates = None
-    
-    def _get_examples_for_domain(self, domain_name: str) -> dict:
-        """
-        获取域特定的示例
-        
-        Args:
-            domain_name: 域名称
-        
-        Returns:
-            示例字典（包含single_turn和multi_turn）
-        """
-        if not self.prompt_templates:
-            return {}
-        
-        # 优先使用场景特定示例
-        scenario_examples = self.prompt_templates.get('scenario_examples', {})
-        if domain_name in scenario_examples:
-            return scenario_examples[domain_name]
-        
-        # 降级到默认示例
-        return self.prompt_templates.get('default_examples', {})
-    
-    def _build_fallback_prompt(self, domains: List[str]) -> str:
-        """
-        后备提示词（配置文件不可用时使用的内置最小模板）
-        
-        Args:
-            domains: 需要生成提示词的 domain 名称列表
-        
-        Returns:
-            提示词文本
-        """
-        prompt_parts = [
-            "You are a task-oriented dialogue assistant with function calling capability.",
-            "",
-            "Available functions:"
-        ]
-        
-        for domain_name in domains:
-            domain = self.function_manager.get_domain(domain_name)
-            if domain:
-                prompt_parts.append("")
-                prompt_parts.append(domain.to_prompt_format())
-        
-        prompt_parts.extend([
-            "",
-            "IMPORTANT: You MUST always output a function call for every user input.",
-            "",
-            "Output format:",
-            "<function_call name=\"function_name\">",
-            "{\"param1\": \"value1\"}",
-            "</function_call>",
-            "Natural language response",
-            "",
-            "Instructions:",
-            "- Include ALL parameters from previous turns",
-            "- Add any new parameters from current turn",
-        ])
-        
-        return "\n".join(prompt_parts)
-    
-    def _build_function_call_prompt(self, domains: List[str]) -> str:
-        """
-        构建function call提示词（从配置文件加载，支持自定义）
-        
-        使用 prompts.yaml 配置文件中的模板和示例，
-        实现提示词的可配置化和场景化。
-        
-        Args:
-            domains: domain列表
-        
-        Returns:
-            提示词文本
-        """
-        if not self.prompt_templates:
-            return self._build_fallback_prompt(domains)
-        
-        templates = self.prompt_templates
-        prompt_parts = []
-        
-        prompt_parts.append(templates.get('system_prompt', ''))
-        prompt_parts.append("")
-        prompt_parts.append("Available functions:")
-        
-        for domain_name in domains:
-            domain = self.function_manager.get_domain(domain_name)
-            if domain:
-                prompt_parts.append("")
-                prompt_parts.append(domain.to_prompt_format())
-        
-        output_fmt = templates.get('output_format', {})
-        prompt_parts.append("")
-        prompt_parts.append(output_fmt.get('importance_note', ''))
-        
-        prompt_parts.append("")
-        prompt_parts.append(output_fmt.get('format_description', ''))
-        
-        domain_name = domains[0] if domains else 'chat'
-        examples = self._get_examples_for_domain(domain_name)
-        
-        if examples:
-            if 'single_turn' in examples:
-                example = examples['single_turn']
-                template = output_fmt.get('single_turn_example_template', '')
-                if template:
-                    prompt_parts.append("")
-                    prompt_parts.append(template.format(
-                        domain=example.get('domain', domain_name),
-                        example_params=example.get('params', '{}'),
-                        example_response=example.get('response', '')
-                    ))
-            
-            if 'multi_turn' in examples:
-                example = examples['multi_turn']
-                template = output_fmt.get('multi_turn_example_template', '')
-                if template:
-                    prompt_parts.append("")
-                    prompt_parts.append(template.format(
-                        domain=example.get('domain', domain_name),
-                        turn1_user=example.get('turn1', {}).get('user', ''),
-                        turn1_params=example.get('turn1', {}).get('params', '{}'),
-                        turn1_response=example.get('turn1', {}).get('response', ''),
-                        turn2_user=example.get('turn2', {}).get('user', ''),
-                        turn2_params=example.get('turn2', {}).get('params', '{}'),
-                        turn2_response=example.get('turn2', {}).get('response', '')
-                    ))
-        
-        prompt_parts.append("")
-        prompt_parts.append(templates.get('cumulative_state_instructions', ''))
-        
-        return "\n".join(prompt_parts)
-    
-    def _update_state(self, function_call: FunctionCall):
-        """
-        更新累积状态
-        
-        Args:
-            function_call: 函数调用对象
-        """
-        domain = function_call.function_name
-        
-        for param_name, param_value in function_call.arguments.items():
-            state_key = f"{domain}-{param_name}"
-            if param_value:  # 只更新非空值
-                self.current_state[state_key] = param_value
-                logger.debug(f"状态更新: {state_key} = {param_value}")
-    
-    def get_current_state(self) -> Dict[str, Any]:
-        """获取当前状态"""
-        return self.current_state.copy()
-    
-    def reset(self):
-        """重置追踪器状态"""
-        self.current_state = {}
-        self.dialogue_history = []
+    async def _get_or_create_session(self) -> str:
+        if self._session_id is None:
+            session = await self._runner.session_service.create_session(
+                app_name="contextmind_fnctod", user_id="default_user",
+            )
+            self._session_id = session.id
+        return self._session_id
+
+    def reset(self) -> None:
+        """重置对话状态，开始新会话。"""
+        self._current_state = {}
+        self._dialogue_history = []
         self.turn_count = 0
-        self.step_timings = {}
-        logger.info("FnCTOD追踪器状态已重置")
-    
-    def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息"""
-        return {
-            "turn_count": self.turn_count,
-            "state_size": len(self.current_state),
-            "history_size": len(self.dialogue_history),
-            "timings": self.step_timings.copy()
-        }
-    
-    @classmethod
-    def create_from_config(cls, llm_client, scenario_config,
-                          use_two_stage: bool = True,
-                          max_history_turns: int = 10):
-        """向后兼容别名，请使用 ``from_scenario()``。"""
-        return cls.from_scenario(
-            llm_client=llm_client,
-            scenario_config=scenario_config,
-            use_two_stage=use_two_stage,
-            max_history_turns=max_history_turns,
+        self._session_id = None
+
+    async def process_turn(self, user_utterance: str, **kwargs: Any) -> Dict[str, Any]:
+        """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位。
+
+        Returns:
+            本轮新增或更新的状态条目字典。
+        """
+        from google.genai import types as genai_types  # type: ignore[import]
+
+        session_id = await self._get_or_create_session()
+        self.turn_count += 1
+
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=user_utterance)],
         )
+
+        turn_updates: Dict[str, Any] = {}
+        final_text = ""
+
+        async for event in self._runner.run_async(
+            user_id="default_user",
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "function_call") and part.function_call:
+                        fc = part.function_call
+                        filtered = {k: v for k, v in (fc.args or {}).items() if v not in (None, "", [])}
+                        turn_updates.update(filtered)
+                        logger.debug(f"[turn {self.turn_count}] function call '{fc.name}': {filtered}")
+                    if event.is_final_response() and hasattr(part, "text") and part.text:
+                        final_text += part.text
+
+        self._current_state.update(turn_updates)
+        self._dialogue_history.append({"role": "user", "content": user_utterance})
+        if final_text:
+            self._dialogue_history.append({"role": "assistant", "content": final_text.strip()})
+
+        logger.info(f"[turn {self.turn_count}] 更新: {turn_updates}, 累积: {self._current_state}")
+        return turn_updates
+
+    def get_current_state(self) -> Dict[str, Any]:
+        """返回累积的对话状态。"""
+        return dict(self._current_state)

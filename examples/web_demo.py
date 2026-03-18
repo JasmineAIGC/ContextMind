@@ -26,10 +26,10 @@ import time
 from typing import List, Tuple, Optional
 from datetime import datetime
 
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.modes.pytod import PyTODTracker
+from contextmind.modes.fnctod import FnCTODAgent
+from contextmind.modes.pytod import PyTODAgent
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -98,7 +98,7 @@ class UnifiedGradioDemo:
         """初始化DST模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = AdkLLMClient()
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
@@ -127,60 +127,19 @@ class UnifiedGradioDemo:
     
     def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
-        try:
-            if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
-                logger.info("✅ LLM客户端初始化成功")
-        except Exception as e:
-            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
-            if "API" in str(e).upper() or "KEY" in str(e).upper():
-                error_msg += "📝 请检查以下配置：\n"
-                error_msg += "1. 确认.env文件存在\n"
-                error_msg += "2. 配置以下环境变量之一：\n"
-                error_msg += "   - QWEN3_API_KEY\n"
-                error_msg += "   - CONTEXTMIND_API_KEY\n"
-                error_msg += "   - LLM_API_KEY\n"
-                error_msg += "   - OPENAI_API_KEY\n"
-                error_msg += "3. 重启程序\n"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
-        
-        # 使用工厂方法创建FnCTOD追踪器
-        self.fnctod_tracker = FnCTODTracker.from_scenario(
-            llm_client=self.llm_client,
-            scenario_config=self.config,
-            use_two_stage=True,
-            max_history_turns=self.max_history_turns
-        )
-        
+        self.fnctod_tracker = FnCTODAgent.from_scenario(self.config)
         logger.info("FnCTOD模式初始化完成")
 
     def _setup_pytod_tracker(self):
         """初始化PyTOD模式"""
-        try:
-            if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
-                logger.info("✅ LLM客户端初始化成功")
-        except Exception as e:
-            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
-            if "API" in str(e).upper() or "KEY" in str(e).upper():
-                error_msg += "📝 请检查.env配置文件\n"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
-
-        self.pytod_tracker = PyTODTracker.from_scenario(
-            llm_client=self.llm_client,
-            scenario_config=self.config,
-            max_history_turns=self.max_history_turns,
-        )
-
+        self.pytod_tracker = PyTODAgent.from_scenario(self.config)
         logger.info("PyTOD模式初始化完成")
 
     def _setup_evolve_app(self):
         """初始化Evolve模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = AdkLLMClient()
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"

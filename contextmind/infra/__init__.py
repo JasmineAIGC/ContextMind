@@ -1,10 +1,9 @@
-from .llm_client import SimpleLLMClient, LLMConfig, AdkLLMClient, create_local_adk_model
+from .llm_client import LLMConfig, AdkLLMClient, create_local_adk_model
 from .embedding import EmbeddingClient, EmbeddingConfig
 from .data_models import EmbeddingInfo
 from .logger import get_logger
 
 __all__ = [
-    "SimpleLLMClient",
     "LLMConfig",
     "AdkLLMClient",
     "create_local_adk_model",
