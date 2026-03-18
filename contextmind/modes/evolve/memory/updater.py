@@ -4,7 +4,7 @@
 该模块提供各种策略用于更新和维护记忆库（增加、更新、删除操作）。
 """
 
-from typing import List, Optional
+from typing import List
 import re
 from datetime import datetime
 

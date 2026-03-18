@@ -7,7 +7,6 @@
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional
-from datetime import datetime
 from enum import Enum
 
 from ..core.data_models import ContextItem

@@ -14,7 +14,7 @@ PyTOD 场景 API 注册表
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
 
 from .execution_engine import ExecutionEngine
 

@@ -2,7 +2,7 @@
 Summarizer 模块 - 统一的对话摘要。
 """
 
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Any, Tuple
 from datetime import datetime
 
 from ..core.data_models import Message, ContextItem

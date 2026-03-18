@@ -13,7 +13,6 @@
     # 添加新场景：只需在 scenarios.yaml 中添加配置
 """
 
-import os
 import yaml
 import importlib
 from typing import Dict, Optional, Callable, Type, Any
