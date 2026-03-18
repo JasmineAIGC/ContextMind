@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import os
-from typing import Any, Optional, Sequence, Tuple
+from typing import Any, Optional, Sequence
 
 try:
     from dotenv import load_dotenv
@@ -124,158 +124,6 @@ class LLMConfig:
             top_k=top_k,
             max_tokens=max_tokens,
         )
-
-
-class SimpleLLMClient:
-    """基于 Google ADK 的 LLM 客户端（向后兼容名称）。
-
-    底层完全使用 Google ADK + LiteLlm，通过 ``.env`` 配置的本地
-    vLLM/OpenAI 兼容端点提供服务。保留原有构造函数签名
-    ``SimpleLLMClient(config=None)``，以便现有代码无需修改即可切换到
-    ADK 驱动的实现。
-
-    新代码推荐直接使用 :class:`AdkLLMClient`。
-    """
-
-    def __init__(self, config: Optional[LLMConfig] = None) -> None:
-        """初始化 ADK 驱动的 LLM 客户端。
-
-        Args:
-            config: LLM 配置，若为 None 则从环境变量自动加载。
-        """
-        try:
-            from google.adk.agents import LlmAgent  # type: ignore[import]
-            from google.adk.runners import InMemoryRunner  # type: ignore[import]
-        except ImportError as exc:
-            raise ImportError(
-                "google-adk 未安装，无法创建 SimpleLLMClient。\n"
-                "请运行: pip install google-adk litellm"
-            ) from exc
-
-        self._config = config or LLMConfig.from_env()
-        self._adk_model = create_local_adk_model(self._config)
-        self.system_instruction = "你是一个智能对话助手。"
-        self._LlmAgent = LlmAgent
-        self._InMemoryRunner = InMemoryRunner
-        logger.info(f"[SimpleLLMClient] 初始化完成（ADK），model={self._config.model}")
-
-    # ------------------------------------------------------------------
-    # 内部辅助
-    # ------------------------------------------------------------------
-
-    def _build_user_content(self, messages: list) -> str:
-        """将 OpenAI 消息列表拼合为单个用户消息字符串。"""
-        parts: list[str] = []
-        system_parts: list[str] = []
-        for msg in messages:
-            role = msg.get("role", "user")
-            content_text = msg.get("content", "")
-            if role == "system":
-                system_parts.append(content_text)
-            elif role == "user":
-                parts.append(f"Human: {content_text}")
-            elif role in ("assistant", "model"):
-                parts.append(f"Assistant: {content_text}")
-        if system_parts and parts:
-            system_text = "\n".join(system_parts)
-            parts.insert(0, f"[System Instruction]\n{system_text}\n[/System Instruction]\n")
-        return "\n".join(parts) if parts else ""
-
-    async def _run_async(
-        self, user_content: str, system_instruction: Optional[str] = None
-    ) -> str:
-        """通过 ADK 运行一次性请求，返回最终文本。"""
-        from google.adk.agents import LlmAgent  # type: ignore[import]
-        from google.adk.runners import InMemoryRunner  # type: ignore[import]
-        from google.genai import types as genai_types  # type: ignore[import]
-
-        instruction = system_instruction or self.system_instruction
-        agent = LlmAgent(
-            name="simple_llm_client",
-            model=self._adk_model,
-            instruction=instruction,
-        )
-        runner = InMemoryRunner(agent=agent, app_name="contextmind_llm")
-        session = await runner.session_service.create_session(
-            app_name="contextmind_llm", user_id="default"
-        )
-        content = genai_types.Content(
-            role="user", parts=[genai_types.Part(text=user_content)]
-        )
-        final_text = ""
-        async for event in runner.run_async(
-            user_id="default", session_id=session.id, new_message=content
-        ):
-            if event.is_final_response() and event.content:
-                for part in event.content.parts or []:
-                    if hasattr(part, "text") and part.text:
-                        final_text += part.text
-        return final_text.strip()
-
-    # ------------------------------------------------------------------
-    # 公共接口（与原有 SimpleLLMClient 完全兼容）
-    # ------------------------------------------------------------------
-
-    async def chat_async(
-        self, messages: list, temperature: Optional[float] = None
-    ) -> str:
-        """异步多轮对话（与原有接口兼容）。
-
-        Args:
-            messages: 消息列表，格式为 [{"role": "system/user/assistant", "content": "..."}]
-            temperature: 保留参数，ADK 通过模型配置控制，此处忽略。
-
-        Returns:
-            助手的回复内容
-        """
-        user_content = self._build_user_content(messages)
-        return await self._run_async(user_content)
-
-    def chat(self, messages: list, temperature: Optional[float] = None) -> str:
-        """同步多轮对话（与原有接口兼容）。
-
-        Args:
-            messages: 消息列表，格式为 [{"role": "system/user/assistant", "content": "..."}]
-            temperature: 保留参数，ADK 通过模型配置控制，此处忽略。
-
-        Returns:
-            助手的回复内容
-        """
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop is not None and loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    asyncio.run,
-                    self.chat_async(messages=messages, temperature=temperature),
-                )
-                return future.result(timeout=120.0)
-        else:
-            return asyncio.run(
-                self.chat_async(messages=messages, temperature=temperature)
-            )
-
-    async def generate_async(self, prompt: str) -> Tuple[str, str]:
-        """异步 prompt 生成（与原有接口兼容）。
-
-        Returns:
-            ``(reasoning_content, response_content)``——ADK 不暴露 CoT，
-            ``reasoning_content`` 始终为空字符串。
-        """
-        content = await self.chat_async([{"role": "user", "content": prompt}])
-        return "", content
-
-    def generate(self, prompt: str) -> Tuple[str, str]:
-        """同步 prompt 生成（与原有接口兼容）。
-
-        Returns:
-            ``(reasoning_content, response_content)``——``reasoning_content`` 始终为空。
-        """
-        content = self.chat([{"role": "user", "content": prompt}])
-        return "", content
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +375,22 @@ class AdkLLMClient:
         return "", content
 
     def generate(self, prompt: str) -> tuple[str, str]:
-        """同步 prompt 生成接口（与 SimpleLLMClient.generate 签名兼容）。"""
+        """同步 prompt 生成接口。"""
         messages = [{"role": "user", "content": prompt}]
         content = self.chat(messages)
         return "", content
+
+
+# ---------------------------------------------------------------------------
+# 向后兼容别名
+# ---------------------------------------------------------------------------
+
+class SimpleLLMClient(AdkLLMClient):
+    """向后兼容别名，等同于 :class:`AdkLLMClient`。
+
+    保留原有构造函数签名 ``SimpleLLMClient(config=None)``
+    以避免修改现有调用方代码。新代码请直接使用 :class:`AdkLLMClient`。
+    """
+
+    def __init__(self, config: Optional[LLMConfig] = None) -> None:
+        super().__init__(config=config)
