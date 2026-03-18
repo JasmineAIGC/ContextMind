@@ -208,3 +208,11 @@ class AdkLLMClient:
     async def generate_async(self, prompt: str) -> tuple[str, str]:
         """异步 prompt 生成，返回 ``("", response_text)``。"""
         return "", await self.chat_async([{"role": "user", "content": prompt}])
+
+
+# ---------------------------------------------------------------------------
+# 向后兼容别名
+# ---------------------------------------------------------------------------
+
+SimpleLLMClient = AdkLLMClient
+"""``AdkLLMClient`` 的向后兼容别名，保持现有代码不变。"""
