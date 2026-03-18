@@ -60,6 +60,7 @@ from .prompts import PyTODPromptBuilder, ConversationTurn, FewShotExample
 from .validator import ActionValidator, ValidationResult
 from .tracker import PyTODTracker, PyTODTurnResult
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
+from .adk_bridge import adk_tools_from_engine, AdkLlmClientBridge, AdkPyTODAgent
 
 __all__ = [
     "SlotDefinition",
@@ -83,4 +84,8 @@ __all__ = [
     "PyTODTurnResult",
     "SCENARIO_API_REGISTRY",
     "get_scenario_key",
+    # ADK 集成
+    "adk_tools_from_engine",
+    "AdkLlmClientBridge",
+    "AdkPyTODAgent",
 ]
