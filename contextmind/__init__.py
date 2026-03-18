@@ -12,6 +12,13 @@ ContextMind 提供四种先进的对话处理模式：
 - modes：四种对话处理模式（共享 BaseTracker 协议）
 - scenarios：场景配置、系统提示词、注册表及 Evolve 应用实现
 - ui：用户界面组件（Gradio）
+
+Google ADK 集成
+--------------
+通过 :class:`contextmind.infra.llm_client.AdkLLMClient` 可将任意
+Tracker/Engine 切换到 Gemini 后端，无需修改调用方代码。
+FnCTOD 模式还提供 :class:`contextmind.modes.fnctod.AdkFnCTODAgent`，
+利用 Gemini 原生 Function Calling 替代 XML 提示词解析。
 """
 
 __version__ = "0.2.1"
@@ -25,6 +32,20 @@ from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import PyTODTracker
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
 
+# LLM 客户端（OpenAI 兼容 + Google ADK）
+from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig, AdkLLMClient
+
+# ADK 集成组件（按需使用）
+from contextmind.modes.pytod.adk_bridge import (
+    adk_tools_from_engine,
+    AdkLlmClientBridge,
+    AdkPyTODAgent,
+)
+from contextmind.modes.fnctod.adk_bridge import (
+    adk_tools_from_function_manager,
+    AdkFnCTODAgent,
+)
+
 __all__ = [
     "scenario_registry",
     # 共享接口
@@ -36,4 +57,15 @@ __all__ = [
     # Evolve 模式
     "EvolveEngine",
     "create_app_for_scenario",
+    # LLM 客户端
+    "SimpleLLMClient",
+    "LLMConfig",
+    "AdkLLMClient",
+    # ADK 集成（PyTOD）
+    "adk_tools_from_engine",
+    "AdkLlmClientBridge",
+    "AdkPyTODAgent",
+    # ADK 集成（FnCTOD）
+    "adk_tools_from_function_manager",
+    "AdkFnCTODAgent",
 ]

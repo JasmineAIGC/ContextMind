@@ -48,6 +48,9 @@ from .schemas import (
     get_function_schema_for_scenario,
 )
 
+# ADK 集成桥接
+from .adk_bridge import adk_tools_from_function_manager, AdkFnCTODAgent
+
 __all__ = [
     'FnCTODTracker',
     'FunctionManager',
@@ -62,6 +65,9 @@ __all__ = [
     'get_insurance_function_schema',
     'get_anyihua_function_schema',
     'get_function_schema_for_scenario',
+    # ADK 集成
+    'adk_tools_from_function_manager',
+    'AdkFnCTODAgent',
 ]
 
 __version__ = '0.2.1'
