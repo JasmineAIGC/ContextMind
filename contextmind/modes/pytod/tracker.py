@@ -22,8 +22,24 @@ from typing import Any, Dict, List, Optional
 
 from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
+from contextmind.modes.pytod.execution_engine import ExecutionEngine
+from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
+
+try:
+    from google.adk.agents import LlmAgent  # type: ignore[import]
+    from google.adk.runners import InMemoryRunner  # type: ignore[import]
+    from google.adk.tools import FunctionTool  # type: ignore[import]
+    from google.genai import types as genai_types  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
 
 logger = get_logger(__name__)
+
+_ADK_INSTALL_MSG = (
+    "google-adk 未安装，无法创建 PyTODAgent。\n"
+    "请运行: pip install google-adk litellm"
+)
 
 
 def adk_tools_from_engine(engine: Any) -> List[Any]:
@@ -37,13 +53,8 @@ def adk_tools_from_engine(engine: Any) -> List[Any]:
     Returns:
         可直接传给 ``LlmAgent(tools=...)`` 的 FunctionTool 列表。
     """
-    try:
-        from google.adk.tools import FunctionTool  # type: ignore[import]
-    except ImportError as exc:
-        raise ImportError(
-            "google-adk 未安装，无法创建 ADK 工具。\n"
-            "请运行: pip install google-adk"
-        ) from exc
+    if not _ADK_AVAILABLE:
+        raise ImportError(_ADK_INSTALL_MSG)
 
     tools = [FunctionTool(func=func) for func in engine.registry.values()]
     logger.info(
@@ -55,8 +66,7 @@ def adk_tools_from_engine(engine: Any) -> List[Any]:
 class PyTODAgent:
     """ADK 原生任务型对话追踪器。
 
-    以 ADK 原生 Function Calling 替代 PyTOD 三步程序解析流程，
-    提供与原 PyTODTracker 一致的外部接口。
+    以 ADK 原生 Function Calling 替代 PyTOD 三步程序解析流程。
 
     参数
     ----
@@ -72,7 +82,7 @@ class PyTODAgent:
         ADK 用户标识符。
     """
 
-    #: 动作解析（代码生成）使用的低温，保证输出稳定
+    #: 动作解析使用的低温，保证输出稳定
     AP_TEMPERATURE: float = 0.1
 
     def __init__(
@@ -83,14 +93,8 @@ class PyTODAgent:
         app_name: str = "pytod_adk",
         user_id: str = "default_user",
     ) -> None:
-        try:
-            from google.adk.agents import LlmAgent  # type: ignore[import]
-            from google.adk.runners import InMemoryRunner  # type: ignore[import]
-        except ImportError as exc:
-            raise ImportError(
-                "google-adk 未安装，无法创建 PyTODAgent。\n"
-                "请运行: pip install google-adk litellm"
-            ) from exc
+        if not _ADK_AVAILABLE:
+            raise ImportError(_ADK_INSTALL_MSG)
 
         self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
         adk_model = create_local_adk_model(self._llm_config)
@@ -133,9 +137,6 @@ class PyTODAgent:
             scenario_config: ScenarioConfig 实例。
             config: 本地 LLM 配置。
         """
-        from contextmind.modes.pytod.execution_engine import ExecutionEngine
-        from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
-
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
         key = get_scenario_key(scenario_name)
@@ -159,7 +160,7 @@ class PyTODAgent:
     async def process_turn(
         self,
         user_utterance: str,
-        system_utterance: str = "",  # noqa: ARG002 – 保持接口兼容
+        system_utterance: str = "",  # noqa: ARG002 — 保持接口兼容
     ) -> Dict[str, Any]:
         """处理单轮对话。
 
@@ -168,8 +169,6 @@ class PyTODAgent:
         Returns:
             包含 ``response``、``program_text``、``state``、``execution`` 的字典。
         """
-        from google.genai import types as genai_types  # type: ignore[import]
-
         self.turn_count += 1
         logger.info(f"PyTODAgent 第 {self.turn_count} 轮: {user_utterance}")
 

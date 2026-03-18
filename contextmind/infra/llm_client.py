@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
 try:
@@ -13,12 +13,26 @@ try:
 except ImportError:
     pass
 
+try:
+    from google.adk.agents import LlmAgent  # type: ignore[import]
+    from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
+    from google.adk.runners import InMemoryRunner  # type: ignore[import]
+    from google.genai import types as genai_types  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
+
 from .logger import get_logger
 
 logger = get_logger(__name__)
 
 DEFAULT_MODEL = "Qwen3-32B"
 DEFAULT_TEMPERATURE = 0.3
+
+_ADK_INSTALL_MSG = (
+    "google-adk 未安装，无法创建 AdkLLMClient。\n"
+    "请运行: pip install google-adk litellm"
+)
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
@@ -89,15 +103,10 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
         model = create_local_adk_model()
         agent = LlmAgent(model=model, name="my_agent", instruction="你是助手。")
     """
+    if not _ADK_AVAILABLE:
+        raise ImportError(_ADK_INSTALL_MSG)
     if config is None:
         config = LLMConfig.from_env()
-    try:
-        from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
-    except ImportError as exc:
-        raise ImportError(
-            "google-adk 未安装或版本不支持 LiteLlm。\n"
-            "请运行: pip install google-adk litellm"
-        ) from exc
 
     return LiteLlm(
         model=f"openai/{config.model}",
@@ -132,20 +141,12 @@ class AdkLLMClient:
         system_instruction: str = "你是一个智能对话助手。",
         config: Optional[LLMConfig] = None,
     ) -> None:
-        try:
-            from google.adk.agents import LlmAgent  # type: ignore[import]
-            from google.adk.runners import InMemoryRunner  # type: ignore[import]
-        except ImportError as exc:
-            raise ImportError(
-                "google-adk 未安装，无法创建 AdkLLMClient。\n"
-                "请运行: pip install google-adk litellm"
-            ) from exc
+        if not _ADK_AVAILABLE:
+            raise ImportError(_ADK_INSTALL_MSG)
 
         self._config = config or LLMConfig.from_env()
         self._adk_model = create_local_adk_model(self._config)
         self.system_instruction = system_instruction
-        self._LlmAgent = LlmAgent
-        self._InMemoryRunner = InMemoryRunner
         logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
 
     def _build_user_content(self, messages: List[dict]) -> str:
@@ -178,10 +179,6 @@ class AdkLLMClient:
         Returns:
             助手的回复文本。
         """
-        from google.adk.agents import LlmAgent  # type: ignore[import]
-        from google.adk.runners import InMemoryRunner  # type: ignore[import]
-        from google.genai import types as genai_types  # type: ignore[import]
-
         agent = LlmAgent(
             name="adk_llm_client",
             model=self._adk_model,

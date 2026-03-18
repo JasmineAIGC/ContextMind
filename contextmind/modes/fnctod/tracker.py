@@ -1,8 +1,8 @@
 """
 FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 
-基于 Google ADK 原生 Function Calling 能力，将 FunctionManager 中定义的
-DomainSpec 自动转换为 ADK FunctionTool，无需手写 XML 提示词。
+基于 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"
+论文思想，利用 Google ADK 原生 Function Calling 实现结构化槽位提取。
 
 使用示例::
 
@@ -24,8 +24,24 @@ from typing import Any, Dict, List, Optional
 
 from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
+from contextmind.modes.fnctod.function_manager import FunctionManager
+from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
+
+try:
+    from google.adk.agents import LlmAgent  # type: ignore[import]
+    from google.adk.runners import InMemoryRunner  # type: ignore[import]
+    from google.adk.tools import FunctionTool  # type: ignore[import]
+    from google.genai import types as genai_types  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
 
 logger = get_logger(__name__)
+
+_ADK_INSTALL_MSG = (
+    "google-adk 未安装，无法创建 FnCTODAgent。\n"
+    "请运行: pip install google-adk litellm"
+)
 
 
 def _domain_to_adk_tool(domain_spec: Any) -> Any:
@@ -34,7 +50,8 @@ def _domain_to_adk_tool(domain_spec: Any) -> Any:
     动态生成与 DomainSpec.parameters 一一对应的 Python 函数，
     再包装为 FunctionTool，ADK 会自动从签名生成 JSON Schema。
     """
-    from google.adk.tools import FunctionTool  # type: ignore[import]
+    if not _ADK_AVAILABLE:
+        raise ImportError(_ADK_INSTALL_MSG)
 
     param_names: List[str] = [p.name for p in domain_spec.parameters]
 
@@ -79,13 +96,8 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
     Returns:
         可直接传给 ``LlmAgent(tools=...)`` 的 ADK FunctionTool 列表。
     """
-    try:
-        from google.adk.tools import FunctionTool  # noqa: F401 – ensure available
-    except ImportError as exc:
-        raise ImportError(
-            "google-adk 未安装，无法创建 ADK FunctionTool。\n"
-            "请运行: pip install google-adk"
-        ) from exc
+    if not _ADK_AVAILABLE:
+        raise ImportError(_ADK_INSTALL_MSG)
 
     tools = [_domain_to_adk_tool(d) for d in function_manager.get_all_domains()]
     logger.info(
@@ -99,7 +111,7 @@ class FnCTODAgent:
     """ADK 原生函数调用对话状态追踪器。
 
     利用 ADK 原生 Function Calling 替代 XML 提示词解析，
-    实现对话状态的结构化提取。接口与原 FnCTODTracker 完全兼容。
+    实现对话状态的结构化提取。
 
     参数
     ----
@@ -117,14 +129,8 @@ class FnCTODAgent:
         system_instruction: Optional[str] = None,
         config: Optional[LLMConfig] = None,
     ) -> None:
-        try:
-            from google.adk.agents import LlmAgent  # type: ignore[import]
-            from google.adk.runners import InMemoryRunner  # type: ignore[import]
-        except ImportError as exc:
-            raise ImportError(
-                "google-adk 未安装，无法创建 FnCTODAgent。\n"
-                "请运行: pip install google-adk litellm"
-            ) from exc
+        if not _ADK_AVAILABLE:
+            raise ImportError(_ADK_INSTALL_MSG)
 
         self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
         adk_model = create_local_adk_model(self._llm_config)
@@ -170,9 +176,6 @@ class FnCTODAgent:
             scenario_config: ScenarioConfig 实例。
             **kwargs: 其他传递给构造函数的参数（如 config、system_instruction）。
         """
-        from contextmind.modes.fnctod.function_manager import FunctionManager
-        from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
-
         fm = FunctionManager()
         try:
             schema = get_function_schema_for_scenario(scenario_config.name)
@@ -209,8 +212,6 @@ class FnCTODAgent:
         Returns:
             本轮新增或更新的状态条目字典。
         """
-        from google.genai import types as genai_types  # type: ignore[import]
-
         session_id = await self._get_or_create_session()
         self.turn_count += 1
 

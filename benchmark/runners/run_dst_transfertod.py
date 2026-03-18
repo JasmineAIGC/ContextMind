@@ -11,7 +11,10 @@ DST模式 - TransferTOD数据集评测脚本
 
 import asyncio
 import argparse
+import datetime
+import logging
 import sys
+import traceback
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 from collections import defaultdict, Counter
@@ -376,7 +379,6 @@ def main():
     if not args.verbose:
         # 在 no-verbose 模式下，只显示 WARNING 及以上级别的日志
         # 这样可以抑制 INFO 日志，但保留重要的警告和错误
-        import logging
         logging.getLogger().setLevel(logging.WARNING)
         # 同时抑制第三方库的详细日志
         logging.getLogger('contextmind').setLevel(logging.WARNING)
@@ -526,7 +528,6 @@ def main():
         output_dir.mkdir(exist_ok=True)
         
         # 生成带时间戳的文件名
-        import datetime
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         metrics_file = output_dir / f"dst_transfertod_metrics_{timestamp}.txt"
         
@@ -586,6 +587,5 @@ if __name__ == "__main__":
         sys.exit(130)  # 标准的中断退出码
     except Exception as e:
         print(f"\n\n❌ 执行失败: {e}", file=sys.stderr)
-        import traceback
         traceback.print_exc()
         sys.exit(1)  # 错误退出

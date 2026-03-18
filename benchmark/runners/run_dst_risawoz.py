@@ -13,7 +13,9 @@ DST模式 - RiSAWOZ数据集评测脚本
 import asyncio
 import argparse
 import datetime
+import re
 import sys
+import traceback
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 from collections import defaultdict, Counter
@@ -447,7 +449,6 @@ class RiSAWOZEvaluator:
         # 转换为字符串并去除所有类型的空格
         normalized = str(value)
         # 移除所有空白字符（包括空格、全角空格、制表符等）
-        import re
         normalized = re.sub(r'\s+', '', normalized)
         return normalized.lower()  # 转小写以忽略大小写差异
     
@@ -689,7 +690,6 @@ class RiSAWOZEvaluator:
                 all_metrics.append(metrics)
             except Exception as e:
                 logger.error(f"❌ 对话 {dialogue_id} 评测失败: {e}")
-                import traceback
                 logger.error(traceback.format_exc())
                 continue
             

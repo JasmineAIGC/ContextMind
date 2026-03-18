@@ -8,6 +8,7 @@
 - 优化的LLM使用（默认仅在槽位提取时调用）
 """
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -193,8 +194,6 @@ class DialogueStateTracker:
         返回:
             更新后的累积对话状态
         """
-        import time
-        
         self.step_timings = {}
         
         turn_prompt = f'system: "{system_utterance}"\nuser: "{user_utterance}"'

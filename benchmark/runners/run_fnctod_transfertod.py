@@ -14,6 +14,7 @@ import argparse
 import json
 import logging
 import sys
+import traceback
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 from collections import defaultdict, Counter
@@ -522,7 +523,7 @@ def main():
             test.setup_tracker(args.domain)
         except Exception as e:
             print(f"❌ 初始化FnCTOD tracker失败: {e}")
-            import traceback
+
             traceback.print_exc()
             return
     
@@ -550,7 +551,7 @@ def main():
                             test.setup_tracker(current_domain)
                         except Exception as e:
                             print(f"❌ 初始化领域 {current_domain} 失败: {e}")
-                            import traceback
+
                             traceback.print_exc()
                             continue
                         
@@ -570,7 +571,7 @@ def main():
             except Exception as e:
                 logger.error(f"测试对话 {dialogue_id} 失败: {e}")
                 print(f"❌ 测试对话 {dialogue_id} 失败: {e}")
-                import traceback
+
                 traceback.print_exc()
                 continue
     finally:
@@ -712,7 +713,7 @@ if __name__ == "__main__":
         sys.exit(130)
     except Exception as e:
         print(f"\n\n❌ 执行失败: {e}", file=sys.stderr)
-        import traceback
+
         traceback.print_exc()
         print("如果你看到这个错误，说明脚本正确加载但执行时遇到问题")
         sys.exit(1)
