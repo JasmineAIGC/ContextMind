@@ -3,6 +3,7 @@ FnCTOD × Google ADK 集成桥接模块
 
 将 FnCTOD 的 FunctionManager / DomainSpec 体系与 Google ADK
 （Agent Development Kit）原生 Function Calling 能力打通。
+LLM 通过 ``.env`` 配置的本地 vLLM/OpenAI 兼容端点（LiteLlm）接入。
 
 模块提供两个主要工具
 --------------------
@@ -10,21 +11,22 @@ FnCTOD × Google ADK 集成桥接模块
 1. ``adk_tools_from_function_manager(function_manager)``
    将 :class:`~contextmind.modes.fnctod.FunctionManager` 中所有已注册的
    DomainSpec 转换为 ADK ``FunctionTool`` 列表。
-   ADK 会自动把 DomainSpec 的参数定义生成 JSON Schema 并注入到 Gemini
+   ADK 会自动把 DomainSpec 的参数定义生成 JSON Schema 并注入到本地 LLM
    的 function-calling 协议中，无需再手写 XML 格式的 function_call 提示词。
 
 2. ``AdkFnCTODAgent``
    ADK 原生的 FnCTOD 代理，提供与 :class:`~contextmind.modes.fnctod.FnCTODTracker`
    相同的外部接口（``process_turn`` / ``get_current_state`` / ``reset``），
-   但底层改用 Gemini 原生 Function Calling + ADK InMemoryRunner。
+   但底层改用 ADK 原生 Function Calling + InMemoryRunner + 本地 LLM。
 
 集成后的好处
 ------------
 * **无需手写 XML 提示词**：ADK 自动处理 function call 的序列化/反序列化。
-* **Gemini 原生精度更高**：相比"用提示词模拟"，Gemini 原生 function calling
+* **原生 function calling 精度更高**：相比"用提示词模拟"，原生 function calling
   在槽位提取准确率和多 domain 判断上显著提升。
 * **代码更少，扩展更容易**：新增 domain 只需往 FunctionManager 里
   ``add_domain()``，无需修改提示词模板。
+* **本地部署**：通过 LiteLlm 接入 .env 配置的本地 vLLM 端点。
 
 使用示例
 --------
@@ -47,7 +49,6 @@ FnCTOD × Google ADK 集成桥接模块
     # 方式二：直接使用完整代理（接口与 FnCTODTracker 兼容）
     agent = AdkFnCTODAgent(
         function_manager=function_manager,
-        model="gemini-2.0-flash",
     )
     result = await agent.process_turn("我的订单什么时候到？")
     print(agent.get_current_state())
@@ -59,7 +60,10 @@ import asyncio
 import concurrent.futures
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from contextmind.infra.llm_client import LLMConfig
 
 from contextmind.infra.logger import get_logger
 
@@ -73,7 +77,7 @@ logger = get_logger(__name__)
 def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
     """将 FunctionManager 中所有已注册的 DomainSpec 转换为 ADK FunctionTool 列表。
 
-    每个 DomainSpec 对应一个可被 Gemini 原生调用的 ADK ``FunctionTool``。
+    每个 DomainSpec 对应一个可被本地 LLM 原生调用的 ADK ``FunctionTool``。
     ADK 会从函数签名和 docstring 自动生成 JSON Schema；此处我们为每个 domain
     动态创建一个 Python 函数，其参数签名完全对应 DomainSpec 的槽位定义。
 
@@ -174,27 +178,25 @@ class AdkFnCTODAgent:
 
     提供与 :class:`~contextmind.modes.fnctod.FnCTODTracker` 相同的
     公共接口（``process_turn`` / ``get_current_state`` / ``reset`` /
-    ``from_scenario``），但底层改用 Google ADK + Gemini 原生 Function
-    Calling 替代手工 XML 提示词解析。
+    ``from_scenario``），但底层改用 ADK 原生 Function
+    Calling + 本地 LLM（via LiteLlm）替代手工 XML 提示词解析。
 
     集成优势
     --------
-    * **无需 XML 解析**：Gemini 原生 function calling 输出结构化参数，
+    * **无需 XML 解析**：LLM 原生 function calling 输出结构化参数，
       直接写入状态字典，不再依赖脆弱的正则提取。
     * **零改造成本**：调用方代码无需修改，直接替换 ``FnCTODTracker``。
-    * **多 domain 路由自动化**：Gemini 自主选择调用哪个 function，
+    * **多 domain 路由自动化**：LLM 自主选择调用哪个 function，
       无需显式的两阶段 domain 选择逻辑。
 
     参数
     ----
     function_manager : FunctionManager
         已注册 domain 的函数管理器。
-    model : str
-        Gemini 模型名称，默认 ``gemini-2.0-flash``。
     system_instruction : str | None
         系统指令；若为 None 则自动从 FunctionManager 生成。
-    google_api_key : str | None
-        Google AI Studio API key；若为 None 则从环境变量读取。
+    config : LLMConfig | None
+        本地 LLM 配置；若为 None 则从 ``.env`` 环境变量自动加载。
     """
 
     #: sync process_turn 的最大等待秒数
@@ -203,9 +205,8 @@ class AdkFnCTODAgent:
     def __init__(
         self,
         function_manager: Any,
-        model: str = "gemini-2.0-flash",
         system_instruction: Optional[str] = None,
-        google_api_key: Optional[str] = None,
+        config: Optional["LLMConfig"] = None,
     ) -> None:
         try:
             from google.adk.agents import LlmAgent  # type: ignore[import]
@@ -213,15 +214,14 @@ class AdkFnCTODAgent:
         except ImportError as exc:
             raise ImportError(
                 "google-adk 未安装，无法创建 AdkFnCTODAgent。\n"
-                "请运行: pip install google-adk"
+                "请运行: pip install google-adk litellm"
             ) from exc
 
-        import os
-        from contextmind.infra.llm_client import _resolve_google_api_key
-        _resolve_google_api_key(google_api_key)
+        from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
+        self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
+        adk_model = create_local_adk_model(self._llm_config)
 
         self.function_manager = function_manager
-        self.model = model
 
         # 自动生成系统指令（若未提供）
         if system_instruction is None:
@@ -239,7 +239,7 @@ class AdkFnCTODAgent:
         # 构建 ADK agent（无状态，每轮复用同一 runner）
         self._agent = LlmAgent(
             name="fnctod_adk_agent",
-            model=model,
+            model=adk_model,
             instruction=system_instruction,
             tools=self._tools,
         )
@@ -255,7 +255,7 @@ class AdkFnCTODAgent:
         self._session_id: Optional[str] = None
 
         logger.info(
-            f"AdkFnCTODAgent 初始化完成 (model={model}, "
+            f"AdkFnCTODAgent 初始化完成 (model={self._llm_config.model}, "
             f"domains={function_manager.get_domain_names()})"
         )
 
@@ -267,15 +267,13 @@ class AdkFnCTODAgent:
     def from_scenario(
         cls,
         scenario_config: Any,
-        model: str = "gemini-2.0-flash",
         **kwargs: Any,
     ) -> "AdkFnCTODAgent":
         """从场景配置创建 AdkFnCTODAgent。
 
         Args:
             scenario_config: ScenarioConfig 实例。
-            model: Gemini 模型名称。
-            **kwargs: 其他传递给构造函数的参数。
+            **kwargs: 其他传递给构造函数的参数（如 config、system_instruction）。
 
         Returns:
             初始化完成的 AdkFnCTODAgent 实例。
@@ -299,7 +297,7 @@ class AdkFnCTODAgent:
                 "AdkFnCTODAgent 将使用空 FunctionManager"
             )
 
-        return cls(function_manager=function_manager, model=model, **kwargs)
+        return cls(function_manager=function_manager, **kwargs)
 
     # ------------------------------------------------------------------ #
     # 会话管理

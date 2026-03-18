@@ -5,26 +5,24 @@ ADK Bridge — 将 Google ADK (Agent Development Kit) 与 PyTOD 模式集成
 
 1. **adk_tools_from_engine(engine)**
    将 ``ExecutionEngine`` 中已注册的 Python 函数自动转换为 ADK ``FunctionTool``
-   列表，以便直接传给 ``LlmAgent(tools=...)``，利用 Gemini 原生函数调用能力。
+   列表，以便直接传给 ``LlmAgent(tools=...)``，利用本地 LLM 原生函数调用能力。
 
 2. **AdkLlmClientBridge(agent)**
    将 ADK ``LlmAgent`` + ``InMemoryRunner`` 包装成与 ``SimpleLLMClient`` 兼容的
    ``chat_async(messages)`` 接口，无需修改 ``PyTODTracker`` 即可切换底层模型。
 
-3. **AdkPyTODAgent(engine, model)**
+3. **AdkPyTODAgent(engine)**
    完整的 ADK 原生 PyTOD 代理，不使用自定义程序解析器，而是让 ADK 的原生函数调用
-   机制（Gemini function calling）直接调用 ExecutionEngine 中的 API，并由 LLM
-   生成最终自然语言回复。与 ``PyTODTracker`` 接口完全一致。
+   机制直接调用 ExecutionEngine 中的 API，并由本地 LLM 生成最终自然语言回复。
+   与 ``PyTODTracker`` 接口完全一致。
 
 集成优势
 --------
-- **无需自定义程序解析**：Gemini 原生工具调用替代手写 PyTOD 程序解析器
+- **无需自定义程序解析**：LLM 原生工具调用替代手写 PyTOD 程序解析器
 - **自动生成工具描述**：ADK 从函数签名和 docstring 自动提取参数 schema
 - **统一会话管理**：ADK InMemoryRunner 管理多轮上下文，无需手动拼接 history
 - **开箱即用的请求管理**：ADK Runner 内置重试、限速等机制
-- **可组合多代理**：可将 Action Parser、Dialogue Manager 拆分为独立子代理
-- **模型无关性**：同一套代码通过 ``model=`` 参数在 Gemini、LiteLLM 等之间切换
-- **零侵入**：现有 ``PyTODTracker`` 无需修改，仅替换 ``llm_client`` 参数即可
+- **本地部署**：通过 LiteLlm 接入 .env 配置的 vLLM/OpenAI 兼容端点
 """
 
 from __future__ import annotations
@@ -35,6 +33,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .execution_engine import ExecutionEngine
+    from contextmind.infra.llm_client import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def adk_tools_from_engine(engine: "ExecutionEngine") -> List[Any]:
     """将 ``ExecutionEngine`` 中已注册的函数包装为 ADK ``FunctionTool`` 列表。
 
     ADK 会自动从函数签名和 docstring 生成参数描述（JSON Schema），
-    以便 Gemini 等模型理解各 API 的用途和参数格式。
+    以便本地 LLM 理解各 API 的用途和参数格式。
 
     参数:
         engine: 已注册了 API 函数的 ``ExecutionEngine`` 实例
@@ -59,6 +58,7 @@ def adk_tools_from_engine(engine: "ExecutionEngine") -> List[Any]:
 
         from contextmind.modes.pytod import ExecutionEngine
         from contextmind.modes.pytod.adk_bridge import adk_tools_from_engine
+        from contextmind.infra.llm_client import create_local_adk_model
         from google.adk.agents import LlmAgent
 
         engine = ExecutionEngine()
@@ -69,7 +69,7 @@ def adk_tools_from_engine(engine: "ExecutionEngine") -> List[Any]:
             return {"balance": 5000, "status": "正常"}
 
         tools = adk_tools_from_engine(engine)
-        agent = LlmAgent(model="gemini-2.0-flash", tools=tools, ...)
+        agent = LlmAgent(model=create_local_adk_model(), tools=tools, ...)
     """
     try:
         from google.adk.tools import FunctionTool  # type: ignore[import]
@@ -101,13 +101,13 @@ class AdkLlmClientBridge:
     """将 ADK ``LlmAgent`` 包装成 ``SimpleLLMClient`` 兼容的接口。
 
     现有 ``PyTODTracker`` 无需任何修改，只需将构造函数的 ``llm_client``
-    参数替换为本类的实例，即可通过 ADK 驱动的 Gemini 模型进行对话。
+    参数替换为本类的实例，即可通过 ADK 驱动的本地 LLM 进行对话。
 
     适用场景
     --------
     - 希望保留 PyTOD 三步流程（Action Parser → Execution Engine → Dialogue Manager）
-    - 同时使用 Gemini 模型的原生能力（多模态、更好的中文理解等）
     - 仅需替换 LLM 客户端，不修改追踪器逻辑
+    - 需要有状态会话（跨多轮复用同一 ADK session）
 
     参数:
         agent:    ``LlmAgent`` 实例（需已配置 model）
@@ -116,19 +116,13 @@ class AdkLlmClientBridge:
 
     示例::
 
-        from google.adk.agents import LlmAgent
-        from contextmind.modes.pytod import ExecutionEngine, PyTODPromptBuilder
-        from contextmind.modes.pytod.tracker import PyTODTracker
         from contextmind.modes.pytod.adk_bridge import AdkLlmClientBridge
+        from contextmind.infra.llm_client import create_local_adk_model
+        from google.adk.agents import LlmAgent
 
-        llm_agent = LlmAgent(model="gemini-2.0-flash", name="bridge_agent",
+        llm_agent = LlmAgent(model=create_local_adk_model(), name="bridge_agent",
                              instruction="请用中文简洁回答。")
         bridge = AdkLlmClientBridge(agent=llm_agent)
-        tracker = PyTODTracker(
-            llm_client=bridge,          # ← 替换为 ADK bridge
-            execution_engine=engine,
-            prompt_builder=builder,
-        )
     """
 
     #: sync chat() 的最大等待秒数（可通过子类覆盖）
@@ -256,20 +250,20 @@ class AdkLlmClientBridge:
 class AdkPyTODAgent:
     """ADK 原生 PyTOD 代理，与 ``PyTODTracker`` 接口完全兼容。
 
-    使用 Gemini 原生函数调用（function calling / tool use）代替 PyTOD 自定义
-    程序解析器，让 Gemini 模型直接决定调用哪个 API、传入什么参数，并最终生成
+    使用 ADK 原生函数调用（function calling / tool use）代替 PyTOD 自定义
+    程序解析器，让本地 LLM 直接决定调用哪个 API、传入什么参数，并最终生成
     自然语言回复。整个三步流程（Action Parser → Execution Engine → Dialogue Manager）
     统一由 ADK ``LlmAgent`` 内部完成。
 
     适用场景
     --------
-    - 使用 Gemini 模型，希望利用原生 Function Calling 能力
+    - 希望利用本地 LLM 的原生 Function Calling 能力
     - 不想维护自定义 PyTOD 程序解析逻辑
     - 需要 ADK 内置的多轮会话管理、重试机制
 
     参数:
         engine:           ``ExecutionEngine`` 实例（其注册函数将转为 ADK 工具）
-        model:            Gemini 模型名称（默认 "gemini-2.0-flash"）
+        config:           本地 LLM 配置；若为 None 则从 ``.env`` 自动加载
         scenario_context: 注入 system instruction 的业务场景描述
         max_history_turns: 最大保留对话轮数（由 ADK session 自动管理）
         app_name:         ADK 应用名称
@@ -286,7 +280,6 @@ class AdkPyTODAgent:
 
         agent = AdkPyTODAgent(
             engine=engine,
-            model="gemini-2.0-flash",
             scenario_context="这是一个电商客服场景，需处理退款和物流查询。",
         )
 
@@ -297,7 +290,7 @@ class AdkPyTODAgent:
     def __init__(
         self,
         engine: "ExecutionEngine",
-        model: str = "gemini-2.0-flash",
+        config: Optional["LLMConfig"] = None,
         scenario_context: str = "",
         max_history_turns: int = 10,
         app_name: str = "pytod_adk",
@@ -309,8 +302,12 @@ class AdkPyTODAgent:
         except ImportError as exc:
             raise ImportError(
                 "google-adk 未安装，无法创建 AdkPyTODAgent。\n"
-                "请运行: pip install google-adk"
+                "请运行: pip install google-adk litellm"
             ) from exc
+
+        from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
+        self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
+        adk_model = create_local_adk_model(self._llm_config)
 
         self.engine = engine
         self.scenario_context = scenario_context
@@ -322,7 +319,7 @@ class AdkPyTODAgent:
 
         self._adk_agent = LlmAgent(
             name="pytod_adk_agent",
-            model=model,
+            model=adk_model,
             description="PyTOD 任务型对话代理（ADK 原生函数调用版）",
             instruction=instruction,
             tools=tools,
@@ -335,7 +332,7 @@ class AdkPyTODAgent:
         self.turn_count: int = 0
 
         logger.info(
-            f"AdkPyTODAgent 初始化完成 (model={model}, "
+            f"AdkPyTODAgent 初始化完成 (model={self._llm_config.model}, "
             f"工具数={len(tools)}: {list(engine.registry.keys())})"
         )
 
@@ -353,9 +350,9 @@ class AdkPyTODAgent:
         ADK 原生流程：
 
         1. 用户输入传入 ``LlmAgent``
-        2. Gemini 决定调用哪个工具（等同于 Action Parser）
+        2. 本地 LLM 决定调用哪个工具（等同于 Action Parser）
         3. ADK 自动执行工具并将结果回传给模型（等同于 Execution Engine）
-        4. Gemini 生成最终自然语言回复（等同于 Dialogue Manager）
+        4. 本地 LLM 生成最终自然语言回复（等同于 Dialogue Manager）
 
         返回与 ``PyTODTracker.process_turn`` 相同结构的字典::
 

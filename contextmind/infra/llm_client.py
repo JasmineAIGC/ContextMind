@@ -1,4 +1,4 @@
-"""演示应用使用的轻量级 OpenAI 兼容 LLM 客户端，以及 Google ADK 原生客户端。"""
+"""演示应用使用的轻量级 OpenAI 兼容 LLM 客户端，以及 Google ADK 本地部署客户端。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import dataclass
 import os
 import re
-from typing import Optional, Sequence, Tuple
+from typing import Any, Optional, Sequence, Tuple
 
 try:
     from dotenv import load_dotenv
@@ -373,44 +373,69 @@ class SimpleLLMClient:
 
 
 # ---------------------------------------------------------------------------
-# 公共辅助函数：Google API key 解析
+# ADK 辅助函数：创建本地部署 LiteLlm 模型
 # ---------------------------------------------------------------------------
 
-def _resolve_google_api_key(google_api_key: Optional[str] = None) -> Optional[str]:
-    """解析并设置 Google API key。
+def create_local_adk_model(config: Optional["LLMConfig"] = None) -> Any:
+    """从 LLMConfig 创建 ADK LiteLlm 模型实例，接入本地 vLLM/OpenAI 兼容端点。
 
-    优先使用显式传入的 ``google_api_key``，否则依次读取环境变量
-    ``GOOGLE_API_KEY`` 和 ``GEMINI_API_KEY``。
-    若解析到有效 key，会通过 ``os.environ.setdefault`` 写回
-    ``GOOGLE_API_KEY``，以便 ADK 内部组件自动读取。
+    将 ``.env`` 中的 ``QWEN3_BASE_URL`` / ``QWEN3_MODEL`` / ``QWEN3_API_KEY``
+    等配置包装为 ADK 兼容的 ``LiteLlm`` 对象，供 ``LlmAgent`` / ``AdkFnCTODAgent``
+    / ``AdkPyTODAgent`` 等直接使用。
 
-    Args:
-        google_api_key: 调用方显式提供的 API key（可为 None）。
+    ADK 内部通过 LiteLLM 库将请求转发至 OpenAI 兼容端点，因此支持所有基于
+    vLLM / Ollama / Qwen / DeepSeek 等本地部署的模型。
 
-    Returns:
-        解析到的 API key，若未找到则返回 None。
+    参数:
+        config: 本地 LLM 配置；若为 None 则调用 ``LLMConfig.from_env()``。
+
+    返回:
+        ``google.adk.models.lite_llm.LiteLlm`` 实例。
+
+    示例::
+
+        from contextmind.infra.llm_client import create_local_adk_model
+        from google.adk.agents import LlmAgent
+
+        adk_model = create_local_adk_model()
+        agent = LlmAgent(model=adk_model, name="my_agent", instruction="你是助手。")
     """
-    api_key = (
-        google_api_key
-        or os.getenv("GOOGLE_API_KEY")
-        or os.getenv("GEMINI_API_KEY")
+    if config is None:
+        config = LLMConfig.from_env()
+
+    try:
+        from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
+    except ImportError as exc:
+        raise ImportError(
+            "google-adk 未安装或版本不支持 LiteLlm。\n"
+            "请运行: pip install google-adk litellm"
+        ) from exc
+
+    # LiteLlm 使用 litellm 库的 model string 格式：
+    # "openai/<model>" 表示 OpenAI 兼容端点（vLLM 默认协议）
+    model_string = f"openai/{config.model}"
+    return LiteLlm(
+        model=model_string,
+        api_base=config.base_url,
+        api_key=config.api_key,
     )
-    if api_key:
-        os.environ.setdefault("GOOGLE_API_KEY", api_key)
-    return api_key
 
 
 # ---------------------------------------------------------------------------
-# Google ADK 驱动的 LLM 客户端
+# Google ADK 驱动的 LLM 客户端（本地部署版）
 # ---------------------------------------------------------------------------
 
 class AdkLLMClient:
-    """Google ADK（Agent Development Kit）驱动的 LLM 客户端。
+    """Google ADK（Agent Development Kit）驱动的 LLM 客户端（本地部署版）。
 
+    使用 ADK + LiteLlm 将请求转发至本地 vLLM / OpenAI 兼容端点，
     提供与 :class:`SimpleLLMClient` 完全相同的公共接口
     （``chat`` / ``chat_async`` / ``generate`` / ``generate_async``），
     因此可作为任意 Tracker 或 Application 中 ``llm_client=`` 参数的
     **直接替换品**，无需修改调用方代码。
+
+    LLM 配置通过 ``.env`` 文件或 ``LLMConfig`` 实例统一管理，
+    与 ``SimpleLLMClient`` 保持一致。
 
     与 ``SimpleLLMClient`` 的主要差异
     ------------------------------------
@@ -423,14 +448,11 @@ class AdkLLMClient:
 
     参数
     ----
-    model : str
-        Gemini 模型名称，默认 ``gemini-2.0-flash``。
     system_instruction : str
         传递给 LlmAgent 的系统指令；可在创建后通过 :attr:`system_instruction`
         属性动态替换。
-    google_api_key : str | None
-        Google AI Studio API key。若为 None，则从环境变量
-        ``GOOGLE_API_KEY`` / ``GEMINI_API_KEY`` 读取。
+    config : LLMConfig | None
+        本地 LLM 配置；若为 None 则从 ``.env`` 环境变量自动加载。
 
     示例
     ----
@@ -439,7 +461,7 @@ class AdkLLMClient:
         from contextmind.infra.llm_client import AdkLLMClient
         from contextmind.modes.dst import DialogueStateTracker
 
-        llm = AdkLLMClient(model="gemini-2.0-flash")
+        llm = AdkLLMClient()
         tracker = DialogueStateTracker.from_scenario(llm, scenario_config)
         result = await tracker.process_turn("我想预约明天下午三点")
     """
@@ -449,9 +471,8 @@ class AdkLLMClient:
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
         system_instruction: str = "你是一个智能对话助手。",
-        google_api_key: Optional[str] = None,
+        config: Optional[LLMConfig] = None,
     ) -> None:
         try:
             from google.adk.agents import LlmAgent  # type: ignore[import]
@@ -459,20 +480,18 @@ class AdkLLMClient:
         except ImportError as exc:
             raise ImportError(
                 "google-adk 未安装，无法创建 AdkLLMClient。\n"
-                "请运行: pip install google-adk"
+                "请运行: pip install google-adk litellm"
             ) from exc
 
-        # 解析 API key（共享辅助函数）
-        _resolve_google_api_key(google_api_key)
-
-        self.model = model
+        self._config = config or LLMConfig.from_env()
+        self._adk_model = create_local_adk_model(self._config)
         self.system_instruction = system_instruction
 
         # 延迟创建 agent（system_instruction 可在调用前修改）
         self._LlmAgent = LlmAgent
         self._InMemoryRunner = InMemoryRunner
 
-        logger.info(f"[AdkLLMClient] 初始化完成，model={model}")
+        logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
 
     # ------------------------------------------------------------------ #
     # 内部辅助方法
@@ -516,7 +535,7 @@ class AdkLLMClient:
         instruction = system_instruction or self.system_instruction
         agent = LlmAgent(
             name="adk_llm_client",
-            model=self.model,
+            model=self._adk_model,
             instruction=instruction,
         )
         runner = InMemoryRunner(agent=agent, app_name="contextmind_adk")

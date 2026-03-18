@@ -22,7 +22,7 @@
     入口: examples/anyihua_generation_demo.py
 
     使用 PyTOD ExecutionEngine 注册 CRM 查询 API（query_account 等），
-    通过 PyTODTracker 三步流程（动作解析器 → 执行引擎 → 对话管理器）
+    通过 AdkPyTODAgent（ADK 原生函数调用）三步流程（动作解析器 → 执行引擎 → 对话管理器）
     生成更优质的坐席回复。
 
     from contextmind.scenarios.anyihua.generation import (

@@ -2,6 +2,7 @@
 
 # 核心依赖
 google-adk
+litellm           # ADK LiteLlm 后端，用于接入本地 vLLM/OpenAI 兼容端点
 openai
 python-dotenv
 PyYAML>=6.0.0

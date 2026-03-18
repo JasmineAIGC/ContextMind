@@ -53,15 +53,15 @@ def build_generation_engine(session: Dict[str, Any]) -> ExecutionEngine:
 
     使用示例::
 
-        from contextmind.modes.pytod import PyTODTracker, PyTODPromptBuilder
-        from contextmind.scenarios.anyihua.generation import (
-            build_generation_engine, ANYIHUA_SCHEMA
-        )
+        from contextmind.modes.pytod.adk_bridge import AdkPyTODAgent
+        from contextmind.scenarios.anyihua.generation import build_generation_engine
 
         engine = build_generation_engine(session)
-        builder = PyTODPromptBuilder(schema=ANYIHUA_SCHEMA, response_language="中文")
-        tracker = PyTODTracker(llm_client=llm, execution_engine=engine, prompt_builder=builder)
-        result = await tracker.process_turn(user_utterance="我的额度是多少？")
+        agent = AdkPyTODAgent(
+            engine=engine,
+            scenario_context="安逸花外呼坐席，负责向老用户推介借款产品。",
+        )
+        result = await agent.process_turn(user_utterance="我的额度是多少？")
     """
     engine = ExecutionEngine()
     info = parse_user_info(session["用户信息"])
