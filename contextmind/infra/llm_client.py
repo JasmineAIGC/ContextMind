@@ -1,11 +1,10 @@
-"""演示应用使用的轻量级 OpenAI 兼容 LLM 客户端，以及 Google ADK 本地部署客户端。"""
+"""基于 Google ADK 的 LLM 客户端，通过 LiteLlm 接入本地 vLLM/OpenAI 兼容端点。"""
 
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
 import os
-import re
 from typing import Any, Optional, Sequence, Tuple
 
 try:
@@ -13,15 +12,6 @@ try:
     load_dotenv()
 except ImportError:
     pass
-
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
-    OpenAI = None  # type: ignore
-    print("警告: 未安装 OpenAI 包。真实的 LLM 调用将无法工作。")
-    print("安装方法: pip install openai")
 
 from .logger import get_logger
 
@@ -137,239 +127,155 @@ class LLMConfig:
 
 
 class SimpleLLMClient:
-    """演示应用的简单 LLM 客户端（非 Evolve 框架核心，仅用于演示）。"""
+    """基于 Google ADK 的 LLM 客户端（向后兼容名称）。
 
-    MODEL_CONTEXT_LIMITS = {
-        "gpt-3.5-turbo": 4096,
-        "gpt-3.5-turbo-16k": 16384,
-        "gpt-4": 8192,
-        "gpt-4-32k": 32768,
-        "gpt-4-turbo": 128000,
-        "gpt-4o": 128000,
-        "Qwen2.5-7B-Instruct": 32768,
-        "Qwen2.5-14B-Instruct": 32768,
-        "Qwen2.5-32B-Instruct": 32768,
-        "Qwen2.5-72B-Instruct": 32768,
-        "Qwen3-32B": 32768,
-        "Qwen3-235B": 131072,
-        "deepseek-chat": 32768,
-        "deepseek-r1": 64000,
-    }
+    底层完全使用 Google ADK + LiteLlm，通过 ``.env`` 配置的本地
+    vLLM/OpenAI 兼容端点提供服务。保留原有构造函数签名
+    ``SimpleLLMClient(config=None)``，以便现有代码无需修改即可切换到
+    ADK 驱动的实现。
 
-    def __init__(self, config: Optional[LLMConfig] = None):
-        """初始化 LLM 客户端。
+    新代码推荐直接使用 :class:`AdkLLMClient`。
+    """
+
+    def __init__(self, config: Optional[LLMConfig] = None) -> None:
+        """初始化 ADK 驱动的 LLM 客户端。
 
         Args:
-            config: LLM 配置，若为 None 则从环境变量加载
+            config: LLM 配置，若为 None 则从环境变量自动加载。
         """
-        if not OPENAI_AVAILABLE:
-            raise RuntimeError(
-                "未安装 OpenAI 包。"
-                "请使用以下命令安装: pip install openai\n"
-                "或使用 --no-llm 标志运行而不需要真实的 LLM 调用。"
-            )
-
-        self.config = config or LLMConfig.from_env()
-        logger.info(f"[LLM Client] 正在初始化，model: {self.config.model}")
-
-        headers = {}
-        if self.config.access_key:
-            headers["access-key"] = self.config.access_key
-
-        self._client = OpenAI(
-            api_key=self.config.api_key,
-            base_url=self.config.base_url,
-            default_headers=headers or None,
-        )
-        logger.info(f"[LLM Client] 初始化成功")
-
-    @staticmethod
-    def _strip_thinking(text: str) -> str:
-        """去除模型输出中的思考过程标签（<think>…</think>）。
-
-        部分推理模型（如 Qwen3 / DeepSeek-R1）即使在 API 层面禁用了
-        enable_thinking，仍可能在 content 字段内嵌入 <think>…</think>
-        或 <|think|>…<|/think|> 块。此方法在返回给调用方之前统一剥离这些标签。
-        """
-        # <think>...</think>（Qwen3 格式）
-        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-        # <|think|>...<|/think|>（DeepSeek token 格式）
-        text = re.sub(r"<\|think\|>.*?<\|/think\|>", "", text, flags=re.DOTALL)
-        return text.strip()
-
-    def _estimate_tokens(self, text: str) -> int:
-        """估算文本的 token 数量（启发式：中文 1 字≈1 token，英文 1 词≈1.3 token）。
-
-        Args:
-            text: 要估算的文本
-
-        Returns:
-            估算的 token 数量
-        """
-        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
-        english_words = len(re.findall(r'\b[a-zA-Z]+\b', text))
-        estimated_tokens = int((chinese_chars + int(english_words * 1.3)) * 1.1)
-        return max(estimated_tokens, len(text) // 4)
-    
-    def _get_model_context_limit(self) -> int:
-        """返回当前模型的上下文 token 限制。"""
-        model = self.config.model
-
-        if model in self.MODEL_CONTEXT_LIMITS:
-            return self.MODEL_CONTEXT_LIMITS[model]
-
-        for known_model, limit in self.MODEL_CONTEXT_LIMITS.items():
-            if known_model.lower() in model.lower() or model.lower() in known_model.lower():
-                return limit
-
-        logger.warning(f"未知模型 {model}，使用默认上下文限制 4096 tokens")
-        return 4096
-
-    def _calculate_safe_max_tokens(self, messages: list) -> int:
-        """根据输入消息动态计算安全的 max_tokens 值。
-
-        Args:
-            messages: 消息列表
-
-        Returns:
-            安全的 max_tokens 值
-        """
-        input_text = ""
-        for msg in messages:
-            if isinstance(msg, dict) and "content" in msg:
-                input_text += msg["content"] + " "
-
-        estimated_input_tokens = self._estimate_tokens(input_text)
-        context_limit = self._get_model_context_limit()
-        # 预留 10% 冗余量以应对分词误差；至少保留 512 个 token，
-        # 确保模型始终有足够空间生成有意义的响应。
-        available_tokens = int((context_limit - estimated_input_tokens) * 0.9)
-        safe_max_tokens = min(self.config.max_tokens, max(available_tokens, 512))
-
-        if safe_max_tokens < self.config.max_tokens:
-            logger.info(
-                f"动态调整max_tokens: {self.config.max_tokens} -> {safe_max_tokens} "
-                f"(输入≈{estimated_input_tokens} tokens, 上下文限制={context_limit})"
-            )
-
-        return safe_max_tokens
-
-    def _call_openai_sync(
-        self, messages: list, temperature: Optional[float] = None
-    ) -> Tuple[str, str]:
-        """真正执行 OpenAI 兼容 API 调用，返回 (reasoning_content, content)。
-
-        这是所有公开接口（generate / chat / *_async）的唯一 HTTP 调用入口，
-        消除代码重复，使错误处理和响应解析只需维护一份。
-
-        Args:
-            messages: OpenAI 兼容的消息列表。
-            temperature: 采样温度；传入 ``None`` 时使用 ``LLMConfig.temperature``。
-
-        Returns:
-            ``(reasoning_content, content)``——``reasoning_content`` 仅在支持
-            思维链的模型（如 DeepSeek-R1）中非空，``content`` 为最终回复文本。
-        """
-        temp = temperature if temperature is not None else self.config.temperature
-        safe_max_tokens = self._calculate_safe_max_tokens(messages)
-        extra_body = {
-            "top_k": self.config.top_k,
-            # 关闭响应内容中的思维链 token；
-            # 否则 Qwen3、DeepSeek-R1 等推理模型会在 content 字段中
-            # 输出 <think>…</think> 块。
-            "chat_template_kwargs": {"enable_thinking": False},
-        }
         try:
-            response = self._client.chat.completions.create(
-                model=self.config.model,
-                messages=messages,
-                temperature=temp,
-                max_tokens=safe_max_tokens,
-                stream=False,
-                extra_body=extra_body,
-            )
-        except Exception as e:
-            logger.error(f"LLM API调用失败: {str(e)}", exc_info=True)
-            raise RuntimeError(
-                f"调用 LLM API 失败 (model: {self.config.model}): {str(e)}"
-            ) from e
+            from google.adk.agents import LlmAgent  # type: ignore[import]
+            from google.adk.runners import InMemoryRunner  # type: ignore[import]
+        except ImportError as exc:
+            raise ImportError(
+                "google-adk 未安装，无法创建 SimpleLLMClient。\n"
+                "请运行: pip install google-adk litellm"
+            ) from exc
 
-        if not response.choices:
-            raise ValueError(f"API 返回空的 choices (model: {self.config.model})")
+        self._config = config or LLMConfig.from_env()
+        self._adk_model = create_local_adk_model(self._config)
+        self.system_instruction = "你是一个智能对话助手。"
+        self._LlmAgent = LlmAgent
+        self._InMemoryRunner = InMemoryRunner
+        logger.info(f"[SimpleLLMClient] 初始化完成（ADK），model={self._config.model}")
 
-        choice = response.choices[0].message
+    # ------------------------------------------------------------------
+    # 内部辅助
+    # ------------------------------------------------------------------
 
-        if not choice:
-            raise ValueError(f"API 返回无效的 message (model: {self.config.model})")
+    def _build_user_content(self, messages: list) -> str:
+        """将 OpenAI 消息列表拼合为单个用户消息字符串。"""
+        parts: list[str] = []
+        system_parts: list[str] = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content_text = msg.get("content", "")
+            if role == "system":
+                system_parts.append(content_text)
+            elif role == "user":
+                parts.append(f"Human: {content_text}")
+            elif role in ("assistant", "model"):
+                parts.append(f"Assistant: {content_text}")
+        if system_parts and parts:
+            system_text = "\n".join(system_parts)
+            parts.insert(0, f"[System Instruction]\n{system_text}\n[/System Instruction]\n")
+        return "\n".join(parts) if parts else ""
 
-        reasoning_content = getattr(choice, "reasoning_content", "") or ""
-        content = choice.content
+    async def _run_async(
+        self, user_content: str, system_instruction: Optional[str] = None
+    ) -> str:
+        """通过 ADK 运行一次性请求，返回最终文本。"""
+        from google.adk.agents import LlmAgent  # type: ignore[import]
+        from google.adk.runners import InMemoryRunner  # type: ignore[import]
+        from google.genai import types as genai_types  # type: ignore[import]
 
-        if isinstance(content, list):
-            content = "".join(
-                part.get("text", "") for part in content if isinstance(part, dict)
-            )
+        instruction = system_instruction or self.system_instruction
+        agent = LlmAgent(
+            name="simple_llm_client",
+            model=self._adk_model,
+            instruction=instruction,
+        )
+        runner = InMemoryRunner(agent=agent, app_name="contextmind_llm")
+        session = await runner.session_service.create_session(
+            app_name="contextmind_llm", user_id="default"
+        )
+        content = genai_types.Content(
+            role="user", parts=[genai_types.Part(text=user_content)]
+        )
+        final_text = ""
+        async for event in runner.run_async(
+            user_id="default", session_id=session.id, new_message=content
+        ):
+            if event.is_final_response() and event.content:
+                for part in event.content.parts or []:
+                    if hasattr(part, "text") and part.text:
+                        final_text += part.text
+        return final_text.strip()
 
-        if content is None:
-            final_text = ""
-        elif isinstance(content, str):
-            final_text = self._strip_thinking(content)
-        else:
-            final_text = self._strip_thinking(str(content))
+    # ------------------------------------------------------------------
+    # 公共接口（与原有 SimpleLLMClient 完全兼容）
+    # ------------------------------------------------------------------
 
-        return str(reasoning_content), final_text
-
-    def generate(self, prompt: str) -> Tuple[str, str]:
-        """基于 Prompt 调用 LLM，返回 (reasoning_content, response_content)。
-
-        Args:
-            prompt: 完整的 Prompt
-
-        Returns:
-            (reasoning_content, response_content)，reasoning_content 仅部分模型（如 DeepSeek-R1）支持
-        """
-        messages = [{"role": "user", "content": prompt}]
-        return self._call_openai_sync(messages)
-
-    async def generate_async(self, prompt: str) -> Tuple[str, str]:
-        """异步版本的 generate，在线程池中运行同步调用，不阻塞事件循环。
-
-        Args:
-            prompt: 完整的 Prompt
-
-        Returns:
-            (reasoning_content, response_content)
-        """
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, lambda: self.generate(prompt))
-
-    def chat(self, messages: list, temperature: float = None) -> str:
-        """基于消息列表调用 LLM（同步版本）。
+    async def chat_async(
+        self, messages: list, temperature: Optional[float] = None
+    ) -> str:
+        """异步多轮对话（与原有接口兼容）。
 
         Args:
             messages: 消息列表，格式为 [{"role": "system/user/assistant", "content": "..."}]
-            temperature: 温度参数，默认使用配置值
+            temperature: 保留参数，ADK 通过模型配置控制，此处忽略。
 
         Returns:
             助手的回复内容
         """
-        _, content = self._call_openai_sync(messages, temperature)
-        return content
+        user_content = self._build_user_content(messages)
+        return await self._run_async(user_content)
 
-    async def chat_async(self, messages: list, temperature: float = None) -> str:
-        """异步版本的 chat，在线程池中运行同步调用，不阻塞事件循环。
+    def chat(self, messages: list, temperature: Optional[float] = None) -> str:
+        """同步多轮对话（与原有接口兼容）。
 
         Args:
-            messages: 消息列表
-            temperature: 温度参数，默认使用配置值
+            messages: 消息列表，格式为 [{"role": "system/user/assistant", "content": "..."}]
+            temperature: 保留参数，ADK 通过模型配置控制，此处忽略。
 
         Returns:
             助手的回复内容
         """
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None, lambda: self.chat(messages, temperature)
-        )
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    asyncio.run,
+                    self.chat_async(messages=messages, temperature=temperature),
+                )
+                return future.result(timeout=120.0)
+        else:
+            return asyncio.run(
+                self.chat_async(messages=messages, temperature=temperature)
+            )
+
+    async def generate_async(self, prompt: str) -> Tuple[str, str]:
+        """异步 prompt 生成（与原有接口兼容）。
+
+        Returns:
+            ``(reasoning_content, response_content)``——ADK 不暴露 CoT，
+            ``reasoning_content`` 始终为空字符串。
+        """
+        content = await self.chat_async([{"role": "user", "content": prompt}])
+        return "", content
+
+    def generate(self, prompt: str) -> Tuple[str, str]:
+        """同步 prompt 生成（与原有接口兼容）。
+
+        Returns:
+            ``(reasoning_content, response_content)``——``reasoning_content`` 始终为空。
+        """
+        content = self.chat([{"role": "user", "content": prompt}])
+        return "", content
 
 
 # ---------------------------------------------------------------------------

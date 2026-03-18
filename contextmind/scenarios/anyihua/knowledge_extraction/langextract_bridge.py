@@ -101,7 +101,7 @@ from langextract.core.base_model import BaseLanguageModel
 from langextract.core.types import ScoredOutput
 from langextract.data import ExampleData, Extraction
 
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import SimpleLLMClient, AdkLLMClient
 from contextmind.infra.logger import get_logger
 
 from .extractor import (
@@ -117,35 +117,29 @@ from .extractor import (
 
 logger = get_logger(__name__)
 
+# LLMClient 类型别名：SimpleLLMClient（ADK 驱动）或 AdkLLMClient 均可
+_LLMClientType = Any  # 实际类型为 SimpleLLMClient 或 AdkLLMClient
+
 
 # --------------------------------------------------------------------------- #
-# SimpleLLMClient → langextract BaseLanguageModel 适配器
+# ADK LLM 客户端 → langextract BaseLanguageModel 适配器
 # --------------------------------------------------------------------------- #
 
 
 class SimpleLLMClientAdapter(BaseLanguageModel):
     """
-    将项目自有的 ``SimpleLLMClient`` 适配为 langextract ``BaseLanguageModel`` 接口。
+    将 ADK 驱动的 LLM 客户端适配为 langextract ``BaseLanguageModel`` 接口。
 
-    官方 langextract 通过 ``model_id="gemini-2.5-flash"`` 使用内置 Gemini 模型；
-    对于自定义 LLM，官方同样支持直接传入 ``BaseLanguageModel`` 子类实例::
-
-        result = lx.extract(
-            text_or_documents=text,
-            prompt_description=prompt,
-            examples=examples,
-            model=SimpleLLMClientAdapter(client),   # 自定义模型
-        )
-
-    本适配器将 ``SimpleLLMClient.generate()`` 包装为符合接口要求的生成器，
-    使现有 OpenAI 兼容端点无缝接入 langextract 的完整提取管道
+    底层调用 ``client.generate()``（由 :class:`SimpleLLMClient` /
+    :class:`AdkLLMClient` 提供），通过 Google ADK + LiteLlm 接入本地
+    vLLM/OpenAI 兼容端点，无缝对接 langextract 的完整提取管道
     （Annotator → Resolver → WordAligner → char_interval）。
 
     参数:
-        client: 已初始化的 SimpleLLMClient 实例
+        client: 已初始化的 SimpleLLMClient 或 AdkLLMClient 实例
     """
 
-    def __init__(self, client: SimpleLLMClient) -> None:
+    def __init__(self, client: _LLMClientType) -> None:
         super().__init__()
         self._client = client
 
