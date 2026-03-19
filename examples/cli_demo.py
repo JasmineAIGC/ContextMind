@@ -95,11 +95,11 @@ class InteractiveDemo:
 
     def _setup_fnctod(self):
         logger.info(f"初始化 FnCTOD 模式 - {self.config.name}")
-        self.tracker = FnCTODAgent.from_scenario(self.config)
+        self.tracker = FnCTODAgent.from_scenario(self._get_llm_client(), self.config)
 
     def _setup_pytod(self):
         logger.info(f"初始化 PyTOD 模式 - {self.config.name}")
-        self.tracker = PyTODAgent.from_scenario(self.config)
+        self.tracker = PyTODAgent.from_scenario(self._get_llm_client(), self.config)
 
     def _setup_evolve(self):
         logger.info(f"初始化 Evolve 模式 - {self.config.name}")
@@ -158,7 +158,7 @@ class InteractiveDemo:
 
     def reset(self):
         if self.mode == "dst" and self.tracker:
-            self.tracker.reset_dialogue()
+            self.tracker.reset()
             self.last_system_reply = self.config.welcome_message or "你好！"
         elif self.mode in ("fnctod", "pytod") and self.tracker:
             self.tracker.reset()

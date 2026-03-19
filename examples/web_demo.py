@@ -127,12 +127,16 @@ class UnifiedGradioDemo:
     
     def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
-        self.fnctod_tracker = FnCTODAgent.from_scenario(self.config)
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        self.fnctod_tracker = FnCTODAgent.from_scenario(self.llm_client, self.config)
         logger.info("FnCTOD模式初始化完成")
 
     def _setup_pytod_tracker(self):
         """初始化PyTOD模式"""
-        self.pytod_tracker = PyTODAgent.from_scenario(self.config)
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        self.pytod_tracker = PyTODAgent.from_scenario(self.llm_client, self.config)
         logger.info("PyTOD模式初始化完成")
 
     def _setup_evolve_app(self):

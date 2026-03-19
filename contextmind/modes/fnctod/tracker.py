@@ -177,11 +177,15 @@ class FnCTODTracker:
             llm_client:      LLM 客户端实例（用于提取 LLMConfig；若传入 LLMConfig 则直接使用）。
             scenario_config: ScenarioConfig 实例。
             **kwargs: 其他传递给构造函数的参数（如 system_instruction）。
+                      未知参数（如 use_two_stage、max_history_turns）会被安全过滤。
         """
         # 若调用方直接传入 LLMConfig，则优先使用；否则尝试从 llm_client 中提取
         config: Any = kwargs.pop("config", None)
         if config is None and hasattr(llm_client, "_config"):
             config = llm_client._config
+        # 过滤掉本类构造函数不认识的参数，保持接口宽容
+        kwargs.pop("use_two_stage", None)
+        kwargs.pop("max_history_turns", None)
         fm = FunctionManager()
         try:
             schema = get_function_schema_for_scenario(scenario_config.name)

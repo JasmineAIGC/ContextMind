@@ -1,19 +1,35 @@
 """
-PyTOD Tracker — ADK 原生函数调用任务型对话追踪器
+PyTOD Tracker — 两种实现：论文三步流程 + ADK 原生函数调用
 
-利用 Google ADK 原生 Function Calling 替代 PyTOD 自定义程序解析器。
-本地 LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回复。
+PyTOD 论文三步流程（PyTODTracker）
+------------------------------------
+基于 "Task-Oriented Dialogue as Dataflow Synthesis" 系列论文：
+    Step 1 — Action Parser (AP): LLM 生成 Python-like 程序
+    Step 2 — Execution Engine (EE): 运行程序，得到 API 执行结果
+    Step 3 — Dialogue Manager (DM): LLM 根据执行结果生成自然语言回复
+
+ADK 原生函数调用（AdkPyTODTracker / PyTODAgent）
+--------------------------------------------------
+利用 Google ADK 原生 Function Calling 替代显式程序解析流程，
+LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回复。
 
 使用示例::
 
-    from contextmind.modes.pytod import PyTODTracker, ExecutionEngine
-    from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+    # 论文三步流程（推荐用于精确控制）
+    from contextmind.modes.pytod import PyTODTracker, PyTODPromptBuilder, ExecutionEngine
+    from contextmind.modes.pytod.schemas import ServiceSchema
 
     engine = ExecutionEngine()
-    SCENARIO_API_REGISTRY["callcenter"](engine)
-    tracker = PyTODTracker(engine=engine, scenario_context="电商客服场景")
-    result = await tracker.process_turn("我的订单什么时候发货？")
-    print(result["response"])
+    # ... 注册 API ...
+    builder = PyTODPromptBuilder(schema=my_schema)
+    tracker = PyTODTracker(llm_client=llm, execution_engine=engine, prompt_builder=builder)
+    result = await tracker.process_turn("查询我的账户余额")
+
+    # ADK 原生（推荐用于快速接入）
+    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    engine = ExecutionEngine()
+    agent = PyTODAgent(engine=engine, scenario_context="客服场景")
+    result = await agent.process_turn("查询我的账户余额")
 """
 
 from __future__ import annotations
@@ -23,6 +39,7 @@ from typing import Any, Dict, List, Optional
 from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.execution_engine import ExecutionEngine
+from contextmind.modes.pytod.prompts import ConversationTurn, PyTODPromptBuilder
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 try:
@@ -37,7 +54,7 @@ except ImportError:
 logger = get_logger(__name__)
 
 _ADK_INSTALL_MSG = (
-    "google-adk 未安装，无法创建 PyTODAgent。\n"
+    "google-adk 未安装，无法创建 AdkPyTODTracker。\n"
     "请运行: pip install google-adk litellm"
 )
 
@@ -63,10 +80,208 @@ def adk_tools_from_engine(engine: Any) -> List[Any]:
     return tools
 
 
+# ---------------------------------------------------------------------------
+# Step 1: PyTODTracker — 论文三步流程实现
+# ---------------------------------------------------------------------------
+
 class PyTODTracker:
+    """PyTOD 论文三步流程追踪器：AP → EE → DM。
+
+    严格对应原始论文的三步处理流程：
+        1. Action Parser (AP)   — LLM 根据对话历史和 Schema 生成程序
+        2. Execution Engine (EE)— 运行程序，执行注册的 API 函数
+        3. Dialogue Manager (DM)— LLM 根据执行结果生成自然语言回复
+
+    参数
+    ----
+    llm_client : SimpleLLMClient
+        LLM 客户端，同时用于 AP（低温）和 DM 阶段调用。
+    execution_engine : ExecutionEngine
+        已注册 API 函数的执行引擎。
+    prompt_builder : PyTODPromptBuilder
+        负责生成 AP 和 DM 两阶段的提示词。
+    scenario_name : str
+        场景名称（仅用于日志和标识）。
+    max_history_turns : int
+        构建提示词时保留的最近历史轮次数。
+    scenario_context : str
+        业务场景描述，嵌入系统指令以帮助 LLM 理解背景。
+    """
+
+    #: 动作解析阶段使用低温，保证程序生成的确定性
+    AP_TEMPERATURE: float = 0.1
+    #: 对话管理阶段使用略高温度，使回复更自然
+    DM_TEMPERATURE: float = 0.3
+
+    def __init__(
+        self,
+        llm_client: Any,
+        execution_engine: ExecutionEngine,
+        prompt_builder: PyTODPromptBuilder,
+        scenario_name: str = "",
+        max_history_turns: int = 10,
+        scenario_context: str = "",
+    ) -> None:
+        self.llm_client = llm_client
+        self.execution_engine = execution_engine
+        self.prompt_builder = prompt_builder
+        self.scenario_name = scenario_name
+        self.max_history_turns = max_history_turns
+        self.scenario_context = scenario_context
+
+        #: 对话历史（ConversationTurn 列表）。可在调用 process_turn 前手动注入历史。
+        self.history: List[ConversationTurn] = []
+        self.current_state: Dict[str, Any] = {}
+        self.turn_count: int = 0
+
+        logger.info(
+            f"PyTODTracker (论文三步) 初始化完成 "
+            f"(场景={scenario_name}, API={list(execution_engine.registry.keys())})"
+        )
+
+    # ------------------------------------------------------------------ #
+    # process_turn — 三步流程核心
+    # ------------------------------------------------------------------ #
+
+    async def process_turn(
+        self,
+        user_utterance: str,
+        system_utterance: str = "",  # 保持接口兼容，一般不需要传入
+    ) -> Dict[str, Any]:
+        """处理单轮对话，执行 AP → EE → DM 三步流程。
+
+        Args:
+            user_utterance: 用户话语。
+            system_utterance: 保留参数，当前实现不使用。
+
+        Returns:
+            包含以下键的字典：
+                - ``response``     : 对话管理器生成的自然语言回复
+                - ``program_text`` : 动作解析器生成的 PyTOD 程序文本
+                - ``state``        : 当前累积的执行变量状态
+                - ``execution``    : ProgramExecutionResult 对象
+        """
+        self.turn_count += 1
+        logger.info(f"[PyTODTracker] 第 {self.turn_count} 轮: {user_utterance[:80]}")
+
+        # ---- Step 1: Action Parser ----
+        ap_messages = self.prompt_builder.build_action_parser_prompt(
+            history=self.history,
+            user_utterance=user_utterance,
+            scenario_context=self.scenario_context,
+        )
+        program_text = await self.llm_client.chat_async(
+            messages=ap_messages,
+            temperature=self.AP_TEMPERATURE,
+        )
+        program_text = (program_text or "NONE()").strip()
+        logger.info(f"[AP] 程序: {program_text[:120]}")
+
+        # ---- Step 2: Execution Engine ----
+        execution_result = self.execution_engine.execute_program(program_text)
+        if execution_result.success:
+            self.current_state.update(execution_result.variable_values)
+        logger.info(
+            f"[EE] 执行 {'成功' if execution_result.success else '失败'}, "
+            f"变量: {list(execution_result.variable_values.keys())}"
+        )
+
+        # ---- Step 3: Dialogue Manager ----
+        dm_messages = self.prompt_builder.build_dm_prompt(
+            history=self.history,
+            user_utterance=user_utterance,
+            program=program_text,
+            execution_result=execution_result,
+            scenario_context=self.scenario_context,
+        )
+        response = await self.llm_client.chat_async(
+            messages=dm_messages,
+            temperature=self.DM_TEMPERATURE,
+        )
+        response = (response or "").strip()
+        logger.info(f"[DM] 回复: {response[:80]}")
+
+        # ---- 更新历史 ----
+        self.history.append(ConversationTurn(role="user", content=user_utterance))
+        self.history.append(ConversationTurn(role="assistant", content=response))
+
+        return {
+            "response": response,
+            "program_text": program_text,
+            "state": dict(self.current_state),
+            "execution": execution_result,
+        }
+
+    # ------------------------------------------------------------------ #
+    # 辅助方法
+    # ------------------------------------------------------------------ #
+
+    def get_current_state(self) -> Dict[str, Any]:
+        """返回当前累积的执行变量状态。"""
+        return dict(self.current_state)
+
+    def reset(self) -> None:
+        """重置对话状态（清空历史、状态和轮次计数）。"""
+        self.history = []
+        self.current_state = {}
+        self.turn_count = 0
+        logger.info("PyTODTracker 对话状态已重置")
+
+    @classmethod
+    def from_scenario(
+        cls,
+        llm_client: Any,
+        scenario_config: Any,
+        **kwargs: Any,
+    ) -> "PyTODTracker":
+        """从场景配置创建 PyTODTracker（论文三步流程版本）。
+
+        注意：需要在外部提供 prompt_builder；若未提供，则使用内置空 Schema 构建。
+
+        Args:
+            llm_client:      LLM 客户端实例。
+            scenario_config: ScenarioConfig 实例。
+            **kwargs:        额外参数（如 prompt_builder、scenario_context 等）。
+        """
+        from contextmind.modes.pytod.schemas import ServiceSchema
+
+        engine = ExecutionEngine()
+        scenario_name = getattr(scenario_config, "name", "")
+        key = get_scenario_key(scenario_name)
+        if key:
+            SCENARIO_API_REGISTRY[key](engine)
+
+        # 使用调用方提供的 prompt_builder，否则用空 Schema 构建占位符
+        prompt_builder: PyTODPromptBuilder = kwargs.pop(
+            "prompt_builder",
+            PyTODPromptBuilder(
+                schema=ServiceSchema(service_name=scenario_name, description=""),
+            ),
+        )
+        max_history_turns: int = kwargs.pop("max_history_turns", 10)
+        scenario_context: str = kwargs.pop(
+            "scenario_context",
+            getattr(scenario_config, "description", ""),
+        )
+        return cls(
+            llm_client=llm_client,
+            execution_engine=engine,
+            prompt_builder=prompt_builder,
+            scenario_name=scenario_name,
+            max_history_turns=max_history_turns,
+            scenario_context=scenario_context,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Step 2: AdkPyTODTracker — ADK 原生函数调用实现
+# ---------------------------------------------------------------------------
+
+class AdkPyTODTracker:
     """ADK 原生任务型对话追踪器。
 
-    以 ADK 原生 Function Calling 替代 PyTOD 三步程序解析流程。
+    以 ADK 原生 Function Calling 替代显式的 PyTOD 三步程序解析流程。
+    LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回复。
 
     参数
     ----
@@ -103,7 +318,7 @@ class PyTODTracker:
         self._user_id = user_id
 
         tools = adk_tools_from_engine(engine)
-        instruction = PyTODTracker._build_instruction(scenario_context)
+        instruction = AdkPyTODTracker._build_instruction(scenario_context)
 
         self._agent = LlmAgent(
             name="pytod_agent",
@@ -118,7 +333,7 @@ class PyTODTracker:
         self.turn_count: int = 0
 
         logger.info(
-            f"PyTODTracker 初始化完成 (model={self._llm_config.model}, "
+            f"AdkPyTODTracker 初始化完成 (model={self._llm_config.model}, "
             f"工具: {list(engine.registry.keys())})"
         )
 
@@ -129,8 +344,8 @@ class PyTODTracker:
         scenario_config: Any,
         config: Optional[LLMConfig] = None,
         **kwargs: Any,
-    ) -> "PyTODTracker":
-        """从场景配置创建 PyTODTracker。
+    ) -> "AdkPyTODTracker":
+        """从场景配置创建 AdkPyTODTracker。
 
         自动根据场景名称注册匹配的演示 API 函数。
 
@@ -138,9 +353,14 @@ class PyTODTracker:
             llm_client:      LLM 客户端实例（用于提取 LLMConfig；若提供 config 则优先使用 config）。
             scenario_config: ScenarioConfig 实例。
             config:          本地 LLM 配置（可选，优先于 llm_client 内部 config）。
+            **kwargs:        忽略未知参数（如 max_history_turns），保持接口宽容。
         """
         if config is None and hasattr(llm_client, "_config"):
             config = llm_client._config
+        # 过滤掉三步流程专用参数，保持接口宽容
+        kwargs.pop("max_history_turns", None)
+        kwargs.pop("prompt_builder", None)
+
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
         key = get_scenario_key(scenario_name)
@@ -150,7 +370,10 @@ class PyTODTracker:
         else:
             logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
 
-        scenario_context = getattr(scenario_config, "description", "")
+        scenario_context = kwargs.pop(
+            "scenario_context",
+            getattr(scenario_config, "description", ""),
+        )
         return cls(engine=engine, config=config, scenario_context=scenario_context, **kwargs)
 
     async def _get_or_create_session(self) -> str:
@@ -174,7 +397,7 @@ class PyTODTracker:
             包含 ``response``、``program_text``、``state``、``execution`` 的字典。
         """
         self.turn_count += 1
-        logger.info(f"PyTODAgent 第 {self.turn_count} 轮: {user_utterance}")
+        logger.info(f"AdkPyTODTracker 第 {self.turn_count} 轮: {user_utterance}")
 
         session_id = await self._get_or_create_session()
         new_message = genai_types.Content(
@@ -204,7 +427,7 @@ class PyTODTracker:
 
         response = final_text.strip()
         program_text = "\n".join(tool_call_parts) if tool_call_parts else "NONE()"
-        logger.info(f"[PyTODTracker] 回复: {response[:80]}")
+        logger.info(f"[AdkPyTODTracker] 回复: {response[:80]}")
 
         return {
             "response": response,
@@ -222,7 +445,7 @@ class PyTODTracker:
         self._session_id = None
         self.current_state = {}
         self.turn_count = 0
-        logger.info("PyTODTracker 对话状态已重置")
+        logger.info("AdkPyTODTracker 对话状态已重置")
 
     @staticmethod
     def _build_instruction(scenario_context: str) -> str:
@@ -241,5 +464,10 @@ class PyTODTracker:
         return base
 
 
-# 向后兼容别名
-PyTODAgent = PyTODTracker
+# ---------------------------------------------------------------------------
+# 别名：PyTODAgent 指向 ADK 版本（快速接入，无需显式 Schema）
+# ---------------------------------------------------------------------------
+
+#: ADK 原生追踪器的别名，与早期代码兼容。推荐使用 ``AdkPyTODTracker``。
+PyTODAgent = AdkPyTODTracker
+

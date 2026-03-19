@@ -117,7 +117,7 @@ class BatchDialogueTest:
         使用工厂方法简化初始化
         """
         # 使用工厂方法创建FnCTOD追踪器
-        self.fnctod_tracker = FnCTODTracker.from_scenario(
+        self.fnctod_tracker = FnCTODAgent.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             use_two_stage=True,
@@ -132,7 +132,7 @@ class BatchDialogueTest:
 
         使用工厂方法简化初始化，自动注册保险场景 API。
         """
-        self.pytod_tracker = PyTODTracker.from_scenario(
+        self.pytod_tracker = PyTODAgent.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             max_history_turns=self.max_history_turns,
@@ -353,7 +353,7 @@ class BatchDialogueTest:
         """
         # ✅ 为每个对话创建新的tracker实例，确保测试结果独立
         from contextmind.modes.fnctod import FnCTODAgent
-        tracker = FnCTODTracker.from_scenario(
+        tracker = FnCTODAgent.from_scenario(
             self.llm_client,
             self.config,
             use_two_stage=True,
@@ -437,7 +437,7 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         # 为每个对话创建新的 tracker 实例，确保测试结果独立
-        tracker = PyTODTracker.from_scenario(
+        tracker = PyTODAgent.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             max_history_turns=self.max_history_turns,
