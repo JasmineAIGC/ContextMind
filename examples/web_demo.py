@@ -210,39 +210,33 @@ class UnifiedGradioDemo:
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
                 
-                # 步骤1: 槽位提取（包含DST内部的多个步骤）
-                step_start = time.time()
-                state = await self.tracker.process_turn(
-                    system_utterance=system_utterance,
-                    user_utterance=message
-                )
-                timing_breakdown['槽位提取'] = time.time() - step_start
-                
-                # 收集DST内部的详细步骤耗时
-                if hasattr(self.tracker, 'step_timings'):
-                    timing_breakdown.update(self.tracker.step_timings)
-                    # 移除重复的'槽位提取'（使用DST内部的详细步骤）
-                    if '槽位提取' in timing_breakdown and len(self.tracker.step_timings) > 0:
-                        del timing_breakdown['槽位提取']
-                
-                # 步骤2: 状态捕获（在回复生成之前）
-                # DST模式：状态已在process_turn中提取，现在捕获用于UI显示
-                # 此时状态将用于指导接下来的回复生成
-                step_start = time.time()
-                self._capture_post_user_state()
-                timing_breakdown['状态捕获'] = time.time() - step_start
-                
-                # 步骤3: 回复生成
-                step_start = time.time()
+                # 步骤1&3并行: 槽位提取 + 回复生成
+                # 回复消息只依赖 system_prompt 和用户输入，与槽位提取结果无关，
+                # 因此可与 process_turn 并发执行，将总耗时从 2×LLM_time 降至 ~1×LLM_time。
                 system_prompt = self.config.system_prompt
-                messages = [
+                reply_messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": message}
                 ]
-                
-                # chat_async returns a string directly, not a dict
-                reply = await self.llm_client.chat_async(messages=messages)
-                timing_breakdown['回复生成'] = time.time() - step_start
+
+                step_start = time.time()
+                state, reply = await asyncio.gather(
+                    self.tracker.process_turn(
+                        system_utterance=system_utterance,
+                        user_utterance=message
+                    ),
+                    self.llm_client.chat_async(messages=reply_messages)
+                )
+                timing_breakdown['槽位提取+回复生成(并行)'] = time.time() - step_start
+
+                # 收集DST内部的详细步骤耗时
+                if hasattr(self.tracker, 'step_timings'):
+                    timing_breakdown.update(self.tracker.step_timings)
+
+                # 步骤2: 状态捕获（槽位提取已通过 gather 完成）
+                step_start = time.time()
+                self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
                 
             elif self.current_mode == "fnctod":
                 # FnCTOD模式
