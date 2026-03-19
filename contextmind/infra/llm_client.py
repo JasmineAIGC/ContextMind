@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
@@ -200,6 +201,10 @@ class AdkLLMClient:
                 for part in event.content.parts or []:
                     if hasattr(part, "text") and part.text:
                         final_text += part.text
+        # Strip <think>…</think> reasoning blocks emitted by thinking models
+        # (e.g. Qwen3, DeepSeek-R1).  Gradio renders such tags as invisible
+        # HTML elements, causing the raw thinking text to bleed into the reply.
+        final_text = re.sub(r"<think>.*?</think>", "", final_text, flags=re.DOTALL)
         return final_text.strip()
 
     async def generate_async(self, prompt: str) -> tuple[str, str]:
