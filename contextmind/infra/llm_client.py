@@ -206,6 +206,30 @@ class AdkLLMClient:
         """异步 prompt 生成，返回 ``("", response_text)``。"""
         return "", await self.chat_async([{"role": "user", "content": prompt}])
 
+    def generate(self, prompt: str) -> tuple[str, str]:
+        """同步 prompt 生成，返回 ``(reasoning, response_text)`` 元组。
+
+        ``reasoning`` 始终为空字符串（仅 DeepSeek-R1 等 CoT 模型会有非空值）。
+
+        若当前线程已有运行中的 event loop（如 Jupyter Notebook），
+        则在独立线程的新 loop 中执行，避免 "cannot run nested event loop" 报错。
+        """
+        import asyncio
+        import concurrent.futures
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None and loop.is_running():
+            # 已在异步上下文中（Jupyter / async 测试框架）——在新线程中执行
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, self.generate_async(prompt))
+                return future.result()
+        else:
+            return asyncio.run(self.generate_async(prompt))
+
 
 # ---------------------------------------------------------------------------
 # 向后兼容别名
