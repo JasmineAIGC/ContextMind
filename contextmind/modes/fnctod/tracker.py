@@ -248,7 +248,8 @@ class FnCTODTracker:
                         turn_updates.update(filtered)
                         logger.debug(f"[turn {self.turn_count}] function call '{fc.name}': {filtered}")
                     if event.is_final_response() and hasattr(part, "text") and part.text:
-                        final_text += part.text
+                        if not getattr(part, "thought", False):
+                            final_text += part.text
 
         self._current_state.update(turn_updates)
         self._dialogue_history.append({"role": "user", "content": user_utterance})

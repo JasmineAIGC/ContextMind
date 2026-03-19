@@ -34,6 +34,7 @@ LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
@@ -423,8 +424,13 @@ class AdkPyTODTracker:
             if event.is_final_response() and event.content:
                 for part in event.content.parts or []:
                     if hasattr(part, "text") and part.text:
+                        # 跳过思考内容（reasoning_content 被 ADK 转为 thought=True 的 part）
+                        if getattr(part, "thought", False):
+                            continue
                         final_text += part.text
 
+        # 剥除思考模型可能残留的 <think>…</think> 推理块
+        final_text = re.sub(r"<think>.*?</think>", "", final_text, flags=re.DOTALL)
         response = final_text.strip()
         program_text = "\n".join(tool_call_parts) if tool_call_parts else "NONE()"
         logger.info(f"[AdkPyTODTracker] 回复: {response[:80]}")

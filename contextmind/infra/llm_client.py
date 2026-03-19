@@ -246,6 +246,15 @@ class AdkLLMClient:
         self._adk_model = create_local_adk_model(self._config)
         self.system_instruction = system_instruction
         _configure_litellm_for_local_model(self._config.model)
+
+        # 在初始化时创建 Agent 和 Runner，避免每次 chat_async 调用时重复构建。
+        # Agent/Runner 仅持有不可变配置，会话状态通过每次独立的 session 隔离。
+        self._agent = LlmAgent(
+            name="adk_llm_client",
+            model=self._adk_model,
+            instruction=self.system_instruction,
+        )
+        self._runner = InMemoryRunner(agent=self._agent, app_name="contextmind_adk")
         logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
 
     def _build_user_content(self, messages: List[dict]) -> str:
@@ -278,13 +287,8 @@ class AdkLLMClient:
         Returns:
             助手的回复文本。
         """
-        agent = LlmAgent(
-            name="adk_llm_client",
-            model=self._adk_model,
-            instruction=self.system_instruction,
-        )
-        runner = InMemoryRunner(agent=agent, app_name="contextmind_adk")
-        session = await runner.session_service.create_session(
+        # 每次调用创建独立 session，保证无状态隔离；Agent/Runner 复用初始化时创建的实例。
+        session = await self._runner.session_service.create_session(
             app_name="contextmind_adk", user_id="default",
         )
         content = genai_types.Content(
@@ -292,7 +296,7 @@ class AdkLLMClient:
             parts=[genai_types.Part(text=self._build_user_content(messages))],
         )
         final_text = ""
-        async for event in runner.run_async(
+        async for event in self._runner.run_async(
             user_id="default", session_id=session.id, new_message=content,
         ):
             if event.is_final_response() and event.content:
