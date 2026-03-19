@@ -265,19 +265,15 @@ class EvolveApplication:
             for i, item in enumerate(memory_cache)
         }
 
-    def reset(self) -> None:
-        """重置对话，清空会话历史（实现 BaseTracker 协议）。
+    async def reset(self) -> None:  # type: ignore[override]
+        """重置对话，清空会话历史（实现 BaseTracker 协议的异步版本）。
 
-        注意：长期记忆库（MemoryBank）不会被清空，仅会话历史被重置。
+        注意：长期记忆库（MemoryBank）不会被清空，仅当前会话历史被重置。
+        由于底层 EvolveEngine.clear_session() 是协程，此方法为 async。
+        在同步上下文中，可以使用 asyncio.run(app.reset()) 调用。
         """
-        import asyncio
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 在异步上下文中，调度协程而不等待
-                loop.create_task(self.evolve_engine.clear_session())
-            else:
-                loop.run_until_complete(self.evolve_engine.clear_session())
+            await self.evolve_engine.clear_session()
         except Exception as exc:
             logger.warning(f"[EvolveApplication] reset 失败: {exc}")
 
