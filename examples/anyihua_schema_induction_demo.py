@@ -489,7 +489,7 @@ def _init_llm() -> SimpleLLMClient:
     """初始化 LLM 客户端（从环境变量加载配置）。"""
     try:
         config = LLMConfig.from_env()
-        client = SimpleLLMClient(config)
+        client = SimpleLLMClient(config=config)
         print(f"✅ LLM 客户端初始化成功（model: {config.model}）")
         return client
     except Exception as e:

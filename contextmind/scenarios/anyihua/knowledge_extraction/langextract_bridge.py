@@ -78,7 +78,7 @@ langextract 官方示例（README.md）的标准用法::
     from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
 
     dialogues = json.loads(Path("resources/data/chat_test_100.json").read_text())
-    client = SimpleLLMClient(LLMConfig.from_env())
+    client = SimpleLLMClient(config=LLMConfig.from_env())
 
     # 逐轮提取，携带最近 3 轮历史上下文，并对槽位去重
     result = extract_with_per_turn_annotator(

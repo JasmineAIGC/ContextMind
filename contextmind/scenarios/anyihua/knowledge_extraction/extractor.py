@@ -1277,7 +1277,7 @@ class AnyihuaKnowledgeExtractor:
     ) -> None:
         if llm_client is None:
             try:
-                llm_client = SimpleLLMClient(LLMConfig.from_env())
+                llm_client = SimpleLLMClient(config=LLMConfig.from_env())
             except Exception as exc:
                 raise RuntimeError(
                     "LLM 客户端初始化失败，请确认 .env 文件中已正确配置 API Key、"
