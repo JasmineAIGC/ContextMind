@@ -44,6 +44,16 @@ def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[s
     return default
 
 
+_THINKING_MODELS = ("qwen3", "qwen-3", "deepseek-r1", "deepseek_r1")
+"""模型名称片段列表（小写），对应需要禁用思考模式的推理模型。"""
+
+
+def _is_thinking_model(model: str) -> bool:
+    """如果模型名称表明它是推理型模型，返回 True。"""
+    lower = model.lower()
+    return any(fragment in lower for fragment in _THINKING_MODELS)
+
+
 @dataclass
 class LLMConfig:
     """OpenAI 兼容端点的运行时配置。"""
@@ -54,6 +64,12 @@ class LLMConfig:
     temperature: float = DEFAULT_TEMPERATURE
     top_k: int = 20
     max_tokens: int = 4096
+    enable_thinking: Optional[bool] = None
+    """控制推理模型（如 Qwen3）的思考模式。
+    ``False`` 通过 ``extra_body`` 禁用链式推理输出，防止思考内容出现在回复中。
+    ``None``（默认）：对已知推理模型自动设为 ``False``，其他模型不传此参数。
+    ``True``：强制启用思考模式（通常用于调试）。
+    """
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
@@ -83,6 +99,15 @@ class LLMConfig:
         top_k = int(v) if (v := _first_env(["QWEN3_TOP_K", "LLM_TOP_K", "TOP_K"])) else 20
         max_tokens = int(v) if (v := _first_env(["QWEN3_MAX_TOKENS", "LLM_MAX_TOKENS", "MAX_TOKENS"])) else 4096
 
+        # 解析 ENABLE_THINKING 环境变量；若未设置则由 enable_thinking=None 触发自动检测
+        enable_thinking_str = _first_env([
+            "CONTEXTMIND_ENABLE_THINKING", "LLM_ENABLE_THINKING", "ENABLE_THINKING",
+        ])
+        if enable_thinking_str is not None:
+            enable_thinking: Optional[bool] = enable_thinking_str.lower() not in ("false", "0", "no", "off")
+        else:
+            enable_thinking = None
+
         return cls(
             api_key=api_key,
             model=model,
@@ -90,6 +115,7 @@ class LLMConfig:
             temperature=temperature,
             top_k=top_k,
             max_tokens=max_tokens,
+            enable_thinking=enable_thinking,
         )
 
 
@@ -109,10 +135,22 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
     if config is None:
         config = LLMConfig.from_env()
 
+    # 决定是否通过 extra_body 控制推理模型的思考模式。
+    # enable_thinking=None（默认）→ 已知推理模型（Qwen3、DeepSeek-R1 等）自动禁用；
+    # enable_thinking=False   → 强制禁用；enable_thinking=True → 强制启用。
+    resolved_thinking: Optional[bool] = config.enable_thinking
+    if resolved_thinking is None and _is_thinking_model(config.model):
+        resolved_thinking = False
+
+    model_kwargs: dict = {}
+    if resolved_thinking is not None:
+        model_kwargs["extra_body"] = {"enable_thinking": resolved_thinking}
+
     return LiteLlm(
         model=f"openai/{config.model}",
         api_base=config.base_url,
         api_key=config.api_key,
+        **({"model_kwargs": model_kwargs} if model_kwargs else {}),
     )
 
 
