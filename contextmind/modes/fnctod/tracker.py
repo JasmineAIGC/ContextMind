@@ -139,9 +139,12 @@ class FnCTODTracker:
         if system_instruction is None:
             domain_names = function_manager.get_domain_names()
             system_instruction = (
-                "你是一个任务型对话助手，能够通过调用函数提取对话中的关键信息。\n"
+                "你是一个任务型对话助手，通过调用函数提取对话中的关键信息，然后给出自然语言回复。\n"
                 f"可用的业务域: {', '.join(domain_names)}。\n"
-                "根据用户的话语调用对应函数，将槽位值作为参数传入。"
+                "处理规则：\n"
+                "1. 每轮对话只调用函数一次，一次性填入所有已识别的槽位值；\n"
+                "2. 函数调用完成后，立即用简洁的中文给出对话回复；\n"
+                "3. 不要重复调用函数。"
             )
         self.system_instruction = system_instruction
 
