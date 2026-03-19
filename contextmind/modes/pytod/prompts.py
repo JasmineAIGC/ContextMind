@@ -96,7 +96,8 @@ class PyTODPromptBuilder:
     def _format_history(self, history: List[ConversationTurn]) -> str:
         """将历史列表格式化为多行文本。"""
         lines = []
-        for turn in history[-self.max_history_turns * 2:]:  # 每轮含两条
+        # max_history_turns 轮 × 2 = 每轮含 user + assistant 各一条
+        for turn in history[-self.max_history_turns * 2:]:
             prefix = "用户：" if turn.role == "user" else "坐席："
             lines.append(f"{prefix}{turn.content}")
         return "\n".join(lines) if lines else "（无历史）"

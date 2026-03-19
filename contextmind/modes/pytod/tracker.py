@@ -318,7 +318,7 @@ class AdkPyTODTracker:
         self._user_id = user_id
 
         tools = adk_tools_from_engine(engine)
-        instruction = AdkPyTODTracker._build_instruction(scenario_context)
+        instruction = self._build_instruction(scenario_context)
 
         self._agent = LlmAgent(
             name="pytod_agent",

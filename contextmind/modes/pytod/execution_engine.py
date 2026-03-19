@@ -16,11 +16,20 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 @dataclass
 class ProgramStatement:
-    """动作解析器生成的程序语句（解析后的结构化表示）。"""
+    """动作解析器生成的程序语句（解析后的结构化表示）。
+
+    Attributes:
+        function_name: 要调用的函数名称（如 ``query_account``）。
+        kwargs:        关键字参数字典（仅允许常量值）。
+        raw_text:      原始文本，用于调试。
+        variable:      本语句结果绑定的变量名（如 ``x1``）；
+                       裸调用（无变量绑定）时为空字符串。
+    """
 
     function_name: str
     kwargs: Dict[str, Any]
     raw_text: str = ""
+    variable: str = ""          # 绑定变量名（x1 / x2 / ...），裸调用为 ""
 
     def to_call_text(self) -> str:
         """重新生成可读的函数调用文本。"""
@@ -463,23 +472,33 @@ class ExecutionEngine:
         errors: List[str] = []
         hint_messages: List[str] = []
         say_output: str = ""
+        _anon_counter: int = 0                 # 匿名调用计数器（无变量绑定时用）
 
         for stmt in block.statements:
             if isinstance(stmt, ProgramStatement):
+                # NONE() 是动作解析器在无需调用任何 API 时输出的哨兵值，直接跳过。
+                if stmt.function_name.upper() == "NONE":
+                    continue
                 kwargs = dict(stmt.kwargs)
-                var_kwargs[stmt._variable] = kwargs  # type: ignore[attr-defined]
-                var_func[stmt._variable] = stmt.function_name  # type: ignore[attr-defined]
+                # 若语句无变量绑定，生成唯一匿名 key，避免多次调用同一函数时覆盖。
+                if stmt.variable:
+                    var_key = stmt.variable
+                else:
+                    _anon_counter += 1
+                    var_key = f"_anon{_anon_counter}"
+                var_kwargs[var_key] = kwargs
+                var_func[var_key] = stmt.function_name
                 single_result = self._call_registered(stmt.function_name, kwargs)
                 if single_result is None:
                     errors.append(
-                        f"函数 '{stmt.function_name}' 未注册（变量 {stmt._variable}）"  # type: ignore[attr-defined]
+                        f"函数 '{stmt.function_name}' 未注册（变量 {var_key}）"
                     )
                 elif isinstance(single_result, Exception):
                     errors.append(
-                        f"变量 {stmt._variable}: {type(single_result).__name__}: {single_result}"  # type: ignore[attr-defined]
+                        f"变量 {var_key}: {type(single_result).__name__}: {single_result}"
                     )
-                else:
-                    var_values[stmt._variable] = single_result  # type: ignore[attr-defined]
+                elif var_key:
+                    var_values[var_key] = single_result
 
             elif isinstance(stmt, SlotAssignment):
                 if stmt.variable not in var_func:
@@ -603,13 +622,12 @@ class ExecutionEngine:
             stmt, err = self.parse(func_part)
             if stmt is None:
                 return None, err
-            # 附加变量名属性（用 object.__setattr__ 避免 dataclass 冲突）
-            stmt._variable = var_name  # type: ignore[attr-defined]
+            stmt.variable = var_name
             return stmt, ""
 
         stmt, err = self.parse(line)
         if stmt is not None:
-            stmt._variable = "_"  # type: ignore[attr-defined]
+            stmt.variable = ""
             return stmt, ""
 
         return None, err
