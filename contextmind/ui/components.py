@@ -76,10 +76,10 @@ def create_layout() -> tuple:
                 )
                 mode_selector = gr.Radio(
                     choices=[
-                        ("Evolve 模式 (记忆进化)", "evolve"),
                         ("DST 模式 (槽位提取)", "dst"),
                         ("FnCTOD 模式 (函数调用)", "fnctod"),
                         ("PyTOD 模式 (程序执行)", "pytod"),
+                        ("Evolve 模式 (记忆进化)", "evolve"),
                     ],
                     value="evolve",
                     label="选择模式",
