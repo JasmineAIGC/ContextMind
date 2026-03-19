@@ -128,6 +128,8 @@ class AdkPyTODTracker:
         self._session_id: Optional[str] = None
 
         self.current_state: Dict[str, Any] = {}
+        # api_call_log: 按轮次记录每次工具调用的 {name, args, result}
+        self.api_call_log: list = []
         self.turn_count: int = 0
 
         logger.info(
@@ -204,6 +206,8 @@ class AdkPyTODTracker:
 
         final_text = ""
         tool_call_parts: List[str] = []
+        # 本轮工具调用的中间结构：{fn_name -> {args, result}}
+        turn_calls: Dict[str, Any] = {}
 
         async for event in self._runner.run_async(
             user_id=self._user_id, session_id=session_id, new_message=new_message,
@@ -211,11 +215,16 @@ class AdkPyTODTracker:
             for fc in event.get_function_calls() or []:
                 call_repr = f"{fc.name}({fc.args})"
                 tool_call_parts.append(call_repr)
+                # 记录调用参数，等响应到来时补充 result
+                turn_calls[fc.name] = {"args": dict(fc.args or {}), "result": None}
                 logger.info(f"[Tool Call] {call_repr}")
 
             for fr in event.get_function_responses() or []:
                 if isinstance(fr.response, dict):
                     self.current_state[f"x{self.turn_count}_{fr.name}"] = fr.response
+                # 补充对应工具的执行结果
+                if fr.name in turn_calls:
+                    turn_calls[fr.name]["result"] = fr.response
                 logger.info(f"[Tool Response] {fr.name}: {str(fr.response)[:120]}")
 
             if event.is_final_response() and event.content:
@@ -225,6 +234,16 @@ class AdkPyTODTracker:
                         if getattr(part, "thought", False):
                             continue
                         final_text += part.text
+
+        # 将本轮工具调用记录追加到 api_call_log（即使没有调用也记录空占位）
+        if turn_calls:
+            for fn_name, call_info in turn_calls.items():
+                self.api_call_log.append({
+                    "turn": self.turn_count,
+                    "api": fn_name,
+                    "args": call_info["args"],
+                    "result": call_info["result"],
+                })
 
         # 剥除思考模型可能残留的 <think>…</think> 推理块
         final_text = re.sub(r"<think>.*?</think>", "", final_text, flags=re.DOTALL)
@@ -240,13 +259,17 @@ class AdkPyTODTracker:
         }
 
     def get_current_state(self) -> Dict[str, Any]:
-        """返回当前累积对话状态（工具执行结果）。"""
-        return dict(self.current_state)
+        """返回当前累积对话状态（工具执行结果 + API 调用日志）。"""
+        state = dict(self.current_state)
+        if self.api_call_log:
+            state["_api_call_log"] = list(self.api_call_log)
+        return state
 
     def reset(self) -> None:
         """重置对话状态，创建新的 ADK session。"""
         self._session_id = None
         self.current_state = {}
+        self.api_call_log = []
         self.turn_count = 0
         logger.info("AdkPyTODTracker 对话状态已重置")
 

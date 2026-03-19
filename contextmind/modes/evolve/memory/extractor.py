@@ -447,43 +447,55 @@ class LLMBasedExtractor(BaseExtractor):
 
     def _validate_knowledge_against_conversation(self, knowledge_list: List[Knowledge], conversation_text: str) -> List[Knowledge]:
         """
-        验证提取的知识是否真实存在于对话中，过滤幻觉内容
-        
+        验证提取的知识是否真实存在于对话中，过滤明显幻觉内容。
+
+        策略：LLM 提取的知识往往是对话内容的**概括或改写**，不会逐字出现在原文中。
+        因此本方法只做宽松校验：检查知识内容中的**关键实体词**（数字、专有名词、
+        4字以上特征词）是否至少有一个出现在对话中。
+        对于无法提取到实体词的短内容，直接通过（交由置信度阈值筛选）。
+
         Args:
             knowledge_list: 待验证的知识列表
             conversation_text: 原始对话文本
-            
+
         Returns:
             验证通过的知识列表
         """
         validated = []
         conversation_lower = conversation_text.lower()
-        
+
         for knowledge in knowledge_list:
             content = knowledge.content.strip()
-            
-            # Strip type-tag prefixes (e.g. "用户偏好:") before phrase extraction so
-            # 验证检查针对实际事实内容进行。
-            content_clean = re.sub(r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*', '', content)
-            
-            # 提取 3 个字符以上的 CJK 序列作为关键短语；
-            # 更短的 CJK 字符串通常是虚词或量词，信息量低。
-            key_phrases = re.findall(r'[\u4e00-\u9fa5]{3,}', content_clean)
-            
-            if not key_phrases:
-                key_phrases = [content_clean]
-            
-            found = False
-            for phrase in key_phrases:
-                if len(phrase) >= 2 and phrase.lower() in conversation_lower:
-                    found = True
-                    break
-            
+
+            # 去除类型前缀标签（如 "用户偏好:"）
+            content_clean = re.sub(
+                r'^(用户|助手|客户)?(偏好|意图|需求|事实|事件|观点|习惯|约束|兴趣|信息|计划|目标|问题|反馈|评价|建议|要求|条件|状态|行为|特征|属性|关系|经历|技能|知识|态度|情感|价值观|理念|原则|规则|标准|期望|愿望|梦想|担忧|顾虑|限制|障碍|挑战|机会|资源|能力|优势|劣势|风险|威胁)[:：]\s*',
+                '', content,
+            )
+
+            # 优先提取数字（包括小数/百分比）作为高可信实体
+            number_phrases = re.findall(r'\d+(?:[.,]\d+)?%?', content_clean)
+
+            # 提取 4 字以上 CJK 序列作为特征词（4字更具信息量，减少虚词误判）
+            cjk_phrases = re.findall(r'[\u4e00-\u9fa5]{4,}', content_clean)
+
+            candidate_phrases = number_phrases + cjk_phrases
+
+            if not candidate_phrases:
+                # 无可检验实体，直接通过（由置信度阈值把关）
+                validated.append(knowledge)
+                continue
+
+            # 只要有一个候选短语出现在对话中，即视为有据可查
+            found = any(p.lower() in conversation_lower for p in candidate_phrases)
+
             if found:
                 validated.append(knowledge)
             else:
-                logger.debug(f"[LLMBasedExtractor] 过滤疑似幻觉: [{knowledge.knowledge_type.value}] {content[:50]}...")
-        
+                logger.debug(
+                    f"[LLMBasedExtractor] 过滤疑似幻觉: [{knowledge.knowledge_type.value}] {content[:50]}..."
+                )
+
         return validated
 
 

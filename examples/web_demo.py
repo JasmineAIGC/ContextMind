@@ -465,34 +465,36 @@ class UnifiedGradioDemo:
                 "可用 API": self.pytod_tracker.engine.list_functions(),
             }
 
-            if state:
-                api_results = {}
-                hints = []
-                say_text = None
-                for key, value in state.items():
-                    if key == "_hints":
-                        hints = value if isinstance(value, list) else [value]
-                    elif key == "_say":
-                        say_text = str(value)
-                    elif isinstance(value, dict):
-                        for k, v in value.items():
-                            if k not in ("_raw",):
-                                sv = str(v)
-                                api_results[k] = sv[:50] + "..." if len(sv) > 50 else sv
-                    else:
-                        sv = str(value)
-                        api_results[key] = sv[:50] + "..." if len(sv) > 50 else sv
+            # API 调用日志（turn_count > 0 后才有）
+            api_call_log = state.pop("_api_call_log", [])
+            if api_call_log:
+                log_display = []
+                for entry in api_call_log:
+                    args_str = ", ".join(f"{k}={v}" for k, v in (entry.get("args") or {}).items())
+                    result = entry.get("result")
+                    result_str = str(result)[:60] + "..." if result and len(str(result)) > 60 else str(result or "")
+                    log_display.append(f"[第{entry['turn']}轮] {entry['api']}({args_str}) → {result_str}")
+                state_info["API 调用历史"] = log_display
 
-                if api_results:
-                    state_info["API 执行结果"] = api_results
-                if hints:
-                    state_info["待收集信息"] = [str(h) for h in hints]
-                if say_text:
-                    state_info["最近 say() 输出"] = say_text[:80] + "..." if len(say_text) > 80 else say_text
-                if not api_results and not hints and not say_text:
-                    state_info["执行状态"] = "暂无执行结果"
-            else:
-                state_info["执行状态"] = "暂无执行结果"
+            # 累积工具执行结果（x{turn}_{fn} 键）
+            api_results = {}
+            for key, value in state.items():
+                if key.startswith("_"):
+                    continue
+                if isinstance(value, dict):
+                    for k, v in value.items():
+                        if k not in ("_raw",):
+                            sv = str(v)
+                            api_results[k] = sv[:50] + "..." if len(sv) > 50 else sv
+                else:
+                    sv = str(value)
+                    api_results[key] = sv[:50] + "..." if len(sv) > 50 else sv
+
+            if api_results:
+                state_info["累积执行结果"] = api_results
+
+            if not api_call_log and not api_results:
+                state_info["执行状态"] = "暂无 API 调用（LLM 尚未调用工具）"
 
             return state_info
 
