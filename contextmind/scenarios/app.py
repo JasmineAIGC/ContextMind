@@ -234,13 +234,17 @@ class EvolveApplication:
         )
         self.step_timings["对话更新"] = time.time() - t
 
-        # 步骤 5：知识提取
-        t = time.time()
-        try:
-            await self.evolve_engine.extract_knowledge(auto_store=True)
-        except Exception as exc:
-            logger.warning(f"知识提取失败: {exc}")
-        self.step_timings["知识提取"] = time.time() - t
+        # 步骤 5：知识提取（后台异步执行，不阻塞回复返回）
+        # 知识提取涉及额外的 LLM 调用（~10-15s），在回复已生成后在后台运行。
+        async def _bg_extract() -> None:
+            try:
+                await self.evolve_engine.extract_knowledge(auto_store=True)
+            except Exception as exc:
+                logger.warning(f"知识提取失败: {exc}")
+
+        import asyncio
+        asyncio.create_task(_bg_extract())
+        self.step_timings["知识提取"] = 0.0  # 后台运行，不计入阻塞耗时
 
         if debug:
             return response, debug_info

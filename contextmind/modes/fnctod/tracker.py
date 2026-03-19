@@ -219,10 +219,13 @@ class FnCTODTracker:
         self._session_id = None
 
     async def process_turn(self, user_utterance: str, **kwargs: Any) -> Dict[str, Any]:
-        """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位。
+        """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位并生成回复。
 
         Returns:
-            本轮新增或更新的状态条目字典。
+            包含以下键的字典:
+                - ``response``  : LLM 生成的自然语言回复文本
+                - ``state``     : 当前累积的对话状态（所有轮次槽位合并）
+                - ``updates``   : 本轮新增或更新的槽位条目
         """
         session_id = await self._get_or_create_session()
         self.turn_count += 1
@@ -253,11 +256,16 @@ class FnCTODTracker:
 
         self._current_state.update(turn_updates)
         self._dialogue_history.append({"role": "user", "content": user_utterance})
-        if final_text:
-            self._dialogue_history.append({"role": "assistant", "content": final_text.strip()})
+        response_text = final_text.strip()
+        if response_text:
+            self._dialogue_history.append({"role": "assistant", "content": response_text})
 
         logger.info(f"[turn {self.turn_count}] 更新: {turn_updates}, 累积: {self._current_state}")
-        return turn_updates
+        return {
+            "response": response_text,
+            "state": dict(self._current_state),
+            "updates": turn_updates,
+        }
 
     def get_current_state(self) -> Dict[str, Any]:
         """返回累积的对话状态。"""
