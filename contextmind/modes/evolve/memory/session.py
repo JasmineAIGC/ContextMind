@@ -12,7 +12,18 @@ from ..core.data_models import Message
 from ..core.config import MessageRole
 from contextmind.infra.logger import get_logger
 
+try:
+    from google.adk.sessions import InMemorySessionService  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
+
 logger = get_logger(__name__)
+
+_ADK_INSTALL_MSG = (
+    "google-adk 未安装，无法创建 SessionManager。\n"
+    "请运行: pip install google-adk"
+)
 
 
 class SessionManager:
@@ -36,13 +47,8 @@ class SessionManager:
             user_id: 用户 ID
             max_recent_events: 保留的最大近期消息数量
         """
-        try:
-            from google.adk.sessions import InMemorySessionService  # type: ignore[import]
-        except ImportError as exc:
-            raise ImportError(
-                "google-adk 未安装，无法创建 SessionManager。\n"
-                "请运行: pip install google-adk"
-            ) from exc
+        if not _ADK_AVAILABLE:
+            raise ImportError(_ADK_INSTALL_MSG)
 
         self.app_name = app_name
         self.user_id = user_id
