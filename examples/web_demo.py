@@ -211,15 +211,22 @@ class UnifiedGradioDemo:
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
-                
-                # 步骤1&3并行: 槽位提取 + 回复生成
-                # 回复消息只依赖 system_prompt 和用户输入，与槽位提取结果无关，
-                # 因此可与 process_turn 并发执行，将总耗时从 2×LLM_time 降至 ~1×LLM_time。
+
+                # 步骤1: 槽位提取（process_turn）
+                # 步骤2: 回复生成（包含历史上下文，与槽位提取并行执行节省延迟）
+                # 注意：回复生成使用对话历史而非槽位提取结果，因此可并行
                 system_prompt = self.config.system_prompt
-                reply_messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": message}
-                ]
+
+                # 构建包含历史的回复消息列表（修复：之前版本缺失历史上下文）
+                reply_messages: list = [{"role": "system", "content": system_prompt}]
+                timing_tag_re = re.compile(r'\n\n<small style=.*?</small>', re.DOTALL)
+                for hist_msg in history[-self.max_history_turns * 2:]:
+                    role = hist_msg.get("role", "user")
+                    content = hist_msg.get("content", "")
+                    if isinstance(content, str):
+                        content = timing_tag_re.sub("", content)
+                    reply_messages.append({"role": role, "content": content})
+                reply_messages.append({"role": "user", "content": message})
 
                 step_start = time.time()
                 state, reply = await asyncio.gather(
@@ -562,7 +569,8 @@ class UnifiedGradioDemo:
         scenario_names = {
             "chat": "💬 闲聊对话",
             "callcenter": "📞 智能客服",
-            "insurance": "🏥 保险咨询"
+            "insurance": "🏥 保险咨询",
+            "anyihua": "📱 安逸花外呼",
         }
         return scenario_names.get(scenario, scenario)
     

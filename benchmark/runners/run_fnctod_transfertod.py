@@ -24,6 +24,12 @@ import datetime
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:
+    pass
+
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario

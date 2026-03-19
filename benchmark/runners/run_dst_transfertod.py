@@ -23,6 +23,12 @@ from collections import defaultdict, Counter
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:
+    pass
+
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
 from benchmark.shared.intent_label_loader import IntentLabelLoader

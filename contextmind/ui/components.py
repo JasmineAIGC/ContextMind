@@ -59,6 +59,7 @@ def create_layout() -> tuple:
                         show_label=False,
                         scale=5,
                         container=False,
+                        submit_btn=False,  # 禁用内置提交按钮，避免 Enter 同时触发 msg.submit 和 send_btn.click 双重提交
                     )
                     send_btn = gr.Button("发送", scale=1, variant="primary")
 
@@ -274,9 +275,14 @@ def bind_events(app: gr.Blocks, components: dict, demo_instance) -> None:
             gr.update(visible=evolve_vis),
         )
 
+    def _send_message(message, history):
+        """防止双重提交：send_btn.click 和 msg.submit 共享此入口。"""
+        return demo_instance.chat.__func__(demo_instance, message, history) if hasattr(demo_instance.chat, '__func__') else demo_instance.chat(message, history)
+
     with app:
-        # 发送消息
-        send_btn.click(
+        # 发送消息（send_btn.click 和 msg.submit 共享同一调用链，避免双重触发 LLM）
+        # submit_btn=False 已在 create_layout 中设置，保证 Enter 仅触发 msg.submit
+        chat_chain = send_btn.click(
             fn=demo_instance.chat,
             inputs=[msg, chatbot],
             outputs=[chatbot],
