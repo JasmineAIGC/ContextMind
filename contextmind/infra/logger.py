@@ -4,7 +4,9 @@
 ContextMind 统一日志系统
 """
 
+import io
 import logging
+import sys
 from datetime import datetime
 from enum import Enum as PyEnum
 from pathlib import Path
@@ -180,7 +182,15 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
 
     handlers = []
 
-    console_handler = logging.StreamHandler()
+    # 使用 UTF-8 编码的 stdout 流，确保中文等非 ASCII 字符在任何终端环境中都能正常显示，
+    # 而非以 \uXXXX 形式输出。
+    if hasattr(sys.stdout, 'buffer'):
+        utf8_stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True
+        )
+    else:
+        utf8_stdout = sys.stdout
+    console_handler = logging.StreamHandler(utf8_stdout)
     console_handler.setLevel(python_log_level)
     console_formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)s - %(message)s',
