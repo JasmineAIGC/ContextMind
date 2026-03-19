@@ -58,7 +58,9 @@ def _configure_litellm_for_local_model(model_name: str) -> None:
         litellm.failure_callback = []
         litellm.callbacks = []
 
-        # 注册零价格条目（问题2），覆盖 `openai/<model>` 和裸 model 两种键
+        # 注册零价格条目（问题2），覆盖 `openai/<model>` 和裸 model 两种键。
+        # 使用 litellm.register_model()（官方 API）而非直接操作 model_cost dict，
+        # 确保 get_model_info() 内部的所有查找路径均能命中该条目。
         _zero_cost: dict = {
             "max_tokens": 32768,
             "max_input_tokens": 32768,
@@ -68,8 +70,13 @@ def _configure_litellm_for_local_model(model_name: str) -> None:
             "litellm_provider": "openai",
             "mode": "chat",
         }
-        for key in (model_name, f"openai/{model_name}"):
-            litellm.model_cost.setdefault(key, _zero_cost)
+        model_registry = {key: _zero_cost for key in (model_name, f"openai/{model_name}")}
+        try:
+            litellm.register_model(model_registry)
+        except Exception:
+            # Fallback: 直接写入 model_cost dict（兼容旧版 litellm）
+            for key, val in model_registry.items():
+                litellm.model_cost.setdefault(key, val)
     except Exception as exc:
         logger.debug(f"[AdkLLMClient] litellm 配置失败（非致命）: {exc}")
 
@@ -189,15 +196,20 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
     if resolved_thinking is None and _is_thinking_model(config.model):
         resolved_thinking = False
 
-    model_kwargs: dict = {}
+    # ADK 的 LiteLlm.__init__ 将所有 **kwargs 存入 _additional_args，并在每次
+    # generate_content_async 调用时直接展开传给 litellm.acompletion()。
+    # 因此须将 extra_body 作为顶层 kwarg 传入，而非嵌套在 model_kwargs 里。
+    # 若使用 model_kwargs={"extra_body": {...}}，litellm 会把整个 model_kwargs
+    # 包装成 extra_body.model_kwargs，导致 enable_thinking 被双重嵌套而被 vLLM 忽略。
+    extra_kwargs: dict = {}
     if resolved_thinking is not None:
-        model_kwargs["extra_body"] = {"enable_thinking": resolved_thinking}
+        extra_kwargs["extra_body"] = {"enable_thinking": resolved_thinking}
 
     return LiteLlm(
         model=f"openai/{config.model}",
         api_base=config.base_url,
         api_key=config.api_key,
-        **({"model_kwargs": model_kwargs} if model_kwargs else {}),
+        **extra_kwargs,
     )
 
 
@@ -286,6 +298,10 @@ class AdkLLMClient:
             if event.is_final_response() and event.content:
                 for part in event.content.parts or []:
                     if hasattr(part, "text") and part.text:
+                        # ADK converts reasoning_content into thought=True parts.
+                        # Skip them so thinking content never leaks into the reply.
+                        if getattr(part, "thought", False):
+                            continue
                         final_text += part.text
         # Strip <think>…</think> reasoning blocks emitted by thinking models
         # (e.g. Qwen3, DeepSeek-R1).  Gradio renders such tags as invisible
