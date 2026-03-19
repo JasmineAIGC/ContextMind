@@ -428,24 +428,24 @@ class UnifiedGradioDemo:
                 "对话轮数": self.fnctod_tracker.turn_count,
             }
 
-            # 本轮函数调用（嵌套结构）
-            if self.fnctod_tracker.dialogue_history:
-                last_turn = self.fnctod_tracker.dialogue_history[-1]
-                if last_turn.function_call:
-                    fc = last_turn.function_call
-                    state_info["本轮函数调用"] = {
-                        "函数": fc.function_name,
-                        "参数": fc.arguments if fc.arguments else {},
-                    }
-                else:
-                    state_info["本轮函数调用"] = "（本轮未调用函数）"
+            # 最近对话（_dialogue_history 存储 {role, content} 字典列表）
+            history = self.fnctod_tracker._dialogue_history
+            if history:
+                last_assistant = next(
+                    (m["content"] for m in reversed(history) if m.get("role") == "assistant"),
+                    None,
+                )
+                state_info["最近回复"] = (
+                    (last_assistant[:80] + "...") if last_assistant and len(last_assistant) > 80
+                    else (last_assistant or "（暂无回复）")
+                )
             else:
-                state_info["本轮函数调用"] = "（暂无对话记录）"
+                state_info["最近回复"] = "（暂无对话记录）"
 
             # 累积状态（嵌套字典）
             non_empty_slots = {
                 k: (str(v)[:50] + "..." if len(str(v)) > 50 else str(v))
-                for k, v in self.fnctod_tracker.current_state.items()
+                for k, v in self.fnctod_tracker.get_current_state().items()
                 if v and str(v).strip()
             }
             state_info["累积状态"] = non_empty_slots if non_empty_slots else "（暂无）"
@@ -459,7 +459,7 @@ class UnifiedGradioDemo:
                 "模式": "PyTOD (程序执行型任务对话)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.pytod_tracker.turn_count,
-                "可用 API": self.pytod_tracker.execution_engine.list_functions(),
+                "可用 API": self.pytod_tracker.engine.list_functions(),
             }
 
             if state:
