@@ -14,6 +14,7 @@ PyTOD Prompt Builder — 论文原版三步流程提示词构建器
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -224,7 +225,6 @@ def _format_execution_result(execution_result: Any) -> str:
         var_values = getattr(execution_result, "variable_values", {})
         if not var_values:
             return "（程序执行成功，无变量绑定）"
-        import json
         lines = []
         for var, val in var_values.items():
             val_str = json.dumps(val, ensure_ascii=False) if isinstance(val, dict) else str(val)
@@ -233,7 +233,6 @@ def _format_execution_result(execution_result: Any) -> str:
 
     # 支持 dict
     if isinstance(execution_result, dict):
-        import json
         return json.dumps(execution_result, ensure_ascii=False, indent=2)
 
     return str(execution_result)
