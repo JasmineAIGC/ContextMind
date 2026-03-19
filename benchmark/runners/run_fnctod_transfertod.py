@@ -26,7 +26,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.datasets.transfertod.adapter import TransferTODAdapter
 from benchmark.shared.intent_evaluator import IntentEvaluator
-from contextmind.modes.fnctod import FnCTODAgent, FunctionManager, get_function_schema_for_scenario
+from contextmind.modes.fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
 from contextmind.modes.fnctod.function_manager import DomainSpec, FunctionParameter, ParameterType
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -73,7 +73,7 @@ class TransferTODFnCTODEvaluator:
         function_manager.add_domain(domain_spec)
 
         # 创建FnCTODAgent（ADK 原生函数调用）
-        self.tracker = FnCTODAgent(
+        self.tracker = FnCTODTracker(
             function_manager=function_manager,
         )
 

@@ -48,7 +48,7 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
+from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import ServiceSchema
 from contextmind.scenarios.anyihua.qc import ANYIHUA_QC_SCHEMA, PyTODQualityChecker
 

@@ -39,7 +39,7 @@ except ImportError:
 logger = get_logger(__name__)
 
 _ADK_INSTALL_MSG = (
-    "google-adk 未安装，无法创建 FnCTODAgent。\n"
+    "google-adk 未安装，无法创建 FnCTODTracker。\n"
     "请运行: pip install google-adk litellm"
 )
 
@@ -160,7 +160,7 @@ class FnCTODTracker:
         self._session_id: Optional[str] = None
 
         logger.info(
-            f"FnCTODAgent 初始化完成 (model={self._llm_config.model}, "
+            f"FnCTODTracker 初始化完成 (model={self._llm_config.model}, "
             f"domains={function_manager.get_domain_names()})"
         )
 
@@ -261,6 +261,3 @@ class FnCTODTracker:
     def get_current_state(self) -> Dict[str, Any]:
         """返回累积的对话状态。"""
         return dict(self._current_state)
-
-# 向后兼容别名
-FnCTODAgent = FnCTODTracker

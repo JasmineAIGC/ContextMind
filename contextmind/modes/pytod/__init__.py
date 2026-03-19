@@ -3,7 +3,7 @@ PyTOD — 任务型对话模块
 
 提供两种实现：
     - ``PyTODTracker``      论文三步流程（AP → EE → DM），推荐用于精确控制
-    - ``PyTODAgent``        ADK 原生函数调用，推荐用于快速接入
+    - ``AdkPyTODTracker``   ADK 原生函数调用，推荐用于快速接入
 
 公共组件：
     - ``ExecutionEngine``   程序执行引擎（两种实现共用）
@@ -22,12 +22,12 @@ PyTOD — 任务型对话模块
     result = await tracker.process_turn("查询账户")
 
     # ADK 原生
-    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
     from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 
     engine = ExecutionEngine()
     SCENARIO_API_REGISTRY["callcenter"](engine)
-    agent = PyTODAgent(engine=engine)
+    agent = AdkPyTODTracker(engine=engine)
     result = await agent.process_turn("查询订单状态")
     print(result["response"])
 """
@@ -44,14 +44,13 @@ from .execution_engine import (
     ProgramExecutionResult,
 )
 from .prompts import ConversationTurn, PyTODPromptBuilder
-from .tracker import PyTODTracker, AdkPyTODTracker, PyTODAgent, adk_tools_from_engine
+from .tracker import PyTODTracker, AdkPyTODTracker, adk_tools_from_engine
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [
     # 主追踪器
     "PyTODTracker",         # 论文三步流程（AP → EE → DM）
     "AdkPyTODTracker",      # ADK 原生函数调用
-    "PyTODAgent",           # AdkPyTODTracker 的向后兼容别名
     # 提示词构建（三步流程专用）
     "PyTODPromptBuilder",
     "ConversationTurn",

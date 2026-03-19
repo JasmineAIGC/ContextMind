@@ -30,7 +30,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
-from contextmind.modes.fnctod import FnCTODAgent, FunctionManager
+from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
 from contextmind.modes.fnctod.schemas import get_anyihua_function_schema
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
@@ -75,7 +75,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
     turns_results: List[Dict[str, Any]] = []
 
     if llm_available:
-        agent = FnCTODAgent(function_manager=fm, config=config)
+        agent = FnCTODTracker(function_manager=fm, config=config)
         for i, utt in enumerate(user_turns):
             try:
                 updates = await agent.process_turn(utt)

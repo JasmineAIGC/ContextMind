@@ -33,8 +33,8 @@ import gradio as gr
 
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODAgent
-from contextmind.modes.pytod import PyTODAgent
+from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.scenarios import get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -117,7 +117,7 @@ class BatchDialogueTest:
         使用工厂方法简化初始化
         """
         # 使用工厂方法创建FnCTOD追踪器
-        self.fnctod_tracker = FnCTODAgent.from_scenario(
+        self.fnctod_tracker = FnCTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             use_two_stage=True,
@@ -132,7 +132,7 @@ class BatchDialogueTest:
 
         使用工厂方法简化初始化，自动注册保险场景 API。
         """
-        self.pytod_tracker = PyTODAgent.from_scenario(
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             max_history_turns=self.max_history_turns,
@@ -352,8 +352,8 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         # ✅ 为每个对话创建新的tracker实例，确保测试结果独立
-        from contextmind.modes.fnctod import FnCTODAgent
-        tracker = FnCTODAgent.from_scenario(
+        from contextmind.modes.fnctod import FnCTODTracker
+        tracker = FnCTODTracker.from_scenario(
             self.llm_client,
             self.config,
             use_two_stage=True,
@@ -437,7 +437,7 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         # 为每个对话创建新的 tracker 实例，确保测试结果独立
-        tracker = PyTODAgent.from_scenario(
+        tracker = AdkPyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
             max_history_turns=self.max_history_turns,

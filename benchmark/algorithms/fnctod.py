@@ -6,8 +6,6 @@ FnCTOD (Function-based TOD) 算法评测模块
 
 from .base import SlotMetrics, SlotBasedEvaluator
 
-# 向后兼容别名（行为与 SlotMetrics 完全相同）
-FnCTODMetrics = SlotMetrics
 
 
 class FnCTODEvaluator(SlotBasedEvaluator):

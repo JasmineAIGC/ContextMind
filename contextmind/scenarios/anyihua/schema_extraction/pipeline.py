@@ -17,7 +17,7 @@
     （char_interval），构建标准 SGD 格式，每条提取均有完整溯源。
 
 langextract 使用说明（安逸花外呼对话特殊处理）：
-  · 所有 LLM 调用通过 .env 中定义的 SimpleLLMClient，
+  · 所有 LLM 调用通过 .env 中定义的 AdkLLMClient，
     不使用 langextract 内置的 Gemini 模型。
   · 使用 langextract.data.Extraction / ExampleData / CharInterval / AlignmentStatus
     作为溯源数据的正式表示，使每个意图/槽位可追溯到原文字符区间。
@@ -31,10 +31,10 @@ langextract 使用说明（安逸花外呼对话特殊处理）：
 典型使用::
 
     from pathlib import Path
-    from contextmind.infra.llm_client import SimpleLLMClient
+    from contextmind.infra.llm_client import AdkLLMClient
     from contextmind.scenarios.anyihua.schema_extraction.pipeline import run_pipeline
 
-    llm = SimpleLLMClient()
+    llm = AdkLLMClient()
     summary = run_pipeline(
         input_path=Path("resources/data/chat_test_100.json"),
         predefined_schema_path=Path("resources/anyihua_sgd/schema.json"),
@@ -57,7 +57,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # 用于将每一个意图/槽位提取结果回溯定位到对话原文的字符区间（char_interval），
 # 实现完整的溯源可追踪性（provenance traceability）。
 # 注意：仅使用 langextract 的数据结构与 WordAligner；
-#       所有 LLM 调用仍通过 SimpleLLMClient（.env 配置），
+#       所有 LLM 调用仍通过 AdkLLMClient（.env 配置），
 #       不调用 langextract 内置的 Gemini 模型。
 # ---------------------------------------------------------------------------
 from langextract.data import AlignmentStatus, CharInterval, ExampleData, Extraction
@@ -259,7 +259,7 @@ def discover_schema_step1(
 
     参数:
         dialogues:    对话列表（chat_test 或 SGD 格式）
-        llm_client:   SimpleLLMClient 实例（从 .env 配置加载）
+        llm_client:   AdkLLMClient 实例（从 .env 配置加载）
         sample_n:     抽样数量（默认 50）
         service_name: 服务名称（默认 "AnYiHua_1"）
         seed:         随机种子（默认 42，保证可重现）
@@ -552,7 +552,7 @@ def build_sgd_dialogue_step3(
     参数:
         raw_dialogue: 原始对话条目（chat_test 或 SGD 格式）
         schema:       当前使用的 PartialServiceSchema（Step 2 合并后的）
-        llm_client:   SimpleLLMClient 实例（从 .env 加载）
+        llm_client:   AdkLLMClient 实例（从 .env 加载）
 
     返回:
         SGD 格式的 dialogue 字典，含 dialogue_id / services / turns / metadata
@@ -910,7 +910,7 @@ def run_pipeline(
       Step 2: Schema 合并（预定义 + 发现合并）
       Step 3: LLM 全量 SGD 转换（每条对话 → SGD，含 langextract 对齐）
 
-    所有 LLM 调用均通过 SimpleLLMClient（由 .env 配置加载），
+    所有 LLM 调用均通过 AdkLLMClient（由 .env 配置加载），
     不直接使用 langextract 库的内置 Gemini 模型。
 
     安逸花外呼对话特殊处理（Step 3）：
@@ -921,7 +921,7 @@ def run_pipeline(
         input_path:                  原始对话文件（chat_test 格式 JSON）
         predefined_schema_path:      预定义 Schema 文件路径
         output_dir:                  输出目录（SGD 文件写入此处）
-        llm_client:                  SimpleLLMClient 实例
+        llm_client:                  AdkLLMClient 实例
         sample_n:                    Step 1 抽样数量（默认 50）
         limit:                       仅转换前 N 条对话（默认全部）
         skip_step1:                  跳过 Step 1，直接使用 predefined schema 作为 discovered

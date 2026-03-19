@@ -28,8 +28,8 @@ from datetime import datetime
 
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODAgent
-from contextmind.modes.pytod import PyTODAgent
+from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -129,14 +129,14 @@ class UnifiedGradioDemo:
         """初始化FnCTOD模式"""
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
-        self.fnctod_tracker = FnCTODAgent.from_scenario(self.llm_client, self.config)
+        self.fnctod_tracker = FnCTODTracker.from_scenario(self.llm_client, self.config)
         logger.info("FnCTOD模式初始化完成")
 
     def _setup_pytod_tracker(self):
         """初始化PyTOD模式"""
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
-        self.pytod_tracker = PyTODAgent.from_scenario(self.llm_client, self.config)
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config)
         logger.info("PyTOD模式初始化完成")
 
     def _setup_evolve_app(self):

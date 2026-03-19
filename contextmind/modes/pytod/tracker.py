@@ -8,7 +8,7 @@ PyTOD 论文三步流程（PyTODTracker）
     Step 2 — Execution Engine (EE): 运行程序，得到 API 执行结果
     Step 3 — Dialogue Manager (DM): LLM 根据执行结果生成自然语言回复
 
-ADK 原生函数调用（AdkPyTODTracker / PyTODAgent）
+ADK 原生函数调用（AdkPyTODTracker）
 --------------------------------------------------
 利用 Google ADK 原生 Function Calling 替代显式程序解析流程，
 LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回复。
@@ -26,9 +26,9 @@ LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回
     result = await tracker.process_turn("查询我的账户余额")
 
     # ADK 原生（推荐用于快速接入）
-    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
     engine = ExecutionEngine()
-    agent = PyTODAgent(engine=engine, scenario_context="客服场景")
+    agent = AdkPyTODTracker(engine=engine, scenario_context="客服场景")
     result = await agent.process_turn("查询我的账户余额")
 """
 
@@ -94,7 +94,7 @@ class PyTODTracker:
 
     参数
     ----
-    llm_client : SimpleLLMClient
+    llm_client : AdkLLMClient
         LLM 客户端，同时用于 AP（低温）和 DM 阶段调用。
     execution_engine : ExecutionEngine
         已注册 API 函数的执行引擎。
@@ -464,10 +464,4 @@ class AdkPyTODTracker:
         return base
 
 
-# ---------------------------------------------------------------------------
-# 别名：PyTODAgent 指向 ADK 版本（快速接入，无需显式 Schema）
-# ---------------------------------------------------------------------------
-
-#: ADK 原生追踪器的别名，与早期代码兼容。推荐使用 ``AdkPyTODTracker``。
-PyTODAgent = AdkPyTODTracker
 

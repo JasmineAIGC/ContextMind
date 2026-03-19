@@ -26,8 +26,8 @@ from typing import Optional
 
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODAgent
-from contextmind.modes.pytod import PyTODAgent
+from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -95,11 +95,11 @@ class InteractiveDemo:
 
     def _setup_fnctod(self):
         logger.info(f"初始化 FnCTOD 模式 - {self.config.name}")
-        self.tracker = FnCTODAgent.from_scenario(self._get_llm_client(), self.config)
+        self.tracker = FnCTODTracker.from_scenario(self._get_llm_client(), self.config)
 
     def _setup_pytod(self):
         logger.info(f"初始化 PyTOD 模式 - {self.config.name}")
-        self.tracker = PyTODAgent.from_scenario(self._get_llm_client(), self.config)
+        self.tracker = AdkPyTODTracker.from_scenario(self._get_llm_client(), self.config)
 
     def _setup_evolve(self):
         logger.info(f"初始化 Evolve 模式 - {self.config.name}")

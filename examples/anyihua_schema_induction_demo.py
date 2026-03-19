@@ -67,7 +67,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
+from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.scenarios.anyihua.schema_extraction import (
     PartialIntent,
     PartialServiceSchema,
@@ -485,11 +485,11 @@ def _load_dialogues(data_path: Path, limit: int) -> List[Dict[str, Any]]:
     return selected
 
 
-def _init_llm() -> SimpleLLMClient:
+def _init_llm() -> AdkLLMClient:
     """初始化 LLM 客户端（从环境变量加载配置）。"""
     try:
         config = LLMConfig.from_env()
-        client = SimpleLLMClient(config=config)
+        client = AdkLLMClient(config=config)
         print(f"✅ LLM 客户端初始化成功（model: {config.model}）")
         return client
     except Exception as e:

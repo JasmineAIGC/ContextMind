@@ -23,10 +23,10 @@
 
     import langextract as lx
     from pathlib import Path
-    from contextmind.infra.llm_client import SimpleLLMClient
+    from contextmind.infra.llm_client import AdkLLMClient
     from contextmind.scenarios.anyihua.schema_extraction import run_pipeline
 
-    llm = SimpleLLMClient()
+    llm = AdkLLMClient()
     summary = run_pipeline(
         input_path=Path("resources/data/chat_test_100.json"),
         predefined_schema_path=Path("resources/anyihua_sgd/schema.json"),

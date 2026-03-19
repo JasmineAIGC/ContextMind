@@ -109,7 +109,7 @@ from langextract.data import AlignmentStatus, Extraction
 from langextract.resolver import WordAligner
 from langextract.tokenizer import UnicodeTokenizer
 
-from contextmind.infra.llm_client import LLMConfig, SimpleLLMClient
+from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
@@ -1243,7 +1243,7 @@ class AnyihuaKnowledgeExtractor:
     LLM 通过 ``contextmind/infra/llm_client.py`` + ``.env`` 统一初始化。
 
     参数:
-        llm_client:  可选的 SimpleLLMClient 实例；不传则自动从 .env 加载
+        llm_client:  可选的 AdkLLMClient 实例；不传则自动从 .env 加载
         schema:      提取 Schema（槽位、意图、事实定义）；不传则使用内置的
                      ``DEFAULT_SCHEMA``（安逸花外呼 Schema）。
                      传入自定义 ``ExtractionSchema`` 可适配任意业务场景。
@@ -1272,19 +1272,19 @@ class AnyihuaKnowledgeExtractor:
 
     def __init__(
         self,
-        llm_client: Optional[SimpleLLMClient] = None,
+        llm_client: Optional[AdkLLMClient] = None,
         schema: Optional[ExtractionSchema] = None,
     ) -> None:
         if llm_client is None:
             try:
-                llm_client = SimpleLLMClient(config=LLMConfig.from_env())
+                llm_client = AdkLLMClient(config=LLMConfig.from_env())
             except Exception as exc:
                 raise RuntimeError(
                     "LLM 客户端初始化失败，请确认 .env 文件中已正确配置 API Key、"
                     "Base URL 和 Model（如 LLM_API_KEY、LLM_BASE_URL、LLM_MODEL）。"
                     f"原始错误: {exc}"
                 ) from exc
-        self._llm: SimpleLLMClient = llm_client
+        self._llm: AdkLLMClient = llm_client
         self._schema: ExtractionSchema = schema if schema is not None else DEFAULT_SCHEMA
 
 
@@ -1645,7 +1645,7 @@ class AnyihuaKnowledgeExtractor:
         """
         调用 LLM 提取结构化知识（含轮次标记的完整对话文本）。
 
-        通过 SimpleLLMClient.generate() 统一调用，与 .env 配置对应。
+        通过 AdkLLMClient.generate() 统一调用，与 .env 配置对应。
         LLM 输出中包含 turn_idx 字段，用于后续轮级 WordAligner 对齐。
         """
         prompt = _build_extraction_prompt(source_text, self._schema)
@@ -1664,7 +1664,7 @@ class AnyihuaKnowledgeExtractor:
 
 def extract_knowledge_with_provenance(
     dialogue: Dict[str, Any],
-    llm_client: Optional[SimpleLLMClient] = None,
+    llm_client: Optional[AdkLLMClient] = None,
     schema: Optional[ExtractionSchema] = None,
 ) -> ExtractionResult:
     """
@@ -1672,7 +1672,7 @@ def extract_knowledge_with_provenance(
 
     参数:
         dialogue:    原始对话条目（chat_test_100.json 单条）
-        llm_client:  可选的 SimpleLLMClient 实例；若不传入则自动从 .env 加载
+        llm_client:  可选的 AdkLLMClient 实例；若不传入则自动从 .env 加载
         schema:      提取 Schema（槽位、意图定义）；不传则使用 DEFAULT_SCHEMA
 
     返回:

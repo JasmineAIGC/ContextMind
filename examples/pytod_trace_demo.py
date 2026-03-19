@@ -30,7 +30,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
-from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
@@ -78,7 +78,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
     turns_results: List[Dict[str, Any]] = []
 
     if llm_available:
-        agent = PyTODAgent(engine=engine, config=config, scenario_context=_SCENARIO_CONTEXT)
+        agent = AdkPyTODTracker(engine=engine, config=config, scenario_context=_SCENARIO_CONTEXT)
         for i, utt in enumerate(user_turns):
             try:
                 result = await agent.process_turn(utt)

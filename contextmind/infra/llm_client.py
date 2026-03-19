@@ -231,9 +231,4 @@ class AdkLLMClient:
             return asyncio.run(self.generate_async(prompt))
 
 
-# ---------------------------------------------------------------------------
-# 向后兼容别名
-# ---------------------------------------------------------------------------
 
-SimpleLLMClient = AdkLLMClient
-"""``AdkLLMClient`` 的向后兼容别名，保持现有代码不变。"""

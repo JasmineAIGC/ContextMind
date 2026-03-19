@@ -349,5 +349,4 @@ class DSTResponseParser:
         return normalized
 
 
-# 向后兼容别名
-ResponseParser = DSTResponseParser
+

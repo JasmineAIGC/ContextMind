@@ -619,20 +619,4 @@ class DialogueStateTracker:
                     history.append((i, value))
         
         return history
-    
-    @classmethod
-    def create_from_config(cls, llm_client, scenario_config,
-                          max_history_turns: int = 10,
-                          enable_summary: bool = True,
-                          use_llm_summary: bool = False):
-        """向后兼容别名，请使用 ``from_scenario()``。"""
-        return cls.from_scenario(
-            llm_client=llm_client,
-            scenario_config=scenario_config,
-            max_history_turns=max_history_turns,
-            enable_history_summary=enable_summary,
-            use_llm_summary=use_llm_summary,
-        )
 
-# 向后兼容别名
-DSTTracker = DialogueStateTracker

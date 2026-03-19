@@ -223,5 +223,4 @@ DEBUG = logging.DEBUG
 WARNING = logging.WARNING
 ERROR = logging.ERROR
 
-# 向后兼容别名
-EvolveLogger = Logger
+

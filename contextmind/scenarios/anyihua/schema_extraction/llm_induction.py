@@ -15,7 +15,7 @@
 设计原则：
    · Schema 归纳基于多条对话样本，归纳槽位和意图的完整元信息
    · 信息提取严格遵循预定义 Schema，输出格式化 JSON
-   · 两个函数均支持 SimpleLLMClient，对外暴露简洁接口
+   · 两个函数均支持 AdkLLMClient，对外暴露简洁接口
    · 错误处理健壮：LLM 输出解析失败时返回部分结果而不是抛出异常
 
 典型使用::
@@ -24,10 +24,10 @@
         induce_schema_with_llm,
         extract_dialogue_info,
     )
-    from contextmind.infra.llm_client import SimpleLLMClient
+    from contextmind.infra.llm_client import AdkLLMClient
 
     # 初始化 LLM 客户端
-    llm = SimpleLLMClient()
+    llm = AdkLLMClient()
 
     # 1. 从原始对话归纳 Schema
     raw_dialogues = [...]  # chat_test_100.json 中的对话条目列表
@@ -52,7 +52,7 @@ from .schema import PartialIntent, PartialServiceSchema, PartialSlot
 # 类型别名
 # --------------------------------------------------------------------------- #
 
-_LLMClient = Any  # SimpleLLMClient（避免循环导入）
+_LLMClient = Any  # AdkLLMClient（避免循环导入）
 
 # --------------------------------------------------------------------------- #
 # 内部辅助
@@ -412,7 +412,7 @@ def induce_schema_with_llm(
 
     参数:
         dialogues:    对话条目列表（每条为字典）
-        llm_client:   已初始化的 SimpleLLMClient 实例
+        llm_client:   已初始化的 AdkLLMClient 实例
         service_name: 服务名称（默认 "AnYiHua_1"）
         batch_size:   每批处理的对话数量（默认 5）
 
@@ -509,7 +509,7 @@ def extract_dialogue_info(
     参数:
         dialogue_text_or_dict: 对话文本（字符串）或对话条目字典
         schema:                预定义的 PartialServiceSchema
-        llm_client:            已初始化的 SimpleLLMClient 实例
+        llm_client:            已初始化的 AdkLLMClient 实例
 
     返回:
         结构化提取结果字典::

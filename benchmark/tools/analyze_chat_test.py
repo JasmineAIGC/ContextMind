@@ -1635,9 +1635,9 @@ def main() -> None:
     print(f"输出目录 : {output_dir}")
 
     try:
-        from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
+        from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
         config = LLMConfig.from_env()
-        llm_client = SimpleLLMClient(config)
+        llm_client = AdkLLMClient(config)
         model_info = {"model": config.model, "base_url": config.base_url or ""}
         print(f"LLM 客户端 : ✅ {config.model}  ({config.base_url or 'OpenAI'})")
     except Exception as exc:

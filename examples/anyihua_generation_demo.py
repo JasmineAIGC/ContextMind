@@ -39,7 +39,7 @@ if str(_project_root) not in sys.path:
 
 import gradio as gr
 
-from contextmind.infra.llm_client import SimpleLLMClient as LLMClient, LLMConfig
+from contextmind.infra.llm_client import AdkLLMClient as LLMClient, LLMConfig
 from contextmind.modes.pytod import PyTODPromptBuilder, PyTODTracker
 from contextmind.modes.pytod.prompts import ConversationTurn
 from contextmind.scenarios.anyihua.generation import ANYIHUA_SCHEMA, build_generation_engine

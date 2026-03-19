@@ -112,7 +112,7 @@ class EvolveApplication:
         实现 BaseTracker.from_scenario 协议，与 DST / FnCTOD / PyTOD 统一。
 
         Args:
-            llm_client:      LLM 客户端实例（AdkLLMClient / SimpleLLMClient）。
+            llm_client:      LLM 客户端实例（AdkLLMClient / AdkLLMClient）。
             scenario_config: ScenarioConfig 场景配置对象。
             **kwargs:        传递给构造函数的额外参数。
         """
@@ -123,7 +123,7 @@ class EvolveApplication:
         """从场景配置创建 EvolveApplication 实例。
 
         Args:
-            llm_client:      LLM 客户端实例（AdkLLMClient / SimpleLLMClient）。
+            llm_client:      LLM 客户端实例（AdkLLMClient / AdkLLMClient）。
             scenario_config: ScenarioConfig 场景配置对象。
         """
         engine = EvolveEngine(

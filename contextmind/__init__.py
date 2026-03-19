@@ -23,8 +23,8 @@ __version__ = "0.3.0"
 from contextmind.scenarios.registry import scenario_registry
 from contextmind.modes.base import BaseTracker
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODAgent, adk_tools_from_function_manager
-from contextmind.modes.pytod import PyTODAgent, adk_tools_from_engine
+from contextmind.modes.fnctod import FnCTODTracker, adk_tools_from_function_manager
+from contextmind.modes.pytod import AdkPyTODTracker, adk_tools_from_engine
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
 
 from contextmind.infra.llm_client import (
@@ -39,8 +39,8 @@ __all__ = [
     "BaseTracker",
     # 追踪器
     "DialogueStateTracker",
-    "FnCTODAgent",
-    "PyTODAgent",
+    "FnCTODTracker",
+    "AdkPyTODTracker",
     # Evolve 模式
     "EvolveEngine",
     "create_app_for_scenario",
