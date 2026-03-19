@@ -1,27 +1,11 @@
 """
-PyTOD — 任务型对话模块
+PyTOD — 任务型对话模块（ADK 原生版本）
 
-提供两种实现：
-    - ``PyTODTracker``      论文三步流程（AP → EE → DM），推荐用于精确控制
-    - ``AdkPyTODTracker``   ADK 原生函数调用，推荐用于快速接入
-
-公共组件：
-    - ``ExecutionEngine``   程序执行引擎（两种实现共用）
-    - ``PyTODPromptBuilder`` 提示词构建器（仅三步流程使用）
-    - ``ConversationTurn``  对话历史记录数据类（仅三步流程使用）
+唯一实现：``AdkPyTODTracker`` — 基于 Google ADK 原生 Function Calling，
+LLM 直接决定调用哪个 API 并生成自然语言回复，通过 adk-python 统一管理 LLM 调用。
 
 使用示例::
 
-    # 论文三步流程
-    from contextmind.modes.pytod import PyTODTracker, PyTODPromptBuilder, ExecutionEngine
-    from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-
-    engine = ExecutionEngine()
-    builder = PyTODPromptBuilder(schema=my_schema)
-    tracker = PyTODTracker(llm_client=llm, execution_engine=engine, prompt_builder=builder)
-    result = await tracker.process_turn("查询账户")
-
-    # ADK 原生
     from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
     from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 
@@ -30,6 +14,9 @@ PyTOD — 任务型对话模块
     agent = AdkPyTODTracker(engine=engine)
     result = await agent.process_turn("查询订单状态")
     print(result["response"])
+
+    # 或使用工厂方法
+    tracker = AdkPyTODTracker.from_scenario(llm_client, scenario_config)
 """
 
 from .schemas import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -44,14 +31,13 @@ from .execution_engine import (
     ProgramExecutionResult,
 )
 from .prompts import ConversationTurn, PyTODPromptBuilder
-from .tracker import PyTODTracker, AdkPyTODTracker, adk_tools_from_engine
+from .tracker import AdkPyTODTracker, adk_tools_from_engine
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [
     # 主追踪器
-    "PyTODTracker",         # 论文三步流程（AP → EE → DM）
-    "AdkPyTODTracker",      # ADK 原生函数调用
-    # 提示词构建（三步流程专用）
+    "AdkPyTODTracker",      # ADK 原生函数调用（唯一版本）
+    # 提示词构建（保留供外部使用）
     "PyTODPromptBuilder",
     "ConversationTurn",
     # 工具转换
@@ -65,7 +51,7 @@ __all__ = [
     "SayStatement",
     "ProgramBlock",
     "ProgramExecutionResult",
-    # Schema 数据模型（可选）
+    # Schema 数据模型
     "SlotDefinition",
     "IntentDefinition",
     "ServiceSchema",
@@ -74,4 +60,3 @@ __all__ = [
     "SCENARIO_API_REGISTRY",
     "get_scenario_key",
 ]
-

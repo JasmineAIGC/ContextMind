@@ -17,7 +17,7 @@ if requirements_file.exists():
 
 setup(
     name="contextmind",
-    version="0.2.1",
+    version="0.3.0",
     author="ContextMind Team",
     author_email="",
     description="A Multi-Mode Conversational AI Framework",

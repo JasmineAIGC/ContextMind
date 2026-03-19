@@ -5,7 +5,7 @@ ContextMind UI — 全局 CSS 样式
 """
 
 # 当前版本号，用于 UI 页脚显示
-APP_VERSION = "0.2.1"
+APP_VERSION = "0.3.0"
 
 CUSTOM_CSS = """
 /* 全局样式 */
