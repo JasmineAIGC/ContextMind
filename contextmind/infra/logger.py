@@ -1,7 +1,7 @@
 """
 日志工具
 
-Evolve v0.2.1 统一日志系统
+ContextMind 统一日志系统
 """
 
 import logging
@@ -18,10 +18,10 @@ class LogLevel(PyEnum):
     ERROR = "ERROR"
 
 
-class EvolveLogger:
-    """Evolve 统一日志系统，支持 INFO/DEBUG 两种模式及文件输出。"""
+class Logger:
+    """ContextMind 统一日志系统，支持 INFO/DEBUG 两种模式及文件输出。"""
     
-    # 类级别变量，所有 EvolveLogger 实例共享同一个权威日志级别，
+    # 类级别变量，所有 Logger 实例共享同一个权威日志级别，
     # 确保 set_global_log_level() 能即时影响所有已创建的 logger。
     _global_level: LogLevel = LogLevel.INFO
     
@@ -131,10 +131,10 @@ _GLOBAL_LOG_LEVEL = LogLevel.INFO
 
 
 def set_global_log_level(level: LogLevel):
-    """为所有 Evolve Logger 设置全局日志级别。"""
+    """为所有 ContextMind Logger 设置全局日志级别。"""
     global _GLOBAL_LOG_LEVEL
     _GLOBAL_LOG_LEVEL = level
-    EvolveLogger.set_global_level(level)
+    Logger.set_global_level(level)
 
 
 def get_global_log_level() -> LogLevel:
@@ -142,26 +142,26 @@ def get_global_log_level() -> LogLevel:
     return _GLOBAL_LOG_LEVEL
 
 
-def get_logger(name: str, level: LogLevel = None) -> EvolveLogger:
-    """获取 Evolve Logger 实例。
+def get_logger(name: str, level: LogLevel = None) -> "Logger":
+    """获取 Logger 实例。
 
     Args:
         name: Logger 名称（通常为模块名）
         level: 日志级别，未指定时使用全局级别
 
     Returns:
-        EvolveLogger 实例
+        Logger 实例
     """
     if level is None:
         level = _GLOBAL_LOG_LEVEL
-    return EvolveLogger(name, level)
+    return Logger(name, level)
 
 
 def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
-    """配置 Evolve 日志系统。
+    """配置 ContextMind 日志系统。
 
     Args:
-        level: Evolve 日志级别（DEBUG/INFO/WARNING/ERROR）
+        level: 日志级别（DEBUG/INFO/WARNING/ERROR）
         python_log_level: Python 日志级别（默认基于 level 自动推导）
         save_to_file: 是否将日志保存到文件
         log_dir: 日志文件目录
@@ -193,7 +193,7 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
         log_path = Path(log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
 
-        log_filename = f"evolve_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         log_filepath = log_path / log_filename
 
         file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
@@ -222,3 +222,6 @@ INFO = logging.INFO
 DEBUG = logging.DEBUG
 WARNING = logging.WARNING
 ERROR = logging.ERROR
+
+# 向后兼容别名
+EvolveLogger = Logger

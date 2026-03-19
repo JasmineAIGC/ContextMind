@@ -8,17 +8,17 @@ ExecutionEngine 中注册的 API 函数自动成为 ADK 工具。
     execution_engine — 执行引擎（安全解析并执行程序语句）
     registry        — 场景 API 注册表（chat / callcenter / insurance）
     schemas         — PyTOD schema 数据模型（可选，开放域无需预定义）
-    tracker         — PyTODAgent 主追踪器
+    tracker         — PyTODTracker 主追踪器
 
 使用示例::
 
-    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    from contextmind.modes.pytod import PyTODTracker, ExecutionEngine
     from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 
     engine = ExecutionEngine()
     SCENARIO_API_REGISTRY["callcenter"](engine)
-    agent = PyTODAgent(engine=engine)
-    result = await agent.process_turn("查询订单状态")
+    tracker = PyTODTracker(engine=engine)
+    result = await tracker.process_turn("查询订单状态")
     print(result["response"])
 """
 
@@ -33,12 +33,13 @@ from .execution_engine import (
     ProgramBlock,
     ProgramExecutionResult,
 )
-from .tracker import PyTODAgent, adk_tools_from_engine
+from .tracker import PyTODTracker, PyTODAgent, adk_tools_from_engine
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [
     # 主追踪器
-    "PyTODAgent",
+    "PyTODTracker",
+    "PyTODAgent",           # 向后兼容别名
     # 工具转换
     "adk_tools_from_engine",
     # 执行引擎

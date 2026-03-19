@@ -20,7 +20,7 @@ Baseline DST Module - 基础版本（基于 ACL 2023 DST）
 """
 
 # 数据模型 + 主追踪器（合并在 tracker.py）
-from .tracker import DialogueStateTracker, DialogueTurn, SpecialValue
+from .tracker import DialogueStateTracker, DSTTracker, DialogueTurn, SpecialValue
 
 # 核心组件
 from .prompts import PromptManager, Language, LLMFormat
@@ -28,6 +28,7 @@ from .parser import DSTResponseParser, ResponseParser
 
 __all__ = [
     'DialogueStateTracker',
+    'DSTTracker',
     'PromptManager',
     'ResponseParser',
     'DSTResponseParser',

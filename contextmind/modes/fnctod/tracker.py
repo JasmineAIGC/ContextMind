@@ -6,14 +6,14 @@ FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 
 使用示例::
 
-    from contextmind.modes.fnctod import FnCTODAgent, FunctionManager
+    from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
     from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
 
     fm = FunctionManager()
     fm.add_domain(get_function_schema_for_scenario("callcenter"))
-    agent = FnCTODAgent(function_manager=fm)
-    updates = await agent.process_turn("我的订单什么时候到？")
-    print(agent.get_current_state())
+    tracker = FnCTODTracker(function_manager=fm)
+    updates = await tracker.process_turn("我的订单什么时候到？")
+    print(tracker.get_current_state())
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
     return tools
 
 
-class FnCTODAgent:
+class FnCTODTracker:
     """ADK 原生函数调用对话状态追踪器。
 
     利用 ADK 原生 Function Calling 替代 XML 提示词解析，
@@ -167,15 +167,21 @@ class FnCTODAgent:
     @classmethod
     def from_scenario(
         cls,
+        llm_client: Any,
         scenario_config: Any,
         **kwargs: Any,
-    ) -> "FnCTODAgent":
-        """从场景配置创建 FnCTODAgent。
+    ) -> "FnCTODTracker":
+        """从场景配置创建 FnCTODTracker。
 
         Args:
+            llm_client:      LLM 客户端实例（用于提取 LLMConfig；若传入 LLMConfig 则直接使用）。
             scenario_config: ScenarioConfig 实例。
-            **kwargs: 其他传递给构造函数的参数（如 config、system_instruction）。
+            **kwargs: 其他传递给构造函数的参数（如 system_instruction）。
         """
+        # 若调用方直接传入 LLMConfig，则优先使用；否则尝试从 llm_client 中提取
+        config: Any = kwargs.pop("config", None)
+        if config is None and hasattr(llm_client, "_config"):
+            config = llm_client._config
         fm = FunctionManager()
         try:
             schema = get_function_schema_for_scenario(scenario_config.name)
@@ -189,6 +195,8 @@ class FnCTODAgent:
                 )
             else:
                 logger.warning(f"场景 '{scenario_config.name}' 无预定义 schema，使用空 FunctionManager")
+        if config is not None:
+            kwargs["config"] = config
         return cls(function_manager=fm, **kwargs)
 
     async def _get_or_create_session(self) -> str:
@@ -249,3 +257,6 @@ class FnCTODAgent:
     def get_current_state(self) -> Dict[str, Any]:
         """返回累积的对话状态。"""
         return dict(self._current_state)
+
+# 向后兼容别名
+FnCTODAgent = FnCTODTracker

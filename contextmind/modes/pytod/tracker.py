@@ -1,18 +1,18 @@
 """
-PyTOD Agent — ADK 原生函数调用任务型对话追踪器
+PyTOD Tracker — ADK 原生函数调用任务型对话追踪器
 
 利用 Google ADK 原生 Function Calling 替代 PyTOD 自定义程序解析器。
 本地 LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回复。
 
 使用示例::
 
-    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    from contextmind.modes.pytod import PyTODTracker, ExecutionEngine
     from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 
     engine = ExecutionEngine()
     SCENARIO_API_REGISTRY["callcenter"](engine)
-    agent = PyTODAgent(engine=engine, scenario_context="电商客服场景")
-    result = await agent.process_turn("我的订单什么时候发货？")
+    tracker = PyTODTracker(engine=engine, scenario_context="电商客服场景")
+    result = await tracker.process_turn("我的订单什么时候发货？")
     print(result["response"])
 """
 
@@ -63,7 +63,7 @@ def adk_tools_from_engine(engine: Any) -> List[Any]:
     return tools
 
 
-class PyTODAgent:
+class PyTODTracker:
     """ADK 原生任务型对话追踪器。
 
     以 ADK 原生 Function Calling 替代 PyTOD 三步程序解析流程。
@@ -103,7 +103,7 @@ class PyTODAgent:
         self._user_id = user_id
 
         tools = adk_tools_from_engine(engine)
-        instruction = _build_instruction(scenario_context)
+        instruction = PyTODTracker._build_instruction(scenario_context)
 
         self._agent = LlmAgent(
             name="pytod_agent",
@@ -118,25 +118,29 @@ class PyTODAgent:
         self.turn_count: int = 0
 
         logger.info(
-            f"PyTODAgent 初始化完成 (model={self._llm_config.model}, "
+            f"PyTODTracker 初始化完成 (model={self._llm_config.model}, "
             f"工具: {list(engine.registry.keys())})"
         )
 
     @classmethod
     def from_scenario(
         cls,
+        llm_client: Any,
         scenario_config: Any,
         config: Optional[LLMConfig] = None,
         **kwargs: Any,
-    ) -> "PyTODAgent":
-        """从场景配置创建 PyTODAgent。
+    ) -> "PyTODTracker":
+        """从场景配置创建 PyTODTracker。
 
         自动根据场景名称注册匹配的演示 API 函数。
 
         Args:
+            llm_client:      LLM 客户端实例（用于提取 LLMConfig；若提供 config 则优先使用 config）。
             scenario_config: ScenarioConfig 实例。
-            config: 本地 LLM 配置。
+            config:          本地 LLM 配置（可选，优先于 llm_client 内部 config）。
         """
+        if config is None and hasattr(llm_client, "_config"):
+            config = llm_client._config
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
         key = get_scenario_key(scenario_name)
@@ -200,7 +204,7 @@ class PyTODAgent:
 
         response = final_text.strip()
         program_text = "\n".join(tool_call_parts) if tool_call_parts else "NONE()"
-        logger.info(f"[PyTODAgent] 回复: {response[:80]}")
+        logger.info(f"[PyTODTracker] 回复: {response[:80]}")
 
         return {
             "response": response,
@@ -218,20 +222,24 @@ class PyTODAgent:
         self._session_id = None
         self.current_state = {}
         self.turn_count = 0
-        logger.info("PyTODAgent 对话状态已重置")
+        logger.info("PyTODTracker 对话状态已重置")
+
+    @staticmethod
+    def _build_instruction(scenario_context: str) -> str:
+        """构建 ADK Agent 的系统指令。"""
+        base = (
+            "你是一个任务型对话助手。优先调用合适的工具完成任务，"
+            "然后根据工具返回结果用自然语言给出友好、简洁的回复。\n\n"
+            "规则：\n"
+            "1. 尽量调用工具完成任务，而非猜测数据\n"
+            "2. 工具返回 hint 字段时，向用户说明需要提供哪些信息\n"
+            "3. 工具返回 error 字段时，向用户说明情况并请求补充信息\n"
+            "4. 回复语言：中文\n"
+        )
+        if scenario_context:
+            base += f"\n业务场景：{scenario_context}\n"
+        return base
 
 
-def _build_instruction(scenario_context: str) -> str:
-    """构建 ADK Agent 的系统指令。"""
-    base = (
-        "你是一个任务型对话助手。优先调用合适的工具完成任务，"
-        "然后根据工具返回结果用自然语言给出友好、简洁的回复。\n\n"
-        "规则：\n"
-        "1. 尽量调用工具完成任务，而非猜测数据\n"
-        "2. 工具返回 hint 字段时，向用户说明需要提供哪些信息\n"
-        "3. 工具返回 error 字段时，向用户说明情况并请求补充信息\n"
-        "4. 回复语言：中文\n"
-    )
-    if scenario_context:
-        base += f"\n业务场景：{scenario_context}\n"
-    return base
+# 向后兼容别名
+PyTODAgent = PyTODTracker

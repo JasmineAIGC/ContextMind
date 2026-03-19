@@ -8,11 +8,11 @@ Evolve 应用基类 — 所有场景共享的对话处理逻辑
 
     from contextmind.scenarios.app import EvolveApplication
     from contextmind.scenarios import get_chat_scenario
-    from contextmind.modes.evolve import EvolveEngine
+    from contextmind.infra.llm_client import AdkLLMClient
 
     config = get_chat_scenario()
-    engine = EvolveEngine(app_name="demo_chat", user_id="user1")
-    app = EvolveApplication(evolve_engine=engine, system_prompt=config.system_prompt)
+    llm = AdkLLMClient()
+    app = EvolveApplication.from_scenario(llm, config)
     reply = await app.process_turn("你好！")
 """
 
@@ -99,6 +99,24 @@ class EvolveApplication:
     # ------------------------------------------------------------------ #
     # 工厂方法
     # ------------------------------------------------------------------ #
+
+    @classmethod
+    def from_scenario(
+        cls,
+        llm_client: Any,
+        scenario_config: Any,
+        **kwargs: Any,
+    ) -> "EvolveApplication":
+        """从场景配置创建 EvolveApplication 实例（标准工厂接口）。
+
+        实现 BaseTracker.from_scenario 协议，与 DST / FnCTOD / PyTOD 统一。
+
+        Args:
+            llm_client:      LLM 客户端实例（AdkLLMClient / SimpleLLMClient）。
+            scenario_config: ScenarioConfig 场景配置对象。
+            **kwargs:        传递给构造函数的额外参数。
+        """
+        return cls.create_from_config(llm_client, scenario_config)
 
     @classmethod
     def create_from_config(cls, llm_client: Any, scenario_config: Any) -> "EvolveApplication":
@@ -227,6 +245,41 @@ class EvolveApplication:
         if debug:
             return response, debug_info
         return response
+
+    # ------------------------------------------------------------------ #
+    # 协议方法（BaseTracker 接口）
+    # ------------------------------------------------------------------ #
+
+    def get_current_state(self) -> Dict[str, Any]:
+        """返回当前记忆库缓存中的知识摘要（实现 BaseTracker 协议）。
+
+        Returns:
+            记忆条目列表（以 content 字符串为值）组成的字典；
+            若记忆库尚无内容则返回空字典。
+        """
+        memory_cache = self.evolve_engine.memory_bank.get_memory_cache()
+        if not memory_cache:
+            return {}
+        return {
+            f"memory_{i}": item.content
+            for i, item in enumerate(memory_cache)
+        }
+
+    def reset(self) -> None:
+        """重置对话，清空会话历史（实现 BaseTracker 协议）。
+
+        注意：长期记忆库（MemoryBank）不会被清空，仅会话历史被重置。
+        """
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 在异步上下文中，调度协程而不等待
+                loop.create_task(self.evolve_engine.clear_session())
+            else:
+                loop.run_until_complete(self.evolve_engine.clear_session())
+        except Exception as exc:
+            logger.warning(f"[EvolveApplication] reset 失败: {exc}")
 
 
 # ---------------------------------------------------------------------------
