@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import warnings
 from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
@@ -26,6 +27,52 @@ except ImportError:
 from .logger import get_logger
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# LiteLLM 全局噪音抑制
+# ---------------------------------------------------------------------------
+# 问题1: LiteLLM 日志后台线程在 event loop 关闭后尝试调度异步回调，产生
+#        "coroutine 'Logging.async_success_handler' was never awaited" RuntimeWarning。
+#        通过 warnings 过滤器屏蔽该特定警告，同时禁用 LiteLLM 的遥测/成功回调。
+# 问题2: LiteLLM 每次请求都尝试查本地自托管模型的价格，因未在价格表中而打印
+#        大量 DEBUG 日志。通过注册零价格条目消除这些日志。
+warnings.filterwarnings(
+    "ignore",
+    message="coroutine 'Logging.async_success_handler' was never awaited",
+    category=RuntimeWarning,
+)
+
+def _configure_litellm_for_local_model(model_name: str) -> None:
+    """配置 LiteLLM 全局状态以减少本地部署模型的噪音日志。
+
+    - 禁用遥测和成功/失败回调，避免 async_success_handler 未等待的 RuntimeWarning。
+    - 注册零价格条目，避免"model not in cost map"的 DEBUG 日志。
+
+    仅在 litellm 可导入时生效；导入失败时静默跳过。
+    """
+    try:
+        import litellm  # type: ignore[import]
+
+        # 禁用回调（问题1）
+        litellm.success_callback = []
+        litellm.failure_callback = []
+        litellm.callbacks = []
+
+        # 注册零价格条目（问题2），覆盖 `openai/<model>` 和裸 model 两种键
+        _zero_cost: dict = {
+            "max_tokens": 32768,
+            "max_input_tokens": 32768,
+            "max_output_tokens": 32768,
+            "input_cost_per_token": 0.0,
+            "output_cost_per_token": 0.0,
+            "litellm_provider": "openai",
+            "mode": "chat",
+        }
+        for key in (model_name, f"openai/{model_name}"):
+            litellm.model_cost.setdefault(key, _zero_cost)
+    except Exception as exc:
+        logger.debug(f"[AdkLLMClient] litellm 配置失败（非致命）: {exc}")
+
 
 DEFAULT_MODEL = "Qwen3-32B"
 DEFAULT_TEMPERATURE = 0.3
@@ -186,6 +233,7 @@ class AdkLLMClient:
         self._config = config or LLMConfig.from_env()
         self._adk_model = create_local_adk_model(self._config)
         self.system_instruction = system_instruction
+        _configure_litellm_for_local_model(self._config.model)
         logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
 
     def _build_user_content(self, messages: List[dict]) -> str:
