@@ -1,161 +1,341 @@
-python examples/web_demo.py --port 8080
-📝 日志将自动保存到: logs/contextmind_20260319_155339.log
-[2026-03-19 15:53:39] INFO - [__main__] [__main__] 启动 ContextMind Gradio Demo
-[2026-03-19 15:53:39] INFO - [__main__] 参数配置: 日志级别=INFO, 最大历史轮数=10, 端口=8080, 分享=False
-[2026-03-19 15:53:39] INFO - [__main__] Demo实例创建完成（延迟初始化）
-[2026-03-19 15:53:39] INFO - [__main__] ✅ Demo实例创建成功
-/share/airesearch/data/yejiang.zhou/workspace/ContextMind/contextmind/ui/components.py:37: UserWarning: The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0: theme, css. Please pass these parameters to launch() instead.
-  with gr.Blocks(
-[2026-03-19 15:53:39] INFO - [__main__] ✅ UI创建成功
-[2026-03-19 15:53:39] INFO - [__main__] 启动Gradio应用... (端口: 8080, 分享: False)
-* Running on local URL:  http://0.0.0.0:8080
-* To create a public link, set `share=True` in `launch()`.
+#!/usr/bin/env python3
+"""
+Gradio UI 组件定义
 
-Provider List: https://docs.litellm.ai/docs/providers
+提供三个独立函数：
+- ``create_layout()``   — 纯布局构建，不含任何事件绑定
+- ``bind_events()``     — 将事件处理器绑定到已创建的组件
+- ``create_gradio_ui()``— 向后兼容入口，组合以上两步
+"""
+
+import json
+import gradio as gr
+
+from .styles import CUSTOM_CSS, APP_VERSION
 
 
-Provider List: https://docs.litellm.ai/docs/providers
+def format_state_as_json(state_dict):
+    """将状态字典格式化为 JSON 字符串。
 
-[2026-03-19 15:53:43] INFO - [contextmind.infra.llm_client] [AdkLLMClient] 初始化完成，model=Qwen3-32B
-[2026-03-19 15:53:43] INFO - [__main__] ✅ LLM客户端初始化成功
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.memory.extractor] [LLMBasedExtractor] 初始化完成 - 使用LLM自动提取
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✅ LLMBasedExtractor 已初始化用于知识提取
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.pipeline.response_handler] [ResponseHandler] 初始化完成
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ResponseHandler 已初始化
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.engine] EvolveEngine 已初始化 app=gradio_demo_chat, user=gradio_demo_user
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.pipeline.summarizer] [Summarizer] ✅ 使用基于规则的摘要策略
-[2026-03-19 15:53:43] INFO - [contextmind.modes.evolve.pipeline.summarizer] [Summarizer] 初始化完成 - 策略: RuleBasedSummarizer, 窗口: 10, 增量模式启用
-[2026-03-19 15:53:43] INFO - [contextmind.scenarios.app] [EvolveApplication] 初始化完成 (LLM: ✓, 摘要阈值: 15 轮)
-[2026-03-19 15:53:43] INFO - [__main__] Evolve模式初始化完成
-[2026-03-19 15:53:43] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: evolve
-[2026-03-19 15:53:43] INFO - [__main__] 配置已更新: chat, evolve
-[2026-03-19 15:53:45] INFO - [contextmind.modes.dst.prompts] 初始化PromptManager (领域=闲聊, 动态槽位=True, 意图预测=True)
-[2026-03-19 15:53:45] INFO - [contextmind.modes.dst.tracker] 初始化DialogueStateTracker (领域=general, 动态槽位=True, 历史轮数=10, 摘要=True, LLM摘要=False)
-[2026-03-19 15:53:45] INFO - [__main__] DST模式初始化完成
-[2026-03-19 15:53:45] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: dst
-[2026-03-19 15:53:45] INFO - [__main__] 配置已更新: chat, dst
-15:53:48 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:53:48] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:53:53] INFO - [contextmind.modes.dst.tracker] 处理轮次 #1: 更新={'intent_level1': '闲聊', 'intent_level2': '询问身份', 'topic': '身份介绍', 'emotion': '平静'}, 意图=闲聊
-15:53:53 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:53:53] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:54:17] INFO - [contextmind.modes.pytod.tracker] 已为场景 '闲聊' 注册 API: ['get_weather', 'search_info', 'tell_joke', 'translate_text', 'calculate']
-[2026-03-19 15:54:17] INFO - [contextmind.modes.pytod.tracker] adk_tools_from_engine: 共 5 个工具: ['get_weather', 'search_info', 'tell_joke', 'translate_text', 'calculate']
-[2026-03-19 15:54:17] INFO - [contextmind.modes.pytod.tracker] AdkPyTODTracker 初始化完成 (model=Qwen3-32B, 工具: ['get_weather', 'search_info', 'tell_joke', 'translate_text', 'calculate'])
-[2026-03-19 15:54:17] INFO - [__main__] PyTOD模式初始化完成
-[2026-03-19 15:54:17] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: pytod
-[2026-03-19 15:54:17] INFO - [__main__] 配置已更新: chat, pytod
-[2026-03-19 15:54:19] INFO - [contextmind.modes.pytod.tracker] AdkPyTODTracker 第 1 轮: 你是谁
-15:54:19 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:54:19] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:54:23] INFO - [contextmind.modes.pytod.tracker] [AdkPyTODTracker] 回复: 我是pytod_agent，一个任务型对话助手。我优先通过调用工具来完成任务，然后会用自然语言给出友好、简洁的回复。有什么我可以帮你的吗？
-[2026-03-19 15:54:44] INFO - [contextmind.modes.fnctod.function_manager] FunctionManager 初始化完成
-[2026-03-19 15:54:44] INFO - [contextmind.modes.fnctod.tracker] adk_tools_from_function_manager: 共 1 个工具: ['chat']
-[2026-03-19 15:54:44] INFO - [contextmind.modes.fnctod.tracker] FnCTODTracker 初始化完成 (model=Qwen3-32B, domains=['chat'])
-[2026-03-19 15:54:44] INFO - [__main__] FnCTOD模式初始化完成
-[2026-03-19 15:54:44] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: fnctod
-[2026-03-19 15:54:44] INFO - [__main__] 配置已更新: chat, fnctod
-15:54:48 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:54:48] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-15:54:53 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:54:53] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:54:59] INFO - [contextmind.modes.fnctod.tracker] [turn 1] 更新: {'intent_level1': '闲聊', 'intent_level2': '询问身份', 'keywords': '你是谁', 'emotion': '平静', 'attitude': '友好', 'conversation_style': '随意', 'conversation_depth': '浅层闲聊', 'follow_up_needed': '否'}, 累积: {'intent_level1': '闲聊', 'intent_level2': '询问身份', 'keywords': '你是谁', 'emotion': '平静', 'attitude': '友好', 'conversation_style': '随意', 'conversation_depth': '浅层闲聊', 'follow_up_needed': '否'}
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.memory.extractor] [LLMBasedExtractor] 初始化完成 - 使用LLM自动提取
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✅ LLMBasedExtractor 已初始化用于知识提取
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.pipeline.response_handler] [ResponseHandler] 初始化完成
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ResponseHandler 已初始化
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.engine] EvolveEngine 已初始化 app=gradio_demo_chat, user=gradio_demo_user
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.pipeline.summarizer] [Summarizer] ✅ 使用基于规则的摘要策略
-[2026-03-19 15:55:06] INFO - [contextmind.modes.evolve.pipeline.summarizer] [Summarizer] 初始化完成 - 策略: RuleBasedSummarizer, 窗口: 10, 增量模式启用
-[2026-03-19 15:55:06] INFO - [contextmind.scenarios.app] [EvolveApplication] 初始化完成 (LLM: ✓, 摘要阈值: 15 轮)
-[2026-03-19 15:55:06] INFO - [__main__] Evolve模式初始化完成
-[2026-03-19 15:55:06] INFO - [__main__] ✅ 场景初始化完成: chat, 模式: evolve
-[2026-03-19 15:55:06] INFO - [__main__] 配置已更新: chat, evolve
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] ====================================================================================================
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ========== 开始上下文优化 ==========
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 📝 用户输入: '你是谁'
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] ====================================================================================================
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✓ 预处理完成
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 🔍 步骤 2/5: 召回相关上下文
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine]   - 会话历史: 0 条消息
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.memory.bank] [MemoryBank] 开始检索记忆 - 查询: '你是谁'
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.memory.bank] [MemoryBank] 从本地缓存检索 - 查询: '你是谁', 缓存大小: 0
-[2026-03-19 15:55:18] WARNING - [contextmind.modes.evolve.memory.bank] [MemoryBank] ✗ 本地缓存为空 - 无法检索记忆
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine]   - 长期记忆: 0 条知识
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✓ 召回完成 - 共检索到 0 条上下文
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 📦 步骤 3/5: 构建上下文
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✓ 上下文构建完成 - 0 条上下文项
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 🗜️  步骤 4/5: 上下文压缩
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine]   - 上下文项数量适中(0条)，无需压缩
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✅ 步骤 5/5: 生成最终上下文结果
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] ----------------------------------------------------------------------------------------------------
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 🎯 上下文优化完成 - 共 0 条上下文项 (会话: 0, 记忆: 0)
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] ----------------------------------------------------------------------------------------------------
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ========== 上下文优化结束 ==========
-[2026-03-19 15:55:18] INFO - [contextmind.modes.evolve.engine] 
-15:55:18 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:55:18] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 💾 更新会话历史 - 添加新对话轮次
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] [EvolveEngine]   - 用户消息: 3 字符
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] [EvolveEngine]   - 助手回复: 63 字符
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✓ 会话历史更新完成
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] ====================================================================================================
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ========== 🧠 开始知识提取 ==========
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 📖 从 2 条对话中提取知识...
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] ====================================================================================================
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:21] INFO - [contextmind.modes.evolve.memory.extractor] [LLMBasedExtractor] 开始LLM知识提取 - 处理 2 条消息
-15:55:21 - LiteLLM:INFO: utils.py:3874 - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:55:21] INFO - 
-LiteLLM completion() model= Qwen3-32B; provider = openai
-[2026-03-19 15:55:32] INFO - [contextmind.infra.embedding] [EmbeddingConfig] 使用本地 embedding 模型: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-[2026-03-19 15:55:32] INFO - [contextmind.infra.embedding] [EmbeddingClient] 正在加载本地模型: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-[2026-03-19 15:55:32] INFO - Use pytorch device_name: cuda:0
-[2026-03-19 15:55:32] INFO - Load pretrained SentenceTransformer: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-Loading weights: 100%|████████████████████████████████████████████████████████████| 391/391 [00:00<00:00, 7714.00it/s, Materializing param=pooler.dense.weight]
-BertModel LOAD REPORT from: /share/airesearch/data/aowen.xiao/models/BAAI/bge-large-zh-v1.5
-Key                     | Status     |  | 
-------------------------+------------+--+-
-embeddings.position_ids | UNEXPECTED |  | 
+    Args:
+        state_dict: 状态字典
 
-Notes:
-- UNEXPECTED    :can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-[2026-03-19 15:55:33] INFO - [contextmind.infra.embedding] [EmbeddingClient] 本地模型加载成功 - bge-large-zh-v1.5
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.extractor] [LLMBasedExtractor] ✓ 知识提取完成 - 总计 1 条有效知识
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] ----------------------------------------------------------------------------------------------------
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✓ 知识提取完成 - 共提取 1 条知识
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] 
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] 📥 入库: 存储知识到长期记忆...
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.bank] [MemoryBank] 开始存储知识 - 收到 1 条知识项
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.bank] 
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.updater] [SimpleUpdater] 开始存储知识 - 收到 1 条知识项
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.updater] [SimpleUpdater] ✓ 存储完成 - 新增 1 条知识, 合并/更新 0 条
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.updater] [SimpleUpdater] 当前记忆库总计: 1 条记忆
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.memory.bank] 
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ✓ 知识入库完成
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] ----------------------------------------------------------------------------------------------------
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] [EvolveEngine] ========== 知识提取结束 ==========
-[2026-03-19 15:55:34] INFO - [contextmind.modes.evolve.engine] 
+    Returns:
+        格式化的 JSON 字符串
+    """
+    if isinstance(state_dict, dict):
+        return json.dumps(state_dict, ensure_ascii=False, indent=2)
+    return str(state_dict)
+
+
+def create_layout() -> tuple:
+    """构建 Gradio 界面布局，不绑定任何事件。
+
+    Returns:
+        ``(app, components)`` — Gradio Blocks 应用实例和组件字典。
+    """
+    with gr.Blocks(
+        title=f"ContextMind Demo v{APP_VERSION}",
+        theme=gr.themes.Soft(),
+        css=CUSTOM_CSS,
+    ) as app:
+        # 标题
+        gr.Markdown("# 🧠 ContextMind 对话系统")
+        gr.Markdown("上下文工程框架 · 智能对话 · 场景灵活 · 模式可选")
+
+        # 主内容区 - 左右分栏
+        with gr.Row():
+            # 左侧列 - 对话区域
+            with gr.Column(scale=3):
+                gr.Markdown("### 💬 对话窗口")
+                chatbot = gr.Chatbot(
+                    height=500,
+                    avatar_images=("👤", "🤖"),
+                    elem_classes=["chatbot"],
+                )
+                with gr.Row():
+                    msg = gr.Textbox(
+                        placeholder="在这里输入您的消息...",
+                        show_label=False,
+                        scale=5,
+                        container=False,
+                    )
+                    send_btn = gr.Button("发送", scale=1, variant="primary")
+
+            # 右侧列 - 配置面板
+            with gr.Column(scale=2):
+                gr.Markdown("### ⚙️ 场景配置")
+                scenario_selector = gr.Dropdown(
+                    choices=[
+                        ("闲聊对话", "chat"),
+                        ("智能客服", "callcenter"),
+                        ("保险咨询", "insurance"),
+                    ],
+                    value="chat",
+                    label="选择场景",
+                )
+                mode_selector = gr.Radio(
+                    choices=[
+                        ("DST 模式 (槽位提取)", "dst"),
+                        ("FnCTOD 模式 (函数调用)", "fnctod"),
+                        ("PyTOD 模式 (程序执行)", "pytod"),
+                        ("Evolve 模式 (记忆进化)", "evolve"),
+                    ],
+                    value="evolve",
+                    label="选择模式",
+                )
+                apply_btn = gr.Button("应用配置", variant="primary")
+
+                gr.Markdown("### 🎮 操作")
+                with gr.Row():
+                    view_state_btn = gr.Button("查看状态", scale=1)
+                    reset_btn = gr.Button("重置对话", scale=1)
+                clear_btn = gr.Button("清空历史")
+
+                with gr.Accordion("📊 对话状态", open=True):
+                    state_display = gr.Code(
+                        label="当前状态",
+                        language="json",
+                        lines=10,
+                        elem_classes=["json-display"],
+                    )
+
+                with gr.Accordion("⚙️ 高级设置", open=False):
+                    # DST模式设置
+                    with gr.Group(visible=False) as dst_settings:
+                        gr.Markdown("**DST模式设置**")
+                        max_history_slider = gr.Slider(
+                            minimum=5, maximum=50, value=10, step=1,
+                            label="历史轮数", info="DST模式保存的对话轮数",
+                        )
+                        enable_summary_check = gr.Checkbox(
+                            value=True, label="启用历史摘要",
+                            info="自动摘要历史对话（减少token消耗）",
+                        )
+                        use_llm_summary_check = gr.Checkbox(
+                            value=False, label="使用LLM生成摘要",
+                            info="用LLM生成摘要(更智能但慢)",
+                        )
+                        dst_temperature_slider = gr.Slider(
+                            minimum=0.0, maximum=1.0, value=0.0, step=0.1,
+                            label="温度参数", info="控制槽位提取的确定性（0=严格，1=灵活）",
+                        )
+                        enable_dynamic_slots_check = gr.Checkbox(
+                            value=True, label="启用动态槽位",
+                            info="允许提取未预定义的槽位（通用模式）",
+                        )
+
+                    # FnCTOD模式设置
+                    with gr.Group(visible=False) as fnctod_settings:
+                        gr.Markdown("**FnCTOD模式设置**")
+                        fnctod_max_history_slider = gr.Slider(
+                            minimum=5, maximum=50, value=10, step=1,
+                            label="历史轮数", info="FnCTOD模式保存的对话轮数",
+                        )
+                        use_two_stage_check = gr.Checkbox(
+                            value=True, label="启用两阶段处理",
+                            info="先选择domain再填充参数（推荐）",
+                        )
+                        fnctod_temperature_slider = gr.Slider(
+                            minimum=0.0, maximum=1.0, value=0.0, step=0.1,
+                            label="温度参数", info="控制函数调用的确定性（0=严格，1=灵活）",
+                        )
+
+                    # Evolve模式设置
+                    with gr.Group(visible=False) as evolve_settings:
+                        gr.Markdown("**Evolve模式设置**")
+                        enable_memory_check = gr.Checkbox(
+                            value=True, label="启用记忆功能",
+                            info="启用长期记忆存储和语义检索",
+                        )
+                        enable_evolution_check = gr.Checkbox(
+                            value=True, label="启用进化学习",
+                            info="从对话中学习和优化响应策略",
+                        )
+                        evolve_temperature_slider = gr.Slider(
+                            minimum=0.0, maximum=2.0, value=0.7, step=0.1,
+                            label="创造性温度", info="控制回复的随机性和创造性（0=保守，2=创新）",
+                        )
+
+        # 使用指南
+        with gr.Accordion("💡 使用指南", open=False):
+            gr.Markdown("""
+### 场景说明
+
+| 场景 | 说明 | 适用场景 |
+|------|------|----------|
+| 💬 闲聊对话 | 日常对话，轻松交流 | 聊天、问候、闲聊 |
+| 📞 智能客服 | 专业客服服务 | 咨询、投诉、售后 |
+| 🏥 保险咨询 | 共荣保险客服 | 保险产品咨询 |
+
+### 模式对比
+
+**Evolve 模式（基于记忆进化）**
+- 📚 **语义记忆**: 自动记住对话内容，支持语义检索
+- 🧬 **进化学习**: 从每次对话中学习，持续优化响应
+- 🎯 **个性化**: 根据用户偏好调整对话策略
+- 💡 **适用**: 开放域对话、长期交互、个性化服务
+
+**DST 模式（对话状态追踪）**
+- 🎯 **意图识别**: 准确识别用户意图（三级意图体系）
+- 📋 **槽位提取**: 自动提取关键信息到预定义槽位
+- 📊 **状态追踪**: 跟踪对话状态变化，累积信息
+- 💡 **适用**: 任务型对话、信息收集、结构化交互
+
+**FnCTOD 模式（函数调用型对话）**
+- 🔧 **函数调用**: 通过函数调用方式提取结构化信息
+- 🎯 **两阶段处理**: 先选择domain，再填充参数
+- 📦 **结构化输出**: 输出标准function call格式
+- 💡 **适用**: API集成、结构化任务、多domain场景
+
+### 使用步骤
+
+1. **选择场景**: 根据对话任务选择合适场景
+2. **选择模式**: 需要记忆和学习 → Evolve 模式；需要结构化信息提取 → DST/FnCTOD 模式
+3. **应用配置**: 点击"✨ 应用配置"按钮生效
+4. **开始对话**: 在输入框输入消息，系统自动处理
+5. **查看状态**: 点击"🔍 查看状态"查看提取的信息或记忆库
+            """)
+
+        # 页脚
+        gr.Markdown(
+            f"ContextMind v{APP_VERSION} | 💡 Powered by LLM",
+            elem_classes=["footer"],
+        )
+
+    components = {
+        "scenario_selector": scenario_selector,
+        "mode_selector": mode_selector,
+        "apply_btn": apply_btn,
+        "dst_settings": dst_settings,
+        "fnctod_settings": fnctod_settings,
+        "evolve_settings": evolve_settings,
+        "max_history_slider": max_history_slider,
+        "enable_summary_check": enable_summary_check,
+        "use_llm_summary_check": use_llm_summary_check,
+        "dst_temperature_slider": dst_temperature_slider,
+        "enable_dynamic_slots_check": enable_dynamic_slots_check,
+        "fnctod_max_history_slider": fnctod_max_history_slider,
+        "use_two_stage_check": use_two_stage_check,
+        "fnctod_temperature_slider": fnctod_temperature_slider,
+        "enable_memory_check": enable_memory_check,
+        "enable_evolution_check": enable_evolution_check,
+        "evolve_temperature_slider": evolve_temperature_slider,
+        "chatbot": chatbot,
+        "msg": msg,
+        "send_btn": send_btn,
+        "state_display": state_display,
+        "view_state_btn": view_state_btn,
+        "reset_btn": reset_btn,
+        "clear_btn": clear_btn,
+    }
+    return app, components
+
+
+def bind_events(app: gr.Blocks, components: dict, demo_instance) -> None:
+    """将事件处理器绑定到已创建的 Gradio 组件。
+
+    Args:
+        app:           ``create_layout()`` 返回的 Gradio Blocks 应用。
+        components:    ``create_layout()`` 返回的组件字典。
+        demo_instance: 提供 ``chat``、``reset_conversation``、``get_state``、
+                       ``change_scenario_or_mode`` 等方法的 Demo 实例。
+    """
+    chatbot = components["chatbot"]
+    msg = components["msg"]
+    send_btn = components["send_btn"]
+    state_display = components["state_display"]
+    view_state_btn = components["view_state_btn"]
+    reset_btn = components["reset_btn"]
+    clear_btn = components["clear_btn"]
+    apply_btn = components["apply_btn"]
+    scenario_selector = components["scenario_selector"]
+    mode_selector = components["mode_selector"]
+    dst_settings = components["dst_settings"]
+    fnctod_settings = components["fnctod_settings"]
+    evolve_settings = components["evolve_settings"]
+
+    def get_state_json():
+        """获取状态并格式化为 JSON。"""
+        state = demo_instance.get_state()
+        return format_state_as_json(state)
+
+    def apply_config_and_update_ui(scenario, mode):
+        """应用场景/模式配置，并按模式切换显示对应高级设置。"""
+        history, _status = demo_instance.change_scenario_or_mode(scenario, mode)
+        dst_vis = mode == "dst"
+        fnctod_vis = mode == "fnctod"
+        evolve_vis = mode not in ("dst", "fnctod")
+        return (
+            history,
+            gr.update(visible=dst_vis),
+            gr.update(visible=fnctod_vis),
+            gr.update(visible=evolve_vis),
+        )
+
+    with app:
+        # 发送消息
+        send_btn.click(
+            fn=demo_instance.chat,
+            inputs=[msg, chatbot],
+            outputs=[chatbot],
+        ).then(
+            fn=get_state_json,
+            outputs=[state_display],
+        ).then(
+            fn=lambda: "",
+            outputs=[msg],
+        )
+
+        msg.submit(
+            fn=demo_instance.chat,
+            inputs=[msg, chatbot],
+            outputs=[chatbot],
+        ).then(
+            fn=get_state_json,
+            outputs=[state_display],
+        ).then(
+            fn=lambda: "",
+            outputs=[msg],
+        )
+
+        # 查看状态
+        view_state_btn.click(fn=get_state_json, outputs=[state_display])
+
+        # 重置对话
+        reset_btn.click(fn=demo_instance.reset_conversation, outputs=[chatbot])
+
+        # 清空历史
+        clear_btn.click(fn=lambda: [], outputs=[chatbot])
+
+        # 应用配置
+        apply_btn.click(
+            fn=apply_config_and_update_ui,
+            inputs=[scenario_selector, mode_selector],
+            outputs=[chatbot, dst_settings, fnctod_settings, evolve_settings],
+        )
+
+        # 页面加载时应用默认配置
+        app.load(
+            fn=apply_config_and_update_ui,
+            inputs=[scenario_selector, mode_selector],
+            outputs=[chatbot, dst_settings, fnctod_settings, evolve_settings],
+        )
+
+
+def create_gradio_ui(demo_instance=None) -> tuple:
+    """创建 Gradio UI 界面（向后兼容入口）。
+
+    组合 ``create_layout()`` 和 ``bind_events()`` 两步。
+
+    Args:
+        demo_instance: 提供对话相关方法的 Demo 实例；传 None 则仅返回布局。
+
+    Returns:
+        ``(app, components)`` — Gradio Blocks 应用和组件字典。
+    """
+    app, components = create_layout()
+    if demo_instance:
+        bind_events(app, components, demo_instance)
+    return app, components
+
