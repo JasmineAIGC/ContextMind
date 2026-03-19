@@ -30,7 +30,7 @@ from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import AdkPyTODTracker
-from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
+from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_outbound_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -75,6 +75,8 @@ class UnifiedGradioDemo:
             self.config = get_callcenter_scenario()
         elif scenario == "insurance":
             self.config = get_insurance_scenario()
+        elif scenario == "anyihua":
+            self.config = get_anyihua_outbound_scenario()
         else:
             raise ValueError(f"未知场景: {scenario}")
         

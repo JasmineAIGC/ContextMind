@@ -378,6 +378,113 @@ def _register_insurance_apis(engine: ExecutionEngine) -> None:
 
 
 # ---------------------------------------------------------------------------
+# 安逸花外呼促活场景 API
+# ---------------------------------------------------------------------------
+
+def _register_anyihua_outbound_apis(engine: ExecutionEngine) -> None:
+    """为安逸花外呼促活场景注册演示 API 函数。"""
+
+    @engine.register
+    def verify_customer(name: str = None, phone_suffix: str = None) -> dict:
+        """核实客户身份：验证来电人提供的姓名和手机尾号。"""
+        if not name and not phone_suffix:
+            return {"hint": "请提供客户姓名或手机尾号进行核实"}
+        return {
+            "identity_confirmed": bool(name or phone_suffix),
+            "name_provided": name,
+            "phone_suffix_provided": phone_suffix,
+            "status": "核实完成" if (name and phone_suffix) else "部分核实",
+            "message": f"身份核实{'成功' if name else '部分完成'}，已确认{'姓名' if name else ''}{'和手机尾号' if phone_suffix else ''}",
+        }
+
+    @engine.register
+    def query_account(customer_name: str = None) -> dict:
+        """查询客户账户信息（可用额度、利率、账单日、绑定银行等）。"""
+        return {
+            "customer_name": customer_name or "客户",
+            "available_credit": 18000,
+            "authorized_credit": 18000,
+            "temp_credit": 26500,
+            "temp_credit_status": "临时提额有效期内",
+            "annual_rate_pct": 24,
+            "cash_ratio_pct": 100,
+            "bound_bank": "农业银行",
+            "billing_day": 27,
+            "repayment_date": "下月1日",
+            "loan_count": 3,
+            "last_loan_date": "2025-05-02",
+            "loan_outstanding": True,
+            "message": f"账户可用额度1.8万元，年化利率24%，绑定农业银行，账单日每月27号",
+        }
+
+    @engine.register
+    def query_loan_records(disputed_date: str = None) -> dict:
+        """查询借款记录，支持按日期查询指定借款详情。"""
+        if not disputed_date:
+            return {
+                "loan_records": [
+                    {"date": "2025-05-02", "amount": 600, "status": "已还清"},
+                ],
+                "total_loans": 1,
+                "message": "当前系统记录的借款信息",
+            }
+        return {
+            "query_date": disputed_date,
+            "found": False,
+            "message": f"系统中未查询到{disputed_date}的借款记录，建议客户提供更多信息或联系人工核查",
+        }
+
+    @engine.register
+    def calculate_repayment(amount: int = None, months: int = None) -> dict:
+        """计算指定金额和期数的每月还款金额。"""
+        if not amount:
+            return {"hint": "请提供借款金额"}
+        months = months or 12
+        annual_rate = 0.24
+        monthly_rate = annual_rate / 12
+        monthly_payment = round(amount * monthly_rate * (1 + monthly_rate) ** months
+                                / ((1 + monthly_rate) ** months - 1), 2)
+        total_interest = round(monthly_payment * months - amount, 2)
+        return {
+            "amount": amount,
+            "months": months,
+            "monthly_payment": monthly_payment,
+            "total_interest": total_interest,
+            "annual_rate_pct": 24,
+            "message": f"借款{amount}元，分{months}期，每月还款约{monthly_payment}元，总利息{total_interest}元",
+        }
+
+    @engine.register
+    def handle_complaint(complaint_type: str = None, description: str = None) -> dict:
+        """受理用户投诉，生成工单并告知处理时限。"""
+        if not complaint_type:
+            return {"hint": "请提供投诉类型"}
+        return {
+            "ticket_id": f"CMP-ANYIHUA-{complaint_type[:4].upper()}-001",
+            "complaint_type": complaint_type,
+            "status": "已受理",
+            "expected_response_time": "1-3个工作日",
+            "escalation_channel": "官方APP > 我的 > 在线客服",
+            "message": f"您的{complaint_type}投诉已受理，工单号已生成，将在1-3个工作日内处理并回复",
+        }
+
+    @engine.register
+    def end_call(outcome: str = None) -> dict:
+        """结束通话，记录通话结果。"""
+        farewell_map = {
+            "用户拒绝借款": "感谢您接听，祝您生活愉快，有需要随时欢迎使用安逸花，再见！",
+            "投诉已处理": "感谢您的反馈，我们会尽快处理，祝您生活愉快，再见！",
+            "用户有借款意向": "好的，感谢您的信任，祝您借款顺利，有任何问题随时联系我们，再见！",
+        }
+        farewell = farewell_map.get(outcome or "", "感谢您接听，祝您生活愉快，也邀请您多登录安逸花APP看看，再见！")
+        return {
+            "outcome": outcome or "通话结束",
+            "farewell_message": farewell,
+            "status": "通话已结束",
+        }
+
+
+# ---------------------------------------------------------------------------
 # 公共注册表
 # ---------------------------------------------------------------------------
 
@@ -390,6 +497,10 @@ SCENARIO_API_REGISTRY: Dict[str, Callable[[ExecutionEngine], None]] = {
     "insurance": _register_insurance_apis,
     "保险": _register_insurance_apis,
     "保险挽回": _register_insurance_apis,
+    "anyihua": _register_anyihua_outbound_apis,
+    "安逸花": _register_anyihua_outbound_apis,
+    "安逸花外呼": _register_anyihua_outbound_apis,
+    "安逸花外呼促活": _register_anyihua_outbound_apis,
 }
 
 
