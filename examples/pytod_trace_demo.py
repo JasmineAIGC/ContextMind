@@ -59,8 +59,8 @@ def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
 async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果。"""
     engine = ExecutionEngine()
-    # 注册安逸花场景 API（fallback 到 callcenter）
-    register_fn = SCENARIO_API_REGISTRY.get("callcenter")
+    # 注册安逸花外呼场景 API
+    register_fn = SCENARIO_API_REGISTRY.get("anyihua")
     if register_fn:
         register_fn(engine)
 
@@ -77,9 +77,16 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
 
     turns_results: List[Dict[str, Any]] = []
 
+    # 将会话中的用户信息注入 scenario_context，让 AP 了解用户的账户详情，
+    # 避免重复询问已知信息（如身份、额度等）
+    user_info = session.get("用户信息", "")
+    scenario_context = _SCENARIO_CONTEXT
+    if user_info:
+        scenario_context = f"{_SCENARIO_CONTEXT}\n\n## 本次通话用户信息\n{user_info}"
+
     if llm_available:
         llm_client = AdkLLMClient(config=config)
-        agent = AdkPyTODTracker(llm_client=llm_client, engine=engine, scenario_context=_SCENARIO_CONTEXT)
+        agent = AdkPyTODTracker(llm_client=llm_client, engine=engine, scenario_context=scenario_context)
         for i, utt in enumerate(user_turns):
             try:
                 result = await agent.process_turn(utt)
