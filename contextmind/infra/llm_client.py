@@ -46,9 +46,15 @@ def _configure_litellm_for_local_model(model_name: str) -> None:
 
     - 禁用遥测和成功/失败回调，避免 async_success_handler 未等待的 RuntimeWarning。
     - 注册零价格条目，避免"model not in cost map"的 DEBUG 日志。
+    - 禁用 LiteLLM 自有 logger 向根 logger 的传播，避免每条 LiteLLM INFO
+      日志在控制台出现两次（一次来自 LiteLLM 自带 handler，一次来自根 logger）。
 
     仅在 litellm 可导入时生效；导入失败时静默跳过。
     """
+    # 阻止 LiteLLM logger 向根 logger 传播（解决双重日志问题）
+    import logging as _logging
+    _logging.getLogger("LiteLLM").propagate = False
+
     try:
         import litellm  # type: ignore[import]
 

@@ -250,7 +250,6 @@ class AdkPyTODTracker:
             self._history, user_utterance, program_text, execution_result, self.scenario_context,
         )
         response: str = await self.llm_client.chat_async(dm_messages)
-        response = re.sub(r"<think>.*?</think>", "", response, flags=re.DOTALL).strip()
         self.step_timings["DM (对话管理)"] = round(time.time() - t2, 3)
         logger.info(f"[DM] 回复: {response[:150]}")
 
