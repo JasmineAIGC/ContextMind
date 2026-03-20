@@ -234,7 +234,7 @@ class ExecutionEngine:
     _RE_VAR_CALL = re.compile(r"^(x\d+)\s+([A-Za-z_]\w*)\s*\(")
     _RE_SLOT_ASSIGN = re.compile(r"^(x\d+)\.([A-Za-z_]\w*)\s*=\s*(.+)$")
     _RE_HINT = re.compile(r"^(x\d+)\s+Hint\s*\((.+)\)\s*$")
-    _RE_SAY = re.compile(r"^(x\d+)\s+say\s*\(([^)]*)\)\s*$")
+    _RE_SAY = re.compile(r"^(?:(x\d+)\s+)?say\s*\((.*)(?:\))\s*$", re.DOTALL)
     # confirm(x1) 和 perform(x1)：接受变量引用而非常量值
     _RE_CONFIRM = re.compile(r"^(x\d+)\s+confirm\s*\(\s*(x\d+)\s*\)\s*$")
     _RE_PERFORM = re.compile(r"^(x\d+)\s+perform\s*\(\s*(x\d+)\s*\)\s*$")
@@ -691,6 +691,35 @@ class ExecutionEngine:
         except Exception as exc:  # noqa: BLE001
             return exc
 
+    @staticmethod
+    def _split_say_args(args_str: str) -> List[str]:
+        """将 say() 括号内的参数字符串分割为参数列表，正确处理引号内的逗号。
+
+        例如：``'张女士，6,600元', x1`` → ``["'张女士，6,600元'", "x1"]``
+        """
+        args: List[str] = []
+        current: List[str] = []
+        in_quote: Optional[str] = None
+        for ch in args_str:
+            if in_quote:
+                current.append(ch)
+                if ch == in_quote:
+                    in_quote = None
+            elif ch in ("'", '"'):
+                in_quote = ch
+                current.append(ch)
+            elif ch == ",":
+                token = "".join(current).strip()
+                if token:
+                    args.append(token)
+                current = []
+            else:
+                current.append(ch)
+        token = "".join(current).strip()
+        if token:
+            args.append(token)
+        return args
+
     def _parse_one_line(self, line: str) -> Tuple[Optional[AnyStatement], str]:
         """解析单行 PyTOD 程序语句。
 
@@ -731,8 +760,8 @@ class ExecutionEngine:
 
         m = self._RE_SAY.match(line)
         if m:
-            var = m.group(1)
-            arg_vars = [v.strip() for v in m.group(2).split(",") if v.strip()]
+            var = m.group(1) or ""
+            arg_vars = self._split_say_args(m.group(2) or "")
             return SayStatement(variable=var, arg_variables=arg_vars, raw_text=line), ""
 
         # confirm(x1) 和 perform(x1) 必须在通用 _RE_VAR_CALL 之前匹配，
