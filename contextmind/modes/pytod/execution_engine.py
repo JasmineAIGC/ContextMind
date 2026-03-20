@@ -734,6 +734,9 @@ class ExecutionEngine:
         """
         # 兼容 Python 赋值语法：将 'x1 = func(...)' 规范化为 'x1 func(...)'
         line = re.sub(r'^(x\d+)\s*=\s*(?=[A-Za-z_])', r'\1 ', line)
+        # 兼容点方法调用语法：将 'x1.method(...)' 规范化为 'x1 method(...)'
+        # 仅在括号前匹配（避免误处理槽位赋值 x1.slot = 'value'）
+        line = re.sub(r'^(x\d+)\.([A-Za-z_]\w*)\s*(?=\()', r'\1 \2', line)
 
         m = self._RE_SLOT_ASSIGN.match(line)
         if m:
