@@ -92,16 +92,16 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
                 result = await agent.process_turn(utt)
             except Exception as exc:
                 result = {"response": f"(error: {exc})", "program_text": "", "state": {}}
-            execution = result.get("execution")
+            execution_result = result.get("execution")
             turns_results.append({
                 "turn": i + 1,
                 "user": utt[:120],
                 "program": result.get("program_text", ""),
                 "response": result.get("response", ""),
                 "state": result.get("state", {}),
-                "execution_success": getattr(execution, "success", None),
-                "execution_errors": getattr(execution, "errors", []),
-                "say_output": getattr(execution, "say_output", ""),
+                "execution_success": getattr(execution_result, "success", None),
+                "execution_errors": getattr(execution_result, "errors", []),
+                "say_output": getattr(execution_result, "say_output", ""),
                 "step_timings": dict(agent.step_timings),
             })
             if verbose:
