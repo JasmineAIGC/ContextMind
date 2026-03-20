@@ -146,6 +146,17 @@ AnyStatement = Union[
 
 
 @dataclass
+class _VarRef:
+    """执行引擎内部：对已计算变量的延迟引用（xN.field 或 xN['key']）。
+
+    在解析阶段生成，在 execute_program 执行阶段从 var_values 中解析为实际值。
+    """
+
+    var_name: str           # 变量名，如 "x12"
+    key: Optional[str]      # 属性/键名，如 "outstanding_principal"；None 表示引用整个变量
+
+
+@dataclass
 class ProgramBlock:
     """PyTOD 多行程序块，包含动作解析器生成的一组有序程序语句。"""
 
@@ -459,8 +470,40 @@ class ExecutionEngine:
     # 内部辅助
     # ------------------------------------------------------------------ #
 
+    def _resolve_var_refs(
+        self, kwargs: Dict[str, Any], var_values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """将 kwargs 中的 _VarRef 占位符解析为 var_values 中的实际值。
+
+        若引用的变量不存在或键不存在，保留 _VarRef 原样（调用时会被签名过滤忽略）。
+        """
+        resolved: Dict[str, Any] = {}
+        for k, v in kwargs.items():
+            if isinstance(v, _VarRef):
+                target = var_values.get(v.var_name)
+                if v.key is None:
+                    resolved[k] = target
+                elif isinstance(target, dict) and v.key in target:
+                    resolved[k] = target[v.key]
+                elif target is not None and hasattr(target, v.key):
+                    resolved[k] = getattr(target, v.key)
+                else:
+                    # 变量或键不存在，置 None，让函数签名过滤处理
+                    resolved[k] = None
+            else:
+                resolved[k] = v
+        return resolved
+
     def _eval_constant(self, node: ast.expr) -> Tuple[Any, str]:
-        """从 AST 节点中安全提取常量值（支持 str/int/float/bool/None 及负数）。"""
+        """从 AST 节点中安全提取常量值或变量引用。
+
+        支持：
+        - str/int/float/bool/None 常量
+        - 负数（UnaryOp -）
+        - 变量属性引用：``xN.field``  → ``_VarRef(var_name, field)``
+        - 变量下标引用：``xN['key']`` → ``_VarRef(var_name, key)``
+        - 裸变量引用：  ``xN``        → ``_VarRef(var_name, None)``
+        """
         # Python 3.8+ Constant 节点
         if isinstance(node, ast.Constant):
             if not isinstance(node.value, self._ALLOWED_CONST_TYPES):
@@ -475,6 +518,32 @@ class ExecutionEngine:
             and isinstance(node.operand.value, (int, float))
         ):
             return -node.operand.value, ""
+
+        # xN.field — Attribute 访问
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and re.fullmatch(r"x\d+", node.value.id)
+        ):
+            return _VarRef(var_name=node.value.id, key=node.attr), ""
+
+        # xN['key'] 或 xN["key"] — Subscript 访问（字符串键）
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and re.fullmatch(r"x\d+", node.value.id)
+        ):
+            # Python 3.9+ uses node.slice directly; 3.8 wraps in ast.Index
+            slice_node = node.slice
+            if isinstance(slice_node, ast.Index):        # Python 3.8 compat
+                slice_node = slice_node.value            # type: ignore[attr-defined]
+            if isinstance(slice_node, ast.Constant) and isinstance(slice_node.value, str):
+                return _VarRef(var_name=node.value.id, key=slice_node.value), ""
+            return None, "下标引用仅支持字符串字面量键（如 x1['field_name']）"
+
+        # 裸变量名 xN（无属性）
+        if isinstance(node, ast.Name) and re.fullmatch(r"x\d+", node.id):
+            return _VarRef(var_name=node.id, key=None), ""
 
         return None, f"不支持的 AST 节点类型 {type(node).__name__}"
 
@@ -553,7 +622,7 @@ class ExecutionEngine:
                 #   多轮槽位填充流程的暂停点；在我们的单轮 AP→EE→DM 模型中等价于 NONE）
                 if stmt.function_name.upper() in ("NONE", "CONVERSATION_PAUSE"):
                     continue
-                kwargs = dict(stmt.kwargs)
+                kwargs = self._resolve_var_refs(dict(stmt.kwargs), var_values)
                 # 若语句无变量绑定，生成唯一匿名 key，避免多次调用同一函数时覆盖。
                 if stmt.variable:
                     var_key = stmt.variable
