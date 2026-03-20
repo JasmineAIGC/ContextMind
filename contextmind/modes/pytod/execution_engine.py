@@ -482,8 +482,11 @@ class ExecutionEngine:
         """将多行 PyTOD 程序文本解析为结构化的 ProgramBlock。
 
         支持分号分隔的多槽位赋值（官方 PyTOD 格式）：
-        ``x5 x1.location = 'San Jose'; x1.restaurant_name = 'Sino'``
+        ``x1.location = 'San Jose'; x1.restaurant_name = 'Sino'``
         会被拆分为两条独立的 SlotAssignment 语句。
+
+        注意：槽位赋值必须直接以 ``xN.slot_name = value`` 形式开头，
+        不支持带结果变量前缀的 ``x5 x1.slot = value`` 格式。
         """
         raw_lines = [l.strip() for l in program_text.strip().splitlines()]
         # 1. 过滤注释和空行；2. 将分号分隔的同行多语句展开为独立行
@@ -544,8 +547,11 @@ class ExecutionEngine:
 
         for stmt in block.statements:
             if isinstance(stmt, ProgramStatement):
-                # NONE() 是动作解析器在无需调用任何 API 时输出的哨兵值，直接跳过。
-                if stmt.function_name.upper() == "NONE":
+                # NONE() 和 conversation_pause() 是动作解析器的哨兵值，直接跳过。
+                # - NONE(): 本轮无需调用任何 API
+                # - conversation_pause(): 暂停并等待用户输入（官方 PyTOD 事务型 API 中用于
+                #   多轮槽位填充流程的暂停点；在我们的单轮 AP→EE→DM 模型中等价于 NONE）
+                if stmt.function_name.upper() in ("NONE", "CONVERSATION_PAUSE"):
                     continue
                 kwargs = dict(stmt.kwargs)
                 # 若语句无变量绑定，生成唯一匿名 key，避免多次调用同一函数时覆盖。
