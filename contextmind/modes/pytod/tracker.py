@@ -263,11 +263,12 @@ class AdkPyTODTracker:
             say_preview = execution_result.say_output[:60] if execution_result.say_output else "(无)"
             logger.info(f"[EE] 执行成功: APIs={called}, say={say_preview!r}")
 
-        # 推进全局变量计数器（与官方 PyTOD 对齐：变量编号跨轮连续递增）
-        # 扫描程序文本中的 xN 引用，取最大 N+1 作为下一轮起始编号
+        # 推进全局变量计数器（与官方 PyTOD 对齐：变量编号跨轮连续递增）。
+        # 取最大 N+1 作为下一轮起始编号；保证单调递增——即使 AP 生成了旧编号
+        # （违反提示），_next_var_index 也不会后退。
         var_indices = [int(m) for m in re.findall(r"\bx(\d+)\b", program_text)]
         if var_indices:
-            self._next_var_index = max(var_indices) + 1
+            self._next_var_index = max(self._next_var_index, max(var_indices) + 1)
 
         # ------------------------------------------------------------------ #
         # Step 3: Dialogue Manager (DM)

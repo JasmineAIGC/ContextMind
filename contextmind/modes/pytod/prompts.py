@@ -102,6 +102,7 @@ class PyTODPromptBuilder:
         "- 不要加 markdown 代码块（禁止用 ``` 包裹）\n"
         "- 每条语句独占一行\n"
         "- 函数名必须与「可调用 API 函数」中列出的名称完全一致\n"
+        "- 新变量编号必须严格遵守「新变量编号约束」中的起始编号，不得使用已被占用的编号\n"
         "- say() 指定「本轮 DM 应向用户传达的具体内容」\n"
         "- 若「业务背景」中已明确提供了所需数据（如用户额度、利率、账单日等），"
         "直接在 say() 中引用这些已知数据，无需再次调用查询 API\n"
@@ -332,7 +333,12 @@ def _format_prior_dataflow(
     """
     if not prior_dataflow:
         if next_var_index > 1:
-            return f"## 新变量编号提示\n本轮程序中新变量请从 x{next_var_index} 开始编号。\n\n"
+            forbidden = next_var_index - 1
+            return (
+                f"## 新变量编号约束\n"
+                f"【重要】本轮新变量必须从 x{next_var_index} 开始编号"
+                f"（x1～x{forbidden} 已被占用，绝对禁止重复使用）。\n\n"
+            )
         return ""
 
     _MAX_VAL_LEN = 300
@@ -347,9 +353,11 @@ def _format_prior_dataflow(
         if len(val_str) > _MAX_VAL_LEN:
             val_str = val_str[:_MAX_VAL_LEN] + "…（已截断）"
         lines.append(f"  {var} = {val_str}")
+    forbidden = next_var_index - 1
     lines.append(
-        f"（提示：本轮程序中新变量请从 x{next_var_index} 开始编号；"
-        "已有变量可直接用 xN.field 引用，无需重复调用 API）"
+        f"【重要】本轮新变量必须从 x{next_var_index} 开始编号"
+        f"（x1～x{forbidden} 已被占用，绝对禁止重复使用）；"
+        "已有变量可直接用 xN.field 引用，无需重复调用 API"
     )
     return "\n".join(lines) + "\n\n"
 

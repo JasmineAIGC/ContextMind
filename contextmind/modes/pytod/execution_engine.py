@@ -613,7 +613,10 @@ class ExecutionEngine:
                 raw_program=program_text,
             )
 
-        # 运行时环境：用先前轮次的变量值初始化，使 say(xN) 能跨轮引用
+        # 运行时环境：用先前轮次的变量值初始化，使 say(xN) 能跨轮引用。
+        # prior_keys 记录 prior 中已有的变量，返回时从 variable_values 中剔除，
+        # 避免 DM prompt 每轮都看到旧轮次的 API 结果（e.g. x1=verify_customer）。
+        prior_keys: set = set(prior_var_values.keys()) if prior_var_values else set()
         var_values: Dict[str, Any] = dict(prior_var_values) if prior_var_values else {}
         hint_values: Dict[str, str] = {}       # 变量名 → 提示文本
         # 按变量追踪 kwargs，使槽位赋值可以累积
@@ -737,7 +740,9 @@ class ExecutionEngine:
 
         return ProgramExecutionResult(
             success=len(errors) == 0,
-            variable_values=var_values,
+            # 只返回本轮新产生的变量（剔除从 prior_var_values 传入的旧变量），
+            # 防止 DM prompt 每轮都携带先前轮次的 API 结果，也避免 api_call_log 重复记录。
+            variable_values={k: v for k, v in var_values.items() if k not in prior_keys},
             hint_messages=hint_messages,
             say_output=say_output,
             say_variable_names=say_variable_names,
