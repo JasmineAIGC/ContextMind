@@ -128,6 +128,9 @@ class AdkPyTODTracker:
         self.turn_count: int = 0
         self.last_program_text: str = ""   # 最近一轮 AP 生成的程序（供 web_demo 展示）
         self.last_execution_result: Optional[Any] = None  # 最近一轮 EE 执行结果（供 web_demo 展示）
+        # AP / DM 完整输入消息——供 trace_demo 记录每步实际发送给 LLM 的内容
+        self.last_ap_messages: List[Dict[str, str]] = []
+        self.last_dm_messages: List[Dict[str, str]] = []
         # 各步骤耗时（web_demo 的 timing_breakdown 会合并此字典）
         self.step_timings: Dict[str, float] = {}
         # 全局变量计数器——与官方 PyTOD 对齐：变量编号跨轮累积（x1, x2, …），
@@ -221,6 +224,7 @@ class AdkPyTODTracker:
             prior_dataflow=prior_dataflow or None,
             next_var_index=self._next_var_index,
         )
+        self.last_ap_messages = ap_messages        # 记录完整 AP 输入（供 trace_demo 保存）
         program_text: str = await self.llm_client.chat_async(ap_messages)
         # 剥除 LLM 可能输出的 markdown 代码块包裹
         program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
@@ -265,6 +269,7 @@ class AdkPyTODTracker:
         dm_messages = self.prompt_builder.build_dm_prompt(
             self._history, user_utterance, program_text, execution_result, self.scenario_context,
         )
+        self.last_dm_messages = dm_messages             # 记录完整 DM 输入（供 trace_demo 保存）
         response: str = await self.llm_client.chat_async(dm_messages)
         self.step_timings["DM (对话管理)"] = round(time.time() - t2, 3)
         logger.info(f"[DM] 回复: {response[:150]}")
@@ -295,6 +300,8 @@ class AdkPyTODTracker:
         self.turn_count = 0
         self.last_program_text = ""
         self.last_execution_result = None
+        self.last_ap_messages = []
+        self.last_dm_messages = []
         self.step_timings = {}
         self._next_var_index = 1
         logger.info("AdkPyTODTracker 对话状态已重置")
