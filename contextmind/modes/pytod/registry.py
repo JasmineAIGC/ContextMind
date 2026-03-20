@@ -483,6 +483,39 @@ def _register_anyihua_outbound_apis(engine: ExecutionEngine) -> None:
             "status": "通话已结束",
         }
 
+    @engine.register
+    def get_agent_history() -> dict:
+        """
+        获取本次通话中坐席已使用过的引导话术列表（演示版，返回空历史）。
+
+        供对话管理器（LLM）判断某一话术是否已重复使用——
+        若同一话术出现 2 次以上，应改用 escalate_to_human（转接人工）
+        而非继续重复。生产环境中应传入实际对话历史。
+        """
+        return {
+            "agent_utterances": [],
+            "utterance_count": 0,
+            "has_repeated": False,
+            "message": "演示模式：暂无历史话术记录，可继续引导操作",
+        }
+
+    @engine.register
+    def query_unresolved_issues() -> dict:
+        """
+        查询用户当前是否还有未解决的问题或诉求（演示版，默认无未解决诉求）。
+
+        供对话管理器（LLM）在执行 say_goodbye（告别）意图前调用，
+        确认 issue_count=0（无未解决诉求）才可结束通话，
+        否则继续帮助用户解决问题或转接人工。
+        生产环境中应根据实际对话历史计算未解决诉求数量。
+        """
+        return {
+            "issue_count": 0,
+            "unresolved_snippets": [],
+            "safe_to_close": True,
+            "message": "演示模式：未检测到未解决诉求，可以礼貌告别",
+        }
+
 
 # ---------------------------------------------------------------------------
 # 公共注册表
