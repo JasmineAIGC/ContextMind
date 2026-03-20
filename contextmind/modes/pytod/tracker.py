@@ -130,6 +130,9 @@ class AdkPyTODTracker:
         self.last_execution_result: Optional[Any] = None  # 最近一轮 EE 执行结果（供 web_demo 展示）
         # 各步骤耗时（web_demo 的 timing_breakdown 会合并此字典）
         self.step_timings: Dict[str, float] = {}
+        # 全局变量计数器——与官方 PyTOD 对齐：变量编号跨轮累积（x1, x2, …），
+        # 使 AP 能在后续轮次中通过 xN.field 引用先前已计算的变量。
+        self._next_var_index: int = 1
 
         logger.info(
             f"AdkPyTODTracker 初始化完成 (schema={self.schema.service_name}, "
@@ -208,8 +211,15 @@ class AdkPyTODTracker:
         # Step 1: Action Parser (AP)
         # ------------------------------------------------------------------ #
         t0 = time.time()
+        # 向 AP 传入先前轮次的已计算变量（官方 PyTOD dataflow context），
+        # 使 AP 能用 xN.field 引用已有数据，避免重复调用查询 API。
+        prior_dataflow = {k: v for k, v in self.current_state.items() if not k.startswith("_anon")}
         ap_messages = self.prompt_builder.build_action_parser_prompt(
-            self._history, user_utterance, self.scenario_context,
+            self._history,
+            user_utterance,
+            self.scenario_context,
+            prior_dataflow=prior_dataflow or None,
+            next_var_index=self._next_var_index,
         )
         program_text: str = await self.llm_client.chat_async(ap_messages)
         # 剥除 LLM 可能输出的 markdown 代码块包裹
@@ -241,6 +251,12 @@ class AdkPyTODTracker:
             called = list(execution_result.variable_values.keys())
             say_preview = execution_result.say_output[:60] if execution_result.say_output else "(无)"
             logger.info(f"[EE] 执行成功: APIs={called}, say={say_preview!r}")
+
+        # 推进全局变量计数器（与官方 PyTOD 对齐：变量编号跨轮连续递增）
+        # 扫描程序文本中的 xN 引用，取最大 N+1 作为下一轮起始编号
+        var_indices = [int(m) for m in re.findall(r"\bx(\d+)\b", program_text)]
+        if var_indices:
+            self._next_var_index = max(var_indices) + 1
 
         # ------------------------------------------------------------------ #
         # Step 3: Dialogue Manager (DM)
@@ -280,6 +296,7 @@ class AdkPyTODTracker:
         self.last_program_text = ""
         self.last_execution_result = None
         self.step_timings = {}
+        self._next_var_index = 1
         logger.info("AdkPyTODTracker 对话状态已重置")
 
 

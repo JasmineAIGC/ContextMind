@@ -196,6 +196,8 @@ class PyTODPromptBuilder:
         history: List[ConversationTurn],
         user_utterance: str,
         scenario_context: str = "",
+        prior_dataflow: Optional[Dict[str, Any]] = None,
+        next_var_index: int = 1,
     ) -> List[Dict[str, str]]:
         """构建动作解析器（AP）的 LLM 消息列表。
 
@@ -204,12 +206,20 @@ class PyTODPromptBuilder:
         2. 业务背景（可选）
         3. 实际函数签名 + 业务意图描述
         4. 语言设置
-        5. 对话历史 + 当前用户话语（user turn）
+        5. 对话历史 + 已计算变量（官方 PyTOD 核心：跨轮 dataflow context）
+           + 当前用户话语（user turn）
+
+        官方 PyTOD 关键设计：AP 能看到本对话中所有已通过 API 获取的变量绑定，
+        从而：① 可以用 ``x1.field`` 引用先前变量的字段；
+              ② 避免对已有数据重复发起查询 API 调用。
 
         Args:
             history:          当前对话历史（不含本轮用户话语）。
             user_utterance:   本轮用户话语。
             scenario_context: 业务场景描述（可选，嵌入系统指令）。
+            prior_dataflow:   先前轮次中已计算的变量绑定字典
+                              ``{var_name: result_value}``；为 None 或空时不注入。
+            next_var_index:   本轮程序中第一个新变量应使用的编号（全局递增）。
 
         Returns:
             可直接传给 ``llm_client.chat_async(messages=...)`` 的消息列表。
@@ -225,8 +235,13 @@ class PyTODPromptBuilder:
         system_msg = "\n\n".join(system_parts)
 
         history_text = self._format_history(history)
+
+        # 已计算变量（官方 PyTOD dataflow context）
+        dataflow_section = _format_prior_dataflow(prior_dataflow, next_var_index)
+
         user_msg = (
             f"## 对话历史\n{history_text}\n\n"
+            f"{dataflow_section}"
             f"## 当前用户话语\n{user_utterance}\n\n"
             "请输出 PyTOD 程序："
         )
@@ -297,6 +312,46 @@ class PyTODPromptBuilder:
 # ---------------------------------------------------------------------------
 # 工具函数
 # ---------------------------------------------------------------------------
+
+def _format_prior_dataflow(
+    prior_dataflow: Optional[Dict[str, Any]],
+    next_var_index: int = 1,
+) -> str:
+    """将先前轮次的已计算变量格式化为 AP prompt 的 dataflow context 节。
+
+    对应官方 PyTOD 的设计：AP 在每轮都能看到本对话中已通过 API 获取的所有变量，
+    从而可以直接引用 ``x1.field`` 而无需重新查询，变量编号在整个对话中全局递增。
+
+    Args:
+        prior_dataflow: 先前轮次的变量绑定字典 ``{var_name: value}``。
+        next_var_index: 本轮程序中第一个新变量应使用的编号。
+
+    Returns:
+        格式化好的节文本（含末尾两个换行），若无先前变量则返回空字符串。
+    """
+    if not prior_dataflow:
+        if next_var_index > 1:
+            return f"## 新变量编号提示\n本轮程序中新变量请从 x{next_var_index} 开始编号。\n\n"
+        return ""
+
+    _MAX_VAL_LEN = 300
+    lines = ["## 已计算变量（本对话中已通过 API 获取的数据，可直接引用 xN.field）"]
+    for var, val in prior_dataflow.items():
+        if var.startswith("_"):  # 跳过内部元数据键
+            continue
+        try:
+            val_str = json.dumps(val, ensure_ascii=False)
+        except (TypeError, ValueError):
+            val_str = str(val)
+        if len(val_str) > _MAX_VAL_LEN:
+            val_str = val_str[:_MAX_VAL_LEN] + "…（已截断）"
+        lines.append(f"  {var} = {val_str}")
+    lines.append(
+        f"（提示：本轮程序中新变量请从 x{next_var_index} 开始编号；"
+        "已有变量可直接用 xN.field 引用，无需重复调用 API）"
+    )
+    return "\n".join(lines) + "\n\n"
+
 
 def _format_execution_result(execution_result: Any) -> str:
     """将 ProgramExecutionResult 或 dict 格式化为可读文本。
