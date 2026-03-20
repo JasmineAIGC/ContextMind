@@ -78,7 +78,8 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
     turns_results: List[Dict[str, Any]] = []
 
     if llm_available:
-        agent = AdkPyTODTracker(engine=engine, config=config, scenario_context=_SCENARIO_CONTEXT)
+        llm_client = AdkLLMClient(config=config)
+        agent = AdkPyTODTracker(llm_client=llm_client, engine=engine, scenario_context=_SCENARIO_CONTEXT)
         for i, utt in enumerate(user_turns):
             try:
                 result = await agent.process_turn(utt)
