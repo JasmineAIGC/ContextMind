@@ -471,6 +471,11 @@ class UnifiedGradioDemo:
                 "可用 API": self.pytod_tracker.engine.list_functions(),
             }
 
+            # 本轮 AP 生成程序（PyTOD 最具可解释性的中间表示）
+            last_prog = self.pytod_tracker.last_program_text
+            if last_prog:
+                state_info["本轮 AP 程序"] = last_prog
+
             # API 调用日志（turn_count > 0 后才有）
             # AdkPyTODTracker 记录格式：{turn, variable, result}
             api_call_log = state.pop("_api_call_log", [])
@@ -479,8 +484,10 @@ class UnifiedGradioDemo:
                 for entry in api_call_log:
                     var = entry.get("variable", "?")
                     result = entry.get("result")
+                    # 若变量名为匿名内部键（_anonN），尝试显示 function_name 代替
+                    display_var = var if not str(var).startswith("_anon") else f"(anon)"
                     result_str = str(result)[:60] + "..." if result and len(str(result)) > 60 else str(result or "")
-                    log_display.append(f"[第{entry['turn']}轮] {var} = {result_str}")
+                    log_display.append(f"[第{entry['turn']}轮] {display_var} = {result_str}")
                 state_info["API 调用历史"] = log_display
 
             # 累积执行结果（变量名键）

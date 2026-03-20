@@ -1,11 +1,17 @@
 """
 PyTOD Prompt Builder — 论文原版三步流程提示词构建器
 
-基于 "Task-Oriented Dialogue as Dataflow Synthesis" 和 PyTOD 系列论文，
-实现：
-    Step 1 — Action Parser (AP): LLM 根据对话历史和 Schema 生成 Python-like 程序
+基于论文 "PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback"
+（官方代码：https://github.com/apple/ml-pytod），实现：
+    Step 1 — Action Parser (AP): LLM 根据对话历史和 Schema 生成 PyTOD 程序
     Step 2 — Execution Engine (EE): 运行程序（见 execution_engine.py）
-    Step 3 — Dialogue Manager (DM): LLM 根据执行结果生成自然语言回复
+    Step 3 — Dialogue Manager (DM): LLM 根据程序 + 执行结果生成自然语言回复
+
+与官方实现的关键对齐点：
+    - AP prompt 展示实际可调用的函数签名（来自 ExecutionEngine），而非 schema 意图名
+    - Schema 意图描述作为业务上下文辅助 LLM 选择正确函数
+    - say() 是 AP 和 DM 之间的信息接口；DM 以 say() 输出内容为核心生成回复
+    - 支持完整 PyTOD 程序语法：Hint、say(x1.attr)、confirm、perform、分号多槽位赋值
 
 数据结构:
     ConversationTurn: 单条对话历史记录
@@ -44,48 +50,88 @@ class ConversationTurn:
 class PyTODPromptBuilder:
     """PyTOD 两阶段提示词构建器（Action Parser + Dialogue Manager）。
 
+    与官方 PyTOD 实现的对齐：
+    - AP 提示词优先展示 ``engine.to_prompt_text()`` 中的实际函数签名，
+      保证 AP 输出的函数名与 ExecutionEngine 注册名完全一致。
+    - Schema 意图描述作为业务上下文，帮助 LLM 理解每个函数的业务语义。
+    - DM 提示词将 AP 生成的 say() 输出内容置于首位，引导 DM 准确传达
+      AP 指定的关键信息（金额、数据等）。
+
     参数
     ----
     schema : ServiceSchema
-        服务 Schema，定义了可用的意图和槽位，约束动作解析器的输出范围。
+        服务 Schema，提供意图和槽位的业务描述，辅助 AP 选择正确函数。
+    api_signatures : str
+        可注入 AP 提示词的实际 API 函数签名文本，通常由
+        ``ExecutionEngine.to_prompt_text()`` 生成。为空时回退到 schema 意图名。
     max_history_turns : int
         构建提示词时最多包含的历史轮次数（每轮含 user + assistant 各一条）。
     response_language : str
         对话管理器生成回复时使用的语言（嵌入系统指令）。
     """
 
+    # ------------------------------------------------------------------ #
+    # AP 系统提示词
+    # ------------------------------------------------------------------ #
     _AP_SYSTEM = (
         "你是一个任务型对话的动作解析器（Action Parser）。\n"
-        "根据对话历史和当前用户话语，输出一段 PyTOD 程序（Program）。\n\n"
+        "根据对话历史和当前用户话语，输出一段 PyTOD 程序。\n\n"
         "## 程序语法规则\n"
-        "- 每行格式：`<变量名> <函数调用>`，例如：`x1 query_account()`\n"
-        "- 变量名以 x 开头，后接数字，例如 x1、x2\n"
-        "- 函数调用可带命名参数，例如：`x2 calculate_repayment(amount=20000, months=12)`\n"
-        "- 如需生成系统话术，使用：`say(<变量名>)` 或 `say(<字符串>)`\n"
-        "- 如无需调用任何函数，输出：`NONE()`\n\n"
+        "每条语句一行，格式如下：\n\n"
+        "  变量绑定 API 调用：\n"
+        "    x1 func_name(param='value')          # 调用注册函数，结果绑定到 x1\n\n"
+        "  槽位赋值（支持同行分号分隔多个槽位）：\n"
+        "    x1.slot = 'value'                    # 为 x1 的参数赋值\n"
+        "    x1.a = 'v1'; x1.b = 'v2'            # 多槽位同行赋值\n\n"
+        "  请求缺失信息（Hint）：\n"
+        "    x2 Hint('request value: slot_name')  # 提示 DM 需要向用户询问的信息\n\n"
+        "  组合输出（say）：\n"
+        "    x3 say(x1, x2)                       # 传递变量整体值\n"
+        "    x3 say(x1.field_name, x2)            # 传递变量的某个字段\n"
+        "    x3 say('literal text')               # 直接传递字符串字面量\n"
+        "    x3 say()                             # 空 say，结束对话\n\n"
+        "  事务型 API（需要用户确认后再执行）：\n"
+        "    x4 confirm(x1)                       # 向 DM 返回 x1 的待确认参数\n"
+        "    x5 perform(x1)                       # 用 x1 的参数实际执行 API\n\n"
+        "  暂停等待：\n"
+        "    x6 conversation_pause()              # 暂停，等待用户下一步操作\n\n"
+        "  无需调用任何 API：\n"
+        "    NONE()                               # 本轮不需要任何函数调用\n\n"
         "## 输出要求\n"
-        "- 只输出程序代码，不要解释\n"
-        "- 不要加 markdown 代码块（不要用 ``` 包裹）\n"
-        "- 每条语句占一行\n"
+        "- 只输出程序代码，不要任何解释\n"
+        "- 不要加 markdown 代码块（禁止用 ``` 包裹）\n"
+        "- 每条语句独占一行\n"
+        "- 函数名必须与「可调用 API 函数」中列出的名称完全一致\n"
+        "- say() 指定「本轮 DM 应向用户传达的具体内容」\n"
     )
 
+    # ------------------------------------------------------------------ #
+    # DM 系统提示词
+    # ------------------------------------------------------------------ #
     _DM_SYSTEM = (
         "你是一个任务型对话的对话管理器（Dialogue Manager）。\n"
         "根据对话历史、用户的最新话语和程序执行结果，生成一条自然语言回复。\n\n"
         "## 回复要求\n"
-        "- 直接输出回复文本，不要解释\n"
-        "- 准确引用执行结果中的数据（金额、利率等）\n"
+        "- 若执行结果中包含「AP 指定的 say 输出」，必须以该内容为核心进行回复，"
+        "不得遗漏其中的关键数据（金额、利率、日期等）\n"
+        "- 若执行结果包含 Hint 提示，在回复中自然地向用户询问对应信息\n"
+        "- 若执行结果包含 confirm 确认请求，向用户朗读待确认的参数，请求用户确认\n"
+        "- 准确引用执行结果中的数据，禁止自行估算或捏造数字\n"
+        "- 若执行失败，根据错误信息给出合理的回应或引导用户重新提供信息\n"
+        "- 若程序为 NONE() 或无执行结果，根据对话历史给出合理的纯语言回应\n"
+        "- 直接输出回复文本，不要任何前缀或解释\n"
         "- 语气友好、专业\n"
-        "- 若执行结果为空或 NONE，根据对话情境给出合理回应\n"
     )
 
     def __init__(
         self,
         schema: ServiceSchema,
+        api_signatures: str = "",
         max_history_turns: int = 10,
         response_language: str = "中文",
     ) -> None:
         self.schema = schema
+        self._api_signatures = api_signatures
         self.max_history_turns = max_history_turns
         self.response_language = response_language
 
@@ -102,19 +148,41 @@ class PyTODPromptBuilder:
             lines.append(f"{prefix}{turn.content}")
         return "\n".join(lines) if lines else "（无历史）"
 
-    def _schema_summary(self) -> str:
-        """生成简洁的 Schema 摘要供 AP 参考。"""
-        lines = [f"## 服务：{self.schema.service_name}", ""]
-        lines.append("### 可用 API（函数）")
-        for intent in self.schema.intents:
-            req = ", ".join(intent.required_slots) if intent.required_slots else "无"
-            opt = ", ".join(intent.optional_slots) if intent.optional_slots else "无"
-            lines.append(f"- {intent.name}({', '.join(intent.required_slots + intent.optional_slots)})")
-            lines.append(f"  描述：{intent.description}")
-            if intent.required_slots:
-                lines.append(f"  必填参数：{req}")
-            if intent.optional_slots:
-                lines.append(f"  可选参数：{opt}")
+    def _build_api_context(self) -> str:
+        """构建 AP 所需的 API 上下文块。
+
+        按照官方 PyTOD 思路，分两层展示：
+        1. **实际可调用函数签名**（来自 engine，AP 必须使用这些名称）
+        2. **业务意图描述**（来自 schema，帮助 AP 理解每个函数的业务语义）
+
+        当 ``api_signatures`` 为空时（未传入 engine），回退到仅展示 schema 意图，
+        并将意图名作为函数名（兼容旧用法，但准确性较低）。
+        """
+        lines: List[str] = []
+
+        # 层 1：实际函数签名（AP 选函数时的唯一权威来源）
+        if self._api_signatures:
+            lines.append("## 可调用 API 函数（程序中的函数名必须与此处完全一致）")
+            lines.append(self._api_signatures)
+        else:
+            # 回退：以 schema 意图名作为函数名（准确性较低，仅作兜底）
+            if self.schema.intents:
+                lines.append("## 可调用 API 函数")
+                for intent in self.schema.intents:
+                    params = intent.required_slots + intent.optional_slots
+                    lines.append(
+                        f"  - {intent.name}({', '.join(params)})"
+                        f"  # {intent.description[:60]}"
+                    )
+
+        # 层 2：业务意图描述（辅助 LLM 理解函数的业务场景）
+        if self.schema.intents:
+            lines.append(f"\n## 业务场景说明（服务：{self.schema.service_name}）")
+            lines.append(f"服务描述：{self.schema.description}")
+            lines.append("")
+            for intent in self.schema.intents:
+                lines.append(f"- **{intent.name}**：{intent.description}")
+
         return "\n".join(lines)
 
     # ------------------------------------------------------------------ #
@@ -129,6 +197,13 @@ class PyTODPromptBuilder:
     ) -> List[Dict[str, str]]:
         """构建动作解析器（AP）的 LLM 消息列表。
 
+        AP 提示词结构（与官方 PyTOD 对齐）：
+        1. 语法规则（AP system）
+        2. 业务背景（可选）
+        3. 实际函数签名 + 业务意图描述
+        4. 语言设置
+        5. 对话历史 + 当前用户话语（user turn）
+
         Args:
             history:          当前对话历史（不含本轮用户话语）。
             user_utterance:   本轮用户话语。
@@ -140,9 +215,11 @@ class PyTODPromptBuilder:
         system_parts = [self._AP_SYSTEM]
         if scenario_context:
             system_parts.append(f"## 业务背景\n{scenario_context}")
-        system_parts.append(self._schema_summary())
+        system_parts.append(self._build_api_context())
         if self.response_language != "英文":
-            system_parts.append(f"\n注意：程序注释和 say() 内容请使用{self.response_language}。")
+            system_parts.append(
+                f"\n注意：Hint 内容和 say() 字符串字面量请使用{self.response_language}。"
+            )
         system_msg = "\n\n".join(system_parts)
 
         history_text = self._format_history(history)
@@ -171,6 +248,14 @@ class PyTODPromptBuilder:
     ) -> List[Dict[str, str]]:
         """构建对话管理器（DM）的 LLM 消息列表。
 
+        DM 提示词结构（与官方 PyTOD 对齐）：
+        1. DM system（含 say() 优先原则）
+        2. 业务背景（可选）
+        3. 对话历史 + 用户话语 + 程序 + 执行结果（user turn）
+
+        say() 输出优先规则：官方 PyTOD 以 say() 作为 AP 和 DM 之间的信息接口，
+        AP 通过 say(x1, x2) 明确指定"本轮要传达哪些信息"，DM 必须以此为核心生成回复。
+
         Args:
             history:          当前对话历史（不含本轮用户话语）。
             user_utterance:   本轮用户话语。
@@ -191,14 +276,12 @@ class PyTODPromptBuilder:
         system_msg = "\n\n".join(system_parts)
 
         history_text = self._format_history(history)
-
-        # 格式化执行结果
         exec_text = _format_execution_result(execution_result)
 
         user_msg = (
             f"## 对话历史\n{history_text}\n\n"
             f"## 当前用户话语\n{user_utterance}\n\n"
-            f"## PyTOD 程序\n```\n{program}\n```\n\n"
+            f"## AP 生成程序\n```\n{program}\n```\n\n"
             f"## 程序执行结果\n{exec_text}\n\n"
             "请生成坐席回复："
         )
@@ -214,7 +297,10 @@ class PyTODPromptBuilder:
 # ---------------------------------------------------------------------------
 
 def _format_execution_result(execution_result: Any) -> str:
-    """将 ProgramExecutionResult 或 dict 格式化为可读文本。"""
+    """将 ProgramExecutionResult 或 dict 格式化为可读文本。
+
+    say() 输出内容置于首位，使 DM 优先关注 AP 明确指定的输出信息。
+    """
     if execution_result is None:
         return "（无执行结果）"
 
@@ -223,14 +309,37 @@ def _format_execution_result(execution_result: Any) -> str:
         if not execution_result.success:
             errors = getattr(execution_result, "errors", [])
             return f"执行失败：{'; '.join(str(e) for e in errors)}" if errors else "执行失败"
-        var_values = getattr(execution_result, "variable_values", {})
-        if not var_values:
-            return "（程序执行成功，无变量绑定）"
-        lines = []
-        for var, val in var_values.items():
-            val_str = json.dumps(val, ensure_ascii=False) if isinstance(val, dict) else str(val)
-            lines.append(f"  {var} = {val_str}")
-        return "\n".join(lines)
+
+        lines: List[str] = []
+
+        # 1. say() 输出：AP 明确指定"本轮要向用户传达的内容"，置于最前
+        say_output: str = getattr(execution_result, "say_output", "")
+        if say_output:
+            lines.append(f"【AP 指定的 say 输出（DM 必须以此为核心回复）】\n{say_output}")
+
+        # 2. Hint 提示
+        hints: List[str] = getattr(execution_result, "hint_messages", [])
+        if hints:
+            lines.append("【Hint 提示（DM 需向用户询问的信息）】")
+            for h in hints:
+                lines.append(f"  - {h}")
+
+        # 3. API 调用结果（过滤掉 say() 的字符串值，避免重复）
+        var_values: Dict[str, Any] = getattr(execution_result, "variable_values", {})
+        api_vars = {
+            k: v for k, v in var_values.items()
+            if not (say_output and v == say_output) and not k.startswith("_anon")
+        }
+        if api_vars:
+            lines.append("【API 调用结果】")
+            for var, val in api_vars.items():
+                try:
+                    val_str = json.dumps(val, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    val_str = str(val)
+                lines.append(f"  {var} = {val_str}")
+
+        return "\n".join(lines) if lines else "（程序执行成功，无返回数据）"
 
     # 支持 dict
     if isinstance(execution_result, dict):

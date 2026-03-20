@@ -34,6 +34,8 @@ from .execution_engine import (
     SlotAssignment,
     HintStatement,
     SayStatement,
+    ConfirmStatement,
+    PerformStatement,
     ProgramBlock,
     ProgramExecutionResult,
 )
@@ -56,6 +58,8 @@ __all__ = [
     "SlotAssignment",
     "HintStatement",
     "SayStatement",
+    "ConfirmStatement",
+    "PerformStatement",
     "ProgramBlock",
     "ProgramExecutionResult",
     # Schema 数据模型

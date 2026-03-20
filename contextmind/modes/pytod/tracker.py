@@ -119,12 +119,14 @@ class AdkPyTODTracker:
         self.scenario_context = scenario_context
         self.prompt_builder = PyTODPromptBuilder(
             schema=self.schema,
+            api_signatures=engine.to_prompt_text(),   # 实际函数签名，AP 选函数时的权威来源
             max_history_turns=max_history_turns,
         )
         self._history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}
         self.api_call_log: List[Dict[str, Any]] = []
         self.turn_count: int = 0
+        self.last_program_text: str = ""   # 最近一轮 AP 生成的程序（供 web_demo 展示）
         # 各步骤耗时（web_demo 的 timing_breakdown 会合并此字典）
         self.step_timings: Dict[str, float] = {}
 
@@ -211,6 +213,7 @@ class AdkPyTODTracker:
         program_text: str = await self.llm_client.chat_async(ap_messages)
         # 剥除 LLM 可能输出的 markdown 代码块包裹
         program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+        self.last_program_text = program_text   # 记录供 web_demo 展示
         self.step_timings["AP (动作解析)"] = round(time.time() - t0, 3)
         logger.info(f"[AP] 程序: {program_text[:80]}")
 
@@ -269,6 +272,7 @@ class AdkPyTODTracker:
         self.current_state = {}
         self.api_call_log = []
         self.turn_count = 0
+        self.last_program_text = ""
         self.step_timings = {}
         logger.info("AdkPyTODTracker 对话状态已重置")
 

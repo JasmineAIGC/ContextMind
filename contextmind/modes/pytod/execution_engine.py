@@ -93,15 +93,56 @@ class HintStatement:
 
 @dataclass
 class SayStatement:
-    """say 语句（``x3 say(x1, x2)``），组合多个变量生成面向用户的输出。"""
+    """say 语句（``x3 say(x1, x2)``），组合多个变量生成面向用户的输出。
+
+    arg_variables 中的每个元素可以是：
+    - 变量名（如 ``x1``）：取变量整体值
+    - 属性引用（如 ``x1.phone_number``）：取变量对应字典键的值
+    - Hint 变量名（如 ``x2``）：取 Hint 文本
+    - 字符串字面量（如 ``'literal text'``）：直接使用字面内容
+    """
 
     variable: str
     arg_variables: List[str]
     raw_text: str = ""
 
 
+@dataclass
+class ConfirmStatement:
+    """confirm 语句（``x2 confirm(x1)``）。
+
+    对应官方 PyTOD 中事务型 API 的确认阶段：
+    将 x1 的当前参数状态返回给对话管理器，让用户确认数据正确后再执行。
+    result_variable 的值等于 target_variable 的当前已填充参数字典。
+    """
+
+    result_variable: str   # 绑定结果的变量（如 x2）
+    target_variable: str   # 被确认的事务变量（如 x1）
+    raw_text: str = ""
+
+
+@dataclass
+class PerformStatement:
+    """perform 语句（``x3 perform(x1)``）。
+
+    对应官方 PyTOD 中事务型 API 的执行阶段：
+    以 x1 积累的参数重新调用注册函数，将结果绑定到 result_variable。
+    """
+
+    result_variable: str   # 绑定结果的变量（如 x3）
+    target_variable: str   # 待执行的事务变量（如 x1）
+    raw_text: str = ""
+
+
 # PyTOD 单条语句的联合类型
-AnyStatement = Union[ProgramStatement, SlotAssignment, HintStatement, SayStatement]
+AnyStatement = Union[
+    ProgramStatement,
+    SlotAssignment,
+    HintStatement,
+    SayStatement,
+    ConfirmStatement,
+    PerformStatement,
+]
 
 
 @dataclass
@@ -175,7 +216,12 @@ class ExecutionEngine:
     """
     PyTOD 风格执行引擎
 
-    支持解析和执行 PyTOD 标准格式的多行程序（API 调用、槽位赋值、Hint、say）。
+    支持解析和执行 PyTOD 标准格式的多行程序，包括：
+    - API 调用（带变量绑定或裸调用）
+    - 槽位赋值（单行及分号分隔的多槽位赋值）
+    - Hint 语句
+    - say 语句（支持变量、Hint 变量、属性引用 x1.field、字符串字面量）
+    - confirm / perform 语句（事务型 API 的确认/执行阶段）
     """
 
     # 允许解析的 AST 常量节点类型
@@ -189,6 +235,9 @@ class ExecutionEngine:
     _RE_SLOT_ASSIGN = re.compile(r"^(x\d+)\.([A-Za-z_]\w*)\s*=\s*(.+)$")
     _RE_HINT = re.compile(r"^(x\d+)\s+Hint\s*\((.+)\)\s*$")
     _RE_SAY = re.compile(r"^(x\d+)\s+say\s*\(([^)]*)\)\s*$")
+    # confirm(x1) 和 perform(x1)：接受变量引用而非常量值
+    _RE_CONFIRM = re.compile(r"^(x\d+)\s+confirm\s*\(\s*(x\d+)\s*\)\s*$")
+    _RE_PERFORM = re.compile(r"^(x\d+)\s+perform\s*\(\s*(x\d+)\s*\)\s*$")
 
     def __init__(self) -> None:
         self.registry: Dict[str, Callable] = {}
@@ -430,9 +479,28 @@ class ExecutionEngine:
         return None, f"不支持的 AST 节点类型 {type(node).__name__}"
 
     def parse_program(self, program_text: str) -> Tuple[Optional[ProgramBlock], str]:
-        """将多行 PyTOD 程序文本解析为结构化的 ProgramBlock。"""
-        lines = [l.strip() for l in program_text.strip().splitlines()]
-        lines = [l for l in lines if l and not l.startswith("#")]
+        """将多行 PyTOD 程序文本解析为结构化的 ProgramBlock。
+
+        支持分号分隔的多槽位赋值（官方 PyTOD 格式）：
+        ``x5 x1.location = 'San Jose'; x1.restaurant_name = 'Sino'``
+        会被拆分为两条独立的 SlotAssignment 语句。
+        """
+        raw_lines = [l.strip() for l in program_text.strip().splitlines()]
+        # 1. 过滤注释和空行；2. 将分号分隔的同行多语句展开为独立行
+        lines: List[str] = []
+        for raw in raw_lines:
+            if not raw or raw.startswith("#"):
+                continue
+            # 仅对"槽位赋值行"展开分号（避免破坏函数参数中可能出现的分号）
+            # 槽位赋值特征：以 xN.slot = 开头，或以 xN xM.slot = 开头
+            if re.search(r"x\d+\.[A-Za-z_]\w*\s*=", raw) and ";" in raw:
+                for part in raw.split(";"):
+                    part = part.strip()
+                    if part:
+                        lines.append(part)
+            else:
+                lines.append(raw)
+
         if not lines:
             return None, "程序文本为空"
 
@@ -520,23 +588,59 @@ class ExecutionEngine:
                 hint_values[stmt.variable] = stmt.hint_text
                 hint_messages.append(stmt.hint_text)
 
+            elif isinstance(stmt, ConfirmStatement):
+                # confirm(x1)：将 x1 的已填充参数返回给 DM，让用户确认后再执行
+                target = stmt.target_variable
+                confirmed_params = var_kwargs.get(target, {})
+                var_values[stmt.result_variable] = {
+                    "confirm_target": target,
+                    "params": confirmed_params,
+                }
+
+            elif isinstance(stmt, PerformStatement):
+                # perform(x1)：以 x1 的已积累参数实际执行注册函数（事务型 API）
+                target = stmt.target_variable
+                if target not in var_func:
+                    errors.append(f"perform 目标变量 {target} 未定义")
+                else:
+                    fn_name = var_func[target]
+                    kwargs = var_kwargs.get(target, {})
+                    exec_result = self._call_registered(fn_name, kwargs)
+                    if exec_result is None:
+                        errors.append(f"函数 '{fn_name}' 未注册（perform {target}）")
+                    elif isinstance(exec_result, Exception):
+                        errors.append(
+                            f"perform {target}: {type(exec_result).__name__}: {exec_result}"
+                        )
+                    else:
+                        # 更新原始变量和结果变量，使后续 say(xN.field) 可引用
+                        var_values[target] = exec_result
+                        var_values[stmt.result_variable] = exec_result
+
             elif isinstance(stmt, SayStatement):
-                # 同时处理 say("literal text") 的情况，其中参数为字符串字面量
                 parts: List[str] = []
                 for arg_var in stmt.arg_variables:
                     stripped = arg_var.strip()
-                    # 处理字符串字面量参数（LLM 常直接写 say("text")）。
-                    # 使用简单的引号剥离而非 eval()，以避免安全风险。
+                    # 字符串字面量：使用引号剥离而非 eval()，避免安全风险
                     if len(stripped) >= 2 and (
                         (stripped[0] == '"' and stripped[-1] == '"')
                         or (stripped[0] == "'" and stripped[-1] == "'")
                     ):
                         parts.append(stripped[1:-1])
+                    # Hint 变量
                     elif stripped in hint_values:
                         parts.append(hint_values[stripped])
+                    # 属性引用：x1.field_name（官方 PyTOD say(x1.phone_number) 格式）
+                    elif "." in stripped and not stripped.startswith("."):
+                        var_ref, _, attr = stripped.partition(".")
+                        val = var_values.get(var_ref)
+                        if isinstance(val, dict) and attr in val:
+                            parts.append(str(val[attr]))
+                        else:
+                            parts.append(f"({stripped})")
+                    # 普通变量引用
                     elif stripped in var_values:
                         val = var_values[stripped]
-                        # 使用 str() 防止字符串变量在输出中获得多余的引号。
                         parts.append(str(val))
                     else:
                         parts.append(f"({stripped})")
@@ -582,7 +686,17 @@ class ExecutionEngine:
             return exc
 
     def _parse_one_line(self, line: str) -> Tuple[Optional[AnyStatement], str]:
-        """解析单行 PyTOD 程序语句，按顺序尝试槽位赋值、Hint、say、API 调用和裸调用。"""
+        """解析单行 PyTOD 程序语句。
+
+        按顺序匹配：
+        1. 槽位赋值（x1.slot = 'value'）
+        2. Hint 语句（x2 Hint('...')）
+        3. say 语句（x3 say(...)）
+        4. confirm 语句（x4 confirm(x1)）
+        5. perform 语句（x5 perform(x1)）
+        6. 变量绑定 API 调用（x6 func_name(...)）
+        7. 裸 API 调用（func_name(...)）
+        """
         # 兼容 Python 赋值语法：将 'x1 = func(...)' 规范化为 'x1 func(...)'
         line = re.sub(r'^(x\d+)\s*=\s*(?=[A-Za-z_])', r'\1 ', line)
 
@@ -614,6 +728,20 @@ class ExecutionEngine:
             var = m.group(1)
             arg_vars = [v.strip() for v in m.group(2).split(",") if v.strip()]
             return SayStatement(variable=var, arg_variables=arg_vars, raw_text=line), ""
+
+        # confirm(x1) 和 perform(x1) 必须在通用 _RE_VAR_CALL 之前匹配，
+        # 因为它们的参数是变量引用而非常量，通用 parse() 会拒绝变量引用。
+        m = self._RE_CONFIRM.match(line)
+        if m:
+            return ConfirmStatement(
+                result_variable=m.group(1), target_variable=m.group(2), raw_text=line
+            ), ""
+
+        m = self._RE_PERFORM.match(line)
+        if m:
+            return PerformStatement(
+                result_variable=m.group(1), target_variable=m.group(2), raw_text=line
+            ), ""
 
         m = self._RE_VAR_CALL.match(line)
         if m:
