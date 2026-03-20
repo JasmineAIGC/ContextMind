@@ -216,7 +216,7 @@ class AdkPyTODTracker:
         program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
         self.last_program_text = program_text   # 记录供 web_demo 展示
         self.step_timings["AP (动作解析)"] = round(time.time() - t0, 3)
-        logger.info(f"[AP] 程序: {program_text[:80]}")
+        logger.info(f"[AP] 程序: {program_text[:150]}")
 
         # ------------------------------------------------------------------ #
         # Step 2: Execution Engine (EE)
@@ -237,6 +237,10 @@ class AdkPyTODTracker:
                 })
         if not execution_result.success:
             logger.warning(f"[EE] 执行错误: {execution_result.errors}")
+        else:
+            called = list(execution_result.variable_values.keys())
+            say_preview = execution_result.say_output[:60] if execution_result.say_output else "(无)"
+            logger.info(f"[EE] 执行成功: APIs={called}, say={say_preview!r}")
 
         # ------------------------------------------------------------------ #
         # Step 3: Dialogue Manager (DM)
@@ -248,7 +252,7 @@ class AdkPyTODTracker:
         response: str = await self.llm_client.chat_async(dm_messages)
         response = re.sub(r"<think>.*?</think>", "", response, flags=re.DOTALL).strip()
         self.step_timings["DM (对话管理)"] = round(time.time() - t2, 3)
-        logger.info(f"[DM] 回复: {response[:80]}")
+        logger.info(f"[DM] 回复: {response[:150]}")
 
         # 更新对话历史
         self._history.append(ConversationTurn(role="user", content=user_utterance))

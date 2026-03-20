@@ -509,6 +509,20 @@ class UnifiedGradioDemo:
             elif self.pytod_tracker.turn_count == 0:
                 state_info["执行状态"] = "等待用户输入…"
 
+            # 多轮累积 API 状态（跨轮次变量值）
+            cumulative = {
+                k: v for k, v in self.pytod_tracker.current_state.items()
+                if not k.startswith("_anon")
+            }
+            if cumulative:
+                import json as _json
+                state_info["[累积状态] 历史API结果"] = {
+                    k: (_json.dumps(v, ensure_ascii=False)[:80] + "..."
+                        if len(_json.dumps(v, ensure_ascii=False)) > 80
+                        else _json.dumps(v, ensure_ascii=False))
+                    for k, v in cumulative.items()
+                }
+
             return state_info
 
         elif self.current_mode == "evolve" and self.app:
