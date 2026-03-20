@@ -1,34 +1,29 @@
 """
-PyTOD — 任务型对话模块
+PyTOD — 任务型对话模块（AP → EE → DM 三步流程）
 
-两种实现版本：
+``AdkPyTODTracker`` 是唯一实现，严格遵循论文
+"Task-Oriented Dialogue as Dataflow Synthesis"：
 
-``PyTODTracker``（论文原版三步流程，推荐用于研究）
-    严格遵循 "Task-Oriented Dialogue as Dataflow Synthesis" 论文：
-    Action Parser → Execution Engine → Dialogue Manager。
-    每轮有显式程序文本，可解释性强。
-
-``AdkPyTODTracker``（ADK 原生函数调用，推荐用于生产）
-    以 ADK 原生 Function Calling 替代显式三步流程，
-    LLM 直接决定调用哪个 API 并生成回复，延迟更低。
+    Step 1  AP（动作解析器）：AdkLLMClient 根据对话历史和 Schema 生成 PyTOD 程序
+    Step 2  EE（执行引擎）：ExecutionEngine 安全解析并执行程序
+    Step 3  DM（对话管理器）：AdkLLMClient 根据执行结果生成自然语言回复
 
 使用示例::
 
-    # 论文三步流程版本
-    from contextmind.modes.pytod import PyTODTracker, ExecutionEngine
+    from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
+    from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+    from contextmind.infra.llm_client import AdkLLMClient
 
+    llm = AdkLLMClient()
     engine = ExecutionEngine()
     SCENARIO_API_REGISTRY["callcenter"](engine)
-    llm = AdkLLMClient()
-    tracker = PyTODTracker(llm_client=llm, engine=engine)
+    tracker = AdkPyTODTracker(llm_client=llm, engine=engine)
     result = await tracker.process_turn("查询订单状态")
     print(result["program_text"])  # x1 lookup_order(order_id='ORD-001')
     print(result["response"])      # 您的订单已发货...
 
-    # ADK 原生版本
-    from contextmind.modes.pytod import AdkPyTODTracker
+    # 或使用工厂方法
     tracker = AdkPyTODTracker.from_scenario(llm, scenario_config)
-    result = await tracker.process_turn("查询订单状态")
 """
 
 from .schemas import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -43,17 +38,16 @@ from .execution_engine import (
     ProgramExecutionResult,
 )
 from .prompts import ConversationTurn, PyTODPromptBuilder
-from .tracker import PyTODTracker, AdkPyTODTracker, adk_tools_from_engine
+from .tracker import AdkPyTODTracker, adk_tools_from_engine
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [
-    # 主追踪器
-    "PyTODTracker",         # 论文三步流程（AP→EE→DM）
-    "AdkPyTODTracker",      # ADK 原生函数调用
+    # 主追踪器（唯一实现：AP→EE→DM 三步流程）
+    "AdkPyTODTracker",
     # 提示词构建
     "PyTODPromptBuilder",
     "ConversationTurn",
-    # 工具转换
+    # 工具转换（已废弃，保留向后兼容）
     "adk_tools_from_engine",
     # 执行引擎
     "ExecutionEngine",

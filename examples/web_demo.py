@@ -29,7 +29,7 @@ from datetime import datetime
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.modes.pytod import PyTODTracker, AdkPyTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_outbound_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -135,10 +135,10 @@ class UnifiedGradioDemo:
         logger.info("FnCTOD模式初始化完成")
 
     def _setup_pytod_tracker(self):
-        """初始化PyTOD模式（论文三步流程：AP → EE → DM）"""
+        """初始化PyTOD模式（三步流程：AP → EE → DM）"""
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
-        self.pytod_tracker = PyTODTracker.from_scenario(self.llm_client, self.config)
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config)
         logger.info("PyTOD模式初始化完成 (三步流程: AP→EE→DM)")
 
     def _setup_evolve_app(self):
@@ -462,40 +462,28 @@ class UnifiedGradioDemo:
             return state_info
 
         elif self.current_mode == "pytod" and self.pytod_tracker:
-            # PyTOD模式（论文三步流程）：显示程序文本和执行状态
+            # PyTOD模式（AP→EE→DM 三步流程）：显示程序执行状态
             state = self.pytod_tracker.get_current_state()
-            mode_label = (
-                "PyTOD (AP→EE→DM 三步流程)"
-                if isinstance(self.pytod_tracker, PyTODTracker)
-                else "PyTOD (ADK 原生函数调用)"
-            )
             state_info = {
-                "模式": mode_label,
+                "模式": "PyTOD (AP→EE→DM 三步流程)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.pytod_tracker.turn_count,
                 "可用 API": self.pytod_tracker.engine.list_functions(),
             }
 
             # API 调用日志（turn_count > 0 后才有）
+            # AdkPyTODTracker 记录格式：{turn, variable, result}
             api_call_log = state.pop("_api_call_log", [])
             if api_call_log:
                 log_display = []
                 for entry in api_call_log:
-                    # PyTODTracker 记录 {turn, variable, result}
-                    # AdkPyTODTracker 记录 {turn, api, args, result}
-                    if "api" in entry:
-                        args_str = ", ".join(f"{k}={v}" for k, v in (entry.get("args") or {}).items())
-                        result = entry.get("result")
-                        result_str = str(result)[:60] + "..." if result and len(str(result)) > 60 else str(result or "")
-                        log_display.append(f"[第{entry['turn']}轮] {entry['api']}({args_str}) → {result_str}")
-                    else:
-                        var = entry.get("variable", "?")
-                        result = entry.get("result")
-                        result_str = str(result)[:60] + "..." if result and len(str(result)) > 60 else str(result or "")
-                        log_display.append(f"[第{entry['turn']}轮] {var} = {result_str}")
+                    var = entry.get("variable", "?")
+                    result = entry.get("result")
+                    result_str = str(result)[:60] + "..." if result and len(str(result)) > 60 else str(result or "")
+                    log_display.append(f"[第{entry['turn']}轮] {var} = {result_str}")
                 state_info["API 调用历史"] = log_display
 
-            # 累积工具执行结果（x{turn}_{fn} 键或变量名键）
+            # 累积执行结果（变量名键）
             api_results = {}
             for key, value in state.items():
                 if key.startswith("_"):
