@@ -127,6 +127,7 @@ class AdkPyTODTracker:
         self.api_call_log: List[Dict[str, Any]] = []
         self.turn_count: int = 0
         self.last_program_text: str = ""   # 最近一轮 AP 生成的程序（供 web_demo 展示）
+        self.last_execution_result: Optional[Any] = None  # 最近一轮 EE 执行结果（供 web_demo 展示）
         # 各步骤耗时（web_demo 的 timing_breakdown 会合并此字典）
         self.step_timings: Dict[str, float] = {}
 
@@ -222,6 +223,7 @@ class AdkPyTODTracker:
         # ------------------------------------------------------------------ #
         t1 = time.time()
         execution_result: ProgramExecutionResult = self.engine.execute_program(program_text)
+        self.last_execution_result = execution_result  # 记录供 web_demo 展示
         self.step_timings["EE (执行引擎)"] = round(time.time() - t1, 3)
 
         # 将本轮 API 调用结果合并进累积状态，并记录调用日志
@@ -273,6 +275,7 @@ class AdkPyTODTracker:
         self.api_call_log = []
         self.turn_count = 0
         self.last_program_text = ""
+        self.last_execution_result = None
         self.step_timings = {}
         logger.info("AdkPyTODTracker 对话状态已重置")
 

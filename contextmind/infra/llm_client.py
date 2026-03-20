@@ -16,10 +16,9 @@ except ImportError:
     pass
 
 try:
-    from google.adk.agents import LlmAgent  # type: ignore[import]
+    from google.adk.agents import LlmAgent  # type: ignore[import]  # noqa: F401 — kept for create_local_adk_model / external callers
     from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
-    from google.adk.runners import InMemoryRunner  # type: ignore[import]
-    from google.genai import types as genai_types  # type: ignore[import]
+    from google.adk.runners import InMemoryRunner  # type: ignore[import]  # noqa: F401 — kept for external callers
     _ADK_AVAILABLE = True
 except ImportError:
     _ADK_AVAILABLE = False
@@ -214,16 +213,20 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
 
 
 class AdkLLMClient:
-    """基于 Google ADK 的无状态 LLM 客户端。
+    """基于 Google ADK（LiteLLM）的无状态 LLM 客户端。
 
-    通过 ADK + LiteLlm 将请求转发至本地 vLLM / OpenAI 兼容端点。
-    每次调用创建一次性 session，适合无状态的单次 LLM 调用场景。
-    有状态多轮对话请直接使用 ADK 的 LlmAgent + InMemoryRunner。
+    使用 ADK 配套的 LiteLLM 库直接调用 vLLM / OpenAI 兼容端点，
+    每次 ``chat_async`` 调用恰好发起一次 LLM API 请求。
+
+    与旧版差异：
+    - 不再通过 ``InMemoryRunner + LlmAgent`` 发起请求。
+      ADK 的 Agent 框架在单次无工具调用场景下会产生额外的内部 LLM 请求
+      （如 pre-flight 检查、grounding 等），导致每次逻辑调用实际产生两次 API 请求。
+    - 现使用 ``litellm.acompletion()`` 直接发起单次异步请求，
+      保持与 OpenAI messages 格式完全兼容，同时保留 ADK LiteLLM 的所有配置能力。
 
     参数
     ----
-    system_instruction : str
-        传递给 LlmAgent 的系统指令。
     config : LLMConfig | None
         本地 LLM 配置；若为 None 则从 ``.env`` 自动加载。
 
@@ -236,80 +239,61 @@ class AdkLLMClient:
 
     def __init__(
         self,
-        system_instruction: str = "你是一个智能对话助手。",
+        system_instruction: str = "你是一个智能对话助手。",  # noqa: ARG002 — 保持旧接口兼容
         config: Optional[LLMConfig] = None,
     ) -> None:
         if not _ADK_AVAILABLE:
             raise ImportError(_ADK_INSTALL_MSG)
 
         self._config = config or LLMConfig.from_env()
-        self._adk_model = create_local_adk_model(self._config)
-        self.system_instruction = system_instruction
         _configure_litellm_for_local_model(self._config.model)
 
-        # 在初始化时创建 Agent 和 Runner，避免每次 chat_async 调用时重复构建。
-        # Agent/Runner 仅持有不可变配置，会话状态通过每次独立的 session 隔离。
-        self._agent = LlmAgent(
-            name="adk_llm_client",
-            model=self._adk_model,
-            instruction=self.system_instruction,
-        )
-        self._runner = InMemoryRunner(agent=self._agent, app_name="contextmind_adk")
-        logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
+        # 预先解析思考模式，避免每次 chat_async 重复计算
+        resolved_thinking: Optional[bool] = self._config.enable_thinking
+        if resolved_thinking is None and _is_thinking_model(self._config.model):
+            resolved_thinking = False
+        self._resolved_thinking = resolved_thinking
 
-    def _build_user_content(self, messages: List[dict]) -> str:
-        """将 OpenAI messages 列表拼合为 ADK 单条用户消息字符串。"""
-        parts: list[str] = []
-        system_parts: list[str] = []
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role == "system":
-                system_parts.append(content)
-            elif role == "user":
-                parts.append(f"Human: {content}")
-            elif role in ("assistant", "model"):
-                parts.append(f"Assistant: {content}")
-        if system_parts and parts:
-            parts.insert(0, f"[System]\n{chr(10).join(system_parts)}\n[/System]\n")
-        return "\n".join(parts) if parts else ""
+        logger.info(f"[AdkLLMClient] 初始化完成，model={self._config.model}")
 
     async def chat_async(
         self,
         messages: List[dict],
-        temperature: Optional[float] = None,  # noqa: ARG002 – ADK 由模型配置控制
+        temperature: Optional[float] = None,
     ) -> str:
-        """异步多轮对话。
+        """异步多轮对话。每次调用恰好发起一次 LLM API 请求。
 
         Args:
             messages: OpenAI 格式消息列表（role/content 字典）。
+            temperature: 覆盖默认温度；为 None 时使用 LLMConfig 中的值。
 
         Returns:
-            助手的回复文本。
+            助手的回复文本（已剥除推理模型的 <think>…</think> 块）。
         """
-        # 每次调用创建独立 session，保证无状态隔离；Agent/Runner 复用初始化时创建的实例。
-        session = await self._runner.session_service.create_session(
-            app_name="contextmind_adk", user_id="default",
+        try:
+            import litellm as _litellm  # type: ignore[import]
+        except ImportError as exc:
+            raise ImportError(
+                "litellm 未安装，无法调用 LLM。\n请运行: pip install litellm"
+            ) from exc
+
+        temp = temperature if temperature is not None else self._config.temperature
+
+        extra_kwargs: dict = {}
+        if self._resolved_thinking is not None:
+            extra_kwargs["extra_body"] = {"enable_thinking": self._resolved_thinking}
+
+        response = await _litellm.acompletion(
+            model=f"openai/{self._config.model}",
+            messages=messages,
+            api_base=self._config.base_url,
+            api_key=self._config.api_key,
+            temperature=temp,
+            max_tokens=self._config.max_tokens,
+            **extra_kwargs,
         )
-        content = genai_types.Content(
-            role="user",
-            parts=[genai_types.Part(text=self._build_user_content(messages))],
-        )
-        final_text = ""
-        async for event in self._runner.run_async(
-            user_id="default", session_id=session.id, new_message=content,
-        ):
-            if event.is_final_response() and event.content:
-                for part in event.content.parts or []:
-                    if hasattr(part, "text") and part.text:
-                        # ADK converts reasoning_content into thought=True parts.
-                        # Skip them so thinking content never leaks into the reply.
-                        if getattr(part, "thought", False):
-                            continue
-                        final_text += part.text
-        # Strip <think>…</think> reasoning blocks emitted by thinking models
-        # (e.g. Qwen3, DeepSeek-R1).  Gradio renders such tags as invisible
-        # HTML elements, causing the raw thinking text to bleed into the reply.
+        final_text: str = (response.choices[0].message.content or "").strip()
+        # 剥除推理模型（Qwen3、DeepSeek-R1 等）输出的思考块
         final_text = re.sub(r"<think>.*?</think>", "", final_text, flags=re.DOTALL)
         return final_text.strip()
 

@@ -462,53 +462,52 @@ class UnifiedGradioDemo:
             return state_info
 
         elif self.current_mode == "pytod" and self.pytod_tracker:
-            # PyTOD模式（AP→EE→DM 三步流程）：显示程序执行状态
-            state = self.pytod_tracker.get_current_state()
+            # PyTOD模式（AP→EE→DM 三步流程）：重点展示 AP 程序和 EE 执行结果
             state_info = {
                 "模式": "PyTOD (AP→EE→DM 三步流程)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.pytod_tracker.turn_count,
-                "可用 API": self.pytod_tracker.engine.list_functions(),
             }
 
-            # 本轮 AP 生成程序（PyTOD 最具可解释性的中间表示）
+            # Step 1: AP 生成程序（最具可解释性的中间表示）
             last_prog = self.pytod_tracker.last_program_text
             if last_prog:
-                state_info["本轮 AP 程序"] = last_prog
+                state_info["[AP] 本轮生成程序"] = last_prog
 
-            # API 调用日志（turn_count > 0 后才有）
-            # AdkPyTODTracker 记录格式：{turn, variable, result}
-            api_call_log = state.pop("_api_call_log", [])
-            if api_call_log:
-                log_display = []
-                for entry in api_call_log:
-                    var = entry.get("variable", "?")
-                    result = entry.get("result")
-                    # 若变量名为匿名内部键（_anonN），尝试显示 function_name 代替
-                    display_var = var if not str(var).startswith("_anon") else f"(anon)"
-                    result_str = str(result)[:60] + "..." if result and len(str(result)) > 60 else str(result or "")
-                    log_display.append(f"[第{entry['turn']}轮] {display_var} = {result_str}")
-                state_info["API 调用历史"] = log_display
-
-            # 累积执行结果（变量名键）
-            api_results = {}
-            for key, value in state.items():
-                if key.startswith("_"):
-                    continue
-                if isinstance(value, dict):
-                    for k, v in value.items():
-                        if k not in ("_raw",):
-                            sv = str(v)
-                            api_results[k] = sv[:50] + "..." if len(sv) > 50 else sv
+            # Step 2: EE 执行结果
+            ee_result = self.pytod_tracker.last_execution_result
+            if ee_result is not None:
+                if not ee_result.success:
+                    errors = getattr(ee_result, "errors", [])
+                    state_info["[EE] 执行状态"] = "失败：" + ("; ".join(str(e) for e in errors) if errors else "未知错误")
                 else:
-                    sv = str(value)
-                    api_results[key] = sv[:50] + "..." if len(sv) > 50 else sv
-
-            if api_results:
-                state_info["累积执行结果"] = api_results
-
-            if not api_call_log and not api_results:
-                state_info["执行状态"] = "暂无 API 调用（等待用户输入触发工具调用）"
+                    ee_display: dict = {}
+                    # say() 输出
+                    say_out = getattr(ee_result, "say_output", "")
+                    if say_out:
+                        ee_display["say 输出"] = say_out[:120] + "..." if len(say_out) > 120 else say_out
+                    # Hint 提示
+                    hints = getattr(ee_result, "hint_messages", [])
+                    if hints:
+                        ee_display["Hint 提示"] = hints
+                    # API 调用结果
+                    var_values = getattr(ee_result, "variable_values", {})
+                    api_vars = {k: v for k, v in var_values.items() if not k.startswith("_anon")}
+                    if api_vars:
+                        import json as _json
+                        formatted = {}
+                        for k, v in api_vars.items():
+                            try:
+                                sv = _json.dumps(v, ensure_ascii=False)
+                            except (TypeError, ValueError):
+                                sv = str(v)
+                            formatted[k] = sv[:80] + "..." if len(sv) > 80 else sv
+                        ee_display["API 调用结果"] = formatted
+                    if not ee_display:
+                        ee_display["执行状态"] = "成功（无返回数据）"
+                    state_info["[EE] 执行结果"] = ee_display
+            elif self.pytod_tracker.turn_count == 0:
+                state_info["执行状态"] = "等待用户输入…"
 
             return state_info
 

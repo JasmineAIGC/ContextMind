@@ -96,6 +96,169 @@ def _register_chat_apis(engine: ExecutionEngine) -> None:
         except Exception:
             return {"expression": expression, "error": "表达式格式有误，请检查后重试"}
 
+    @engine.register
+    def get_current_time(city=None, timezone=None):
+        """查询当前时间。支持按城市或时区（如 Asia/Shanghai、America/New_York）查询。"""
+        import datetime as _dt
+        tz_map = {
+            "北京": "Asia/Shanghai", "上海": "Asia/Shanghai", "东京": "Asia/Tokyo",
+            "纽约": "America/New_York", "伦敦": "Europe/London", "巴黎": "Europe/Paris",
+            "悉尼": "Australia/Sydney", "洛杉矶": "America/Los_Angeles",
+        }
+        tz_name = timezone or tz_map.get(city or "", "Asia/Shanghai")
+        now = _dt.datetime.now(_dt.timezone.utc)
+        offset_hours = {
+            "Asia/Shanghai": 8, "Asia/Tokyo": 9, "Europe/London": 0,
+            "Europe/Paris": 1, "America/New_York": -5, "America/Los_Angeles": -8,
+            "Australia/Sydney": 11,
+        }.get(tz_name, 8)
+        local_time = now + _dt.timedelta(hours=offset_hours)
+        return {
+            "city": city or "北京",
+            "timezone": tz_name,
+            "current_time": local_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "date": local_time.strftime("%Y年%m月%d日"),
+            "time": local_time.strftime("%H:%M"),
+            "weekday": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][local_time.weekday()],
+        }
+
+    @engine.register
+    def convert_units(value=None, from_unit=None, to_unit=None):
+        """单位换算。支持长度（米/英尺/英里/公里）、重量（千克/磅/斤）、温度（摄氏/华氏）等。"""
+        if value is None:
+            return {"hint": "请提供要换算的数值"}
+        if not from_unit:
+            return {"hint": "请提供原始单位"}
+        if not to_unit:
+            return {"hint": "请提供目标单位"}
+        try:
+            val = float(value)
+        except (TypeError, ValueError):
+            return {"error": f"无效数值：{value}"}
+        # 统一到 SI 单位再转目标
+        to_si: dict = {
+            "米": 1, "m": 1, "公里": 1000, "km": 1000,
+            "英尺": 0.3048, "ft": 0.3048, "英里": 1609.344, "mile": 1609.344,
+            "千克": 1, "kg": 1, "斤": 0.5, "磅": 0.453592, "lb": 0.453592,
+        }
+        temp_pairs = {
+            ("摄氏", "华氏"): lambda c: c * 9 / 5 + 32,
+            ("华氏", "摄氏"): lambda f: (f - 32) * 5 / 9,
+            ("℃", "℉"): lambda c: c * 9 / 5 + 32,
+            ("℉", "℃"): lambda f: (f - 32) * 5 / 9,
+        }
+        pair = (from_unit, to_unit)
+        if pair in temp_pairs:
+            result = round(temp_pairs[pair](val), 4)
+        elif from_unit in to_si and to_unit in to_si:
+            result = round(val * to_si[from_unit] / to_si[to_unit], 6)
+        else:
+            return {"error": f"不支持的单位组合：{from_unit} → {to_unit}"}
+        return {
+            "original_value": val,
+            "from_unit": from_unit,
+            "to_unit": to_unit,
+            "result": result,
+            "message": f"{val} {from_unit} = {result} {to_unit}",
+        }
+
+    @engine.register
+    def recommend_content(content_type=None, genre=None, mood=None):
+        """推荐内容（电影、音乐、书籍、播客）。content_type 可选：电影、音乐、书籍、播客。"""
+        if not content_type:
+            return {"hint": "请告诉我您想要什么类型的推荐：电影、音乐、书籍还是播客？"}
+        catalog: dict = {
+            "电影": {
+                "喜剧": [{"title": "疯狂动物城", "rating": 9.2, "year": 2016}, {"title": "夏洛特烦恼", "rating": 8.1, "year": 2015}],
+                "科幻": [{"title": "星际穿越", "rating": 9.3, "year": 2014}, {"title": "流浪地球2", "rating": 8.3, "year": 2023}],
+                "剧情": [{"title": "肖申克的救赎", "rating": 9.7, "year": 1994}, {"title": "我不是药神", "rating": 9.0, "year": 2018}],
+                "default": [{"title": "流浪地球2", "rating": 8.3, "year": 2023}, {"title": "封神第一部", "rating": 7.8, "year": 2023}],
+            },
+            "音乐": {
+                "流行": [{"title": "晴天", "artist": "周杰伦"}, {"title": "平凡之路", "artist": "朴树"}],
+                "古典": [{"title": "月光奏鸣曲", "artist": "贝多芬"}, {"title": "二泉映月", "artist": "华彦钧"}],
+                "轻音乐": [{"title": "River Flows In You", "artist": "Yiruma"}, {"title": "天空之城", "artist": "久石让"}],
+                "default": [{"title": "晴天", "artist": "周杰伦"}, {"title": "平凡之路", "artist": "朴树"}],
+            },
+            "书籍": {
+                "科技": [{"title": "人工智能简史", "author": "尼克"}, {"title": "代码大全", "author": "Steve McConnell"}],
+                "文学": [{"title": "百年孤独", "author": "加西亚·马尔克斯"}, {"title": "活着", "author": "余华"}],
+                "default": [{"title": "活着", "author": "余华"}, {"title": "三体", "author": "刘慈欣"}],
+            },
+        }
+        items = catalog.get(content_type, {})
+        recs = items.get(genre or mood or "", items.get("default", []))
+        return {
+            "content_type": content_type,
+            "genre": genre or mood or "综合",
+            "recommendations": recs,
+            "count": len(recs),
+        }
+
+    @engine.register
+    def get_news_headlines(category=None, count=None):
+        """获取新闻头条。category 可选：科技、财经、体育、娱乐、社会、国际。"""
+        news_map: dict = {
+            "科技": [
+                {"title": "AI大模型迎来新突破，多模态能力显著提升", "source": "科技日报"},
+                {"title": "国产芯片出货量创历史新高", "source": "半导体行业观察"},
+                {"title": "开源AI框架用户数突破亿级", "source": "InfoQ"},
+            ],
+            "财经": [
+                {"title": "A股三大指数集体上涨，科技板块领跑", "source": "财联社"},
+                {"title": "人民币汇率保持稳定，外资持续流入", "source": "中国证券报"},
+                {"title": "新能源汽车出口同比增长40%", "source": "经济日报"},
+            ],
+            "体育": [
+                {"title": "中国乒乓球队世锦赛卫冕成功", "source": "新华社体育"},
+                {"title": "CBA季后赛首轮赛程确定", "source": "腾讯体育"},
+                {"title": "国足世预赛备战顺利，主帅称状态良好", "source": "懂球帝"},
+            ],
+        }
+        headlines = news_map.get(category or "科技", news_map["科技"])
+        n = min(int(count or 3), len(headlines))
+        return {
+            "category": category or "科技",
+            "headlines": headlines[:n],
+            "count": n,
+        }
+
+    @engine.register
+    def get_recipe(dish_name=None, dietary_restrictions=None, servings=None):
+        """获取菜谱。dish_name 为菜名，dietary_restrictions 为饮食限制（素食/低糖/低脂等）。"""
+        if not dish_name:
+            return {"hint": "请告诉我您想做什么菜？"}
+        recipes: dict = {
+            "番茄炒蛋": {
+                "ingredients": ["鸡蛋3个", "番茄2个", "盐适量", "糖少许", "食用油", "葱花"],
+                "steps": ["鸡蛋打散加盐搅匀", "番茄切块", "热锅炒鸡蛋至七成熟盛出", "重新热锅炒番茄出汁", "加入鸡蛋翻炒，加盐糖调味", "出锅撒葱花"],
+                "time_minutes": 15,
+                "difficulty": "简单",
+            },
+            "红烧肉": {
+                "ingredients": ["五花肉500g", "老抽2勺", "生抽3勺", "冰糖50g", "料酒", "姜片", "八角"],
+                "steps": ["五花肉切块焯水", "锅中炒糖色至棕红", "加入肉块翻炒上色", "加生抽、老抽、料酒", "加水没过肉，大火烧开转小火", "炖40分钟至软烂，大火收汁"],
+                "time_minutes": 60,
+                "difficulty": "中等",
+            },
+        }
+        recipe = recipes.get(dish_name, {
+            "ingredients": ["根据菜名准备相应食材"],
+            "steps": ["按照标准做法烹饪"],
+            "time_minutes": 30,
+            "difficulty": "中等",
+        })
+        n = int(servings or 2)
+        return {
+            "dish_name": dish_name,
+            "servings": n,
+            "dietary_restrictions": dietary_restrictions or "无",
+            "ingredients": recipe["ingredients"],
+            "steps": recipe["steps"],
+            "cook_time": f"{recipe['time_minutes']}分钟",
+            "difficulty": recipe["difficulty"],
+        }
+
 
 # ---------------------------------------------------------------------------
 # 客服场景 API
@@ -191,6 +354,123 @@ def _register_callcenter_apis(engine: ExecutionEngine) -> None:
             "priority": priority or "普通",
             "estimated_wait": wait_map.get(priority or "", "约5分钟"),
             "ticket_id": "TKT-20260226-001",
+        }
+
+    @engine.register
+    def check_account_status(customer_id=None, account_type=None):
+        """查询账户状态与余额。account_type 可选：普通账户、会员账户、企业账户。"""
+        if not customer_id:
+            return {"hint": "请提供客户ID或手机号以查询账户状态"}
+        return {
+            "customer_id": customer_id,
+            "account_type": account_type or "普通账户",
+            "status": "正常",
+            "balance": 1280.50,
+            "available_credit": 5000.00,
+            "points": 3200,
+            "membership_level": "银卡会员",
+            "registered_date": "2023-06-15",
+            "last_login": "2026-03-19",
+        }
+
+    @engine.register
+    def query_points_balance(customer_id=None):
+        """查询积分余额及可兑换商品/优惠券列表。"""
+        if not customer_id:
+            return {"hint": "请提供客户ID或手机号以查询积分"}
+        return {
+            "customer_id": customer_id,
+            "points_balance": 3200,
+            "points_expiring_soon": 500,
+            "expiry_date": "2026-12-31",
+            "redeemable_rewards": [
+                {"name": "20元优惠券", "cost_points": 500, "valid_days": 30},
+                {"name": "50元优惠券", "cost_points": 1000, "valid_days": 30},
+                {"name": "免运费券（5次）", "cost_points": 300, "valid_days": 90},
+                {"name": "会员月卡", "cost_points": 2000, "valid_days": 30},
+            ],
+        }
+
+    @engine.register
+    def apply_discount_coupon(order_id=None, coupon_code=None, customer_id=None):
+        """为订单应用优惠券或折扣码。"""
+        if not (order_id or customer_id):
+            return {"hint": "请提供订单号或客户ID"}
+        if not coupon_code:
+            return {"hint": "请提供优惠券码"}
+        valid_coupons = {"SAVE20": 20, "VIP50": 50, "NEW10": 10}
+        discount = valid_coupons.get(coupon_code.upper(), 0)
+        if discount == 0:
+            return {"error": f"优惠券码 {coupon_code} 无效或已过期"}
+        return {
+            "order_id": order_id or "(待关联)",
+            "coupon_code": coupon_code.upper(),
+            "discount_amount": discount,
+            "status": "已应用",
+            "message": f"优惠券应用成功，已优惠 {discount} 元",
+        }
+
+    @engine.register
+    def update_delivery_address(order_id=None, new_address=None, recipient_name=None, phone=None):
+        """修改订单配送地址（仅限未发货订单）。"""
+        if not order_id:
+            return {"hint": "请提供需要修改地址的订单号"}
+        if not new_address:
+            return {"hint": "请提供新的配送地址"}
+        return {
+            "order_id": order_id,
+            "status": "修改成功",
+            "new_address": new_address,
+            "recipient_name": recipient_name or "(保持原收件人)",
+            "phone": phone or "(保持原手机号)",
+            "message": "地址已更新，请注意商家发货后将使用新地址派送",
+        }
+
+    @engine.register
+    def schedule_callback(customer_id=None, preferred_time=None, issue_description=None, phone=None):
+        """预约客服回拨。在客户无法等待时，安排客服在指定时间主动联系。"""
+        if not (customer_id or phone):
+            return {"hint": "请提供您的客户ID或联系电话"}
+        return {
+            "callback_id": "CB-20260320-0042",
+            "customer_id": customer_id or "(未提供)",
+            "contact_phone": phone or "(使用账户绑定号码)",
+            "preferred_time": preferred_time or "工作日09:00-18:00",
+            "issue_summary": issue_description or "(未填写)",
+            "status": "已预约",
+            "expected_callback": preferred_time or "下一个工作日内",
+            "message": "回拨预约成功，客服专员将在指定时间联系您",
+        }
+
+    @engine.register
+    def query_product_info(product_name=None, product_id=None, attribute=None):
+        """查询商品详情、规格、库存及评价。attribute 可选：规格/库存/评价/价格。"""
+        if not (product_name or product_id):
+            return {"hint": "请提供商品名称或商品编号"}
+        catalog: dict = {
+            "智能扫地机器人": {
+                "product_id": "SKU-ROBOT-001",
+                "price": 1999,
+                "stock": "有货（100+）",
+                "rating": 4.8,
+                "review_count": 2341,
+                "specs": {"功率": "25W", "噪音": "≤65dB", "续航": "120分钟", "吸力": "2700Pa"},
+                "warranty": "1年整机保修",
+            },
+        }
+        product = catalog.get(product_name or "", {
+            "product_id": product_id or "N/A",
+            "price": "(请查询官网)",
+            "stock": "请联系客服确认",
+            "rating": "N/A",
+            "specs": {},
+            "warranty": "详见产品说明书",
+        })
+        if attribute and attribute in ("规格", "specs"):
+            return {"product_name": product_name, "specs": product.get("specs", {})}
+        return {
+            "product_name": product_name or product_id,
+            **product,
         }
 
 
@@ -374,6 +654,109 @@ def _register_insurance_apis(engine: ExecutionEngine) -> None:
             "current_step": "医疗材料核查（第2步，共4步）",
             "submitted_date": "2026-02-01",
             "expected_completion": "2026-03-01",
+        }
+
+    @engine.register
+    def recommend_insurance(age=None, gender=None, budget=None, needs=None):
+        """个性化保险推荐。根据年龄、性别、预算和保障需求推荐合适险种。"""
+        if not age:
+            return {"hint": "请提供您的年龄以便为您推荐合适的保险产品"}
+        age_val = int(age)
+        budget_val = float(budget or 200)
+        needs_str = str(needs or "").lower()
+        recs = []
+        if age_val < 35:
+            recs.append({"type": "重疾险", "reason": "年轻投保费率低，保障期长，性价比高", "estimated_monthly": round(budget_val * 0.4, 0)})
+            recs.append({"type": "意外险", "reason": "工作压力大，出行频繁，意外保障必备", "estimated_monthly": 30})
+            if "医疗" in needs_str or budget_val >= 100:
+                recs.append({"type": "医疗险", "reason": "百万医疗险保费低、保额高，可覆盖住院大额医疗费", "estimated_monthly": 50})
+        elif age_val < 50:
+            recs.append({"type": "重疾险", "reason": "中年是重疾高发期，及早配置防患于未然", "estimated_monthly": round(budget_val * 0.5, 0)})
+            recs.append({"type": "医疗险", "reason": "住院及特殊门诊费用保障", "estimated_monthly": 80})
+            if "寿险" in needs_str or "家庭" in needs_str:
+                recs.append({"type": "定期寿险", "reason": "为家庭责任提供身故保障", "estimated_monthly": round(budget_val * 0.3, 0)})
+        else:
+            recs.append({"type": "医疗险", "reason": "中老年医疗费用较高，医疗险可减轻负担", "estimated_monthly": 120})
+            recs.append({"type": "意外险", "reason": "老年跌倒风险增加，意外险保障必要", "estimated_monthly": 50})
+            if "癌症" in needs_str or "重疾" in needs_str:
+                recs.append({"type": "癌症险", "reason": "专项癌症保障，确诊即赔", "estimated_monthly": 150})
+        return {
+            "age": age_val,
+            "gender": gender or "未指定",
+            "monthly_budget": budget_val,
+            "needs": needs or "综合保障",
+            "recommendations": recs,
+            "note": "以上为参考推荐，实际产品及费率以投保时为准",
+        }
+
+    @engine.register
+    def query_renewal_options(policy_number=None):
+        """查询保单续保方案与到期提醒。"""
+        if not policy_number:
+            return {"hint": "请提供保单号以查询续保信息"}
+        return {
+            "policy_number": policy_number,
+            "expiry_date": "2026-06-30",
+            "days_until_expiry": 102,
+            "renewal_options": [
+                {"option": "原保额续保", "new_annual_premium": 3360, "change": "无变化"},
+                {"option": "提额续保（+50万）", "new_annual_premium": 4200, "change": "保额增加50万"},
+                {"option": "不续保", "consequence": "到期后保障终止，已缴保费不退"},
+            ],
+            "recommendation": "建议尽早续保，避免保障中断及重新核保",
+            "auto_renewal_status": "未开启",
+        }
+
+    @engine.register
+    def lookup_hospital(city=None, hospital_name=None, insurance_type=None):
+        """查询医院是否在保险直付/定点网络中。"""
+        if not (city or hospital_name):
+            return {"hint": "请提供城市或医院名称以查询定点医院信息"}
+        hospitals_demo = [
+            {"name": "北京协和医院", "city": "北京", "level": "三甲", "direct_billing": True},
+            {"name": "上海瑞金医院", "city": "上海", "level": "三甲", "direct_billing": True},
+            {"name": "广州南方医院", "city": "广州", "level": "三甲", "direct_billing": True},
+        ]
+        if hospital_name:
+            match = next((h for h in hospitals_demo if hospital_name in h["name"]), None)
+            if match:
+                return {**match, "insurance_type": insurance_type or "医疗险", "status": "定点医院，支持直付"}
+            return {
+                "hospital_name": hospital_name,
+                "city": city or "未知",
+                "direct_billing": False,
+                "status": "非直付医院，需先垫付后报销",
+                "tips": "就诊后保留发票和病历，提交理赔材料可申请报销",
+            }
+        return {
+            "city": city,
+            "insurance_type": insurance_type or "医疗险",
+            "nearby_hospitals": [h for h in hospitals_demo if not city or city in h["city"]] or hospitals_demo[:2],
+            "total_in_network": 1280,
+        }
+
+    @engine.register
+    def suspend_or_resume_policy(policy_number=None, action=None):
+        """暂停或恢复保单（部分险种支持）。action 可选：suspend（暂停）、resume（恢复）。"""
+        if not policy_number:
+            return {"hint": "请提供需要操作的保单号"}
+        if not action:
+            return {"hint": "请告知您是要暂停保单还是恢复保单（suspend/resume）"}
+        action_lower = str(action).lower()
+        if action_lower in ("suspend", "暂停", "中止"):
+            return {
+                "policy_number": policy_number,
+                "action": "暂停",
+                "status": "操作成功",
+                "effective_date": "2026-03-20",
+                "note": "保单暂停期间保障暂停，恢复前请重新核保，最长暂停期为6个月",
+            }
+        return {
+            "policy_number": policy_number,
+            "action": "恢复",
+            "status": "操作成功",
+            "effective_date": "2026-03-20",
+            "note": "保单已恢复，保障从今日生效，如有疑问请联系客服",
         }
 
 
