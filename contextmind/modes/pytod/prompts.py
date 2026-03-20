@@ -288,8 +288,9 @@ class PyTODPromptBuilder:
             self._DM_SYSTEM,
             f"回复语言：{self.response_language}",
         ]
-        if scenario_context:
-            system_parts.append(f"\n## 业务背景\n{scenario_context}")
+        # 注意：DM 系统提示词不再包含 scenario_context（业务背景/用户信息），
+        # 避免每轮重复注入大体积文本造成 token 浪费和延迟上升。
+        # DM 所需的全部业务数据已通过对话历史和程序执行结果传入。
         system_msg = "\n\n".join(system_parts)
 
         history_text = self._format_history(history)

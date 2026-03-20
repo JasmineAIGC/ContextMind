@@ -236,13 +236,20 @@ class AdkPyTODTracker:
         # Step 2: Execution Engine (EE)
         # ------------------------------------------------------------------ #
         t1 = time.time()
-        execution_result: ProgramExecutionResult = self.engine.execute_program(program_text)
+        execution_result: ProgramExecutionResult = self.engine.execute_program(
+            program_text,
+            prior_var_values={k: v for k, v in self.current_state.items() if not k.startswith("_anon")},
+        )
         self.last_execution_result = execution_result  # 记录供 web_demo 展示
         self.step_timings["EE (执行引擎)"] = round(time.time() - t1, 3)
 
-        # 将本轮 API 调用结果合并进累积状态，并记录调用日志
+        # 将本轮 API 调用结果合并进累积状态，并记录调用日志。
+        # 仅存储真正的 API 调用结果（dict/非字符串），跳过 say() 输出的字符串变量，
+        # 避免 prior_dataflow 随轮次膨胀，减少后续轮次 AP 的 token 消耗。
         if execution_result.variable_values:
             for var, val in execution_result.variable_values.items():
+                if var in execution_result.say_variable_names:
+                    continue  # say() 输出不写入 current_state
                 self.current_state[var] = val
                 self.api_call_log.append({
                     "turn": self.turn_count,

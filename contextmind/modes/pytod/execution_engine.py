@@ -178,6 +178,10 @@ class ProgramExecutionResult:
     say_output: str = ""
     errors: List[str] = field(default_factory=list)
     raw_program: str = ""
+    # 记录哪些变量是 say() 输出（字符串），而非 API 调用结果（dict）。
+    # tracker 使用此集合过滤，避免将 say 字符串写入 prior_dataflow，
+    # 防止 AP 的 prior_dataflow 随轮次膨胀。
+    say_variable_names: "set[str]" = field(default_factory=set)
 
     def to_context_text(self) -> str:
         """将多语句执行结果格式化为可注入对话管理器 prompt 的上下文文本。"""
@@ -585,12 +589,18 @@ class ExecutionEngine:
 
         return ProgramBlock(statements=statements, raw_text=program_text.strip()), ""
 
-    def execute_program(self, program_text: str) -> ProgramExecutionResult:
+    def execute_program(
+        self,
+        program_text: str,
+        prior_var_values: Optional[Dict[str, Any]] = None,
+    ) -> ProgramExecutionResult:
         """
         解析并执行完整的多行 PyTOD 程序，返回聚合结果。
 
         Args:
-            program_text: 动作解析器生成的多行程序文本
+            program_text:    动作解析器生成的多行程序文本
+            prior_var_values: 跨轮累积的变量绑定（来自 tracker.current_state），
+                              使 say(xN) 能引用先前轮次定义的变量。
 
         Returns:
             ProgramExecutionResult 实例，包含所有变量值和 say 输出
@@ -603,8 +613,8 @@ class ExecutionEngine:
                 raw_program=program_text,
             )
 
-        # 运行时环境
-        var_values: Dict[str, Any] = {}        # 变量名 → API 返回值
+        # 运行时环境：用先前轮次的变量值初始化，使 say(xN) 能跨轮引用
+        var_values: Dict[str, Any] = dict(prior_var_values) if prior_var_values else {}
         hint_values: Dict[str, str] = {}       # 变量名 → 提示文本
         # 按变量追踪 kwargs，使槽位赋值可以累积
         var_kwargs: Dict[str, Dict[str, Any]] = {}
@@ -612,6 +622,7 @@ class ExecutionEngine:
         errors: List[str] = []
         hint_messages: List[str] = []
         say_output: str = ""
+        say_variable_names: set = set()        # say() 输出的变量名集合（供 tracker 过滤）
         _anon_counter: int = 0                 # 匿名调用计数器（无变量绑定时用）
 
         for stmt in block.statements:
@@ -720,13 +731,16 @@ class ExecutionEngine:
                     else:
                         parts.append(f"({stripped})")
                 say_output = "; ".join(parts)
-                var_values[stmt.variable] = say_output
+                if stmt.variable:
+                    var_values[stmt.variable] = say_output
+                    say_variable_names.add(stmt.variable)
 
         return ProgramExecutionResult(
             success=len(errors) == 0,
             variable_values=var_values,
             hint_messages=hint_messages,
             say_output=say_output,
+            say_variable_names=say_variable_names,
             errors=errors,
             raw_program=program_text,
         )
