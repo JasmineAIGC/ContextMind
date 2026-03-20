@@ -251,6 +251,16 @@ class AdkLLMClient:
         if not _ADK_AVAILABLE:
             raise ImportError(_ADK_INSTALL_MSG)
 
+        # 在初始化时导入 litellm，确保依赖缺失时立即报错（fail-fast），
+        # 同时避免每次 chat_async 调用都重复执行模块查找。
+        try:
+            import litellm as _litellm  # type: ignore[import]
+        except ImportError as exc:
+            raise ImportError(
+                "litellm 未安装，无法调用 LLM。\n请运行: pip install litellm"
+            ) from exc
+        self._litellm = _litellm
+
         self._config = config or LLMConfig.from_env()
         _configure_litellm_for_local_model(self._config.model)
 
@@ -276,13 +286,7 @@ class AdkLLMClient:
         Returns:
             助手的回复文本（已剥除推理模型的 <think>…</think> 块）。
         """
-        try:
-            import litellm as _litellm  # type: ignore[import]
-        except ImportError as exc:
-            raise ImportError(
-                "litellm 未安装，无法调用 LLM。\n请运行: pip install litellm"
-            ) from exc
-
+        _litellm = self._litellm
         temp = temperature if temperature is not None else self._config.temperature
 
         extra_kwargs: dict = {}

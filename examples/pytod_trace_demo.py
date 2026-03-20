@@ -92,12 +92,17 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
                 result = await agent.process_turn(utt)
             except Exception as exc:
                 result = {"response": f"(error: {exc})", "program_text": "", "state": {}}
+            execution = result.get("execution")
             turns_results.append({
                 "turn": i + 1,
                 "user": utt[:120],
                 "program": result.get("program_text", ""),
                 "response": result.get("response", ""),
                 "state": result.get("state", {}),
+                "execution_success": getattr(execution, "success", None),
+                "execution_errors": getattr(execution, "errors", []),
+                "say_output": getattr(execution, "say_output", ""),
+                "step_timings": dict(agent.step_timings),
             })
             if verbose:
                 print(f"[Turn {i+1}] {utt[:80]}")
@@ -111,6 +116,10 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
                 "program": "⚠️ LLM 未配置",
                 "response": "⚠️ LLM 未配置",
                 "state": {},
+                "execution_success": None,
+                "execution_errors": [],
+                "say_output": "",
+                "step_timings": {},
             })
 
     return {
@@ -144,20 +153,52 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         "",
     ]
     for t in trace.get("turns", []):
-        lines += [
-            f"### Turn {t['turn']}",
-            f"**用户**: {t['user']}",
-            "",
-            f"**工具调用程序**: `{t['program']}`",
-            "",
-            f"**助手回复**: {t['response']}",
-            "",
-            "**累积状态**:",
-            "```json",
-            json.dumps(t["state"], ensure_ascii=False, indent=2),
-            "```",
-            "",
-        ]
+        lines.append(f"### Turn {t['turn']}")
+        lines.append(f"**用户**: {t['user']}")
+        lines.append("")
+
+        # AP 输出程序
+        lines.append("**[Step 1 AP] 程序**:")
+        lines.append("```")
+        lines.append(t["program"] or "(空)")
+        lines.append("```")
+        lines.append("")
+
+        # EE 执行结果
+        exec_ok = t.get("execution_success")
+        if exec_ok is None:
+            ee_status = "N/A"
+        elif exec_ok:
+            ee_status = "✅ 成功"
+        else:
+            ee_status = "❌ 失败"
+        lines.append(f"**[Step 2 EE] 执行**: {ee_status}")
+        exec_errors = t.get("execution_errors") or []
+        if exec_errors:
+            lines.append(f"  - 错误: {'; '.join(str(e) for e in exec_errors)}")
+        say_out = t.get("say_output", "")
+        if say_out:
+            lines.append(f"  - say 输出: {say_out}")
+        lines.append("")
+
+        # DM 回复
+        lines.append(f"**[Step 3 DM] 回复**: {t['response']}")
+        lines.append("")
+
+        # 耗时
+        timings = t.get("step_timings") or {}
+        if timings:
+            timing_parts = [f"{k}: {v}s" for k, v in timings.items()]
+            lines.append(f"**耗时**: {' | '.join(timing_parts)}")
+            lines.append("")
+
+        # 累积状态
+        lines.append("**累积状态**:")
+        lines.append("```json")
+        lines.append(json.dumps(t["state"], ensure_ascii=False, indent=2))
+        lines.append("```")
+        lines.append("")
+
     lines += [
         "## 实际坐席回复（参考）",
         "",
