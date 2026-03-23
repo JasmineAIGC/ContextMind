@@ -11,14 +11,21 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
 
 核心公开接口::
 
-    from contextmind.kb import KnowledgeBaseBuilder
+    from contextmind.kb import KnowledgeBaseBuilder, ServiceSchema
 
+    # Phase 1：建立知识库
     builder = KnowledgeBaseBuilder(
         scene_name="银行贷款外呼",
         scene_description="银行客服主动致电老客户推介个人贷款产品",
     )
-    schema_dict = builder.build(dialogues)   # 返回 SGD 格式 schema dict
+    schema_dict = builder.build(dialogues)       # 返回 SGD 格式 schema dict
     builder.save(schema_dict, "output/schema.json")
+
+    # Phase 1 → Phase 2 桥接：schema dict 转 ServiceSchema
+    service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
+
+    # 或从已有 schema.json 直接加载
+    service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
 
 支持的输入格式（``dialogues`` 参数）：
 
@@ -42,10 +49,23 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
 from .builder import KnowledgeBaseBuilder
 from .normalizer import normalize_dialogue, normalize_dialogues
 from .synthesizer import SchemaSynthesizer
+from .discoverer import GenericDialogueDiscoverer, DiscoveryItem
+
+# 从 pytod schemas 重导出，方便在 KB 模块级别完成 Phase 1→2 的类型衔接
+from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
 
 __all__ = [
+    # Phase 1：知识库构建
     "KnowledgeBaseBuilder",
+    # 归一化
     "normalize_dialogue",
     "normalize_dialogues",
+    # 合成器（可单独使用）
     "SchemaSynthesizer",
+    # 通用发现器（可单独使用）
+    "GenericDialogueDiscoverer",
+    "DiscoveryItem",
+    # Phase 1→2 桥接：schema 数据模型
+    "ServiceSchema",
+    "load_schema_from_dict",
 ]

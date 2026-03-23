@@ -4,10 +4,9 @@
 将任意对话数据集经过两步处理，输出标准 SGD 格式 ``schema.json``：
 
 1. **发现阶段**（Discovery）：
-   使用 LLM 以"开放式提取"模式扫描样本对话，自动发现所有出现过的
-   槽位（slots）和意图（intents）。利用已有的
-   :class:`~contextmind.scenarios.anyihua.knowledge_extraction.AnyihuaKnowledgeExtractor`
-   实现（传入空 schema + open_ended=True）。
+   使用 :class:`~contextmind.kb.discoverer.GenericDialogueDiscoverer` 以开放式模式
+   扫描样本对话，自动发现所有出现过的槽位（slots）和意图（intents）。
+   不依赖任何特定场景模块，可用于任意业务场景。
 
 2. **合成阶段**（Synthesis）：
    将发现阶段收集到的槽位/意图计数及样本，调用 LLM 第二次，
@@ -31,6 +30,12 @@
     schema_dict = builder.build(dialogues[:20])   # 用前 20 条做发现
     builder.save(schema_dict, Path("output/schema.json"))
 
+    # 用 to_service_schema() 直接获取可用于 PyTOD 的 ServiceSchema 对象
+    service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
+
+    # 也可以从已有 schema.json 加载
+    service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
+
     # 也可以只传文本列表
     text_dialogues = [
         ["agent: 你好，请问是张先生吗？", "user: 是的"],
@@ -48,10 +53,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
-from contextmind.scenarios.anyihua.knowledge_extraction.extractor import (
-    AnyihuaKnowledgeExtractor,
-    ExtractionSchema,
-)
+from .discoverer import GenericDialogueDiscoverer
 from .normalizer import normalize_dialogues
 from .synthesizer import SchemaSynthesizer
 
@@ -194,6 +196,59 @@ class KnowledgeBaseBuilder:
         )
         logger.info(f"[KnowledgeBaseBuilder] schema.json 已写入: {path}")
 
+    @staticmethod
+    def to_service_schema(schema_dict: Dict[str, Any]) -> "ServiceSchema":
+        """
+        将 :meth:`build` 返回的 schema dict 转换为
+        :class:`~contextmind.modes.pytod.ServiceSchema` 对象，
+        可直接传入 ``AdkPyTODTracker`` 等执行算法。
+
+        这是 **Phase 1 → Phase 2** 的桥接方法，实现从知识库构建到对话执行的无缝衔接。
+
+        参数
+        ----
+        schema_dict:
+            :meth:`build` 返回的单服务 schema dict，或从 ``schema.json`` 加载的 dict。
+
+        返回
+        ----
+        :class:`~contextmind.modes.pytod.ServiceSchema` 实例。
+
+        示例::
+
+            schema_dict = builder.build(dialogues)
+            service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
+            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+        """
+        from contextmind.modes.pytod.schemas import ServiceSchema
+        return ServiceSchema.from_dict(schema_dict)
+
+    @classmethod
+    def load_schema(cls, path: Union[str, Path]) -> "ServiceSchema":
+        """
+        从已有的 ``schema.json`` 文件加载
+        :class:`~contextmind.modes.pytod.ServiceSchema` 对象。
+
+        参数
+        ----
+        path:
+            ``schema.json`` 文件路径。
+
+        返回
+        ----
+        :class:`~contextmind.modes.pytod.ServiceSchema` 实例。
+
+        示例::
+
+            # 加载上次构建的知识库，直接用于执行
+            service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
+            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+        """
+        from contextmind.modes.pytod.schemas import load_schema_from_dict
+        path = Path(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return load_schema_from_dict(data)
+
     # ------------------------------------------------------------------
     # 内部方法
     # ------------------------------------------------------------------
@@ -217,6 +272,9 @@ class KnowledgeBaseBuilder:
         """
         发现阶段：对每条对话运行开放式 LLM 提取，汇总槽位和意图。
 
+        使用 :class:`~contextmind.kb.discoverer.GenericDialogueDiscoverer`
+        直接从 LLM 提取，不依赖任何特定场景提取器。
+
         返回
         ----
         (slot_counter, intent_counter, slot_sample_values, intent_sample_descs)
@@ -226,18 +284,9 @@ class KnowledgeBaseBuilder:
         - slot_sample_values: ``{slot_name: [value, ...]}``（最多 5 个）
         - intent_sample_descs: ``{intent_name: [description, ...]}``（最多 3 个）
         """
-        # 使用完全开放式 Schema（空槽位/意图列表 + open_ended=True）
-        open_schema = ExtractionSchema(
-            scene_name=self.scene_name,
-            slots=[],
-            intents=[],
-            fact_description=f"{self.scene_name} 对话中出现的重要业务事实",
-            slot_open_ended=True,
-            intent_open_ended=True,
-        )
-        extractor = AnyihuaKnowledgeExtractor(
+        discoverer = GenericDialogueDiscoverer(
             llm_client=self._get_llm(),
-            schema=open_schema,
+            scene_name=self.scene_name,
         )
 
         slot_counter: Counter = Counter()
@@ -252,14 +301,14 @@ class KnowledgeBaseBuilder:
                 f"({dialogue_id})"
             )
             try:
-                result = extractor.extract(dlg)
+                items = discoverer.extract(dlg)
             except Exception as exc:
                 logger.warning(
                     f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
                 )
                 continue
 
-            for item in result.knowledge_items:
+            for item in items:
                 if item.extraction_class == "slot_value" and item.label:
                     slot_counter[item.label] += 1
                     samples = slot_sample_values.setdefault(item.label, [])

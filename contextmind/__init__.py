@@ -33,6 +33,7 @@ from contextmind.modes.base import BaseTracker
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker, adk_tools_from_function_manager
 from contextmind.modes.pytod import AdkPyTODTracker, adk_tools_from_engine
+from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
 
 from contextmind.infra.llm_client import (
@@ -44,6 +45,9 @@ from contextmind.infra.llm_client import (
 __all__ = [
     # 知识库构建（Phase 1）
     "KnowledgeBaseBuilder",
+    # Phase 1→2 桥接：schema 数据模型
+    "ServiceSchema",
+    "load_schema_from_dict",
     # 场景注册表
     "scenario_registry",
     # 共享接口
