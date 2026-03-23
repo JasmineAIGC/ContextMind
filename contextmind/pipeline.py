@@ -72,7 +72,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
-from contextmind.kb.builder import KnowledgeBaseBuilder
+from contextmind.knowledge.builder import KnowledgeBaseBuilder
 
 logger = get_logger(__name__)
 

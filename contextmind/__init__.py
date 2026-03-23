@@ -2,7 +2,7 @@
 ContextMind — 通用上下文工程框架
 
 整体框架两步走：
-    1. **建立知识库**（:mod:`contextmind.kb`）：针对任意数据集，通过 LLM 自动发现
+    1. **建立知识库**（:mod:`contextmind.knowledge`）：针对任意数据集，通过 LLM 自动发现
        槽位和意图，合成标准 SGD 格式 ``schema.json``。
     2. **执行**（:mod:`contextmind.pipeline` 或 :mod:`contextmind.modes.pytod` 等）：
        基于知识库，在对话中提取有效的上下文，提升对话质量。
@@ -18,7 +18,7 @@ ContextMind — 通用上下文工程框架
 
 主要组件：
 - pipeline:   统一上下文工程流水线（:class:`~contextmind.pipeline.ContextPipeline`）
-- kb:         通用知识库构建（任意数据 → schema.json）
+- knowledge:  通用知识库构建（任意数据 → schema.json）
 - infra:      基础设施（LLM 客户端、日志、嵌入向量）
 - modes:      四种对话模式（共享 BaseTracker 协议）
 - scenarios:  场景配置与注册表
@@ -32,14 +32,14 @@ LLM 配置通过 ``.env`` 文件管理（LLM_API_KEY / LLM_BASE_URL / LLM_MODEL�
 __version__ = "0.3.0"
 
 from contextmind.pipeline import ContextPipeline
-from contextmind.kb import KnowledgeBaseBuilder
+from contextmind.knowledge import KnowledgeBaseBuilder
 from contextmind.scenarios.registry import scenario_registry
 from contextmind.modes.base import BaseTracker
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker, adk_tools_from_function_manager
 from contextmind.modes.pytod import AdkPyTODTracker, adk_tools_from_engine
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
+from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine, EvolveApplication
 
 from contextmind.infra.llm_client import (
     LLMConfig,
@@ -65,6 +65,7 @@ __all__ = [
     "AdkPyTODTracker",
     # Evolve 模式
     "EvolveEngine",
+    "EvolveApplication",
     "create_app_for_scenario",
     # LLM 客户端
     "LLMConfig",

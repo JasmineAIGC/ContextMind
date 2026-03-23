@@ -1,6 +1,10 @@
-"""核心框架组件"""
+"""核心框架组件
 
-from ..engine import EvolveEngine
+日志工具（get_logger、setup_logging 等）应直接从 ``contextmind.infra.logger`` 导入，
+不通过此模块重新导出。
+"""
+
+from .engine import EvolveEngine
 from .registry import PluginRegistry, registry
 
 from .config import (
@@ -28,17 +32,6 @@ from .data_models import (
     ScoreInfo,
     VersionRecord,
     MemoryNote,
-)
-
-from contextmind.infra.logger import (
-    Logger,
-    LogLevel,
-    get_logger,
-    setup_logging,
-    set_global_log_level,
-    get_global_log_level,
-    INFO,
-    DEBUG,
 )
 
 from .strategies import (
@@ -78,15 +71,6 @@ __all__ = [
     "CompressionConfig",
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
-    # 日志工具
-    "Logger",
-    "LogLevel",
-    "get_logger",
-    "setup_logging",
-    "set_global_log_level",
-    "get_global_log_level",
-    "INFO",
-    "DEBUG",
     # 策略基类
     "ExtractionStrategy",
     "RetrievalStrategy",

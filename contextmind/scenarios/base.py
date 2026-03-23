@@ -10,11 +10,24 @@ from enum import Enum
 
 
 class ScenarioType(Enum):
-    """场景类型枚举"""
-    CHAT = "chat"  # 闲聊场景
+    """场景类型枚举。
+
+    内置场景类型使用预定义枚举值；自定义业务场景使用
+    ``ScenarioType.CUSTOM`` 并通过 ``ScenarioConfig.name`` 加以区分：
+
+    .. code-block:: python
+
+        config = ScenarioConfig(
+            name="my_outbound",
+            scenario_type=ScenarioType.CUSTOM,
+            ...
+        )
+    """
+    CHAT = "chat"           # 闲聊场景
     CALLCENTER = "callcenter"  # 客服场景
-    INSURANCE = "insurance"  # 保险挽回场景
-    ANYIHUA = "anyihua"  # 安逸花外呼促活场景
+    INSURANCE = "insurance"    # 保险挽回场景
+    ANYIHUA = "anyihua"        # 安逸花外呼促活场景（内置参考场景）
+    CUSTOM = "custom"          # 自定义/扩展场景（通过 name 字段区分）
 
 
 @dataclass
