@@ -1,7 +1,7 @@
 """
 ContextMind Knowledge Base (KB) — 通用知识库构建模块
 
-将任意对话数据集转换为 SGD 格式 schema.json，供 PyTOD 等执行算法使用。
+将任意对话数据集转换为完整的 SGD 格式数据集，供 PyTOD 等执行算法使用。
 
 本模块是**独立模块**，不依赖 ``contextmind`` 内部其他子模块（如
 ``contextmind.modes.pytod``）。知识提取依赖 ``langextract`` 库实现字符级溯源，
@@ -9,27 +9,26 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
 
 整体框架两步走：
     1. **建立知识库**（本模块）：针对任意数据集，通过 LLM + langextract 发现
-       槽位和意图，为每条知识附加原文溯源，合成标准 SGD 格式 ``schema.json``。
-    2. **执行**（如 :mod:`contextmind.modes.pytod`）：使用上述 ``schema.json``
+       槽位和意图，为每条知识附加原文溯源，合成标准 SGD 格式数据集。
+    2. **执行**（如 :mod:`contextmind.modes.pytod`）：使用上述 schema.json
        驱动 PyTOD 等对话算法。
 
 核心公开接口::
 
     from contextmind.kb import KnowledgeBaseBuilder
 
-    # Phase 1：建立知识库
     builder = KnowledgeBaseBuilder(
         scene_name="银行贷款外呼",
         scene_description="银行客服主动致电老客户推介个人贷款产品",
     )
-    schema_dict = builder.build(dialogues)       # 返回 SGD 格式 schema dict
+
+    # 仅生成 schema.json
+    schema_dict = builder.build(dialogues)
     builder.save(schema_dict, "output/schema.json")
 
-    # Phase 1 → Phase 2 桥接（需要 contextmind.modes 已安装）
-    service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
-
-    # 或从已有 schema.json 直接加载
-    service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
+    # 生成完整 SGD 数据集（schema.json + dialogues_*.json）
+    dataset = builder.build_dataset(dialogues)
+    builder.save_dataset(dataset, "output/sgd_dataset/")
 
 支持的输入格式（``dialogues`` 参数）：
 

@@ -196,6 +196,170 @@ class KnowledgeBaseBuilder:
         )
         logger.info(f"[KnowledgeBaseBuilder] schema.json 已写入: {path}")
 
+    def build_dataset(
+        self,
+        dialogues: List[Any],
+    ) -> Dict[str, Any]:
+        """
+        构建完整的 SGD 格式数据集：``schema.json`` + ``dialogues_*.json``。
+
+        与 :meth:`build` 相比，此方法额外生成 SGD 格式的标注对话文件，
+        将输入对话转换为含 ``turns / frames / state`` 的 SGD 标注结构。
+
+        参数
+        ----
+        dialogues:
+            对话列表，格式同 :meth:`build`。
+
+        返回
+        ----
+        ::
+
+            {
+              "schema": schema_dict,            # 单服务 schema（同 build() 返回值）
+              "dialogues": [sgd_dlg, ...],      # SGD 格式标注对话列表
+            }
+
+        使用 :meth:`save_dataset` 将结果写入磁盘。
+        """
+        logger.info(
+            f"[KnowledgeBaseBuilder] 数据集构建：场景 {self.scene_name!r}，"
+            f"输入对话 {len(dialogues)} 条"
+        )
+        normalized = normalize_dialogues(dialogues)
+        sample = normalized[: self.discovery_sample]
+
+        # -- Step 1: 发现阶段（逐轮，保留每轮提取结果用于 SGD 标注） --
+        slot_counter, intent_counter, slot_samples, intent_samples, per_dlg_turns = (
+            self._run_discovery_per_turn(sample)
+        )
+        self.last_slot_counter = slot_counter
+        self.last_intent_counter = intent_counter
+
+        logger.info(
+            f"[KnowledgeBaseBuilder] 发现阶段完成 — "
+            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个"
+        )
+
+        # -- Step 2: 合成阶段 --
+        synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
+        schema_dict = synthesizer.synthesize(
+            scene_name=self.scene_name,
+            scene_description=self.scene_description,
+            slot_counter=slot_counter,
+            intent_counter=intent_counter,
+            slot_sample_values=slot_samples,
+            intent_sample_descs=intent_samples,
+            n_dialogues=len(sample),
+        )
+
+        # -- Step 3: 转换为 SGD 对话格式 --
+        service_name = schema_dict.get("service_name", self.scene_name)
+        sgd_dialogues = []
+        for dlg_idx, (dlg, per_turn) in enumerate(zip(sample, per_dlg_turns)):
+            sgd_dlg = self._convert_to_sgd_dialogue(
+                dlg, per_turn, service_name, dlg_idx
+            )
+            sgd_dialogues.append(sgd_dlg)
+
+        return {"schema": schema_dict, "dialogues": sgd_dialogues}
+
+    def save_dataset(
+        self,
+        dataset: Dict[str, Any],
+        output_dir: Union[str, Path],
+        dialogues_per_file: int = 999,
+    ) -> None:
+        """
+        将 :meth:`build_dataset` 返回的数据集写入 SGD 格式目录。
+
+        目录结构::
+
+            output_dir/
+                schema.json              # 服务 schema（标准 SGD 格式，顶层列表）
+                dialogues_001.json       # SGD 对话文件（每文件最多 dialogues_per_file 条）
+                dialogues_002.json       # 若对话超过单文件上限则自动分片
+                conversion_summary.json  # 转换摘要
+
+        参数
+        ----
+        dataset:
+            :meth:`build_dataset` 的返回值。
+        output_dir:
+            输出目录（不存在时自动创建）。
+        dialogues_per_file:
+            每个 ``dialogues_*.json`` 文件最多包含的对话条数（默认 999）。
+        """
+        import datetime
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        schema_dict = dataset["schema"]
+        sgd_dialogues = dataset["dialogues"]
+        service_name = schema_dict.get("service_name", self.scene_name)
+
+        # 写入 schema.json
+        schema_path = output_dir / "schema.json"
+        schema_path.write_text(
+            json.dumps([schema_dict], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.info(f"[KnowledgeBaseBuilder] schema.json 已写入: {schema_path}")
+
+        # 写入 dialogues_*.json（按 dialogues_per_file 分片）
+        dialogue_files: List[str] = []
+        for chunk_idx, start in enumerate(
+            range(0, max(1, len(sgd_dialogues)), dialogues_per_file), start=1
+        ):
+            chunk = sgd_dialogues[start : start + dialogues_per_file]
+            fname = f"dialogues_{chunk_idx:03d}.json"
+            fpath = output_dir / fname
+            fpath.write_text(
+                json.dumps(chunk, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            dialogue_files.append(fname)
+            logger.info(
+                f"[KnowledgeBaseBuilder] {fname} 已写入: {fpath} "
+                f"({len(chunk)} 条对话)"
+            )
+
+        # 统计总轮次
+        total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
+
+        # 写入 conversion_summary.json
+        summary = {
+            "output_dir": str(output_dir),
+            "dialogues": len(sgd_dialogues),
+            "turns": total_turns,
+            "failed": 0,
+            "dialogue_files": len(dialogue_files),
+            "services": [service_name],
+            "converted_at": datetime.datetime.now().isoformat(timespec="seconds"),
+            "discovered_schema_items": len(self.last_slot_counter)
+            + len(self.last_intent_counter),
+            "schema_coverage": {
+                "extracted_slots": list(self.last_slot_counter.keys()),
+                "extracted_intents": list(self.last_intent_counter.keys()),
+                "schema_slots": [
+                    s["name"] for s in schema_dict.get("slots", [])
+                ],
+                "schema_intents": [
+                    i["name"] for i in schema_dict.get("intents", [])
+                ],
+            },
+        }
+        summary_path = output_dir / "conversion_summary.json"
+        summary_path.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.info(
+            f"[KnowledgeBaseBuilder] 数据集保存完成 → {output_dir} "
+            f"（{len(sgd_dialogues)} 条对话，{total_turns} 轮）"
+        )
+
     # ------------------------------------------------------------------
     # 内部方法
     # ------------------------------------------------------------------
@@ -272,3 +436,154 @@ class KnowledgeBaseBuilder:
                             descs.append(item.value)
 
         return slot_counter, intent_counter, slot_sample_values, intent_sample_descs
+
+    def _run_discovery_per_turn(
+        self,
+        normalized_dialogues: List[Dict[str, Any]],
+    ) -> tuple[
+        Counter,
+        Counter,
+        Dict[str, List[str]],
+        Dict[str, List[str]],
+        List[List[Any]],
+    ]:
+        """
+        发现阶段（逐轮版），汇总统计的同时保留每条对话的逐轮提取结果。
+
+        返回
+        ----
+        (slot_counter, intent_counter, slot_sample_values,
+         intent_sample_descs, per_dialogue_turns)
+
+        ``per_dialogue_turns`` 是一个列表，每项对应一条对话，内容为
+        ``[(turn_idx, speaker, utterance, [DiscoveryItem, ...]), ...]``。
+        """
+        from .discoverer import DiscoveryItem
+
+        discoverer = GenericDialogueDiscoverer(
+            llm_client=self._get_llm(),
+            scene_name=self.scene_name,
+            context_window=self.context_window,
+        )
+
+        slot_counter: Counter = Counter()
+        intent_counter: Counter = Counter()
+        slot_sample_values: Dict[str, List[str]] = {}
+        intent_sample_descs: Dict[str, List[str]] = {}
+        per_dialogue_turns: List[List[Any]] = []
+
+        for i, dlg in enumerate(normalized_dialogues):
+            dialogue_id = dlg.get("session_id", f"dlg_{i}")
+            logger.info(
+                f"[KnowledgeBaseBuilder] 发现对话 {i+1}/{len(normalized_dialogues)} "
+                f"({dialogue_id})"
+            )
+            try:
+                per_turn = discoverer.extract_per_turn(dlg)
+            except Exception as exc:
+                logger.warning(
+                    f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
+                )
+                per_dialogue_turns.append([])
+                continue
+
+            per_dialogue_turns.append(per_turn)
+
+            for _, _, _, items in per_turn:
+                for item in items:
+                    if item.extraction_class == "slot_value" and item.label:
+                        slot_counter[item.label] += 1
+                        samples = slot_sample_values.setdefault(item.label, [])
+                        if item.value and len(samples) < 5:
+                            if item.value not in samples:
+                                samples.append(item.value)
+                    elif item.extraction_class == "intent" and item.label:
+                        intent_counter[item.label] += 1
+                        descs = intent_sample_descs.setdefault(item.label, [])
+                        if item.value and len(descs) < 3:
+                            if item.value not in descs:
+                                descs.append(item.value)
+
+        return (
+            slot_counter,
+            intent_counter,
+            slot_sample_values,
+            intent_sample_descs,
+            per_dialogue_turns,
+        )
+
+    def _convert_to_sgd_dialogue(
+        self,
+        normalized_dlg: Dict[str, Any],
+        per_turn: List[Any],
+        service_name: str,
+        dialogue_index: int,
+    ) -> Dict[str, Any]:
+        """将归一化对话及其逐轮提取结果转换为 SGD 格式对话 dict。
+
+        参数
+        ----
+        normalized_dlg:
+            归一化后的对话 dict。
+        per_turn:
+            ``[(turn_idx, speaker, utterance, [DiscoveryItem, ...]), ...]``
+        service_name:
+            SGD 服务名称（来自 schema）。
+        dialogue_index:
+            对话在样本集中的下标，用于生成 dialogue_id。
+
+        返回
+        ----
+        SGD 格式对话 dict，含 ``dialogue_id / services / turns``。
+        """
+        dialogue_id = (
+            normalized_dlg.get("session_id")
+            or normalized_dlg.get("dialogue_id")
+            or f"{service_name}_{dialogue_index + 1:04d}"
+        )
+
+        sgd_turns: List[Dict[str, Any]] = []
+        cumulative_slot_values: Dict[str, List[str]] = {}
+        current_intent = "NONE"
+
+        _SYSTEM_SPEAKERS = {"坐席", "agent", "system", "assistant", "SYSTEM"}
+
+        for turn_idx, speaker, utterance, items in per_turn:
+            sgd_speaker = "SYSTEM" if speaker in _SYSTEM_SPEAKERS else "USER"
+
+            # 当前轮的槽位提及
+            turn_slot_mentions: List[Dict[str, Any]] = []
+            for item in items:
+                if item.extraction_class == "slot_value" and item.label and item.value:
+                    turn_slot_mentions.append(
+                        {"slot": item.label, "value": item.value}
+                    )
+                    cumulative_slot_values[item.label] = [item.value]
+                elif item.extraction_class == "intent" and item.label:
+                    current_intent = item.label
+
+            frame: Dict[str, Any] = {
+                "service": service_name,
+                "slots": turn_slot_mentions,
+                "actions": [],
+            }
+            if sgd_speaker == "USER":
+                frame["state"] = {
+                    "active_intent": current_intent,
+                    "requested_slots": [],
+                    "slot_values": dict(cumulative_slot_values),
+                }
+
+            sgd_turns.append(
+                {
+                    "speaker": sgd_speaker,
+                    "utterance": utterance,
+                    "frames": [frame],
+                }
+            )
+
+        return {
+            "dialogue_id": dialogue_id,
+            "services": [service_name],
+            "turns": sgd_turns,
+        }

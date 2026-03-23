@@ -226,6 +226,58 @@ def _build_langextract_prompt(scene_name: str) -> str:
     return _LANGEXTRACT_PROMPT_TEMPLATE.format(scene_name=scene_name)
 
 
+def _build_langextract_examples() -> List[Any]:
+    """构建 langextract 逐轮提取所需的 few-shot 示例（``ExampleData`` 列表）。
+
+    ``lx.extract()`` 要求至少一个 ``ExampleData`` 对象，每个示例中的
+    ``extraction_text`` 必须是 ``text`` 的精确子串（verbatim）。
+
+    此处提供三条通用中文业务对话示例，覆盖三种提取类别：
+    - ``slot_value``：具体业务字段值
+    - ``intent``：说话人意图
+    - ``fact``：重要业务事实
+    """
+    if not _LANGEXTRACT_AVAILABLE:
+        return []
+    return [
+        ExampleData(
+            text="您好，请问是李先生吗？",
+            extractions=[
+                Extraction(
+                    extraction_class="intent",
+                    extraction_text="请问是李先生吗",
+                    attributes={"label": "verify_identity", "value": "核实用户身份"},
+                ),
+            ],
+        ),
+        ExampleData(
+            text="您的可用额度是五万元，年化利率十二个百分点。",
+            extractions=[
+                Extraction(
+                    extraction_class="slot_value",
+                    extraction_text="可用额度是五万元",
+                    attributes={"label": "available_credit", "value": "五万元"},
+                ),
+                Extraction(
+                    extraction_class="slot_value",
+                    extraction_text="年化利率十二个百分点",
+                    attributes={"label": "annual_rate", "value": "十二个百分点"},
+                ),
+            ],
+        ),
+        ExampleData(
+            text="分十二期每月还款约四千四百三十一元。",
+            extractions=[
+                Extraction(
+                    extraction_class="fact",
+                    extraction_text="分十二期每月还款约四千四百三十一元",
+                    attributes={"label": "repayment_plan", "value": "12期月供4431元"},
+                ),
+            ],
+        ),
+    ]
+
+
 def _build_provenance(
     extraction_text: str,
     turn_idx: int,
@@ -388,6 +440,33 @@ class GenericDialogueDiscoverer:
             return self._extract_with_langextract(normalized_dlg)
         return self._extract_with_llm(normalized_dlg)
 
+    def extract_per_turn(
+        self,
+        normalized_dlg: Dict[str, Any],
+    ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
+        """逐轮提取，返回每轮的提取结果。
+
+        与 :meth:`extract` 相比，此方法保留每条提取结果对应的轮次信息，
+        供生成 SGD 格式对话文件时按轮注释使用。
+
+        参数
+        ----
+        normalized_dlg:
+            归一化后的对话 dict，含 ``"对话历史"`` 字段。
+
+        返回
+        ----
+        ``[(turn_idx, speaker, utterance, items), ...]`` 列表，
+        每项对应一轮对话及其提取结果。``items`` 可能为空列表。
+        """
+        turns = _parse_turns(normalized_dlg)
+        if not turns:
+            return []
+
+        if _LANGEXTRACT_AVAILABLE:
+            return self._extract_per_turn_with_langextract(turns)
+        return self._extract_per_turn_with_llm(normalized_dlg, turns)
+
     # ------------------------------------------------------------------
     # langextract 逐轮提取（推荐路径）
     # ------------------------------------------------------------------
@@ -401,15 +480,24 @@ class GenericDialogueDiscoverer:
         if not turns:
             logger.debug("[GenericDialogueDiscoverer] 对话为空，跳过提取")
             return []
+        per_turn = self._extract_per_turn_with_langextract(turns)
+        return [item for _, _, _, items in per_turn for item in items]
 
+    def _extract_per_turn_with_langextract(
+        self,
+        turns: List[Tuple[int, str, str]],
+    ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
+        """逐轮 langextract 提取核心实现，返回每轮 (turn_idx, speaker, utterance, items)。"""
         adapter = AdkLLMClientAdapter(self._llm)
         prompt_description = _build_langextract_prompt(self.scene_name)
+        examples = _build_langextract_examples()
 
-        items: List[DiscoveryItem] = []
-        aligned_count = 0
+        result: List[Tuple[int, str, str, List[DiscoveryItem]]] = []
+        total_aligned = 0
 
         for list_idx, (turn_idx, speaker, utterance) in enumerate(turns):
             if not utterance.strip():
+                result.append((turn_idx, speaker, utterance, []))
                 continue
 
             history_ctx = _build_history_context(turns, list_idx, self.context_window)
@@ -419,10 +507,12 @@ class GenericDialogueDiscoverer:
                 f"{' +历史' if history_ctx else ''}: {utterance[:50]}"
             )
 
+            turn_items: List[DiscoveryItem] = []
             try:
                 annotated_doc = lx.extract(
                     text_or_documents=utterance,
                     prompt_description=prompt_description,
+                    examples=examples,
                     model=adapter,
                     additional_context=history_ctx,
                     max_char_buffer=500,
@@ -433,6 +523,7 @@ class GenericDialogueDiscoverer:
                 logger.warning(
                     f"[GenericDialogueDiscoverer] 第{turn_idx + 1}轮提取失败: {exc}"
                 )
+                result.append((turn_idx, speaker, utterance, turn_items))
                 continue
 
             for ext in annotated_doc.extractions:
@@ -454,12 +545,12 @@ class GenericDialogueDiscoverer:
                 if ext.char_interval is not None:
                     char_start = ext.char_interval.start_pos
                     char_end = ext.char_interval.end_pos
-                    aligned_count += 1
+                    total_aligned += 1
 
                 provenance = _build_provenance(
                     extraction_text, turn_idx, speaker, char_start, char_end
                 )
-                items.append(
+                turn_items.append(
                     DiscoveryItem(
                         extraction_class=cls,
                         label=label,
@@ -468,11 +559,14 @@ class GenericDialogueDiscoverer:
                     )
                 )
 
+            result.append((turn_idx, speaker, utterance, turn_items))
+
+        total_items = sum(len(items) for _, _, _, items in result)
         logger.debug(
             f"[GenericDialogueDiscoverer] langextract 提取结果: "
-            f"{len(items)} 条（溯源成功 {aligned_count} 条）"
+            f"{total_items} 条（溯源成功 {total_aligned} 条）"
         )
-        return items
+        return result
 
     # ------------------------------------------------------------------
     # 纯 LLM 降级路径（langextract 不可用时）
@@ -513,6 +607,24 @@ class GenericDialogueDiscoverer:
             f"{sum(1 for i in items if i.extraction_class == 'intent')} 个意图"
         )
         return items
+
+    def _extract_per_turn_with_llm(
+        self,
+        normalized_dlg: Dict[str, Any],
+        turns: List[Tuple[int, str, str]],
+    ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
+        """LLM 降级路径的逐轮版本。
+
+        整体提取后将所有结果附到最后一轮（因无法区分来源轮次），
+        其他各轮 items 为空列表。
+        """
+        items = self._extract_with_llm(normalized_dlg)
+        result: List[Tuple[int, str, str, List[DiscoveryItem]]] = []
+        for i, (turn_idx, speaker, utterance) in enumerate(turns):
+            # 将所有提取结果附到最后一轮
+            turn_items = items if i == len(turns) - 1 else []
+            result.append((turn_idx, speaker, utterance, turn_items))
+        return result
 
     # ------------------------------------------------------------------
     # 内部辅助

@@ -1,20 +1,21 @@
 """
 通用知识库构建演示（build_kb_demo.py）
 
-演示 ContextMind 框架的第一步：**建立知识库**。
+演示 ContextMind 框架的第一步：**建立知识库**，生成完整的 SGD 格式数据集。
 
 核心思路
 --------
 1. 提供任意对话数据（可以是安逸花外呼、银行贷款、电商客服等任意场景）
 2. KnowledgeBaseBuilder 自动完成：
    - 对话格式归一化（支持 chat_test / SGD / 文本列表等多种格式）
-   - 发现阶段：LLM 开放式提取槽位和意图
+   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加溯源信息
    - 合成阶段：LLM 将发现结果整理为规范 SGD ServiceSchema
-3. 输出 schema.json，可直接供 PyTOD 等执行算法使用
+   - 转换阶段：将输入对话转换为带注释的 SGD 对话文件
+3. 输出完整 SGD 数据集（schema.json + dialogues_001.json），可直接供 PyTOD 等执行算法使用
 
 两步走
 ------
-    第一步（本 Demo）：建立知识库 → schema.json
+    第一步（本 Demo）：建立知识库 → SGD 数据集（schema + 对话）
     第二步（pytod_trace_demo.py）：执行 → 使用 schema.json 驱动对话
 
 支持的输入格式
@@ -39,7 +40,7 @@
         --num 10 \\
         --scene "银行贷款外呼" \\
         --scene-desc "银行客服主动致电老客户推介个人贷款产品" \\
-        --output data/bank_loan_kb/schema.json
+        --output data/bank_loan_kb
 
     # 直接传入内嵌演示对话（无需外部文件）
     python examples/build_kb_demo.py --demo
@@ -50,7 +51,7 @@
     --num           使用对话条数（发现阶段，默认 10）
     --scene         业务场景名称（默认 "对话场景"）
     --scene-desc    场景描述（可选）
-    --output        schema.json 输出路径（默认 data/kb_output/schema.json）
+    --output        SGD 数据集输出目录（默认 data/kb_output）
     --demo          使用内嵌演示对话（无需 --data）
 """
 
@@ -139,7 +140,7 @@ _DEMO_DIALOGUES: List[Any] = [
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="通用知识库构建演示 — 任意对话数据 → SGD schema.json",
+        description="通用知识库构建演示 — 任意对话数据 → 完整 SGD 数据集",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -150,8 +151,8 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=str,
-        default="data/kb_output/schema.json",
-        help="schema.json 输出路径",
+        default="data/kb_output",
+        help="SGD 数据集输出目录（默认 data/kb_output）",
     )
     parser.add_argument(
         "--demo",
@@ -162,7 +163,7 @@ def main() -> None:
 
     print("=" * 70)
     print("  ContextMind 知识库构建演示")
-    print("  第一步：建立知识库 → SGD schema.json")
+    print("  第一步：建立知识库 → 完整 SGD 数据集")
     print("=" * 70)
 
     # ── 加载对话 ──
@@ -193,7 +194,7 @@ def main() -> None:
 
     print(f"场景名称: {scene}")
     print(f"场景描述: {scene_desc or '（未提供）'}")
-    print(f"输出路径: {args.output}")
+    print(f"输出目录: {args.output}")
 
     # ── 构建知识库 ──
     print("\n" + "─" * 70)
@@ -204,20 +205,24 @@ def main() -> None:
         discovery_sample=args.num,
     )
 
-    print("▶ 执行两阶段知识库构建 …")
-    print("  Phase 1 — 发现阶段：LLM 开放式提取槽位和意图")
+    print("▶ 执行知识库构建（生成完整 SGD 数据集）…")
+    print("  Phase 1 — 发现阶段：LLM + langextract 逐轮提取槽位和意图（含溯源）")
     print("  Phase 2 — 合成阶段：LLM 将发现结果合成为规范 SGD Schema")
+    print("  Phase 3 — 转换阶段：将对话转换为 SGD 格式对话文件")
     print()
 
     try:
-        schema_dict = builder.build(dialogues)
+        dataset = builder.build_dataset(dialogues)
     except Exception as exc:
         print(f"[错误] 知识库构建失败: {exc}", file=sys.stderr)
         raise
 
-    # ── 保存 schema.json ──
-    output_path = Path(args.output)
-    builder.save(schema_dict, output_path)
+    schema_dict = dataset["schema"]
+    sgd_dialogues = dataset["dialogues"]
+
+    # ── 保存数据集 ──
+    output_dir = Path(args.output)
+    builder.save_dataset(dataset, output_dir)
 
     # ── 展示结果 ──
     print("\n" + "─" * 70)
@@ -249,12 +254,21 @@ def main() -> None:
     print(f"  Top-10 槽位: {builder.last_slot_counter.most_common(10)}")
     print(f"  Top-10 意图: {builder.last_intent_counter.most_common(10)}")
 
-    print(f"\n✓ schema.json 已保存至: {output_path.resolve()}")
+    total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
+    print(f"\nSGD 对话文件统计：")
+    print(f"  对话数: {len(sgd_dialogues)}")
+    print(f"  总轮次: {total_turns}")
+
+    print(f"\n✓ SGD 数据集已保存至: {output_dir.resolve()}")
+    print(f"  ├── schema.json           (服务 schema)")
+    print(f"  ├── dialogues_001.json    (SGD 格式对话，{len(sgd_dialogues)} 条)")
+    print(f"  └── conversion_summary.json")
     print("─" * 70)
     print()
     print("下一步：使用此 schema.json 运行 PyTOD 对话：")
+    schema_path = output_dir / "schema.json"
     print("  from contextmind.modes.pytod import AdkPyTODTracker, ServiceSchema")
-    print(f"  schema = ServiceSchema.from_json(open('{output_path}').read())[0]")
+    print(f"  schema = ServiceSchema.from_json(open('{schema_path}').read())[0]")
     print("  tracker = AdkPyTODTracker(engine=engine, schema=schema)")
     print()
 
