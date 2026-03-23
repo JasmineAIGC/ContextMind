@@ -204,11 +204,13 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
     # ADK 的 LiteLlm.__init__ 将所有 **kwargs 存入 _additional_args，并在每次
     # generate_content_async 调用时直接展开传给 litellm.acompletion()。
     # 因此须将 extra_body 作为顶层 kwarg 传入，而非嵌套在 model_kwargs 里。
-    # 若使用 model_kwargs={"extra_body": {...}}，litellm 会把整个 model_kwargs
-    # 包装成 extra_body.model_kwargs，导致 enable_thinking 被双重嵌套而被 vLLM 忽略。
+    # vLLM 的 Qwen3 chat template 要求 enable_thinking 必须嵌套在 chat_template_kwargs 下：
+    #   extra_body={"chat_template_kwargs": {"enable_thinking": False}}
+    # 若只传 extra_body={"enable_thinking": False}，vLLM 会忽略该字段，
+    # 导致 Qwen3 默认以思考模式运行，生成大量 <think> token，响应时间暴增。
     extra_kwargs: dict = {}
     if resolved_thinking is not None:
-        extra_kwargs["extra_body"] = {"enable_thinking": resolved_thinking}
+        extra_kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": resolved_thinking}}
 
     return LiteLlm(
         model=f"openai/{config.model}",
@@ -291,7 +293,7 @@ class AdkLLMClient:
 
         extra_kwargs: dict = {}
         if self._resolved_thinking is not None:
-            extra_kwargs["extra_body"] = {"enable_thinking": self._resolved_thinking}
+            extra_kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": self._resolved_thinking}}
 
         response = await _litellm.acompletion(
             model=f"openai/{self._config.model}",
