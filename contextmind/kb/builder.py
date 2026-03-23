@@ -361,6 +361,111 @@ class KnowledgeBaseBuilder:
         )
 
     # ------------------------------------------------------------------
+    # Phase 1 → Phase 2 桥接方法
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def to_service_schema(cls, schema_dict: Dict[str, Any]) -> Any:
+        """将 :meth:`build` 返回的 schema dict 转换为 ``ServiceSchema`` 实例。
+
+        这是 **Phase 1 → Phase 2 桥接** 的便捷方法，无需调用方手动导入
+        ``ServiceSchema``。
+
+        参数
+        ----
+        schema_dict:
+            :meth:`build` 或 :meth:`build_dataset` 中 ``dataset["schema"]`` 的返回值。
+
+        返回
+        ----
+        :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 实例，
+        可直接传入 ``AdkPyTODTracker``。
+
+        示例
+        ----
+        ::
+
+            schema_dict = builder.build(dialogues)
+            service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
+            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+        """
+        from contextmind.modes.pytod.schemas import load_schema_from_dict
+
+        return load_schema_from_dict(schema_dict)
+
+    @classmethod
+    def load_schema(cls, path: Union[str, Path]) -> Any:
+        """从磁盘上的 ``schema.json`` 文件加载并返回 ``ServiceSchema`` 实例。
+
+        这是 **Phase 1 → Phase 2 桥接** 的便捷方法，适用于已保存知识库的场景。
+
+        参数
+        ----
+        path:
+            ``schema.json`` 文件路径（由 :meth:`save` 或 :meth:`save_dataset` 生成）。
+
+        返回
+        ----
+        :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 实例。
+
+        示例
+        ----
+        ::
+
+            # Phase 1 已运行，schema.json 已保存
+            service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
+            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+        """
+        from contextmind.modes.pytod.schemas import load_schema_from_dict
+
+        path = Path(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return load_schema_from_dict(data)
+
+    async def build_async(
+        self,
+        dialogues: List[Any],
+    ) -> Dict[str, Any]:
+        """异步版本的 :meth:`build`：在线程池中运行同步构建流程。
+
+        与 :meth:`build` 功能完全相同，但以 ``async/await`` 方式运行，
+        适用于已有异步事件循环的应用场景（如 web 服务、ADK agent 等）。
+
+        参数
+        ----
+        dialogues:
+            对话列表，格式同 :meth:`build`。
+
+        返回
+        ----
+        SGD 格式的单服务 schema dict（同 :meth:`build`）。
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.build, dialogues)
+
+    async def build_dataset_async(
+        self,
+        dialogues: List[Any],
+    ) -> Dict[str, Any]:
+        """异步版本的 :meth:`build_dataset`：在线程池中运行同步构建流程。
+
+        参数
+        ----
+        dialogues:
+            对话列表，格式同 :meth:`build_dataset`。
+
+        返回
+        ----
+        ``{"schema": schema_dict, "dialogues": [sgd_dlg, ...]}``（同 :meth:`build_dataset`）。
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.build_dataset, dialogues)
+
+    # ------------------------------------------------------------------
     # 内部方法
     # ------------------------------------------------------------------
 
