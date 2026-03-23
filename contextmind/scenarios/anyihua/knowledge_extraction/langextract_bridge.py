@@ -121,6 +121,48 @@ logger = get_logger(__name__)
 _LLMClientType = Any  # 实际类型为 AdkLLMClient 或 AdkLLMClient
 
 
+def _sanitize_infer_yaml(text: str) -> str:
+    """清洗 LLM 返回的 YAML/JSON 文本，过滤掉 ``extraction_text`` 为 None/null/空字符串的条目。
+
+    langextract ``resolver.py`` 在解析 LLM 输出时，若遇到 ``extraction_text`` 不是
+    ``str / int / float`` 类型（例如 YAML ``null``），会触发：
+      ``ERROR:absl:Extraction text must be a string, integer, or float.``
+    并抛出 ``ValueError``。通过此函数提前过滤无效条目，可完全消除该错误日志。
+
+    若 YAML 解析失败，原样返回输入文本（best-effort）。
+    """
+    try:
+        import yaml  # type: ignore[import]
+        items = yaml.safe_load(text)
+        if not isinstance(items, list):
+            return text
+        cleaned = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            et = item.get("extraction_text")
+            if not isinstance(et, (str, int, float)):
+                logger.debug(
+                    "[AdkLLMClientAdapter] 过滤 extraction_text 无效条目 "
+                    "(类型=%s): %r",
+                    type(et).__name__,
+                    item,
+                )
+                continue
+            if isinstance(et, str) and not et.strip():
+                logger.debug(
+                    "[AdkLLMClientAdapter] 过滤 extraction_text 为空字符串的条目: %r",
+                    item,
+                )
+                continue
+            cleaned.append(item)
+        if not cleaned:
+            return "[]"
+        return yaml.dump(cleaned, allow_unicode=True, default_flow_style=False)
+    except Exception:
+        return text
+
+
 # --------------------------------------------------------------------------- #
 # ADK LLM 客户端 → langextract BaseLanguageModel 适配器
 # --------------------------------------------------------------------------- #
@@ -164,10 +206,18 @@ class AdkLLMClientAdapter(BaseLanguageModel):
         for prompt in batch_prompts:
             try:
                 _reasoning, text = self._client.generate(prompt)
-                yield [ScoredOutput(score=1.0, output=text)]
+                if not text.strip():
+                    logger.debug("[AdkLLMClientAdapter] LLM 返回空响应，本轮无提取结果")
+                    yield [ScoredOutput(score=0.0, output="[]")]
+                else:
+                    # 过滤掉 extraction_text 为 None/null/非字符串的条目，
+                    # 防止 langextract resolver 因类型校验失败而抛出 ValueError
+                    # 并触发 ERROR:absl:Extraction text must be a string... 错误日志。
+                    sanitized = _sanitize_infer_yaml(text)
+                    yield [ScoredOutput(score=1.0, output=sanitized)]
             except Exception as exc:
                 logger.warning(f"[AdkLLMClientAdapter] LLM 推理失败: {exc}")
-                yield [ScoredOutput(score=0.0, output="")]
+                yield [ScoredOutput(score=0.0, output="[]")]
 
 
 # --------------------------------------------------------------------------- #
