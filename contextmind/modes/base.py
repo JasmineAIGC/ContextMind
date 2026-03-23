@@ -75,7 +75,7 @@ class BaseTracker(Protocol):
         从场景配置创建追踪器实例。
 
         Args:
-            llm_client: LLM 客户端实例（如 ``SimpleLLMClient``）。
+            llm_client: LLM 客户端实例（如 ``AdkLLMClient``）。
             scenario_config: 场景配置对象（``ScenarioConfig``）。
             **kwargs: 追踪器特定的额外参数。
 

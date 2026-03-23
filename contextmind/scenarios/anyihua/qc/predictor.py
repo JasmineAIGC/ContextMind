@@ -356,7 +356,7 @@ class PyTODQualityChecker:
 
     使用示例::
 
-        from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
+        from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
         checker = PyTODQualityChecker()
 
         # Hybrid 模式（推荐）

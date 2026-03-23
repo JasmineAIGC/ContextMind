@@ -6,8 +6,6 @@ DST (Dialogue State Tracking) 算法评测模块
 
 from .base import SlotMetrics, SlotBasedEvaluator
 
-# 向后兼容别名（行为与 SlotMetrics 完全相同）
-DSTMetrics = SlotMetrics
 
 
 class DSTEvaluator(SlotBasedEvaluator):

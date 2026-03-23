@@ -20,7 +20,7 @@ def create_app_for_scenario(
 
     Args:
         scenario_name:   场景名称（支持中英文别名，如 "chat"、"闲聊"）。
-        llm_client:      LLM 客户端（AdkLLMClient / SimpleLLMClient）。
+        llm_client:      LLM 客户端（AdkLLMClient / AdkLLMClient）。
         scenario_config: ScenarioConfig 场景配置对象。
         app_name_prefix: ADK app_name 前缀。
 

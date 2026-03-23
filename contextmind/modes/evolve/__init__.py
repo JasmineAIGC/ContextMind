@@ -31,7 +31,7 @@ from .core import (
     CompressionStrategy,
     RerankingStrategy,
     # 日志
-    EvolveLogger,
+    Logger,
     LogLevel,
     get_logger,
     setup_logging,
@@ -74,7 +74,6 @@ from .evolution import (
 
 registry = PluginRegistry()
 InputPreprocessor = Preprocessor
-ResponseParser = ResponseHandler
 
 from .factory import create_app_for_scenario
 
@@ -112,7 +111,7 @@ __all__ = [
     "DEFAULT_MEMORY_CONFIG",
     
     # 日志系统
-    "EvolveLogger",
+    "Logger",
     "LogLevel",
     "get_logger",
     "setup_logging",
@@ -128,7 +127,6 @@ __all__ = [
     "ContextCompressor",
     "ContextReorderer",
     "ResponseHandler",
-    "ResponseParser",
     
     # 支持组件
     "BaseSummarizer",
@@ -162,4 +160,4 @@ __all__ = [
     "RerankingStrategy",
 ]
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"

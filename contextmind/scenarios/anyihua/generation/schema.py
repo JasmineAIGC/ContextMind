@@ -147,12 +147,36 @@ ANYIHUA_SCHEMA_DICT = {
             "name": "guide_loan_operation",
             "description": (
                 "引导用户在 APP 完成借款操作。"
-                "先调用 query_account 获取 available_credit，再调用 get_agent_history API；"
-                "历史中同一话术出现 2 次以上时改为 escalate_to_human"
+                "调用 query_account 获取 available_credit，再调用 get_agent_history 获取历史话术；"
+                "若同一话术出现 2 次以上则改用 escalate_to_human"
             ),
             "is_transactional": False,
             "required_slots": ["customer_name"],
             "optional_slots": ["available_credit"],
+            "result_slots": [],
+        },
+        {
+            "name": "check_agent_history",
+            "description": (
+                "获取本次外呼已使用的话术历史。"
+                "调用 get_agent_history API；"
+                "若某话术出现 2 次以上，升级为 escalate_to_human"
+            ),
+            "is_transactional": False,
+            "required_slots": [],
+            "optional_slots": [],
+            "result_slots": [],
+        },
+        {
+            "name": "check_unresolved_issues",
+            "description": (
+                "查询用户是否还有未解决的问题。"
+                "调用 query_unresolved_issues API；"
+                "仅当 issue_count=0 时，才可执行 say_goodbye 告别"
+            ),
+            "is_transactional": False,
+            "required_slots": [],
+            "optional_slots": [],
             "result_slots": [],
         },
         {
@@ -170,8 +194,8 @@ ANYIHUA_SCHEMA_DICT = {
             "name": "say_goodbye",
             "description": (
                 "礼貌告别。"
-                "必须先调用 query_unresolved_issues API，"
-                "确认 issue_count=0（无未解决诉求）才可执行告别，否则继续解决用户问题或转人工"
+                "必须先通过 check_unresolved_issues 确认 issue_count=0（无未解决诉求），"
+                "才可执行告别；否则继续解决用户问题或转人工"
             ),
             "is_transactional": False,
             "required_slots": ["customer_name"],

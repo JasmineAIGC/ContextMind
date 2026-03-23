@@ -8,11 +8,11 @@ Evolve 应用基类 — 所有场景共享的对话处理逻辑
 
     from contextmind.scenarios.app import EvolveApplication
     from contextmind.scenarios import get_chat_scenario
-    from contextmind.modes.evolve import EvolveEngine
+    from contextmind.infra.llm_client import AdkLLMClient
 
     config = get_chat_scenario()
-    engine = EvolveEngine(app_name="demo_chat", user_id="user1")
-    app = EvolveApplication(evolve_engine=engine, system_prompt=config.system_prompt)
+    llm = AdkLLMClient()
+    app = EvolveApplication.from_scenario(llm, config)
     reply = await app.process_turn("你好！")
 """
 
@@ -101,11 +101,29 @@ class EvolveApplication:
     # ------------------------------------------------------------------ #
 
     @classmethod
+    def from_scenario(
+        cls,
+        llm_client: Any,
+        scenario_config: Any,
+        **kwargs: Any,
+    ) -> "EvolveApplication":
+        """从场景配置创建 EvolveApplication 实例（标准工厂接口）。
+
+        实现 BaseTracker.from_scenario 协议，与 DST / FnCTOD / PyTOD 统一。
+
+        Args:
+            llm_client:      LLM 客户端实例（AdkLLMClient / AdkLLMClient）。
+            scenario_config: ScenarioConfig 场景配置对象。
+            **kwargs:        传递给构造函数的额外参数。
+        """
+        return cls.create_from_config(llm_client, scenario_config)
+
+    @classmethod
     def create_from_config(cls, llm_client: Any, scenario_config: Any) -> "EvolveApplication":
         """从场景配置创建 EvolveApplication 实例。
 
         Args:
-            llm_client:      LLM 客户端实例（AdkLLMClient / SimpleLLMClient）。
+            llm_client:      LLM 客户端实例（AdkLLMClient / AdkLLMClient）。
             scenario_config: ScenarioConfig 场景配置对象。
         """
         engine = EvolveEngine(
@@ -216,17 +234,52 @@ class EvolveApplication:
         )
         self.step_timings["对话更新"] = time.time() - t
 
-        # 步骤 5：知识提取
-        t = time.time()
-        try:
-            await self.evolve_engine.extract_knowledge(auto_store=True)
-        except Exception as exc:
-            logger.warning(f"知识提取失败: {exc}")
-        self.step_timings["知识提取"] = time.time() - t
+        # 步骤 5：知识提取（后台异步执行，不阻塞回复返回）
+        # 知识提取涉及额外的 LLM 调用（~10-15s），在回复已生成后在后台运行。
+        async def _bg_extract() -> None:
+            try:
+                await self.evolve_engine.extract_knowledge(auto_store=True)
+            except Exception as exc:
+                logger.warning(f"知识提取失败: {exc}")
+
+        import asyncio
+        asyncio.create_task(_bg_extract())
+        self.step_timings["知识提取"] = 0.0  # 后台运行，不计入阻塞耗时
 
         if debug:
             return response, debug_info
         return response
+
+    # ------------------------------------------------------------------ #
+    # 协议方法（BaseTracker 接口）
+    # ------------------------------------------------------------------ #
+
+    def get_current_state(self) -> Dict[str, Any]:
+        """返回当前记忆库缓存中的知识摘要（实现 BaseTracker 协议）。
+
+        Returns:
+            记忆条目列表（以 content 字符串为值）组成的字典；
+            若记忆库尚无内容则返回空字典。
+        """
+        memory_cache = self.evolve_engine.memory_bank.get_memory_cache()
+        if not memory_cache:
+            return {}
+        return {
+            f"memory_{i}": item.content
+            for i, item in enumerate(memory_cache)
+        }
+
+    async def reset(self) -> None:  # type: ignore[override]
+        """重置对话，清空会话历史（实现 BaseTracker 协议的异步版本）。
+
+        注意：长期记忆库（MemoryBank）不会被清空，仅当前会话历史被重置。
+        由于底层 EvolveEngine.clear_session() 是协程，此方法为 async。
+        在同步上下文中，可以使用 asyncio.run(app.reset()) 调用。
+        """
+        try:
+            await self.evolve_engine.clear_session()
+        except Exception as exc:
+            logger.warning(f"[EvolveApplication] reset 失败: {exc}")
 
 
 # ---------------------------------------------------------------------------

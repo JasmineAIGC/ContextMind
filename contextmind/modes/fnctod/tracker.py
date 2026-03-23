@@ -6,14 +6,14 @@ FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 
 使用示例::
 
-    from contextmind.modes.fnctod import FnCTODAgent, FunctionManager
+    from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
     from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
 
     fm = FunctionManager()
     fm.add_domain(get_function_schema_for_scenario("callcenter"))
-    agent = FnCTODAgent(function_manager=fm)
-    updates = await agent.process_turn("我的订单什么时候到？")
-    print(agent.get_current_state())
+    tracker = FnCTODTracker(function_manager=fm)
+    updates = await tracker.process_turn("我的订单什么时候到？")
+    print(tracker.get_current_state())
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ except ImportError:
 logger = get_logger(__name__)
 
 _ADK_INSTALL_MSG = (
-    "google-adk 未安装，无法创建 FnCTODAgent。\n"
+    "google-adk 未安装，无法创建 FnCTODTracker。\n"
     "请运行: pip install google-adk litellm"
 )
 
@@ -107,7 +107,7 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
     return tools
 
 
-class FnCTODAgent:
+class FnCTODTracker:
     """ADK 原生函数调用对话状态追踪器。
 
     利用 ADK 原生 Function Calling 替代 XML 提示词解析，
@@ -139,9 +139,12 @@ class FnCTODAgent:
         if system_instruction is None:
             domain_names = function_manager.get_domain_names()
             system_instruction = (
-                "你是一个任务型对话助手，能够通过调用函数提取对话中的关键信息。\n"
+                "你是一个任务型对话助手，通过调用函数提取对话中的关键信息，然后给出自然语言回复。\n"
                 f"可用的业务域: {', '.join(domain_names)}。\n"
-                "根据用户的话语调用对应函数，将槽位值作为参数传入。"
+                "处理规则：\n"
+                "1. 每轮对话只调用函数一次，一次性填入所有已识别的槽位值；\n"
+                "2. 函数调用完成后，立即用简洁的中文给出对话回复；\n"
+                "3. 不要重复调用函数。"
             )
         self.system_instruction = system_instruction
 
@@ -160,22 +163,32 @@ class FnCTODAgent:
         self._session_id: Optional[str] = None
 
         logger.info(
-            f"FnCTODAgent 初始化完成 (model={self._llm_config.model}, "
+            f"FnCTODTracker 初始化完成 (model={self._llm_config.model}, "
             f"domains={function_manager.get_domain_names()})"
         )
 
     @classmethod
     def from_scenario(
         cls,
+        llm_client: Any,
         scenario_config: Any,
         **kwargs: Any,
-    ) -> "FnCTODAgent":
-        """从场景配置创建 FnCTODAgent。
+    ) -> "FnCTODTracker":
+        """从场景配置创建 FnCTODTracker。
 
         Args:
+            llm_client:      LLM 客户端实例（用于提取 LLMConfig；若传入 LLMConfig 则直接使用）。
             scenario_config: ScenarioConfig 实例。
-            **kwargs: 其他传递给构造函数的参数（如 config、system_instruction）。
+            **kwargs: 其他传递给构造函数的参数（如 system_instruction）。
+                      未知参数（如 use_two_stage、max_history_turns）会被安全过滤。
         """
+        # 若调用方直接传入 LLMConfig，则优先使用；否则尝试从 llm_client 中提取
+        config: Any = kwargs.pop("config", None)
+        if config is None and hasattr(llm_client, "_config"):
+            config = llm_client._config
+        # 过滤掉本类构造函数不认识的参数，保持接口宽容
+        kwargs.pop("use_two_stage", None)
+        kwargs.pop("max_history_turns", None)
         fm = FunctionManager()
         try:
             schema = get_function_schema_for_scenario(scenario_config.name)
@@ -189,6 +202,8 @@ class FnCTODAgent:
                 )
             else:
                 logger.warning(f"场景 '{scenario_config.name}' 无预定义 schema，使用空 FunctionManager")
+        if config is not None:
+            kwargs["config"] = config
         return cls(function_manager=fm, **kwargs)
 
     async def _get_or_create_session(self) -> str:
@@ -207,10 +222,13 @@ class FnCTODAgent:
         self._session_id = None
 
     async def process_turn(self, user_utterance: str, **kwargs: Any) -> Dict[str, Any]:
-        """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位。
+        """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位并生成回复。
 
         Returns:
-            本轮新增或更新的状态条目字典。
+            包含以下键的字典:
+                - ``response``  : LLM 生成的自然语言回复文本
+                - ``state``     : 当前累积的对话状态（所有轮次槽位合并）
+                - ``updates``   : 本轮新增或更新的槽位条目
         """
         session_id = await self._get_or_create_session()
         self.turn_count += 1
@@ -236,15 +254,21 @@ class FnCTODAgent:
                         turn_updates.update(filtered)
                         logger.debug(f"[turn {self.turn_count}] function call '{fc.name}': {filtered}")
                     if event.is_final_response() and hasattr(part, "text") and part.text:
-                        final_text += part.text
+                        if not getattr(part, "thought", False):
+                            final_text += part.text
 
         self._current_state.update(turn_updates)
         self._dialogue_history.append({"role": "user", "content": user_utterance})
-        if final_text:
-            self._dialogue_history.append({"role": "assistant", "content": final_text.strip()})
+        response_text = final_text.strip()
+        if response_text:
+            self._dialogue_history.append({"role": "assistant", "content": response_text})
 
         logger.info(f"[turn {self.turn_count}] 更新: {turn_updates}, 累积: {self._current_state}")
-        return turn_updates
+        return {
+            "response": response_text,
+            "state": dict(self._current_state),
+            "updates": turn_updates,
+        }
 
     def get_current_state(self) -> Dict[str, Any]:
         """返回累积的对话状态。"""

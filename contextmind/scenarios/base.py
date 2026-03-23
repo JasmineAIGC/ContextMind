@@ -14,6 +14,7 @@ class ScenarioType(Enum):
     CHAT = "chat"  # 闲聊场景
     CALLCENTER = "callcenter"  # 客服场景
     INSURANCE = "insurance"  # 保险挽回场景
+    ANYIHUA = "anyihua"  # 安逸花外呼促活场景
 
 
 @dataclass

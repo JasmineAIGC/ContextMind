@@ -24,12 +24,11 @@ from .tracker import DialogueStateTracker, DialogueTurn, SpecialValue
 
 # 核心组件
 from .prompts import PromptManager, Language, LLMFormat
-from .parser import DSTResponseParser, ResponseParser
+from .parser import DSTResponseParser
 
 __all__ = [
     'DialogueStateTracker',
     'PromptManager',
-    'ResponseParser',
     'DSTResponseParser',
     'DialogueTurn',
     'SpecialValue',
@@ -37,4 +36,4 @@ __all__ = [
     'LLMFormat',
 ]
 
-__version__ = '0.2.1'
+__version__ = '0.3.0'

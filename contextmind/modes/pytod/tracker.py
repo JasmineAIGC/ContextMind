@@ -1,142 +1,170 @@
 """
-PyTOD Agent — ADK 原生函数调用任务型对话追踪器
+PyTOD Tracker — AdkPyTODTracker 实现（AP → EE → DM 三步流程）
 
-利用 Google ADK 原生 Function Calling 替代 PyTOD 自定义程序解析器。
-本地 LLM 直接决定调用哪个 API、传入什么参数，并生成自然语言回复。
+严格遵循论文 "Task-Oriented Dialogue as Dataflow Synthesis"，
+同时以 AdkLLMClient 作为统一 LLM 后端：
+
+    Step 1  Action Parser (AP)：AdkLLMClient 根据对话历史 + Schema 生成 Python-like 程序
+    Step 2  Execution Engine (EE)：ExecutionEngine 安全解析并执行程序
+    Step 3  Dialogue Manager (DM)：AdkLLMClient 根据执行结果生成自然语言回复
+
+与早前 ADK 原生 Function Calling 版本的区别：
+- 不使用 LlmAgent / InMemoryRunner / FunctionTool
+- 每轮有显式程序文本（program_text），可解释性强
+- Schema 通过 PyTODPromptBuilder 注入 AP prompt，严格约束意图和槽位
 
 使用示例::
 
-    from contextmind.modes.pytod import PyTODAgent, ExecutionEngine
+    from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
     from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+    from contextmind.infra.llm_client import AdkLLMClient
 
+    llm = AdkLLMClient()
     engine = ExecutionEngine()
     SCENARIO_API_REGISTRY["callcenter"](engine)
-    agent = PyTODAgent(engine=engine, scenario_context="电商客服场景")
-    result = await agent.process_turn("我的订单什么时候发货？")
-    print(result["response"])
+    tracker = AdkPyTODTracker(llm_client=llm, engine=engine)
+    result = await tracker.process_turn("查询我的账户余额")
+    print(result["program_text"])  # x1 query_account()
+    print(result["response"])      # 您的可用额度为…
+
+    # 或使用工厂方法
+    from contextmind.scenarios import get_anyihua_outbound_scenario
+    config = get_anyihua_outbound_scenario()
+    tracker = AdkPyTODTracker.from_scenario(llm, config)
 """
 
 from __future__ import annotations
 
+import re
+import time
 from typing import Any, Dict, List, Optional
 
-from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
-from contextmind.modes.pytod.execution_engine import ExecutionEngine
+from contextmind.modes.pytod.execution_engine import ExecutionEngine, ProgramExecutionResult
+from contextmind.modes.pytod.prompts import ConversationTurn, PyTODPromptBuilder
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
-
-try:
-    from google.adk.agents import LlmAgent  # type: ignore[import]
-    from google.adk.runners import InMemoryRunner  # type: ignore[import]
-    from google.adk.tools import FunctionTool  # type: ignore[import]
-    from google.genai import types as genai_types  # type: ignore[import]
-    _ADK_AVAILABLE = True
-except ImportError:
-    _ADK_AVAILABLE = False
+from contextmind.modes.pytod.schemas import ServiceSchema
 
 logger = get_logger(__name__)
 
-_ADK_INSTALL_MSG = (
-    "google-adk 未安装，无法创建 PyTODAgent。\n"
-    "请运行: pip install google-adk litellm"
-)
 
+# ---------------------------------------------------------------------------
+# 内部工具
+# ---------------------------------------------------------------------------
 
-def adk_tools_from_engine(engine: Any) -> List[Any]:
-    """将 ExecutionEngine 中已注册的函数包装为 ADK FunctionTool 列表。
+def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
+    """按场景 key 懒加载对应的预定义 ServiceSchema。
 
-    ADK 自动从函数签名和 docstring 生成参数描述（JSON Schema）。
+    避免在顶层导入可能不存在的场景模块，仅在需要时动态加载。
 
     Args:
-        engine: 已注册了 API 函数的 ExecutionEngine 实例。
+        key: SCENARIO_API_REGISTRY 中的场景键（如 ``"anyihua"``）。
 
     Returns:
-        可直接传给 ``LlmAgent(tools=...)`` 的 FunctionTool 列表。
+        对应场景的 ServiceSchema，找不到时返回 None。
     """
-    if not _ADK_AVAILABLE:
-        raise ImportError(_ADK_INSTALL_MSG)
+    if key in ("anyihua", "安逸花", "安逸花外呼", "安逸花外呼促活"):
+        try:
+            from contextmind.scenarios.anyihua.generation.schema import (  # type: ignore[import]
+                ANYIHUA_SCHEMA,
+            )
+            return ANYIHUA_SCHEMA
+        except ImportError:
+            logger.warning("无法加载 ANYIHUA_SCHEMA，将不使用 schema 约束")
+    return None
 
-    tools = [FunctionTool(func=func) for func in engine.registry.values()]
-    logger.info(
-        f"adk_tools_from_engine: 共 {len(tools)} 个工具: {list(engine.registry.keys())}"
-    )
-    return tools
 
+# ---------------------------------------------------------------------------
+# AdkPyTODTracker — 三步流程（AP → EE → DM），AdkLLMClient 作为 LLM 后端
+# ---------------------------------------------------------------------------
 
-class PyTODAgent:
-    """ADK 原生任务型对话追踪器。
+class AdkPyTODTracker:
+    """基于 AdkLLMClient 的 PyTOD 三步流程追踪器。
 
-    以 ADK 原生 Function Calling 替代 PyTOD 三步程序解析流程。
+    实现论文 "Task-Oriented Dialogue as Dataflow Synthesis" 中的三步流程：
+    - Step 1 AP（动作解析器）：LLM 根据对话历史和 Schema 生成 Python-like 程序
+    - Step 2 EE（执行引擎）：ExecutionEngine 安全解析并执行程序，填充变量值
+    - Step 3 DM（对话管理器）：LLM 根据执行结果生成自然语言回复
+
+    LLM 后端统一使用 AdkLLMClient（或任何实现 ``chat_async()`` 的客户端），
+    不依赖 ADK 原生 Function Calling（LlmAgent / InMemoryRunner / FunctionTool）。
 
     参数
     ----
+    llm_client : Any
+        实现 ``chat_async(messages: List[dict]) -> str`` 的 LLM 客户端
+        （如 ``AdkLLMClient``）。
     engine : ExecutionEngine
-        已注册 API 函数的执行引擎，其函数将转为 ADK 工具。
-    config : LLMConfig | None
-        本地 LLM 配置；若为 None 则从 ``.env`` 自动加载。
+        已注册 API 函数的执行引擎。
+    schema : ServiceSchema | None
+        服务 Schema，约束 AP 阶段可生成的意图和槽位。
+        为 None 时使用空 Schema（开放域模式）。
     scenario_context : str
-        注入 system instruction 的业务场景描述（可选）。
-    app_name : str
-        ADK 应用名称。
-    user_id : str
-        ADK 用户标识符。
+        业务场景描述，嵌入 AP 和 DM 的 system prompt。
+    max_history_turns : int
+        AP/DM prompt 中保留的最近历史轮次数。
     """
-
-    #: 动作解析使用的低温，保证输出稳定
-    AP_TEMPERATURE: float = 0.1
 
     def __init__(
         self,
-        engine: Any,
-        config: Optional[LLMConfig] = None,
+        llm_client: Any,
+        engine: ExecutionEngine,
+        schema: Optional[ServiceSchema] = None,
         scenario_context: str = "",
-        app_name: str = "pytod_adk",
-        user_id: str = "default_user",
+        max_history_turns: int = 10,
     ) -> None:
-        if not _ADK_AVAILABLE:
-            raise ImportError(_ADK_INSTALL_MSG)
-
-        self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
-        adk_model = create_local_adk_model(self._llm_config)
+        self.llm_client = llm_client
         self.engine = engine
+        self.schema = schema or ServiceSchema(service_name="default", description="")
         self.scenario_context = scenario_context
-        self._user_id = user_id
-
-        tools = adk_tools_from_engine(engine)
-        instruction = _build_instruction(scenario_context)
-
-        self._agent = LlmAgent(
-            name="pytod_agent",
-            model=adk_model,
-            instruction=instruction,
-            tools=tools,
+        self.prompt_builder = PyTODPromptBuilder(
+            schema=self.schema,
+            api_signatures=engine.to_prompt_text(),   # 实际函数签名，AP 选函数时的权威来源
+            max_history_turns=max_history_turns,
         )
-        self._runner = InMemoryRunner(agent=self._agent, app_name=app_name)
-        self._session_id: Optional[str] = None
-
+        self._history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}
+        self.api_call_log: List[Dict[str, Any]] = []
         self.turn_count: int = 0
+        self.last_program_text: str = ""   # 最近一轮 AP 生成的程序（供 web_demo 展示）
+        self.last_execution_result: Optional[Any] = None  # 最近一轮 EE 执行结果（供 web_demo 展示）
+        # AP / DM 完整输入消息——供 trace_demo 记录每步实际发送给 LLM 的内容
+        self.last_ap_messages: List[Dict[str, str]] = []
+        self.last_dm_messages: List[Dict[str, str]] = []
+        # 各步骤耗时（web_demo 的 timing_breakdown 会合并此字典）
+        self.step_timings: Dict[str, float] = {}
+        # 全局变量计数器——与官方 PyTOD 对齐：变量编号跨轮累积（x1, x2, …），
+        # 使 AP 能在后续轮次中通过 xN.field 引用先前已计算的变量。
+        self._next_var_index: int = 1
 
         logger.info(
-            f"PyTODAgent 初始化完成 (model={self._llm_config.model}, "
-            f"工具: {list(engine.registry.keys())})"
+            f"AdkPyTODTracker 初始化完成 (schema={self.schema.service_name}, "
+            f"APIs: {engine.list_functions()})"
         )
 
     @classmethod
     def from_scenario(
         cls,
+        llm_client: Any,
         scenario_config: Any,
-        config: Optional[LLMConfig] = None,
+        config: Optional[Any] = None,  # noqa: ARG003 — 保持与旧接口兼容
         **kwargs: Any,
-    ) -> "PyTODAgent":
-        """从场景配置创建 PyTODAgent。
+    ) -> "AdkPyTODTracker":
+        """从场景配置创建 AdkPyTODTracker。
 
-        自动根据场景名称注册匹配的演示 API 函数。
+        自动注册场景 API、加载 ServiceSchema 并填充场景描述。
 
         Args:
+            llm_client:      LLM 客户端（如 ``AdkLLMClient``）。
             scenario_config: ScenarioConfig 实例。
-            config: 本地 LLM 配置。
+            config:          保留参数，已忽略（兼容旧接口）。
+            **kwargs:        传递给 ``__init__`` 的额外参数（如 ``max_history_turns``）。
         """
+        # 过滤历史遗留的不兼容参数
+        kwargs.pop("prompt_builder", None)
+        kwargs.pop("app_name", None)
+        kwargs.pop("user_id", None)
+
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
         key = get_scenario_key(scenario_name)
@@ -146,92 +174,159 @@ class PyTODAgent:
         else:
             logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
 
-        scenario_context = getattr(scenario_config, "description", "")
-        return cls(engine=engine, config=config, scenario_context=scenario_context, **kwargs)
+        # 自动加载场景 schema，注入 AP prompt 实现意图约束
+        schema = kwargs.pop("schema", None) or _load_scenario_schema(key)
 
-    async def _get_or_create_session(self) -> str:
-        if self._session_id is None:
-            session = await self._runner.session_service.create_session(
-                app_name=self._runner.app_name, user_id=self._user_id,
-            )
-            self._session_id = session.id
-        return self._session_id
+        scenario_context = kwargs.pop(
+            "scenario_context",
+            getattr(scenario_config, "description", ""),
+        )
+        return cls(
+            llm_client=llm_client,
+            engine=engine,
+            schema=schema,
+            scenario_context=scenario_context,
+            **kwargs,
+        )
 
     async def process_turn(
         self,
         user_utterance: str,
         system_utterance: str = "",  # noqa: ARG002 — 保持接口兼容
     ) -> Dict[str, Any]:
-        """处理单轮对话。
-
-        ADK 流程：用户输入 → LLM 选择工具 → 执行工具 → LLM 生成回复。
+        """执行一轮三步对话处理（AP → EE → DM）。
 
         Returns:
-            包含 ``response``、``program_text``、``state``、``execution`` 的字典。
+            包含以下键的字典：
+
+            - ``response`` (str): DM 生成的自然语言回复。
+            - ``program_text`` (str): AP 生成的 PyTOD 程序文本。
+            - ``state`` (dict): 本轮后的累积状态（变量值快照）。
+            - ``execution`` (ProgramExecutionResult): EE 执行结果。
+
+            ``step_timings`` 属性同步更新为各步骤耗时（供 web_demo 使用）。
         """
         self.turn_count += 1
-        logger.info(f"PyTODAgent 第 {self.turn_count} 轮: {user_utterance}")
+        logger.info(f"AdkPyTODTracker 第 {self.turn_count} 轮 | AP→EE→DM | 用户: {user_utterance}")
+        self.step_timings = {}
 
-        session_id = await self._get_or_create_session()
-        new_message = genai_types.Content(
-            role="user", parts=[genai_types.Part(text=user_utterance)],
+        # ------------------------------------------------------------------ #
+        # Step 1: Action Parser (AP)
+        # ------------------------------------------------------------------ #
+        t0 = time.time()
+        # 向 AP 传入先前轮次的已计算变量（官方 PyTOD dataflow context），
+        # 使 AP 能用 xN.field 引用已有数据，避免重复调用查询 API。
+        prior_dataflow = {k: v for k, v in self.current_state.items() if not k.startswith("_anon")}
+        ap_messages = self.prompt_builder.build_action_parser_prompt(
+            self._history,
+            user_utterance,
+            self.scenario_context,
+            prior_dataflow=prior_dataflow or None,
+            next_var_index=self._next_var_index,
         )
+        self.last_ap_messages = ap_messages        # 记录完整 AP 输入（供 trace_demo 保存）
+        program_text: str = await self.llm_client.chat_async(ap_messages)
+        # 剥除 LLM 可能输出的 markdown 代码块包裹
+        program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+        self.last_program_text = program_text   # 记录供 web_demo 展示
+        self.step_timings["AP (动作解析)"] = round(time.time() - t0, 3)
+        logger.info(f"[AP] 程序: {program_text[:150]}")
 
-        final_text = ""
-        tool_call_parts: List[str] = []
+        # ------------------------------------------------------------------ #
+        # Step 2: Execution Engine (EE)
+        # ------------------------------------------------------------------ #
+        t1 = time.time()
+        execution_result: ProgramExecutionResult = self.engine.execute_program(
+            program_text,
+            prior_var_values={k: v for k, v in self.current_state.items() if not k.startswith("_anon")},
+        )
+        self.last_execution_result = execution_result  # 记录供 web_demo 展示
+        self.step_timings["EE (执行引擎)"] = round(time.time() - t1, 3)
 
-        async for event in self._runner.run_async(
-            user_id=self._user_id, session_id=session_id, new_message=new_message,
-        ):
-            for fc in event.get_function_calls() or []:
-                call_repr = f"{fc.name}({fc.args})"
-                tool_call_parts.append(call_repr)
-                logger.info(f"[Tool Call] {call_repr}")
+        # 将本轮 API 调用结果合并进累积状态，并记录调用日志。
+        # 仅存储真正的 API 调用结果（dict/非字符串），跳过 say() 输出的字符串变量，
+        # 避免 prior_dataflow 随轮次膨胀，减少后续轮次 AP 的 token 消耗。
+        if execution_result.variable_values:
+            for var, val in execution_result.variable_values.items():
+                if var in execution_result.say_variable_names:
+                    continue  # say() 输出不写入 current_state
+                self.current_state[var] = val
+                self.api_call_log.append({
+                    "turn": self.turn_count,
+                    "variable": var,
+                    "result": val,
+                })
+        if not execution_result.success:
+            logger.warning(f"[EE] 执行错误: {execution_result.errors}")
+        else:
+            called = list(execution_result.variable_values.keys())
+            say_preview = execution_result.say_output[:60] if execution_result.say_output else "(无)"
+            logger.info(f"[EE] 执行成功: APIs={called}, say={say_preview!r}")
 
-            for fr in event.get_function_responses() or []:
-                if isinstance(fr.response, dict):
-                    self.current_state[f"x{self.turn_count}_{fr.name}"] = fr.response
-                logger.info(f"[Tool Response] {fr.name}: {str(fr.response)[:120]}")
+        # 推进全局变量计数器（与官方 PyTOD 对齐：变量编号跨轮连续递增）。
+        # 取最大 N+1 作为下一轮起始编号；保证单调递增——即使 AP 生成了旧编号
+        # （违反提示），_next_var_index 也不会后退。
+        var_indices = [int(m) for m in re.findall(r"\bx(\d+)\b", program_text)]
+        if var_indices:
+            self._next_var_index = max(self._next_var_index, max(var_indices) + 1)
 
-            if event.is_final_response() and event.content:
-                for part in event.content.parts or []:
-                    if hasattr(part, "text") and part.text:
-                        final_text += part.text
+        # ------------------------------------------------------------------ #
+        # Step 3: Dialogue Manager (DM)
+        # ------------------------------------------------------------------ #
+        t2 = time.time()
+        dm_messages = self.prompt_builder.build_dm_prompt(
+            self._history, user_utterance, program_text, execution_result, self.scenario_context,
+        )
+        self.last_dm_messages = dm_messages             # 记录完整 DM 输入（供 trace_demo 保存）
+        response: str = await self.llm_client.chat_async(dm_messages)
+        self.step_timings["DM (对话管理)"] = round(time.time() - t2, 3)
+        logger.info(f"[DM] 回复: {response[:150]}")
 
-        response = final_text.strip()
-        program_text = "\n".join(tool_call_parts) if tool_call_parts else "NONE()"
-        logger.info(f"[PyTODAgent] 回复: {response[:80]}")
+        # 更新对话历史
+        self._history.append(ConversationTurn(role="user", content=user_utterance))
+        self._history.append(ConversationTurn(role="assistant", content=response))
 
         return {
             "response": response,
             "program_text": program_text,
             "state": dict(self.current_state),
-            "execution": None,
+            "execution": execution_result,
         }
 
     def get_current_state(self) -> Dict[str, Any]:
-        """返回当前累积对话状态（工具执行结果）。"""
-        return dict(self.current_state)
+        """返回当前累积对话状态（API 执行结果 + API 调用日志）。"""
+        state = dict(self.current_state)
+        if self.api_call_log:
+            state["_api_call_log"] = list(self.api_call_log)
+        return state
 
     def reset(self) -> None:
-        """重置对话状态，创建新的 ADK session。"""
-        self._session_id = None
+        """重置对话状态，开始新的会话。"""
+        self._history = []
         self.current_state = {}
+        self.api_call_log = []
         self.turn_count = 0
-        logger.info("PyTODAgent 对话状态已重置")
+        self.last_program_text = ""
+        self.last_execution_result = None
+        self.last_ap_messages = []
+        self.last_dm_messages = []
+        self.step_timings = {}
+        self._next_var_index = 1
+        logger.info("AdkPyTODTracker 对话状态已重置")
 
 
-def _build_instruction(scenario_context: str) -> str:
-    """构建 ADK Agent 的系统指令。"""
-    base = (
-        "你是一个任务型对话助手。优先调用合适的工具完成任务，"
-        "然后根据工具返回结果用自然语言给出友好、简洁的回复。\n\n"
-        "规则：\n"
-        "1. 尽量调用工具完成任务，而非猜测数据\n"
-        "2. 工具返回 hint 字段时，向用户说明需要提供哪些信息\n"
-        "3. 工具返回 error 字段时，向用户说明情况并请求补充信息\n"
-        "4. 回复语言：中文\n"
+# ---------------------------------------------------------------------------
+# 向后兼容别名：保留 adk_tools_from_engine 以防外部代码引用
+# ---------------------------------------------------------------------------
+
+def adk_tools_from_engine(engine: Any) -> List[Any]:
+    """已废弃：此版本不再使用 ADK FunctionTool。
+
+    保留此函数仅为向后兼容，返回空列表。
+    若需要 ADK 原生函数调用，请直接使用 google-adk LlmAgent。
+    """
+    logger.warning(
+        "adk_tools_from_engine() 已废弃：AdkPyTODTracker 现使用 AP→EE→DM 三步流程，"
+        "不再依赖 ADK FunctionTool。"
     )
-    if scenario_context:
-        base += f"\n业务场景：{scenario_context}\n"
-    return base
+    return []

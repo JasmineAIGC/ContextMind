@@ -31,7 +31,7 @@ from .data_models import (
 )
 
 from contextmind.infra.logger import (
-    EvolveLogger,
+    Logger,
     LogLevel,
     get_logger,
     setup_logging,
@@ -79,7 +79,7 @@ __all__ = [
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
     # 日志工具
-    "EvolveLogger",
+    "Logger",
     "LogLevel",
     "get_logger",
     "setup_logging",

@@ -33,11 +33,17 @@ from typing import Dict, List, Any, Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:
+    pass
+
 from benchmark.algorithms.pytod import PyTODEvaluator
 from benchmark.datasets.anyihua.adapter import AnyihuaSGDAdapter, AnyihuaDialogue
 from contextmind.modes.pytod import (
     ExecutionEngine,
-    PyTODAgent,
+    AdkPyTODTracker,
     ServiceSchema,
     load_schema_from_dict,
 )
@@ -108,10 +114,10 @@ class AnyihuaPyTODEvaluator:
             f"槽位数: {len(self._service_schema.slots)})"
         )
 
-    def _build_tracker(self, dialogue: AnyihuaDialogue) -> PyTODAgent:
-        """为单条对话构建 PyTODAgent（每条对话使用独立的 ExecutionEngine）。"""
+    def _build_tracker(self, dialogue: AnyihuaDialogue) -> AdkPyTODTracker:
+        """为单条对话构建 AdkPyTODTracker（每条对话使用独立的 ExecutionEngine）。"""
         engine = build_generation_engine(dialogue.raw_session)
-        return PyTODAgent(
+        return AdkPyTODTracker(
             engine=engine,
             scenario_context=_SCENARIO_CONTEXT,
         )

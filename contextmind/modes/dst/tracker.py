@@ -174,23 +174,25 @@ class DialogueStateTracker:
         self.history_summary = None
         logger.info("对话状态已重置")
     
-    async def process_turn(self, 
-                          system_utterance: str, 
-                          user_utterance: str) -> Dict[str, str]:
+    async def process_turn(self,
+                          user_utterance: str,
+                          system_utterance: str = "",
+                          **kwargs) -> Dict[str, str]:
         """
         处理单轮对话（增强版 - 智能历史管理 + 意图追踪）
-        
+
         执行步骤：
         1. 准备历史对话（智能摘要或完整历史）
         2. 调用LLM提取槽位更新
         3. 解析响应
         4. 更新状态和意图
         5. 管理历史（必要时触发摘要）
-        
+
         参数:
-            system_utterance: 系统的话语
-            user_utterance: 用户的话语
-            
+            user_utterance: 用户的话语（必需）
+            system_utterance: 系统的话语（可选，默认空字符串）
+            **kwargs: 保留扩展参数
+
         返回:
             更新后的累积对话状态
         """
@@ -617,17 +619,4 @@ class DialogueStateTracker:
                     history.append((i, value))
         
         return history
-    
-    @classmethod
-    def create_from_config(cls, llm_client, scenario_config,
-                          max_history_turns: int = 10,
-                          enable_summary: bool = True,
-                          use_llm_summary: bool = False):
-        """向后兼容别名，请使用 ``from_scenario()``。"""
-        return cls.from_scenario(
-            llm_client=llm_client,
-            scenario_config=scenario_config,
-            max_history_turns=max_history_turns,
-            enable_history_summary=enable_summary,
-            use_llm_summary=use_llm_summary,
-        )
+

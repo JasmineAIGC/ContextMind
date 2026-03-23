@@ -28,9 +28,9 @@ from datetime import datetime
 
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODAgent
-from contextmind.modes.pytod import PyTODAgent
-from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
+from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_outbound_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -75,6 +75,8 @@ class UnifiedGradioDemo:
             self.config = get_callcenter_scenario()
         elif scenario == "insurance":
             self.config = get_insurance_scenario()
+        elif scenario == "anyihua":
+            self.config = get_anyihua_outbound_scenario()
         else:
             raise ValueError(f"未知场景: {scenario}")
         
@@ -127,13 +129,17 @@ class UnifiedGradioDemo:
     
     def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
-        self.fnctod_tracker = FnCTODAgent.from_scenario(self.config)
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        self.fnctod_tracker = FnCTODTracker.from_scenario(self.llm_client, self.config)
         logger.info("FnCTOD模式初始化完成")
 
     def _setup_pytod_tracker(self):
-        """初始化PyTOD模式"""
-        self.pytod_tracker = PyTODAgent.from_scenario(self.config)
-        logger.info("PyTOD模式初始化完成")
+        """初始化PyTOD模式（三步流程：AP → EE → DM）"""
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config)
+        logger.info("PyTOD模式初始化完成 (三步流程: AP→EE→DM)")
 
     def _setup_evolve_app(self):
         """初始化Evolve模式"""
@@ -205,40 +211,41 @@ class UnifiedGradioDemo:
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
-                
-                # 步骤1: 槽位提取（包含DST内部的多个步骤）
+
+                # 步骤1: 槽位提取（process_turn）
+                # 步骤2: 回复生成（包含历史上下文，与槽位提取并行执行节省延迟）
+                # 注意：回复生成使用对话历史而非槽位提取结果，因此可并行
+                system_prompt = self.config.system_prompt
+
+                # 构建包含历史的回复消息列表（修复：之前版本缺失历史上下文）
+                reply_messages: list = [{"role": "system", "content": system_prompt}]
+                timing_tag_re = re.compile(r'\n\n<small style=.*?</small>', re.DOTALL)
+                for hist_msg in history[-self.max_history_turns * 2:]:
+                    role = hist_msg.get("role", "user")
+                    content = hist_msg.get("content", "")
+                    if isinstance(content, str):
+                        content = timing_tag_re.sub("", content)
+                    reply_messages.append({"role": role, "content": content})
+                reply_messages.append({"role": "user", "content": message})
+
                 step_start = time.time()
-                state = await self.tracker.process_turn(
-                    system_utterance=system_utterance,
-                    user_utterance=message
+                state, reply = await asyncio.gather(
+                    self.tracker.process_turn(
+                        system_utterance=system_utterance,
+                        user_utterance=message
+                    ),
+                    self.llm_client.chat_async(messages=reply_messages)
                 )
-                timing_breakdown['槽位提取'] = time.time() - step_start
-                
+                timing_breakdown['槽位提取+回复生成(并行)'] = time.time() - step_start
+
                 # 收集DST内部的详细步骤耗时
                 if hasattr(self.tracker, 'step_timings'):
                     timing_breakdown.update(self.tracker.step_timings)
-                    # 移除重复的'槽位提取'（使用DST内部的详细步骤）
-                    if '槽位提取' in timing_breakdown and len(self.tracker.step_timings) > 0:
-                        del timing_breakdown['槽位提取']
-                
-                # 步骤2: 状态捕获（在回复生成之前）
-                # DST模式：状态已在process_turn中提取，现在捕获用于UI显示
-                # 此时状态将用于指导接下来的回复生成
+
+                # 步骤2: 状态捕获（槽位提取已通过 gather 完成）
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
-                
-                # 步骤3: 回复生成
-                step_start = time.time()
-                system_prompt = self.config.system_prompt
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": message}
-                ]
-                
-                # chat_async returns a string directly, not a dict
-                reply = await self.llm_client.chat_async(messages=messages)
-                timing_breakdown['回复生成'] = time.time() - step_start
                 
             elif self.current_mode == "fnctod":
                 # FnCTOD模式
@@ -262,11 +269,17 @@ class UnifiedGradioDemo:
                 timing_breakdown['状态捕获'] = time.time() - step_start
 
             elif self.current_mode == "pytod":
-                # PyTOD模式（三步流程：动作解析器 → 执行引擎 → 对话管理器）
+                # PyTOD模式（论文三步流程：动作解析器 → 执行引擎 → 对话管理器）
                 step_start = time.time()
                 result = await self.pytod_tracker.process_turn(user_utterance=message)
                 reply = result.get("response", "")
-                timing_breakdown['PyTOD三步处理'] = time.time() - step_start
+                timing_breakdown['PyTOD总计'] = time.time() - step_start
+
+                # 收集 PyTODTracker 内部各步骤（AP/EE/DM）耗时
+                if hasattr(self.pytod_tracker, 'step_timings') and self.pytod_tracker.step_timings:
+                    timing_breakdown.update(self.pytod_tracker.step_timings)
+                    if 'PyTOD总计' in timing_breakdown and len(self.pytod_tracker.step_timings) > 0:
+                        del timing_breakdown['PyTOD总计']
 
                 # 状态捕获
                 step_start = time.time()
@@ -424,24 +437,24 @@ class UnifiedGradioDemo:
                 "对话轮数": self.fnctod_tracker.turn_count,
             }
 
-            # 本轮函数调用（嵌套结构）
-            if self.fnctod_tracker.dialogue_history:
-                last_turn = self.fnctod_tracker.dialogue_history[-1]
-                if last_turn.function_call:
-                    fc = last_turn.function_call
-                    state_info["本轮函数调用"] = {
-                        "函数": fc.function_name,
-                        "参数": fc.arguments if fc.arguments else {},
-                    }
-                else:
-                    state_info["本轮函数调用"] = "（本轮未调用函数）"
+            # 最近对话（_dialogue_history 存储 {role, content} 字典列表）
+            history = self.fnctod_tracker._dialogue_history
+            if history:
+                last_assistant = next(
+                    (m["content"] for m in reversed(history) if m.get("role") == "assistant"),
+                    None,
+                )
+                state_info["最近回复"] = (
+                    (last_assistant[:80] + "...") if last_assistant and len(last_assistant) > 80
+                    else (last_assistant or "（暂无回复）")
+                )
             else:
-                state_info["本轮函数调用"] = "（暂无对话记录）"
+                state_info["最近回复"] = "（暂无对话记录）"
 
             # 累积状态（嵌套字典）
             non_empty_slots = {
                 k: (str(v)[:50] + "..." if len(str(v)) > 50 else str(v))
-                for k, v in self.fnctod_tracker.current_state.items()
+                for k, v in self.fnctod_tracker.get_current_state().items()
                 if v and str(v).strip()
             }
             state_info["累积状态"] = non_empty_slots if non_empty_slots else "（暂无）"
@@ -449,43 +462,66 @@ class UnifiedGradioDemo:
             return state_info
 
         elif self.current_mode == "pytod" and self.pytod_tracker:
-            # PyTOD模式：显示程序执行状态
-            state = self.pytod_tracker.get_current_state()
+            # PyTOD模式（AP→EE→DM 三步流程）：重点展示 AP 程序和 EE 执行结果
             state_info = {
-                "模式": "PyTOD (程序执行型任务对话)",
+                "模式": "PyTOD (AP→EE→DM 三步流程)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.pytod_tracker.turn_count,
-                "可用 API": self.pytod_tracker.execution_engine.list_functions(),
             }
 
-            if state:
-                api_results = {}
-                hints = []
-                say_text = None
-                for key, value in state.items():
-                    if key == "_hints":
-                        hints = value if isinstance(value, list) else [value]
-                    elif key == "_say":
-                        say_text = str(value)
-                    elif isinstance(value, dict):
-                        for k, v in value.items():
-                            if k not in ("_raw",):
-                                sv = str(v)
-                                api_results[k] = sv[:50] + "..." if len(sv) > 50 else sv
-                    else:
-                        sv = str(value)
-                        api_results[key] = sv[:50] + "..." if len(sv) > 50 else sv
+            # Step 1: AP 生成程序（最具可解释性的中间表示）
+            last_prog = self.pytod_tracker.last_program_text
+            if last_prog:
+                state_info["[AP] 本轮生成程序"] = last_prog
 
-                if api_results:
-                    state_info["API 执行结果"] = api_results
-                if hints:
-                    state_info["待收集信息"] = [str(h) for h in hints]
-                if say_text:
-                    state_info["最近 say() 输出"] = say_text[:80] + "..." if len(say_text) > 80 else say_text
-                if not api_results and not hints and not say_text:
-                    state_info["执行状态"] = "暂无执行结果"
-            else:
-                state_info["执行状态"] = "暂无执行结果"
+            # Step 2: EE 执行结果
+            ee_result = self.pytod_tracker.last_execution_result
+            if ee_result is not None:
+                if not ee_result.success:
+                    errors = getattr(ee_result, "errors", [])
+                    state_info["[EE] 执行状态"] = "失败：" + ("; ".join(str(e) for e in errors) if errors else "未知错误")
+                else:
+                    ee_display: dict = {}
+                    # say() 输出
+                    say_out = getattr(ee_result, "say_output", "")
+                    if say_out:
+                        ee_display["say 输出"] = say_out[:120] + "..." if len(say_out) > 120 else say_out
+                    # Hint 提示
+                    hints = getattr(ee_result, "hint_messages", [])
+                    if hints:
+                        ee_display["Hint 提示"] = hints
+                    # API 调用结果
+                    var_values = getattr(ee_result, "variable_values", {})
+                    api_vars = {k: v for k, v in var_values.items() if not k.startswith("_anon")}
+                    if api_vars:
+                        import json as _json
+                        formatted = {}
+                        for k, v in api_vars.items():
+                            try:
+                                sv = _json.dumps(v, ensure_ascii=False)
+                            except (TypeError, ValueError):
+                                sv = str(v)
+                            formatted[k] = sv[:80] + "..." if len(sv) > 80 else sv
+                        ee_display["API 调用结果"] = formatted
+                    if not ee_display:
+                        ee_display["执行状态"] = "成功（无返回数据）"
+                    state_info["[EE] 执行结果"] = ee_display
+            elif self.pytod_tracker.turn_count == 0:
+                state_info["执行状态"] = "等待用户输入…"
+
+            # 多轮累积 API 状态（跨轮次变量值）
+            cumulative = {
+                k: v for k, v in self.pytod_tracker.current_state.items()
+                if not k.startswith("_anon")
+            }
+            if cumulative:
+                import json as _json
+                state_info["[累积状态] 历史API结果"] = {
+                    k: (_json.dumps(v, ensure_ascii=False)[:80] + "..."
+                        if len(_json.dumps(v, ensure_ascii=False)) > 80
+                        else _json.dumps(v, ensure_ascii=False))
+                    for k, v in cumulative.items()
+                }
 
             return state_info
 
@@ -562,7 +598,8 @@ class UnifiedGradioDemo:
         scenario_names = {
             "chat": "💬 闲聊对话",
             "callcenter": "📞 智能客服",
-            "insurance": "🏥 保险咨询"
+            "insurance": "🏥 保险咨询",
+            "anyihua": "📱 安逸花外呼",
         }
         return scenario_names.get(scenario, scenario)
     

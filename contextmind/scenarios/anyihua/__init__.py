@@ -74,6 +74,7 @@
 from .utils import cn2int, extract_amounts, parse_user_info
 from .qc import build_qc_engine, PyTODQualityChecker, predict_label_pytod, classify_session_llm, ANYIHUA_QC_SCHEMA, ANYIHUA_QC_SCHEMA_DICT
 from .generation import build_generation_engine, ANYIHUA_SCHEMA, ANYIHUA_SCHEMA_DICT
+from .scenario import get_anyihua_outbound_scenario
 try:
     from .schema_extraction import (
         PartialServiceSchema,
@@ -104,19 +105,34 @@ except ImportError:
     save_schema_as_sgd = None
     align_schema_with_sgd = None
     format_comparison_report = None
-from .knowledge_base import (
-    KnowledgeStore,
-    IncrementalMerger,
-    MergeReport,
-    SlotEvidence,
-    SlotFact,
-    CustomerRecord,
-    ConflictEntry,
-    KBStats,
-    ConfidenceFirstStrategy,
-    NewerFirstStrategy,
-    ServiceResultFirstStrategy,
-)
+try:
+    from .knowledge_base import (
+        KnowledgeStore,
+        IncrementalMerger,
+        MergeReport,
+        SlotEvidence,
+        SlotFact,
+        CustomerRecord,
+        ConflictEntry,
+        KBStats,
+        ConfidenceFirstStrategy,
+        NewerFirstStrategy,
+        ServiceResultFirstStrategy,
+    )
+    _KNOWLEDGE_BASE_AVAILABLE = True
+except ImportError:
+    _KNOWLEDGE_BASE_AVAILABLE = False
+    KnowledgeStore = None
+    IncrementalMerger = None
+    MergeReport = None
+    SlotEvidence = None
+    SlotFact = None
+    CustomerRecord = None
+    ConflictEntry = None
+    KBStats = None
+    ConfidenceFirstStrategy = None
+    NewerFirstStrategy = None
+    ServiceResultFirstStrategy = None
 
 __all__ = [
     # 共享工具
@@ -159,4 +175,6 @@ __all__ = [
     "ConfidenceFirstStrategy",
     "NewerFirstStrategy",
     "ServiceResultFirstStrategy",
+    # 对话场景配置
+    "get_anyihua_outbound_scenario",
 ]

@@ -31,7 +31,7 @@ langextract 官方示例（README.md）的标准用法::
         model_id="gemini-2.5-flash",     # 使用内置模型
     )
 
-对于**自定义模型**（如本项目的 ``SimpleLLMClient``），官方同样支持::
+对于**自定义模型**（如本项目的 ``AdkLLMClient``），官方同样支持::
 
     result = lx.extract(
         text_or_documents=input_text,
@@ -58,7 +58,7 @@ langextract 官方示例（README.md）的标准用法::
 
 ## 主要组件
 
-- :class:`SimpleLLMClientAdapter` — 将 ``SimpleLLMClient`` 适配为 langextract
+- :class:`AdkLLMClientAdapter` — 将 ``AdkLLMClient`` 适配为 langextract
   ``BaseLanguageModel`` 接口，使现有 OpenAI 兼容端点无缝接入 ``lx.extract()``
 - :func:`build_langextract_schema_prompt` — 从 ``ExtractionSchema`` 生成
   langextract 兼容的提示词描述字符串
@@ -72,13 +72,13 @@ langextract 官方示例（README.md）的标准用法::
     from pathlib import Path
     from contextmind.scenarios.anyihua.knowledge_extraction.langextract_bridge import (
         extract_with_per_turn_annotator,
-        SimpleLLMClientAdapter,
+        AdkLLMClientAdapter,
         DEFAULT_SCHEMA,
     )
-    from contextmind.infra.llm_client import SimpleLLMClient, LLMConfig
+    from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 
     dialogues = json.loads(Path("resources/data/chat_test_100.json").read_text())
-    client = SimpleLLMClient(LLMConfig.from_env())
+    client = AdkLLMClient(config=LLMConfig.from_env())
 
     # 逐轮提取，携带最近 3 轮历史上下文，并对槽位去重
     result = extract_with_per_turn_annotator(
@@ -101,7 +101,7 @@ from langextract.core.base_model import BaseLanguageModel
 from langextract.core.types import ScoredOutput
 from langextract.data import ExampleData, Extraction
 
-from contextmind.infra.llm_client import SimpleLLMClient, AdkLLMClient
+from contextmind.infra.llm_client import AdkLLMClient, AdkLLMClient
 from contextmind.infra.logger import get_logger
 
 from .extractor import (
@@ -117,8 +117,50 @@ from .extractor import (
 
 logger = get_logger(__name__)
 
-# LLMClient 类型别名：SimpleLLMClient（ADK 驱动）或 AdkLLMClient 均可
-_LLMClientType = Any  # 实际类型为 SimpleLLMClient 或 AdkLLMClient
+# LLMClient 类型别名：AdkLLMClient（ADK 驱动）或 AdkLLMClient 均可
+_LLMClientType = Any  # 实际类型为 AdkLLMClient 或 AdkLLMClient
+
+
+def _sanitize_infer_yaml(text: str) -> str:
+    """清洗 LLM 返回的 YAML/JSON 文本，过滤掉 ``extraction_text`` 为 None/null/空字符串的条目。
+
+    langextract ``resolver.py`` 在解析 LLM 输出时，若遇到 ``extraction_text`` 不是
+    ``str / int / float`` 类型（例如 YAML ``null``），会触发：
+      ``ERROR:absl:Extraction text must be a string, integer, or float.``
+    并抛出 ``ValueError``。通过此函数提前过滤无效条目，可完全消除该错误日志。
+
+    若 YAML 解析失败，原样返回输入文本（best-effort）。
+    """
+    try:
+        import yaml  # type: ignore[import]
+        items = yaml.safe_load(text)
+        if not isinstance(items, list):
+            return text
+        cleaned = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            et = item.get("extraction_text")
+            if not isinstance(et, (str, int, float)):
+                logger.debug(
+                    "[AdkLLMClientAdapter] 过滤 extraction_text 无效条目 "
+                    "(类型=%s): %r",
+                    type(et).__name__,
+                    item,
+                )
+                continue
+            if isinstance(et, str) and not et.strip():
+                logger.debug(
+                    "[AdkLLMClientAdapter] 过滤 extraction_text 为空字符串的条目: %r",
+                    item,
+                )
+                continue
+            cleaned.append(item)
+        if not cleaned:
+            return "[]"
+        return yaml.dump(cleaned, allow_unicode=True, default_flow_style=False)
+    except Exception:
+        return text
 
 
 # --------------------------------------------------------------------------- #
@@ -126,17 +168,17 @@ _LLMClientType = Any  # 实际类型为 SimpleLLMClient 或 AdkLLMClient
 # --------------------------------------------------------------------------- #
 
 
-class SimpleLLMClientAdapter(BaseLanguageModel):
+class AdkLLMClientAdapter(BaseLanguageModel):
     """
     将 ADK 驱动的 LLM 客户端适配为 langextract ``BaseLanguageModel`` 接口。
 
-    底层调用 ``client.generate()``（由 :class:`SimpleLLMClient` /
+    底层调用 ``client.generate()``（由 :class:`AdkLLMClient` /
     :class:`AdkLLMClient` 提供），通过 Google ADK + LiteLlm 接入本地
     vLLM/OpenAI 兼容端点，无缝对接 langextract 的完整提取管道
     （Annotator → Resolver → WordAligner → char_interval）。
 
     参数:
-        client: 已初始化的 SimpleLLMClient 或 AdkLLMClient 实例
+        client: 已初始化的 AdkLLMClient 或 AdkLLMClient 实例
     """
 
     def __init__(self, client: _LLMClientType) -> None:
@@ -151,7 +193,7 @@ class SimpleLLMClientAdapter(BaseLanguageModel):
         """
         实现 langextract BaseLanguageModel.infer() 接口。
 
-        逐条处理 batch_prompts 中的每个 prompt，调用 SimpleLLMClient.generate()
+        逐条处理 batch_prompts 中的每个 prompt，调用 AdkLLMClient.generate()
         获取响应，并包装为 ``ScoredOutput``（score=1.0 表示唯一候选输出）。
 
         参数:
@@ -164,10 +206,18 @@ class SimpleLLMClientAdapter(BaseLanguageModel):
         for prompt in batch_prompts:
             try:
                 _reasoning, text = self._client.generate(prompt)
-                yield [ScoredOutput(score=1.0, output=text)]
+                if not text.strip():
+                    logger.debug("[AdkLLMClientAdapter] LLM 返回空响应，本轮无提取结果")
+                    yield [ScoredOutput(score=0.0, output="[]")]
+                else:
+                    # 过滤掉 extraction_text 为 None/null/非字符串的条目，
+                    # 防止 langextract resolver 因类型校验失败而抛出 ValueError
+                    # 并触发 ERROR:absl:Extraction text must be a string... 错误日志。
+                    sanitized = _sanitize_infer_yaml(text)
+                    yield [ScoredOutput(score=1.0, output=sanitized)]
             except Exception as exc:
-                logger.warning(f"[SimpleLLMClientAdapter] LLM 推理失败: {exc}")
-                yield [ScoredOutput(score=0.0, output="")]
+                logger.warning(f"[AdkLLMClientAdapter] LLM 推理失败: {exc}")
+                yield [ScoredOutput(score=0.0, output="[]")]
 
 
 # --------------------------------------------------------------------------- #
@@ -362,7 +412,7 @@ def _build_history_context(
 
 def extract_with_per_turn_annotator(
     dialogue: Dict[str, Any],
-    client: SimpleLLMClient,
+    client: AdkLLMClient,
     schema: ExtractionSchema,
     *,
     context_window: int = 3,
@@ -400,7 +450,7 @@ def extract_with_per_turn_annotator(
 
     参数:
         dialogue:          chat_test_100.json 中的单条对话条目
-        client:            已初始化的 SimpleLLMClient 实例
+        client:            已初始化的 AdkLLMClient 实例
         schema:            提取 Schema（槽位、意图、事实定义）
         context_window:    传入 additional_context 的历史轮次数（0 表示不传历史）
         deduplicate_slots: 是否对 slot_value/fact 按 label 跨轮去重
@@ -431,8 +481,8 @@ def extract_with_per_turn_annotator(
             },
         )
 
-    # 为当前对话创建一个 SimpleLLMClientAdapter（可在所有轮次复用）
-    adapter = SimpleLLMClientAdapter(client)
+    # 为当前对话创建一个 AdkLLMClientAdapter（可在所有轮次复用）
+    adapter = AdkLLMClientAdapter(client)
     prompt_description = build_langextract_schema_prompt(schema)
     examples = build_langextract_examples()
 

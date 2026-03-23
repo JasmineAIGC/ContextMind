@@ -44,7 +44,6 @@ class EvolveEngine:
         session_service: Optional[Any] = None,
         memory_service: Optional[Any] = None,
         max_recent_events: int = 9999,   # 实际上限由 session_service 决定，此处设为极大值不主动截断
-        use_postprocessor: bool = False,
         use_summarizer: bool = False,
         extraction_method: str = "llm",
         extraction_config: Optional[Any] = None,
@@ -57,7 +56,6 @@ class EvolveEngine:
             session_service: Session 服务实例（可选）
             memory_service: Memory 服务实例（可选）
             max_recent_events: 保留的最大近期事件数量
-            use_postprocessor: 已废弃，使用 handle_response() 代替
             use_summarizer: 是否启用对话摘要器
             extraction_method: 知识提取方式，仅支持 'llm'
             extraction_config: 提取配置对象（可选）
@@ -105,7 +103,7 @@ class EvolveEngine:
         else:
             logger.warning(
                 f"[EvolveEngine] ⚠️ 不支持的提取方式: {extraction_method}. "
-                "v0.2.1+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
+                "v0.3.0+ 仅支持基于大语言模型的提取。知识提取功能将被禁用。"
             )
             self.extractor = None
             self.extraction_method = "disabled"
@@ -122,12 +120,6 @@ class EvolveEngine:
             logger.info("[EvolveEngine] ConversationSummarizer 已启用")
         else:
             self.summarizer = None
-        
-        if use_postprocessor:
-            logger.warning(
-                "[EvolveEngine] use_postprocessor 已废弃，"
-                "请使用 handle_response() 方法代替"
-            )
         
         logger.info(f"EvolveEngine 已初始化 app={app_name}, user={user_id}")
     
