@@ -139,18 +139,20 @@ def _sanitize_infer_yaml(text: str) -> str:
     - 格式 B：非 ``_attributes`` 后缀键的值若为 dict/None → 过滤该条目（避免
       ``ERROR:absl:Extraction text must be a string, integer, or float``）
 
-    返回 JSON 格式以匹配 langextract 默认 ``FormatType.JSON``。
-    解析失败时返回 ``"[]"`` 而非原始文本，防止含非法值的内容传入 langextract。
+    返回包含 ``extractions`` 包装键的 JSON 字符串以匹配 langextract ``FormatType.JSON``
+    要求（``format_handler`` 默认 ``use_wrapper=True, wrapper_key='extractions'``）。
+    解析失败时返回空包装对象，防止含非法值的内容传入 langextract。
     """
+    _EMPTY = '{"extractions": []}'
     try:
         import yaml  # type: ignore[import]
         # 先去除 LLM 可能输出的 markdown 代码围栏
         content = _strip_code_fences(text)
         if not content.strip():
-            return "[]"
+            return _EMPTY
         items = yaml.safe_load(content)
         if not isinstance(items, list):
-            return "[]"
+            return _EMPTY
         cleaned = []
         for item in items:
             if not isinstance(item, dict):
@@ -210,11 +212,11 @@ def _sanitize_infer_yaml(text: str) -> str:
                 if has_valid:
                     cleaned.append(filtered)
         if not cleaned:
-            return "[]"
-        # 返回 JSON 格式，与 langextract 默认 FormatType.JSON 保持一致
-        return json.dumps(cleaned, ensure_ascii=False)
+            return _EMPTY
+        # 用 extractions 包装键返回，满足 langextract format_handler 要求
+        return json.dumps({"extractions": cleaned}, ensure_ascii=False)
     except Exception:
-        return "[]"
+        return _EMPTY
 
 
 class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
@@ -256,9 +258,9 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
             try:
                 _reasoning, text = self._client.generate(prompt)
                 if not text.strip():
-                    # 空响应返回合法空列表，避免 langextract 内部 JSON 解析异常
+                    # 空响应返回合法空结果，避免 langextract 内部 JSON 解析异常
                     logger.debug("[AdkLLMClientAdapter] LLM 返回空响应，本轮无提取结果")
-                    yield [ScoredOutput(score=0.0, output="[]")]
+                    yield [ScoredOutput(score=0.0, output='{"extractions": []}')]
                 else:
                     # 过滤掉 extraction_text 为 None/null/非字符串的条目，
                     # 防止 langextract resolver 因类型校验失败而抛出 ValueError
@@ -267,7 +269,7 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
                     yield [ScoredOutput(score=1.0, output=sanitized)]
             except Exception as exc:
                 logger.warning(f"[AdkLLMClientAdapter] LLM 推理失败: {exc}")
-                yield [ScoredOutput(score=0.0, output="[]")]
+                yield [ScoredOutput(score=0.0, output='{"extractions": []}')]
 
 
 # ------------------------------------------------------------------
