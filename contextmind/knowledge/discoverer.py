@@ -111,46 +111,110 @@ class DiscoveryItem:
 # ------------------------------------------------------------------
 
 
+def _strip_code_fences(text: str) -> str:
+    """从 LLM 输出中提取代码块内容（如 ```yaml ... ``` 或 ```json ... ```）。
+
+    若文本包含代码围栏，则返回围栏内的内容；否则原样返回。
+    """
+    m = re.search(r"```(?:yaml|json)?\s*([\s\S]+?)\s*```", text)
+    if m:
+        return m.group(1).strip()
+    return text
+
+
 def _sanitize_infer_yaml(text: str) -> str:
-    """清洗 LLM 返回的 YAML/JSON 文本，过滤掉 ``extraction_text`` 为 None/null/空字符串的条目。
+    """清洗 LLM 返回的 YAML/JSON 文本，过滤非法条目，并返回 JSON 字符串。
 
-    langextract ``resolver.py`` 在解析 LLM 输出时，若遇到 ``extraction_text`` 不是
-    ``str / int / float`` 类型（例如 YAML ``null``），会触发：
-      ``ERROR:absl:Extraction text must be a string, integer, or float.``
-    并抛出 ``ValueError``。通过此函数提前过滤无效条目，可完全消除该错误日志。
+    LLM 输出可能有两种格式：
 
-    若 YAML 解析失败，原样返回输入文本（best-effort）。
+    **格式 A**（按本模块 prompt 描述的格式）：
+      ``{"extraction_class": "intent", "extraction_text": "...", "attributes": {...}}``
+
+    **格式 B**（langextract 原生格式，由示例引导）：
+      ``{"intent": "...", "intent_attributes": {...}}``
+
+    两种格式均做如下清洗：
+    - 格式 A：``extraction_text`` 非 str/int/float 的条目（如 null、dict）→ 过滤掉；
+      ``attributes`` 字段重命名为 ``{extraction_class}_attributes``（符合 langextract 规范）
+    - 格式 B：非 ``_attributes`` 后缀键的值若为 dict/None → 过滤该条目（避免
+      ``ERROR:absl:Extraction text must be a string, integer, or float``）
+
+    返回 JSON 格式以匹配 langextract 默认 ``FormatType.JSON``。
+    解析失败时返回 ``"[]"`` 而非原始文本，防止含非法值的内容传入 langextract。
     """
     try:
         import yaml  # type: ignore[import]
-        items = yaml.safe_load(text)
+        # 先去除 LLM 可能输出的 markdown 代码围栏
+        content = _strip_code_fences(text)
+        if not content.strip():
+            return "[]"
+        items = yaml.safe_load(content)
         if not isinstance(items, list):
-            return text
+            return "[]"
         cleaned = []
         for item in items:
             if not isinstance(item, dict):
                 continue
-            et = item.get("extraction_text")
-            if not isinstance(et, (str, int, float)):
-                logger.debug(
-                    "[AdkLLMClientAdapter] 过滤 extraction_text 无效条目 "
-                    "(类型=%s): %r",
-                    type(et).__name__,
-                    item,
-                )
-                continue
-            if isinstance(et, str) and not et.strip():
-                logger.debug(
-                    "[AdkLLMClientAdapter] 过滤 extraction_text 为空字符串的条目: %r",
-                    item,
-                )
-                continue
-            cleaned.append(item)
+            # 格式 A：含 "extraction_class" 和 "extraction_text" 键
+            if "extraction_class" in item and "extraction_text" in item:
+                ec = item.get("extraction_class")
+                et = item.get("extraction_text")
+                attrs = item.get("attributes")
+                if not isinstance(ec, str) or not ec.strip():
+                    logger.debug(
+                        f"[AdkLLMClientAdapter] 过滤格式A条目（extraction_class无效）: {item!r}"
+                    )
+                    continue
+                if not isinstance(et, (str, int, float)):
+                    logger.debug(
+                        f"[AdkLLMClientAdapter] 过滤格式A条目"
+                        f"（extraction_text类型={type(et).__name__}）: {item!r}"
+                    )
+                    continue
+                if isinstance(et, str) and not et.strip():
+                    logger.debug(
+                        f"[AdkLLMClientAdapter] 过滤格式A条目（extraction_text为空）: {item!r}"
+                    )
+                    continue
+                # 转换为 langextract 原生格式 B
+                converted: Dict[str, Any] = {ec: et}
+                if isinstance(attrs, dict) and attrs:
+                    converted[f"{ec}_attributes"] = attrs
+                cleaned.append(converted)
+            else:
+                # 格式 B：以提取类名为键，提取文本为值
+                filtered: Dict[str, Any] = {}
+                has_valid = False
+                for k, v in item.items():
+                    if k.endswith("_attributes"):
+                        # 属性字段：值必须是 dict 或 None
+                        if isinstance(v, (dict, type(None))):
+                            filtered[k] = v
+                        else:
+                            logger.debug(
+                                f"[AdkLLMClientAdapter] 过滤格式B属性字段"
+                                f"（类型={type(v).__name__}）: key={k!r}"
+                            )
+                    else:
+                        # 提取文本字段：值必须是 str/int/float 且非空
+                        if isinstance(v, (str, int, float)) and (
+                            not isinstance(v, str) or v.strip()
+                        ):
+                            filtered[k] = v
+                            has_valid = True
+                        else:
+                            logger.debug(
+                                f"[AdkLLMClientAdapter] 过滤格式B条目"
+                                f"（值类型={type(v).__name__}）: key={k!r}"
+                            )
+                if has_valid:
+                    cleaned.append(filtered)
         if not cleaned:
             return "[]"
-        return yaml.dump(cleaned, allow_unicode=True, default_flow_style=False)
+        # 返回 JSON 格式，与 langextract 默认 FormatType.JSON 保持一致
+        return json.dumps(cleaned, ensure_ascii=False)
     except Exception:
-        return text
+        return "[]"
 
 
 class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
