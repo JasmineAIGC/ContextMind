@@ -142,6 +142,12 @@ def _sanitize_infer_yaml(text: str) -> str:
     返回包含 ``extractions`` 包装键的 JSON 字符串以匹配 langextract ``FormatType.JSON``
     要求（``format_handler`` 默认 ``use_wrapper=True, wrapper_key='extractions'``）。
     解析失败时返回空包装对象，防止含非法值的内容传入 langextract。
+
+    **格式 C**（LLM 跟随 langextract 内置示例输出，已含包装键）：
+      ``{"extractions": [{...}, ...]}``
+
+    格式 C 直接提取 ``extractions`` 字段进行清洗后再次包装，避免因
+    ``isinstance(parsed, list)`` 判断失败而错误地返回空结果。
     """
     _EMPTY = '{"extractions": []}'
     try:
@@ -150,8 +156,14 @@ def _sanitize_infer_yaml(text: str) -> str:
         content = _strip_code_fences(text)
         if not content.strip():
             return _EMPTY
-        items = yaml.safe_load(content)
-        if not isinstance(items, list):
+        parsed = yaml.safe_load(content)
+        # 格式 C：LLM 跟随 langextract 内置示例，已包含 "extractions" 包装键
+        if isinstance(parsed, dict) and "extractions" in parsed:
+            raw_items = parsed["extractions"]
+            items = raw_items if isinstance(raw_items, list) else []
+        elif isinstance(parsed, list):
+            items = parsed
+        else:
             return _EMPTY
         cleaned = []
         for item in items:
