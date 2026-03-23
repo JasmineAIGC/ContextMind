@@ -3,15 +3,19 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
 
 将任意对话数据集转换为 SGD 格式 schema.json，供 PyTOD 等执行算法使用。
 
+本模块是**独立模块**，不依赖 ``contextmind`` 内部其他子模块（如
+``contextmind.modes.pytod``）。知识提取依赖 ``langextract`` 库实现字符级溯源，
+每条提取结果均携带指向原始话语的 ``provenance`` 字段。
+
 整体框架两步走：
-    1. **建立知识库**（本模块）：针对任意数据集，通过 LLM 发现槽位和意图，
-       合成标准 SGD 格式 ``schema.json``。
+    1. **建立知识库**（本模块）：针对任意数据集，通过 LLM + langextract 发现
+       槽位和意图，为每条知识附加原文溯源，合成标准 SGD 格式 ``schema.json``。
     2. **执行**（如 :mod:`contextmind.modes.pytod`）：使用上述 ``schema.json``
        驱动 PyTOD 等对话算法。
 
 核心公开接口::
 
-    from contextmind.kb import KnowledgeBaseBuilder, ServiceSchema
+    from contextmind.kb import KnowledgeBaseBuilder
 
     # Phase 1：建立知识库
     builder = KnowledgeBaseBuilder(
@@ -21,7 +25,7 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
     schema_dict = builder.build(dialogues)       # 返回 SGD 格式 schema dict
     builder.save(schema_dict, "output/schema.json")
 
-    # Phase 1 → Phase 2 桥接：schema dict 转 ServiceSchema
+    # Phase 1 → Phase 2 桥接（需要 contextmind.modes 已安装）
     service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
 
     # 或从已有 schema.json 直接加载
@@ -51,9 +55,6 @@ from .normalizer import normalize_dialogue, normalize_dialogues
 from .synthesizer import SchemaSynthesizer
 from .discoverer import GenericDialogueDiscoverer, DiscoveryItem
 
-# 从 pytod schemas 重导出，方便在 KB 模块级别完成 Phase 1→2 的类型衔接
-from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-
 __all__ = [
     # Phase 1：知识库构建
     "KnowledgeBaseBuilder",
@@ -65,7 +66,4 @@ __all__ = [
     # 通用发现器（可单独使用）
     "GenericDialogueDiscoverer",
     "DiscoveryItem",
-    # Phase 1→2 桥接：schema 数据模型
-    "ServiceSchema",
-    "load_schema_from_dict",
 ]

@@ -5,7 +5,7 @@
 
 1. **发现阶段**（Discovery）：
    使用 :class:`~contextmind.kb.discoverer.GenericDialogueDiscoverer` 以开放式模式
-   扫描样本对话，自动发现所有出现过的槽位（slots）和意图（intents）。
+   扫描样本对话，通过 ``langextract`` 逐轮提取知识并为每条结果附加原文溯源。
    不依赖任何特定场景模块，可用于任意业务场景。
 
 2. **合成阶段**（Synthesis）：
@@ -14,6 +14,10 @@
 
 输出的 ``schema.json`` 格式与 ``data/anyihua_sgd/schema.json`` 完全兼容，
 可直接传入 :class:`~contextmind.modes.pytod.AdkPyTODTracker` 使用。
+
+**模块独立性**：本模块不依赖 ``contextmind.modes`` 或
+``contextmind.scenarios`` 等其他子模块，仅依赖 ``contextmind.infra``
+（基础设施）和 ``langextract``（知识溯源）。
 
 典型用法::
 
@@ -30,18 +34,9 @@
     schema_dict = builder.build(dialogues[:20])   # 用前 20 条做发现
     builder.save(schema_dict, Path("output/schema.json"))
 
-    # 用 to_service_schema() 直接获取可用于 PyTOD 的 ServiceSchema 对象
-    service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
-
-    # 也可以从已有 schema.json 加载
-    service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
-
-    # 也可以只传文本列表
-    text_dialogues = [
-        ["agent: 你好，请问是张先生吗？", "user: 是的"],
-        "坐席：您好\\n用户：你好",
-    ]
-    schema_dict = builder.build(text_dialogues)
+    # Phase 1 → Phase 2 桥接（在调用方完成，不在 kb 模块内）：
+    from contextmind.modes.pytod.schemas import ServiceSchema
+    service_schema = ServiceSchema.from_dict(schema_dict)
 """
 
 from __future__ import annotations
@@ -76,6 +71,9 @@ class KnowledgeBaseBuilder:
     discovery_sample:
         发现阶段最多使用的对话条数（默认 20）。
         数量越多、发现越全面，但 LLM 调用次数也越多。
+    context_window:
+        langextract 逐轮提取时的历史轮次窗口大小（默认 3）。
+        传入 ``additional_context`` 的历史轮次数；0 = 不传历史上下文。
 
     属性
     ----
@@ -91,10 +89,12 @@ class KnowledgeBaseBuilder:
         scene_description: str = "",
         llm_client: Optional[AdkLLMClient] = None,
         discovery_sample: int = 20,
+        context_window: int = 3,
     ) -> None:
         self.scene_name = scene_name
         self.scene_description = scene_description or scene_name
         self.discovery_sample = discovery_sample
+        self.context_window = context_window
 
         # 延迟初始化：避免在无 LLM 环境下导入时崩溃
         self._llm_client: Optional[AdkLLMClient] = llm_client
@@ -196,59 +196,6 @@ class KnowledgeBaseBuilder:
         )
         logger.info(f"[KnowledgeBaseBuilder] schema.json 已写入: {path}")
 
-    @staticmethod
-    def to_service_schema(schema_dict: Dict[str, Any]) -> "ServiceSchema":
-        """
-        将 :meth:`build` 返回的 schema dict 转换为
-        :class:`~contextmind.modes.pytod.ServiceSchema` 对象，
-        可直接传入 ``AdkPyTODTracker`` 等执行算法。
-
-        这是 **Phase 1 → Phase 2** 的桥接方法，实现从知识库构建到对话执行的无缝衔接。
-
-        参数
-        ----
-        schema_dict:
-            :meth:`build` 返回的单服务 schema dict，或从 ``schema.json`` 加载的 dict。
-
-        返回
-        ----
-        :class:`~contextmind.modes.pytod.ServiceSchema` 实例。
-
-        示例::
-
-            schema_dict = builder.build(dialogues)
-            service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
-            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
-        """
-        from contextmind.modes.pytod.schemas import ServiceSchema
-        return ServiceSchema.from_dict(schema_dict)
-
-    @classmethod
-    def load_schema(cls, path: Union[str, Path]) -> "ServiceSchema":
-        """
-        从已有的 ``schema.json`` 文件加载
-        :class:`~contextmind.modes.pytod.ServiceSchema` 对象。
-
-        参数
-        ----
-        path:
-            ``schema.json`` 文件路径。
-
-        返回
-        ----
-        :class:`~contextmind.modes.pytod.ServiceSchema` 实例。
-
-        示例::
-
-            # 加载上次构建的知识库，直接用于执行
-            service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
-            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
-        """
-        from contextmind.modes.pytod.schemas import load_schema_from_dict
-        path = Path(path)
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return load_schema_from_dict(data)
-
     # ------------------------------------------------------------------
     # 内部方法
     # ------------------------------------------------------------------
@@ -270,10 +217,10 @@ class KnowledgeBaseBuilder:
         normalized_dialogues: List[Dict[str, Any]],
     ) -> tuple[Counter, Counter, Dict[str, List[str]], Dict[str, List[str]]]:
         """
-        发现阶段：对每条对话运行开放式 LLM 提取，汇总槽位和意图。
+        发现阶段：对每条对话运行开放式 LLM + langextract 提取，汇总槽位和意图。
 
         使用 :class:`~contextmind.kb.discoverer.GenericDialogueDiscoverer`
-        直接从 LLM 提取，不依赖任何特定场景提取器。
+        逐轮提取，通过 langextract 附加溯源信息。
 
         返回
         ----
@@ -287,6 +234,7 @@ class KnowledgeBaseBuilder:
         discoverer = GenericDialogueDiscoverer(
             llm_client=self._get_llm(),
             scene_name=self.scene_name,
+            context_window=self.context_window,
         )
 
         slot_counter: Counter = Counter()
