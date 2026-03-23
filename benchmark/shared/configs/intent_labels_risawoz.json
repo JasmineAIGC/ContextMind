@@ -1,0 +1,52 @@
+{
+  "dataset": "RiSAWOZ",
+  "version": "1.0",
+  "description": "RiSAWOZ数据集的意图标签定义，包含13个领域",
+  "total_domains": 13,
+  "metadata": {
+    "other_intent_name": "General",
+    "other_intent_description": "通用意图，用于不属于其他特定意图类别的话语",
+    "other_intent_evaluation": "special_handling"
+  },
+  "domains": {
+    "医院": {
+      "intents": ["Bye", "General", "Inform", "No-offer", "Recommend", "Request"]
+    },
+    "天气": {
+      "intents": ["Bye", "General", "Greeting", "Inform", "Recommend", "Request"]
+    },
+    "旅游景点": {
+      "intents": ["General", "Greeting", "Inform", "No-offer", "Recommend", "Request"]
+    },
+    "汽车": {
+      "intents": ["General", "Inform", "Recommend", "Request"]
+    },
+    "火车": {
+      "intents": ["General", "Greeting", "Inform", "No-offer", "Recommend", "Request"]
+    },
+    "电影": {
+      "intents": ["Bye", "General", "Greeting", "Inform", "Recommend", "Request"]
+    },
+    "电脑": {
+      "intents": ["General", "Inform", "No-offer", "Recommend", "Request"]
+    },
+    "电视剧": {
+      "intents": ["Bye", "General", "Greeting", "Inform", "No-offer", "Recommend", "Request"]
+    },
+    "辅导班": {
+      "intents": ["Greeting", "Inform", "Recommend", "Request"]
+    },
+    "通用": {
+      "intents": ["Bye", "General", "Greeting", "Inform", "Recommend"]
+    },
+    "酒店": {
+      "intents": ["General", "Greeting", "Inform", "Recommend", "Request"]
+    },
+    "飞机": {
+      "intents": ["General", "Greeting", "Inform", "No-offer", "Recommend", "Request"]
+    },
+    "餐厅": {
+      "intents": ["General", "Greeting", "Inform", "Recommend", "Request"]
+    }
+  }
+}

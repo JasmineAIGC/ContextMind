@@ -1,36 +1,30 @@
 """
 日志工具
 
-Evolve v0.2.1 统一日志系统
+ContextMind 统一日志系统
 """
 
+import io
 import logging
+import sys
 from datetime import datetime
 from enum import Enum as PyEnum
 from pathlib import Path
 
 
 class LogLevel(PyEnum):
-    """Evolve 日志级别"""
-    INFO = "INFO"      # 信息模式：记录关键信息和流程
-    DEBUG = "DEBUG"    # 调试模式：记录所有详细日志
+    """Evolve 日志级别。"""
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
 
 
-class EvolveLogger:
-    """
-    Evolve v0.2.1 统一日志系统
+class Logger:
+    """ContextMind 统一日志系统，支持 INFO/DEBUG 两种模式及文件输出。"""
     
-    功能特性：
-    - 信息模式：记录关键信息、Pipeline 输入输出和重要事件
-    - 调试模式：记录所有内部细节和调试信息
-    
-    使用示例：
-        logger = EvolveLogger("MyModule", level=LogLevel.INFO)
-        logger.info("关键信息")
-        logger.debug("调试信息")
-    """
-    
-    # 类级别变量：追踪全局日志级别
+    # 类级别变量，所有 Logger 实例共享同一个权威日志级别，
+    # 确保 set_global_log_level() 能即时影响所有已创建的 logger。
     _global_level: LogLevel = LogLevel.INFO
     
     def __init__(self, name: str, level: LogLevel = LogLevel.INFO):
@@ -39,7 +33,7 @@ class EvolveLogger:
         
         Args:
             name: 模块名称
-            level: 日志级别 (INFO 或 DEBUG)
+            level: 日志级别 (DEBUG, INFO, WARNING 或 ERROR)
         """
         self.name = name
         self.level = level
@@ -50,24 +44,28 @@ class EvolveLogger:
         self.level = level
     
     def setLevel(self, level):
-        """
-        设置日志级别（兼容标准logging API）
-        
+        """设置日志级别（兼容标准 logging API）。
+
+        Bridges Python's integer-based ``logging`` levels to the internal
+        ``LogLevel`` enum, so third-party code that calls ``logger.setLevel(logging.DEBUG)``
+        still works correctly.
+
         Args:
-            level: 可以是LogLevel枚举或标准logging级别（如logging.INFO）
+            level: LogLevel 枚举或标准 logging 整数级别。
         """
-        # 如果是标准logging级别，转换为LogLevel
         if isinstance(level, int):
-            if level >= logging.INFO:
+            if level >= logging.ERROR:
+                self.level = LogLevel.ERROR
+            elif level >= logging.WARNING:
+                self.level = LogLevel.WARNING
+            elif level >= logging.INFO:
                 self.level = LogLevel.INFO
             else:
                 self.level = LogLevel.DEBUG
-            # 同时设置底层logger
             self._logger.setLevel(level)
         elif isinstance(level, LogLevel):
             self.set_level(level)
         else:
-            # 如果是字符串，尝试转换
             if hasattr(logging, str(level).upper()):
                 self.setLevel(getattr(logging, str(level).upper()))
             else:
@@ -75,37 +73,22 @@ class EvolveLogger:
     
     @classmethod
     def get_current_level(cls) -> LogLevel:
-        """
-        获取当前全局日志级别
-        
-        Returns:
-            LogLevel: 当前的全局日志级别
-        """
+        """返回当前全局日志级别。"""
         return cls._global_level
-    
+
     @classmethod
     def set_global_level(cls, level: LogLevel):
-        """
-        设置全局日志级别
-        
-        Args:
-            level: 要设置的日志级别
-        """
+        """设置全局日志级别。"""
         cls._global_level = level
     
     def info(self, message: str):
-        """
-        信息日志（在 INFO 和 DEBUG 模式下显示）
-        用于关键信息、Pipeline 事件、输入输出
-        """
+        """记录 INFO 级别日志。"""
         self._logger.info(f"[{self.name}] {message}")
-    
+
     def debug(self, message: str):
-        """
-        调试日志（仅在 DEBUG 模式下显示）
-        用于内部细节和调试信息
-        """
-        # 检查全局级别而非实例级别，确保DEBUG日志能被保存到文件
+        """记录 DEBUG 级别日志（仅在 DEBUG 模式下输出）。"""
+        # 同时检查全局级别和实例级别，允许单个 logger 独立提升为 DEBUG，
+        # 而不影响应用中其他 logger 的级别。
         if self._global_level == LogLevel.DEBUG or self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
     
@@ -133,12 +116,11 @@ class EvolveLogger:
         self._logger.warning(f"[{self.name}] {message}")
     
     def error(self, message: str, exc_info=None):
-        """
-        错误日志（在所有模式下显示）
-        
+        """记录 ERROR 级别日志。
+
         Args:
             message: 错误信息
-            exc_info: 是否包含异常堆栈信息（兼容标准logging）
+            exc_info: 是否附加异常堆栈（兼容标准 logging）
         """
         if exc_info:
             self._logger.error(f"[{self.name}] {message}", exc_info=exc_info)
@@ -151,64 +133,64 @@ _GLOBAL_LOG_LEVEL = LogLevel.INFO
 
 
 def set_global_log_level(level: LogLevel):
-    """
-    为所有 Evolve Logger 设置全局日志级别
-    
-    Args:
-        level: LogLevel.INFO 或 LogLevel.DEBUG
-    """
+    """为所有 ContextMind Logger 设置全局日志级别。"""
     global _GLOBAL_LOG_LEVEL
     _GLOBAL_LOG_LEVEL = level
-    # 同时更新类级别变量
-    EvolveLogger.set_global_level(level)
+    Logger.set_global_level(level)
 
 
 def get_global_log_level() -> LogLevel:
-    """获取当前全局日志级别"""
+    """返回当前全局日志级别。"""
     return _GLOBAL_LOG_LEVEL
 
 
-def get_logger(name: str, level: LogLevel = None) -> EvolveLogger:
-    """
-    获取 Evolve Logger 实例
-    
+def get_logger(name: str, level: LogLevel = None) -> "Logger":
+    """获取 Logger 实例。
+
     Args:
         name: Logger 名称（通常为模块名）
-        level: 日志级别（未指定时使用全局级别）
-        
+        level: 日志级别，未指定时使用全局级别
+
     Returns:
-        EvolveLogger 实例
+        Logger 实例
     """
     if level is None:
         level = _GLOBAL_LOG_LEVEL
-    return EvolveLogger(name, level)
+    return Logger(name, level)
 
 
 def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
-    """
-    设置 Evolve 日志配置
-    
+    """配置 ContextMind 日志系统。
+
     Args:
-        level: Evolve 日志级别（INFO 或 DEBUG）
-        python_log_level: Python 日志级别（默认基于 Evolve 级别）
-        save_to_file: 是否自动保存日志到文件（默认：True）
-        log_dir: 日志文件保存目录（默认："logs"）
+        level: 日志级别（DEBUG/INFO/WARNING/ERROR）
+        python_log_level: Python 日志级别（默认基于 level 自动推导）
+        save_to_file: 是否将日志保存到文件
+        log_dir: 日志文件目录
     """
-    # 设置全局 Evolve 日志级别
     set_global_log_level(level)
-    
-    # 将 Evolve 级别映射到 Python 日志级别
+
     if python_log_level is None:
         if level == LogLevel.DEBUG:
             python_log_level = logging.DEBUG
+        elif level == LogLevel.WARNING:
+            python_log_level = logging.WARNING
+        elif level == LogLevel.ERROR:
+            python_log_level = logging.ERROR
         else:
             python_log_level = logging.INFO
-    
-    # 配置处理器
+
     handlers = []
-    
-    # 控制台处理器
-    console_handler = logging.StreamHandler()
+
+    # 使用 UTF-8 编码的 stdout 流，确保中文等非 ASCII 字符在任何终端环境中都能正常显示，
+    # 而非以 \uXXXX 形式输出。
+    if hasattr(sys.stdout, 'buffer'):
+        utf8_stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True
+        )
+    else:
+        utf8_stdout = sys.stdout
+    console_handler = logging.StreamHandler(utf8_stdout)
     console_handler.setLevel(python_log_level)
     console_formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)s - %(message)s',
@@ -216,18 +198,14 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
     )
     console_handler.setFormatter(console_formatter)
     handlers.append(console_handler)
-    
-    # 文件处理器（如果启用）
+
     if save_to_file:
-        # 创建日志目录
         log_path = Path(log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
-        
-        # 生成日志文件名（包含时间戳）
-        log_filename = f"evolve_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+        log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         log_filepath = log_path / log_filename
-        
-        # 创建文件处理器
+
         file_handler = logging.FileHandler(log_filepath, encoding='utf-8')
         file_handler.setLevel(python_log_level)
         file_formatter = logging.Formatter(
@@ -236,18 +214,23 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
         )
         file_handler.setFormatter(file_formatter)
         handlers.append(file_handler)
-        
+
         print(f"📝 日志将自动保存到: {log_filepath}")
-    
-    # 配置 Python 日志
+
+    # force=True 确保即使根 logger 已被配置（如第三方库提前调用了 basicConfig），
+    # 本次配置仍会生效并覆盖之前的设置。
     logging.basicConfig(
         level=python_log_level,
         format='[%(asctime)s] %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         handlers=handlers,
-        force=True  # 覆盖任何现有配置
+        force=True
     )
 
 
 INFO = logging.INFO
 DEBUG = logging.DEBUG
+WARNING = logging.WARNING
+ERROR = logging.ERROR
+
+

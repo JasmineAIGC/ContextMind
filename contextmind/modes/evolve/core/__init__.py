@@ -2,14 +2,18 @@
 
 from ..engine import EvolveEngine
 from .registry import PluginRegistry, registry
-from .framework_config import ContextMind as ContextMindConfig
 
-# Import from new modular structure
-from .types import (
+from .config import (
     KnowledgeType,
     MemoryType,
     MessageRole,
     ContextSource,
+    ExtractionConfig,
+    RetrievalConfig,
+    SummarizationConfig,
+    CompressionConfig,
+    MemorySystemConfig,
+    DEFAULT_MEMORY_CONFIG,
 )
 
 from .data_models import (
@@ -26,17 +30,8 @@ from .data_models import (
     MemoryNote,
 )
 
-from .configs import (
-    ExtractionConfig,
-    RetrievalConfig,
-    SummarizationConfig,
-    CompressionConfig,
-    MemorySystemConfig,
-    DEFAULT_MEMORY_CONFIG,
-)
-
 from contextmind.infra.logger import (
-    EvolveLogger,
+    Logger,
     LogLevel,
     get_logger,
     setup_logging,
@@ -59,8 +54,7 @@ __all__ = [
     "EvolveEngine",
     "PluginRegistry",
     "registry",
-    "ContextMindConfig",
-    # Types
+    # 类型枚举
     "KnowledgeType",
     "MemoryType",
     "MessageRole",
@@ -77,15 +71,15 @@ __all__ = [
     "ScoreInfo",
     "VersionRecord",
     "MemoryNote",
-    # Configs
+    # 配置数据类
     "ExtractionConfig",
     "RetrievalConfig",
     "SummarizationConfig",
     "CompressionConfig",
     "MemorySystemConfig",
     "DEFAULT_MEMORY_CONFIG",
-    # Logger
-    "EvolveLogger",
+    # 日志工具
+    "Logger",
     "LogLevel",
     "get_logger",
     "setup_logging",
@@ -93,7 +87,7 @@ __all__ = [
     "get_global_log_level",
     "INFO",
     "DEBUG",
-    # Strategies
+    # 策略基类
     "ExtractionStrategy",
     "RetrievalStrategy",
     "IntegrationStrategy",
@@ -101,4 +95,3 @@ __all__ = [
     "CompressionStrategy",
     "RerankingStrategy",
 ]
-

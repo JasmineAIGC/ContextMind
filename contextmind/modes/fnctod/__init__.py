@@ -1,64 +1,59 @@
 """
-FnCTOD Module - Function Calling for Task-Oriented Dialogue
+FnCTOD — ADK 原生函数调用对话状态追踪模块
 
-基于论文 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"
-将 DST 升级为基于函数调用的方法。
+基于 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"
+论文思想，利用 Google ADK 原生 Function Calling 实现结构化槽位提取。
 
-核心特性：
-1. 将每个domain视为一个function
-2. DST转化为"调用函数填槽位参数"
-3. 支持两阶段分解：domain选择 → parameter填充
-4. 输出格式：<function_call> + 自然语言回复
-5. 支持 zero-shot 和 fine-tuning
-6. 工厂方法 - from_scenario() 简化创建流程
+核心组件：
+- FnCTODTracker: ADK 原生追踪器（主类）
+- FunctionManager: domain 函数管理器
+- DomainSpec / FunctionParameter: 数据模型
+- schemas.yaml: 预定义场景 schema（chat / callcenter / insurance / anyihua）
 
-与 DST 的区别：
-- DST: 传统的槽位-值提取
-- FnCTOD: 函数调用范式，更结构化，更易于扩展
+使用示例::
 
-使用示例：
-    # 方式1: 使用工厂方法（推荐）
-    from contextmind.modes.fnctod import FnCTODTracker
-    tracker = FnCTODTracker.from_scenario(llm_client, scenario_config)
-    
-    # 方式2: 手动创建
-    from contextmind.modes.fnctod import FnCTODTracker, FunctionManager, get_function_schema_for_scenario
-    function_manager = FunctionManager()
-    schema = get_function_schema_for_scenario("chat")
-    function_manager.add_domain(schema)
-    tracker = FnCTODTracker(llm_client=llm_client, function_manager=function_manager)
+    from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
+    from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
 
-版本: v0.2.1
+    fm = FunctionManager()
+    fm.add_domain(get_function_schema_for_scenario("callcenter"))
+    tracker = FnCTODTracker(function_manager=fm)
+    updates = await tracker.process_turn("我的订单什么时候到？")
+    print(tracker.get_current_state())
 """
 
-# 数据模型
-from .data_models import FunctionCall, DomainSpec, FunctionParameter
-
-# 核心组件
-from .function_manager import FunctionManager
-from .response_parser import FnCTODResponseParser
-from .fnctod_tracker import FnCTODTracker
-
-# 预定义Schema
+from .function_manager import (
+    FunctionCall,
+    DomainSpec,
+    FunctionParameter,
+    ParameterType,
+    FunctionManager,
+)
+from .tracker import FnCTODTracker, adk_tools_from_function_manager
 from .schemas import (
     get_chat_function_schema,
     get_callcenter_function_schema,
     get_insurance_function_schema,
+    get_anyihua_function_schema,
     get_function_schema_for_scenario,
 )
 
 __all__ = [
-    'FnCTODTracker',
-    'FunctionManager',
-    'FnCTODResponseParser',
-    'FunctionCall',
-    'DomainSpec',
-    'FunctionParameter',
-    # Schema functions
-    'get_chat_function_schema',
-    'get_callcenter_function_schema',
-    'get_insurance_function_schema',
-    'get_function_schema_for_scenario',
+    # 主追踪器
+    "FnCTODTracker",
+    # 工具转换
+    "adk_tools_from_function_manager",
+    # 数据模型 & 管理器
+    "FunctionManager",
+    "DomainSpec",
+    "FunctionParameter",
+    "FunctionCall",
+    "ParameterType",
+    # Schema 加载函数
+    "get_chat_function_schema",
+    "get_callcenter_function_schema",
+    "get_insurance_function_schema",
+    "get_anyihua_function_schema",
+    "get_function_schema_for_scenario",
 ]
 
-__version__ = '0.2.1'

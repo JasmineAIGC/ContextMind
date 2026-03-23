@@ -1,0 +1,104 @@
+# 更新日志
+
+所有显著变更都将记录在此文件中。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
+版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+
+## [未发布]
+
+### 新增
+- **SlotBasedEvaluator**: 新增 `SlotBasedEvaluator` 基类和 `SlotMetrics` 数据类（`benchmark/algorithms/base.py`），
+  消除 `DSTEvaluator` 与 `FnCTODEvaluator` 之间完全重复的槽位指标计算逻辑（~260 行）
+- **PyTOD 模式文档**: `docs/modes.md`、`docs/quick-start.md` 补充 PyTOD 为第四种对话模式
+
+### 变更
+- **DSTEvaluator / FnCTODEvaluator**: 重构为继承 `SlotBasedEvaluator`，保持向后兼容接口
+- **docs/README.md**: 修正仓库 URL（Jasmine66Bloom → JasmineAIGC）；补充 `analysis/` 文档子目录
+- **docs/quick-start.md**: 修正仓库 URL；添加 PyTOD 示例命令
+
+### 修复
+- 移除 `infra/llm_client.py` `_estimate_tokens()` 内重复的 `import re`（顶层已有）
+- 将 `evolution/updater.py`、`memory/retriever.py`、`scenarios/chat/app.py`、
+  `modes/fnctod/tracker.py` 中的内联 `import` 移到模块顶层
+
+### 安全
+- 通过 CodeQL 安全扫描，0 个安全问题
+
+---
+
+## [0.2.1] - 2026-02-10
+
+### 新增
+- **FnCTOD 模式**: 新增基于函数调用的对话状态跟踪模式
+- **TransferTOD 集成**: 支持从 TransferTOD 数据集提取 30 个域的预定义函数
+- **Schema 管理**: 为三个场景（闲聊、客服、保险）提供预定义 Schema
+- **评测工具**: 新增 extract_transfertod_schemas.py 工具
+- **使用文档**: 新增 HOW_TO_USE_SCHEMAS.md 指南
+
+### 变更
+- **场景扩展方式**: 从代码注册改为配置文件驱动（scenarios.yaml）
+- **文档结构**: 重组文档目录，添加多个子目录
+- **配置灵活性**: 支持从 JSON 文件加载预定义 Schema
+
+### 修复
+- 修复 IntentEvaluator 调用错误（ground_truth_intent 参数）
+- 修复槽位值类型不一致导致的评测问题
+- 修复 DialogueTurn 中 belief_state 属性名错误
+- 修复字典类型槽位值无法加入集合的问题
+- 修复域前缀不匹配导致的槽位查找失败
+- 修复 Matplotlib 调试日志过多的问题
+
+### 安全
+- 通过 CodeQL 安全扫描，0 个安全问题
+
+---
+
+## [0.2.0] - 2026-02-05
+
+### 新增
+- **DST 模式**: 对话状态跟踪模式
+- **Evolve 模式**: 基于记忆进化的智能对话系统
+- **场景系统**: 支持闲聊、客服、保险三种预定义场景
+- **历史管理**: 支持历史摘要（模板和 LLM 两种方式）
+- **记忆系统**: 长期记忆存储和检索
+- **进化学习**: 从对话中持续学习和优化
+
+### 变更
+- 项目架构重构为模块化设计
+- 统一的场景配置系统
+- 改进的日志系统
+
+---
+
+## [0.1.0] - 2026-01-15
+
+### 新增
+- 项目初始版本
+- 基础对话管理功能
+- LLM 客户端封装
+- 简单的提示词管理
+
+---
+
+## 版本说明
+
+### 版本号规则
+
+采用语义化版本 `MAJOR.MINOR.PATCH`：
+- **MAJOR**: 不兼容的 API 变更
+- **MINOR**: 向下兼容的功能新增
+- **PATCH**: 向下兼容的问题修复
+
+### 变更类型
+
+- **新增** (Added): 新功能
+- **变更** (Changed): 现有功能的变更
+- **废弃** (Deprecated): 即将移除的功能
+- **移除** (Removed): 已移除的功能
+- **修复** (Fixed): Bug 修复
+- **安全** (Security): 安全相关的修复
+
+---
+
+**最后更新**: 2026-02-10

@@ -21,13 +21,16 @@ if str(project_root) not in sys.path:
 
 import argparse
 import asyncio
+import re
+import time
 from typing import List, Tuple, Optional
 from datetime import datetime
 
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
+from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_outbound_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -51,6 +54,7 @@ class UnifiedGradioDemo:
         self.llm_client = None
         self.tracker = None  # For DST mode
         self.fnctod_tracker = None  # For FnCTOD mode
+        self.pytod_tracker = None  # For PyTOD mode
         self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
@@ -71,16 +75,20 @@ class UnifiedGradioDemo:
             self.config = get_callcenter_scenario()
         elif scenario == "insurance":
             self.config = get_insurance_scenario()
+        elif scenario == "anyihua":
+            self.config = get_anyihua_outbound_scenario()
         else:
             raise ValueError(f"未知场景: {scenario}")
         
         # 根据模式初始化
         if mode == "dst":
-            self._init_dst_mode()
+            self._setup_dst_tracker()
         elif mode == "fnctod":
-            self._init_fnctod_mode()
+            self._setup_fnctod_tracker()
+        elif mode == "pytod":
+            self._setup_pytod_tracker()
         else:
-            self._init_evolve_mode()
+            self._setup_evolve_app()
         
         logger.info(f"✅ 场景初始化完成: {scenario}, 模式: {mode}")
     
@@ -88,11 +96,11 @@ class UnifiedGradioDemo:
         """获取欢迎消息"""
         return self.config.welcome_message if self.config.welcome_message else "你好！"
     
-    def _init_dst_mode(self):
+    def _setup_dst_tracker(self):
         """初始化DST模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = AdkLLMClient()
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
@@ -119,41 +127,25 @@ class UnifiedGradioDemo:
         
         logger.info("DST模式初始化完成")
     
-    def _init_fnctod_mode(self):
+    def _setup_fnctod_tracker(self):
         """初始化FnCTOD模式"""
-        try:
-            if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
-                logger.info("✅ LLM客户端初始化成功")
-        except Exception as e:
-            error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
-            if "API" in str(e).upper() or "KEY" in str(e).upper():
-                error_msg += "📝 请检查以下配置：\n"
-                error_msg += "1. 确认.env文件存在\n"
-                error_msg += "2. 配置以下环境变量之一：\n"
-                error_msg += "   - QWEN3_API_KEY\n"
-                error_msg += "   - CONTEXTMIND_API_KEY\n"
-                error_msg += "   - LLM_API_KEY\n"
-                error_msg += "   - OPENAI_API_KEY\n"
-                error_msg += "3. 重启程序\n"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
-        
-        # 使用工厂方法创建FnCTOD追踪器
-        self.fnctod_tracker = FnCTODTracker.from_scenario(
-            llm_client=self.llm_client,
-            scenario_config=self.config,
-            use_two_stage=True,
-            max_history_turns=self.max_history_turns
-        )
-        
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        self.fnctod_tracker = FnCTODTracker.from_scenario(self.llm_client, self.config)
         logger.info("FnCTOD模式初始化完成")
-    
-    def _init_evolve_mode(self):
+
+    def _setup_pytod_tracker(self):
+        """初始化PyTOD模式（三步流程：AP → EE → DM）"""
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config)
+        logger.info("PyTOD模式初始化完成 (三步流程: AP→EE→DM)")
+
+    def _setup_evolve_app(self):
         """初始化Evolve模式"""
         try:
             if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = AdkLLMClient()
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             error_msg = f"❌ LLM客户端初始化失败: {str(e)}\n\n"
@@ -175,8 +167,6 @@ class UnifiedGradioDemo:
     
     async def chat(self, message: str, history: List) -> List:
         """处理对话"""
-        import time
-        
         try:
             # 首次使用时初始化
             if not self.initialized:
@@ -220,42 +210,42 @@ class UnifiedGradioDemo:
                 
                 # 移除耗时标记，避免影响DST提取和历史累积
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
-                import re
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
-                
-                # 步骤1: 槽位提取（包含DST内部的多个步骤）
+
+                # 步骤1: 槽位提取（process_turn）
+                # 步骤2: 回复生成（包含历史上下文，与槽位提取并行执行节省延迟）
+                # 注意：回复生成使用对话历史而非槽位提取结果，因此可并行
+                system_prompt = self.config.system_prompt
+
+                # 构建包含历史的回复消息列表（修复：之前版本缺失历史上下文）
+                reply_messages: list = [{"role": "system", "content": system_prompt}]
+                timing_tag_re = re.compile(r'\n\n<small style=.*?</small>', re.DOTALL)
+                for hist_msg in history[-self.max_history_turns * 2:]:
+                    role = hist_msg.get("role", "user")
+                    content = hist_msg.get("content", "")
+                    if isinstance(content, str):
+                        content = timing_tag_re.sub("", content)
+                    reply_messages.append({"role": role, "content": content})
+                reply_messages.append({"role": "user", "content": message})
+
                 step_start = time.time()
-                state = await self.tracker.process_turn(
-                    system_utterance=system_utterance,
-                    user_utterance=message
+                state, reply = await asyncio.gather(
+                    self.tracker.process_turn(
+                        system_utterance=system_utterance,
+                        user_utterance=message
+                    ),
+                    self.llm_client.chat_async(messages=reply_messages)
                 )
-                timing_breakdown['槽位提取'] = time.time() - step_start
-                
+                timing_breakdown['槽位提取+回复生成(并行)'] = time.time() - step_start
+
                 # 收集DST内部的详细步骤耗时
                 if hasattr(self.tracker, 'step_timings'):
                     timing_breakdown.update(self.tracker.step_timings)
-                    # 移除重复的'槽位提取'（使用DST内部的详细步骤）
-                    if '槽位提取' in timing_breakdown and len(self.tracker.step_timings) > 0:
-                        del timing_breakdown['槽位提取']
-                
-                # 步骤2: 状态捕获（在回复生成之前）
-                # DST模式：状态已在process_turn中提取，现在捕获用于UI显示
-                # 此时状态将用于指导接下来的回复生成
+
+                # 步骤2: 状态捕获（槽位提取已通过 gather 完成）
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
-                
-                # 步骤3: 回复生成
-                step_start = time.time()
-                system_prompt = self.config.system_prompt
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": message}
-                ]
-                
-                # chat_async returns a string directly, not a dict
-                reply = await self.llm_client.chat_async(messages=messages)
-                timing_breakdown['回复生成'] = time.time() - step_start
                 
             elif self.current_mode == "fnctod":
                 # FnCTOD模式
@@ -266,20 +256,36 @@ class UnifiedGradioDemo:
                 )
                 reply = result.get("response", "")
                 timing_breakdown['函数调用处理'] = time.time() - step_start
-                
+
                 # 收集FnCTOD内部的详细步骤耗时
                 if hasattr(self.fnctod_tracker, 'step_timings'):
                     timing_breakdown.update(self.fnctod_tracker.step_timings)
                     if '函数调用处理' in timing_breakdown and len(self.fnctod_tracker.step_timings) > 0:
                         del timing_breakdown['函数调用处理']
-                
+
                 # 状态捕获
-                # FnCTOD模式：process_turn内部已完成状态提取和回复生成
-                # 这里捕获的是内部用于生成回复的"回复前状态"
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
-                
+
+            elif self.current_mode == "pytod":
+                # PyTOD模式（论文三步流程：动作解析器 → 执行引擎 → 对话管理器）
+                step_start = time.time()
+                result = await self.pytod_tracker.process_turn(user_utterance=message)
+                reply = result.get("response", "")
+                timing_breakdown['PyTOD总计'] = time.time() - step_start
+
+                # 收集 PyTODTracker 内部各步骤（AP/EE/DM）耗时
+                if hasattr(self.pytod_tracker, 'step_timings') and self.pytod_tracker.step_timings:
+                    timing_breakdown.update(self.pytod_tracker.step_timings)
+                    if 'PyTOD总计' in timing_breakdown and len(self.pytod_tracker.step_timings) > 0:
+                        del timing_breakdown['PyTOD总计']
+
+                # 状态捕获
+                step_start = time.time()
+                self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
+
             else:
                 # Evolve模式
                 step_start = time.time()
@@ -394,49 +400,35 @@ class UnifiedGradioDemo:
         - 累积状态会随着对话进行不断更新，反映整个对话的完整信息
         """
         if self.current_mode == "dst" and self.tracker:
-            # DST模式：显示详细的对话状态信息（纯文本，无表情符号）
+            # DST模式：显示对话状态追踪信息
             state_info = {
                 "模式": "DST (对话状态追踪)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": len(self.tracker.dialogue_history),
             }
-            
-            # 显示本轮对话提取的槽位（如果有的话）
+
+            # 本轮新提取/更新的槽位（嵌套字典，清晰展示）
             if self.tracker.dialogue_history:
                 last_turn = self.tracker.dialogue_history[-1]
                 if last_turn.turn_updates:
-                    state_info["本轮提取"] = "以下是本轮新提取/更新的槽位"
-                    for slot_name, slot_value in last_turn.turn_updates.items():
-                        state_info[f"  {slot_name}"] = slot_value
-                    state_info["  本轮提取数"] = len(last_turn.turn_updates)
+                    state_info["本轮新提取"] = {
+                        k: str(v) for k, v in last_turn.turn_updates.items()
+                    }
                 else:
-                    state_info["本轮提取"] = "本轮未提取到新槽位"
-            
-            # 分隔线
-            if self.tracker.current_state:
-                state_info["---"] = "---"
-            
-            # 显示累积的所有槽位信息（精简版，只显示非空槽位）
-            if self.tracker.current_state:
-                # 过滤掉空值槽位，只显示有意义的信息
-                non_empty_slots = {k: v for k, v in self.tracker.current_state.items() 
-                                  if v and str(v).strip()}
-                
-                if non_empty_slots:
-                    state_info["累积状态"] = f"已提取 {len(non_empty_slots)} 个槽位"
-                    # 简化显示，只显示槽位名和值，不显示额外的缩进和计数
-                    for slot_name, slot_value in non_empty_slots.items():
-                        # 限制值的长度，避免显示过长
-                        display_value = str(slot_value)
-                        if len(display_value) > 50:
-                            display_value = display_value[:47] + "..."
-                        state_info[f"{slot_name}"] = display_value
-                else:
-                    state_info["累积状态"] = "暂无槽位信息"
+                    state_info["本轮新提取"] = "（本轮无新提取）"
             else:
-                state_info["累积状态"] = "暂无槽位信息"
-            
+                state_info["本轮新提取"] = "（暂无对话记录）"
+
+            # 累积状态：过滤空值后以嵌套字典展示
+            non_empty_slots = {
+                k: (str(v)[:50] + "..." if len(str(v)) > 50 else str(v))
+                for k, v in self.tracker.current_state.items()
+                if v and str(v).strip()
+            }
+            state_info["累积状态"] = non_empty_slots if non_empty_slots else "（暂无）"
+
             return state_info
+
         elif self.current_mode == "fnctod" and self.fnctod_tracker:
             # FnCTOD模式：显示函数调用状态
             state_info = {
@@ -444,93 +436,139 @@ class UnifiedGradioDemo:
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.fnctod_tracker.turn_count,
             }
-            
-            # 显示最近的函数调用
-            if self.fnctod_tracker.dialogue_history:
-                last_turn = self.fnctod_tracker.dialogue_history[-1]
-                if last_turn.function_call:
-                    fc = last_turn.function_call
-                    state_info["本轮函数调用"] = fc.function_name
-                    if fc.arguments:
-                        for param, value in fc.arguments.items():
-                            state_info[f"  {param}"] = value
-                else:
-                    state_info["本轮函数调用"] = "未调用函数"
-            
-            # 分隔线
-            if self.fnctod_tracker.current_state:
-                state_info["---"] = "---"
-            
-            # 显示累积状态
-            if self.fnctod_tracker.current_state:
-                non_empty_slots = {k: v for k, v in self.fnctod_tracker.current_state.items()
-                                  if v and str(v).strip()}
-                
-                if non_empty_slots:
-                    state_info["累积状态"] = f"已提取 {len(non_empty_slots)} 个参数"
-                    for slot_name, slot_value in non_empty_slots.items():
-                        display_value = str(slot_value)
-                        if len(display_value) > 50:
-                            display_value = display_value[:47] + "..."
-                        state_info[f"{slot_name}"] = display_value
-                else:
-                    state_info["累积状态"] = "暂无参数信息"
+
+            # 最近对话（_dialogue_history 存储 {role, content} 字典列表）
+            history = self.fnctod_tracker._dialogue_history
+            if history:
+                last_assistant = next(
+                    (m["content"] for m in reversed(history) if m.get("role") == "assistant"),
+                    None,
+                )
+                state_info["最近回复"] = (
+                    (last_assistant[:80] + "...") if last_assistant and len(last_assistant) > 80
+                    else (last_assistant or "（暂无回复）")
+                )
             else:
-                state_info["累积状态"] = "暂无参数信息"
-            
+                state_info["最近回复"] = "（暂无对话记录）"
+
+            # 累积状态（嵌套字典）
+            non_empty_slots = {
+                k: (str(v)[:50] + "..." if len(str(v)) > 50 else str(v))
+                for k, v in self.fnctod_tracker.get_current_state().items()
+                if v and str(v).strip()
+            }
+            state_info["累积状态"] = non_empty_slots if non_empty_slots else "（暂无）"
+
             return state_info
+
+        elif self.current_mode == "pytod" and self.pytod_tracker:
+            # PyTOD模式（AP→EE→DM 三步流程）：重点展示 AP 程序和 EE 执行结果
+            state_info = {
+                "模式": "PyTOD (AP→EE→DM 三步流程)",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "对话轮数": self.pytod_tracker.turn_count,
+            }
+
+            # Step 1: AP 生成程序（最具可解释性的中间表示）
+            last_prog = self.pytod_tracker.last_program_text
+            if last_prog:
+                state_info["[AP] 本轮生成程序"] = last_prog
+
+            # Step 2: EE 执行结果
+            ee_result = self.pytod_tracker.last_execution_result
+            if ee_result is not None:
+                if not ee_result.success:
+                    errors = getattr(ee_result, "errors", [])
+                    state_info["[EE] 执行状态"] = "失败：" + ("; ".join(str(e) for e in errors) if errors else "未知错误")
+                else:
+                    ee_display: dict = {}
+                    # say() 输出
+                    say_out = getattr(ee_result, "say_output", "")
+                    if say_out:
+                        ee_display["say 输出"] = say_out[:120] + "..." if len(say_out) > 120 else say_out
+                    # Hint 提示
+                    hints = getattr(ee_result, "hint_messages", [])
+                    if hints:
+                        ee_display["Hint 提示"] = hints
+                    # API 调用结果
+                    var_values = getattr(ee_result, "variable_values", {})
+                    api_vars = {k: v for k, v in var_values.items() if not k.startswith("_anon")}
+                    if api_vars:
+                        import json as _json
+                        formatted = {}
+                        for k, v in api_vars.items():
+                            try:
+                                sv = _json.dumps(v, ensure_ascii=False)
+                            except (TypeError, ValueError):
+                                sv = str(v)
+                            formatted[k] = sv[:80] + "..." if len(sv) > 80 else sv
+                        ee_display["API 调用结果"] = formatted
+                    if not ee_display:
+                        ee_display["执行状态"] = "成功（无返回数据）"
+                    state_info["[EE] 执行结果"] = ee_display
+            elif self.pytod_tracker.turn_count == 0:
+                state_info["执行状态"] = "等待用户输入…"
+
+            # 多轮累积 API 状态（跨轮次变量值）
+            cumulative = {
+                k: v for k, v in self.pytod_tracker.current_state.items()
+                if not k.startswith("_anon")
+            }
+            if cumulative:
+                import json as _json
+                state_info["[累积状态] 历史API结果"] = {
+                    k: (_json.dumps(v, ensure_ascii=False)[:80] + "..."
+                        if len(_json.dumps(v, ensure_ascii=False)) > 80
+                        else _json.dumps(v, ensure_ascii=False))
+                    for k, v in cumulative.items()
+                }
+
+            return state_info
+
         elif self.current_mode == "evolve" and self.app:
-            # Evolve模式：显示引擎状态和记忆库信息（纯文本，无表情符号）
+            # Evolve模式：显示记忆库和会话信息
             engine = self.app.evolve_engine
             state_info = {
                 "模式": "Evolve (基于记忆进化)",
                 "场景": self._get_scenario_name(self.current_scenario),
-                "记忆功能": "已启用",
-                "进化学习": "已启用",
-                "应用ID": engine.app_name if hasattr(engine, 'app_name') else "N/A",
-                "用户ID": engine.user_id if hasattr(engine, 'user_id') else "N/A",
+                "应用ID": getattr(engine, 'app_name', 'N/A'),
+                "用户ID": getattr(engine, 'user_id', 'N/A'),
             }
-            
-            # 显示记忆库详细信息
+
+            # 记忆库
             if hasattr(engine, 'memory_bank'):
                 memory_cache = engine.memory_bank.get_memory_cache()
                 total_memories = len(memory_cache)
                 state_info["记忆总数"] = total_memories
-                
-                # 显示本轮对话后的记忆库内容
+
                 if memory_cache:
-                    state_info["---"] = "---"
-                    state_info["记忆库内容"] = "以下是记忆库中的所有记忆"
-                    
-                    # 显示最近的记忆（最多10条，完整显示）
-                    recent_count = min(10, total_memories)
-                    recent_memories = memory_cache[-recent_count:] if total_memories > 0 else []
-                    
-                    for i, mem in enumerate(recent_memories, 1):
-                        # ContextItem has a 'content' attribute
-                        content = mem.content if hasattr(mem, 'content') else str(mem)
-                        
-                        # 尝试获取记忆类型
-                        mem_type = getattr(mem, 'type', 'unknown')
-                        
-                        # 格式化显示记忆内容（限制长度以保持可读性）
-                        if len(str(content)) > 100:
-                            display_content = str(content)[:100] + '...'
-                        else:
-                            display_content = str(content)
-                        
-                        # 显示记忆编号、类型和内容
-                        state_info[f"  记忆{i} [{mem_type}]"] = display_content
-                    
-                    # 如果记忆超过10条，显示省略提示
+                    recent = memory_cache[-10:]
+                    memories_display = []
+                    for mem in recent:
+                        content = str(mem.content if hasattr(mem, 'content') else mem)
+                        mem_type = str(getattr(mem, 'type', 'unknown'))
+                        if len(content) > 100:
+                            content = content[:97] + '...'
+                        memories_display.append(f"[{mem_type}] {content}")
+                    state_info["记忆列表"] = memories_display
                     if total_memories > 10:
-                        state_info["  提示"] = f"共{total_memories}条记忆，仅显示最近10条"
-            
-            # 显示会话信息
+                        state_info["提示"] = f"共 {total_memories} 条记忆，仅显示最近 10 条"
+                else:
+                    state_info["记忆列表"] = []
+
+            # 会话信息（_session_id 为私有属性，安全访问）
             if hasattr(engine, 'session_manager'):
-                state_info["----"] = "----"
-                state_info["会话ID"] = getattr(engine.session_manager, 'session_id', 'N/A')
-            
+                sm = engine.session_manager
+                session_id = getattr(sm, '_session_id', None)
+                if not isinstance(session_id, str) or not session_id:
+                    session_id = 'N/A'
+                session_msgs = len(getattr(sm, '_messages', []))
+                display_id = (session_id[:8] + "...") if session_id != 'N/A' and len(session_id) > 8 else session_id
+                state_info["会话信息"] = {
+                    "会话ID": display_id,
+                    "已缓存消息数": session_msgs,
+                }
+
             return state_info
         else:
             return {"状态": "未初始化", "提示": "请先应用场景配置"}
@@ -560,7 +598,8 @@ class UnifiedGradioDemo:
         scenario_names = {
             "chat": "💬 闲聊对话",
             "callcenter": "📞 智能客服",
-            "insurance": "🏥 保险咨询"
+            "insurance": "🏥 保险咨询",
+            "anyihua": "📱 安逸花外呼",
         }
         return scenario_names.get(scenario, scenario)
     
@@ -569,10 +608,14 @@ class UnifiedGradioDemo:
         if self.current_mode == "dst" and self.tracker:
             self.tracker.current_state = {}
             self.tracker.dialogue_history = []
+        elif self.current_mode == "fnctod" and self.fnctod_tracker:
+            self.fnctod_tracker.reset()
+        elif self.current_mode == "pytod" and self.pytod_tracker:
+            self.pytod_tracker.reset()
         elif self.current_mode == "evolve" and self.app:
             # 重新初始化app
             self.initialize_scenario(self.current_scenario, self.current_mode)
-        
+
         logger.info("对话已重置")
         return []
     

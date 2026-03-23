@@ -17,6 +17,152 @@ FnCTOD支持两种模式：
 - **两阶段模式**：先选择Domain，再进行函数调用
 - **单阶段模式**：直接进行函数调用（适合单domain场景）
 
+## ⚠️ 重要：函数预定义要求
+
+### FnCTOD 是否需要预定义函数（域-槽位信息）？
+
+**答案：是的，必须预定义。**
+
+FnCTOD模式要求在使用前预定义好以下信息：
+
+1. **Domain（领域）定义**：每个领域作为一个函数
+2. **Slot（槽位）定义**：每个槽位作为函数的参数
+3. **参数类型和约束**：类型、是否必需、可选值等
+
+这是因为：
+- LLM需要知道可以调用哪些函数
+- LLM需要知道每个函数接受什么参数
+- 系统需要验证LLM生成的函数调用是否合法
+
+### 三种预定义方式
+
+#### 1. 使用内置预定义Schema（最简单）
+
+系统内置了三个场景的Schema：
+
+```python
+from contextmind.modes.fnctod import (
+    get_chat_function_schema,          # 闲聊场景
+    get_callcenter_function_schema,    # 客服场景
+    get_insurance_function_schema      # 保险场景
+)
+
+# 直接使用内置Schema
+chat_schema = get_chat_function_schema()
+print(f"Domain: {chat_schema.name}")
+print(f"参数数量: {len(chat_schema.parameters)}")
+```
+
+#### 2. 动态创建Schema（灵活）
+
+从现有的槽位定义动态创建：
+
+```python
+from contextmind.modes.fnctod import FunctionManager, DomainSpec, FunctionParameter, ParameterType
+
+# 方式A: 使用 add_domain_from_slots 方法
+function_manager = FunctionManager()
+function_manager.add_domain_from_slots(
+    domain_name="酒店",
+    domain_description="酒店预订场景",
+    slots={
+        "hotel_name": "酒店名称",
+        "check_in_date": "入住日期",
+        "check_out_date": "退房日期",
+        "room_type": "房间类型",
+        "guest_count": "入住人数"
+    },
+    categorical_slots={
+        "room_type": ["单人间", "双人间", "套房", "豪华套房"]
+    },
+    required_slots=["hotel_name", "check_in_date"]
+)
+
+# 方式B: 手动构建 DomainSpec
+hotel_schema = DomainSpec(
+    name="酒店",
+    description="酒店预订场景"
+)
+
+hotel_schema.add_parameter(FunctionParameter(
+    name="hotel_name",
+    description="酒店名称",
+    param_type=ParameterType.STRING,
+    required=True
+))
+
+hotel_schema.add_parameter(FunctionParameter(
+    name="room_type",
+    description="房间类型",
+    param_type=ParameterType.STRING,
+    required=False,
+    enum_values=["单人间", "双人间", "套房", "豪华套房"]
+))
+
+function_manager.add_domain(hotel_schema)
+```
+
+#### 3. 从外部数据源转换（适合集成）
+
+从TransferTOD或其他数据集转换：
+
+```python
+def create_domain_from_external_schema(domain: str, external_schema: Dict) -> DomainSpec:
+    """从外部schema创建DomainSpec"""
+    domain_spec = DomainSpec(
+        name=domain,
+        description=external_schema.get("description", f"{domain}领域对话")
+    )
+    
+    # 转换槽位定义
+    for slot_name, slot_info in external_schema["slots"].items():
+        param = FunctionParameter(
+            name=slot_name,
+            description=slot_info.get("description", slot_name),
+            param_type=ParameterType.STRING,
+            required=slot_info.get("required", False)
+        )
+        domain_spec.add_parameter(param)
+    
+    return domain_spec
+```
+
+### 为什么必须预定义？
+
+与传统的开放式对话不同，任务型对话具有明确的结构：
+
+| 对比项 | 开放式对话 | 任务型对话（FnCTOD） |
+|--------|-----------|---------------------|
+| 槽位 | 不确定 | 预定义明确 |
+| 输出格式 | 自由文本 | 结构化JSON |
+| 验证 | 无需验证 | 需要Schema验证 |
+| LLM理解 | 语义理解 | 结构化填充 |
+
+预定义的好处：
+- ✅ **准确性**：LLM知道确切的参数名称和类型
+- ✅ **一致性**：所有对话使用相同的槽位定义
+- ✅ **可验证**：可以检查输出是否符合规范
+- ✅ **可维护**：集中管理槽位定义，易于更新
+
+### 预定义的灵活性
+
+虽然需要预定义，但系统提供了足够的灵活性：
+
+1. **槽位可选性**：可以标记槽位为必需或可选
+2. **类型多样性**：支持string、number、boolean、array、object
+3. **枚举约束**：可以限定槽位的可选值
+4. **动态添加**：运行时可以添加新的domain
+5. **场景切换**：可以根据需要切换不同的Schema
+
+```python
+# 示例：动态添加新domain
+function_manager.add_domain_from_slots(
+    domain_name="新场景",
+    domain_description="新添加的场景",
+    slots={"slot1": "描述1", "slot2": "描述2"}
+)
+```
+
 ## 架构设计
 
 FnCTOD模式由以下核心组件构成：
@@ -31,7 +177,7 @@ FnCTOD模式由以下核心组件构成：
 
 ### 2. FunctionManager
 
-函数管理器，负责函数相关操作：
+函数管理器，负责函数相关操作，同时包含数据模型（`FunctionCall`、`DomainSpec`、`FunctionParameter`、`ParameterType`）：
 - 加载函数Schema定义
 - 验证函数调用
 - 管理函数参数
@@ -145,7 +291,7 @@ FnCTOD模式由以下核心组件构成：
 - 典型耗时：~0.01s
 
 #### 步骤2：提示词构建（关键步骤）
-- 加载fnctod_prompts.yaml中的模板
+- 加载`prompts.yaml`中的模板
 - 插入函数Schema定义
 - 添加few-shot示例（参考论文Fig.3、Fig.4）
 - 构建完整的system prompt和对话历史
@@ -180,7 +326,7 @@ FnCTOD模式由以下核心组件构成：
 
 ## 提示词系统
 
-FnCTOD使用YAML配置文件`fnctod_prompts.yaml`管理提示词：
+FnCTOD使用YAML配置文件`prompts.yaml`管理提示词：
 
 ### 系统提示词
 
@@ -286,6 +432,154 @@ print(f"步骤耗时：{tracker.step_timings}")
 # }
 ```
 
+### 完整示例：从零开始定义和使用
+
+```python
+from contextmind.modes.fnctod import (
+    FnCTODTracker, 
+    FunctionManager, 
+    DomainSpec, 
+    FunctionParameter,
+    ParameterType
+)
+from contextmind.infra.llm_client import SimpleLLMClient
+
+# 步骤1: 定义函数Schema（预定义域-槽位信息）
+hotel_schema = DomainSpec(
+    name="hotel_booking",
+    description="酒店预订场景，处理酒店查询和预订相关的对话"
+)
+
+# 添加必需参数
+hotel_schema.add_parameter(FunctionParameter(
+    name="hotel_name",
+    description="酒店名称",
+    param_type=ParameterType.STRING,
+    required=True  # 必需参数
+))
+
+hotel_schema.add_parameter(FunctionParameter(
+    name="check_in_date",
+    description="入住日期，格式：YYYY-MM-DD",
+    param_type=ParameterType.STRING,
+    required=True
+))
+
+# 添加可选参数
+hotel_schema.add_parameter(FunctionParameter(
+    name="check_out_date",
+    description="退房日期，格式：YYYY-MM-DD",
+    param_type=ParameterType.STRING,
+    required=False
+))
+
+hotel_schema.add_parameter(FunctionParameter(
+    name="room_type",
+    description="房间类型",
+    param_type=ParameterType.STRING,
+    required=False,
+    enum_values=["标准间", "大床房", "套房", "豪华套房"]  # 限定可选值
+))
+
+hotel_schema.add_parameter(FunctionParameter(
+    name="guest_count",
+    description="入住人数",
+    param_type=ParameterType.NUMBER,
+    required=False,
+    default=1
+))
+
+# 步骤2: 创建FunctionManager并注册函数
+function_manager = FunctionManager()
+function_manager.add_domain(hotel_schema)
+
+# 步骤3: 初始化FnCTODTracker
+llm_client = SimpleLLMClient()
+tracker = FnCTODTracker(
+    llm_client=llm_client,
+    function_manager=function_manager,
+    use_two_stage=False,  # 单domain场景使用单阶段
+    max_history_turns=10
+)
+
+# 步骤4: 处理对话
+async def run_dialogue():
+    # 第一轮
+    result1 = await tracker.process_turn("我想预订明天的酒店")
+    print(f"轮次1 - 函数调用: {result1['function_call'].function_name}")
+    print(f"轮次1 - 参数: {result1['function_call'].arguments}")
+    print(f"轮次1 - 回复: {result1['reply']}\n")
+    
+    # 第二轮（累积状态）
+    result2 = await tracker.process_turn("华盛顿酒店，要一间大床房")
+    print(f"轮次2 - 函数调用: {result2['function_call'].function_name}")
+    print(f"轮次2 - 参数: {result2['function_call'].arguments}")
+    print(f"轮次2 - 当前完整状态: {result2['state']}")
+    print(f"轮次2 - 回复: {result2['reply']}\n")
+    
+    # 第三轮（继续填充）
+    result3 = await tracker.process_turn("两个人住")
+    print(f"轮次3 - 参数: {result3['function_call'].arguments}")
+    print(f"轮次3 - 最终状态: {result3['state']}")
+
+# 运行
+import asyncio
+asyncio.run(run_dialogue())
+
+# 预期输出：
+# 轮次1 - 函数调用: hotel_booking
+# 轮次1 - 参数: {'check_in_date': '2026-02-11'}
+# 轮次1 - 回复: 好的，您想预订明天（2026-02-11）的酒店...
+#
+# 轮次2 - 函数调用: hotel_booking
+# 轮次2 - 参数: {'check_in_date': '2026-02-11', 'hotel_name': '华盛顿酒店', 'room_type': '大床房'}
+# 轮次2 - 当前完整状态: {'check_in_date': '2026-02-11', 'hotel_name': '华盛顿酒店', 'room_type': '大床房'}
+# 轮次2 - 回复: 华盛顿酒店的大床房，明天入住...
+#
+# 轮次3 - 参数: {'check_in_date': '2026-02-11', 'hotel_name': '华盛顿酒店', 'room_type': '大床房', 'guest_count': 2}
+# 轮次3 - 最终状态: {'check_in_date': '2026-02-11', 'hotel_name': '华盛顿酒店', 'room_type': '大床房', 'guest_count': 2}
+```
+
+### 简化方式：使用 add_domain_from_slots
+
+```python
+from contextmind.modes.fnctod import FunctionManager, FnCTODTracker
+from contextmind.infra.llm_client import SimpleLLMClient
+
+# 更简洁的方式定义Schema
+function_manager = FunctionManager()
+
+function_manager.add_domain_from_slots(
+    domain_name="restaurant",
+    domain_description="餐厅预订场景",
+    slots={
+        "restaurant_name": "餐厅名称",
+        "reservation_date": "预订日期",
+        "reservation_time": "预订时间",
+        "party_size": "就餐人数",
+        "special_requests": "特殊要求（如过敏、座位偏好等）"
+    },
+    categorical_slots={
+        "meal_type": ["早餐", "午餐", "晚餐", "下午茶"]
+    },
+    required_slots=["restaurant_name", "reservation_date", "reservation_time"]
+)
+
+# 初始化tracker
+llm_client = SimpleLLMClient()
+tracker = FnCTODTracker(
+    llm_client=llm_client,
+    function_manager=function_manager,
+    use_two_stage=False
+)
+
+# 使用
+result = await tracker.process_turn("我想订明晚7点的海底捞，4个人")
+print(result['state'])
+# 输出: {'restaurant_name': '海底捞', 'reservation_date': '2026-02-11', 
+#        'reservation_time': '19:00', 'party_size': 4}
+```
+
 ## Function Call格式
 
 ### 标准格式
@@ -373,7 +667,16 @@ def get_my_schema():
 
 ### 自定义提示词
 
-修改`fnctod_prompts.yaml`中的模板，或在初始化时传入自定义提示词。
+修改`prompts.yaml`中的模板，或在初始化时传入自定义提示词。
+
+### 自定义场景 Schema
+
+内置三个场景（闲聊/客服/保险）的函数 Schema 定义在 `schemas.yaml` 中（纯数据，无 Python 代码）。
+`schemas.py` 是一个轻量 YAML 加载器，负责将 YAML 数据转换为 `DomainSpec` 对象。
+
+添加新场景 Schema 的方法：
+1. 在 `schemas.yaml` 中添加新的场景条目（YAML 格式，参照已有条目）
+2. 无需修改 Python 代码即可立即生效
 
 ## 调试技巧
 

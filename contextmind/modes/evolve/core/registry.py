@@ -8,17 +8,17 @@ Evolve 插件注册中心 - 集中式插件发现和管理
     from contextmind.modes.evolve import registry
     
     # 列出可用的提取器
-    print(registry.list_extractors())  # ['rule_based', 'llm_entity', 'importance']
+    print(registry.list_extractors())  # 输出示例：['llm_based', 'importance']
     
     # 获取提取器插件
-    extractor = registry.get_extractor('rule_based')
+    extractor = registry.get_extractor('llm_based')
     
-    # 运行时切换提取器
-    engine.set_extractor(registry.get_extractor('llm_entity'))
+    # 获取检索器插件
+    retriever = registry.get_retriever('semantic')
     ```
 """
 
-from typing import Dict, Type, Optional, Any, Callable
+from typing import Dict, Type, Optional, Any
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
@@ -47,43 +47,23 @@ class PluginRegistry:
         self._initialized = False
     
     def _lazy_init(self):
-        """延迟初始化默认插件"""
+        """延迟导入插件，在首次使用时才加载，避免模块加载时的循环导入。"""
         if self._initialized:
             return
         
         try:
-            # 导入并注册提取器 (v0.2.1: 仅支持基于大语言模型的提取)
-            from ..memory.extractor import (
-                LLMBasedExtractor,
-                ImportancePredictorExtractor,
-            )
-            self.register('extractors', 'llm_based', LLMBasedExtractor)  # 推荐使用
-            self.register('extractors', 'importance', ImportancePredictorExtractor)
+            from ..memory.extractor import LLMBasedExtractor
+            self.register('extractors', 'llm_based', LLMBasedExtractor)
             
-            # 导入并注册检索器
-            from ..memory.retriever import (
-                SemanticSearchRetriever,
-                HybridRetriever,
-                LocatorRetriever,
-            )
+            from ..memory.retriever import SemanticSearchRetriever
             self.register('retrievers', 'semantic', SemanticSearchRetriever)
-            self.register('retrievers', 'hybrid', HybridRetriever)
-            self.register('retrievers', 'locator', LocatorRetriever)
             
-            # 导入并注册更新器
-            from ..memory.updater import (
-                SimpleUpdater,
-                ConflictResolverUpdater,
-                AdaptiveEvictionUpdater,
-            )
+            from ..memory.updater import SimpleUpdater
             self.register('updaters', 'simple', SimpleUpdater)
-            self.register('updaters', 'conflict_resolver', ConflictResolverUpdater)
-            self.register('updaters', 'adaptive', AdaptiveEvictionUpdater)
             
-            # 导入并注册其他 Pipeline 组件 (v0.2.1: 移除已废弃组件)
-            from ..pipeline.compressor import ContextCompressor
-            from ..pipeline.reorderer import ContextReorderer
-            from ..pipeline.preprocessor import InputPreprocessor
+            from ..pipeline.steps import ContextCompressor
+            from ..pipeline.steps import ContextReorderer
+            from ..pipeline.steps import InputPreprocessor
             from ..pipeline.response_handler import ResponseHandler
             from ..pipeline.summarizer import LLMBasedSummarizer
             
@@ -128,7 +108,6 @@ class PluginRegistry:
         self._lazy_init()
         return {cat: list(plugins.keys()) for cat, plugins in self._plugins.items()}
     
-    # 每个类别的便捷方法
     def get_extractor(self, name: str = 'rule_based', **kwargs):
         """获取提取器插件 (默认: rule_based)"""
         return self.get('extractors', name, **kwargs)
@@ -154,7 +133,6 @@ class PluginRegistry:
         return self.list_plugins('updaters')
 
 
-# 全局注册中心实例
-registry = PluginRegistry()
+registry = PluginRegistry()  # 模块级单例，可在整个代码库中直接导入使用
 
 __all__ = ['PluginRegistry', 'registry']

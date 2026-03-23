@@ -1,20 +1,24 @@
 """
 ContextMind 对话处理模式
 
-提供三种可用模式:
-- dst: 对话状态追踪模式
-- fnctod: 任务型对话的函数调用模式
-- evolve: 演化式上下文优化模式
+提供四种对话处理模式（全部基于 ADK）：
+- dst:    对话状态追踪
+- fnctod: ADK 原生函数调用对话状态追踪
+- pytod:  ADK 原生可编程任务型对话
+- evolve: 演化式上下文优化
 """
 
-# 导入模式入口
+from contextmind.modes.base import BaseTracker
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
 
 __all__ = [
+    "BaseTracker",
     "DialogueStateTracker",
     "FnCTODTracker",
+    "AdkPyTODTracker",
     "EvolveEngine",
     "create_app_for_scenario",
 ]

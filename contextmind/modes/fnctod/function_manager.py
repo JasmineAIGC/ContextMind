@@ -1,15 +1,159 @@
 """
 FnCTOD Function Manager
 
-管理 domain-as-function 规格
+数据模型（FunctionCall、FunctionParameter、DomainSpec）+ 函数管理器（FunctionManager）合并模块。
+
+将 data_models 与 function_manager 合并，减少文件数量，
+因为两者高度耦合（FunctionManager 直接操作 DomainSpec、FunctionParameter）。
 """
 
 import json
-from typing import Dict, List, Optional
-from .data_models import DomainSpec, FunctionParameter, ParameterType
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# 数据模型（原 data_models.py）
+# ---------------------------------------------------------------------------
+
+class ParameterType(Enum):
+    """参数类型枚举"""
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    ARRAY = "array"
+    OBJECT = "object"
+
+
+@dataclass
+class FunctionParameter:
+    """函数参数定义"""
+    name: str
+    description: str
+    param_type: ParameterType = ParameterType.STRING
+    required: bool = False
+    enum_values: Optional[List[str]] = None
+    default: Optional[Any] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典（用于生成JSON schema）"""
+        param_def = {
+            "type": self.param_type.value,
+            "description": self.description
+        }
+        if self.enum_values:
+            param_def["enum"] = self.enum_values
+        if self.default is not None:
+            param_def["default"] = self.default
+        return param_def
+
+
+@dataclass
+class DomainSpec:
+    """Domain规格定义，每个domain被视为一个function。"""
+    name: str
+    description: str
+    parameters: List[FunctionParameter] = field(default_factory=list)
+
+    def add_parameter(self, param: FunctionParameter):
+        self.parameters.append(param)
+
+    def get_required_parameters(self) -> List[str]:
+        return [p.name for p in self.parameters if p.required]
+
+    def to_json_schema(self) -> Dict[str, Any]:
+        """转换为JSON Schema格式（符合OpenAI function calling规范）"""
+        properties = {}
+        required = []
+
+        for param in self.parameters:
+            properties[param.name] = param.to_dict()
+            if param.required:
+                required.append(param.name)
+
+        schema = {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": properties
+            }
+        }
+
+        if required:
+            schema["parameters"]["required"] = required
+
+        return schema
+
+    def to_prompt_format(self) -> str:
+        """转换为提示词格式（全中文标签）"""
+        lines = [
+            f"函数名：{self.name}",
+            f"说明：{self.description}",
+            "参数："
+        ]
+
+        for param in self.parameters:
+            required_mark = "（必填）" if param.required else ""
+            enum_info = f"【可选值：{', '.join(param.enum_values)}】" if param.enum_values else ""
+            lines.append(
+                f"  - {param.name}（{param.param_type.value}）{required_mark}："
+                f"{param.description}{enum_info}"
+            )
+
+        return "\n".join(lines)
+
+
+@dataclass
+class FunctionCall:
+    """函数调用结果，包含function名称、参数、原始输出和自然语言回复。"""
+    function_name: str
+    arguments: Dict[str, Any] = field(default_factory=dict)
+    raw_output: str = ""
+    natural_response: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "function": self.function_name,
+            "arguments": self.arguments,
+            "response": self.natural_response
+        }
+
+    def to_xml(self) -> str:
+        """转换为XML格式的function call（用于提示词中的历史记录）"""
+        args_json = json.dumps(self.arguments, ensure_ascii=False, indent=0)
+        return f"<function_call name=\"{self.function_name}\">\n{args_json}\n</function_call>"
+
+    def __str__(self) -> str:
+        return self.to_xml()
+
+
+@dataclass
+class DialogueTurn:
+    """对话轮次，记录一轮对话的完整信息。"""
+    turn_id: int
+    user_utterance: str
+    system_utterance: str = ""
+    function_call: Optional[FunctionCall] = None
+    state: Dict[str, Any] = field(default_factory=dict)
+    timestamp: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        result = {
+            "turn_id": self.turn_id,
+            "user": self.user_utterance,
+            "system": self.system_utterance,
+            "state": self.state
+        }
+        if self.function_call:
+            result["function_call"] = self.function_call.to_dict()
+        if self.timestamp:
+            result["timestamp"] = self.timestamp
+        return result
 
 
 class FunctionManager:
@@ -23,7 +167,6 @@ class FunctionManager:
     """
     
     def __init__(self):
-        """初始化函数管理器"""
         self.domains: Dict[str, DomainSpec] = {}
         logger.info("FunctionManager 初始化完成")
     
@@ -74,18 +217,18 @@ class FunctionManager:
         logger.info(f"从槽位创建domain函数: {domain_name} ({len(slots)} 个槽位)")
     
     def get_domain(self, name: str) -> Optional[DomainSpec]:
-        """获取domain规格"""
+        """按名称查找已注册的 domain，不存在时返回 None。"""
         return self.domains.get(name)
-    
+
     def get_all_domains(self) -> List[DomainSpec]:
-        """获取所有domain列表"""
+        """返回所有已注册 domain 的列表（顺序与注册顺序一致）。"""
         return list(self.domains.values())
-    
+
     def get_domain_names(self) -> List[str]:
-        """获取所有domain名称列表"""
+        """返回所有已注册 domain 的名称列表。"""
         return list(self.domains.keys())
     
-    def generate_system_prompt(self, include_all_specs: bool = False) -> str:
+    def build_system_prompt(self, include_all_specs: bool = False) -> str:
         """
         生成系统提示词
         
@@ -103,57 +246,65 @@ class FunctionManager:
             return self._generate_domain_selection_prompt()
     
     def _generate_domain_selection_prompt(self) -> str:
-        """生成domain选择提示词（Stage 1）"""
+        """生成第一阶段（域选择）使用的系统提示词。
+
+        仅列出各 domain 的名称和简述，让 LLM 快速判断当前话语属于哪个业务域，
+        避免在第一阶段暴露完整参数规格（减少 token 消耗，降低决策干扰）。
+        """
         prompt_parts = [
-            "You are a task-oriented dialogue assistant.",
-            "Your task is to identify the relevant domain(s) from the user's utterance.",
+            "你是一个任务型对话助手。",
+            "你的任务是根据用户的话语识别相关的业务域。",
             "",
-            "Available domains:"
+            "可用业务域："
         ]
-        
+
         for domain in self.domains.values():
-            prompt_parts.append(f"- {domain.name}: {domain.description}")
-        
+            prompt_parts.append(f"- {domain.name}：{domain.description}")
+
         prompt_parts.extend([
             "",
-            "Based on the conversation history and current user utterance, identify the relevant domain(s).",
-            "Output format:",
-            "<domain>domain_name</domain>",
+            "根据对话历史和当前用户话语，识别相关的业务域。",
+            "输出格式：",
+            "<domain>域名称</domain>",
             "",
-            "You can output multiple domains if needed."
+            "如有多个相关域，可输出多个。"
         ])
-        
+
         return "\n".join(prompt_parts)
-    
+
     def _generate_full_spec_prompt(self) -> str:
-        """生成完整规格提示词（Stage 2）"""
+        """生成第二阶段（函数调用）使用的系统提示词。
+
+        包含每个 domain 的完整函数规格（参数名、类型、枚举值等），
+        引导 LLM 以 XML 标签格式输出结构化的 function call，并附带自然语言回复。
+        """
         prompt_parts = [
-            "You are a task-oriented dialogue assistant with function calling capability.",
-            "Use the provided functions to track dialogue state and generate appropriate responses.",
+            "你是一个具备函数调用能力的任务型对话助手。",
+            "请使用以下函数来追踪对话状态并生成合适的回复。",
             "",
-            "Available functions:"
+            "可用函数："
         ]
-        
+
         for domain in self.domains.values():
             prompt_parts.append("")
             prompt_parts.append(domain.to_prompt_format())
-        
+
         prompt_parts.extend([
             "",
-            "Instructions:",
-            "1. Based on the conversation, call the appropriate function with relevant parameters",
-            "2. Output the function call in this format:",
-            "   <function_call name=\"function_name\">",
-            "   {\"param1\": \"value1\", \"param2\": \"value2\"}",
+            "使用说明：",
+            "1. 根据对话内容，调用合适的函数并填写相关参数",
+            "2. 以如下格式输出函数调用：",
+            "   <function_call name=\"函数名\">",
+            "   {\"参数1\": \"值1\", \"参数2\": \"值2\"}",
             "   </function_call>",
-            "3. After the function call, provide a natural language response to the user",
+            "3. 在函数调用之后，对用户给出自然语言回复",
             "",
-            "Remember: Only fill parameters that are mentioned or can be inferred from the conversation."
+            "注意：只填写对话中用户明确提及或可推断出的参数。"
         ])
-        
+
         return "\n".join(prompt_parts)
     
-    def generate_function_spec_for_domain(self, domain_name: str) -> str:
+    def build_domain_spec_prompt(self, domain_name: str) -> str:
         """
         为特定domain生成函数规格
         
@@ -169,7 +320,7 @@ class FunctionManager:
         
         return domain.to_prompt_format()
     
-    def to_json_schemas(self) -> List[Dict]:
+    def export_json_schemas(self) -> List[Dict]:
         """
         导出所有domain为JSON schemas（OpenAI格式）
         

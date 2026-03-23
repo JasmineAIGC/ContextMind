@@ -7,18 +7,19 @@
 ```
 ContextMind/
 ├── contextmind/          # 主包（核心代码）
-├── examples/             # 示例程序
-├── tests/                # 测试代码
-├── docs/                 # 文档
-├── resources/            # 静态资源
+├── data/                 # 运行时输出数据（如知识提取结果 JSON）
+├── examples/             # 示例程序（10个演示脚本）
+├── benchmark/            # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
+├── docs/                 # 文档（quick-start / modes / api-reference 等）
+├── resources/            # 静态资源与测试数据
 ├── logs/                 # 日志文件（运行时生成）
 ├── setup.py              # 安装配置
 ├── requirements.txt      # Python依赖
+├── guide.md              # 安逸花场景开发指南（Phase 分析与分工）
+├── NEXT_STEPS.md         # 后续任务规划（T1–T11 详细执行计划）
 ├── .env                  # 环境变量（需创建）
-├── .gitignore           # Git忽略配置
-├── README.md            # 项目说明
-├── ARCHITECTURE.md      # 架构文档
-└── CONTRIBUTING.md      # 贡献指南
+├── .gitignore            # Git忽略配置
+└── README.md             # 项目说明
 ```
 
 ---
@@ -31,11 +32,9 @@ ContextMind/
 contextmind/
 ├── __init__.py          # 包入口，导出主要接口
 ├── infra/               # 基础设施层
-├── config/              # 配置层
 ├── ui/                  # UI层
 ├── modes/               # 对话处理模式
-├── scenarios/           # 场景配置
-└── apps/                # 应用实现
+└── scenarios/           # 场景配置与应用（含注册表和YAML配置）
 ```
 
 ### 1. 基础设施层 (infra/)
@@ -61,29 +60,7 @@ infra/
 
 **依赖**: 无其他内部依赖
 
-### 2. 配置层 (config/)
-
-**用途**: 管理系统配置和场景注册
-
-```
-config/
-├── __init__.py
-├── registry.py          # 场景注册表
-│   └── ScenarioRegistry    # 注册表类
-│   └── scenario_registry   # 全局实例
-│
-├── scenarios.yaml       # 场景配置文件
-│   └── 定义所有场景的元数据
-│
-└── prompts.py           # 系统提示词
-    └── CHAT_SYSTEM_PROMPT
-    └── CALLCENTER_SYSTEM_PROMPT
-    └── INSURANCE_SYSTEM_PROMPT
-```
-
-**依赖**: infra
-
-### 3. UI层 (ui/)
+### 2. UI层 (ui/)
 
 **用途**: 用户界面组件
 
@@ -95,111 +72,142 @@ ui/
     └── create_mode_selector()
 ```
 
-**依赖**: infra, config
+**依赖**: infra
 
-### 4. 对话处理模式 (modes/)
+### 3. 对话处理模式 (modes/)
 
-**用途**: 三种核心对话处理算法
+**用途**: 四种核心对话处理算法
 
 ```
 modes/
 ├── __init__.py
+├── base.py                  # BaseTracker 协议（所有追踪器的共享接口）
 │
-├── dst/                 # 对话状态追踪模式
+├── dst/                 # 对话状态追踪模式（3文件）
 │   ├── __init__.py
-│   ├── dialogue_state_tracker.py    # 主追踪器
-│   ├── prompt_manager.py            # 提示管理器
-│   ├── response_parser.py           # 响应解析器
-│   └── data_models.py               # 数据模型
+│   ├── tracker.py                   # 主追踪器 + DialogueTurn/SpecialValue 数据模型
+│   ├── prompts.py                   # 提示管理器
+│   └── parser.py                    # DST响应解析器（DSTResponseParser）
 │
-├── fnctod/              # 函数调用模式
+├── fnctod/              # 函数调用模式（4文件）
 │   ├── __init__.py
-│   ├── fnctod_tracker.py            # 主追踪器
-│   ├── function_manager.py          # 函数管理器
-│   ├── response_parser.py           # 响应解析器
-│   ├── schemas.py                   # Schema定义
-│   ├── data_models.py               # 数据模型
-│   └── fnctod_prompts.yaml          # 提示词配置
+│   ├── tracker.py                   # 主追踪器
+│   ├── function_manager.py          # 函数管理器 + 数据模型（FunctionCall、DomainSpec等）
+│   ├── parser.py                    # FnCTOD响应解析器（FnCTODResponseParser）
+│   ├── schemas.py                   # Schema定义（YAML驱动加载器）
+│   └── schemas.yaml                 # 场景 schema 参数配置（YAML）
 │
-└── evolve/              # 演化式上下文模式
+├── evolve/              # 演化式上下文模式
+│   ├── __init__.py
+│   ├── engine.py                    # 主引擎
+│   ├── factory.py                   # create_app_for_scenario 工厂函数
+│   │
+│   ├── core/                        # 核心组件（4文件）
+│   │   ├── config.py                # 类型定义（KnowledgeType等）+ 配置数据类（合并）
+│   │   ├── data_models.py           # 数据模型（Message、ContextItem等）
+│   │   ├── strategies.py            # 抽象策略基类
+│   │   └── registry.py              # 插件注册表
+│   │
+│   ├── memory/                      # 记忆系统（6文件）
+│   │   ├── bank.py                  # 记忆库
+│   │   ├── extractor.py             # 知识提取器
+│   │   ├── retriever.py             # 记忆检索器
+│   │   ├── session.py               # 会话管理器
+│   │   ├── updater.py               # 记忆更新器
+│   │   └── fitness.py               # 适应度评估
+│   │
+│   ├── evolution/                   # 进化学习（2文件）
+│   │   ├── updater.py               # 进化更新器
+│   │   └── feedback.py              # 反馈系统
+│   │
+│   └── pipeline/                    # 上下文处理流水线（3文件）
+│       ├── steps.py                 # InputPreprocessor + ContextRetriever + ContextCompressor + ContextReorderer（合并）
+│       ├── summarizer.py            # LLMBasedSummarizer
+│       └── response_handler.py      # 响应处理器
+│
+└── pytod/               # 可编程任务型对话模式（6文件）
     ├── __init__.py
-    ├── engine.py                    # 主引擎
-    │
-    ├── core/                        # 核心组件
-    │   ├── configs.py               # 配置
-    │   ├── data_models.py           # 数据模型
-    │   ├── framework_config.py      # 框架配置
-    │   ├── models.py                # 模型定义
-    │   ├── registry.py              # 组件注册
-    │   ├── strategies.py            # 策略模式
-    │   └── types.py                 # 类型定义
-    │
-    ├── memory/                      # 记忆系统
-    │   ├── bank.py                  # 记忆库
-    │   ├── extractor.py             # 知识提取器
-    │   ├── retriever.py             # 记忆检索器
-    │   ├── session.py               # 会话管理器
-    │   ├── updater.py               # 记忆更新器
-    │   └── memory_fitness.py        # 适应度评估
-    │
-    ├── evolution/                   # 进化学习
-    │   ├── evolutionary_updater.py  # 进化更新器
-    │   └── feedback_system.py       # 反馈系统
-    │
-    └── pipeline/                    # 五步流水线
-        ├── compressor.py            # 上下文压缩
-        ├── context_retriever.py     # 上下文检索
-        ├── preprocessor.py          # 预处理器
-        ├── reorderer.py             # 重排序器
-        ├── response_handler.py      # 响应处理器
-        └── summarizer.py            # 摘要器
+    ├── tracker.py                   # 主追踪器（三步流程协调）
+    ├── prompts.py                   # 动作解析器和对话管理器 prompt 构建
+    ├── execution_engine.py          # 安全解析并执行程序语句
+    ├── schemas.py                   # ServiceSchema / IntentDefinition / SlotDefinition
+    ├── validator.py                 # 动作合法性校验
+    └── registry.py                  # API注册表
 ```
 
-**依赖**: infra, config
+**依赖**: infra
 
-### 5. 场景配置 (scenarios/)
+### 4. 场景配置与应用 (scenarios/)
 
-**用途**: 定义各种对话场景的配置
+**用途**: 定义各种对话场景的配置及对应的应用实现，并集中管理场景注册表和配置文件
 
 ```
 scenarios/
 ├── __init__.py
-├── config.py                # 场景配置基类
+├── base.py                  # 场景配置基类
 │   └── ScenarioConfig      # 配置数据类
+│   └── ScenarioType        # 场景类型枚举
 │
-├── chat_scenario.py         # 闲聊场景
-│   └── get_chat_scenario()
+├── prompts.py               # 所有场景系统提示词
+│   └── CHAT_SYSTEM_PROMPT
+│   └── CALLCENTER_SYSTEM_PROMPT
+│   └── INSURANCE_SYSTEM_PROMPT
 │
-├── callcenter_scenario.py   # 客服场景
-│   └── get_callcenter_scenario()
+├── registry.py              # 场景注册表
+│   └── ScenarioRegistry    # 注册表类
+│   └── scenario_registry   # 全局实例
 │
-└── insurance_scenario.py    # 保险场景
-    └── get_insurance_scenario()
+├── scenarios.yaml           # 场景配置文件（定义所有场景的元数据）
+│
+├── chat/                    # 闲聊场景包
+│   ├── scenario.py          # get_chat_scenario()
+│   └── app.py               # ChatApplication
+│
+├── callcenter/              # 客服场景包
+│   ├── scenario.py          # get_callcenter_scenario()
+│   └── app.py               # CallCenterApplication
+│
+├── insurance/               # 保险场景包
+│   ├── scenario.py          # get_insurance_scenario()
+│   └── app.py               # InsuranceApplication
+│
+└── anyihua/                 # 安逸花外呼场景（4个独立子任务）
+    ├── __init__.py          # 统一导出所有子任务接口
+    ├── utils.py             # 公共工具（cn2int / extract_amounts / 前缀常量等）
+    │
+    ├── qc/                  # 任务一：离线质检（Label Prediction / QC）
+    │   ├── engine.py        # build_qc_engine()  — 注册 4 个事实查询 API
+    │   ├── predictor.py     # 规则阈值 + predict_label_pytod()
+    │   └── schema.py        # ANYIHUA_QC_SCHEMA（5 个标签意图定义）
+    │
+    ├── generation/          # 任务二：在线回复生成（Response Generation）
+    │   ├── engine.py        # build_generation_engine()  — 注册 7 个 CRM 查询 API
+    │   └── schema.py        # ANYIHUA_SCHEMA（槽位 / 意图 PyTOD schema）
+    │
+    ├── schema_extraction/   # 任务三：Schema 归纳提取（Schema Induction）
+    │   ├── pipeline.py      # 主流水线（run_schema_induction_pipeline）
+    │   ├── extractor.py     # extract_partial_schema_from_dialogue()
+    │   ├── llm_induction.py # induce_schema_with_llm()
+    │   ├── data_cleaner.py  # 对话清洗与格式统一
+    │   ├── schema.py        # PartialServiceSchema / PartialSlot / PartialIntent
+    │   └── schema_io.py     # save_schema_as_sgd() / align_schema_with_sgd()
+    │
+    └── knowledge_base/      # 任务四：增量精准知识库（Incremental KB）
+        ├── schema.py        # SlotEvidence / SlotFact / CustomerRecord / ConflictEntry / KBStats
+        ├── store.py         # KnowledgeStore（CRUD + 持久化 + 统计）
+        └── merger.py        # IncrementalMerger + ConflictStrategy 协议 + 三种内置策略
 ```
 
-**依赖**: config
-
-### 6. 应用实现 (apps/)
-
-**用途**: Evolve 模式的场景特定应用
+还有一个独立的知识提取桥接模块（内部使用，位于 `anyihua/knowledge_extraction/`）：
 
 ```
-apps/
-├── __init__.py
-├── chat_app.py              # 闲聊应用
-│   └── ChatApplication
-│
-├── callcenter_app.py        # 客服应用
-│   └── CallCenterApplication
-│
-├── insurance_app.py         # 保险应用
-│   └── InsuranceApplication
-│
-└── plugin_examples.py       # 插件示例
-    └── PluginExamples
+anyihua/knowledge_extraction/  # langextract 桥接层（供 merger 调用）
+    ├── extractor.py            # AnyihuaKnowledgeExtractor（主提取器）
+    ├── langextract_bridge.py   # langextract 对齐 + dedup 逻辑
+    └── sgd_converter.py        # dict → SGD dialogue 格式转换
 ```
 
-**依赖**: modes/evolve, scenarios
+**依赖**: infra, modes/pytod（anyihua/qc、anyihua/generation 使用 ExecutionEngine）
 
 ---
 
@@ -207,9 +215,17 @@ apps/
 
 ```
 examples/
-├── cli_demo.py          # 命令行交互示例
-├── web_demo.py          # Web界面示例（Gradio）
-└── batch_demo.py        # 批量测试示例
+├── cli_demo.py                          # 命令行交互示例（支持四种模式）
+├── web_demo.py                          # Web界面示例（Gradio）
+├── batch_demo.py                        # 批量测试示例
+├── fnctod_trace_demo.py                 # FnCTOD 追踪演示（trace 可视化）
+├── pytod_trace_demo.py                  # PyTOD 追踪演示（trace 可视化）
+│
+├── anyihua_engines_demo.py              # 安逸花 QC / Generation 引擎演示
+├── anyihua_generation_demo.py           # 安逸花 在线回复生成演示
+├── anyihua_qc_demo.py                   # 安逸花 离线质检演示
+├── anyihua_schema_induction_demo.py     # 安逸花 Schema 归纳演示
+└── anyihua_knowledge_extraction_demo.py # 安逸花 知识提取 + 知识库摄入演示
 ```
 
 **用途**: 展示如何使用 ContextMind
@@ -222,42 +238,33 @@ python examples/web_demo.py
 
 ---
 
-## 测试代码 (tests/)
-
-```
-tests/
-├── __init__.py
-├── test_dst_mode.py     # DST模式测试
-├── test_evolve_mode.py  # Evolve模式测试
-└── fixtures/            # 测试数据（如果有）
-```
-
-**用途**: 单元测试和集成测试
-
-**运行方式**:
-```bash
-python -m pytest tests/
-```
-
----
-
 ## 文档 (docs/)
 
 ```
 docs/
-├── README.md                 # 文档索引
-├── architecture.md           # 架构说明
-├── api-reference.md          # API参考
-├── quick-start.md            # 快速开始
-├── modes.md                  # 模式对比
-├── configuration.md          # 配置指南
-├── extending-scenarios.md    # 扩展场景
-├── naming-standards.md       # 命名规范
-├── directory-structure.md    # 目录结构（本文档）
-├── examples.md               # 示例代码
-├── troubleshooting.md        # 故障排查
-├── migration.md              # 迁移指南
-└── changelog.md              # 更新日志
+├── README.md                      # 文档索引
+├── quick-start.md                 # 快速开始
+├── examples.md                    # 示例代码
+├── directory-structure.md         # 目录结构（本文档）
+├── modes.md                       # 四种对话模式对比
+├── configuration.md               # 配置指南
+├── api-reference.md               # API参考
+├── metrics-explanation.md         # 评测指标说明
+├── extending-scenarios.md         # 扩展场景
+├── troubleshooting.md             # 故障排查
+├── changelog.md                   # 更新日志
+├── CONTRIBUTING.md                # 贡献指南
+├── algorithms/                    # 算法文档
+│   ├── dst.md
+│   ├── fnctod.md
+│   ├── pytod.md
+│   ├── pytod-vs-fnctod-comparison.md
+│   ├── intent-evaluation.md
+│   └── context-engineering.md
+└── datasets/                      # 数据集文档
+    ├── sgd.md
+    ├── transfertod.md
+    └── risawoz.md
 ```
 
 ---
@@ -266,11 +273,31 @@ docs/
 
 ```
 resources/
-└── data/                # 数据文件
-    ├── FnCTOD.md       # FnCTOD技术文档
-    ├── dialogue.md     # 对话示例
-    └── script.md       # 脚本模板
+├── anyihua_sgd/             # 安逸花 SGD 格式对话数据
+│   ├── dialogues_001.json   # SGD 对话批次（结构化格式）
+│   ├── schema.json          # SGD 服务 schema 定义
+│   └── conversion_summary.json  # 原始数据 → SGD 转换摘要
+│
+├── data/                    # 测试数据文件
+│   ├── chat_test_100.json   # 安逸花外呼原始数据集（100条）
+│   ├── risawoz_test.json    # RiSAWOZ 测试数据
+│   ├── fnctod_trace.md      # FnCTOD 示例 trace（可视化参考）
+│   └── pytod_trace.md       # PyTOD 示例 trace（可视化参考）
+│
+└── fonts/                   # 字体文件（报告渲染用）
+    └── NotoSansCJKsc-Regular.otf
 ```
+
+---
+
+## 运行时数据 (data/)
+
+```
+data/
+└── anyihua_knowledge_extraction_results.json  # 知识提取运行产物（提取器输出）
+```
+
+> 此目录由运行时脚本写入，不需要手动维护。
 
 ---
 
@@ -335,15 +362,11 @@ DEBUG=False
 
 1. infra/                    # 无依赖
    ↓
-2. config/                   # 依赖 infra
+2. ui/ + modes/              # 依赖 infra
    ↓
-3. ui/ + modes/              # 依赖 infra, config
+3. scenarios/                # 依赖 infra, modes/evolve
    ↓
-4. scenarios/                # 依赖 config
-   ↓
-5. apps/                     # 依赖 modes/evolve, scenarios
-   ↓
-6. examples/                 # 依赖所有层
+4. examples/                 # 依赖所有层
 ```
 
 **原则**: 
@@ -357,10 +380,9 @@ DEBUG=False
 
 ### 添加新场景
 
-1. 在 `contextmind/scenarios/` 创建 `xxx_scenario.py`
-2. 在 `contextmind/apps/` 创建 `xxx_app.py` （如果使用Evolve）
-3. 在 `contextmind/config/scenarios.yaml` 注册
-4. 编写测试
+1. 在 `contextmind/scenarios/` 创建 `xxx/` 子包，包含 `scenario.py` 和 `app.py`
+2. 在 `contextmind/scenarios/scenarios.yaml` 注册
+3. 编写测试
 
 ### 添加新模式
 
@@ -380,7 +402,6 @@ DEBUG=False
 
 ## 相关文档
 
-- [架构说明](architecture.md)
-- [命名规范](naming-standards.md)
+- [模式对比](modes.md)
 - [扩展场景](extending-scenarios.md)
 - [API参考](api-reference.md)

@@ -31,9 +31,10 @@ from typing import Dict, List, Optional, Tuple
 
 import gradio as gr
 
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.scenarios import get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -75,22 +76,24 @@ class BatchDialogueTest:
         # 创建 LLM 客户端
         try:
             if self.llm_client is None:
-                self.llm_client = SimpleLLMClient()
+                self.llm_client = AdkLLMClient()
                 logger.info("✅ LLM客户端初始化成功")
         except Exception as e:
             logger.error(f"❌ LLM客户端初始化失败: {e}")
             raise
         
         if mode == "dst":
-            self._init_dst_mode()
+            self._setup_dst_tracker()
         elif mode == "fnctod":
-            self._init_fnctod_mode()
+            self._setup_fnctod_tracker()
+        elif mode == "pytod":
+            self._setup_pytod_tracker()
         else:
-            self._init_evolve_mode()
+            self._setup_evolve_app()
         
         logger.info(f"✅ {mode.upper()} 模式初始化完成")
     
-    def _init_dst_mode(self):
+    def _setup_dst_tracker(self):
         """
         初始化 DST 模式
         
@@ -107,7 +110,7 @@ class BatchDialogueTest:
         
         logger.info("DST模式初始化完成")
     
-    def _init_fnctod_mode(self):
+    def _setup_fnctod_tracker(self):
         """
         初始化 FnCTOD 模式
         
@@ -122,8 +125,22 @@ class BatchDialogueTest:
         )
         
         logger.info("FnCTOD 模式初始化完成")
-    
-    def _init_evolve_mode(self):
+
+    def _setup_pytod_tracker(self):
+        """
+        初始化 PyTOD 模式（程序执行型任务对话）
+
+        使用工厂方法简化初始化，自动注册保险场景 API。
+        """
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(
+            llm_client=self.llm_client,
+            scenario_config=self.config,
+            max_history_turns=self.max_history_turns,
+        )
+
+        logger.info("PyTOD 模式初始化完成")
+
+    def _setup_evolve_app(self):
         """
         初始化 Evolve 模式
         
@@ -147,10 +164,12 @@ class BatchDialogueTest:
             self.tracker.dialogue_history = []
         elif self.current_mode == "fnctod" and self.fnctod_tracker:
             self.fnctod_tracker.reset()
+        elif self.current_mode == "pytod" and hasattr(self, "pytod_tracker"):
+            self.pytod_tracker.reset()
         elif self.current_mode == "evolve" and self.app:
             # 重新初始化
-            self._init_evolve_mode()
-        
+            self._setup_evolve_app()
+
         self.results_history = []
         logger.info("对话状态已重置")
     
@@ -165,7 +184,6 @@ class BatchDialogueTest:
         Returns:
             冒号后的内容
         """
-        import re
         # 匹配 "前缀：" 或 "前缀:" 后面的内容
         pattern = f'^{prefix}[：:](.*)$'
         match = re.match(pattern, line)
@@ -405,7 +423,80 @@ class BatchDialogueTest:
         })
         
         return result_text + summary, final_state
-    
+
+    async def process_dialogue_pytod(self, turns: List[Dict]) -> Tuple[str, Dict]:
+        """
+        使用 PyTOD 模式处理对话。
+
+        为每个对话创建独立的 PyTODTracker 实例，确保测试结果独立。
+
+        Args:
+            turns: 对话轮次列表
+
+        Returns:
+            (处理结果文本, 最终状态)
+        """
+        # 为每个对话创建新的 tracker 实例，确保测试结果独立
+        tracker = AdkPyTODTracker.from_scenario(
+            llm_client=self.llm_client,
+            scenario_config=self.config,
+            max_history_turns=self.max_history_turns,
+        )
+        logger.info("✅ 为新对话创建 PyTOD tracker")
+
+        results = []
+        result_text = ""
+
+        for i, turn in enumerate(turns):
+            user_utterance = turn.get("user_utterance", "")
+
+            result = await tracker.process_turn(user_utterance=user_utterance)
+
+            turn_result = {
+                "turn_id": i + 1,
+                "user_utterance": user_utterance,
+                "program_text": result.get("program_text", ""),
+                "response": result.get("response", ""),
+                "state": result.get("state", {}),
+            }
+            results.append(turn_result)
+
+            result_text += f"\n{'='*50}\n"
+            result_text += f"轮次 {i + 1}\n"
+            result_text += f"{'='*50}\n"
+            result_text += f"客户: {user_utterance}\n"
+            if result.get("program_text") and result["program_text"] != "NONE()":
+                result_text += f"\n[Action Parser] 程序:\n"
+                for line in result["program_text"].splitlines():
+                    result_text += f"  {line}\n"
+            exec_res = result.get("execution")
+            if exec_res and exec_res.success:
+                for var, val in exec_res.variable_values.items():
+                    if not isinstance(val, str):
+                        result_text += f"\n[Execution Engine] {var} = {val}\n"
+                if exec_res.hint_messages:
+                    result_text += f"[Hint] {'; '.join(exec_res.hint_messages)}\n"
+            result_text += f"\n助手: {result.get('response', '')}\n"
+
+        final_state = results[-1].get("state", {}) if results else {}
+
+        summary = f"\n{'='*50}\n"
+        summary += f"📊 测试总结 (PyTOD 模式)\n"
+        summary += f"{'='*50}\n"
+        summary += f"处理轮数: {len(turns)}\n"
+        summary += f"\n累积状态:\n"
+        for key, value in final_state.items():
+            if value:
+                summary += f"  {key}: {value}\n"
+
+        self.results_history.append({
+            "mode": "pytod",
+            "turns": len(turns),
+            "final_state": final_state,
+        })
+
+        return result_text + summary, final_state
+
     async def process_dialogue_evolve(self, turns: List[Dict]) -> Tuple[str, Dict]:
         """
         使用 Evolve 模式处理对话
@@ -487,7 +578,7 @@ class BatchDialogueTest:
         
         # 根据场景创建相应的应用
         if "保险" in scenario_name:
-            from contextmind.apps.insurance_app import InsuranceApplication
+            from contextmind.scenarios.insurance import InsuranceApplication
             return InsuranceApplication(
                 evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
@@ -495,7 +586,7 @@ class BatchDialogueTest:
                 use_real_llm=True
             )
         elif "客服" in scenario_name or "callcenter" in scenario_name.lower():
-            from contextmind.apps.callcenter_app import CallCenterApplication
+            from contextmind.scenarios.callcenter import CallCenterApplication
             return CallCenterApplication(
                 evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
@@ -503,7 +594,7 @@ class BatchDialogueTest:
                 use_real_llm=True
             )
         else:
-            from contextmind.apps.chat_app import ChatApplication
+            from contextmind.scenarios.chat import ChatApplication
             return ChatApplication(
                 evolve_engine=evolve_engine,
                 llm_client=self.llm_client,
@@ -553,6 +644,8 @@ async def process_dialogue_async(dialogue_text: str, mode: str) -> Tuple[str, st
             result_text, state = await instance.process_dialogue_dst(turns)
         elif mode == "fnctod":
             result_text, state = await instance.process_dialogue_fnctod(turns)
+        elif mode == "pytod":
+            result_text, state = await instance.process_dialogue_pytod(turns)
         else:
             result_text, state = await instance.process_dialogue_evolve(turns)
         
@@ -636,7 +729,8 @@ def create_test_ui():
                     choices=[
                         ("DST 模式 (槽位提取)", "dst"),
                         ("Evolve 模式 (记忆进化)", "evolve"),
-                        ("FnCTOD 模式 (函数调用)", "fnctod")
+                        ("FnCTOD 模式 (函数调用)", "fnctod"),
+                        ("PyTOD 模式 (程序执行)", "pytod"),
                     ],
                     value="dst",
                     label="选择模式"

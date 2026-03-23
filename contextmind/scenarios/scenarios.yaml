@@ -1,0 +1,31 @@
+# 场景配置文件 — 定义所有支持的对话场景及其元数据
+#
+# 使用方法：
+#   - 添加新场景：在 scenarios 下新增条目，重启后生效
+#   - app_class:    Evolve 模式使用的应用类
+#   - schema_getter: FnCTOD 模式使用的 Schema 获取函数
+
+scenarios:
+  chat:
+    description: 通用闲聊场景
+    aliases: [闲聊]
+    app_class: contextmind.scenarios.app.EvolveApplication
+    schema_getter: contextmind.modes.fnctod.schemas.get_chat_function_schema
+
+  callcenter:
+    description: 客服场景
+    aliases: [客服]
+    app_class: contextmind.scenarios.app.EvolveApplication
+    schema_getter: contextmind.modes.fnctod.schemas.get_callcenter_function_schema
+
+  anyihua:
+    description: 安逸花外呼促活场景
+    aliases: [安逸花, 安逸花外呼, 外呼]
+    app_class: contextmind.scenarios.app.EvolveApplication
+    schema_getter: contextmind.modes.fnctod.schemas.get_anyihua_function_schema
+
+  insurance:
+    description: 保险挽回场景
+    aliases: [保险, 保险挽回]
+    app_class: contextmind.scenarios.app.EvolveApplication
+    schema_getter: contextmind.modes.fnctod.schemas.get_insurance_function_schema
