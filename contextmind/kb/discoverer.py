@@ -149,10 +149,15 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
         for prompt in batch_prompts:
             try:
                 _reasoning, text = self._client.generate(prompt)
-                yield [ScoredOutput(score=1.0, output=text)]
+                if not text.strip():
+                    # 空响应返回合法空列表，避免 langextract 内部 JSON 解析异常
+                    logger.debug("[AdkLLMClientAdapter] LLM 返回空响应，本轮无提取结果")
+                    yield [ScoredOutput(score=0.0, output="[]")]
+                else:
+                    yield [ScoredOutput(score=1.0, output=text)]
             except Exception as exc:
                 logger.warning(f"[AdkLLMClientAdapter] LLM 推理失败: {exc}")
-                yield [ScoredOutput(score=0.0, output="")]
+                yield [ScoredOutput(score=0.0, output="[]")]
 
 
 # ------------------------------------------------------------------
@@ -251,7 +256,7 @@ def _build_langextract_examples() -> List[Any]:
             ],
         ),
         ExampleData(
-            text="您的可用额度是五万元，年化利率十二个百分点。",
+            text="可用额度是五万元，年化利率十二个百分点",
             extractions=[
                 Extraction(
                     extraction_class="slot_value",
