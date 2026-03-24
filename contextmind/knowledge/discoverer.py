@@ -365,8 +365,11 @@ def _build_langextract_examples() -> List[Any]:
     ``lx.extract()`` 要求至少一个 ``ExampleData`` 对象，每个示例中的
     ``extraction_text`` 必须是 ``text`` 的精确子串（verbatim）。
 
-    注意：每个 ``ExampleData`` 只放一条提取项，避免 langextract 在同一短文本中
-    同时对齐多个子串时出现对齐失败（``FAILED to align``）告警。
+    重要约束：
+    - 每个 ``ExampleData`` 只放一条提取项，避免 langextract 在同一短文本中
+      同时对齐多个子串时出现对齐失败（``FAILED to align``）告警。
+    - 所有示例的 ``extraction_text`` 与 ``text`` 完全相同，彻底消除子串搜索
+      导致的对齐失败告警——这些静态 few-shot 示例绝不应在日志中产生告警。
 
     此处提供四条通用中文**用户话语**示例，覆盖三种提取类别：
     - ``intent``：用户表达的业务意图（如抱怨利率、拒绝方案、询问月供）
@@ -390,7 +393,7 @@ def _build_langextract_examples() -> List[Any]:
             ],
         ),
         ExampleData(
-            text="我要分十二期还款",
+            text="分十二期",
             extractions=[
                 Extraction(
                     extraction_class="slot_value",
@@ -400,7 +403,7 @@ def _build_langextract_examples() -> List[Any]:
             ],
         ),
         ExampleData(
-            text="月供大概多少？",
+            text="月供大概多少",
             extractions=[
                 Extraction(
                     extraction_class="intent",
@@ -410,7 +413,7 @@ def _build_langextract_examples() -> List[Any]:
             ],
         ),
         ExampleData(
-            text="我考虑一下，暂时不需要。",
+            text="暂时不需要",
             extractions=[
                 Extraction(
                     extraction_class="intent",
