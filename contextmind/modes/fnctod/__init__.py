@@ -8,7 +8,7 @@ FnCTOD — ADK 原生函数调用对话状态追踪模块
 - FnCTODTracker: ADK 原生追踪器（主类）
 - FunctionManager: domain 函数管理器
 - DomainSpec / FunctionParameter: 数据模型
-- schemas.yaml: 预定义场景 schema（chat / callcenter / insurance / anyihua）
+- schemas.yaml: 预定义场景 schema（chat / callcenter / insurance）
 
 使用示例::
 
@@ -34,7 +34,6 @@ from .schemas import (
     get_chat_function_schema,
     get_callcenter_function_schema,
     get_insurance_function_schema,
-    get_anyihua_function_schema,
     get_function_schema_for_scenario,
 )
 
@@ -53,7 +52,6 @@ __all__ = [
     "get_chat_function_schema",
     "get_callcenter_function_schema",
     "get_insurance_function_schema",
-    "get_anyihua_function_schema",
     "get_function_schema_for_scenario",
 ]
 

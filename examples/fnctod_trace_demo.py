@@ -2,7 +2,7 @@
 FnCTOD 对话追踪脚本
 
 展示 FnCTOD（Function Calling for Task-Oriented Dialogue）算法在
-安逸花外呼场景中的运行过程：通过 ADK 原生 Function Calling 实现
+客服场景中的运行过程：通过 ADK 原生 Function Calling 实现
 结构化对话状态提取，并将全链路 I/O 写入 Markdown 报告。
 
 用法::
@@ -31,15 +31,15 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
-from contextmind.modes.fnctod.schemas import get_anyihua_function_schema
+from contextmind.modes.fnctod.schemas import get_callcenter_function_schema
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
 _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 
 _SCENARIO_CONTEXT = (
-    "这是一个外呼小额借款推介场景（安逸花外呼促活）。"
-    "坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。"
+    "这是一个客服对话场景。"
+    "坐席代表客服中心接听用户来电，目标是解答用户问题、处理投诉并提供帮助。"
 )
 
 
@@ -56,7 +56,7 @@ def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
     """运行单条会话的 FnCTOD 追踪，返回结构化结果。"""
-    schema = get_anyihua_function_schema()
+    schema = get_callcenter_function_schema()
     fm = FunctionManager()
     fm.add_domain(schema)
 

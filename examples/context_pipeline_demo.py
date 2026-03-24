@@ -311,7 +311,7 @@ def main() -> None:
 
         if pipeline.schema is None:
             print("\n[提示] Phase 2 需要先完成 Phase 1 或通过 --schema 加载已有 schema。")
-            print("       若 LLM 未配置，可使用 --schema resources/anyihua_sgd/schema.json 运行演示。")
+            print("       若 LLM 未配置，可使用 --schema data/kb_output/schema.json 运行演示。")
         else:
             asyncio.run(demo_phase2(pipeline, _DEMO_TURNS))
 

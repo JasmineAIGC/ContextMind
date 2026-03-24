@@ -2,7 +2,7 @@
 PyTOD 对话追踪脚本
 
 展示 PyTOD（Program-of-Thought for Task-Oriented Dialogue）算法在
-安逸花外呼场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
+客服场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
 输入/输出/执行方式，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
 用法::
@@ -38,10 +38,10 @@ _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 
 _SCENARIO_CONTEXT = (
-    "这是一个外呼小额借款推介场景（安逸花外呼促活）。"
-    "坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。"
-    "标准流程：① 核实用户身份 → ② 告知可用额度和利率 → "
-    "③ 解答疑问 → ④ 引导用户在 APP 完成借款操作 → ⑤ 礼貌告别。"
+    "这是一个客服对话场景。"
+    "坐席代表客服中心接听用户来电，目标是解答用户问题、处理订单和提供帮助。"
+    "标准流程：① 问候确认身份 → ② 了解用户诉求 → "
+    "③ 解答疑问或处理问题 → ④ 确认用户满意 → ⑤ 礼貌告别。"
 )
 
 
@@ -82,8 +82,8 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
 async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。"""
     engine = ExecutionEngine()
-    # 注册安逸花外呼场景 API
-    register_fn = SCENARIO_API_REGISTRY.get("anyihua")
+    # 注册客服场景 API
+    register_fn = SCENARIO_API_REGISTRY.get("callcenter")
     if register_fn:
         register_fn(engine)
 
@@ -184,7 +184,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
             "timestamp": datetime.now().isoformat(),
             "algorithm": "PyTOD AP→EE→DM (官方三步流水线)",
             "llm_available": llm_available,
-            "scenario": "安逸花外呼促活",
+            "scenario": "客服对话",
             "registered_apis": engine.list_functions(),
         },
         "session_id": session.get("session_id", ""),

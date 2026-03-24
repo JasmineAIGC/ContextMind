@@ -28,8 +28,8 @@ PyTOD Tracker — AdkPyTODTracker 实现（AP → EE → DM 三步流程）
     print(result["response"])      # 您的可用额度为…
 
     # 或使用工厂方法
-    from contextmind.scenarios import get_anyihua_outbound_scenario
-    config = get_anyihua_outbound_scenario()
+    from contextmind.scenarios import get_callcenter_scenario
+    config = get_callcenter_scenario()
     tracker = AdkPyTODTracker.from_scenario(llm, config)
 """
 
@@ -58,19 +58,11 @@ def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
     避免在顶层导入可能不存在的场景模块，仅在需要时动态加载。
 
     Args:
-        key: SCENARIO_API_REGISTRY 中的场景键（如 ``"anyihua"``）。
+        key: SCENARIO_API_REGISTRY 中的场景键。
 
     Returns:
         对应场景的 ServiceSchema，找不到时返回 None。
     """
-    if key in ("anyihua", "安逸花", "安逸花外呼", "安逸花外呼促活"):
-        try:
-            from contextmind.scenarios.anyihua.generation.schema import (  # type: ignore[import]
-                ANYIHUA_SCHEMA,
-            )
-            return ANYIHUA_SCHEMA
-        except ImportError:
-            logger.warning("无法加载 ANYIHUA_SCHEMA，将不使用 schema 约束")
     return None
 
 

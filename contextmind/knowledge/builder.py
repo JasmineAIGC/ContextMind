@@ -12,7 +12,7 @@
    将发现阶段收集到的槽位/意图计数及样本，调用 LLM 第二次，
    输出规范化的 SGD ServiceSchema JSON。
 
-输出的 ``schema.json`` 格式与 ``data/anyihua_sgd/schema.json`` 完全兼容，
+输出的 ``schema.json`` 格式为标准 SGD ServiceSchema，
 可直接传入 :class:`~contextmind.modes.pytod.AdkPyTODTracker` 使用。
 
 **模块独立性**：本模块不依赖 ``contextmind.modes`` 或
