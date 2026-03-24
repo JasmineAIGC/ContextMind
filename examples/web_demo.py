@@ -2,7 +2,7 @@
 """
 ContextMind Web界面Demo
 
-支持三个场景：chat（闲聊）、callcenter（客服）、insurance（保险）
+支持四个场景：chat（闲聊）、callcenter（客服）、insurance（保险）、anyihua（安逸花外呼）
 支持三种模式：DST对话状态追踪模式、Evolve记忆进化模式、FnCTOD函数调用DST模式
 
 使用方式:
@@ -30,7 +30,7 @@ from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import AdkPyTODTracker
-from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
+from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
@@ -75,6 +75,8 @@ class UnifiedGradioDemo:
             self.config = get_callcenter_scenario()
         elif scenario == "insurance":
             self.config = get_insurance_scenario()
+        elif scenario == "anyihua":
+            self.config = get_anyihua_scenario()
         else:
             raise ValueError(f"未知场景: {scenario}")
         
@@ -597,6 +599,7 @@ class UnifiedGradioDemo:
             "chat": "💬 闲聊对话",
             "callcenter": "📞 智能客服",
             "insurance": "🏥 保险咨询",
+            "anyihua": "💳 安逸花外呼",
         }
         return scenario_names.get(scenario, scenario)
     
@@ -624,7 +627,8 @@ class UnifiedGradioDemo:
         scenario_names = {
             "chat": "闲聊对话",
             "callcenter": "智能客服",
-            "insurance": "保险咨询"
+            "insurance": "保险咨询",
+            "anyihua": "安逸花外呼",
         }
         
         status = f"📌 当前配置: 场景={scenario_names.get(scenario, scenario)}, 模式={mode}"

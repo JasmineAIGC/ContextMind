@@ -71,6 +71,7 @@ def create_layout() -> tuple:
                         ("闲聊对话", "chat"),
                         ("智能客服", "callcenter"),
                         ("保险咨询", "insurance"),
+                        ("安逸花外呼", "anyihua"),
                     ],
                     value="chat",
                     label="选择场景",
