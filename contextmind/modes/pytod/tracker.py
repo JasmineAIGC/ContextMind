@@ -184,7 +184,7 @@ class AdkPyTODTracker:
     async def process_turn(
         self,
         user_utterance: str,
-        system_utterance: str = "",  # noqa: ARG002 — 保持接口兼容
+        system_utterance: str = "",
     ) -> Dict[str, Any]:
         """执行一轮三步对话处理（AP → EE → DM）。
 
@@ -201,6 +201,13 @@ class AdkPyTODTracker:
         self.turn_count += 1
         logger.info(f"AdkPyTODTracker 第 {self.turn_count} 轮 | AP→EE→DM | 用户: {user_utterance}")
         self.step_timings = {}
+
+        # 外呼场景：首轮前系统主动发起的话语（如"您好，请问是李明先生吗？"），
+        # 注入对话历史，使 AP 能感知用户回复所针对的上下文。
+        # 仅在历史为空时注入，避免重复（后续轮次的系统话语已由上一轮 DM 写入）。
+        if system_utterance and not self._history:
+            self._history.append(ConversationTurn(role="assistant", content=system_utterance))
+            logger.debug(f"[AdkPyTODTracker] 注入系统发起语到历史: {system_utterance[:80]}")
 
         # ------------------------------------------------------------------ #
         # Step 1: Action Parser (AP)

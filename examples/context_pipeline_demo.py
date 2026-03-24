@@ -105,12 +105,29 @@ _DEMO_DIALOGUES: List[Any] = [
 ]
 
 # 演示对话轮次（Phase 2 演示时使用）
+# 每条为 (系统发起语, 用户回复语) 二元组，体现客服场景的正确对话结构：
+#   系统发起 → 用户回答 → 意图预测 + 语言回复
 _DEMO_TURNS = [
-    "你好，我是李明，想了解一下贷款情况",
-    "我的手机尾号是 6789",
-    "我想知道我的可用额度是多少",
-    "如果分 12 期，月供大概是多少？",
-    "好的，我考虑一下，谢谢",
+    (
+        "您好，我是某某银行贷款客服，请问是李明先生吗？",
+        "是的，我是李明，想了解一下贷款情况",
+    ),
+    (
+        "李明先生您好！请问您手机尾号是 6789 吗？",
+        "是的，尾号是 6789",
+    ),
+    (
+        "好的，身份已核实。请问您想了解哪方面的贷款信息？",
+        "我想知道我的可用额度是多少",
+    ),
+    (
+        "您目前可用额度为 5 万元。请问您打算借多久？",
+        "如果分 12 期，月供大概是多少？",
+    ),
+    (
+        "如果借 5 万元分 12 期，每月还款约 4431 元，年化利率 12%。请问您有意向申请吗？",
+        "好的，我考虑一下，谢谢",
+    ),
 ]
 
 
@@ -169,7 +186,7 @@ def demo_phase1(
 # ------------------------------------------------------------------
 
 
-async def demo_phase2(pipeline: ContextPipeline, turns: List[str]) -> None:
+async def demo_phase2(pipeline: ContextPipeline, turns: List[Any]) -> None:
     """演示 Phase 2：对话上下文提取。"""
     print("\n" + "─" * 65)
     print("▶ Phase 2：对话上下文提取（基于知识库，逐轮提取有效上下文）")
@@ -184,15 +201,25 @@ async def demo_phase2(pipeline: ContextPipeline, turns: List[str]) -> None:
 
     print(f"\n开始对话（{len(turns)} 轮）：\n")
 
-    for i, user_input in enumerate(turns, 1):
-        print(f"[Turn {i}] 用户: {user_input}")
+    for i, turn in enumerate(turns, 1):
+        # 支持 (系统发起语, 用户回复) 二元组和纯字符串两种格式
+        if isinstance(turn, (list, tuple)) and len(turn) == 2:
+            system_utterance, user_input = turn
+        else:
+            system_utterance, user_input = "", str(turn)
+
+        if system_utterance:
+            print(f"[Turn {i}] 系统发起: {system_utterance}")
+        print(f"[Turn {i}] 用户回复: {user_input}")
 
         try:
-            result = await pipeline.process_turn(user_input)
+            result = await pipeline.process_turn(
+                user_input, system_utterance=system_utterance
+            )
 
             # 显示系统回复
             response = result.get("response", "(无回复)")
-            print(f"         系统: {response}")
+            print(f"         系统回复: {response}")
 
             # 显示提取的上下文
             context = result.get("context", {})
