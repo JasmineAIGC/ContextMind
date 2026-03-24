@@ -289,11 +289,15 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
 # ------------------------------------------------------------------
 
 _DISCOVERY_SYSTEM = """\
-你是一名任务型对话系统分析专家。给定一段业务对话，请提取其中所有出现的：
+你是一名任务型对话系统分析专家。给定一段业务对话，请从**用户（客户）**的发言中提取：
 
-1. 槽位值（slot_value）：对话中出现的具体业务字段和值（如姓名、金额、日期、电话号码等）
-2. 意图（intent）：说话人表达的业务动作或目标（如核实身份、查询额度、申请贷款、拒绝等）
-3. 关键事实（fact）：不属于槽位值也不属于意图的重要业务陈述
+1. 槽位值（slot_value）：用户话语中涉及的具体业务字段和值（如金额、期数、意向、投诉原因等）
+2. 意图（intent）：用户表达的业务动作或目标（如询问月供、拒绝贷款、抱怨利率高等）
+3. 关键事实（fact）：用户话语中不属于槽位值也不属于意图的重要业务陈述
+
+注意：
+- 仅提取**用户**话语中出现的信息；坐席（机器人）的话仅作上下文理解，不作为提取对象
+- 对话中 "坐席：" 前缀的轮次是机器人，"用户：" 前缀的轮次是客户
 
 ## 输出格式（严格 JSON 数组，只输出 JSON）
 
@@ -307,18 +311,18 @@ _DISCOVERY_SYSTEM = """\
 ## 规范说明
 
 - class 只能是 "slot_value"、"intent" 或 "fact"
-- label 使用英文小写下划线命名（如 customer_name、verify_identity）
-- 只提取真实出现在对话中的内容，不推测未提及的内容
+- label 使用英文小写下划线命名（如 inquire_monthly_payment、complain_interest_rate）
+- 只提取用户话语中真实出现的内容，不推测未提及的内容
 - 尽可能完整，不遗漏重要槽位和意图
 - 只输出 JSON 数组，不加任何说明或 markdown 代码块"""
 
 _DISCOVERY_USER_TEMPLATE = """\
 ## 业务场景：{scene_name}
 
-## 对话内容：
+## 对话内容（请从用户发言中提取）：
 {dialogue_text}
 
-请提取此对话中的槽位值、意图和关键事实（只输出 JSON 数组）："""
+请从上述对话的**用户**发言中提取槽位值、意图和关键事实（只输出 JSON 数组）："""
 
 
 # ------------------------------------------------------------------
@@ -361,46 +365,49 @@ def _build_langextract_examples() -> List[Any]:
     ``lx.extract()`` 要求至少一个 ``ExampleData`` 对象，每个示例中的
     ``extraction_text`` 必须是 ``text`` 的精确子串（verbatim）。
 
-    此处提供三条通用中文业务对话示例，覆盖三种提取类别：
-    - ``slot_value``：具体业务字段值
-    - ``intent``：说话人意图
-    - ``fact``：重要业务事实
+    此处提供三条通用中文**用户话语**示例，覆盖三种提取类别：
+    - ``slot_value``：用户话语中的具体业务字段值（如分期期数）
+    - ``intent``：用户表达的业务意图（如询问月供、抱怨利率）
+    - ``fact``：用户话语中重要的业务陈述
+
+    示例均来自用户侧，与实际提取场景（仅对用户轮次提取）匹配，
+    避免 langextract 因 few-shot 与输入类型不一致而产生偏差。
     """
     if not _LANGEXTRACT_AVAILABLE:
         return []
     return [
         ExampleData(
-            text="您好，请问是李先生吗？",
+            text="感觉利率有点高",
             extractions=[
                 Extraction(
                     extraction_class="intent",
-                    extraction_text="请问是李先生吗",
-                    attributes={"label": "verify_identity", "value": "核实用户身份"},
+                    extraction_text="感觉利率有点高",
+                    attributes={"label": "complain_interest_rate", "value": "用户认为利率偏高"},
                 ),
             ],
         ),
         ExampleData(
-            text="可用额度是五万元，年化利率十二个百分点",
+            text="那月供多少？分十二期的话",
             extractions=[
                 Extraction(
-                    extraction_class="slot_value",
-                    extraction_text="可用额度是五万元",
-                    attributes={"label": "available_credit", "value": "五万元"},
+                    extraction_class="intent",
+                    extraction_text="月供多少",
+                    attributes={"label": "inquire_monthly_payment", "value": "询问分期月还款额"},
                 ),
                 Extraction(
                     extraction_class="slot_value",
-                    extraction_text="年化利率十二个百分点",
-                    attributes={"label": "annual_rate", "value": "十二个百分点"},
+                    extraction_text="分十二期",
+                    attributes={"label": "term_months", "value": "12"},
                 ),
             ],
         ),
         ExampleData(
-            text="分十二期每月还款约四千四百三十一元。",
+            text="我考虑一下，暂时不需要。",
             extractions=[
                 Extraction(
-                    extraction_class="fact",
-                    extraction_text="分十二期每月还款约四千四百三十一元",
-                    attributes={"label": "repayment_plan", "value": "12期月供4431元"},
+                    extraction_class="intent",
+                    extraction_text="暂时不需要",
+                    attributes={"label": "decline_offer", "value": "拒绝当前贷款方案"},
                 ),
             ],
         ),
@@ -720,12 +727,13 @@ class GenericDialogueDiscoverer:
     ) -> List[DiscoveryItem]:
         """纯 LLM 整体提取（langextract 不可用时的降级路径）。
 
-        仅将用户话语送给 LLM 提取，不包含坐席/机器人话语。
+        将完整对话（含坐席话语）送给 LLM 以保留上下文，
+        但通过 prompt 指示 LLM 仅从用户话语中提取。
         结果不含溯源信息（``provenance=None``）。
         """
-        dialogue_text = self._format_user_turns(normalized_dlg)
+        dialogue_text = self._format_dialogue(normalized_dlg)
         if not dialogue_text.strip():
-            logger.debug("[GenericDialogueDiscoverer] 对话为空（无用户轮次），跳过提取")
+            logger.debug("[GenericDialogueDiscoverer] 对话为空，跳过提取")
             return []
 
         user_msg = _DISCOVERY_USER_TEMPLATE.format(
