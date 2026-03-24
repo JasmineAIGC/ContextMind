@@ -485,6 +485,7 @@ class ContextPipeline:
             from contextmind.modes.pytod.tracker import AdkPyTODTracker
 
             engine = self._get_engine()
+            self._register_schema_stubs(engine)
             self.tracker = AdkPyTODTracker(
                 llm_client=self._get_llm(),
                 engine=engine,
@@ -524,4 +525,40 @@ class ContextPipeline:
             raise ValueError(
                 f"不支持的执行模式: {self.mode!r}。"
                 "支持的模式: 'pytod', 'dst'"
+            )
+
+    def _register_schema_stubs(self, engine: Any) -> None:
+        """为 schema 中尚未注册的意图自动注册存根函数。
+
+        存根函数接受任意关键字参数，返回包含所有 result_slots 的字典
+        （值为空字符串占位符）。这样动作解析器生成的意图调用不会被执行引擎
+        拒绝，同时也不影响用户通过 :meth:`register_api` 注册的真实函数。
+
+        仅在 ``mode == "pytod"`` 时由 :meth:`_init_tracker` 调用。
+        """
+        if self.schema is None:
+            return
+
+        registered = 0
+        for intent in self.schema.intents:
+            if intent.name in engine.registry:
+                continue  # 已有真实实现，不覆盖
+
+            result_slots: List[str] = list(intent.result_slots)
+
+            # 使用闭包捕获 result_slots，避免循环变量绑定问题
+            def _make_stub(slots: List[str]) -> Callable:
+                def _stub(**kwargs: Any) -> Dict[str, Any]:
+                    return {s: "" for s in slots}
+                return _stub
+
+            stub = _make_stub(result_slots)
+            stub.__name__ = intent.name
+            engine.registry[intent.name] = stub
+            registered += 1
+
+        if registered:
+            logger.debug(
+                f"[ContextPipeline] 已为 {registered} 个 schema 意图注册存根函数: "
+                f"{[i.name for i in self.schema.intents if i.name in engine.registry]}"
             )
