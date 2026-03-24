@@ -163,6 +163,7 @@ class FnCTODTracker:
         self._dialogue_history: List[Dict[str, str]] = []
         self.turn_count: int = 0
         self._session_id: Optional[str] = None
+        self.last_turn_updates: Dict[str, Any] = {}
 
         logger.info(
             f"FnCTODTracker 初始化完成 (model={self._llm_config.model}, "
@@ -222,6 +223,7 @@ class FnCTODTracker:
         self._dialogue_history = []
         self.turn_count = 0
         self._session_id = None
+        self.last_turn_updates = {}
 
     async def process_turn(self, user_utterance: str, **kwargs: Any) -> Dict[str, Any]:
         """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位并生成回复。
@@ -260,6 +262,7 @@ class FnCTODTracker:
                             final_text += part.text
 
         self._current_state.update(turn_updates)
+        self.last_turn_updates = turn_updates
         self._dialogue_history.append({"role": "user", "content": user_utterance})
         response_text = final_text.strip()
         if response_text:
