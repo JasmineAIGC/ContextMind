@@ -1,8 +1,9 @@
 """
-FnCTOD Agent — ADK 原生函数调用对话状态追踪器
+FnCTOD Agent — ADK 原生函数调用任务型对话追踪器
 
-基于 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"
-论文思想，利用 Google ADK 原生 Function Calling 实现结构化槽位提取。
+基于 "FnCTOD: Leveraging LLMs for Function Calling in Task-Oriented Dialogue Systems"
+论文思想（Function Calling for Task-Oriented Dialogue），利用 Google ADK 原生 Function
+Calling 在任务型对话中调用业务函数、处理用户请求并生成回复。
 
 使用示例::
 
@@ -108,10 +109,11 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
 
 
 class FnCTODTracker:
-    """ADK 原生函数调用对话状态追踪器。
+    """ADK 原生函数调用任务型对话追踪器（FnCTOD）。
 
-    利用 ADK 原生 Function Calling 替代 XML 提示词解析，
-    实现对话状态的结构化提取。
+    实现 "Function Calling for Task-Oriented Dialogue" 范式：
+    通过 ADK 原生 Function Calling 在任务型对话中调用业务函数，
+    处理用户意图和槽位，并生成自然语言回复。
 
     参数
     ----
@@ -139,7 +141,7 @@ class FnCTODTracker:
         if system_instruction is None:
             domain_names = function_manager.get_domain_names()
             system_instruction = (
-                "你是一个任务型对话助手，通过调用函数提取对话中的关键信息，然后给出自然语言回复。\n"
+                "你是一个任务型对话助手（FnCTOD），通过调用函数处理用户请求并完成任务型对话。\n"
                 f"可用的业务域: {', '.join(domain_names)}。\n"
                 "处理规则：\n"
                 "1. 每轮对话只调用函数一次，一次性填入所有已识别的槽位值；\n"

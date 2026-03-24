@@ -110,6 +110,62 @@ def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
     return schema
 
 
+def _register_apis_from_schema(engine: ExecutionEngine, schema: ServiceSchema) -> None:
+    """根据 ServiceSchema 的意图定义，在 ExecutionEngine 中注册对应的 API 函数。
+
+    当外部 schema.json 传入时，用来替换预定义的场景 API，确保 ExecutionEngine
+    能够执行 AP 依据外部 Schema 生成的程序（意图名和槽位名与 schema 一致）。
+
+    注册规则：
+    - 若 schema 定义了 intents，则为每个 intent 注册一个同名函数，
+      函数参数为该 intent 的全部 required_slots + optional_slots 加上
+      schema 级别的所有 slots。
+    - 若 schema 没有 intents，则以 service_name 为函数名注册一个
+      接受所有 schema slots 作为参数的通用函数。
+
+    注册的函数均为简单的直通函数（返回传入的非空参数字典），
+    用于演示和追踪场景——真实业务可替换为实际 API 实现。
+
+    Args:
+        engine: 目标 ExecutionEngine，会清空 registry 后重新注册。
+        schema: 外部传入的 ServiceSchema。
+    """
+    import inspect
+
+    engine.registry.clear()
+
+    schema_slot_names = [s.name for s in schema.slots]
+
+    def _make_api_func(func_name: str, param_names: List[str]) -> Any:
+        """动态创建一个接受指定参数的 API 函数。"""
+        def _api(**kwargs: Any) -> Dict[str, Any]:
+            return {k: v for k, v in kwargs.items() if v is not None}
+
+        params = [
+            inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None)
+            for p in param_names
+        ]
+        _api.__signature__ = inspect.Signature(params)  # type: ignore[attr-defined]
+        _api.__name__ = func_name
+        return _api
+
+    if schema.intents:
+        for intent in schema.intents:
+            # 合并意图槽位与 schema 级别槽位（去重，保持顺序）
+            intent_slots = list(intent.required_slots) + list(intent.optional_slots) + list(intent.result_slots)
+            all_slots = list(dict.fromkeys(intent_slots + schema_slot_names))
+            func = _make_api_func(intent.name, all_slots)
+            engine.registry[intent.name] = func
+            logger.debug(f"[schema API] 注册意图函数: {intent.name}({', '.join(all_slots)})")
+    else:
+        # 无意图定义时，以 service_name 为函数名注册通用函数
+        func = _make_api_func(schema.service_name, schema_slot_names)
+        engine.registry[schema.service_name] = func
+        logger.debug(f"[schema API] 注册服务函数: {schema.service_name}({', '.join(schema_slot_names)})")
+
+    logger.info(f"已基于外部 Schema 注册 API: {engine.list_functions()}")
+
+
 # ---------------------------------------------------------------------------
 # AdkPyTODTracker — 三步流程（AP → EE → DM），AdkLLMClient 作为 LLM 后端
 # ---------------------------------------------------------------------------
@@ -201,17 +257,24 @@ class AdkPyTODTracker:
         kwargs.pop("app_name", None)
         kwargs.pop("user_id", None)
 
+        # 外部 schema 优先取出，决定 API 注册策略
+        external_schema = kwargs.pop("schema", None)
+
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
         key = get_scenario_key(scenario_name)
-        if key:
-            SCENARIO_API_REGISTRY[key](engine)
-            logger.info(f"已为场景 '{scenario_name}' 注册 API: {engine.list_functions()}")
-        else:
-            logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
 
-        # 自动加载场景 schema，注入 AP prompt 实现意图约束
-        schema = kwargs.pop("schema", None) or _load_scenario_schema(key)
+        if external_schema is not None:
+            # 外部 schema 传入：用 schema 中的意图动态注册 API，替换预定义函数
+            _register_apis_from_schema(engine, external_schema)
+            schema = external_schema
+        else:
+            if key:
+                SCENARIO_API_REGISTRY[key](engine)
+                logger.info(f"已为场景 '{scenario_name}' 注册 API: {engine.list_functions()}")
+            else:
+                logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
+            schema = _load_scenario_schema(key)
 
         scenario_context = kwargs.pop(
             "scenario_context",

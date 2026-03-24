@@ -193,7 +193,7 @@ state = await tracker.process_turn("我要订明天去北京的票")
 
 ### 2. **FnCTOD 模式**（函数调用）
 
-基于 Meta AI FnCTOD 论文，将 DST 转化为函数调用。
+基于 FnCTOD 论文，通过函数调用处理任务型对话（Function Calling for Task-Oriented Dialogue）。
 
 ```python
 from contextmind.modes.fnctod import FnCTODTracker

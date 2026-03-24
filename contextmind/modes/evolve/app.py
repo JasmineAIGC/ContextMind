@@ -177,6 +177,7 @@ class EvolveApplication:
 
         # --- 当前输入 ---
         parts.append(f"\n## 当前问题\n{user_input}")
+        parts.append("\n请简洁、直接地回答以上问题，避免不必要的重复和冗余。")
         return "\n".join(parts)
 
     # ------------------------------------------------------------------ #
