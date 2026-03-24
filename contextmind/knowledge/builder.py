@@ -101,6 +101,10 @@ class KnowledgeBaseBuilder:
 
         self.last_slot_counter: Counter = Counter()
         self.last_intent_counter: Counter = Counter()
+        # 最近一次 build_dataset() 发现阶段的逐轮原始 DiscoveryItem 列表。
+        # 结构：List[ List[ (turn_idx, speaker, utterance, [DiscoveryItem, ...]) ] ]
+        # 每项对应一条对话，可通过 save_dataset() 写入 discovery_raw.json。
+        self.last_discovery_turns: List[Any] = []
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -227,14 +231,16 @@ class KnowledgeBaseBuilder:
             f"输入对话 {len(dialogues)} 条"
         )
         normalized = normalize_dialogues(dialogues)
-        sample = normalized[: self.discovery_sample]
+        # build_dataset() 使用全部归一化对话，确保知识提取不遗漏；
+        # 调用方通过传入的 dialogues 数量来控制处理范围。
 
         # -- Step 1: 发现阶段（逐轮，保留每轮提取结果用于 SGD 标注） --
         slot_counter, intent_counter, slot_samples, intent_samples, per_dlg_turns = (
-            self._run_discovery_per_turn(sample)
+            self._run_discovery_per_turn(normalized)
         )
         self.last_slot_counter = slot_counter
         self.last_intent_counter = intent_counter
+        self.last_discovery_turns = per_dlg_turns
 
         logger.info(
             f"[KnowledgeBaseBuilder] 发现阶段完成 — "
@@ -250,13 +256,13 @@ class KnowledgeBaseBuilder:
             intent_counter=intent_counter,
             slot_sample_values=slot_samples,
             intent_sample_descs=intent_samples,
-            n_dialogues=len(sample),
+            n_dialogues=len(normalized),
         )
 
         # -- Step 3: 转换为 SGD 对话格式 --
         service_name = schema_dict.get("service_name", self.scene_name)
         sgd_dialogues = []
-        for dlg_idx, (dlg, per_turn) in enumerate(zip(sample, per_dlg_turns)):
+        for dlg_idx, (dlg, per_turn) in enumerate(zip(normalized, per_dlg_turns)):
             sgd_dlg = self._convert_to_sgd_dialogue(
                 dlg, per_turn, service_name, dlg_idx
             )
@@ -327,6 +333,45 @@ class KnowledgeBaseBuilder:
 
         # 统计总轮次
         total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
+
+        # 写入 discovery_raw.json（逐轮原始提取结果，含 langextract 溯源信息）
+        if self.last_discovery_turns:
+            raw_records = []
+            for sgd_dlg, per_turn in zip(sgd_dialogues, self.last_discovery_turns):
+                turn_records = []
+                for turn_idx, speaker, utterance, items in per_turn:
+                    extractions = [
+                        {
+                            "extraction_class": item.extraction_class,
+                            "label": item.label,
+                            "value": item.value,
+                            "provenance": item.provenance,
+                        }
+                        for item in items
+                    ]
+                    turn_records.append(
+                        {
+                            "turn_idx": turn_idx,
+                            "speaker": speaker,
+                            "utterance": utterance,
+                            "extractions": extractions,
+                        }
+                    )
+                raw_records.append(
+                    {
+                        "dialogue_id": sgd_dlg.get("dialogue_id", ""),
+                        "turns": turn_records,
+                    }
+                )
+            raw_path = output_dir / "discovery_raw.json"
+            raw_path.write_text(
+                json.dumps(raw_records, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            logger.info(
+                f"[KnowledgeBaseBuilder] discovery_raw.json 已写入: {raw_path} "
+                f"（{len(raw_records)} 条对话）"
+            )
 
         # 写入 conversion_summary.json
         summary = {

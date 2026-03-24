@@ -8,10 +8,19 @@
 1. 提供任意对话数据（可以是安逸花外呼、银行贷款、电商客服等任意场景）
 2. KnowledgeBaseBuilder 自动完成：
    - 对话格式归一化（支持 chat_test / SGD / 文本列表等多种格式）
-   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加溯源信息
+   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加溯源信息；
+     对所有传入对话逐一处理，确保知识提取不遗漏
    - 合成阶段：LLM 将发现结果整理为规范 SGD ServiceSchema
    - 转换阶段：将输入对话转换为带注释的 SGD 对话文件
-3. 输出完整 SGD 数据集（schema.json + dialogues_001.json），可直接供 PyTOD 等执行算法使用
+3. 输出完整 SGD 数据集，可直接供 PyTOD 等执行算法使用
+
+输出文件
+--------
+    output_dir/
+        schema.json             服务 schema（槽位 + 意图）
+        dialogues_001.json      SGD 格式标注对话
+        discovery_raw.json      逐轮原始提取结果（含 langextract 字符级溯源）
+        conversion_summary.json 转换摘要
 
 两步走
 ------
@@ -34,6 +43,12 @@
         --scene "安逸花外呼" \\
         --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
 
+    # 使用全部 100 条对话（完整提取，LLM 调用较多）
+    python examples/build_kb_demo.py \\
+        --data resources/data/chat_test_100.json \\
+        --scene "安逸花外呼" \\
+        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
+
     # 使用任意 JSON 文件（SGD turns 格式）
     python examples/build_kb_demo.py \\
         --data my_dialogues.json \\
@@ -48,7 +63,7 @@
 参数说明
 --------
     --data          输入对话 JSON 文件路径
-    --num           使用对话条数（发现阶段，默认 10）
+    --num           使用对话条数（0 = 全部，默认 10）
     --scene         业务场景名称（默认 "对话场景"）
     --scene-desc    场景描述（可选）
     --output        SGD 数据集输出目录（默认 data/kb_output）
@@ -145,7 +160,7 @@ def main() -> None:
         epilog=__doc__,
     )
     parser.add_argument("--data", type=str, default=None, help="输入对话 JSON 文件路径")
-    parser.add_argument("--num", type=int, default=10, help="使用对话条数（默认 10）")
+    parser.add_argument("--num", type=int, default=10, help="使用对话条数（0 = 全部，默认 10）")
     parser.add_argument("--scene", type=str, default="对话场景", help="业务场景名称")
     parser.add_argument("--scene-desc", type=str, default="", help="场景描述（可选）")
     parser.add_argument(
@@ -202,7 +217,6 @@ def main() -> None:
     builder = KnowledgeBaseBuilder(
         scene_name=scene,
         scene_description=scene_desc,
-        discovery_sample=args.num,
     )
 
     print("▶ 执行知识库构建（生成完整 SGD 数据集）…")
@@ -272,6 +286,7 @@ def main() -> None:
     print(f"\n✓ SGD 数据集已保存至: {output_dir.resolve()}")
     print(f"  ├── schema.json           (服务 schema)")
     print(f"  ├── dialogues_001.json    (SGD 格式对话，{len(sgd_dialogues)} 条)")
+    print(f"  ├── discovery_raw.json    (逐轮原始提取结果，含 langextract 字符级溯源)")
     print(f"  └── conversion_summary.json")
     print("─" * 70)
     print()
