@@ -35,9 +35,13 @@ PyTOD Tracker — AdkPyTODTracker 实现（AP → EE → DM 三步流程）
 
 from __future__ import annotations
 
+import functools
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import yaml
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.execution_engine import ExecutionEngine, ProgramExecutionResult
@@ -47,6 +51,33 @@ from contextmind.modes.pytod.schemas import ServiceSchema
 
 logger = get_logger(__name__)
 
+_SCENARIO_SCHEMAS_YAML = Path(__file__).parent / "scenario_schemas.yaml"
+
+# 规范化 key（中文别名 → 英文基础 key）以便在 YAML 中查找
+_KEY_ALIASES: Dict[str, str] = {
+    "闲聊": "chat",
+    "客服": "callcenter",
+    "保险": "insurance",
+    "保险挽回": "insurance",
+}
+
+
+@functools.lru_cache(maxsize=None)
+def _load_all_scenario_schemas() -> Dict[str, ServiceSchema]:
+    """从 scenario_schemas.yaml 一次性加载所有场景的 ServiceSchema，结果缓存。"""
+    if not _SCENARIO_SCHEMAS_YAML.exists():
+        logger.warning("scenario_schemas.yaml 不存在，PyTOD 将使用空 Schema 运行")
+        return {}
+    with open(_SCENARIO_SCHEMAS_YAML, encoding="utf-8") as f:
+        raw = yaml.safe_load(f) or {}
+    schemas: Dict[str, ServiceSchema] = {}
+    for name, data in raw.items():
+        try:
+            schemas[name] = ServiceSchema.from_dict(data)
+        except Exception as exc:
+            logger.warning(f"场景 '{name}' 的 Schema 加载失败: {exc}")
+    return schemas
+
 
 # ---------------------------------------------------------------------------
 # 内部工具
@@ -55,15 +86,26 @@ logger = get_logger(__name__)
 def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
     """按场景 key 懒加载对应的预定义 ServiceSchema。
 
-    避免在顶层导入可能不存在的场景模块，仅在需要时动态加载。
+    从 scenario_schemas.yaml 加载内置场景 Schema（chat / callcenter / insurance）。
+    当用户未通过 build_kb_demo.py 创建知识库时，PyTOD 演示脚本可直接使用这些
+    预置 Schema，保证 AP 提示词包含完整的业务意图和槽位描述。
 
     Args:
-        key: SCENARIO_API_REGISTRY 中的场景键。
+        key: SCENARIO_API_REGISTRY 中的场景键（如 "callcenter"、"insurance"、"chat"
+             或其中文别名）。
 
     Returns:
-        对应场景的 ServiceSchema，找不到时返回 None。
+        对应场景的 ServiceSchema；找不到时返回 None。
     """
-    return None
+    if not key:
+        return None
+    # 将中文别名规范化为英文 key
+    canonical = _KEY_ALIASES.get(key, key)
+    schemas = _load_all_scenario_schemas()
+    schema = schemas.get(canonical)
+    if schema is None:
+        logger.debug(f"场景 '{key}' 无预置 Schema，AP 将使用空 Schema 运行（开放域模式）")
+    return schema
 
 
 # ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+from contextmind.scenarios import get_callcenter_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
 _AGENT_PREFIX = "坐席："
@@ -81,11 +82,11 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。"""
-    engine = ExecutionEngine()
-    # 注册客服场景 API
+    # 用于获取已注册 API 列表（无论 LLM 是否可用）
+    _probe_engine = ExecutionEngine()
     register_fn = SCENARIO_API_REGISTRY.get("callcenter")
     if register_fn:
-        register_fn(engine)
+        register_fn(_probe_engine)
 
     try:
         config = LLMConfig.from_env()
@@ -109,7 +110,15 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
 
     if llm_available:
         llm_client = AdkLLMClient(config=config)
-        agent = AdkPyTODTracker(llm_client=llm_client, engine=engine, scenario_context=scenario_context)
+        # 使用 from_scenario() 自动加载客服场景 API 和预置 Schema，
+        # 确保 AP 提示词包含完整的业务意图和槽位描述，无需手动创建知识库。
+        scenario_config = get_callcenter_scenario()
+        agent = AdkPyTODTracker.from_scenario(
+            llm_client=llm_client,
+            scenario_config=scenario_config,
+            scenario_context=scenario_context,
+        )
+        engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
         for i, utt in enumerate(user_turns):
             # 在调用前记录本轮 AP 的 dataflow 输入（prior_dataflow = current_state snapshot）
             prior_dataflow_snapshot = {
@@ -185,7 +194,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
             "algorithm": "PyTOD AP→EE→DM (官方三步流水线)",
             "llm_available": llm_available,
             "scenario": "客服对话",
-            "registered_apis": engine.list_functions(),
+            "registered_apis": _probe_engine.list_functions(),
         },
         "session_id": session.get("session_id", ""),
         "用户信息": session.get("用户信息", ""),
