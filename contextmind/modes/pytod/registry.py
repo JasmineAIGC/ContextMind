@@ -474,6 +474,113 @@ def _register_callcenter_apis(engine: ExecutionEngine) -> None:
         }
 
 
+# ---------------------------------------------------------------------------
+# 安逸花外呼场景 API
+# ---------------------------------------------------------------------------
+
+def _register_anyihua_apis(engine: ExecutionEngine) -> None:
+    """为安逸花外呼场景注册演示 API 函数。"""
+
+    @engine.register
+    def query_credit_limit(account_id=None):
+        """查询用户当前信用额度及可用余额。"""
+        if not account_id:
+            return {"hint": "请提供账户标识以查询额度信息"}
+        return {
+            "account_id": account_id,
+            "current_credit_limit": 50000,
+            "available_amount": 50000,
+            "temporary_credit_limit": 60000,
+            "message": "您当前信用额度为 50,000 元，临时提额至 60,000 元，全部可用。",
+        }
+
+    @engine.register
+    def verify_identity(account_usage_status=None):
+        """核实用户账户身份及使用状态。account_usage_status 可选：正常使用、未激活、已逾期、已结清。"""
+        return {
+            "account_usage_status": account_usage_status or "正常使用",
+            "verified": True,
+            "message": "身份核实完成，账户状态：" + (account_usage_status or "正常使用"),
+        }
+
+    @engine.register
+    def calculate_loan_cost(loan_amount=None, term_years=None):
+        """计算借款成本，包括每月还款和总利息。loan_amount 为借款金额（元），term_years 为期限（年）。"""
+        if not loan_amount:
+            return {"hint": "请提供借款金额"}
+        amount = float(str(loan_amount).replace(",", "").replace("元", "").strip() or 10000)
+        years = float(str(term_years).replace("年", "").strip() if term_years else 1)
+        annual_rate = 0.144  # 14.4% APR demo rate
+        monthly_rate = annual_rate / 12
+        months = int(years * 12)
+        monthly_payment = round(amount * monthly_rate * (1 + monthly_rate) ** months / ((1 + monthly_rate) ** months - 1), 2)
+        total_interest = round(monthly_payment * months - amount, 2)
+        return {
+            "loan_amount": amount,
+            "term_years": years,
+            "monthly_payment": monthly_payment,
+            "total_interest": total_interest,
+            "daily_interest": round(amount * annual_rate / 365, 2),
+            "message": f"借款 {amount:,.0f} 元，期限 {years} 年，每月还款约 {monthly_payment:,.2f} 元，总利息约 {total_interest:,.2f} 元。",
+        }
+
+    @engine.register
+    def inquire_repayment_schedule(loan_amount=None, monthly_payment=None):
+        """查询还款计划详情。"""
+        if not loan_amount:
+            return {"hint": "请提供借款金额以生成还款计划"}
+        return {
+            "loan_amount": loan_amount,
+            "monthly_payment": monthly_payment or "待确认",
+            "repayment_method": "等额还款",
+            "prepayment_penalty": "无",
+            "message": "安逸花支持提前还款，不收违约金，按实际使用天数计息。",
+        }
+
+    @engine.register
+    def explain_interest_rate(rate_type=None):
+        """解释安逸花借款利率。rate_type 可选：日利率、月利率、年化利率。"""
+        return {
+            "rate_type": rate_type or "日利率",
+            "daily_rate": "0.04%",
+            "monthly_rate": "约1.2%",
+            "annual_rate": "约14.4%（年化）",
+            "note": "按实际借款天数计息，提前还款不收违约金。",
+            "message": "安逸花日利率约 0.04%，按借款天数计息，随借随还。",
+        }
+
+    @engine.register
+    def handle_overdue_inquiry(overdue_days=None):
+        """处理逾期相关咨询。提供逾期费用说明和还款建议。"""
+        days = int(str(overdue_days).replace("天", "").strip() if overdue_days else 0)
+        return {
+            "overdue_days": days,
+            "penalty_rate": "日罚息0.05%",
+            "advice": "建议尽快还款，如有还款困难可联系客服申请延期。",
+            "customer_service": "95090",
+            "message": f"逾期{days}天，每日罚息为借款金额的0.05%，建议尽快处理或拨打95090协商。",
+        }
+
+    @engine.register
+    def suggest_borrow_amount(available_amount=None, usage_purpose=None):
+        """根据可用额度和用途建议合适的借款金额。"""
+        return {
+            "available_amount": available_amount,
+            "usage_purpose": usage_purpose or "日常周转",
+            "suggested_amount": available_amount,
+            "message": f"根据您的需求，可借款金额最高为 {available_amount} 元，按需借用，按日计息。",
+        }
+
+    @engine.register
+    def transfer_to_customer_service(reason=None):
+        """将用户转接到人工客服热线 95090。"""
+        return {
+            "customer_service_number": "95090",
+            "reason": reason or "用户咨询",
+            "message": "正在为您转接安逸花人工客服，热线：95090，服务时间 7×24 小时。",
+        }
+
+
 # 拒保风险关键词（保险健康告知校验）
 _EXCLUDED_CONDITIONS = ["癌症", "艾滋", "精神", "肝硬化"]
 
@@ -772,7 +879,10 @@ SCENARIO_API_REGISTRY: Dict[str, Callable[[ExecutionEngine], None]] = {
     "客服": _register_callcenter_apis,
     "insurance": _register_insurance_apis,
     "保险": _register_insurance_apis,
-    "保险挽回": _register_insurance_apis,
+    "保险销售": _register_insurance_apis,
+    "anyihua": _register_anyihua_apis,
+    "安逸花": _register_anyihua_apis,
+    "安逸花外呼": _register_anyihua_apis,
 }
 
 

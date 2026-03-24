@@ -252,3 +252,57 @@ insurance:
     - name: suspend_or_resume_policy
       description: 暂停或恢复保单（部分险种支持）
       optional_slots: [policy_number, action]
+
+anyihua:
+  service_name: anyihua
+  description: 安逸花外呼促活服务，流程包括核实身份、告知额度、解答疑问、引导借款
+  slots:
+    - name: account_id
+      description: 账户标识
+    - name: account_usage_status
+      description: 账户使用状态（正常使用/未激活/已逾期/已结清）
+    - name: loan_amount
+      description: 借款金额（元）
+    - name: term_years
+      description: 借款期限（年）
+    - name: monthly_payment
+      description: 每月还款金额
+    - name: total_interest
+      description: 总利息金额
+    - name: daily_interest
+      description: 每日利息金额
+    - name: available_amount
+      description: 当前可用金额
+    - name: overdue_days
+      description: 逾期天数
+    - name: usage_purpose
+      description: 借款用途
+    - name: rate_type
+      description: 利率类型（日利率/月利率/年化利率）
+    - name: reason
+      description: 转接客服原因
+  intents:
+    - name: query_credit_limit
+      description: 查询用户当前信用额度及可用余额
+      optional_slots: [account_id]
+    - name: verify_identity
+      description: 核实用户账户身份及使用状态
+      optional_slots: [account_usage_status]
+    - name: calculate_loan_cost
+      description: 计算借款成本，包括每月还款和总利息
+      optional_slots: [loan_amount, term_years]
+    - name: inquire_repayment_schedule
+      description: 查询还款计划详情，说明提前还款规则
+      optional_slots: [loan_amount, monthly_payment]
+    - name: explain_interest_rate
+      description: 解释安逸花借款利率（日利率/月利率/年化利率）
+      optional_slots: [rate_type]
+    - name: handle_overdue_inquiry
+      description: 处理逾期相关咨询，提供逾期费用说明和还款建议
+      optional_slots: [overdue_days]
+    - name: suggest_borrow_amount
+      description: 根据可用额度和用途建议合适的借款金额
+      optional_slots: [available_amount, usage_purpose]
+    - name: transfer_to_customer_service
+      description: 将用户转接到人工客服热线 95090
+      optional_slots: [reason]

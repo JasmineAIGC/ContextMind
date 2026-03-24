@@ -1,0 +1,148 @@
+[
+  {
+    "service_name": "CallCenter_Service",
+    "description": "通用客服对话场景，处理产品咨询、投诉、售后、账户管理、物流查询等服务请求",
+    "slots": [
+      {
+        "name": "issue_type",
+        "description": "问题类型（产品问题/服务问题/物流问题/账户问题等）",
+        "is_categorical": true,
+        "possible_values": ["产品问题", "服务问题", "物流问题", "账户问题", "其他"]
+      },
+      {
+        "name": "order_id",
+        "description": "订单编号",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "product_name",
+        "description": "产品名称或型号",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "account_id",
+        "description": "账户ID或用户名",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "complaint_description",
+        "description": "投诉内容描述",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "service_type",
+        "description": "服务类型（退换货/维修/质保/使用指导等）",
+        "is_categorical": true,
+        "possible_values": ["退货", "换货", "维修", "质保", "使用指导"]
+      },
+      {
+        "name": "tracking_number",
+        "description": "快递单号",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "refund_amount",
+        "description": "退款金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "new_email",
+        "description": "新邮箱地址",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "new_phone",
+        "description": "新手机号",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "feedback_content",
+        "description": "用户反馈或建议内容",
+        "is_categorical": false,
+        "possible_values": []
+      }
+    ],
+    "intents": [
+      {
+        "name": "query_order_status",
+        "description": "查询订单状态，包括支付状态、发货状态和预计到达时间",
+        "is_transactional": false,
+        "required_slots": ["order_id"],
+        "optional_slots": [],
+        "result_slots": ["order_status"]
+      },
+      {
+        "name": "submit_complaint",
+        "description": "提交投诉，记录问题类型和详细描述",
+        "is_transactional": true,
+        "required_slots": ["complaint_description"],
+        "optional_slots": ["issue_type", "order_id", "product_name"],
+        "result_slots": ["complaint_id"]
+      },
+      {
+        "name": "request_refund",
+        "description": "申请退款，支持全额和部分退款",
+        "is_transactional": true,
+        "required_slots": ["order_id"],
+        "optional_slots": ["refund_amount", "complaint_description"],
+        "result_slots": ["refund_status"]
+      },
+      {
+        "name": "request_exchange",
+        "description": "申请换货，需要订单号和问题描述",
+        "is_transactional": true,
+        "required_slots": ["order_id"],
+        "optional_slots": ["product_name", "complaint_description"],
+        "result_slots": ["exchange_status"]
+      },
+      {
+        "name": "track_logistics",
+        "description": "查询物流配送状态和快递轨迹",
+        "is_transactional": false,
+        "required_slots": ["tracking_number"],
+        "optional_slots": ["order_id"],
+        "result_slots": ["logistics_status"]
+      },
+      {
+        "name": "reset_password",
+        "description": "重置账户密码，需要账户ID验证",
+        "is_transactional": true,
+        "required_slots": ["account_id"],
+        "optional_slots": [],
+        "result_slots": ["reset_status"]
+      },
+      {
+        "name": "update_account_info",
+        "description": "修改账户信息，如邮箱、手机号等",
+        "is_transactional": true,
+        "required_slots": ["account_id"],
+        "optional_slots": ["new_email", "new_phone"],
+        "result_slots": ["update_status"]
+      },
+      {
+        "name": "query_service_policy",
+        "description": "查询售后政策、退换货规则、质保期限等",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": ["product_name", "service_type"],
+        "result_slots": ["policy_info"]
+      },
+      {
+        "name": "submit_feedback",
+        "description": "提交用户反馈或建议",
+        "is_transactional": true,
+        "required_slots": ["feedback_content"],
+        "optional_slots": [],
+        "result_slots": ["feedback_id"]
+      }
+    ]
+  }
+]

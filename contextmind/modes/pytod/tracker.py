@@ -58,7 +58,9 @@ _KEY_ALIASES: Dict[str, str] = {
     "闲聊": "chat",
     "客服": "callcenter",
     "保险": "insurance",
-    "保险挽回": "insurance",
+    "保险销售": "insurance",
+    "安逸花": "anyihua",
+    "安逸花外呼": "anyihua",
 }
 
 
