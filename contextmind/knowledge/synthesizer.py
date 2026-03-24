@@ -110,6 +110,62 @@ def _format_discovery_items(
     return "\n".join(lines) if lines else "（无）"
 
 
+def _fill_schema_defaults(
+    schema_dict: Dict[str, Any],
+    scene_name: str = "",
+) -> Dict[str, Any]:
+    """确保 schema dict 中所有必需字段都有值，缺失时填充默认值并记录警告。
+
+    LLM 可能省略某些字段（如 ``description``、``is_categorical``、
+    ``result_slots`` 等），此函数在解析后统一补全，避免下游模块
+    因 KeyError / AttributeError 崩溃。
+    """
+    missing: List[str] = []
+
+    # ── 顶层字段 ──────────────────────────────────────────────────────
+    if not schema_dict.get("description"):
+        schema_dict["description"] = scene_name or schema_dict.get("service_name", "")
+        missing.append("description")
+
+    # ── slots ─────────────────────────────────────────────────────────
+    for slot in schema_dict.get("slots", []):
+        slot_name = slot.get("name", "<unnamed>")
+        if not slot.get("description"):
+            slot["description"] = slot_name
+            missing.append(f"slots[{slot_name!r}].description")
+        if "is_categorical" not in slot or slot["is_categorical"] is None:
+            slot["is_categorical"] = False
+            missing.append(f"slots[{slot_name!r}].is_categorical")
+        if not isinstance(slot.get("possible_values"), list):
+            slot["possible_values"] = []
+            missing.append(f"slots[{slot_name!r}].possible_values")
+
+    # ── intents ───────────────────────────────────────────────────────
+    for intent in schema_dict.get("intents", []):
+        intent_name = intent.get("name", "<unnamed>")
+        if not intent.get("description"):
+            intent["description"] = intent_name
+            missing.append(f"intents[{intent_name!r}].description")
+        if "is_transactional" not in intent or intent["is_transactional"] is None:
+            intent["is_transactional"] = False
+            missing.append(f"intents[{intent_name!r}].is_transactional")
+        for field in ("required_slots", "result_slots"):
+            if not isinstance(intent.get(field), list):
+                intent[field] = []
+                missing.append(f"intents[{intent_name!r}].{field}")
+        if "optional_slots" not in intent or intent["optional_slots"] is None:
+            intent["optional_slots"] = []
+            missing.append(f"intents[{intent_name!r}].optional_slots")
+
+    if missing:
+        logger.warning(
+            f"[SchemaSynthesizer] LLM 输出缺少以下字段，已补充默认值: "
+            + ", ".join(missing)
+        )
+
+    return schema_dict
+
+
 def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
     """尝试从 LLM 响应中解析 JSON，支持 markdown 代码块包裹。"""
     # 尝试直接解析
@@ -252,6 +308,9 @@ class SchemaSynthesizer:
         # 补充 service_name 缺省值
         if not schema_dict.get("service_name"):
             schema_dict["service_name"] = re.sub(r"\s+", "_", scene_name)
+
+        # 补充所有缺失字段的默认值
+        schema_dict = _fill_schema_defaults(schema_dict, scene_name=scene_name)
 
         logger.info(
             f"[SchemaSynthesizer] ✓ 合成完成 — "

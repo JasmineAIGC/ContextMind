@@ -251,8 +251,18 @@ def main() -> None:
             print(f"    可选槽位: {it['optional_slots']}")
 
     print(f"\n发现统计（发现阶段 raw 数据）：")
-    print(f"  Top-10 槽位: {builder.last_slot_counter.most_common(10)}")
-    print(f"  Top-10 意图: {builder.last_intent_counter.most_common(10)}")
+    slot_all = builder.last_slot_counter.most_common()
+    intent_all = builder.last_intent_counter.most_common()
+    print(f"  槽位（共 {len(slot_all)} 个，按出现次数降序）：")
+    for _name, _cnt in slot_all:
+        print(f"    · {_name}: {_cnt} 次")
+    if not slot_all:
+        print("    （无）")
+    print(f"  意图（共 {len(intent_all)} 个，按出现次数降序）：")
+    for _name, _cnt in intent_all:
+        print(f"    · {_name}: {_cnt} 次")
+    if not intent_all:
+        print("    （无）")
 
     total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
     print(f"\nSGD 对话文件统计：")
