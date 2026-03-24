@@ -42,9 +42,10 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
@@ -53,6 +54,39 @@ from .normalizer import normalize_dialogues
 from .synthesizer import SchemaSynthesizer
 
 logger = get_logger(__name__)
+
+
+def _extract_slot_char_positions(
+    item: Any,
+    utterance: str,
+) -> Tuple[Optional[int], Optional[int]]:
+    """从 DiscoveryItem 中提取字符区间，用于 SGD slot 的 start/exclusive_end 字段。
+
+    优先从 provenance 字符串解析位置（格式：「...」[... 位置 X:Y]）；
+    若 provenance 无位置信息，则在话语中搜索 extraction_text；
+    若 extraction_text 不在话语中，尝试搜索 value。
+    """
+    provenance: Optional[str] = item.provenance
+    if provenance:
+        m = re.search(r"位置\s*(\d+):(\d+)", provenance)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+    # 在话语中搜索 extraction_text
+    extraction_text: str = getattr(item, "extraction_text", "")
+    if extraction_text:
+        idx = utterance.find(extraction_text)
+        if idx >= 0:
+            return idx, idx + len(extraction_text)
+
+    # 最后尝试搜索 value
+    value: str = item.value or ""
+    if value:
+        idx = utterance.find(value)
+        if idx >= 0:
+            return idx, idx + len(value)
+
+    return None, None
 
 
 class KnowledgeBaseBuilder:
@@ -235,16 +269,23 @@ class KnowledgeBaseBuilder:
         # 调用方通过传入的 dialogues 数量来控制处理范围。
 
         # -- Step 1: 发现阶段（逐轮，保留每轮提取结果用于 SGD 标注） --
-        slot_counter, intent_counter, slot_samples, intent_samples, per_dlg_turns = (
-            self._run_discovery_per_turn(normalized)
-        )
+        (
+            slot_counter,
+            intent_counter,
+            slot_samples,
+            intent_samples,
+            per_dlg_turns,
+            fact_counter,
+            fact_samples,
+        ) = self._run_discovery_per_turn(normalized)
         self.last_slot_counter = slot_counter
         self.last_intent_counter = intent_counter
         self.last_discovery_turns = per_dlg_turns
 
         logger.info(
             f"[KnowledgeBaseBuilder] 发现阶段完成 — "
-            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个"
+            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个，"
+            f"事实类型 {len(fact_counter)} 个"
         )
 
         # -- Step 2: 合成阶段 --
@@ -257,6 +298,8 @@ class KnowledgeBaseBuilder:
             slot_sample_values=slot_samples,
             intent_sample_descs=intent_samples,
             n_dialogues=len(normalized),
+            fact_counter=fact_counter,
+            fact_sample_descs=fact_samples,
         )
 
         # -- Step 3: 转换为 SGD 对话格式 --
@@ -596,6 +639,8 @@ class KnowledgeBaseBuilder:
         Dict[str, List[str]],
         Dict[str, List[str]],
         List[List[Any]],
+        Counter,
+        Dict[str, List[str]],
     ]:
         """
         发现阶段（逐轮版），汇总统计的同时保留每条对话的逐轮提取结果。
@@ -603,7 +648,8 @@ class KnowledgeBaseBuilder:
         返回
         ----
         (slot_counter, intent_counter, slot_sample_values,
-         intent_sample_descs, per_dialogue_turns)
+         intent_sample_descs, per_dialogue_turns,
+         fact_counter, fact_sample_descs)
 
         ``per_dialogue_turns`` 是一个列表，每项对应一条对话，内容为
         ``[(turn_idx, speaker, utterance, [DiscoveryItem, ...]), ...]``。
@@ -618,8 +664,10 @@ class KnowledgeBaseBuilder:
 
         slot_counter: Counter = Counter()
         intent_counter: Counter = Counter()
+        fact_counter: Counter = Counter()
         slot_sample_values: Dict[str, List[str]] = {}
         intent_sample_descs: Dict[str, List[str]] = {}
+        fact_sample_descs: Dict[str, List[str]] = {}
         per_dialogue_turns: List[List[Any]] = []
 
         for i, dlg in enumerate(normalized_dialogues):
@@ -653,6 +701,12 @@ class KnowledgeBaseBuilder:
                         if item.value and len(descs) < 3:
                             if item.value not in descs:
                                 descs.append(item.value)
+                    elif item.extraction_class == "fact" and item.label:
+                        fact_counter[item.label] += 1
+                        descs = fact_sample_descs.setdefault(item.label, [])
+                        if item.value and len(descs) < 3:
+                            if item.value not in descs:
+                                descs.append(item.value)
 
         return (
             slot_counter,
@@ -660,6 +714,8 @@ class KnowledgeBaseBuilder:
             slot_sample_values,
             intent_sample_descs,
             per_dialogue_turns,
+            fact_counter,
+            fact_sample_descs,
         )
 
     def _convert_to_sgd_dialogue(
@@ -686,6 +742,8 @@ class KnowledgeBaseBuilder:
         ----
         SGD 格式对话 dict，含 ``dialogue_id / services / turns``。
         """
+        import re as _re
+
         dialogue_id = (
             normalized_dlg.get("session_id")
             or normalized_dlg.get("dialogue_id")
@@ -701,21 +759,39 @@ class KnowledgeBaseBuilder:
         for turn_idx, speaker, utterance, items in per_turn:
             sgd_speaker = "SYSTEM" if speaker in _SYSTEM_SPEAKERS else "USER"
 
-            # 当前轮的槽位提及
+            # 当前轮的槽位提及 + INFORM actions
             turn_slot_mentions: List[Dict[str, Any]] = []
+            turn_actions: List[Dict[str, Any]] = []
             for item in items:
                 if item.extraction_class == "slot_value" and item.label and item.value:
-                    turn_slot_mentions.append(
-                        {"slot": item.label, "value": item.value}
+                    slot_entry: Dict[str, Any] = {
+                        "slot": item.label,
+                        "value": item.value,
+                    }
+                    # 从 provenance 字符串解析字符位置，或直接在话语中搜索
+                    char_start, char_end = _extract_slot_char_positions(
+                        item, utterance
                     )
+                    if char_start is not None:
+                        slot_entry["start"] = char_start
+                        slot_entry["exclusive_end"] = char_end
+                    turn_slot_mentions.append(slot_entry)
                     cumulative_slot_values[item.label] = [item.value]
+                    turn_actions.append(
+                        {
+                            "act": "INFORM",
+                            "slot": item.label,
+                            "values": [item.value],
+                            "canonical_values": [item.value],
+                        }
+                    )
                 elif item.extraction_class == "intent" and item.label:
                     current_intent = item.label
 
             frame: Dict[str, Any] = {
                 "service": service_name,
                 "slots": turn_slot_mentions,
-                "actions": [],
+                "actions": turn_actions,
             }
             if sgd_speaker == "USER":
                 frame["state"] = {

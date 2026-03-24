@@ -98,12 +98,15 @@ class DiscoveryItem:
         - 溯源成功：``「原文片段」[第N轮(说话人) 位置 start:end]``
         - 溯源失败：``「原文片段」[第N轮(说话人) 溯源失败]``
         - 降级模式：``None``
+    extraction_text:
+        langextract 返回的逐字原文片段；用于在 SGD 对话中定位字符区间。
     """
 
     extraction_class: str
     label: str
     value: str
     provenance: Optional[str] = None
+    extraction_text: str = ""
 
 
 # ------------------------------------------------------------------
@@ -289,15 +292,17 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
 # ------------------------------------------------------------------
 
 _DISCOVERY_SYSTEM = """\
-你是一名任务型对话系统分析专家。给定一段业务对话，请从**用户（客户）**的发言中提取：
+你是一名任务型对话系统分析专家。给定一段业务对话，请从对话的**所有发言**（坐席和用户）中提取：
 
-1. 槽位值（slot_value）：用户话语中涉及的具体业务字段和值（如金额、期数、意向、投诉原因等）
-2. 意图（intent）：用户表达的业务动作或目标（如询问月供、拒绝贷款、抱怨利率高等）
-3. 关键事实（fact）：用户话语中不属于槽位值也不属于意图的重要业务陈述
+1. 槽位值（slot_value）：对话中涉及的具体业务字段和值（如金额、期数、意向、利率、姓名、状态等）
+2. 意图（intent）：发言人表达的业务动作、目标或态度（如询问月供、拒绝贷款、抱怨利率高等）
+3. 关键事实（fact）：对话中不属于槽位值也不属于意图的重要业务陈述（如核实结果、额度说明等）
 
 注意：
-- 仅提取**用户**话语中出现的信息；坐席（机器人）的话仅作上下文理解，不作为提取对象
+- 坐席（机器人）话语中包含大量业务数据（金额、利率、额度等），请务必提取
+- 用户话语中包含其意图和提供的个人信息，也要提取
 - 对话中 "坐席：" 前缀的轮次是机器人，"用户：" 前缀的轮次是客户
+- 尽可能完整，不遗漏任何业务相关的槽位、意图和事实
 
 ## 输出格式（严格 JSON 数组，只输出 JSON）
 
@@ -311,9 +316,8 @@ _DISCOVERY_SYSTEM = """\
 ## 规范说明
 
 - class 只能是 "slot_value"、"intent" 或 "fact"
-- label 使用英文小写下划线命名（如 inquire_monthly_payment、complain_interest_rate）
-- 只提取用户话语中真实出现的内容，不推测未提及的内容
-- 尽可能完整，不遗漏重要槽位和意图
+- label 使用英文小写下划线命名（如 inquire_monthly_payment、available_credit）
+- 尽可能完整，不遗漏重要槽位、意图和事实
 - 只输出 JSON 数组，不加任何说明或 markdown 代码块"""
 
 _DISCOVERY_USER_TEMPLATE = """\
@@ -333,7 +337,7 @@ _DISCOVERY_USER_TEMPLATE = """\
 _LANGEXTRACT_PROMPT_TEMPLATE = """\
 你是{scene_name}对话的知识提取专家。
 
-从给定的单轮对话话语中提取结构化知识。
+从给定的单轮对话话语（坐席或用户均可）中提取结构化知识。
 输出为 YAML 列表，每项包含以下字段：
   - extraction_class: 类别，必须是 slot_value / intent / fact 之一
   - extraction_text:  话语中的原始逐字文本片段（verbatim），\
@@ -343,15 +347,15 @@ _LANGEXTRACT_PROMPT_TEMPLATE = """\
 
 提取规则：
   1. extraction_text 必须是本轮话语的精确子串，不能修改任何字符
-  2. 仅提取当前话语中明确出现的信息，不推断、不猜测
+  2. 尽可能完整提取话语中所有业务相关信息（金额、期数、利率、姓名、状态等），不遗漏
   3. 若提供了对话历史（additional_context），历史仅供理解上下文用，
      extraction_text 必须来自当前话语，不得截取自历史内容
   4. 同一信息只提取一次，选取最具代表性的文本片段
   5. 若当前话语无可提取信息，输出空列表 []
 
-【槽位（slot_value）—— 对话中涉及的具体业务信息，如姓名、金额、日期等，自行命名 label】
-【意图（intent）—— 说话人表达的业务动作或目标，自行命名 label】
-【事实（fact）—— 不属于槽位值也不属于意图的重要业务陈述，自行命名 label】"""
+【槽位（slot_value）—— 话语中涉及的具体业务字段和值，如姓名、金额、期数、利率、状态等】
+【意图（intent）—— 说话人表达的业务动作、目标或态度，如询问、拒绝、同意、投诉等】
+【事实（fact）—— 不属于槽位值也不属于意图的重要业务陈述，如身份核实结果、额度说明等】"""
 
 
 def _build_langextract_prompt(scene_name: str) -> str:
@@ -636,8 +640,8 @@ class GenericDialogueDiscoverer:
     ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
         """逐轮 langextract 提取核心实现，返回每轮 (turn_idx, speaker, utterance, items)。
 
-        仅对用户（"用户"）轮次执行提取；坐席/机器人轮次跳过并返回空 items。
-        槽位、意图等信息应基于用户话语提取，而非机器人回复。
+        对所有轮次（坐席和用户）执行提取；坐席轮次包含大量业务数据（金额、额度、利率等），
+        不应跳过。
         """
         adapter = AdkLLMClientAdapter(self._llm)
         prompt_description = _build_langextract_prompt(self.scene_name)
@@ -648,15 +652,6 @@ class GenericDialogueDiscoverer:
 
         for list_idx, (turn_idx, speaker, utterance) in enumerate(turns):
             if not utterance.strip():
-                result.append((turn_idx, speaker, utterance, []))
-                continue
-
-            # 仅提取用户轮次的知识；坐席/机器人轮次跳过
-            if speaker != "用户":
-                logger.debug(
-                    f"[GenericDialogueDiscoverer] 跳过非用户轮次 "
-                    f"第{turn_idx + 1}轮({speaker}): {utterance[:50]}"
-                )
                 result.append((turn_idx, speaker, utterance, []))
                 continue
 
@@ -706,6 +701,17 @@ class GenericDialogueDiscoverer:
                     char_start = ext.char_interval.start_pos
                     char_end = ext.char_interval.end_pos
                     total_aligned += 1
+                else:
+                    # 溯源失败时，尝试在话语中直接搜索 extraction_text 作为兜底
+                    idx = utterance.find(extraction_text)
+                    if idx >= 0:
+                        char_start = idx
+                        char_end = idx + len(extraction_text)
+                        total_aligned += 1
+                        logger.debug(
+                            f"[GenericDialogueDiscoverer] 字符串搜索兜底溯源成功: "
+                            f"「{extraction_text}」→ {char_start}:{char_end}"
+                        )
 
                 provenance = _build_provenance(
                     extraction_text, turn_idx, speaker, char_start, char_end
@@ -716,6 +722,7 @@ class GenericDialogueDiscoverer:
                         label=label,
                         value=value,
                         provenance=provenance,
+                        extraction_text=extraction_text,
                     )
                 )
 
@@ -777,21 +784,17 @@ class GenericDialogueDiscoverer:
     ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
         """LLM 降级路径的逐轮版本。
 
-        整体提取后将所有结果附到最后一个**用户**轮次（因无法区分来源轮次）；
-        其他各轮 items 为空列表。坐席/机器人轮次不触发提取。
+        整体提取后将所有结果附到最后一轮（因无法区分来源轮次）；
+        其他各轮 items 为空列表。
         """
         items = self._extract_with_llm(normalized_dlg)
         result: List[Tuple[int, str, str, List[DiscoveryItem]]] = []
 
-        # 找到最后一个用户轮次的下标
-        last_user_idx = -1
-        for i, (_, speaker, _) in enumerate(turns):
-            if speaker == "用户":
-                last_user_idx = i
+        # 将所有提取结果附到最后一轮（兼容：LLM 整体提取无法区分来源轮次）
+        last_idx = len(turns) - 1
 
         for i, (turn_idx, speaker, utterance) in enumerate(turns):
-            # 将所有提取结果附到最后一个用户轮次
-            turn_items = items if i == last_user_idx else []
+            turn_items = items if i == last_idx else []
             result.append((turn_idx, speaker, utterance, turn_items))
         return result
 

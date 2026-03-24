@@ -85,6 +85,10 @@ _SYNTHESIS_USER_TEMPLATE = """\
 
 {intents_text}
 
+## 从 {n_dialogues} 条对话中自动发现的关键事实（按出现频次降序）
+
+{facts_text}
+
 请合成标准 ServiceSchema（只输出 JSON）："""
 
 
@@ -250,6 +254,8 @@ class SchemaSynthesizer:
         slot_sample_values: Dict[str, List[str]],
         intent_sample_descs: Dict[str, List[str]],
         n_dialogues: int,
+        fact_counter: Optional[Counter] = None,
+        fact_sample_descs: Optional[Dict[str, List[str]]] = None,
     ) -> Dict[str, Any]:
         """
         调用 LLM 合成 SGD ServiceSchema dict。
@@ -270,6 +276,10 @@ class SchemaSynthesizer:
             ``{intent_name: [description, ...]}``，最多保留前 3 条样本描述。
         n_dialogues:
             参与发现的对话条数。
+        fact_counter:
+            ``Counter({fact_label: 出现次数})``（可选）。
+        fact_sample_descs:
+            ``{fact_label: [description, ...]}``（可选）。
 
         返回
         ----
@@ -277,6 +287,9 @@ class SchemaSynthesizer:
         """
         slots_text = _format_discovery_items(slot_counter, slot_sample_values)
         intents_text = _format_discovery_items(intent_counter, intent_sample_descs)
+        facts_text = _format_discovery_items(
+            fact_counter or Counter(), fact_sample_descs or {}
+        )
 
         user_msg = _SYNTHESIS_USER_TEMPLATE.format(
             scene_name=scene_name,
@@ -284,6 +297,7 @@ class SchemaSynthesizer:
             n_dialogues=n_dialogues,
             slots_text=slots_text,
             intents_text=intents_text,
+            facts_text=facts_text,
         )
 
         messages = [
