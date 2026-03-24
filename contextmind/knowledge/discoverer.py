@@ -365,9 +365,12 @@ def _build_langextract_examples() -> List[Any]:
     ``lx.extract()`` 要求至少一个 ``ExampleData`` 对象，每个示例中的
     ``extraction_text`` 必须是 ``text`` 的精确子串（verbatim）。
 
-    此处提供三条通用中文**用户话语**示例，覆盖三种提取类别：
+    注意：每个 ``ExampleData`` 只放一条提取项，避免 langextract 在同一短文本中
+    同时对齐多个子串时出现对齐失败（``FAILED to align``）告警。
+
+    此处提供四条通用中文**用户话语**示例，覆盖三种提取类别：
+    - ``intent``：用户表达的业务意图（如抱怨利率、拒绝方案、询问月供）
     - ``slot_value``：用户话语中的具体业务字段值（如分期期数）
-    - ``intent``：用户表达的业务意图（如询问月供、抱怨利率）
     - ``fact``：用户话语中重要的业务陈述
 
     示例均来自用户侧，与实际提取场景（仅对用户轮次提取）匹配，
@@ -387,17 +390,22 @@ def _build_langextract_examples() -> List[Any]:
             ],
         ),
         ExampleData(
-            text="那月供多少？分十二期的话",
+            text="我要分十二期还款",
             extractions=[
-                Extraction(
-                    extraction_class="intent",
-                    extraction_text="月供多少",
-                    attributes={"label": "inquire_monthly_payment", "value": "询问分期月还款额"},
-                ),
                 Extraction(
                     extraction_class="slot_value",
                     extraction_text="分十二期",
                     attributes={"label": "term_months", "value": "12"},
+                ),
+            ],
+        ),
+        ExampleData(
+            text="月供大概多少？",
+            extractions=[
+                Extraction(
+                    extraction_class="intent",
+                    extraction_text="月供大概多少",
+                    attributes={"label": "inquire_monthly_payment", "value": "询问分期月还款额"},
                 ),
             ],
         ),
