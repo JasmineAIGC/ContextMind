@@ -616,7 +616,11 @@ class GenericDialogueDiscoverer:
         self,
         turns: List[Tuple[int, str, str]],
     ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
-        """逐轮 langextract 提取核心实现，返回每轮 (turn_idx, speaker, utterance, items)。"""
+        """逐轮 langextract 提取核心实现，返回每轮 (turn_idx, speaker, utterance, items)。
+
+        仅对用户（"用户"）轮次执行提取；坐席/机器人轮次跳过并返回空 items。
+        槽位、意图等信息应基于用户话语提取，而非机器人回复。
+        """
         adapter = AdkLLMClientAdapter(self._llm)
         prompt_description = _build_langextract_prompt(self.scene_name)
         examples = _build_langextract_examples()
@@ -626,6 +630,15 @@ class GenericDialogueDiscoverer:
 
         for list_idx, (turn_idx, speaker, utterance) in enumerate(turns):
             if not utterance.strip():
+                result.append((turn_idx, speaker, utterance, []))
+                continue
+
+            # 仅提取用户轮次的知识；坐席/机器人轮次跳过
+            if speaker != "用户":
+                logger.debug(
+                    f"[GenericDialogueDiscoverer] 跳过非用户轮次 "
+                    f"第{turn_idx + 1}轮({speaker}): {utterance[:50]}"
+                )
                 result.append((turn_idx, speaker, utterance, []))
                 continue
 
@@ -707,11 +720,12 @@ class GenericDialogueDiscoverer:
     ) -> List[DiscoveryItem]:
         """纯 LLM 整体提取（langextract 不可用时的降级路径）。
 
+        仅将用户话语送给 LLM 提取，不包含坐席/机器人话语。
         结果不含溯源信息（``provenance=None``）。
         """
-        dialogue_text = self._format_dialogue(normalized_dlg)
+        dialogue_text = self._format_user_turns(normalized_dlg)
         if not dialogue_text.strip():
-            logger.debug("[GenericDialogueDiscoverer] 对话为空，跳过提取")
+            logger.debug("[GenericDialogueDiscoverer] 对话为空（无用户轮次），跳过提取")
             return []
 
         user_msg = _DISCOVERY_USER_TEMPLATE.format(
@@ -744,14 +758,21 @@ class GenericDialogueDiscoverer:
     ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
         """LLM 降级路径的逐轮版本。
 
-        整体提取后将所有结果附到最后一轮（因无法区分来源轮次），
-        其他各轮 items 为空列表。
+        整体提取后将所有结果附到最后一个**用户**轮次（因无法区分来源轮次）；
+        其他各轮 items 为空列表。坐席/机器人轮次不触发提取。
         """
         items = self._extract_with_llm(normalized_dlg)
         result: List[Tuple[int, str, str, List[DiscoveryItem]]] = []
+
+        # 找到最后一个用户轮次的下标
+        last_user_idx = -1
+        for i, (_, speaker, _) in enumerate(turns):
+            if speaker == "用户":
+                last_user_idx = i
+
         for i, (turn_idx, speaker, utterance) in enumerate(turns):
-            # 将所有提取结果附到最后一轮
-            turn_items = items if i == len(turns) - 1 else []
+            # 将所有提取结果附到最后一个用户轮次
+            turn_items = items if i == last_user_idx else []
             result.append((turn_idx, speaker, utterance, turn_items))
         return result
 
@@ -761,9 +782,19 @@ class GenericDialogueDiscoverer:
 
     @staticmethod
     def _format_dialogue(normalized_dlg: Dict[str, Any]) -> str:
-        """将归一化对话 dict 格式化为可读的对话文本。"""
+        """将归一化对话 dict 格式化为可读的对话文本（所有轮次）。"""
         history = normalized_dlg.get("对话历史", [])
         return "\n".join(str(turn) for turn in history if turn)
+
+    @staticmethod
+    def _format_user_turns(normalized_dlg: Dict[str, Any]) -> str:
+        """将归一化对话 dict 中的用户话语格式化为文本（仅保留用户轮次）。"""
+        history = normalized_dlg.get("对话历史", [])
+        return "\n".join(
+            str(turn)
+            for turn in history
+            if str(turn).strip().startswith("用户：") or str(turn).strip().startswith("用户:")
+        )
 
     @staticmethod
     def _parse_llm_response(text: str) -> List[DiscoveryItem]:
