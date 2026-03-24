@@ -66,9 +66,9 @@ _SYNTHESIS_SYSTEM = """\
   自由文本值（姓名、金额、日期等）设为 false
 - is_transactional：只有当该意图会触发不可逆操作时为 true（如转账、提交工单）
 - required_slots / optional_slots / result_slots 中引用的 slot 名必须与 slots[] 中定义的 name 完全一致
-- 生成槽位时，将功能相近的发现项合并（如 user_name / name / 用户姓名 → customer_name）
-- 生成意图时，将语义相近的发现项合并（如 check_identity / verify_customer → verify_identity）
-- 只保留高价值项，去除噪声、错误拼写或极低频出现的项
+- **保留发现列表中的所有槽位和意图**，不得随意删减；仅当两个名称完全相同或拼写错误时才合并
+- 允许将明显同义的发现项合并（如 available_credit / current_credit_limit 可合并为一个），
+  但合并须保守，宁多勿少；合并后保留出现频次最高的名称作为标准名
 - 只输出 JSON，不要加 markdown 代码块"""
 
 _SYNTHESIS_USER_TEMPLATE = """\
@@ -77,17 +77,19 @@ _SYNTHESIS_USER_TEMPLATE = """\
 名称：{scene_name}
 描述：{scene_description}
 
-## 从 {n_dialogues} 条对话中自动发现的槽位（按出现频次降序）
+## 从 {n_dialogues} 条对话中自动发现的槽位（共 {n_slots} 个，按出现频次降序）
 
 {slots_text}
 
-## 从 {n_dialogues} 条对话中自动发现的意图（按出现频次降序）
+## 从 {n_dialogues} 条对话中自动发现的意图（共 {n_intents} 个，按出现频次降序）
 
 {intents_text}
 
-## 从 {n_dialogues} 条对话中自动发现的关键事实（按出现频次降序）
+## 从 {n_dialogues} 条对话中自动发现的关键事实（共 {n_facts} 个，按出现频次降序）
 
 {facts_text}
+
+**重要：上方共发现 {n_slots} 个槽位、{n_intents} 个意图，输出的 schema 必须包含全部（或绝大多数）发现项，不得随意删减。**
 
 请合成标准 ServiceSchema（只输出 JSON）："""
 
@@ -100,7 +102,7 @@ _SYNTHESIS_USER_TEMPLATE = """\
 def _format_discovery_items(
     counter: Counter,
     sample_values: Dict[str, List[str]],
-    max_items: int = 60,
+    max_items: int = 200,
 ) -> str:
     """将 Counter 和样本值字典格式化为可读文本，供 prompt 使用。"""
     lines: List[str] = []
@@ -287,8 +289,9 @@ class SchemaSynthesizer:
         """
         slots_text = _format_discovery_items(slot_counter, slot_sample_values)
         intents_text = _format_discovery_items(intent_counter, intent_sample_descs)
+        _fact_counter = fact_counter or Counter()
         facts_text = _format_discovery_items(
-            fact_counter or Counter(), fact_sample_descs or {}
+            _fact_counter, fact_sample_descs or {}
         )
 
         user_msg = _SYNTHESIS_USER_TEMPLATE.format(
@@ -298,6 +301,9 @@ class SchemaSynthesizer:
             slots_text=slots_text,
             intents_text=intents_text,
             facts_text=facts_text,
+            n_slots=len(slot_counter),
+            n_intents=len(intent_counter),
+            n_facts=len(_fact_counter),
         )
 
         messages = [
