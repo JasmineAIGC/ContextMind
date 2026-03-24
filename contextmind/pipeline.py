@@ -5,9 +5,17 @@ ContextPipeline — 通用上下文工程流水线
 
 上下文工程两步框架
 ------------------
-1. **建立知识库**（Phase 1）：针对任意数据集，通过 LLM 自动发现槽位和意图，
-   合成标准 SGD 格式 ``schema.json``。
-2. **执行**（Phase 2）：基于知识库，在对话中提取有效的上下文，提升对话质量。
+1. **建立知识库**（Phase 1）：针对任意对话数据集，通过 LLM 自动发现槽位和意图，
+   合成标准 SGD 格式 ``schema.json``。统一使用 ``examples/build_kb_demo.py``。
+2. **执行**（Phase 2）：基于 SGD 知识库，在对话中提取有效的上下文，提升对话质量。
+   支持四种算法：DST、FnCTOD、PyTOD、Evolve。
+
+算法与 schema.json 的关系
+--------------------------
+- ``"pytod"``（默认）：**需要** schema.json。PyTOD AP→EE→DM 三步流程，适合任务型对话。
+- ``"fnctod"``：**需要** schema.json。ADK 原生函数调用，自动将 schema 槽位转为 FunctionTool。
+- ``"dst"``：**可选** schema.json。对话状态追踪，纯槽位提取，无 API 调用。
+- ``"evolve"``：**不需要** schema.json。演化式上下文优化（会话历史 + 长期记忆检索）。
 
 ``ContextPipeline`` 将两步整合为一个简洁 API，用户无需了解底层算法细节。
 
@@ -45,7 +53,7 @@ ContextPipeline — 通用上下文工程流水线
 
     result = await pipeline.process_turn("我是李明，想了解贷款利率")
 
-**注册自定义 API 函数**::
+**注册自定义 API 函数（PyTOD 专用）**::
 
     pipeline = ContextPipeline(llm_client=AdkLLMClient())
     pipeline.load_kb("output/schema.json")
@@ -56,12 +64,16 @@ ContextPipeline — 通用上下文工程流水线
 
     result = await pipeline.process_turn("查询一下我的额度")
 
-执行模式
---------
-- ``"pytod"``（默认）：PyTOD 三步流程（AP→EE→DM），适用于任务型对话。
-  返回 ``program_text`` 和 ``context`` 字段。
-- ``"dst"``：对话状态追踪，纯槽位提取，无 API 调用。
-  适用于信息提取场景。
+**不需要 schema 的模式（DST / Evolve）**::
+
+    # DST：直接初始化，无需 build_kb/load_kb
+    pipeline = ContextPipeline(llm_client=AdkLLMClient(), mode="dst")
+    result = await pipeline.process_turn("我想了解贷款利率")
+
+    # Evolve：上下文优化，基于会话历史和长期记忆
+    pipeline = ContextPipeline(llm_client=AdkLLMClient(), mode="evolve",
+                               scene_name="银行贷款外呼")
+    result = await pipeline.process_turn("我想了解贷款利率")
 """
 
 from __future__ import annotations
@@ -77,6 +89,59 @@ from contextmind.knowledge.builder import KnowledgeBaseBuilder
 logger = get_logger(__name__)
 
 
+class _EvolveTrackerAdapter:
+    """将 EvolveEngine 适配为与 BaseTracker 兼容的 process_turn / get_current_state / reset 接口。
+
+    Evolve 的核心功能是上下文优化（会话历史 + 长期记忆检索），与 PyTOD/DST 的意图-槽位
+    提取范式不同。本适配器将 ``optimize() + update()`` 组合封装为统一的 ``process_turn()``：
+
+    - ``response``   : 最近 N 条上下文项拼接而成的可读文本（供调用方参考上下文）
+    - ``state``      : 本轮检索到的上下文统计（session 条数、记忆条数）
+    - ``turn_updates``: 同 state
+    """
+
+    def __init__(self, engine: Any) -> None:
+        self._engine = engine
+        self._state: Dict[str, Any] = {}
+
+    async def process_turn(
+        self, user_utterance: str, system_utterance: str = "", **kwargs: Any
+    ) -> Dict[str, Any]:
+        ctx_result = await self._engine.optimize(user_utterance)
+        items = ctx_result.items or []
+        # 最多取前 5 条上下文项拼成可读摘要
+        response_parts = [item.content for item in items[:5]]
+        response = "\n".join(response_parts) if response_parts else "(暂无历史上下文)"
+        # 记录本轮对话到会话历史
+        await self._engine.update(user_utterance, response)
+        self._state = {
+            "session_history_count": ctx_result.metadata.get("session_history_count", 0),
+            "long_term_memory_count": ctx_result.metadata.get("long_term_memory_count", 0),
+            "context_items": len(items),
+        }
+        return {
+            "response": response,
+            "state": dict(self._state),
+            "turn_updates": dict(self._state),
+        }
+
+    def get_current_state(self) -> Dict[str, Any]:
+        return dict(self._state)
+
+    def reset(self) -> None:
+        import asyncio
+
+        self._state = {}
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(self._engine.clear_session())
+            else:
+                loop.run_until_complete(self._engine.clear_session())
+        except RuntimeError:
+            pass
+
+
 class ContextPipeline:
     """
     通用上下文工程流水线。
@@ -88,10 +153,12 @@ class ContextPipeline:
     llm_client:
         LLM 客户端实例（如 ``AdkLLMClient``）；为 None 时从 ``.env`` 自动加载。
     mode:
-        执行模式：
+        执行模式（四选一）：
 
-        - ``"pytod"``（默认）：PyTOD AP→EE→DM 三步流程，适合任务型对话。
-        - ``"dst"``：对话状态追踪，纯槽位提取。
+        - ``"pytod"``（默认）：PyTOD AP→EE→DM 三步流程，适合任务型对话。**需要 schema。**
+        - ``"fnctod"``：ADK 原生函数调用对话状态追踪。**需要 schema。**
+        - ``"dst"``：对话状态追踪，纯槽位提取，无 API 调用。**schema 可选。**
+        - ``"evolve"``：演化式上下文优化（会话记忆 + 长期记忆检索）。**不需要 schema。**
 
     scene_name:
         业务场景名称（如 ``"银行贷款外呼"``）；用于 KB 构建和 prompt 注入。
@@ -367,9 +434,12 @@ class ContextPipeline:
             若未通过 :meth:`build_kb` 或 :meth:`load_kb` 设置 schema，
             或 LLM 未配置。
         """
-        if self.schema is None:
+        # DST 和 Evolve 不需要 schema；PyTOD 和 FnCTOD 需要 schema
+        _schema_optional = self.mode in ("dst", "evolve")
+        if self.schema is None and not _schema_optional:
             raise RuntimeError(
-                "尚未设置 schema，请先调用 build_kb() 或 load_kb()"
+                "尚未设置 schema，请先调用 build_kb() 或 load_kb()。\n"
+                "提示：若使用 mode='dst' 或 mode='evolve'，可直接调用 process_turn() 无需 schema。"
             )
 
         # 延迟初始化追踪器（当 llm_client 在 set_schema 时还不可用的情况）
@@ -471,10 +541,14 @@ class ContextPipeline:
     def _init_tracker(self) -> None:
         """根据 mode 和当前 schema 初始化对话追踪器。
 
-        若 LLM 客户端尚未提供（``_llm_client is None``），则跳过初始化，
-        等待 :meth:`process_turn` 时再延迟初始化。
+        - PyTOD / FnCTOD 需要 schema，缺少时推迟到 schema 就绪后再调用。
+        - DST / Evolve 不需要 schema，可立即初始化。
+        - 若 LLM 客户端尚未提供（``_llm_client is None``），则跳过初始化，
+          等待 :meth:`process_turn` 时再延迟初始化。
         """
-        if self.schema is None:
+        # PyTOD / FnCTOD 必须有 schema 才能初始化
+        _requires_schema = self.mode in ("pytod", "fnctod")
+        if _requires_schema and self.schema is None:
             return
 
         # 若 LLM 客户端还未提供，延迟到 process_turn() 时初始化
@@ -498,6 +572,41 @@ class ContextPipeline:
                 f"schema={self.schema.service_name}"
             )
 
+        elif self.mode == "fnctod":
+            from contextmind.modes.fnctod.tracker import FnCTODTracker
+            from contextmind.modes.fnctod.function_manager import FunctionManager
+
+            # 将 ServiceSchema 转换为 FunctionManager（槽位 → 函数参数）
+            fm = FunctionManager()
+            slots_dict = {s.name: s.description for s in self.schema.slots}
+            categorical = {
+                s.name: s.possible_values
+                for s in self.schema.slots
+                if s.is_categorical and s.possible_values
+            }
+            required: List[str] = []
+            for intent in self.schema.intents:
+                required.extend(intent.required_slots)
+            fm.add_domain_from_slots(
+                domain_name=self.schema.service_name,
+                domain_description=self.schema.description or self.scene_description,
+                slots=slots_dict,
+                categorical_slots=categorical or None,
+                required_slots=list(set(required)) or None,
+            )
+            # FnCTODTracker 使用 LLMConfig.from_env() 作为默认配置
+            llm = self._get_llm()
+            config = getattr(llm, "_config", None)
+            self.tracker = FnCTODTracker(
+                function_manager=fm,
+                config=config,
+            )
+            logger.debug(
+                f"[ContextPipeline] FnCTOD 追踪器已初始化: "
+                f"schema={self.schema.service_name}, "
+                f"槽位={len(slots_dict)}"
+            )
+
         elif self.mode == "dst":
             from contextmind.modes.dst.tracker import DialogueStateTracker
             from contextmind.modes.dst.prompts import PromptManager
@@ -506,8 +615,8 @@ class ContextPipeline:
                 domain=self.scene_name,
                 enable_dynamic_slots=True,
             )
-            # 将 schema 槽位注入 DST prompt 管理器
-            if hasattr(prompt_manager, "slots"):
+            # 将 schema 槽位注入 DST prompt 管理器（schema 可能为 None）
+            if self.schema is not None and hasattr(prompt_manager, "slots"):
                 slot_names = self.schema.get_slot_names()
                 prompt_manager.slots = slot_names
 
@@ -521,10 +630,29 @@ class ContextPipeline:
                 f"[ContextPipeline] DST 追踪器已初始化: "
                 f"domain={self.scene_name}"
             )
+
+        elif self.mode == "evolve":
+            from contextmind.modes.evolve import EvolveEngine
+
+            engine = EvolveEngine(
+                app_name=self.scene_name,
+                user_id="default_user",
+                llm_client=self._get_llm(),
+            )
+            self.tracker = _EvolveTrackerAdapter(engine)
+            logger.debug(
+                f"[ContextPipeline] Evolve 追踪器已初始化: "
+                f"app={self.scene_name}"
+            )
+
         else:
             raise ValueError(
-                f"不支持的执行模式: {self.mode!r}。"
-                "支持的模式: 'pytod', 'dst'"
+                f"不支持的执行模式: {self.mode!r}。\n"
+                "支持的模式:\n"
+                "  'pytod'  — PyTOD 三步流程，需要 schema（默认）\n"
+                "  'fnctod' — ADK 原生函数调用，需要 schema\n"
+                "  'dst'    — 对话状态追踪，schema 可选\n"
+                "  'evolve' — 演化式上下文优化，不需要 schema"
             )
 
     def _register_schema_stubs(self, engine: Any) -> None:

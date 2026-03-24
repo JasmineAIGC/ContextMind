@@ -4,7 +4,24 @@ ContextPipeline 演示脚本（context_pipeline_demo.py）
 展示 ContextMind 统一上下文工程流水线（ContextPipeline）的完整用法：
 
     第一步（Phase 1）：建立知识库 — 任意对话数据 → SGD schema.json
-    第二步（Phase 2）：执行 — 基于知识库，在对话中提取有效上下文
+                       统一使用 examples/build_kb_demo.py
+    第二步（Phase 2）：执行 — 基于 SGD 知识库，使用 4 种算法提取有效上下文
+
+两步走框架
+----------
+Phase 1（build_kb_demo.py）输出：
+    schema.json         服务 schema（槽位 + 意图）
+    dialogues_001.json  SGD 格式标注对话
+    discovery_raw.json  逐轮原始提取结果
+
+Phase 2（本脚本）支持四种算法：
+
+    算法      schema.json    适用场景
+    ------    -----------    ----------------------------------------
+    pytod     必须           任务型对话（AP→EE→DM 三步流程）[默认]
+    fnctod    必须           ADK 原生函数调用对话状态追踪
+    dst       可选           通用槽位提取（无 schema 也可运行）
+    evolve    不需要         演化式上下文优化（会话记忆 + 长期记忆）
 
 本脚本提供三种运行模式：
 
@@ -15,14 +32,23 @@ ContextPipeline 演示脚本（context_pipeline_demo.py）
 运行示例
 --------
 
-    # 端到端演示（Phase 1 + Phase 2）：
+    # 端到端演示（Phase 1 + Phase 2，默认 pytod 模式）：
     python examples/context_pipeline_demo.py
 
     # 仅测试知识库构建：
     python examples/context_pipeline_demo.py --demo-kb
 
-    # 从已有 schema.json 加载并演示对话：
+    # 从已有 schema.json 加载并演示对话（pytod 模式）：
     python examples/context_pipeline_demo.py --demo-exec --schema data/kb_output/schema.json
+
+    # 使用 fnctod 模式（需要 schema）：
+    python examples/context_pipeline_demo.py --demo-exec --schema data/kb_output/schema.json --mode fnctod
+
+    # 使用 dst 模式（schema 可选，不指定 schema 也可直接运行）：
+    python examples/context_pipeline_demo.py --demo-exec --mode dst
+
+    # 使用 evolve 模式（不需要 schema）：
+    python examples/context_pipeline_demo.py --demo-exec --mode evolve
 
     # 指定场景和数据文件：
     python examples/context_pipeline_demo.py \\
@@ -35,9 +61,12 @@ ContextPipeline 演示脚本（context_pipeline_demo.py）
 --------
 
 ContextPipeline 整合了：
-    - contextmind.kb.KnowledgeBaseBuilder   (Phase 1: 知识发现 + 合成)
-    - contextmind.modes.pytod.AdkPyTODTracker  (Phase 2: AP→EE→DM，默认模式)
-    - contextmind.modes.dst.DialogueStateTracker (Phase 2: 纯槽位提取，dst 模式)
+    Phase 1 — contextmind.knowledge.KnowledgeBaseBuilder（知识发现 + 合成）
+    Phase 2 — 四种算法（均通过 ContextPipeline 统一调度）：
+               pytod   : contextmind.modes.pytod.AdkPyTODTracker
+               fnctod  : contextmind.modes.fnctod.FnCTODTracker
+               dst     : contextmind.modes.dst.DialogueStateTracker
+               evolve  : contextmind.modes.evolve.EvolveEngine
 
 用户只需与 ContextPipeline 交互，无需了解底层算法细节。
 """
@@ -189,8 +218,15 @@ def demo_phase1(
 async def demo_phase2(pipeline: ContextPipeline, turns: List[Any]) -> None:
     """演示 Phase 2：对话上下文提取。"""
     print("\n" + "─" * 65)
-    print("▶ Phase 2：对话上下文提取（基于知识库，逐轮提取有效上下文）")
+    print("▶ Phase 2：对话上下文提取（基于 SGD 知识库，逐轮提取有效上下文）")
     print(f"  模式: {pipeline.mode.upper()}")
+    _mode_desc = {
+        "pytod":  "PyTOD AP→EE→DM 三步流程（需要 schema）",
+        "fnctod": "ADK 原生函数调用（需要 schema）",
+        "dst":    "对话状态追踪，纯槽位提取（schema 可选）",
+        "evolve": "演化式上下文优化，会话记忆 + 长期记忆（不需要 schema）",
+    }
+    print(f"  说明: {_mode_desc.get(pipeline.mode, pipeline.mode)}")
     print("─" * 65)
 
     # 显示 schema 摘要
@@ -262,8 +298,15 @@ def main() -> None:
     parser.add_argument("--num", type=int, default=10, help="使用对话条数（默认 10）")
     parser.add_argument("--scene", type=str, default="银行贷款外呼", help="业务场景名称")
     parser.add_argument("--scene-desc", type=str, default="", help="场景描述（可选）")
-    parser.add_argument("--mode", type=str, default="pytod", choices=["pytod", "dst"],
-                        help="Phase 2 执行模式（pytod/dst，默认 pytod）")
+    parser.add_argument("--mode", type=str, default="pytod",
+                        choices=["pytod", "fnctod", "dst", "evolve"],
+                        help=(
+                            "Phase 2 执行模式（默认 pytod）：\n"
+                            "  pytod   — PyTOD 三步流程，需要 schema\n"
+                            "  fnctod  — ADK 原生函数调用，需要 schema\n"
+                            "  dst     — 对话状态追踪，schema 可选\n"
+                            "  evolve  — 演化式上下文优化，不需要 schema"
+                        ))
     parser.add_argument("--schema", type=str, default=None,
                         help="已有 schema.json 路径（跳过 Phase 1，直接运行 Phase 2）")
     parser.add_argument("--output", type=str, default="data/kb_output/schema.json",
@@ -336,9 +379,12 @@ def main() -> None:
         if pipeline.schema is None and args.schema:
             pipeline.load_kb(args.schema)
 
-        if pipeline.schema is None:
+        # DST 和 Evolve 不需要 schema，可直接运行；PyTOD 和 FnCTOD 需要 schema
+        _schema_optional = args.mode in ("dst", "evolve")
+        if pipeline.schema is None and not _schema_optional:
             print("\n[提示] Phase 2 需要先完成 Phase 1 或通过 --schema 加载已有 schema。")
             print("       若 LLM 未配置，可使用 --schema data/kb_output/schema.json 运行演示。")
+            print(f"       提示：使用 --mode dst 或 --mode evolve 可无需 schema 直接运行。")
         else:
             asyncio.run(demo_phase2(pipeline, _DEMO_TURNS))
 
