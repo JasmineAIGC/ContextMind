@@ -1,9 +1,9 @@
 """
-FnCTOD Agent — ADK 原生函数调用任务型对话追踪器
+FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 
-基于 "FnCTOD: Leveraging LLMs for Function Calling in Task-Oriented Dialogue Systems"
-论文思想（Function Calling for Task-Oriented Dialogue），利用 Google ADK 原生 Function
-Calling 在任务型对话中调用业务函数、处理用户请求并生成回复。
+基于 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"
+（ACL 2024）论文思想，将对话状态追踪（DST）转化为函数调用：每个业务域对应一个函数，
+槽位对应参数，LLM 通过调用函数提取对话中的槽位值，实现零样本 DST。
 
 使用示例::
 
@@ -109,11 +109,11 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
 
 
 class FnCTODTracker:
-    """ADK 原生函数调用任务型对话追踪器（FnCTOD）。
+    """ADK 原生函数调用对话状态追踪器（FnCTOD）。
 
-    实现 "Function Calling for Task-Oriented Dialogue" 范式：
-    通过 ADK 原生 Function Calling 在任务型对话中调用业务函数，
-    处理用户意图和槽位，并生成自然语言回复。
+    利用 ADK 原生 Function Calling 实现零样本 DST：
+    每个业务域映射为一个函数，槽位映射为参数，LLM 通过调用函数
+    逐轮提取并累积对话状态（Dialogue State Tracking）。
 
     参数
     ----
@@ -141,12 +141,12 @@ class FnCTODTracker:
         if system_instruction is None:
             domain_names = function_manager.get_domain_names()
             system_instruction = (
-                "你是一个任务型对话助手（FnCTOD），通过调用函数处理用户请求并完成任务型对话。\n"
+                "你是一个任务型对话助手，通过调用函数提取对话中的关键信息，然后给出自然语言回复。\n"
                 f"可用的业务域: {', '.join(domain_names)}。\n"
                 "处理规则：\n"
-                "1. 每轮对话只调用函数一次，一次性填入所有已识别的槽位值；\n"
-                "2. 函数调用完成后，立即用简洁的中文给出对话回复；\n"
-                "3. 不要重复调用函数。"
+                "1. 每轮对话调用相应函数，一次性填入对话中已识别的槽位值；\n"
+                "2. 未在本轮对话中提及的槽位保持为空，不要猜测；\n"
+                "3. 函数调用完成后，立即用简洁的中文给出对话回复。"
             )
         self.system_instruction = system_instruction
 

@@ -193,7 +193,7 @@ state = await tracker.process_turn("我要订明天去北京的票")
 
 ### 2. **FnCTOD 模式**（函数调用）
 
-基于 FnCTOD 论文，通过函数调用处理任务型对话（Function Calling for Task-Oriented Dialogue）。
+基于 FnCTOD 论文（ACL 2024），将 DST 转化为函数调用，实现零样本对话状态追踪。
 
 ```python
 from contextmind.modes.fnctod import FnCTODTracker
@@ -283,7 +283,7 @@ ContextMind/
 ## 致谢
 
 - PyTOD 模式基于 Apple 研究院论文 "Task-Oriented Dialogue as Dataflow Synthesis"
-- FnCTOD 模式基于 Meta AI 的论文实现
+- FnCTOD 模式基于 ACL 2024 论文 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling" 实现
 - Evolve 模式采用 AlphaEvolve 和 ThetaEvolve 算法
 
 ---

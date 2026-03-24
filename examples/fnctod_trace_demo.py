@@ -1,9 +1,9 @@
 """
-FnCTOD 对话追踪脚本
+FnCTOD 对话状态追踪脚本
 
-展示 FnCTOD（Function Calling for Task-Oriented Dialogue）算法在
+展示 FnCTOD（基于函数调用的零样本对话状态追踪，ACL 2024）算法在
 客服场景中的运行过程：通过 ADK 原生 Function Calling 实现
-结构化对话状态提取，并将全链路 I/O 写入 Markdown 报告。
+结构化槽位提取，并将全链路 I/O 写入 Markdown 报告。
 
 用法::
 
@@ -180,7 +180,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     return {
         "metadata": {
             "timestamp": datetime.now().isoformat(),
-            "algorithm": "FnCTOD (ADK native function calling)",
+            "algorithm": "FnCTOD (零样本DST via Function Calling, ACL 2024)",
             "llm_available": llm_available,
         },
         "session_id": session.get("session_id", ""),

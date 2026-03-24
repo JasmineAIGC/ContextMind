@@ -3,7 +3,7 @@
 ContextMind Web界面Demo
 
 支持四个场景：chat（闲聊）、callcenter（客服）、insurance（保险）、anyihua（安逸花外呼）
-支持三种模式：DST对话状态追踪模式、Evolve记忆进化模式、FnCTOD函数调用任务型对话模式
+支持三种模式：DST对话状态追踪模式、Evolve记忆进化模式、FnCTOD函数调用DST模式
 
 使用方式:
     python examples/web_demo.py
@@ -432,7 +432,7 @@ class UnifiedGradioDemo:
         elif self.current_mode == "fnctod" and self.fnctod_tracker:
             # FnCTOD模式：显示函数调用状态
             state_info = {
-                "模式": "FnCTOD (Function Calling for TOD)",
+                "模式": "FnCTOD (函数调用DST)",
                 "场景": self._get_scenario_name(self.current_scenario),
                 "对话轮数": self.fnctod_tracker.turn_count,
             }
