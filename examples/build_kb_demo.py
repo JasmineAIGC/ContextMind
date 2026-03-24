@@ -275,12 +275,6 @@ def main() -> None:
     print(f"  └── conversion_summary.json")
     print("─" * 70)
     print()
-    print("下一步：使用此 schema.json 运行 PyTOD 对话：")
-    schema_path = output_dir / "schema.json"
-    print("  from contextmind.modes.pytod import AdkPyTODTracker, ServiceSchema")
-    print(f"  schema = ServiceSchema.from_json(open('{schema_path}').read())[0]")
-    print("  tracker = AdkPyTODTracker(engine=engine, schema=schema)")
-    print()
 
 
 if __name__ == "__main__":
