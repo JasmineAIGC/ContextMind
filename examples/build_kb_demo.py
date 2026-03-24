@@ -184,8 +184,8 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=str,
-        default="data/kb_output",
-        help="SGD 数据集输出目录（默认 data/kb_output）",
+        default="output/kb_output",
+        help="SGD 数据集输出目录（默认 output/kb_output）",
     )
     parser.add_argument(
         "--demo",
