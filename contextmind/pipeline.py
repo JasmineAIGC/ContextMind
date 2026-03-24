@@ -557,8 +557,20 @@ class ContextPipeline:
 
         if self.mode == "pytod":
             from contextmind.modes.pytod.tracker import AdkPyTODTracker
+            from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
 
             engine = self._get_engine()
+            # 优先注册预定义的场景 API（如 callcenter、insurance 等），
+            # 使得 schema.json 意图名与预置函数名匹配时可直接调用真实实现。
+            # 已通过 register_api() 手动注册的函数不会被覆盖（engine.registry 已有）。
+            _scene_key = get_scenario_key(self.scene_name)
+            if _scene_key and _scene_key in SCENARIO_API_REGISTRY:
+                SCENARIO_API_REGISTRY[_scene_key](engine)
+                logger.debug(
+                    f"[ContextPipeline] 已为场景 '{self.scene_name}' 注册预置 API: "
+                    f"{engine.list_functions()}"
+                )
+            # 为 schema 中尚未注册的意图自动生成存根，确保 AP 程序可执行
             self._register_schema_stubs(engine)
             self.tracker = AdkPyTODTracker(
                 llm_client=self._get_llm(),
