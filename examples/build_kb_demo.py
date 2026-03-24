@@ -1,18 +1,26 @@
 """
 通用知识库构建演示（build_kb_demo.py）
 
-演示 ContextMind 框架的第一步：**建立知识库**，生成完整的 SGD 格式数据集。
+ContextMind 框架的**统一知识库提取入口**，支持任意对话数据集、对话数据
+或人工制定的示例对话，一键生成完整的 SGD 格式知识库。
 
 核心思路
 --------
 1. 提供任意对话数据（可以是安逸花外呼、银行贷款、电商客服等任意场景）
-2. KnowledgeBaseBuilder 自动完成：
-   - 对话格式归一化（支持 chat_test / SGD / 文本列表等多种格式）
-   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加溯源信息；
+2. 支持多种输入来源，统一经 ``contextmind.knowledge.normalizer`` 归一化：
+   - chat_test_100.json 格式（含 ``对话历史`` 字段）
+   - chat_test_500.json 嵌套格式（含 ``label`` + ``query`` 字段，自动展平）
+   - SGD 格式（含 ``turns`` 字段）
+   - 简单文本列表（``["agent: ...", "user: ..."]``）
+   - 平铺文本（``"坐席：...\\n用户：..."``）
+   - 支持同时加载多个文件并合并
+3. KnowledgeBaseBuilder 自动完成：
+   - 对话格式归一化（统一归一化器，不遗漏任何格式）
+   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加字符级溯源；
      对所有传入对话逐一处理，确保知识提取不遗漏
    - 合成阶段：LLM 将发现结果整理为规范 SGD ServiceSchema
    - 转换阶段：将输入对话转换为带注释的 SGD 对话文件
-3. 输出完整 SGD 数据集，可直接供 PyTOD 等执行算法使用
+4. 输出完整 SGD 数据集，可直接供 PyTOD 等执行算法使用
 
 输出文件
 --------
@@ -27,19 +35,19 @@
     第一步（本 Demo）：建立知识库 → SGD 数据集（schema + 对话）
     第二步（pytod_trace_demo.py）：执行 → 使用 schema.json 驱动对话
 
-支持的输入格式
---------------
-    - chat_test 格式（JSON，含 "对话历史" 字段）
-    - SGD 格式（JSON，含 "turns" 字段）
-    - 简单文本列表（["agent: ...", "user: ..."]）
-    - 平铺文本（"坐席：...\\n用户：..."）
-
 运行示例
 --------
     # 使用安逸花外呼数据（快速测试，仅用前 5 条对话）
     python examples/build_kb_demo.py \\
         --data resources/data/chat_test_100.json \\
         --num 5 \\
+        --scene "安逸花外呼" \\
+        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
+
+    # 同时加载两个文件（chat_test_100.json + chat_test_500.json），合并后取前 20 条
+    python examples/build_kb_demo.py \\
+        --data resources/data/chat_test_100.json resources/data/chat_test_500.json \\
+        --num 20 \\
         --scene "安逸花外呼" \\
         --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
 
@@ -62,7 +70,7 @@
 
 参数说明
 --------
-    --data          输入对话 JSON 文件路径
+    --data          输入对话 JSON 文件路径，可指定多个（空格分隔）；格式自动识别
     --num           使用对话条数（0 = 全部，默认 10）
     --scene         业务场景名称（默认 "对话场景"）
     --scene-desc    场景描述（可选）
@@ -159,7 +167,17 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--data", type=str, default=None, help="输入对话 JSON 文件路径")
+    parser.add_argument(
+        "--data",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="PATH",
+        help=(
+            "输入对话 JSON 文件路径，可同时指定多个（空格分隔）；"
+            "支持 chat_test_100/500 格式、SGD turns 格式等，格式自动识别"
+        ),
+    )
     parser.add_argument("--num", type=int, default=10, help="使用对话条数（0 = 全部，默认 10）")
     parser.add_argument("--scene", type=str, default="对话场景", help="业务场景名称")
     parser.add_argument("--scene-desc", type=str, default="", help="场景描述（可选）")
@@ -188,24 +206,38 @@ def main() -> None:
         dialogues = _DEMO_DIALOGUES
         scene = args.scene if args.scene != "对话场景" else "银行贷款外呼"
         scene_desc = args.scene_desc or "银行客服主动致电老客户推介个人贷款产品"
-        print(f"\n内嵌演示对话：{len(dialogues)} 条（格式多样，涵盖 4 种输入格式）")
+        print(f"\n内嵌演示对话：{len(dialogues)} 条（格式多样，涵盖 5 种输入格式）")
     else:
-        data_path = Path(args.data)
-        if not data_path.exists():
-            print(f"[错误] 文件不存在: {data_path}", file=sys.stderr)
-            sys.exit(1)
-        raw = json.loads(data_path.read_text(encoding="utf-8"))
-        # JSON 文件可能是列表或字典
-        if isinstance(raw, list):
-            dialogues = raw[: args.num] if args.num > 0 else raw
-        elif isinstance(raw, dict):
-            dialogues = [raw]
-        else:
-            print(f"[错误] 无法识别的 JSON 格式: {type(raw)}", file=sys.stderr)
-            sys.exit(1)
+        # 逐个加载文件并合并；normalizer 统一处理所有格式（含 chat_test_500 嵌套格式）
+        all_raw: List[Any] = []
+        for path_str in args.data:
+            data_path = Path(path_str)
+            if not data_path.exists():
+                print(f"[错误] 文件不存在: {data_path}", file=sys.stderr)
+                sys.exit(1)
+            file_raw = json.loads(data_path.read_text(encoding="utf-8"))
+            if isinstance(file_raw, list):
+                all_raw.extend(file_raw)
+                n = len(file_raw)
+            elif isinstance(file_raw, dict):
+                all_raw.append(file_raw)
+                n = 1
+            else:
+                print(
+                    f"[错误] 无法识别的 JSON 格式: {data_path.name} ({type(file_raw).__name__})",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            print(f"\n加载对话文件: {data_path.name} ({n} 条)")
+
+        dialogues = all_raw[: args.num] if args.num > 0 else all_raw
         scene = args.scene
         scene_desc = args.scene_desc
-        print(f"\n加载对话文件: {data_path.name}，使用前 {len(dialogues)} 条")
+        src_names = ", ".join(Path(p).name for p in args.data)
+        print(
+            f"\n合并后共 {len(all_raw)} 条，本次使用前 {len(dialogues)} 条"
+            f"  [来源: {src_names}]"
+        )
 
     print(f"场景名称: {scene}")
     print(f"场景描述: {scene_desc or '（未提供）'}")

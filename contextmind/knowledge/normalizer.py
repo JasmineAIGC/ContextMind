@@ -2,16 +2,18 @@
 对话格式归一化器
 
 将任意输入格式统一转换为内部标准格式（dict，含 ``对话历史`` 字段），
-使 KnowledgeBaseBuilder 能够将任何来源的对话送入 AnyihuaKnowledgeExtractor
-进行 LLM 知识提取。
+使 KnowledgeBaseBuilder 能够将任何来源的对话送入知识提取流程。
 
 支持的输入格式
 --------------
-1. **chat_test 格式**：含 ``对话历史`` 字段的 dict。
+1. **chat_test 格式**：含 ``对话历史`` 字段的 dict（如 ``chat_test_100.json``）。
 2. **SGD 格式**：含 ``turns`` 字段的 dict（SYSTEM/USER speaker）。
 3. **简单列表格式**：``List[str]``，每项形如 ``"agent: ..."`` / ``"user: ..."``
    或 ``"坐席：..."`` / ``"用户：..."``。
 4. **平铺文本格式**：单条 ``str``，多轮以换行分隔，每行含说话人前缀。
+5. **嵌套 query 格式**：含 ``query`` 字段的 dict，``query`` 本身含 ``对话历史``
+   （如 ``chat_test_500.json``，结构为
+   ``{"label": "...", "query": {"用户信息": "...", "对话历史": [...], ...}}``）。
 
 归一化输出格式
 --------------
@@ -22,12 +24,14 @@
         "对话历史": ["坐席：...", "用户：...", ...]
     }
 
-此格式可直接传入 :class:`contextmind.scenarios.anyihua.knowledge_extraction.AnyihuaKnowledgeExtractor`
-（其 ``_parse_turns`` 函数支持 ``对话历史`` 字段）。
+原始记录中的其他业务字段（如 ``用户信息``、``坐席回复``、``人工校验``、``label``）
+会原样保留在输出 dict 中，供下游代码按需使用。
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from typing import Any, Dict, List, Union
 
@@ -153,6 +157,20 @@ def normalize_dialogue(
                 or "dlg_0"
             )
             return {"session_id": sid, "对话历史": history}
+
+        # 嵌套 query 格式（如 chat_test_500.json：{label, query:{用户信息, 对话历史, ...}}）
+        if "query" in raw and isinstance(raw.get("query"), dict):
+            query: Dict[str, Any] = dict(raw["query"])
+            # 将顶层 label 字段映射到 人工校验（如已有则不覆盖）
+            if "label" in raw:
+                query.setdefault("人工校验", raw["label"])
+            # 生成 session_id（嵌套格式通常没有此字段）
+            if not query.get("session_id"):
+                raw_bytes = json.dumps(raw, ensure_ascii=False, sort_keys=True).encode()
+                h = hashlib.sha256(raw_bytes).hexdigest()[:12]
+                query["session_id"] = dialogue_id or f"dlg_{h}"
+            # 递归：query 内部含 对话历史，走格式 1 分支
+            return normalize_dialogue(query, dialogue_id=dialogue_id)
 
         # 未知 dict 格式：尝试从常见字段提取
         for key in ("dialogue", "conversation", "text", "content"):

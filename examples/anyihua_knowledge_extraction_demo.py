@@ -1,6 +1,23 @@
 """
 安逸花外呼知识提取演示（单轮对话 + langextract 溯源版）
 
+.. deprecated::
+    本脚本使用安逸花专属的 ``AnyihuaKnowledgeExtractor``（基于预定义 Schema），
+    适合需要精确控制槽位/意图列表的场景。
+
+    **对于通用知识库构建，推荐使用统一入口：**
+
+        python examples/build_kb_demo.py \\
+            --data resources/data/chat_test_100.json \\
+                   resources/data/chat_test_500.json \\
+            --num 10 \\
+            --scene "安逸花外呼" \\
+            --scene-desc "安逸花/马上消费金融外呼促活服务"
+
+    ``build_kb_demo.py`` 通过 ``contextmind.knowledge.normalizer`` 统一处理
+    所有输入格式（含 chat_test_100/500），采用开放式发现而非预定义 Schema，
+    并将 langextract 溯源结果保存到 ``discovery_raw.json``。
+
 演示如何使用 AnyihuaKnowledgeExtractor 从安逸花外呼多轮对话中提取带轮次归属
 和字符级溯源的结构化知识，并可选择将结果转换为 SGD 数据集格式。
 
