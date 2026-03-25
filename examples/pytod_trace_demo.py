@@ -2,7 +2,7 @@
 PyTOD 对话追踪脚本
 
 展示 PyTOD（Program-of-Thought for Task-Oriented Dialogue）算法在
-客服场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
+安逸花外呼场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
 输入/输出/执行方式，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
 用法::
@@ -34,17 +34,22 @@ from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-from contextmind.scenarios import get_callcenter_scenario
+from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
+# 默认 schema：安逸花外呼业务（data/anyihua_schema.json）
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "data" / "anyihua_schema.json"
 _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 
+_AGENT_ICON = "🤖"
+_USER_ICON = "👤"
+
 _SCENARIO_CONTEXT = (
-    "这是一个客服对话场景。"
-    "坐席代表客服中心接听用户来电，目标是解答用户问题、处理订单和提供帮助。"
-    "标准流程：① 问候确认身份 → ② 了解用户诉求 → "
-    "③ 解答疑问或处理问题 → ④ 确认用户满意 → ⑤ 礼貌告别。"
+    "这是安逸花外呼促活场景。"
+    "坐席代表安逸花主动致电用户，目标是促进用户借款使用额度。"
+    "标准流程：① 核实身份 → ② 告知额度/临时提额 → "
+    "③ 解答疑问（利率/还款/逾期等）→ ④ 引导借款 → ⑤ 礼貌结束。"
 )
 
 
@@ -112,12 +117,12 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     Args:
         session:         对话会话字典。
         verbose:         是否打印详细日志。
-        external_schema: 外部传入的 ServiceSchema（来自 ``--schema``）；
+        external_schema: 外部传入的 ServiceSchema（来自 ``--schema`` 或默认 anyihua_schema.json）；
                          若为 None 则使用预定义的场景 Schema。
     """
     # 用于获取已注册 API 列表（无论 LLM 是否可用）
     _probe_engine = ExecutionEngine()
-    register_fn = SCENARIO_API_REGISTRY.get("callcenter")
+    register_fn = SCENARIO_API_REGISTRY.get("anyihua")
     if register_fn:
         register_fn(_probe_engine)
 
@@ -128,20 +133,28 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         llm_available = False
 
     history = session.get("对话历史", [])
-    # Extract paired turns: (user_utterance, original_agent_response)
-    paired_turns: List[tuple] = []
+    # 配对规则：坐席先说（preceding_agent），用户后说。
+    # 遍历历史，每当遇到"坐席：XXX → 用户：YYY"序列，将其归为一轮。
+    # Fix 2: agent-first pairing (坐席先说，用户后说)
+    paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
     i = 0
     while i < len(history):
         utt = history[i]
-        if utt.startswith(_USER_PREFIX):
-            user_text = utt[len(_USER_PREFIX):]
-            orig_agent = ""
-            if i + 1 < len(history) and history[i + 1].startswith(_AGENT_PREFIX):
-                orig_agent = history[i + 1][len(_AGENT_PREFIX):]
+        if utt.startswith(_AGENT_PREFIX):
+            preceding_agent_text = utt[len(_AGENT_PREFIX):]
+            if i + 1 < len(history) and history[i + 1].startswith(_USER_PREFIX):
+                user_text = history[i + 1][len(_USER_PREFIX):]
                 i += 2
             else:
+                # Agent utterance with no following user — skip (e.g. final goodbye)
                 i += 1
-            paired_turns.append((user_text, orig_agent))
+                continue
+            paired_turns.append((user_text, preceding_agent_text))
+        elif utt.startswith(_USER_PREFIX):
+            # User utterance without a preceding agent utterance
+            user_text = utt[len(_USER_PREFIX):]
+            paired_turns.append((user_text, ""))
+            i += 1
         else:
             i += 1
     if not paired_turns:
@@ -158,9 +171,9 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
     if llm_available:
         llm_client = AdkLLMClient(config=config)
-        # 使用 from_scenario() 自动加载客服场景 API 和预置 Schema，
-        # 确保 AP 提示词包含完整的业务意图和槽位描述，无需手动创建知识库。
-        scenario_config = get_callcenter_scenario()
+        # 使用 from_scenario() 自动加载安逸花外呼场景 API 和 Schema。
+        # Fix 1: 默认使用 anyihua 场景 + anyihua_schema.json
+        scenario_config = get_anyihua_scenario()
         agent = AdkPyTODTracker.from_scenario(
             llm_client=llm_client,
             scenario_config=scenario_config,
@@ -168,6 +181,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             **({"schema": external_schema} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
+        prev_state: Dict[str, Any] = {}
         for i, (utt, orig_agent) in enumerate(paired_turns):
             try:
                 result = await agent.process_turn(utt)
@@ -176,21 +190,40 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
             ee_data = _serialize_execution(result.get("execution"))
 
+            # Fix 4: only show variables NEW this turn (delta vs previous cumulative state)
+            new_state: Dict[str, Any] = result.get("state", {})
+            state_delta = {k: v for k, v in new_state.items() if k not in prev_state}
+            prev_state = dict(new_state)
+
+            # Fix 5: capture AP and DM prompt messages for this turn
+            ap_messages = list(getattr(agent, "last_ap_messages", []))
+            dm_messages = list(getattr(agent, "last_dm_messages", []))
+
+            # Fix 3: annotate whether the AP result is valid
+            program = result.get("program_text", "")
+            ap_valid = bool(program and program.strip() and
+                            not program.startswith("⚠️") and
+                            not ee_data.get("errors"))
+
             turn_record = {
                 "turn": i + 1,
                 "user": utt,
                 "original_agent": orig_agent,
-                "program": result.get("program_text", ""),
+                "program": program,
+                "ap_valid": ap_valid,
                 "ee": ee_data,
                 "response": result.get("response", ""),
-                "cumulative_state": result.get("state", {}),
+                "state_delta": state_delta,    # Fix 4: only new vars this turn
+                "cumulative_state": new_state, # full state for JSON reference
                 "timings": dict(agent.step_timings),
+                "ap_messages": ap_messages,    # Fix 5: AP prompt
+                "dm_messages": dm_messages,    # Fix 5: DM prompt
             }
             turns_results.append(turn_record)
 
             if verbose:
                 print(f"[Turn {i+1}] user: {utt[:80]}")
-                print(f"  [AP] program: {result.get('program_text', '')[:120]}")
+                print(f"  [AP] {'✅' if ap_valid else '⚠️ invalid'} program: {program[:120]}")
                 ee_ok = "✅" if ee_data.get("success") else ("❌" if ee_data.get("success") is False else "N/A")
                 print(f"  [EE] {ee_ok} say={ee_data.get('say','')[:60]!r}")
                 print(f"  [DM] response: {result.get('response', '')[:100]}")
@@ -201,10 +234,14 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 "user": utt,
                 "original_agent": orig_agent,
                 "program": "⚠️ LLM 未配置",
+                "ap_valid": False,
                 "ee": {"success": None, "errors": [], "variables": {}, "say": "", "hints": []},
                 "response": "⚠️ LLM 未配置",
+                "state_delta": {},
                 "cumulative_state": {},
                 "timings": {},
+                "ap_messages": [],
+                "dm_messages": [],
             })
 
     return {
@@ -212,7 +249,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             "timestamp": datetime.now().isoformat(),
             "algorithm": "PyTOD AP→EE→DM (官方三步流水线)",
             "llm_available": llm_available,
-            "scenario": "客服对话",
+            "scenario": "安逸花外呼",
             "registered_apis": _probe_engine.list_functions(),
         },
         "session_id": session.get("session_id", ""),
@@ -222,8 +259,46 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     }
 
 
+def _format_messages_collapsible(messages: List[Dict[str, str]], label: str) -> List[str]:
+    """将 LLM 消息列表渲染为可折叠的 <details> HTML 块。
+
+    Fix 5: 使用 HTML <details>/<summary> 实现可折叠 LLM prompt 展示。
+    """
+    if not messages:
+        return []
+    lines = [
+        f"<details>",
+        f"<summary>📋 {label}（点击展开）</summary>",
+        "",
+    ]
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        role_label = {"system": "**System**", "user": "**User**", "assistant": "**Assistant**"}.get(role, f"**{role}**")
+        lines += [
+            f"{role_label}:",
+            "",
+            "```",
+            content,
+            "```",
+            "",
+        ]
+    lines += ["</details>", ""]
+    return lines
+
+
 def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为 Markdown 报告，每轮显示原始对话 + 算法步骤 + 回复对比。"""
+    """将 trace 字典渲染为 Markdown 报告。
+
+    每轮展示：
+    - 原始对话（坐席先说，用户后说）  Fix 2
+    - ① AP 程序（标注是否有效）       Fix 3
+    - ② EE 执行结果
+    - ③ DM 生成回复
+    - 回复对比（原始 vs DM）
+    - 本轮新增状态（delta，不重复显示）Fix 4
+    - AP / DM prompt（可折叠）        Fix 5
+    """
     meta = trace["metadata"]
     llm_ok = meta["llm_available"]
     lines = [
@@ -260,23 +335,21 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
             "",
         ]
 
-        # 原始对话（用户 + 原始坐席回复）
+        # Fix 2: 原始对话 — 坐席先说，用户后说
         orig_agent = t.get("original_agent", "")
-        lines += [
-            "**原始对话**:",
-            "",
-            f"| 角色 | 话语 |",
-            f"|---|---|",
-            f"| 👤 用户 | {t['user']} |",
-        ]
+        lines += ["**原始对话**:", ""]
         if orig_agent:
-            lines.append(f"| 🤖 原始坐席 | {orig_agent} |")
+            lines.append(f"{_AGENT_ICON} **坐席**: {orig_agent}")
+            lines.append("")
+        lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
 
-        # ① AP
+        # Fix 3: ① AP 程序（标注有效性）
         program = t.get("program") or ""
+        ap_valid = t.get("ap_valid", True)
+        ap_label = "**① AP 程序**" if ap_valid else "**① AP 程序** ⚠️ *（无效 / NONE）*"
         lines += [
-            "**① AP 程序**:",
+            ap_label + ":",
             "```",
             program or "(空)",
             "```",
@@ -318,21 +391,27 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
                 "",
                 "| | 回复 |",
                 "|---|---|",
-                f"| 🤖 原始坐席 | {orig_agent} |",
-                f"| 🤖 DM 生成 | {new_response} |",
+                f"| {_AGENT_ICON} 原始坐席 | {orig_agent} |",
+                f"| {_AGENT_ICON} DM 生成 | {new_response} |",
                 "",
             ]
 
-        # 累积状态
-        cumstate = t.get("cumulative_state", {})
-        if cumstate:
+        # Fix 4: 本轮新增状态（只显示 delta，不重复历史变量）
+        state_delta = t.get("state_delta", {})
+        if state_delta:
             lines += [
-                "**累积状态**:",
+                "**本轮新增状态**:",
                 "```json",
-                json.dumps(cumstate, ensure_ascii=False, indent=2),
+                json.dumps(state_delta, ensure_ascii=False, indent=2),
                 "```",
                 "",
             ]
+
+        # Fix 5: AP / DM prompt（可折叠）
+        ap_messages = t.get("ap_messages") or []
+        dm_messages = t.get("dm_messages") or []
+        lines += _format_messages_collapsible(ap_messages, "AP Prompt（动作解析器输入）")
+        lines += _format_messages_collapsible(dm_messages, "DM Prompt（对话管理器输入）")
 
     actual = trace.get("actual_response")
     if actual:
@@ -355,7 +434,7 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 格式）；若提供则替换预定义场景 ServiceSchema",
+        help="schema.json 路径（SGD 格式）；若不提供则默认使用 data/anyihua_schema.json",
     )
     args = parser.parse_args()
 
@@ -363,14 +442,17 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
+    # Fix 1: 默认加载 anyihua_schema.json
     external_schema: Optional[ServiceSchema] = None
-    if args.schema:
-        schema_path = Path(args.schema)
-        if not schema_path.exists():
-            print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
-            sys.exit(1)
+    schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
+    if schema_path.exists():
         external_schema = _load_service_schema_from_file(schema_path)
-        print(f"✓ 已加载外部 Schema: {schema_path} (service={external_schema.service_name})")
+        print(f"✓ 已加载 Schema: {schema_path} (service={external_schema.service_name})")
+    elif args.schema:
+        print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print(f"⚠️  默认 Schema 文件不存在: {schema_path}，将使用内置场景 Schema", file=sys.stderr)
 
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
