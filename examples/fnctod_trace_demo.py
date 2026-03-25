@@ -37,6 +37,8 @@ from contextmind.modes.fnctod.schemas import get_callcenter_function_schema
 from contextmind.modes.pytod.schemas import load_schema_from_dict
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
+# 默认 schema：安逸花外呼业务（data/anyihua_schema.json）
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "data" / "anyihua_schema.json"
 _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 
@@ -271,7 +273,7 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 或 FnCTOD 格式）；若提供则替换预定义场景 Schema",
+        help="schema.json 路径（SGD 或 FnCTOD 格式）；若不提供则默认使用 data/anyihua_schema.json",
     )
     args = parser.parse_args()
 
@@ -279,14 +281,17 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
+    # 默认加载 anyihua_schema.json（与 pytod_trace_demo 保持一致）
     domain_spec: Optional[DomainSpec] = None
-    if args.schema:
-        schema_path = Path(args.schema)
-        if not schema_path.exists():
-            print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
-            sys.exit(1)
+    schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
+    if schema_path.exists():
         domain_spec = _load_domain_spec_from_schema_file(schema_path)
-        print(f"✓ 已加载外部 Schema: {schema_path} (domain={domain_spec.name})")
+        print(f"✓ 已加载 Schema: {schema_path} (domain={domain_spec.name})")
+    elif args.schema:
+        print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print(f"⚠️  默认 Schema 文件不存在: {schema_path}，将使用内置场景 Schema", file=sys.stderr)
 
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")

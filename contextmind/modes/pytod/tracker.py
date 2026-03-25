@@ -209,6 +209,7 @@ class AdkPyTODTracker:
         schema: Optional[ServiceSchema] = None,
         scenario_context: str = "",
         max_history_turns: int = 10,
+        compact_schema: bool = False,
     ) -> None:
         self.llm_client = llm_client
         self.engine = engine
@@ -218,6 +219,7 @@ class AdkPyTODTracker:
             schema=self.schema,
             api_signatures=engine.to_prompt_text(),   # 实际函数签名，AP 选函数时的权威来源
             max_history_turns=max_history_turns,
+            compact_schema=compact_schema,
         )
         self._history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}

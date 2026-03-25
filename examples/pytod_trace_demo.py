@@ -111,7 +111,8 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
 
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False,
-                    external_schema: Optional[ServiceSchema] = None) -> Dict[str, Any]:
+                    external_schema: Optional[ServiceSchema] = None,
+                    compact_schema: bool = False) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。
 
     Args:
@@ -119,6 +120,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         verbose:         是否打印详细日志。
         external_schema: 外部传入的 ServiceSchema（来自 ``--schema`` 或默认 anyihua_schema.json）；
                          若为 None 则使用预定义的场景 Schema。
+        compact_schema:  为 True 时，AP prompt 中省略详细业务意图说明（减少 token 用量）。
     """
     # 用于获取已注册 API 列表（无论 LLM 是否可用）
     _probe_engine = ExecutionEngine()
@@ -178,6 +180,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             llm_client=llm_client,
             scenario_config=scenario_config,
             scenario_context=scenario_context,
+            compact_schema=compact_schema,
             **({"schema": external_schema} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
@@ -407,6 +410,21 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
                 "",
             ]
 
+        # 累积状态（全量，可折叠）
+        cumstate = t.get("cumulative_state", {})
+        if cumstate:
+            lines += [
+                "<details>",
+                "<summary>📊 累积状态（点击展开）</summary>",
+                "",
+                "```json",
+                json.dumps(cumstate, ensure_ascii=False, indent=2),
+                "```",
+                "",
+                "</details>",
+                "",
+            ]
+
         # Fix 5: AP / DM prompt（可折叠）
         ap_messages = t.get("ap_messages") or []
         dm_messages = t.get("dm_messages") or []
@@ -433,6 +451,10 @@ def main() -> None:
                         help="Markdown 输出路径（默认 output/pytod_trace_output.md）")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
+        "--compact-schema", dest="compact_schema", action="store_true",
+        help="省略 AP prompt 中的详细业务意图说明（减少 token 用量；适合 token 敏感部署）",
+    )
+    parser.add_argument(
         "--schema", type=str, default=None,
         help="schema.json 路径（SGD 格式）；若不提供则默认使用 data/anyihua_schema.json",
     )
@@ -457,7 +479,9 @@ def main() -> None:
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
-    trace = asyncio.run(run_trace(session, verbose=args.verbose, external_schema=external_schema))
+    trace = asyncio.run(run_trace(session, verbose=args.verbose,
+                                   external_schema=external_schema,
+                                   compact_schema=args.compact_schema))
 
     # 输出路径
     if args.output:

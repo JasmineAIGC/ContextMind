@@ -132,11 +132,13 @@ class PyTODPromptBuilder:
         api_signatures: str = "",
         max_history_turns: int = 10,
         response_language: str = "中文",
+        compact_schema: bool = False,
     ) -> None:
         self.schema = schema
         self._api_signatures = api_signatures
         self.max_history_turns = max_history_turns
         self.response_language = response_language
+        self.compact_schema = compact_schema
 
     # ------------------------------------------------------------------ #
     # 内部工具
@@ -157,6 +159,8 @@ class PyTODPromptBuilder:
         按照官方 PyTOD 思路，分两层展示：
         1. **实际可调用函数签名**（来自 engine，AP 必须使用这些名称）
         2. **业务意图描述**（来自 schema，帮助 AP 理解每个函数的业务语义）
+           当 ``compact_schema=True`` 时跳过此层，可大幅减少 prompt token 数。
+           未来扩展方向：按对话状态动态筛选相关意图（动态加载）。
 
         当 ``api_signatures`` 为空时（未传入 engine），回退到仅展示 schema 意图，
         并将意图名作为函数名（兼容旧用法，但准确性较低）。
@@ -179,7 +183,8 @@ class PyTODPromptBuilder:
                     )
 
         # 层 2：业务意图描述（辅助 LLM 理解函数的业务场景）
-        if self.schema.intents:
+        # compact_schema=True 时跳过，减少 prompt 长度（适合 token 敏感的部署）
+        if self.schema.intents and not self.compact_schema:
             lines.append(f"\n## 业务场景说明（服务：{self.schema.service_name}）")
             lines.append(f"服务描述：{self.schema.description}")
             lines.append("")
