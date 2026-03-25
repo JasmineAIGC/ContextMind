@@ -149,7 +149,7 @@ class PyTODPromptBuilder:
         lines = []
         # max_history_turns 轮 × 2 = 每轮含 user + assistant 各一条
         for turn in history[-self.max_history_turns * 2:]:
-            prefix = "用户：" if turn.role == "user" else "坐席："
+            prefix = "用户：" if turn.role == "user" else "机器人："
             lines.append(f"{prefix}{turn.content}")
         return "\n".join(lines) if lines else "（无历史）"
 
@@ -331,7 +331,7 @@ class PyTODPromptBuilder:
             f"## 当前用户话语\n{user_utterance}\n\n"
             f"## AP 生成程序\n```\n{program}\n```\n\n"
             f"## 程序执行结果\n{exec_text}\n\n"
-            "请生成坐席回复："
+            "请生成机器人回复："
         )
 
         return [

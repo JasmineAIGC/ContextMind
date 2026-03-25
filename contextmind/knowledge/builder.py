@@ -754,7 +754,7 @@ class KnowledgeBaseBuilder:
         cumulative_slot_values: Dict[str, List[str]] = {}
         current_intent = "NONE"
 
-        _SYSTEM_SPEAKERS = {"坐席", "agent", "system", "assistant", "SYSTEM"}
+        _SYSTEM_SPEAKERS = {"机器人", "坐席", "agent", "system", "assistant", "SYSTEM"}
 
         for turn_idx, speaker, utterance, items in per_turn:
             sgd_speaker = "SYSTEM" if speaker in _SYSTEM_SPEAKERS else "USER"

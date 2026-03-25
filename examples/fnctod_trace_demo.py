@@ -48,12 +48,12 @@ from contextmind.modes.pytod.schemas import load_schema_from_dict
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
 # 默认 schema：安逸花外呼业务（data/anyihua_schema.json）
 _DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "data" / "anyihua_schema.json"
-_AGENT_PREFIX = "坐席："
-_USER_PREFIX = "用户："
+_AGENT_KEY = "机器人"
+_USER_KEY = "用户"
 
 _SCENARIO_CONTEXT = (
     "这是安逸花外呼促活场景。"
-    "坐席代表安逸花主动致电用户，目标是促进用户借款使用额度。"
+    "机器人代表安逸花主动致电用户，目标是促进用户借款使用额度。"
     "标准流程：① 核实身份 → ② 告知额度/临时提额 → "
     "③ 解答疑问（利率/还款/逾期等）→ ④ 引导借款 → ⑤ 礼貌结束。"
 )
@@ -163,28 +163,26 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     except Exception:
         llm_available = False
 
-    # 提取对话历史，使用坐席先说的配对规则（与 pytod_trace_demo 一致）
+    # 统一格式：每条 entry 为 {"机器人": "xxx", "用户": "yyy"} 配对 dict。
+    # 兼容旧式平铺字符串格式（向后兼容）。
     history = session.get("对话历史", [])
     paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
-    i = 0
-    while i < len(history):
-        utt = history[i]
-        if utt.startswith(_AGENT_PREFIX):
-            preceding_agent_text = utt[len(_AGENT_PREFIX):]
-            if i + 1 < len(history) and history[i + 1].startswith(_USER_PREFIX):
-                user_text = history[i + 1][len(_USER_PREFIX):]
-                i += 2
-            else:
-                # 坐席发言后无用户发言（如最终告别语）—— 跳过
-                i += 1
-                continue
-            paired_turns.append((user_text, preceding_agent_text))
-        elif utt.startswith(_USER_PREFIX):
-            user_text = utt[len(_USER_PREFIX):]
-            paired_turns.append((user_text, ""))
-            i += 1
-        else:
-            i += 1
+    for entry in history:
+        if isinstance(entry, dict):
+            user_text = entry.get(_USER_KEY, "")
+            orig_agent = entry.get(_AGENT_KEY, "")
+            if user_text:
+                paired_turns.append((user_text, orig_agent))
+        elif isinstance(entry, str):
+            import re as _re
+            if entry.startswith("机器人：") or entry.startswith("坐席："):
+                _pending_agent = _re.sub(r"^(机器人|坐席)[：:]\s*", "", entry)
+            elif entry.startswith("用户："):
+                user_text = entry[len("用户："):]
+                orig_agent = locals().get("_pending_agent", "")
+                if user_text:
+                    paired_turns.append((user_text, orig_agent))
+                _pending_agent = ""
     if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 
@@ -333,11 +331,11 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
             "",
         ]
 
-        # 原始对话（坐席先说，用户后说）
+        # 原始对话（机器人先说，用户后说）
         orig_agent = t.get("original_agent", "")
         lines += ["**原始对话**:", ""]
         if orig_agent:
-            lines.append(f"{_AGENT_ICON} **坐席**: {orig_agent}")
+            lines.append(f"{_AGENT_ICON} **机器人**: {orig_agent}")
             lines.append("")
         lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
@@ -365,14 +363,14 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
             "",
         ]
 
-        # 回复对比（仅当存在原始坐席发言时）
+        # 回复对比（仅当存在原始机器人发言时）
         if orig_agent:
             lines += [
                 "**回复对比**:",
                 "",
                 "| | 回复 |",
                 "|---|---|",
-                f"| {_AGENT_ICON} 原始坐席 | {orig_agent} |",
+                f"| {_AGENT_ICON} 原始机器人 | {orig_agent} |",
                 f"| {_AGENT_ICON} DM 生成 | {new_response} |",
                 "",
             ]
