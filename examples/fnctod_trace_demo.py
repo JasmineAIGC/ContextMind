@@ -272,7 +272,8 @@ def main() -> None:
         Path(args.output).write_text(md, encoding="utf-8")
         print(f"✓ 报告已写入: {args.output}")
     else:
-        output_path = _PROJECT_ROOT / "examples" / "fnctod_trace_output.md"
+        output_path = _PROJECT_ROOT / "output" / "fnctod_trace_output.md"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(md, encoding="utf-8")
         print(f"✓ 报告已写入: {output_path}")
 

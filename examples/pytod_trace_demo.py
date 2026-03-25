@@ -403,7 +403,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--output", type=str, default=None,
-                        help="Markdown 输出路径（默认 examples/pytod_trace_output.md）")
+                        help="Markdown 输出路径（默认 output/pytod_trace_output.md）")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--schema", type=str, default=None,
@@ -433,7 +433,8 @@ def main() -> None:
     if args.output:
         md_path = Path(args.output)
     else:
-        md_path = _PROJECT_ROOT / "examples" / "pytod_trace_output.md"
+        md_path = _PROJECT_ROOT / "output" / "pytod_trace_output.md"
+        md_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 写 Markdown
     md = _render_markdown(trace)

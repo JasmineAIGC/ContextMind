@@ -521,37 +521,52 @@ class UnifiedGradioDemo:
             return state_info
 
         elif self.current_mode == "evolve" and self.app:
-            # Evolve模式：显示当前记忆条目和会话信息
+            # Evolve模式：显示当前上下文和记忆库信息
             engine = self.app.evolve_engine
             state_info = {
                 "模式": "Evolve (记忆进化)",
                 "场景": self._get_scenario_name(self.current_scenario),
             }
 
-            # 记忆库
+            # 本轮 optimize() 使用的上下文（会话历史 + 召回记忆）
+            if hasattr(engine, 'last_context_result') and engine.last_context_result is not None:
+                cr = engine.last_context_result
+                meta = cr.metadata or {}
+                session_cnt = meta.get("session_history_count", 0)
+                memory_cnt = meta.get("long_term_memory_count", 0)
+                state_info["本轮上下文"] = f"会话历史 {session_cnt} 条 | 召回记忆 {memory_cnt} 条"
+
+                # 显示召回的记忆条目（source != HISTORY 的 ContextItem）
+                from contextmind.modes.evolve.core.data_models import ContextSource
+                recalled = [
+                    item for item in cr.items
+                    if getattr(item, 'source', None) != ContextSource.HISTORY
+                ]
+                if recalled:
+                    state_info["召回记忆"] = [
+                        (item.content[:80] + "..." if len(item.content) > 80 else item.content)
+                        for item in recalled[:5]
+                    ]
+
+            # 记忆库（从历轮 extract_knowledge 后台任务积累）
             if hasattr(engine, 'memory_bank'):
                 memory_cache = engine.memory_bank.get_memory_cache()
                 total_memories = len(memory_cache)
-                state_info["记忆总数"] = total_memories
+                state_info["记忆库总数"] = total_memories
                 if memory_cache:
-                    recent = memory_cache[-5:]
                     memories_display = []
-                    for mem in recent:
+                    for mem in memory_cache[-5:]:
                         content = str(mem.content if hasattr(mem, 'content') else mem)
-                        mem_type = str(getattr(mem, 'type', ''))
                         if len(content) > 80:
                             content = content[:77] + '...'
-                        label = f"[{mem_type}] " if mem_type else ""
-                        memories_display.append(f"{label}{content}")
-                    state_info["最近记忆"] = memories_display
-                else:
-                    state_info["最近记忆"] = []
+                        memories_display.append(content)
+                    state_info["记忆库内容(最近5条)"] = memories_display
 
-            # 会话缓存信息
+            # 会话消息数
             if hasattr(engine, 'session_manager'):
                 sm = engine.session_manager
                 session_msgs = len(getattr(sm, '_messages', []))
-                state_info["已缓存消息数"] = session_msgs
+                state_info["会话消息数"] = session_msgs
 
             return state_info
         else:

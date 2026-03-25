@@ -120,6 +120,9 @@ class EvolveEngine:
             logger.info("[EvolveEngine] ConversationSummarizer 已启用")
         else:
             self.summarizer = None
+
+        # 记录最后一次 optimize() 的结果，供 UI 状态面板展示
+        self.last_context_result: Optional["ContextResult"] = None
         
         logger.info(f"EvolveEngine 已初始化 app={app_name}, user={user_id}")
     
@@ -224,7 +227,10 @@ class EvolveEngine:
         logger.info("-" * 100)
         logger.info(f"[EvolveEngine] ========== 上下文优化结束 ==========")
         logger.info("")
-        
+
+        # 保存本轮 optimize 结果，供 UI 状态面板读取
+        self.last_context_result = compressed_result
+
         return compressed_result
     
     async def update(
