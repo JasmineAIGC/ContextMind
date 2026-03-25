@@ -1,11 +1,12 @@
 """
 对话状态追踪器（Dialogue State Tracker）
 
-基于 ACL 2023 论文的增强实现，支持：
+基于 ACL 2023 论文的增强实现，使用 Google ADK LlmAgent + InMemoryRunner
+进行 LLM 驱动的槽位提取，支持：
+- ADK 原生 Session 管理（历史由 InMemoryRunner 自动维护）
 - 动态槽位提取
-- 智能历史管理（模板摘要或LLM摘要）
 - 多意图追踪
-- 优化的LLM使用（默认仅在槽位提取时调用）
+- 无 ADK 时自动降级为直接 chat_async 调用
 """
 
 import time
@@ -16,8 +17,17 @@ from typing import Any, Dict, List, Optional, Tuple
 from .prompts import PromptManager
 from .parser import DSTResponseParser
 from contextmind.infra.logger import get_logger
+from contextmind.infra.llm_client import create_local_adk_model
 
 logger = get_logger(__name__)
+
+try:
+    from google.adk.agents import LlmAgent  # type: ignore[import]
+    from google.adk.runners import InMemoryRunner  # type: ignore[import]
+    from google.genai import types as genai_types  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +125,34 @@ class DialogueStateTracker:
             f"历史轮数={max_history_turns}, 摘要={enable_history_summary}, "
             f"LLM摘要={use_llm_summary})"
         )
+
+        # ------------------------------------------------------------------ #
+        # ADK 原生 Agent 初始化（当 google-adk 可用时）
+        # 用 LlmAgent + InMemoryRunner 替代手动消息列表管理：
+        # - LlmAgent 持有静态系统指令（槽位提取任务描述）
+        # - InMemoryRunner 通过 InMemorySessionService 自动维护多轮会话历史
+        # - 每轮仅传入当前对话片段，无需手动构建 full messages array
+        # ------------------------------------------------------------------ #
+        self._adk_runner: Optional[Any] = None
+        self._adk_session_id: Optional[str] = None
+        if _ADK_AVAILABLE and llm_client is not None:
+            try:
+                adk_model = create_local_adk_model(
+                    getattr(llm_client, "_config", None)
+                )
+                adk_agent = LlmAgent(
+                    name="dst_agent",
+                    model=adk_model,
+                    instruction=self.prompt_manager.get_system_instruction(),
+                )
+                self._adk_runner = InMemoryRunner(
+                    agent=adk_agent,
+                    app_name="contextmind_dst",
+                )
+                logger.info("[DST] ADK LlmAgent + InMemoryRunner 已初始化，使用 ADK 原生会话管理")
+            except Exception as exc:
+                logger.warning(f"[DST] ADK 初始化失败，降级为 chat_async 模式: {exc}")
+                self._adk_runner = None
     
     @classmethod
     def from_scenario(cls, 
@@ -172,9 +210,58 @@ class DialogueStateTracker:
         self.current_intents = []
         self.intent_states = {}
         self.history_summary = None
+        # 重置 ADK 会话（下次 process_turn 时自动重建新 session）
+        self._adk_session_id = None
         logger.info("对话状态已重置")
-    
-    async def process_turn(self,
+
+    async def _get_or_create_adk_session(self) -> str:
+        """获取或创建 ADK 会话 ID（懒加载，首次调用时创建）。"""
+        if self._adk_session_id is None:
+            session = await self._adk_runner.session_service.create_session(
+                app_name="contextmind_dst",
+                user_id="default_user",
+            )
+            self._adk_session_id = session.id
+            logger.debug(f"[DST] 创建 ADK 会话: {self._adk_session_id}")
+        return self._adk_session_id
+
+    async def _run_adk_turn(self, turn_prompt: str) -> str:
+        """通过 ADK InMemoryRunner 执行单轮 LLM 调用。
+
+        Args:
+            turn_prompt: 当前轮次的用户输入（系统话语 + 用户话语 + 提取指令）
+
+        Returns:
+            LLM 返回的原始文本（应为 JSON 格式的槽位更新）
+        """
+        session_id = await self._get_or_create_adk_session()
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=turn_prompt)],
+        )
+        raw_response = ""
+        async for event in self._adk_runner.run_async(
+            user_id="default_user",
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
+                        raw_response += part.text
+        return raw_response.strip()
+
+    async def _fallback_chat_async(self, prompt: str) -> str:
+        """当 ADK 运行失败时，降级为直接 chat_async 调用。"""
+        if self.llm_client is None:
+            return "{}"
+        return await self.llm_client.chat_async(
+            messages=self.messages,
+            temperature=0.0,
+        )
+
+    async def process_turn(
+        self,
                           user_utterance: str,
                           system_utterance: str = "",
                           **kwargs) -> Dict[str, str]:
@@ -223,7 +310,22 @@ class DialogueStateTracker:
         self.step_timings['提示词构建'] = time.time() - step_start
         
         step_start = time.time()
-        if self.llm_client:
+        if self._adk_runner is not None:
+            # ---------------------------------------------------------- #
+            # ADK 路径：通过 LlmAgent + InMemoryRunner 发起 LLM 调用
+            # - ADK 的 InMemorySessionService 自动维护多轮会话历史
+            # - 仅传入当前轮次的对话片段（无需手动构建完整消息列表）
+            # ---------------------------------------------------------- #
+            try:
+                raw_response = await self._run_adk_turn(full_prompt)
+                logger.debug(f"[DST ADK] LLM 响应: {raw_response[:200]}")
+            except Exception as exc:
+                logger.error(f"[DST ADK] 运行失败，降级为 chat_async: {exc}")
+                raw_response = await self._fallback_chat_async(full_prompt)
+        elif self.llm_client:
+            # ---------------------------------------------------------- #
+            # 降级路径：直接使用 AdkLLMClient.chat_async() 发起调用
+            # ---------------------------------------------------------- #
             try:
                 logger.debug("=" * 60)
                 logger.debug("发送给LLM的消息:")

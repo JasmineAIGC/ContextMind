@@ -1,7 +1,10 @@
 """
 EvolveEngine - 进化引擎核心模块
 
-上下文优化引擎，提供 optimize/update/handle_response/extract_knowledge 等核心接口。
+上下文优化引擎，自动使用 Google ADK 服务（InMemorySessionService、InMemoryMemoryService）
+管理会话和记忆生命周期。
+
+提供 optimize/update/handle_response/extract_knowledge 等核心接口。
 """
 
 from __future__ import annotations
@@ -27,10 +30,22 @@ from contextmind.modes.evolve.pipeline.summarizer import ConversationSummarizer
 
 logger = get_logger(__name__)
 
+try:
+    from google.adk.sessions import InMemorySessionService  # type: ignore[import]
+    from google.adk.memory import InMemoryMemoryService  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
+
 
 class EvolveEngine:
     """
     进化引擎，专注于上下文优化。
+
+    自动利用 Google ADK 基础设施：
+    - InMemorySessionService：管理多轮对话会话生命周期
+    - InMemoryMemoryService：跨会话语义记忆检索
+    两个服务在调用方未显式传入时自动创建，无需手动初始化。
 
     核心接口：optimize()、update()、handle_response()、extract_knowledge()。
     """
@@ -53,8 +68,8 @@ class EvolveEngine:
             app_name: 应用名称
             user_id: 用户 ID
             llm_client: LLM 客户端实例（知识提取需要）
-            session_service: Session 服务实例（可选）
-            memory_service: Memory 服务实例（可选）
+            session_service: Session 服务实例（可选，不传时自动创建 ADK InMemorySessionService）
+            memory_service: Memory 服务实例（可选，不传时自动创建 ADK InMemoryMemoryService）
             max_recent_events: 保留的最大近期事件数量
             use_summarizer: 是否启用对话摘要器
             extraction_method: 知识提取方式，仅支持 'llm'
@@ -64,6 +79,29 @@ class EvolveEngine:
         self.user_id = user_id
         self.llm_client = llm_client
         self.extraction_method = extraction_method
+
+        # ------------------------------------------------------------------ #
+        # ADK 服务自动初始化
+        # 当调用方未传入 session_service / memory_service 时，
+        # 自动创建 ADK InMemorySessionService / InMemoryMemoryService，
+        # 使框架原生利用 ADK 的会话和记忆基础设施。
+        # ------------------------------------------------------------------ #
+        if _ADK_AVAILABLE:
+            if session_service is None:
+                session_service = InMemorySessionService()
+                logger.info("[EvolveEngine] ✅ ADK InMemorySessionService 已自动创建")
+            if memory_service is None:
+                memory_service = InMemoryMemoryService()
+                logger.info("[EvolveEngine] ✅ ADK InMemoryMemoryService 已自动创建")
+        else:
+            logger.warning(
+                "[EvolveEngine] google-adk 未安装，会话/记忆功能使用内置实现。"
+                "安装方法: pip install google-adk"
+            )
+
+        # 保存 ADK 服务引用，供 handle_response() 在每轮后持久化会话到记忆服务
+        self._adk_session_service = session_service
+        self._adk_memory_service = memory_service
         
         self.session_manager = SessionManager(
             session_service=session_service,
@@ -271,6 +309,9 @@ class EvolveEngine:
         """
         处理 LLM 响应：记录对话、提取知识、存储到记忆库。
 
+        在处理完成后，自动将当前 ADK 会话同步到 InMemoryMemoryService，
+        使跨会话的语义搜索能够找到本轮对话内容。
+
         Args:
             user_input: 原始用户输入
             llm_response: LLM 生成的响应
@@ -281,13 +322,42 @@ class EvolveEngine:
         Returns:
             处理结果字典，含 recorded、extracted_knowledge、stored 字段
         """
-        return await self.response_handler.handle_response(
+        result = await self.response_handler.handle_response(
             user_input=user_input,
             llm_response=llm_response,
             context=context,
             auto_extract=auto_extract,
             auto_store=auto_store
         )
+
+        # ------------------------------------------------------------------ #
+        # ADK 会话持久化到记忆服务
+        # 每轮对话完成后，将当前 ADK 会话追加到 InMemoryMemoryService，
+        # 使后续轮次的 search_memory() 能跨会话搜索到历史对话内容。
+        # ------------------------------------------------------------------ #
+        await self._persist_session_to_memory()
+
+        return result
+
+    async def _persist_session_to_memory(self) -> None:
+        """将当前 ADK 会话持久化到 InMemoryMemoryService（仅当两者均可用时执行）。"""
+        if not (_ADK_AVAILABLE and self._adk_memory_service is not None):
+            return
+        session_id = self.session_manager._session_id
+        if session_id is None:
+            return  # 会话尚未创建，跳过
+        try:
+            session = await self._adk_session_service.get_session(
+                app_name=self.app_name,
+                user_id=self.user_id,
+                session_id=session_id,
+            )
+            if session is not None:
+                await self._adk_memory_service.add_session_to_memory(session)
+                logger.debug("[EvolveEngine] ✅ ADK 会话已同步到记忆服务")
+        except Exception as exc:
+            logger.debug(f"[EvolveEngine] 会话持久化失败（非致命）: {exc}")
+
     
     async def extract_knowledge(
         self,

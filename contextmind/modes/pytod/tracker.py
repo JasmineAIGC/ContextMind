@@ -2,16 +2,17 @@
 PyTOD Tracker — AdkPyTODTracker 实现（AP → EE → DM 三步流程）
 
 严格遵循论文 "Task-Oriented Dialogue as Dataflow Synthesis"，
-同时以 AdkLLMClient 作为统一 LLM 后端：
+使用 Google ADK LlmAgent + InMemoryRunner 驱动 AP 和 DM 两个 LLM 步骤：
 
-    Step 1  Action Parser (AP)：AdkLLMClient 根据对话历史 + Schema 生成 Python-like 程序
-    Step 2  Execution Engine (EE)：ExecutionEngine 安全解析并执行程序
-    Step 3  Dialogue Manager (DM)：AdkLLMClient 根据执行结果生成自然语言回复
+    Step 1  Action Parser (AP)：ADK LlmAgent 根据对话历史 + Schema 生成 Python-like 程序
+    Step 2  Execution Engine (EE)：ExecutionEngine 安全解析并执行程序（纯 Python，无 LLM）
+    Step 3  Dialogue Manager (DM)：ADK LlmAgent 根据执行结果生成自然语言回复
 
-与早前 ADK 原生 Function Calling 版本的区别：
-- 不使用 LlmAgent / InMemoryRunner / FunctionTool
-- 每轮有显式程序文本（program_text），可解释性强
-- Schema 通过 PyTODPromptBuilder 注入 AP prompt，严格约束意图和槽位
+ADK 集成优势：
+- AP 和 DM 各有独立 LlmAgent + InMemoryRunner，ADK 自动管理各步骤的会话历史
+- AP session 积累（程序生成历史），使 AP 能感知跨轮次的变量上下文
+- DM session 积累对话历史，保证回复自然、连贯
+- 无 ADK 时自动降级为 AdkLLMClient.chat_async() 调用
 
 使用示例::
 
@@ -44,12 +45,21 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from contextmind.infra.logger import get_logger
+from contextmind.infra.llm_client import create_local_adk_model
 from contextmind.modes.pytod.execution_engine import ExecutionEngine, ProgramExecutionResult
 from contextmind.modes.pytod.prompts import ConversationTurn, PyTODPromptBuilder
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
 from contextmind.modes.pytod.schemas import ServiceSchema
 
 logger = get_logger(__name__)
+
+try:
+    from google.adk.agents import LlmAgent  # type: ignore[import]
+    from google.adk.runners import InMemoryRunner  # type: ignore[import]
+    from google.genai import types as genai_types  # type: ignore[import]
+    _ADK_AVAILABLE = True
+except ImportError:
+    _ADK_AVAILABLE = False
 
 _SCENARIO_SCHEMAS_YAML = Path(__file__).parent / "scenario_schemas.yaml"
 
@@ -229,6 +239,63 @@ class AdkPyTODTracker:
         # 使 AP 能在后续轮次中通过 xN.field 引用先前已计算的变量。
         self._next_var_index: int = 1
 
+        # ------------------------------------------------------------------ #
+        # ADK 原生 LlmAgent 初始化（当 google-adk 可用时）
+        # AP 和 DM 各有独立的 LlmAgent + InMemoryRunner：
+        # - AP Runner：积累（程序生成 → 执行）历史，AP 可感知跨轮变量上下文
+        # - DM Runner：积累对话历史，保证 DM 回复自然连贯
+        # ------------------------------------------------------------------ #
+        self._ap_runner: Optional[Any] = None
+        self._ap_session_id: Optional[str] = None
+        self._dm_runner: Optional[Any] = None
+        self._dm_session_id: Optional[str] = None
+
+        if _ADK_AVAILABLE and llm_client is not None:
+            try:
+                adk_model = create_local_adk_model(
+                    getattr(llm_client, "_config", None)
+                )
+                # AP Agent：静态系统指令 = AP 语法规则 + API 函数签名
+                ap_instruction = (
+                    self.prompt_builder._AP_SYSTEM
+                    + "\n\n"
+                    + self.prompt_builder._build_api_context()
+                )
+                if scenario_context:
+                    ap_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
+                ap_agent = LlmAgent(
+                    name="pytod_ap",
+                    model=adk_model,
+                    instruction=ap_instruction,
+                )
+                self._ap_runner = InMemoryRunner(
+                    agent=ap_agent,
+                    app_name="contextmind_pytod_ap",
+                )
+
+                # DM Agent：静态系统指令 = DM 回复规则 + 语言要求
+                dm_instruction = self.prompt_builder._DM_SYSTEM
+                if scenario_context:
+                    dm_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
+                dm_instruction += f"\n\n请用{self.prompt_builder.response_language}回复。"
+                dm_agent = LlmAgent(
+                    name="pytod_dm",
+                    model=adk_model,
+                    instruction=dm_instruction,
+                )
+                self._dm_runner = InMemoryRunner(
+                    agent=dm_agent,
+                    app_name="contextmind_pytod_dm",
+                )
+                logger.info(
+                    "[PyTOD] ADK LlmAgent+Runner 已初始化 (AP runner + DM runner), "
+                    "使用 ADK 原生会话管理"
+                )
+            except Exception as exc:
+                logger.warning(f"[PyTOD] ADK 初始化失败，降级为 chat_async 模式: {exc}")
+                self._ap_runner = None
+                self._dm_runner = None
+
         logger.info(
             f"AdkPyTODTracker 初始化完成 (schema={self.schema.service_name}, "
             f"APIs: {engine.list_functions()})"
@@ -331,9 +398,38 @@ class AdkPyTODTracker:
             next_var_index=self._next_var_index,
         )
         self.last_ap_messages = ap_messages        # 记录完整 AP 输入（供 trace_demo 保存）
-        program_text: str = await self.llm_client.chat_async(ap_messages)
-        # 剥除 LLM 可能输出的 markdown 代码块包裹
-        program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+
+        if self._ap_runner is not None:
+            # ---------------------------------------------------------- #
+            # ADK 路径：AP LlmAgent 通过 InMemoryRunner 生成程序文本
+            # ADK session 积累 (用户输入 → 程序) 历史，AP 自然感知变量上下文
+            # ---------------------------------------------------------- #
+            # 构建 AP 的用户消息：仅包含动态部分（history + 当前话语 + 约束）
+            # 静态指令（AP语法规则 + API签名）已在 LlmAgent.instruction 中
+            ap_user_parts = []
+            if self._history:
+                history_str = self.prompt_builder._format_history(self._history)
+                ap_user_parts.append(f"## 对话历史\n{history_str}")
+            if prior_dataflow:
+                import json as _json
+                ap_user_parts.append(f"## 先前已计算的变量（可通过 xN.field 引用）\n{_json.dumps(prior_dataflow, ensure_ascii=False, indent=2)}")
+            ap_user_parts.append(f"## 新变量编号约束\n本轮新变量从 x{self._next_var_index} 开始，不得使用 x1~x{self._next_var_index - 1}")
+            ap_user_parts.append(f"## 当前用户话语\n{user_utterance}\n\n请生成 PyTOD 程序：")
+            ap_user_message = "\n\n".join(ap_user_parts)
+            try:
+                program_text = await self._run_adk_ap(ap_user_message)
+            except Exception as exc:
+                logger.warning(f"[AP ADK] 运行失败，降级为 chat_async: {exc}")
+                program_text = await self.llm_client.chat_async(ap_messages)
+                program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+        else:
+            # ---------------------------------------------------------- #
+            # 降级路径：直接通过 AdkLLMClient.chat_async() 调用
+            # ---------------------------------------------------------- #
+            program_text = await self.llm_client.chat_async(ap_messages)
+            # 剥除 LLM 可能输出的 markdown 代码块包裹
+            program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+
         self.last_program_text = program_text   # 记录供 web_demo 展示
         self.step_timings["AP (动作解析)"] = round(time.time() - t0, 3)
         logger.info(f"[AP] 程序: {program_text[:150]}")
@@ -384,7 +480,33 @@ class AdkPyTODTracker:
             self._history, user_utterance, program_text, execution_result, self.scenario_context,
         )
         self.last_dm_messages = dm_messages             # 记录完整 DM 输入（供 trace_demo 保存）
-        response: str = await self.llm_client.chat_async(dm_messages)
+
+        if self._dm_runner is not None:
+            # ---------------------------------------------------------- #
+            # ADK 路径：DM LlmAgent 通过 InMemoryRunner 生成自然语言回复
+            # DM session 积累完整对话历史，保证回复连贯
+            # ---------------------------------------------------------- #
+            # 构建 DM 的用户消息：包含执行结果和用户话语
+            dm_user_parts = []
+            if execution_result.say_output:
+                dm_user_parts.append(f"## AP 指定的 say 输出（必须在回复中体现）\n{execution_result.say_output}")
+            if execution_result.hint_messages:
+                dm_user_parts.append(f"## Hint 提示（需向用户询问的信息）\n" + "\n".join(execution_result.hint_messages))
+            if not execution_result.success and execution_result.errors:
+                dm_user_parts.append(f"## 执行错误\n" + "\n".join(execution_result.errors))
+            dm_user_parts.append(f"## 用户话语\n{user_utterance}\n\n请生成回复：")
+            dm_user_message = "\n\n".join(dm_user_parts)
+            try:
+                response = await self._run_adk_dm(dm_user_message)
+            except Exception as exc:
+                logger.warning(f"[DM ADK] 运行失败，降级为 chat_async: {exc}")
+                response = await self.llm_client.chat_async(dm_messages)
+        else:
+            # ---------------------------------------------------------- #
+            # 降级路径：直接通过 AdkLLMClient.chat_async() 调用
+            # ---------------------------------------------------------- #
+            response = await self.llm_client.chat_async(dm_messages)
+
         self.step_timings["DM (对话管理)"] = round(time.time() - t2, 3)
         logger.info(f"[DM] 回复: {response[:150]}")
 
@@ -418,7 +540,90 @@ class AdkPyTODTracker:
         self.last_dm_messages = []
         self.step_timings = {}
         self._next_var_index = 1
+        # 重置 ADK 会话 ID（下次 process_turn 时自动重建新 session）
+        self._ap_session_id = None
+        self._dm_session_id = None
         logger.info("AdkPyTODTracker 对话状态已重置")
+
+    async def _get_or_create_ap_session(self) -> str:
+        """获取或创建 AP ADK 会话 ID。"""
+        if self._ap_session_id is None:
+            session = await self._ap_runner.session_service.create_session(
+                app_name="contextmind_pytod_ap",
+                user_id="default_user",
+            )
+            self._ap_session_id = session.id
+        return self._ap_session_id
+
+    async def _get_or_create_dm_session(self) -> str:
+        """获取或创建 DM ADK 会话 ID。"""
+        if self._dm_session_id is None:
+            session = await self._dm_runner.session_service.create_session(
+                app_name="contextmind_pytod_dm",
+                user_id="default_user",
+            )
+            self._dm_session_id = session.id
+        return self._dm_session_id
+
+    async def _run_adk_ap(self, ap_user_message: str) -> str:
+        """通过 ADK AP-LlmAgent 生成 PyTOD 程序文本。
+
+        AP session 积累（用户输入 → 程序）历史，使 AP 能感知跨轮变量上下文。
+
+        Args:
+            ap_user_message: 当前轮次的 AP 输入（格式化历史 + 用户话语 + 约束）
+
+        Returns:
+            AP 生成的 PyTOD 程序文本（已剥除 markdown 代码块）
+        """
+        session_id = await self._get_or_create_ap_session()
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=ap_user_message)],
+        )
+        program_text = ""
+        async for event in self._ap_runner.run_async(
+            user_id="default_user",
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
+                        program_text += part.text
+        # 剥除 LLM 可能输出的 markdown 代码块包裹
+        program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+        return program_text
+
+    async def _run_adk_dm(self, dm_user_message: str) -> str:
+        """通过 ADK DM-LlmAgent 生成自然语言回复。
+
+        DM session 积累完整对话历史，保证回复连贯。
+
+        Args:
+            dm_user_message: 当前轮次的 DM 输入（执行结果 + 用户话语）
+
+        Returns:
+            DM 生成的自然语言回复
+        """
+        session_id = await self._get_or_create_dm_session()
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=dm_user_message)],
+        )
+        response_text = ""
+        async for event in self._dm_runner.run_async(
+            user_id="default_user",
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
+                        response_text += part.text
+        return response_text.strip()
+
+
 
 
 # ---------------------------------------------------------------------------
