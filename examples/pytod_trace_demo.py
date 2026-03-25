@@ -86,10 +86,9 @@ def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
 def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
     """将 ProgramExecutionResult 序列化为可 JSON 化的字典。"""
     if execution_result is None:
-        return {"success": None, "errors": [], "variable_values": {}, "say_output": "", "hint_messages": []}
+        return {"success": None, "errors": [], "variables": {}, "say": "", "hints": []}
     try:
         var_values = dict(getattr(execution_result, "variable_values", {}))
-        # 确保每个值都是 JSON 可序列化的
         for k, v in var_values.items():
             try:
                 json.dumps(v)
@@ -98,12 +97,12 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
         return {
             "success": getattr(execution_result, "success", None),
             "errors": [str(e) for e in getattr(execution_result, "errors", [])],
-            "variable_values": var_values,
-            "say_output": getattr(execution_result, "say_output", ""),
-            "hint_messages": list(getattr(execution_result, "hint_messages", [])),
+            "variables": var_values,
+            "say": getattr(execution_result, "say_output", ""),
+            "hints": list(getattr(execution_result, "hint_messages", [])),
         }
     except Exception as exc:
-        return {"success": None, "errors": [str(exc)], "variable_values": {}, "say_output": "", "hint_messages": []}
+        return {"success": None, "errors": [str(exc)], "variables": {}, "say": "", "hints": []}
 
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False,
@@ -155,50 +154,21 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
         for i, utt in enumerate(user_turns):
-            # 在调用前记录本轮 AP 的 dataflow 输入（prior_dataflow = current_state snapshot）
-            prior_dataflow_snapshot = {
-                k: v for k, v in agent.current_state.items() if not k.startswith("_anon")
-            }
-            next_var_index_before = agent._next_var_index
-
             try:
                 result = await agent.process_turn(utt)
             except Exception as exc:
                 result = {"response": f"(error: {exc})", "program_text": "", "state": {}, "execution": None}
 
-            execution_result = result.get("execution")
-            ee_data = _serialize_execution(execution_result)
-
-            # 从 agent 上读取本轮各步完整输入消息（build 后即存入 last_* 属性）
-            ap_messages = list(agent.last_ap_messages)
-            dm_messages = list(agent.last_dm_messages)
+            ee_data = _serialize_execution(result.get("execution"))
 
             turn_record = {
                 "turn": i + 1,
                 "user": utt,
-                # ── Step 1 AP ──────────────────────────────────────────────
-                "ap_input": {
-                    "method": "AdkLLMClient.chat_async(ap_messages)",
-                    "prior_dataflow": prior_dataflow_snapshot,
-                    "next_var_index": next_var_index_before,
-                    "messages": ap_messages,        # system + user 完整消息
-                },
-                "ap_output": result.get("program_text", ""),
-                # ── Step 2 EE ──────────────────────────────────────────────
-                "ee_input": {
-                    "method": "ExecutionEngine.execute_program(program_text)",
-                    "program_text": result.get("program_text", ""),
-                },
-                "ee_output": ee_data,               # 含 success/errors/variable_values/say_output/hints
-                # ── Step 3 DM ──────────────────────────────────────────────
-                "dm_input": {
-                    "method": "AdkLLMClient.chat_async(dm_messages)",
-                    "messages": dm_messages,        # system + user 完整消息
-                },
-                "dm_output": result.get("response", ""),
-                # ── 摘要 ──────────────────────────────────────────────────
+                "program": result.get("program_text", ""),
+                "ee": ee_data,
+                "response": result.get("response", ""),
                 "cumulative_state": result.get("state", {}),
-                "step_timings": dict(agent.step_timings),
+                "timings": dict(agent.step_timings),
             }
             turns_results.append(turn_record)
 
@@ -206,21 +176,18 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 print(f"[Turn {i+1}] user: {utt[:80]}")
                 print(f"  [AP] program: {result.get('program_text', '')[:120]}")
                 ee_ok = "✅" if ee_data.get("success") else ("❌" if ee_data.get("success") is False else "N/A")
-                print(f"  [EE] {ee_ok} say={ee_data.get('say_output','')[:60]!r}")
+                print(f"  [EE] {ee_ok} say={ee_data.get('say','')[:60]!r}")
                 print(f"  [DM] response: {result.get('response', '')[:100]}")
     else:
         for i, utt in enumerate(user_turns):
             turns_results.append({
                 "turn": i + 1,
                 "user": utt,
-                "ap_input": {"method": "N/A (LLM 未配置)", "prior_dataflow": {}, "next_var_index": 1, "messages": []},
-                "ap_output": "⚠️ LLM 未配置",
-                "ee_input": {"method": "N/A", "program_text": ""},
-                "ee_output": {"success": None, "errors": [], "variable_values": {}, "say_output": "", "hint_messages": []},
-                "dm_input": {"method": "N/A (LLM 未配置)", "messages": []},
-                "dm_output": "⚠️ LLM 未配置",
+                "program": "⚠️ LLM 未配置",
+                "ee": {"success": None, "errors": [], "variables": {}, "say": "", "hints": []},
+                "response": "⚠️ LLM 未配置",
                 "cumulative_state": {},
-                "step_timings": {},
+                "timings": {},
             })
 
     return {
@@ -234,167 +201,107 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         "session_id": session.get("session_id", ""),
         "用户信息": session.get("用户信息", ""),
         "actual_response": session.get("坐席回复", ""),
-        "scenario_context": scenario_context,
         "turns": turns_results,
     }
 
 
 def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为详细 Markdown 报告，逐步展开每阶段的输入/输出。"""
+    """将 trace 字典渲染为简洁 Markdown 报告（AP 程序 → EE 结果 → DM 回复）。"""
     meta = trace["metadata"]
+    llm_ok = meta["llm_available"]
     lines = [
-        "# PyTOD 全链路追踪报告",
+        "# PyTOD 追踪报告",
         "",
-        f"**时间**: {meta['timestamp']}",
-        f"**算法**: {meta['algorithm']}",
-        f"**场景**: {meta.get('scenario', 'N/A')}",
-        f"**会话 ID**: {trace.get('session_id', 'N/A')}",
-        f"**LLM 可用**: {'✅' if meta['llm_available'] else '❌ 未配置'}",
+        f"| 字段 | 值 |",
+        f"|---|---|",
+        f"| 时间 | {meta['timestamp']} |",
+        f"| 算法 | {meta['algorithm']} |",
+        f"| 场景 | {meta.get('scenario', 'N/A')} |",
+        f"| 会话 ID | `{trace.get('session_id', 'N/A')}` |",
+        f"| LLM | {'✅ 可用' if llm_ok else '❌ 未配置'} |",
         "",
-        "## 用户信息",
-        "",
-        trace.get("用户信息", "（无）"),
-        "",
-        "## 注册 API",
-        "",
-        "| # | 函数名 |",
-        "|---|--------|",
     ]
-    for i, fn in enumerate(meta.get("registered_apis", []), 1):
-        lines.append(f"| {i} | `{fn}` |")
-    lines += ["", "## 场景 Context（注入所有 AP Prompt）", "", "```", trace.get("scenario_context", ""), "```", ""]
 
-    lines += ["---", "", "## 逐轮追踪", ""]
+    user_info = trace.get("用户信息")
+    if user_info:
+        lines += [f"**用户信息**: {user_info}", ""]
+
+    apis = meta.get("registered_apis", [])
+    if apis:
+        lines += [f"**注册 API**: {', '.join(f'`{fn}`' for fn in apis)}", ""]
+
+    lines += ["---", ""]
 
     for t in trace.get("turns", []):
+        timings = t.get("timings") or {}
+        timing_str = ""
+        if timings:
+            timing_str = "  *(" + " / ".join(f"{k}: {v}s" for k, v in timings.items()) + ")*"
+
         lines += [
-            f"---",
-            f"### Turn {t['turn']}",
+            f"### Turn {t['turn']}{timing_str}",
             "",
-            f"**用户话语**:",
-            f"> {t['user']}",
+            f"**👤 用户**: {t['user']}",
             "",
         ]
 
-        # ── Step 1 AP ──────────────────────────────────────────────────────
-        ai = t.get("ap_input", {})
+        # ① AP
+        program = t.get("program") or ""
         lines += [
-            "#### Step 1 — Action Parser (AP)",
-            "",
-            f"**执行方式**: `{ai.get('method', '')}`",
-            "",
-            f"**输入 — 已计算变量 (prior_dataflow)**:",
-            "```json",
-            json.dumps(ai.get("prior_dataflow", {}), ensure_ascii=False, indent=2),
+            "**① AP 程序**:",
+            "```",
+            program or "(空)",
             "```",
             "",
-            f"**输入 — 下一变量编号**: `x{ai.get('next_var_index', 1)}`",
-            "",
-            "**输入 — AP LLM Messages**:",
         ]
-        for msg in ai.get("messages", []):
-            role_label = "system" if msg.get("role") == "system" else "user"
+
+        # ② EE
+        ee = t.get("ee", {})
+        ee_ok = ee.get("success")
+        ee_status = "✅ 成功" if ee_ok else ("❌ 失败" if ee_ok is False else "–")
+        ee_parts = [f"**② EE**: {ee_status}"]
+        if ee.get("errors"):
+            ee_parts.append(f"· 错误: {'; '.join(ee['errors'])}")
+        if ee.get("say"):
+            ee_parts.append(f"· say: `{ee['say']}`")
+        lines.append("  ".join(ee_parts))
+        if ee.get("variables"):
             lines += [
-                f"<details><summary>📨 [{role_label}]</summary>",
-                "",
-                "```",
-                msg.get("content", ""),
-                "```",
-                "",
-                "</details>",
-                "",
-            ]
-
-        lines += [
-            "**输出 — PyTOD 程序 (program_text)**:",
-            "```",
-            t.get("ap_output", "(空)") or "(空)",
-            "```",
-            "",
-        ]
-
-        # ── Step 2 EE ──────────────────────────────────────────────────────
-        ei = t.get("ee_input", {})
-        eo = t.get("ee_output", {})
-        ee_ok = eo.get("success")
-        ee_status = "✅ 成功" if ee_ok else ("❌ 失败" if ee_ok is False else "N/A")
-        lines += [
-            "#### Step 2 — Execution Engine (EE)",
-            "",
-            f"**执行方式**: `{ei.get('method', '')}`",
-            "",
-            "**输入 — program_text** (同 AP 输出，见上)",
-            "",
-            f"**输出 — 执行状态**: {ee_status}",
-        ]
-        if eo.get("errors"):
-            lines.append(f"**输出 — 错误**: {'; '.join(eo['errors'])}")
-        if eo.get("say_output"):
-            lines.append(f"**输出 — say() 内容**: `{eo['say_output']}`")
-        if eo.get("hint_messages"):
-            lines.append(f"**输出 — Hint 提示**: {', '.join(eo['hint_messages'])}")
-        if eo.get("variable_values"):
-            lines += [
-                "",
-                "**输出 — 变量绑定 (variable_values)**:",
                 "```json",
-                json.dumps(eo["variable_values"], ensure_ascii=False, indent=2),
+                json.dumps(ee["variables"], ensure_ascii=False, indent=2),
                 "```",
             ]
+        if ee.get("hints"):
+            lines.append(f"hints: {', '.join(ee['hints'])}")
         lines.append("")
 
-        # ── Step 3 DM ──────────────────────────────────────────────────────
-        di = t.get("dm_input", {})
+        # ③ DM
         lines += [
-            "#### Step 3 — Dialogue Manager (DM)",
-            "",
-            f"**执行方式**: `{di.get('method', '')}`",
-            "",
-            "**输入 — DM LLM Messages**:",
-        ]
-        for msg in di.get("messages", []):
-            role_label = "system" if msg.get("role") == "system" else "user"
-            lines += [
-                f"<details><summary>📨 [{role_label}]</summary>",
-                "",
-                "```",
-                msg.get("content", ""),
-                "```",
-                "",
-                "</details>",
-                "",
-            ]
-
-        lines += [
-            "**输出 — 坐席回复**:",
-            f"> {t.get('dm_output', '(空)')}",
+            "**③ DM 回复**:",
+            f"> {t.get('response') or '(空)'}",
             "",
         ]
 
-        # ── 耗时 & 累积状态 ──────────────────────────────────────────────
-        timings = t.get("step_timings") or {}
-        if timings:
-            timing_parts = [f"{k}: **{v}s**" for k, v in timings.items()]
-            lines += [f"**耗时**: {' | '.join(timing_parts)}", ""]
-
+        # 累积状态
         cumstate = t.get("cumulative_state", {})
         if cumstate:
             lines += [
-                "**累积状态 (本轮结束后)**:",
+                "**累积状态**:",
                 "```json",
                 json.dumps(cumstate, ensure_ascii=False, indent=2),
                 "```",
                 "",
             ]
 
-    lines += [
-        "---",
-        "",
-        "## 实际坐席回复（参考）",
-        "",
-        f"> {trace.get('actual_response', '（无）')}",
-        "",
-    ]
+    actual = trace.get("actual_response")
+    if actual:
+        lines += [
+            "---",
+            "",
+            "**参考坐席回复**:",
+            f"> {actual}",
+            "",
+        ]
     return "\n".join(lines)
 
 
@@ -441,7 +348,7 @@ def main() -> None:
     md_path.write_text(md, encoding="utf-8")
     print(f"✓ Markdown 报告已写入: {md_path}")
 
-    # 同时写 JSON（完整结构化数据，便于后续分析）
+    # 同时写 JSON（结构化数据，便于后续分析）
     json_path = md_path.with_suffix(".json")
     json_path.write_text(json.dumps(trace, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"✓ JSON 数据已写入:     {json_path}")

@@ -196,44 +196,70 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
 
 def _render_markdown(trace: Dict[str, Any]) -> str:
+    meta = trace["metadata"]
+    llm_ok = meta["llm_available"]
     lines = [
         "# FnCTOD 追踪报告",
         "",
-        f"**时间**: {trace['metadata']['timestamp']}",
-        f"**算法**: {trace['metadata']['algorithm']}",
-        f"**会话 ID**: {trace.get('session_id', 'N/A')}",
-        f"**用户信息**: {trace.get('用户信息', 'N/A')}",
-        "",
-        "## Schema 配置",
-        "",
-        f"**注册域**: {trace.get('schema_domains', [])}",
+        f"| 字段 | 值 |",
+        f"|---|---|",
+        f"| 时间 | {meta['timestamp']} |",
+        f"| 算法 | {meta['algorithm']} |",
+        f"| 会话 ID | `{trace.get('session_id', 'N/A')}` |",
+        f"| LLM | {'✅ 可用' if llm_ok else '❌ 未配置'} |",
         "",
     ]
+
+    user_info = trace.get("用户信息")
+    if user_info:
+        lines += [f"**用户信息**: {user_info}", ""]
+
+    # Schema domains (compact bullet list)
     for d in trace.get("schema_parameters", []):
-        lines.append(f"**{d['domain']}** 参数: {', '.join(d['params'])}")
-    lines += ["", "## 对话追踪", ""]
+        lines.append(f"**{d['domain']}** 槽位: {', '.join(f'`{p}`' for p in d['params'])}")
+    lines += ["", "---", ""]
+
     for t in trace.get("turns", []):
         lines += [
             f"### Turn {t['turn']}",
-            f"**用户**: {t['user']}",
             "",
-            "**状态更新**:",
-            "```json",
-            json.dumps(t["state_updates"], ensure_ascii=False, indent=2),
-            "```",
-            "",
-            "**累积状态**:",
-            "```json",
-            json.dumps(t["cumulative_state"], ensure_ascii=False, indent=2),
-            "```",
+            f"**👤 用户**: {t['user']}",
             "",
         ]
-    lines += [
-        "## 实际坐席回复（参考）",
-        "",
-        trace.get("actual_response", "（无）"),
-        "",
-    ]
+
+        updates = t.get("state_updates", {})
+        if isinstance(updates, dict):
+            active = {k: v for k, v in updates.items() if v not in (None, "", [])}
+            if active:
+                lines += ["**状态更新**:", "", "| 槽位 | 值 |", "|---|---|"]
+                for k, v in active.items():
+                    lines.append(f"| `{k}` | {v} |")
+                lines.append("")
+            else:
+                lines += ["**状态更新**: *(无变化)*", ""]
+        else:
+            lines += [f"**状态更新**: {updates}", ""]
+
+        cumstate = t.get("cumulative_state", {})
+        active_cum = (
+            {k: v for k, v in cumstate.items() if v not in (None, "", [])}
+            if isinstance(cumstate, dict) else cumstate
+        )
+        if active_cum:
+            lines += ["**累积状态**:", "", "| 槽位 | 值 |", "|---|---|"]
+            for k, v in active_cum.items():
+                lines.append(f"| `{k}` | {v} |")
+            lines.append("")
+
+    actual = trace.get("actual_response")
+    if actual:
+        lines += [
+            "---",
+            "",
+            "**参考坐席回复**:",
+            f"> {actual}",
+            "",
+        ]
     return "\n".join(lines)
 
 
