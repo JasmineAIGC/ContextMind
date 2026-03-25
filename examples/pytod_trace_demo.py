@@ -2,7 +2,7 @@
 PyTOD 对话追踪脚本
 
 展示 PyTOD（Program-of-Thought for Task-Oriented Dialogue）算法在
-安逸花外呼场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
+客服场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
 输入/输出/执行方式，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
 用法::
@@ -11,6 +11,7 @@ PyTOD 对话追踪脚本
     python examples/pytod_trace_demo.py --seed 42
     python examples/pytod_trace_demo.py --index 5
     python examples/pytod_trace_demo.py --output /tmp/trace.md --verbose
+    python examples/pytod_trace_demo.py --schema /path/to/schema.json
 """
 
 from __future__ import annotations
@@ -32,17 +33,43 @@ if str(_PROJECT_ROOT) not in sys.path:
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
+from contextmind.scenarios import get_callcenter_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
 _AGENT_PREFIX = "坐席："
 _USER_PREFIX = "用户："
 
 _SCENARIO_CONTEXT = (
-    "这是一个外呼小额借款推介场景（安逸花外呼促活）。"
-    "坐席代表安逸花/马上消费金融主动致电老用户，目标是激活用户闲置的借款额度。"
-    "标准流程：① 核实用户身份 → ② 告知可用额度和利率 → "
-    "③ 解答疑问 → ④ 引导用户在 APP 完成借款操作 → ⑤ 礼貌告别。"
+    "这是一个客服对话场景。"
+    "坐席代表客服中心接听用户来电，目标是解答用户问题、处理订单和提供帮助。"
+    "标准流程：① 问候确认身份 → ② 了解用户诉求 → "
+    "③ 解答疑问或处理问题 → ④ 确认用户满意 → ⑤ 礼貌告别。"
 )
+
+
+def _load_service_schema_from_file(path: Path) -> ServiceSchema:
+    """从 schema.json 文件加载 ServiceSchema，替换预定义的场景 Schema。
+
+    支持 SGD / KB-builder 输出格式::
+
+        [{"service_name": "...", "description": "...",
+          "slots": [...], "intents": [...]}]
+
+    或单对象格式::
+
+        {"service_name": "...", "description": "...",
+         "slots": [...], "intents": [...]}
+
+    Args:
+        path: schema.json 文件路径。
+
+    Returns:
+        解析后的 ServiceSchema，可直接传给 ``AdkPyTODTracker.from_scenario()``。
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return load_schema_from_dict(data)
 
 
 def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
@@ -79,13 +106,21 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
         return {"success": None, "errors": [str(exc)], "variable_values": {}, "say_output": "", "hint_messages": []}
 
 
-async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
-    """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。"""
-    engine = ExecutionEngine()
-    # 注册安逸花外呼场景 API
-    register_fn = SCENARIO_API_REGISTRY.get("anyihua")
+async def run_trace(session: Dict[str, Any], verbose: bool = False,
+                    external_schema: Optional[ServiceSchema] = None) -> Dict[str, Any]:
+    """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。
+
+    Args:
+        session:         对话会话字典。
+        verbose:         是否打印详细日志。
+        external_schema: 外部传入的 ServiceSchema（来自 ``--schema``）；
+                         若为 None 则使用预定义的场景 Schema。
+    """
+    # 用于获取已注册 API 列表（无论 LLM 是否可用）
+    _probe_engine = ExecutionEngine()
+    register_fn = SCENARIO_API_REGISTRY.get("callcenter")
     if register_fn:
-        register_fn(engine)
+        register_fn(_probe_engine)
 
     try:
         config = LLMConfig.from_env()
@@ -109,7 +144,16 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
 
     if llm_available:
         llm_client = AdkLLMClient(config=config)
-        agent = AdkPyTODTracker(llm_client=llm_client, engine=engine, scenario_context=scenario_context)
+        # 使用 from_scenario() 自动加载客服场景 API 和预置 Schema，
+        # 确保 AP 提示词包含完整的业务意图和槽位描述，无需手动创建知识库。
+        scenario_config = get_callcenter_scenario()
+        agent = AdkPyTODTracker.from_scenario(
+            llm_client=llm_client,
+            scenario_config=scenario_config,
+            scenario_context=scenario_context,
+            **({"schema": external_schema} if external_schema is not None else {}),
+        )
+        engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
         for i, utt in enumerate(user_turns):
             # 在调用前记录本轮 AP 的 dataflow 输入（prior_dataflow = current_state snapshot）
             prior_dataflow_snapshot = {
@@ -184,8 +228,8 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False) -> Dict[str,
             "timestamp": datetime.now().isoformat(),
             "algorithm": "PyTOD AP→EE→DM (官方三步流水线)",
             "llm_available": llm_available,
-            "scenario": "安逸花外呼促活",
-            "registered_apis": engine.list_functions(),
+            "scenario": "客服对话",
+            "registered_apis": _probe_engine.list_functions(),
         },
         "session_id": session.get("session_id", ""),
         "用户信息": session.get("用户信息", ""),
@@ -359,24 +403,38 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--output", type=str, default=None,
-                        help="Markdown 输出路径（默认 examples/pytod_trace_output.md）")
+                        help="Markdown 输出路径（默认 output/pytod_trace_output.md）")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--schema", type=str, default=None,
+        help="schema.json 路径（SGD 格式）；若提供则替换预定义场景 ServiceSchema",
+    )
     args = parser.parse_args()
 
     if not _DATA_PATH.exists():
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
+    external_schema: Optional[ServiceSchema] = None
+    if args.schema:
+        schema_path = Path(args.schema)
+        if not schema_path.exists():
+            print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
+            sys.exit(1)
+        external_schema = _load_service_schema_from_file(schema_path)
+        print(f"✓ 已加载外部 Schema: {schema_path} (service={external_schema.service_name})")
+
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
-    trace = asyncio.run(run_trace(session, verbose=args.verbose))
+    trace = asyncio.run(run_trace(session, verbose=args.verbose, external_schema=external_schema))
 
     # 输出路径
     if args.output:
         md_path = Path(args.output)
     else:
-        md_path = _PROJECT_ROOT / "examples" / "pytod_trace_output.md"
+        md_path = _PROJECT_ROOT / "output" / "pytod_trace_output.md"
+        md_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 写 Markdown
     md = _render_markdown(trace)

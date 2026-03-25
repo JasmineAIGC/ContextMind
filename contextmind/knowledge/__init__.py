@@ -1,5 +1,5 @@
 """
-ContextMind Knowledge Base (KB) — 通用知识库构建模块
+ContextMind 通用知识库构建模块（contextmind.knowledge）
 
 将任意对话数据集转换为完整的 SGD 格式数据集，供 PyTOD 等执行算法使用。
 
@@ -15,7 +15,7 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
 
 核心公开接口::
 
-    from contextmind.kb import KnowledgeBaseBuilder
+    from contextmind.knowledge import KnowledgeBaseBuilder
 
     builder = KnowledgeBaseBuilder(
         scene_name="银行贷款外呼",
@@ -47,6 +47,11 @@ ContextMind Knowledge Base (KB) — 通用知识库构建模块
     4. 平铺文本格式（单条 str，各轮以换行分隔，每行含说话人前缀）::
 
            "坐席：你好\\n用户：你好"
+
+.. note::
+
+    旧路径 ``contextmind.kb`` 保留为向后兼容的重定向入口，
+    新代码应使用 ``contextmind.knowledge``。
 """
 
 from .builder import KnowledgeBaseBuilder

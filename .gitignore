@@ -46,3 +46,6 @@ Thumbs.db
 
 # Project specific
 benchmark_results/
+
+# Demo output artifacts
+output/

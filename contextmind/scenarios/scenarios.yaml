@@ -18,14 +18,14 @@ scenarios:
     app_class: contextmind.scenarios.app.EvolveApplication
     schema_getter: contextmind.modes.fnctod.schemas.get_callcenter_function_schema
 
-  anyihua:
-    description: 安逸花外呼促活场景
-    aliases: [安逸花, 安逸花外呼, 外呼]
-    app_class: contextmind.scenarios.app.EvolveApplication
-    schema_getter: contextmind.modes.fnctod.schemas.get_anyihua_function_schema
-
   insurance:
-    description: 保险挽回场景
-    aliases: [保险, 保险挽回]
+    description: 保险销售场景
+    aliases: [保险, 保险销售]
     app_class: contextmind.scenarios.app.EvolveApplication
     schema_getter: contextmind.modes.fnctod.schemas.get_insurance_function_schema
+
+  anyihua:
+    description: 安逸花外呼场景
+    aliases: [安逸花, 安逸花外呼, anyihua_outbound]
+    app_class: contextmind.scenarios.app.EvolveApplication
+    schema_getter: contextmind.modes.fnctod.schemas.get_callcenter_function_schema

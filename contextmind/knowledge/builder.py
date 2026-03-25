@@ -4,7 +4,7 @@
 将任意对话数据集经过两步处理，输出标准 SGD 格式 ``schema.json``：
 
 1. **发现阶段**（Discovery）：
-   使用 :class:`~contextmind.kb.discoverer.GenericDialogueDiscoverer` 以开放式模式
+   使用 :class:`~contextmind.knowledge.discoverer.GenericDialogueDiscoverer` 以开放式模式
    扫描样本对话，通过 ``langextract`` 逐轮提取知识并为每条结果附加原文溯源。
    不依赖任何特定场景模块，可用于任意业务场景。
 
@@ -12,7 +12,7 @@
    将发现阶段收集到的槽位/意图计数及样本，调用 LLM 第二次，
    输出规范化的 SGD ServiceSchema JSON。
 
-输出的 ``schema.json`` 格式与 ``data/anyihua_sgd/schema.json`` 完全兼容，
+输出的 ``schema.json`` 格式为标准 SGD ServiceSchema，
 可直接传入 :class:`~contextmind.modes.pytod.AdkPyTODTracker` 使用。
 
 **模块独立性**：本模块不依赖 ``contextmind.modes`` 或
@@ -23,7 +23,7 @@
 
     import json
     from pathlib import Path
-    from contextmind.kb import KnowledgeBaseBuilder
+    from contextmind.knowledge import KnowledgeBaseBuilder
 
     dialogues = json.loads(Path("my_dialogues.json").read_text())
 
@@ -42,9 +42,10 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
@@ -53,6 +54,39 @@ from .normalizer import normalize_dialogues
 from .synthesizer import SchemaSynthesizer
 
 logger = get_logger(__name__)
+
+
+def _extract_slot_char_positions(
+    item: Any,
+    utterance: str,
+) -> Tuple[Optional[int], Optional[int]]:
+    """从 DiscoveryItem 中提取字符区间，用于 SGD slot 的 start/exclusive_end 字段。
+
+    优先从 provenance 字符串解析位置（格式：「...」[... 位置 X:Y]）；
+    若 provenance 无位置信息，则在话语中搜索 extraction_text；
+    若 extraction_text 不在话语中，尝试搜索 value。
+    """
+    provenance: Optional[str] = item.provenance
+    if provenance:
+        m = re.search(r"位置\s*(\d+):(\d+)", provenance)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+    # 在话语中搜索 extraction_text
+    extraction_text: str = getattr(item, "extraction_text", "")
+    if extraction_text:
+        idx = utterance.find(extraction_text)
+        if idx >= 0:
+            return idx, idx + len(extraction_text)
+
+    # 最后尝试搜索 value
+    value: str = item.value or ""
+    if value:
+        idx = utterance.find(value)
+        if idx >= 0:
+            return idx, idx + len(value)
+
+    return None, None
 
 
 class KnowledgeBaseBuilder:
@@ -101,6 +135,10 @@ class KnowledgeBaseBuilder:
 
         self.last_slot_counter: Counter = Counter()
         self.last_intent_counter: Counter = Counter()
+        # 最近一次 build_dataset() 发现阶段的逐轮原始 DiscoveryItem 列表。
+        # 结构：List[ List[ (turn_idx, speaker, utterance, [DiscoveryItem, ...]) ] ]
+        # 每项对应一条对话，可通过 save_dataset() 写入 discovery_raw.json。
+        self.last_discovery_turns: List[Any] = []
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -227,18 +265,27 @@ class KnowledgeBaseBuilder:
             f"输入对话 {len(dialogues)} 条"
         )
         normalized = normalize_dialogues(dialogues)
-        sample = normalized[: self.discovery_sample]
+        # build_dataset() 使用全部归一化对话，确保知识提取不遗漏；
+        # 调用方通过传入的 dialogues 数量来控制处理范围。
 
         # -- Step 1: 发现阶段（逐轮，保留每轮提取结果用于 SGD 标注） --
-        slot_counter, intent_counter, slot_samples, intent_samples, per_dlg_turns = (
-            self._run_discovery_per_turn(sample)
-        )
+        (
+            slot_counter,
+            intent_counter,
+            slot_samples,
+            intent_samples,
+            per_dlg_turns,
+            fact_counter,
+            fact_samples,
+        ) = self._run_discovery_per_turn(normalized)
         self.last_slot_counter = slot_counter
         self.last_intent_counter = intent_counter
+        self.last_discovery_turns = per_dlg_turns
 
         logger.info(
             f"[KnowledgeBaseBuilder] 发现阶段完成 — "
-            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个"
+            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个，"
+            f"事实类型 {len(fact_counter)} 个"
         )
 
         # -- Step 2: 合成阶段 --
@@ -250,13 +297,15 @@ class KnowledgeBaseBuilder:
             intent_counter=intent_counter,
             slot_sample_values=slot_samples,
             intent_sample_descs=intent_samples,
-            n_dialogues=len(sample),
+            n_dialogues=len(normalized),
+            fact_counter=fact_counter,
+            fact_sample_descs=fact_samples,
         )
 
         # -- Step 3: 转换为 SGD 对话格式 --
         service_name = schema_dict.get("service_name", self.scene_name)
         sgd_dialogues = []
-        for dlg_idx, (dlg, per_turn) in enumerate(zip(sample, per_dlg_turns)):
+        for dlg_idx, (dlg, per_turn) in enumerate(zip(normalized, per_dlg_turns)):
             sgd_dlg = self._convert_to_sgd_dialogue(
                 dlg, per_turn, service_name, dlg_idx
             )
@@ -328,6 +377,45 @@ class KnowledgeBaseBuilder:
         # 统计总轮次
         total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
 
+        # 写入 discovery_raw.json（逐轮原始提取结果，含 langextract 溯源信息）
+        if self.last_discovery_turns:
+            raw_records = []
+            for sgd_dlg, per_turn in zip(sgd_dialogues, self.last_discovery_turns):
+                turn_records = []
+                for turn_idx, speaker, utterance, items in per_turn:
+                    extractions = [
+                        {
+                            "extraction_class": item.extraction_class,
+                            "label": item.label,
+                            "value": item.value,
+                            "provenance": item.provenance,
+                        }
+                        for item in items
+                    ]
+                    turn_records.append(
+                        {
+                            "turn_idx": turn_idx,
+                            "speaker": speaker,
+                            "utterance": utterance,
+                            "extractions": extractions,
+                        }
+                    )
+                raw_records.append(
+                    {
+                        "dialogue_id": sgd_dlg.get("dialogue_id", ""),
+                        "turns": turn_records,
+                    }
+                )
+            raw_path = output_dir / "discovery_raw.json"
+            raw_path.write_text(
+                json.dumps(raw_records, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            logger.info(
+                f"[KnowledgeBaseBuilder] discovery_raw.json 已写入: {raw_path} "
+                f"（{len(raw_records)} 条对话）"
+            )
+
         # 写入 conversion_summary.json
         summary = {
             "output_dir": str(output_dir),
@@ -361,6 +449,111 @@ class KnowledgeBaseBuilder:
         )
 
     # ------------------------------------------------------------------
+    # Phase 1 → Phase 2 桥接方法
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def to_service_schema(cls, schema_dict: Dict[str, Any]) -> Any:
+        """将 :meth:`build` 返回的 schema dict 转换为 ``ServiceSchema`` 实例。
+
+        这是 **Phase 1 → Phase 2 桥接** 的便捷方法，无需调用方手动导入
+        ``ServiceSchema``。
+
+        参数
+        ----
+        schema_dict:
+            :meth:`build` 或 :meth:`build_dataset` 中 ``dataset["schema"]`` 的返回值。
+
+        返回
+        ----
+        :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 实例，
+        可直接传入 ``AdkPyTODTracker``。
+
+        示例
+        ----
+        ::
+
+            schema_dict = builder.build(dialogues)
+            service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
+            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+        """
+        from contextmind.modes.pytod.schemas import load_schema_from_dict
+
+        return load_schema_from_dict(schema_dict)
+
+    @classmethod
+    def load_schema(cls, path: Union[str, Path]) -> Any:
+        """从磁盘上的 ``schema.json`` 文件加载并返回 ``ServiceSchema`` 实例。
+
+        这是 **Phase 1 → Phase 2 桥接** 的便捷方法，适用于已保存知识库的场景。
+
+        参数
+        ----
+        path:
+            ``schema.json`` 文件路径（由 :meth:`save` 或 :meth:`save_dataset` 生成）。
+
+        返回
+        ----
+        :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 实例。
+
+        示例
+        ----
+        ::
+
+            # Phase 1 已运行，schema.json 已保存
+            service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
+            tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+        """
+        from contextmind.modes.pytod.schemas import load_schema_from_dict
+
+        path = Path(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return load_schema_from_dict(data)
+
+    async def build_async(
+        self,
+        dialogues: List[Any],
+    ) -> Dict[str, Any]:
+        """异步版本的 :meth:`build`：在线程池中运行同步构建流程。
+
+        与 :meth:`build` 功能完全相同，但以 ``async/await`` 方式运行，
+        适用于已有异步事件循环的应用场景（如 web 服务、ADK agent 等）。
+
+        参数
+        ----
+        dialogues:
+            对话列表，格式同 :meth:`build`。
+
+        返回
+        ----
+        SGD 格式的单服务 schema dict（同 :meth:`build`）。
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.build, dialogues)
+
+    async def build_dataset_async(
+        self,
+        dialogues: List[Any],
+    ) -> Dict[str, Any]:
+        """异步版本的 :meth:`build_dataset`：在线程池中运行同步构建流程。
+
+        参数
+        ----
+        dialogues:
+            对话列表，格式同 :meth:`build_dataset`。
+
+        返回
+        ----
+        ``{"schema": schema_dict, "dialogues": [sgd_dlg, ...]}``（同 :meth:`build_dataset`）。
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.build_dataset, dialogues)
+
+    # ------------------------------------------------------------------
     # 内部方法
     # ------------------------------------------------------------------
 
@@ -383,7 +576,7 @@ class KnowledgeBaseBuilder:
         """
         发现阶段：对每条对话运行开放式 LLM + langextract 提取，汇总槽位和意图。
 
-        使用 :class:`~contextmind.kb.discoverer.GenericDialogueDiscoverer`
+        使用 :class:`~contextmind.knowledge.discoverer.GenericDialogueDiscoverer`
         逐轮提取，通过 langextract 附加溯源信息。
 
         返回
@@ -446,6 +639,8 @@ class KnowledgeBaseBuilder:
         Dict[str, List[str]],
         Dict[str, List[str]],
         List[List[Any]],
+        Counter,
+        Dict[str, List[str]],
     ]:
         """
         发现阶段（逐轮版），汇总统计的同时保留每条对话的逐轮提取结果。
@@ -453,7 +648,8 @@ class KnowledgeBaseBuilder:
         返回
         ----
         (slot_counter, intent_counter, slot_sample_values,
-         intent_sample_descs, per_dialogue_turns)
+         intent_sample_descs, per_dialogue_turns,
+         fact_counter, fact_sample_descs)
 
         ``per_dialogue_turns`` 是一个列表，每项对应一条对话，内容为
         ``[(turn_idx, speaker, utterance, [DiscoveryItem, ...]), ...]``。
@@ -468,8 +664,10 @@ class KnowledgeBaseBuilder:
 
         slot_counter: Counter = Counter()
         intent_counter: Counter = Counter()
+        fact_counter: Counter = Counter()
         slot_sample_values: Dict[str, List[str]] = {}
         intent_sample_descs: Dict[str, List[str]] = {}
+        fact_sample_descs: Dict[str, List[str]] = {}
         per_dialogue_turns: List[List[Any]] = []
 
         for i, dlg in enumerate(normalized_dialogues):
@@ -503,6 +701,12 @@ class KnowledgeBaseBuilder:
                         if item.value and len(descs) < 3:
                             if item.value not in descs:
                                 descs.append(item.value)
+                    elif item.extraction_class == "fact" and item.label:
+                        fact_counter[item.label] += 1
+                        descs = fact_sample_descs.setdefault(item.label, [])
+                        if item.value and len(descs) < 3:
+                            if item.value not in descs:
+                                descs.append(item.value)
 
         return (
             slot_counter,
@@ -510,6 +714,8 @@ class KnowledgeBaseBuilder:
             slot_sample_values,
             intent_sample_descs,
             per_dialogue_turns,
+            fact_counter,
+            fact_sample_descs,
         )
 
     def _convert_to_sgd_dialogue(
@@ -536,6 +742,8 @@ class KnowledgeBaseBuilder:
         ----
         SGD 格式对话 dict，含 ``dialogue_id / services / turns``。
         """
+        import re as _re
+
         dialogue_id = (
             normalized_dlg.get("session_id")
             or normalized_dlg.get("dialogue_id")
@@ -551,21 +759,39 @@ class KnowledgeBaseBuilder:
         for turn_idx, speaker, utterance, items in per_turn:
             sgd_speaker = "SYSTEM" if speaker in _SYSTEM_SPEAKERS else "USER"
 
-            # 当前轮的槽位提及
+            # 当前轮的槽位提及 + INFORM actions
             turn_slot_mentions: List[Dict[str, Any]] = []
+            turn_actions: List[Dict[str, Any]] = []
             for item in items:
                 if item.extraction_class == "slot_value" and item.label and item.value:
-                    turn_slot_mentions.append(
-                        {"slot": item.label, "value": item.value}
+                    slot_entry: Dict[str, Any] = {
+                        "slot": item.label,
+                        "value": item.value,
+                    }
+                    # 从 provenance 字符串解析字符位置，或直接在话语中搜索
+                    char_start, char_end = _extract_slot_char_positions(
+                        item, utterance
                     )
+                    if char_start is not None:
+                        slot_entry["start"] = char_start
+                        slot_entry["exclusive_end"] = char_end
+                    turn_slot_mentions.append(slot_entry)
                     cumulative_slot_values[item.label] = [item.value]
+                    turn_actions.append(
+                        {
+                            "act": "INFORM",
+                            "slot": item.label,
+                            "values": [item.value],
+                            "canonical_values": [item.value],
+                        }
+                    )
                 elif item.extraction_class == "intent" and item.label:
                     current_intent = item.label
 
             frame: Dict[str, Any] = {
                 "service": service_name,
                 "slots": turn_slot_mentions,
-                "actions": [],
+                "actions": turn_actions,
             }
             if sgd_speaker == "USER":
                 frame["state"] = {

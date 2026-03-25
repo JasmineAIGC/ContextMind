@@ -1,29 +1,39 @@
 """
 通用知识库构建演示（build_kb_demo.py）
 
-演示 ContextMind 框架的第一步：**建立知识库**，生成完整的 SGD 格式数据集。
+ContextMind 框架的**统一知识库提取入口**，支持任意对话数据集、对话数据
+或人工制定的示例对话，一键生成完整的 SGD 格式知识库。
 
 核心思路
 --------
 1. 提供任意对话数据（可以是安逸花外呼、银行贷款、电商客服等任意场景）
-2. KnowledgeBaseBuilder 自动完成：
-   - 对话格式归一化（支持 chat_test / SGD / 文本列表等多种格式）
-   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加溯源信息
+2. 支持多种输入来源，统一经 ``contextmind.knowledge.normalizer`` 归一化：
+   - chat_test_100.json 格式（含 ``对话历史`` 字段）
+   - chat_test_500.json 嵌套格式（含 ``label`` + ``query`` 字段，自动展平）
+   - SGD 格式（含 ``turns`` 字段）
+   - 简单文本列表（``["agent: ...", "user: ..."]``）
+   - 平铺文本（``"坐席：...\\n用户：..."``）
+   - 支持同时加载多个文件并合并
+3. KnowledgeBaseBuilder 自动完成：
+   - 对话格式归一化（统一归一化器，不遗漏任何格式）
+   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加字符级溯源；
+     对所有传入对话逐一处理，确保知识提取不遗漏
    - 合成阶段：LLM 将发现结果整理为规范 SGD ServiceSchema
    - 转换阶段：将输入对话转换为带注释的 SGD 对话文件
-3. 输出完整 SGD 数据集（schema.json + dialogues_001.json），可直接供 PyTOD 等执行算法使用
+4. 输出完整 SGD 数据集，可直接供 PyTOD 等执行算法使用
+
+输出文件
+--------
+    output_dir/
+        schema.json             服务 schema（槽位 + 意图）
+        dialogues_001.json      SGD 格式标注对话
+        discovery_raw.json      逐轮原始提取结果（含 langextract 字符级溯源）
+        conversion_summary.json 转换摘要
 
 两步走
 ------
     第一步（本 Demo）：建立知识库 → SGD 数据集（schema + 对话）
     第二步（pytod_trace_demo.py）：执行 → 使用 schema.json 驱动对话
-
-支持的输入格式
---------------
-    - chat_test 格式（JSON，含 "对话历史" 字段）
-    - SGD 格式（JSON，含 "turns" 字段）
-    - 简单文本列表（["agent: ...", "user: ..."]）
-    - 平铺文本（"坐席：...\\n用户：..."）
 
 运行示例
 --------
@@ -31,6 +41,19 @@
     python examples/build_kb_demo.py \\
         --data resources/data/chat_test_100.json \\
         --num 5 \\
+        --scene "安逸花外呼" \\
+        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
+
+    # 同时加载两个文件（chat_test_100.json + chat_test_500.json），合并后取前 20 条
+    python examples/build_kb_demo.py \\
+        --data resources/data/chat_test_100.json resources/data/chat_test_500.json \\
+        --num 20 \\
+        --scene "安逸花外呼" \\
+        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
+
+    # 使用全部 100 条对话（完整提取，LLM 调用较多）
+    python examples/build_kb_demo.py \\
+        --data resources/data/chat_test_100.json \\
         --scene "安逸花外呼" \\
         --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
 
@@ -47,8 +70,8 @@
 
 参数说明
 --------
-    --data          输入对话 JSON 文件路径
-    --num           使用对话条数（发现阶段，默认 10）
+    --data          输入对话 JSON 文件路径，可指定多个（空格分隔）；格式自动识别
+    --num           使用对话条数（0 = 全部，默认 10）
     --scene         业务场景名称（默认 "对话场景"）
     --scene-desc    场景描述（可选）
     --output        SGD 数据集输出目录（默认 data/kb_output）
@@ -67,7 +90,7 @@ _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from contextmind.kb import KnowledgeBaseBuilder
+from contextmind.knowledge import KnowledgeBaseBuilder
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
@@ -78,6 +101,7 @@ logger = get_logger(__name__)
 
 _DEMO_DIALOGUES: List[Any] = [
     # 格式 1：平铺文本（换行分隔）
+    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     (
         "坐席：你好，请问是李先生吗？\n"
         "用户：是的，我是李明。\n"
@@ -88,10 +112,10 @@ _DEMO_DIALOGUES: List[Any] = [
         "坐席：如果借 5 万元分 12 期，每月还款约 4431 元。\n"
         "用户：感觉利率有点高。\n"
         "坐席：理解您的顾虑，这是市场参考价，具体还可以根据您的资质调整。\n"
-        "用户：好吧，我再想想。\n"
-        "坐席：好的，祝您生活愉快，再见。"
+        "用户：好吧，我再想想。"
     ),
     # 格式 2：列表格式（agent:/user: 前缀）
+    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     [
         "agent: 您好，请问是王女士吗？",
         "user: 是的，我是王丽。",
@@ -101,9 +125,9 @@ _DEMO_DIALOGUES: List[Any] = [
         "user: 那利息怎么算的？",
         "agent: 日利率 0.03%，年化约 10.95%，12 期月供约 885 元每万元。",
         "user: 感觉还可以，我考虑一下。",
-        "agent: 好的，随时欢迎联系，再见。",
     ],
     # 格式 3：dict（chat_test 格式，含 "对话历史"）
+    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     {
         "session_id": "demo_003",
         "对话历史": [
@@ -113,10 +137,10 @@ _DEMO_DIALOGUES: List[Any] = [
             "用户：我最近不需要借款。",
             "坐席：理解，那我们记录一下您的意见，再次打扰请见谅。",
             "用户：好的，再见。",
-            "坐席：再见，祝您生活愉快。",
         ],
     },
     # 格式 4：dict（SGD turns 格式）
+    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     {
         "dialogue_id": "demo_004",
         "services": ["BankLoan"],
@@ -127,7 +151,6 @@ _DEMO_DIALOGUES: List[Any] = [
             {"speaker": "USER", "utterance": "这个额度有点低，能提高吗？"},
             {"speaker": "SYSTEM", "utterance": "您目前的额度是根据信用评分确定的，暂时无法调整，后续会持续优化。"},
             {"speaker": "USER", "utterance": "好吧，那就算了，谢谢。"},
-            {"speaker": "SYSTEM", "utterance": "不客气，再见。"},
         ],
     },
 ]
@@ -144,15 +167,25 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--data", type=str, default=None, help="输入对话 JSON 文件路径")
-    parser.add_argument("--num", type=int, default=10, help="使用对话条数（默认 10）")
+    parser.add_argument(
+        "--data",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="PATH",
+        help=(
+            "输入对话 JSON 文件路径，可同时指定多个（空格分隔）；"
+            "支持 chat_test_100/500 格式、SGD turns 格式等，格式自动识别"
+        ),
+    )
+    parser.add_argument("--num", type=int, default=10, help="使用对话条数（0 = 全部，默认 10）")
     parser.add_argument("--scene", type=str, default="对话场景", help="业务场景名称")
     parser.add_argument("--scene-desc", type=str, default="", help="场景描述（可选）")
     parser.add_argument(
         "--output",
         type=str,
-        default="data/kb_output",
-        help="SGD 数据集输出目录（默认 data/kb_output）",
+        default="output/kb_output",
+        help="SGD 数据集输出目录（默认 output/kb_output）",
     )
     parser.add_argument(
         "--demo",
@@ -173,24 +206,38 @@ def main() -> None:
         dialogues = _DEMO_DIALOGUES
         scene = args.scene if args.scene != "对话场景" else "银行贷款外呼"
         scene_desc = args.scene_desc or "银行客服主动致电老客户推介个人贷款产品"
-        print(f"\n内嵌演示对话：{len(dialogues)} 条（格式多样，涵盖 4 种输入格式）")
+        print(f"\n内嵌演示对话：{len(dialogues)} 条（格式多样，涵盖 5 种输入格式）")
     else:
-        data_path = Path(args.data)
-        if not data_path.exists():
-            print(f"[错误] 文件不存在: {data_path}", file=sys.stderr)
-            sys.exit(1)
-        raw = json.loads(data_path.read_text(encoding="utf-8"))
-        # JSON 文件可能是列表或字典
-        if isinstance(raw, list):
-            dialogues = raw[: args.num] if args.num > 0 else raw
-        elif isinstance(raw, dict):
-            dialogues = [raw]
-        else:
-            print(f"[错误] 无法识别的 JSON 格式: {type(raw)}", file=sys.stderr)
-            sys.exit(1)
+        # 逐个加载文件并合并；normalizer 统一处理所有格式（含 chat_test_500 嵌套格式）
+        all_raw: List[Any] = []
+        for path_str in args.data:
+            data_path = Path(path_str)
+            if not data_path.exists():
+                print(f"[错误] 文件不存在: {data_path}", file=sys.stderr)
+                sys.exit(1)
+            file_raw = json.loads(data_path.read_text(encoding="utf-8"))
+            if isinstance(file_raw, list):
+                all_raw.extend(file_raw)
+                n = len(file_raw)
+            elif isinstance(file_raw, dict):
+                all_raw.append(file_raw)
+                n = 1
+            else:
+                print(
+                    f"[错误] 无法识别的 JSON 格式: {data_path.name} ({type(file_raw).__name__})",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            print(f"\n加载对话文件: {data_path.name} ({n} 条)")
+
+        dialogues = all_raw[: args.num] if args.num > 0 else all_raw
         scene = args.scene
         scene_desc = args.scene_desc
-        print(f"\n加载对话文件: {data_path.name}，使用前 {len(dialogues)} 条")
+        src_names = ", ".join(Path(p).name for p in args.data)
+        print(
+            f"\n合并后共 {len(all_raw)} 条，本次使用前 {len(dialogues)} 条"
+            f"  [来源: {src_names}]"
+        )
 
     print(f"场景名称: {scene}")
     print(f"场景描述: {scene_desc or '（未提供）'}")
@@ -202,7 +249,6 @@ def main() -> None:
     builder = KnowledgeBaseBuilder(
         scene_name=scene,
         scene_description=scene_desc,
-        discovery_sample=args.num,
     )
 
     print("▶ 执行知识库构建（生成完整 SGD 数据集）…")
@@ -251,8 +297,18 @@ def main() -> None:
             print(f"    可选槽位: {it['optional_slots']}")
 
     print(f"\n发现统计（发现阶段 raw 数据）：")
-    print(f"  Top-10 槽位: {builder.last_slot_counter.most_common(10)}")
-    print(f"  Top-10 意图: {builder.last_intent_counter.most_common(10)}")
+    slot_all = builder.last_slot_counter.most_common()
+    intent_all = builder.last_intent_counter.most_common()
+    print(f"  槽位（共 {len(slot_all)} 个，按出现次数降序）：")
+    for _name, _cnt in slot_all:
+        print(f"    · {_name}: {_cnt} 次")
+    if not slot_all:
+        print("    （无）")
+    print(f"  意图（共 {len(intent_all)} 个，按出现次数降序）：")
+    for _name, _cnt in intent_all:
+        print(f"    · {_name}: {_cnt} 次")
+    if not intent_all:
+        print("    （无）")
 
     total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
     print(f"\nSGD 对话文件统计：")
@@ -262,14 +318,9 @@ def main() -> None:
     print(f"\n✓ SGD 数据集已保存至: {output_dir.resolve()}")
     print(f"  ├── schema.json           (服务 schema)")
     print(f"  ├── dialogues_001.json    (SGD 格式对话，{len(sgd_dialogues)} 条)")
+    print(f"  ├── discovery_raw.json    (逐轮原始提取结果，含 langextract 字符级溯源)")
     print(f"  └── conversion_summary.json")
     print("─" * 70)
-    print()
-    print("下一步：使用此 schema.json 运行 PyTOD 对话：")
-    schema_path = output_dir / "schema.json"
-    print("  from contextmind.modes.pytod import AdkPyTODTracker, ServiceSchema")
-    print(f"  schema = ServiceSchema.from_json(open('{schema_path}').read())[0]")
-    print("  tracker = AdkPyTODTracker(engine=engine, schema=schema)")
     print()
 
 

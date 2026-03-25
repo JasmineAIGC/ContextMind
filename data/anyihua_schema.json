@@ -1,0 +1,457 @@
+[
+  {
+    "service_name": "AnYiHua_OutboundCall",
+    "description": "安逸花外呼促活服务，流程包括核实身份、告知额度、解答疑问、引导借款",
+    "slots": [
+      {
+        "name": "loan_amount",
+        "description": "用户申请或已借款金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "date",
+        "description": "与借款或还款相关的日期",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "monthly_payment",
+        "description": "每月还款金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "current_credit_limit",
+        "description": "用户当前的信用额度",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "credit_limit",
+        "description": "用户的信用额度",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "loan_date",
+        "description": "借款发生日期",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "repayment_status",
+        "description": "还款状态",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "borrowing_date",
+        "description": "借款日期",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "overdue_days",
+        "description": "逾期天数",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "loan_limit",
+        "description": "借款额度",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "borrow_date",
+        "description": "借款日期",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "borrow_amount",
+        "description": "借款金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "remaining_quota",
+        "description": "剩余可用额度",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "application_date",
+        "description": "申请日期",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "usage_duration",
+        "description": "账户使用时长",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "available_amount",
+        "description": "当前可用金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "term_years",
+        "description": "贷款期限（年）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "total_interest",
+        "description": "总利息金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "daily_interest",
+        "description": "每日利息金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "interest_total",
+        "description": "总利息金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "monthly_payment_amount",
+        "description": "每月还款金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "monthly_interest_amount",
+        "description": "每月利息金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "amount",
+        "description": "金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "account_usage_status",
+        "description": "账户使用状态",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "temporary_credit_limit",
+        "description": "临时信用额度",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "temporary_limit",
+        "description": "临时额度",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "requested_amount",
+        "description": "申请金额",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "actual_amount",
+        "description": "实际到账金额",
+        "is_categorical": false,
+        "possible_values": []
+      }
+    ],
+    "intents": [
+      {
+        "name": "confirm_terms",
+        "description": "确认账户额度和利息信息",
+        "is_transactional": false,
+        "required_slots": [
+          "loan_amount",
+          "monthly_payment",
+          "current_credit_limit",
+          "total_interest"
+        ],
+        "optional_slots": [
+          "term_years",
+          "daily_interest",
+          "monthly_interest_amount"
+        ],
+        "result_slots": [
+          "confirmed_terms"
+        ]
+      },
+      {
+        "name": "verify_identity",
+        "description": "坐席尝试核实用户身份",
+        "is_transactional": false,
+        "required_slots": [
+          "account_usage_status"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "verified_identity"
+        ]
+      },
+      {
+        "name": "complain_repayment_process",
+        "description": "用户认为还款流程过于繁琐或不便",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "monthly_payment_amount"
+        ],
+        "result_slots": [
+          "complaint_repayment_process"
+        ]
+      },
+      {
+        "name": "complain_interest_rate",
+        "description": "用户认为利率偏高",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "total_interest",
+          "daily_interest"
+        ],
+        "result_slots": [
+          "complaint_interest_rate"
+        ]
+      },
+      {
+        "name": "confirm_awareness",
+        "description": "确认用户是否注意到额度变动或临时提额",
+        "is_transactional": false,
+        "required_slots": [
+          "temporary_credit_limit",
+          "current_credit_limit"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "confirmed_awareness"
+        ]
+      },
+      {
+        "name": "dispute_loan",
+        "description": "用户质疑存在未申请的贷款",
+        "is_transactional": false,
+        "required_slots": [
+          "loan_date",
+          "loan_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "disputed_loan"
+        ]
+      },
+      {
+        "name": "confirm_borrowing_history",
+        "description": "用户确认有借款记录",
+        "is_transactional": false,
+        "required_slots": [
+          "borrowing_date",
+          "loan_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "confirmed_borrowing_history"
+        ]
+      },
+      {
+        "name": "decline_usage",
+        "description": "用户表示不敢使用额度",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "current_credit_limit"
+        ],
+        "result_slots": [
+          "declined_usage"
+        ]
+      },
+      {
+        "name": "inquire_concerns_quota_interest",
+        "description": "询问用户对额度和利息的顾虑",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "current_credit_limit",
+          "total_interest"
+        ],
+        "result_slots": [
+          "inquired_concerns"
+        ]
+      },
+      {
+        "name": "express_future_intent",
+        "description": "表达未来可能有借款需求并希望长期合作",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "loan_limit"
+        ],
+        "result_slots": [
+          "expressed_future_intent"
+        ]
+      },
+      {
+        "name": "inquire_repayment_type",
+        "description": "询问具体是哪种还款方式（如提前还款等）",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "monthly_payment_amount"
+        ],
+        "result_slots": [
+          "inquired_repayment_type"
+        ]
+      },
+      {
+        "name": "complain_repayment_difficulty",
+        "description": "用户表示还款金额过高，感到烦恼",
+        "is_transactional": false,
+        "required_slots": [
+          "monthly_payment_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "complaint_repayment_difficulty"
+        ]
+      },
+      {
+        "name": "complain_monthly_payment",
+        "description": "用户抱怨每月还款金额过高，难以承担",
+        "is_transactional": false,
+        "required_slots": [
+          "monthly_payment_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "complaint_monthly_payment"
+        ]
+      },
+      {
+        "name": "inquire_expected_interest_rate",
+        "description": "询问用户期望的利息水平",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "total_interest"
+        ],
+        "result_slots": [
+          "inquired_expected_interest"
+        ]
+      },
+      {
+        "name": "inquire_annual_interest_rate",
+        "description": "询问用户期望的年化利率",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [
+          "total_interest"
+        ],
+        "result_slots": [
+          "inquired_annual_interest"
+        ]
+      },
+      {
+        "name": "inform_credit_limit_increase",
+        "description": "告知用户临时提额情况",
+        "is_transactional": false,
+        "required_slots": [
+          "temporary_credit_limit"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "informed_credit_limit_increase"
+        ]
+      },
+      {
+        "name": "confirm_application",
+        "description": "用户确认已申请贷款",
+        "is_transactional": false,
+        "required_slots": [
+          "application_date",
+          "loan_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "confirmed_application"
+        ]
+      },
+      {
+        "name": "complain_limit_denied",
+        "description": "用户抱怨额度被拒绝，认为应批准更高额度",
+        "is_transactional": false,
+        "required_slots": [
+          "current_credit_limit",
+          "requested_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "complaint_limit_denied"
+        ]
+      },
+      {
+        "name": "confirm_account_status",
+        "description": "确认账户使用状态及提额情况",
+        "is_transactional": false,
+        "required_slots": [
+          "account_usage_status",
+          "temporary_credit_limit"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "confirmed_account_status"
+        ]
+      },
+      {
+        "name": "inquire_amount_discrepancy",
+        "description": "询问每次借款额度不一致的情况",
+        "is_transactional": false,
+        "required_slots": [
+          "borrow_amount",
+          "actual_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "inquired_amount_discrepancy"
+        ]
+      },
+      {
+        "name": "complain_discrepancy",
+        "description": "用户对申请金额与到账金额不一致表示不满",
+        "is_transactional": false,
+        "required_slots": [
+          "requested_amount",
+          "actual_amount"
+        ],
+        "optional_slots": [],
+        "result_slots": [
+          "complaint_discrepancy"
+        ]
+      },
+      {
+        "name": "suggest_contact_customer_service",
+        "description": "建议用户拨打客服热线95090咨询",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": [],
+        "result_slots": [
+          "suggested_contact_service"
+        ]
+      }
+    ]
+  }
+]

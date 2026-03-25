@@ -2,16 +2,16 @@
 PyTOD Tracker — AdkPyTODTracker 实现（AP → EE → DM 三步流程）
 
 严格遵循论文 "Task-Oriented Dialogue as Dataflow Synthesis"，
-同时以 AdkLLMClient 作为统一 LLM 后端：
+使用 Google ADK LlmAgent + InMemoryRunner 驱动 AP 和 DM 两个 LLM 步骤：
 
-    Step 1  Action Parser (AP)：AdkLLMClient 根据对话历史 + Schema 生成 Python-like 程序
-    Step 2  Execution Engine (EE)：ExecutionEngine 安全解析并执行程序
-    Step 3  Dialogue Manager (DM)：AdkLLMClient 根据执行结果生成自然语言回复
+    Step 1  Action Parser (AP)：ADK LlmAgent 根据对话历史 + Schema 生成 Python-like 程序
+    Step 2  Execution Engine (EE)：ExecutionEngine 安全解析并执行程序（纯 Python，无 LLM）
+    Step 3  Dialogue Manager (DM)：ADK LlmAgent 根据执行结果生成自然语言回复
 
-与早前 ADK 原生 Function Calling 版本的区别：
-- 不使用 LlmAgent / InMemoryRunner / FunctionTool
-- 每轮有显式程序文本（program_text），可解释性强
-- Schema 通过 PyTODPromptBuilder 注入 AP prompt，严格约束意图和槽位
+ADK 集成优势：
+- AP 和 DM 各有独立 LlmAgent + InMemoryRunner，ADK 自动管理各步骤的会话历史
+- AP session 积累（程序生成历史），使 AP 能感知跨轮次的变量上下文
+- DM session 积累对话历史，保证回复自然、连贯
 
 使用示例::
 
@@ -28,24 +28,62 @@ PyTOD Tracker — AdkPyTODTracker 实现（AP → EE → DM 三步流程）
     print(result["response"])      # 您的可用额度为…
 
     # 或使用工厂方法
-    from contextmind.scenarios import get_anyihua_outbound_scenario
-    config = get_anyihua_outbound_scenario()
+    from contextmind.scenarios import get_callcenter_scenario
+    config = get_callcenter_scenario()
     tracker = AdkPyTODTracker.from_scenario(llm, config)
 """
 
 from __future__ import annotations
 
+import functools
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import yaml
+
 from contextmind.infra.logger import get_logger
+from contextmind.infra.llm_client import create_local_adk_model
 from contextmind.modes.pytod.execution_engine import ExecutionEngine, ProgramExecutionResult
 from contextmind.modes.pytod.prompts import ConversationTurn, PyTODPromptBuilder
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
 from contextmind.modes.pytod.schemas import ServiceSchema
 
+from google.adk.agents import LlmAgent  # type: ignore[import]
+from google.adk.runners import InMemoryRunner  # type: ignore[import]
+from google.genai import types as genai_types  # type: ignore[import]
+
 logger = get_logger(__name__)
+
+_SCENARIO_SCHEMAS_YAML = Path(__file__).parent / "scenario_schemas.yaml"
+
+# 规范化 key（中文别名 → 英文基础 key）以便在 YAML 中查找
+_KEY_ALIASES: Dict[str, str] = {
+    "闲聊": "chat",
+    "客服": "callcenter",
+    "保险": "insurance",
+    "保险销售": "insurance",
+    "安逸花": "anyihua",
+    "安逸花外呼": "anyihua",
+}
+
+
+@functools.lru_cache(maxsize=None)
+def _load_all_scenario_schemas() -> Dict[str, ServiceSchema]:
+    """从 scenario_schemas.yaml 一次性加载所有场景的 ServiceSchema，结果缓存。"""
+    if not _SCENARIO_SCHEMAS_YAML.exists():
+        logger.warning("scenario_schemas.yaml 不存在，PyTOD 将使用空 Schema 运行")
+        return {}
+    with open(_SCENARIO_SCHEMAS_YAML, encoding="utf-8") as f:
+        raw = yaml.safe_load(f) or {}
+    schemas: Dict[str, ServiceSchema] = {}
+    for name, data in raw.items():
+        try:
+            schemas[name] = ServiceSchema.from_dict(data)
+        except Exception as exc:
+            logger.warning(f"场景 '{name}' 的 Schema 加载失败: {exc}")
+    return schemas
 
 
 # ---------------------------------------------------------------------------
@@ -55,23 +93,82 @@ logger = get_logger(__name__)
 def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
     """按场景 key 懒加载对应的预定义 ServiceSchema。
 
-    避免在顶层导入可能不存在的场景模块，仅在需要时动态加载。
+    从 scenario_schemas.yaml 加载内置场景 Schema（chat / callcenter / insurance）。
+    当用户未通过 build_kb_demo.py 创建知识库时，PyTOD 演示脚本可直接使用这些
+    预置 Schema，保证 AP 提示词包含完整的业务意图和槽位描述。
 
     Args:
-        key: SCENARIO_API_REGISTRY 中的场景键（如 ``"anyihua"``）。
+        key: SCENARIO_API_REGISTRY 中的场景键（如 "callcenter"、"insurance"、"chat"
+             或其中文别名）。
 
     Returns:
-        对应场景的 ServiceSchema，找不到时返回 None。
+        对应场景的 ServiceSchema；找不到时返回 None。
     """
-    if key in ("anyihua", "安逸花", "安逸花外呼", "安逸花外呼促活"):
-        try:
-            from contextmind.scenarios.anyihua.generation.schema import (  # type: ignore[import]
-                ANYIHUA_SCHEMA,
-            )
-            return ANYIHUA_SCHEMA
-        except ImportError:
-            logger.warning("无法加载 ANYIHUA_SCHEMA，将不使用 schema 约束")
-    return None
+    if not key:
+        return None
+    # 将中文别名规范化为英文 key
+    canonical = _KEY_ALIASES.get(key, key)
+    schemas = _load_all_scenario_schemas()
+    schema = schemas.get(canonical)
+    if schema is None:
+        logger.debug(f"场景 '{key}' 无预置 Schema，AP 将使用空 Schema 运行（开放域模式）")
+    return schema
+
+
+def _register_apis_from_schema(engine: ExecutionEngine, schema: ServiceSchema) -> None:
+    """根据 ServiceSchema 的意图定义，在 ExecutionEngine 中注册对应的 API 函数。
+
+    当外部 schema.json 传入时，用来替换预定义的场景 API，确保 ExecutionEngine
+    能够执行 AP 依据外部 Schema 生成的程序（意图名和槽位名与 schema 一致）。
+
+    注册规则：
+    - 若 schema 定义了 intents，则为每个 intent 注册一个同名函数，
+      函数参数为该 intent 的全部 required_slots + optional_slots 加上
+      schema 级别的所有 slots。
+    - 若 schema 没有 intents，则以 service_name 为函数名注册一个
+      接受所有 schema slots 作为参数的通用函数。
+
+    注册的函数均为简单的直通函数（返回传入的非空参数字典），
+    用于演示和追踪场景——真实业务可替换为实际 API 实现。
+
+    Args:
+        engine: 目标 ExecutionEngine，会清空 registry 后重新注册。
+        schema: 外部传入的 ServiceSchema。
+    """
+    import inspect
+
+    engine.registry.clear()
+
+    schema_slot_names = [s.name for s in schema.slots]
+
+    def _make_api_func(func_name: str, param_names: List[str]) -> Any:
+        """动态创建一个接受指定参数的 API 函数。"""
+        def _api(**kwargs: Any) -> Dict[str, Any]:
+            return {k: v for k, v in kwargs.items() if v is not None}
+
+        params = [
+            inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None)
+            for p in param_names
+        ]
+        _api.__signature__ = inspect.Signature(params)  # type: ignore[attr-defined]
+        _api.__name__ = func_name
+        return _api
+
+    if schema.intents:
+        for intent in schema.intents:
+            # 合并意图槽位与 schema 级别槽位（去重，保持顺序）
+            intent_slots = list(intent.required_slots) + list(intent.optional_slots) + list(intent.result_slots)
+            all_slots = list(dict.fromkeys(intent_slots + schema_slot_names))
+            func = _make_api_func(intent.name, all_slots)
+            engine.registry[intent.name] = func
+            logger.debug(f"[schema API] 注册意图函数: {intent.name}({', '.join(all_slots)})")
+    else:
+        # 无意图定义时，以 service_name 为函数名注册通用函数
+        func = _make_api_func(schema.service_name, schema_slot_names)
+        engine.registry[schema.service_name] = func
+        logger.debug(f"[schema API] 注册服务函数: {schema.service_name}({', '.join(schema_slot_names)})")
+
+    logger.info(f"已基于外部 Schema 注册 API: {engine.list_functions()}")
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +234,52 @@ class AdkPyTODTracker:
         # 使 AP 能在后续轮次中通过 xN.field 引用先前已计算的变量。
         self._next_var_index: int = 1
 
+        self._ap_runner: Optional[Any] = None
+        self._ap_session_id: Optional[str] = None
+        self._dm_runner: Optional[Any] = None
+        self._dm_session_id: Optional[str] = None
+
+        if llm_client is not None:
+            adk_model = create_local_adk_model(
+                getattr(llm_client, "_config", None)
+            )
+            # AP Agent：静态系统指令 = AP 语法规则 + API 函数签名
+            ap_instruction = (
+                self.prompt_builder._AP_SYSTEM
+                + "\n\n"
+                + self.prompt_builder._build_api_context()
+            )
+            if scenario_context:
+                ap_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
+            ap_agent = LlmAgent(
+                name="pytod_ap",
+                model=adk_model,
+                instruction=ap_instruction,
+            )
+            self._ap_runner = InMemoryRunner(
+                agent=ap_agent,
+                app_name="contextmind_pytod_ap",
+            )
+
+            # DM Agent：静态系统指令 = DM 回复规则 + 语言要求
+            dm_instruction = self.prompt_builder._DM_SYSTEM
+            if scenario_context:
+                dm_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
+            dm_instruction += f"\n\n请用{self.prompt_builder.response_language}回复。"
+            dm_agent = LlmAgent(
+                name="pytod_dm",
+                model=adk_model,
+                instruction=dm_instruction,
+            )
+            self._dm_runner = InMemoryRunner(
+                agent=dm_agent,
+                app_name="contextmind_pytod_dm",
+            )
+            logger.info(
+                "[PyTOD] ADK LlmAgent+Runner 已初始化 (AP runner + DM runner), "
+                "使用 ADK 原生会话管理"
+            )
+
         logger.info(
             f"AdkPyTODTracker 初始化完成 (schema={self.schema.service_name}, "
             f"APIs: {engine.list_functions()})"
@@ -165,17 +308,24 @@ class AdkPyTODTracker:
         kwargs.pop("app_name", None)
         kwargs.pop("user_id", None)
 
+        # 外部 schema 优先取出，决定 API 注册策略
+        external_schema = kwargs.pop("schema", None)
+
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
         key = get_scenario_key(scenario_name)
-        if key:
-            SCENARIO_API_REGISTRY[key](engine)
-            logger.info(f"已为场景 '{scenario_name}' 注册 API: {engine.list_functions()}")
-        else:
-            logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
 
-        # 自动加载场景 schema，注入 AP prompt 实现意图约束
-        schema = kwargs.pop("schema", None) or _load_scenario_schema(key)
+        if external_schema is not None:
+            # 外部 schema 传入：用 schema 中的意图动态注册 API，替换预定义函数
+            _register_apis_from_schema(engine, external_schema)
+            schema = external_schema
+        else:
+            if key:
+                SCENARIO_API_REGISTRY[key](engine)
+                logger.info(f"已为场景 '{scenario_name}' 注册 API: {engine.list_functions()}")
+            else:
+                logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
+            schema = _load_scenario_schema(key)
 
         scenario_context = kwargs.pop(
             "scenario_context",
@@ -192,7 +342,7 @@ class AdkPyTODTracker:
     async def process_turn(
         self,
         user_utterance: str,
-        system_utterance: str = "",  # noqa: ARG002 — 保持接口兼容
+        system_utterance: str = "",
     ) -> Dict[str, Any]:
         """执行一轮三步对话处理（AP → EE → DM）。
 
@@ -210,6 +360,13 @@ class AdkPyTODTracker:
         logger.info(f"AdkPyTODTracker 第 {self.turn_count} 轮 | AP→EE→DM | 用户: {user_utterance}")
         self.step_timings = {}
 
+        # 外呼场景：首轮前系统主动发起的话语（如"您好，请问是李明先生吗？"），
+        # 注入对话历史，使 AP 能感知用户回复所针对的上下文。
+        # 仅在历史为空时注入，避免重复（后续轮次的系统话语已由上一轮 DM 写入）。
+        if system_utterance and not self._history:
+            self._history.append(ConversationTurn(role="assistant", content=system_utterance))
+            logger.debug(f"[AdkPyTODTracker] 注入系统发起语到历史: {system_utterance[:80]}")
+
         # ------------------------------------------------------------------ #
         # Step 1: Action Parser (AP)
         # ------------------------------------------------------------------ #
@@ -225,9 +382,30 @@ class AdkPyTODTracker:
             next_var_index=self._next_var_index,
         )
         self.last_ap_messages = ap_messages        # 记录完整 AP 输入（供 trace_demo 保存）
-        program_text: str = await self.llm_client.chat_async(ap_messages)
-        # 剥除 LLM 可能输出的 markdown 代码块包裹
-        program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+
+        if self._ap_runner is not None:
+            # ---------------------------------------------------------- #
+            # ADK 路径：AP LlmAgent 通过 InMemoryRunner 生成程序文本
+            # ADK session 积累 (用户输入 → 程序) 历史，AP 自然感知变量上下文
+            # ---------------------------------------------------------- #
+            # 构建 AP 的用户消息：仅包含动态部分（history + 当前话语 + 约束）
+            # 静态指令（AP语法规则 + API签名）已在 LlmAgent.instruction 中
+            ap_user_parts = []
+            if self._history:
+                history_str = self.prompt_builder._format_history(self._history)
+                ap_user_parts.append(f"## 对话历史\n{history_str}")
+            if prior_dataflow:
+                import json as _json
+                ap_user_parts.append(f"## 先前已计算的变量（可通过 xN.field 引用）\n{_json.dumps(prior_dataflow, ensure_ascii=False, indent=2)}")
+            ap_user_parts.append(f"## 新变量编号约束\n本轮新变量从 x{self._next_var_index} 开始，不得使用 x1~x{self._next_var_index - 1}")
+            ap_user_parts.append(f"## 当前用户话语\n{user_utterance}\n\n请生成 PyTOD 程序：")
+            ap_user_message = "\n\n".join(ap_user_parts)
+            program_text = await self._run_adk_ap(ap_user_message)
+        else:
+            program_text = await self.llm_client.chat_async(ap_messages)
+            # 剥除 LLM 可能输出的 markdown 代码块包裹
+            program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+
         self.last_program_text = program_text   # 记录供 web_demo 展示
         self.step_timings["AP (动作解析)"] = round(time.time() - t0, 3)
         logger.info(f"[AP] 程序: {program_text[:150]}")
@@ -278,7 +456,26 @@ class AdkPyTODTracker:
             self._history, user_utterance, program_text, execution_result, self.scenario_context,
         )
         self.last_dm_messages = dm_messages             # 记录完整 DM 输入（供 trace_demo 保存）
-        response: str = await self.llm_client.chat_async(dm_messages)
+
+        if self._dm_runner is not None:
+            # ---------------------------------------------------------- #
+            # ADK 路径：DM LlmAgent 通过 InMemoryRunner 生成自然语言回复
+            # DM session 积累完整对话历史，保证回复连贯
+            # ---------------------------------------------------------- #
+            # 构建 DM 的用户消息：包含执行结果和用户话语
+            dm_user_parts = []
+            if execution_result.say_output:
+                dm_user_parts.append(f"## AP 指定的 say 输出（必须在回复中体现）\n{execution_result.say_output}")
+            if execution_result.hint_messages:
+                dm_user_parts.append(f"## Hint 提示（需向用户询问的信息）\n" + "\n".join(execution_result.hint_messages))
+            if not execution_result.success and execution_result.errors:
+                dm_user_parts.append(f"## 执行错误\n" + "\n".join(execution_result.errors))
+            dm_user_parts.append(f"## 用户话语\n{user_utterance}\n\n请生成回复：")
+            dm_user_message = "\n\n".join(dm_user_parts)
+            response = await self._run_adk_dm(dm_user_message)
+        else:
+            response = await self.llm_client.chat_async(dm_messages)
+
         self.step_timings["DM (对话管理)"] = round(time.time() - t2, 3)
         logger.info(f"[DM] 回复: {response[:150]}")
 
@@ -312,7 +509,90 @@ class AdkPyTODTracker:
         self.last_dm_messages = []
         self.step_timings = {}
         self._next_var_index = 1
+        # 重置 ADK 会话 ID（下次 process_turn 时自动重建新 session）
+        self._ap_session_id = None
+        self._dm_session_id = None
         logger.info("AdkPyTODTracker 对话状态已重置")
+
+    async def _get_or_create_ap_session(self) -> str:
+        """获取或创建 AP ADK 会话 ID。"""
+        if self._ap_session_id is None:
+            session = await self._ap_runner.session_service.create_session(
+                app_name="contextmind_pytod_ap",
+                user_id="default_user",
+            )
+            self._ap_session_id = session.id
+        return self._ap_session_id
+
+    async def _get_or_create_dm_session(self) -> str:
+        """获取或创建 DM ADK 会话 ID。"""
+        if self._dm_session_id is None:
+            session = await self._dm_runner.session_service.create_session(
+                app_name="contextmind_pytod_dm",
+                user_id="default_user",
+            )
+            self._dm_session_id = session.id
+        return self._dm_session_id
+
+    async def _run_adk_ap(self, ap_user_message: str) -> str:
+        """通过 ADK AP-LlmAgent 生成 PyTOD 程序文本。
+
+        AP session 积累（用户输入 → 程序）历史，使 AP 能感知跨轮变量上下文。
+
+        Args:
+            ap_user_message: 当前轮次的 AP 输入（格式化历史 + 用户话语 + 约束）
+
+        Returns:
+            AP 生成的 PyTOD 程序文本（已剥除 markdown 代码块）
+        """
+        session_id = await self._get_or_create_ap_session()
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=ap_user_message)],
+        )
+        program_text = ""
+        async for event in self._ap_runner.run_async(
+            user_id="default_user",
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
+                        program_text += part.text
+        # 剥除 LLM 可能输出的 markdown 代码块包裹
+        program_text = re.sub(r"```[^\n]*\n?", "", program_text).strip()
+        return program_text
+
+    async def _run_adk_dm(self, dm_user_message: str) -> str:
+        """通过 ADK DM-LlmAgent 生成自然语言回复。
+
+        DM session 积累完整对话历史，保证回复连贯。
+
+        Args:
+            dm_user_message: 当前轮次的 DM 输入（执行结果 + 用户话语）
+
+        Returns:
+            DM 生成的自然语言回复
+        """
+        session_id = await self._get_or_create_dm_session()
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=dm_user_message)],
+        )
+        response_text = ""
+        async for event in self._dm_runner.run_async(
+            user_id="default_user",
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
+                        response_text += part.text
+        return response_text.strip()
+
+
 
 
 # ---------------------------------------------------------------------------

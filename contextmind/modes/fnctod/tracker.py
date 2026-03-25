@@ -2,7 +2,8 @@
 FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 
 基于 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"
-论文思想，利用 Google ADK 原生 Function Calling 实现结构化槽位提取。
+（ACL 2024）论文思想，将对话状态追踪（DST）转化为函数调用：每个业务域对应一个函数，
+槽位对应参数，LLM 通过调用函数提取对话中的槽位值，实现零样本 DST。
 
 使用示例::
 
@@ -27,21 +28,12 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.fnctod.function_manager import FunctionManager
 from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
 
-try:
-    from google.adk.agents import LlmAgent  # type: ignore[import]
-    from google.adk.runners import InMemoryRunner  # type: ignore[import]
-    from google.adk.tools import FunctionTool  # type: ignore[import]
-    from google.genai import types as genai_types  # type: ignore[import]
-    _ADK_AVAILABLE = True
-except ImportError:
-    _ADK_AVAILABLE = False
+from google.adk.agents import LlmAgent  # type: ignore[import]
+from google.adk.runners import InMemoryRunner  # type: ignore[import]
+from google.adk.tools import FunctionTool  # type: ignore[import]
+from google.genai import types as genai_types  # type: ignore[import]
 
 logger = get_logger(__name__)
-
-_ADK_INSTALL_MSG = (
-    "google-adk 未安装，无法创建 FnCTODTracker。\n"
-    "请运行: pip install google-adk litellm"
-)
 
 
 def _domain_to_adk_tool(domain_spec: Any) -> Any:
@@ -50,9 +42,6 @@ def _domain_to_adk_tool(domain_spec: Any) -> Any:
     动态生成与 DomainSpec.parameters 一一对应的 Python 函数，
     再包装为 FunctionTool，ADK 会自动从签名生成 JSON Schema。
     """
-    if not _ADK_AVAILABLE:
-        raise ImportError(_ADK_INSTALL_MSG)
-
     param_names: List[str] = [p.name for p in domain_spec.parameters]
 
     doc_lines = [domain_spec.description, ""]
@@ -96,9 +85,6 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
     Returns:
         可直接传给 ``LlmAgent(tools=...)`` 的 ADK FunctionTool 列表。
     """
-    if not _ADK_AVAILABLE:
-        raise ImportError(_ADK_INSTALL_MSG)
-
     tools = [_domain_to_adk_tool(d) for d in function_manager.get_all_domains()]
     logger.info(
         f"adk_tools_from_function_manager: 共 {len(tools)} 个工具: "
@@ -108,10 +94,11 @@ def adk_tools_from_function_manager(function_manager: Any) -> List[Any]:
 
 
 class FnCTODTracker:
-    """ADK 原生函数调用对话状态追踪器。
+    """ADK 原生函数调用对话状态追踪器（FnCTOD）。
 
-    利用 ADK 原生 Function Calling 替代 XML 提示词解析，
-    实现对话状态的结构化提取。
+    利用 ADK 原生 Function Calling 实现零样本 DST：
+    每个业务域映射为一个函数，槽位映射为参数，LLM 通过调用函数
+    逐轮提取并累积对话状态（Dialogue State Tracking）。
 
     参数
     ----
@@ -129,9 +116,6 @@ class FnCTODTracker:
         system_instruction: Optional[str] = None,
         config: Optional[LLMConfig] = None,
     ) -> None:
-        if not _ADK_AVAILABLE:
-            raise ImportError(_ADK_INSTALL_MSG)
-
         self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
         adk_model = create_local_adk_model(self._llm_config)
         self.function_manager = function_manager
@@ -142,9 +126,9 @@ class FnCTODTracker:
                 "你是一个任务型对话助手，通过调用函数提取对话中的关键信息，然后给出自然语言回复。\n"
                 f"可用的业务域: {', '.join(domain_names)}。\n"
                 "处理规则：\n"
-                "1. 每轮对话只调用函数一次，一次性填入所有已识别的槽位值；\n"
-                "2. 函数调用完成后，立即用简洁的中文给出对话回复；\n"
-                "3. 不要重复调用函数。"
+                "1. 每轮对话调用相应函数，一次性填入对话中已识别的槽位值；\n"
+                "2. 未在本轮对话中提及的槽位保持为空，不要猜测；\n"
+                "3. 函数调用完成后，立即用简洁的中文给出对话回复。"
             )
         self.system_instruction = system_instruction
 
@@ -161,6 +145,7 @@ class FnCTODTracker:
         self._dialogue_history: List[Dict[str, str]] = []
         self.turn_count: int = 0
         self._session_id: Optional[str] = None
+        self.last_turn_updates: Dict[str, Any] = {}
 
         logger.info(
             f"FnCTODTracker 初始化完成 (model={self._llm_config.model}, "
@@ -220,6 +205,7 @@ class FnCTODTracker:
         self._dialogue_history = []
         self.turn_count = 0
         self._session_id = None
+        self.last_turn_updates = {}
 
     async def process_turn(self, user_utterance: str, **kwargs: Any) -> Dict[str, Any]:
         """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位并生成回复。
@@ -258,6 +244,7 @@ class FnCTODTracker:
                             final_text += part.text
 
         self._current_state.update(turn_updates)
+        self.last_turn_updates = turn_updates
         self._dialogue_history.append({"role": "user", "content": user_utterance})
         response_text = final_text.strip()
         if response_text:

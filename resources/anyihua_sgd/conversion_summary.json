@@ -1,7 +1,0 @@
-{
-  "output_dir": "resources/anyihua_sgd",
-  "dialogues": 100,
-  "turns": 1330,
-  "services": 1,
-  "dialogue_files": 1
-}

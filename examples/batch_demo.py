@@ -858,7 +858,7 @@ def main():
     
     # 设置日志
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="logs")
+    setup_logging(level=log_level, save_to_file=True, log_dir="output/logs")
     
     logger.info("启动 ContextMind 批量对话测试Demo")
     

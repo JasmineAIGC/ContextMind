@@ -1,7 +1,7 @@
 """
-保险挽回场景包
+保险销售场景包
 
-包含保险挽回场景的配置（ScenarioConfig）。
+包含保险销售场景的配置（ScenarioConfig）。
 """
 
 from .scenario import get_insurance_scenario

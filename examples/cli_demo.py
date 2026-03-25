@@ -213,7 +213,7 @@ def parse_args():
 async def main():
     args = parse_args()
     level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=level, save_to_file=True, log_dir="logs")
+    setup_logging(level=level, save_to_file=True, log_dir="output/logs")
     demo = InteractiveDemo(
         scenario=args.scenario,
         mode=args.mode,

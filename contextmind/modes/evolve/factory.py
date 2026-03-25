@@ -7,7 +7,8 @@ Evolve 场景工厂
 
 from __future__ import annotations
 
-from .engine import EvolveEngine
+from .core.engine import EvolveEngine
+from .app import EvolveApplication
 
 
 def create_app_for_scenario(
@@ -20,7 +21,7 @@ def create_app_for_scenario(
 
     Args:
         scenario_name:   场景名称（支持中英文别名，如 "chat"、"闲聊"）。
-        llm_client:      LLM 客户端（AdkLLMClient / AdkLLMClient）。
+        llm_client:      LLM 客户端（AdkLLMClient）。
         scenario_config: ScenarioConfig 场景配置对象。
         app_name_prefix: ADK app_name 前缀。
 
@@ -31,7 +32,6 @@ def create_app_for_scenario(
         ValueError: 场景未注册。
     """
     from contextmind.scenarios.registry import scenario_registry
-    from contextmind.scenarios.app import EvolveApplication
 
     engine = EvolveEngine(
         app_name=f"{app_name_prefix}_{scenario_name}",
