@@ -183,19 +183,24 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             **({"schema": external_schema} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
-        prev_state: Dict[str, Any] = {}
         for i, (utt, orig_agent) in enumerate(paired_turns):
             try:
                 result = await agent.process_turn(utt)
             except Exception as exc:
-                result = {"response": f"(error: {exc})", "program_text": "", "state": {}, "execution": None}
+                # 保留 tracker 已累积的状态和最近一轮执行结果，避免异常清空状态
+                result = {
+                    "response": f"(error: {exc})",
+                    "program_text": getattr(agent, "last_program_text", ""),
+                    "state": dict(agent.current_state),
+                    "execution": getattr(agent, "last_execution_result", None),
+                }
 
             ee_data = _serialize_execution(result.get("execution"))
 
-            # Fix 4: only show variables NEW this turn (delta vs previous cumulative state)
+            # state_delta：本轮 EE 新计算的变量（直接来自执行引擎输出，已排除先前轮次变量）
+            state_delta: Dict[str, Any] = dict(ee_data.get("variables", {}))
+            # cumulative_state：tracker 跨轮累积的 API 结果（不含 say 输出）
             new_state: Dict[str, Any] = result.get("state", {})
-            state_delta = {k: v for k, v in new_state.items() if k not in prev_state}
-            prev_state = dict(new_state)
 
             # Fix 5: capture AP and DM prompt messages for this turn
             ap_messages = list(getattr(agent, "last_ap_messages", []))
@@ -215,8 +220,8 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 "ap_valid": ap_valid,
                 "ee": ee_data,
                 "response": result.get("response", ""),
-                "state_delta": state_delta,    # Fix 4: only new vars this turn
-                "cumulative_state": new_state, # full state for JSON reference
+                "state_delta": state_delta,    # 本轮新增变量（来自 EE 执行结果）
+                "cumulative_state": new_state, # 跨轮累积状态（tracker current_state）
                 "timings": dict(agent.step_timings),
                 "ap_messages": ap_messages,    # Fix 5: AP prompt
                 "dm_messages": dm_messages,    # Fix 5: DM prompt
@@ -398,7 +403,7 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
                 "",
             ]
 
-        # Fix 4: 本轮新增状态（只显示 delta，不重复历史变量）
+        # 本轮新增状态（来自 EE 执行结果，含 API 返回值与 say 输出）
         state_delta = t.get("state_delta", {})
         if state_delta:
             lines += [
@@ -409,7 +414,7 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
                 "",
             ]
 
-        # 累积状态（全量，可折叠）
+        # 累积状态（tracker 跨轮积累的 API 结果，全量，可折叠）
         cumstate = t.get("cumulative_state", {})
         if cumstate:
             lines += [
