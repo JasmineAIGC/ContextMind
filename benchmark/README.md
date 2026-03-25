@@ -25,9 +25,6 @@ benchmark/
 │   │   ├── label_parser.py   # 标签解析器
 │   │   ├── nlu_adapter.py    # NLU 格式适配器
 │   │   └── sgd_converter.py  # SGD 格式转换器
-│   └── anyihua/              # 安逸花外呼数据集
-│       ├── __init__.py       # 模块导出
-│       └── adapter.py        # 数据适配器（AnyihuaSGDAdapter）
 │
 ├── shared/                   # 跨算法/数据集共享组件
 │   ├── intent_evaluator.py   # 意图评测器（IntentEvaluator）
@@ -37,8 +34,7 @@ benchmark/
 ├── runners/                  # 评测运行脚本（算法 × 数据集）
 │   ├── run_dst_transfertod.py
 │   ├── run_dst_risawoz.py
-│   ├── run_fnctod_transfertod.py
-│   └── run_pytod_anyihua.py  # PyTOD × 安逸花外呼（基于 anyihua_sgd/schema.json）
+│   └── run_fnctod_transfertod.py
 │
 └── tools/                    # 辅助工具脚本（数据预处理 / 诊断）
     ├── convert_risawoz_to_sgd.py
@@ -70,11 +66,7 @@ python benchmark/runners/run_fnctod_transfertod.py --domain 酒店 --limit 10
 ### PyTOD 评测
 
 ```bash
-# 安逸花外呼数据集（基于 data/anyihua_sgd/schema.json）
-python benchmark/runners/run_pytod_anyihua.py
-python benchmark/runners/run_pytod_anyihua.py --limit 10
-python benchmark/runners/run_pytod_anyihua.py --limit 5 --verbose
-python benchmark/runners/run_pytod_anyihua.py --output /tmp/pytod_results.json
+# 目前暂无开放数据集评测脚本，PyTOD 可通过 examples/pytod_trace_demo.py 运行单条追踪演示
 ```
 
 ### 辅助工具

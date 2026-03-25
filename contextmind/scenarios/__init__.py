@@ -15,7 +15,7 @@ from .app import EvolveApplication, ChatApplication, CallCenterApplication, Insu
 from .chat import get_chat_scenario
 from .callcenter import get_callcenter_scenario
 from .insurance import get_insurance_scenario
-from .anyihua.scenario import get_anyihua_outbound_scenario
+from .anyihua import get_anyihua_scenario
 
 __all__ = [
     "ScenarioConfig",
@@ -28,5 +28,5 @@ __all__ = [
     "get_chat_scenario",
     "get_callcenter_scenario",
     "get_insurance_scenario",
-    "get_anyihua_outbound_scenario",
+    "get_anyihua_scenario",
 ]

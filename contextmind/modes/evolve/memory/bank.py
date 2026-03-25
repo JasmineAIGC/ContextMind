@@ -368,11 +368,13 @@ class MemoryBank:
         logger.info(f"[MemoryBank] ✓ 存储完成 - 新增 {len(new_knowledge)} 条知识 (过滤 {len(knowledge) - len(new_knowledge)} 条)")
         logger.info(f"[MemoryBank] 当前记忆库总计: {len(self._local_cache)} 条记忆")
         logger.info("")
-        
-        # 注意：记忆服务存储功能已禁用（需要外部服务支持）
-        # 当前所有知识仅存储在本地缓存中
+
+        # ADK InMemoryMemoryService 存储：
+        # 通过 EvolveEngine._persist_session_to_memory() 在每轮会话结束后
+        # 将完整 ADK Session 索引到 memory_service，使跨会话搜索覆盖本轮内容。
+        # 此处无需重复存储。
         if self.memory_service:
-            logger.debug("[MemoryBank] Memory Service 可用但外部存储未实现 - 仅使用本地缓存")
+            logger.debug("[MemoryBank] ADK Memory Service 已配置，会话级记忆由 EvolveEngine 统一同步")
     
     def _is_similar(self, text1: str, text2: str) -> bool:
         """检查两个文本是否相似（支持中文）"""
@@ -438,8 +440,8 @@ class MemoryBank:
             logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache")
             return
         
-        # 注意：记忆服务存储功能已禁用（需要外部服务支持）
-        logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache (external storage not available)")
+        # ADK InMemoryMemoryService：通过会话级同步覆盖记忆，无需直接写入
+        logger.info(f"Successfully seeded {len(valid_facts)} facts to local cache (ADK session-level memory sync active)")
     
     def get_memory_cache(self) -> List[ContextItem]:
         """

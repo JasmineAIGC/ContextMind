@@ -1,5 +1,5 @@
 """
-保险挽回场景配置
+保险销售场景配置
 
 基于团体癌症保险销售对话的意图追踪设计
 
@@ -21,7 +21,7 @@ from ..base import ScenarioConfig, ScenarioType
 
 def get_insurance_scenario() -> ScenarioConfig:
     """
-    获取保险挽回场景配置
+    获取保险销售场景配置
     
     ⚠️ 重要约束：
     1. 一级意图和二级意图是固定的参考标准，不可修改
@@ -416,17 +416,17 @@ def get_insurance_scenario() -> ScenarioConfig:
 请问您现在方便简单了解一下吗？"""
     
     return ScenarioConfig(
-        name="保险挽回",
+        name="保险销售",
         scenario_type=ScenarioType.INSURANCE,
-        description="保险电话销售挽回场景 · 专注于癌症保险产品",
+        description="保险电话销售场景 · 专注于癌症保险产品",
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
         enable_dynamic_slots=False,  # 使用预定义槽位（所有分类值都是固定的，不允许动态生成）
         dst_prompt_template=dst_prompt_template,
         system_prompt=system_prompt,
-        ui_title="保险挽回 · 智能话术优化",
-        ui_description="保险挽回 · 对话状态追踪 · 话术优化",
+        ui_title="保险销售 · 智能话术优化",
+        ui_description="保险销售 · 对话状态追踪 · 话术优化",
         welcome_message=welcome_message,
         max_history_turns=15,  # 保险对话可能较长
         temperature=0.7,

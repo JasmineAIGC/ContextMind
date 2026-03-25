@@ -15,13 +15,9 @@ try:
 except ImportError:
     pass
 
-try:
-    from google.adk.agents import LlmAgent  # type: ignore[import]  # noqa: F401 — kept for create_local_adk_model / external callers
-    from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
-    from google.adk.runners import InMemoryRunner  # type: ignore[import]  # noqa: F401 — kept for external callers
-    _ADK_AVAILABLE = True
-except ImportError:
-    _ADK_AVAILABLE = False
+from google.adk.agents import LlmAgent  # type: ignore[import]  # noqa: F401 — kept for create_local_adk_model / external callers
+from google.adk.models.lite_llm import LiteLlm  # type: ignore[import]
+from google.adk.runners import InMemoryRunner  # type: ignore[import]  # noqa: F401 — kept for external callers
 
 from .logger import get_logger
 
@@ -88,11 +84,6 @@ def _configure_litellm_for_local_model(model_name: str) -> None:
 
 DEFAULT_MODEL = "Qwen3-32B"
 DEFAULT_TEMPERATURE = 0.3
-
-_ADK_INSTALL_MSG = (
-    "google-adk 未安装，无法创建 AdkLLMClient。\n"
-    "请运行: pip install google-adk litellm"
-)
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
@@ -189,8 +180,6 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
         model = create_local_adk_model()
         agent = LlmAgent(model=model, name="my_agent", instruction="你是助手。")
     """
-    if not _ADK_AVAILABLE:
-        raise ImportError(_ADK_INSTALL_MSG)
     if config is None:
         config = LLMConfig.from_env()
 
@@ -250,9 +239,6 @@ class AdkLLMClient:
         system_instruction: str = "你是一个智能对话助手。",  # noqa: ARG002 — 保持旧接口兼容
         config: Optional[LLMConfig] = None,
     ) -> None:
-        if not _ADK_AVAILABLE:
-            raise ImportError(_ADK_INSTALL_MSG)
-
         # 在初始化时导入 litellm，确保依赖缺失时立即报错（fail-fast），
         # 同时避免每次 chat_async 调用都重复执行模块查找。
         try:
