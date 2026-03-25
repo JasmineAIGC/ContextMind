@@ -21,9 +21,11 @@
 - [DST 算法](algorithms/dst.md) - 对话状态追踪算法（已实现）
 - [FnCTOD 算法](algorithms/fnctod.md) - 函数调用式任务型对话算法（已实现）
 - [pyTOD 算法](algorithms/pytod.md) - 可编程任务型对话算法（已实现，含安逸花双引擎架构说明）
+- [Evolve 算法](algorithms/evolve.md) - 演化式上下文优化算法
 - [PyTOD vs FnCTOD 对比](algorithms/pytod-vs-fnctod-comparison.md) - 两种框架深度对比分析
 - [意图评测](algorithms/intent-evaluation.md) - IntentEvaluator 使用指南
 - [上下文工程](algorithms/context-engineering.md) - DST 和 FnCTOD 评测对上下文工程的意义
+- [Benchmark 评测框架](benchmark.md) - 四种算法评测框架使用指南
 
 ### 数据集文档
 
