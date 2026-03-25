@@ -248,6 +248,42 @@ class ServiceSchema:
         """导出为 JSON 字符串。"""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
+    def merge(self, other: "ServiceSchema") -> "ServiceSchema":
+        """将另一个 ServiceSchema 合并到本 schema，返回合并后的新实例。
+
+        合并规则：
+        - ``service_name`` / ``description``：若 ``other`` 的字段非空则覆盖。
+        - slots：同名槽位以 ``other`` 的定义为准；``other`` 中新增的槽位追加到末尾。
+        - intents：同名意图以 ``other`` 的定义为准；``other`` 中新增的意图追加到末尾。
+
+        示例::
+
+            base = pipeline.schema           # 代码内置默认 schema
+            patch = ServiceSchema.from_json(open("data/anyihua_schema.json").read())
+            pipeline.schema = base.merge(patch)  # patch 中的字段覆盖默认值
+        """
+        merged_service_name = other.service_name or self.service_name
+        merged_description = other.description or self.description
+
+        # 合并槽位：以 self 为基础，other 中同名者覆盖，其余追加
+        slot_map: Dict[str, SlotDefinition] = {s.name: s for s in self.slots}
+        for slot in other.slots:
+            slot_map[slot.name] = slot
+        merged_slots = list(slot_map.values())
+
+        # 合并意图：同规则
+        intent_map: Dict[str, IntentDefinition] = {i.name: i for i in self.intents}
+        for intent in other.intents:
+            intent_map[intent.name] = intent
+        merged_intents = list(intent_map.values())
+
+        return ServiceSchema(
+            service_name=merged_service_name,
+            description=merged_description,
+            slots=merged_slots,
+            intents=merged_intents,
+        )
+
 
 def load_schema_from_dict(data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> ServiceSchema:
     """

@@ -300,7 +300,7 @@ class ContextPipeline:
             lambda: self.build_kb(dialogues, scene_name, scene_description, save_path),
         )
 
-    def load_kb(self, schema_path: Union[str, Path]) -> None:
+    def load_kb(self, schema_path: Union[str, Path], merge: bool = False) -> None:
         """
         Phase 1 → Phase 2 桥接：从磁盘加载已保存的 ``schema.json``。
 
@@ -312,15 +312,23 @@ class ContextPipeline:
             由 :meth:`build_kb` 或
             :meth:`~contextmind.kb.KnowledgeBaseBuilder.save` 生成的
             ``schema.json`` 文件路径。
+        merge:
+            若为 ``True`` 且已有 :attr:`schema`，则将文件中的 schema **合并**到
+            现有 schema（同名槽位/意图以文件中的定义为准，新增项追加）；
+            若为 ``False``（默认），则完全替换现有 schema。
         """
-        self.schema = KnowledgeBaseBuilder.load_schema(schema_path)
+        new_schema = KnowledgeBaseBuilder.load_schema(schema_path)
+        if merge and self.schema is not None:
+            self.schema = self.schema.merge(new_schema)
+        else:
+            self.schema = new_schema
         self._init_tracker()
         logger.info(
             f"[ContextPipeline] 已加载 schema: {self.schema.service_name}，"
             f"槽位={len(self.schema.slots)}，意图={len(self.schema.intents)}"
         )
 
-    def set_schema(self, schema: Any) -> None:
+    def set_schema(self, schema: Any, merge: bool = False) -> None:
         """
         直接设置 ``ServiceSchema`` 实例（无需从文件加载）。
 
@@ -332,19 +340,27 @@ class ContextPipeline:
             :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 实例，
             或可通过 :func:`~contextmind.modes.pytod.schemas.load_schema_from_dict`
             转换的字典。
+        merge:
+            若为 ``True`` 且已有 :attr:`schema`，则将传入 schema **合并**到
+            现有 schema（同名槽位/意图以传入值为准，新增项追加）；
+            若为 ``False``（默认），则完全替换现有 schema。
         """
         from contextmind.modes.pytod.schemas import ServiceSchema
 
         if isinstance(schema, dict):
             from contextmind.modes.pytod.schemas import load_schema_from_dict
 
-            self.schema = load_schema_from_dict(schema)
+            new_schema = load_schema_from_dict(schema)
         elif isinstance(schema, ServiceSchema):
-            self.schema = schema
+            new_schema = schema
         else:
             raise TypeError(
                 f"schema 必须是 ServiceSchema 实例或字典，得到: {type(schema)}"
             )
+        if merge and self.schema is not None:
+            self.schema = self.schema.merge(new_schema)
+        else:
+            self.schema = new_schema
         self._init_tracker()
 
     # ------------------------------------------------------------------
