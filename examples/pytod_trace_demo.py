@@ -2,7 +2,7 @@
 PyTOD 对话追踪脚本
 
 展示 PyTOD（Program-of-Thought for Task-Oriented Dialogue）算法在
-客服场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
+安逸花外呼场景中的运行过程，完整记录三步流水线（AP→EE→DM）每个阶段的
 输入/输出/执行方式，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
 用法::
@@ -34,17 +34,22 @@ from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-from contextmind.scenarios import get_callcenter_scenario
+from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-_AGENT_PREFIX = "坐席："
-_USER_PREFIX = "用户："
+# 默认 schema：安逸花外呼业务（data/anyihua_schema.json）
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "data" / "anyihua_schema.json"
+_AGENT_KEY = "机器人"
+_USER_KEY = "用户"
+
+_AGENT_ICON = "🤖"
+_USER_ICON = "👤"
 
 _SCENARIO_CONTEXT = (
-    "这是一个客服对话场景。"
-    "坐席代表客服中心接听用户来电，目标是解答用户问题、处理订单和提供帮助。"
-    "标准流程：① 问候确认身份 → ② 了解用户诉求 → "
-    "③ 解答疑问或处理问题 → ④ 确认用户满意 → ⑤ 礼貌告别。"
+    "这是安逸花外呼促活场景。"
+    "机器人代表安逸花主动致电用户，目标是促进用户借款使用额度。"
+    "标准流程：① 核实身份 → ② 告知额度/临时提额 → "
+    "③ 解答疑问（利率/还款/逾期等）→ ④ 引导借款 → ⑤ 礼貌结束。"
 )
 
 
@@ -86,10 +91,9 @@ def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
 def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
     """将 ProgramExecutionResult 序列化为可 JSON 化的字典。"""
     if execution_result is None:
-        return {"success": None, "errors": [], "variable_values": {}, "say_output": "", "hint_messages": []}
+        return {"success": None, "errors": [], "variables": {}, "say": "", "hints": []}
     try:
         var_values = dict(getattr(execution_result, "variable_values", {}))
-        # 确保每个值都是 JSON 可序列化的
         for k, v in var_values.items():
             try:
                 json.dumps(v)
@@ -98,27 +102,29 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
         return {
             "success": getattr(execution_result, "success", None),
             "errors": [str(e) for e in getattr(execution_result, "errors", [])],
-            "variable_values": var_values,
-            "say_output": getattr(execution_result, "say_output", ""),
-            "hint_messages": list(getattr(execution_result, "hint_messages", [])),
+            "variables": var_values,
+            "say": getattr(execution_result, "say_output", ""),
+            "hints": list(getattr(execution_result, "hint_messages", [])),
         }
     except Exception as exc:
-        return {"success": None, "errors": [str(exc)], "variable_values": {}, "say_output": "", "hint_messages": []}
+        return {"success": None, "errors": [str(exc)], "variables": {}, "say": "", "hints": []}
 
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False,
-                    external_schema: Optional[ServiceSchema] = None) -> Dict[str, Any]:
+                    external_schema: Optional[ServiceSchema] = None,
+                    compact_schema: bool = False) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。
 
     Args:
         session:         对话会话字典。
         verbose:         是否打印详细日志。
-        external_schema: 外部传入的 ServiceSchema（来自 ``--schema``）；
+        external_schema: 外部传入的 ServiceSchema（来自 ``--schema`` 或默认 anyihua_schema.json）；
                          若为 None 则使用预定义的场景 Schema。
+        compact_schema:  为 True 时，AP prompt 中省略详细业务意图说明（减少 token 用量）。
     """
     # 用于获取已注册 API 列表（无论 LLM 是否可用）
     _probe_engine = ExecutionEngine()
-    register_fn = SCENARIO_API_REGISTRY.get("callcenter")
+    register_fn = SCENARIO_API_REGISTRY.get("anyihua")
     if register_fn:
         register_fn(_probe_engine)
 
@@ -129,8 +135,30 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         llm_available = False
 
     history = session.get("对话历史", [])
-    user_turns = [utt[len(_USER_PREFIX):] for utt in history if utt.startswith(_USER_PREFIX)]
-    if not user_turns:
+    # 统一格式：每条 entry 为 {"机器人": "xxx", "用户": "yyy"} 配对 dict。
+    # 兼容旧式平铺字符串格式（向后兼容）。
+    paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
+    for entry in history:
+        if isinstance(entry, dict):
+            # 新格式：配对 dict
+            user_text = entry.get(_USER_KEY, "")
+            orig_agent = entry.get(_AGENT_KEY, "")
+            if user_text:
+                paired_turns.append((user_text, orig_agent))
+        elif isinstance(entry, str):
+            # 旧格式：平铺字符串（向后兼容）
+            import re as _re
+            if entry.startswith("机器人：") or entry.startswith("坐席："):
+                preceding_agent_text = _re.sub(r"^(机器人|坐席)[：:]\s*", "", entry)
+                # 暂存，等待下一条用户发言
+                _pending_agent = preceding_agent_text
+            elif entry.startswith("用户："):
+                user_text = entry[len("用户："):]
+                orig_agent = locals().get("_pending_agent", "")
+                if user_text:
+                    paired_turns.append((user_text, orig_agent))
+                _pending_agent = ""
+    if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 
     turns_results: List[Dict[str, Any]] = []
@@ -144,83 +172,83 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
     if llm_available:
         llm_client = AdkLLMClient(config=config)
-        # 使用 from_scenario() 自动加载客服场景 API 和预置 Schema，
-        # 确保 AP 提示词包含完整的业务意图和槽位描述，无需手动创建知识库。
-        scenario_config = get_callcenter_scenario()
+        # 使用 from_scenario() 自动加载安逸花外呼场景 API 和 Schema。
+        # Fix 1: 默认使用 anyihua 场景 + anyihua_schema.json
+        scenario_config = get_anyihua_scenario()
         agent = AdkPyTODTracker.from_scenario(
             llm_client=llm_client,
             scenario_config=scenario_config,
             scenario_context=scenario_context,
+            compact_schema=compact_schema,
             **({"schema": external_schema} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
-        for i, utt in enumerate(user_turns):
-            # 在调用前记录本轮 AP 的 dataflow 输入（prior_dataflow = current_state snapshot）
-            prior_dataflow_snapshot = {
-                k: v for k, v in agent.current_state.items() if not k.startswith("_anon")
-            }
-            next_var_index_before = agent._next_var_index
-
+        for i, (utt, orig_agent) in enumerate(paired_turns):
             try:
                 result = await agent.process_turn(utt)
             except Exception as exc:
-                result = {"response": f"(error: {exc})", "program_text": "", "state": {}, "execution": None}
+                # 保留 tracker 已累积的状态和最近一轮执行结果，避免异常清空状态
+                result = {
+                    "response": f"(error: {exc})",
+                    "program_text": getattr(agent, "last_program_text", ""),
+                    "state": dict(agent.current_state),
+                    "execution": getattr(agent, "last_execution_result", None),
+                }
 
-            execution_result = result.get("execution")
-            ee_data = _serialize_execution(execution_result)
+            ee_data = _serialize_execution(result.get("execution"))
 
-            # 从 agent 上读取本轮各步完整输入消息（build 后即存入 last_* 属性）
-            ap_messages = list(agent.last_ap_messages)
-            dm_messages = list(agent.last_dm_messages)
+            # state_delta：本轮 EE 新计算的变量（直接来自执行引擎输出，已排除先前轮次变量）
+            state_delta: Dict[str, Any] = dict(ee_data.get("variables", {}))
+            # cumulative_state：tracker 跨轮累积的 API 结果（不含 say 输出）
+            new_state: Dict[str, Any] = result.get("state", {})
+
+            # Fix 5: capture AP and DM prompt messages for this turn
+            ap_messages = list(getattr(agent, "last_ap_messages", []))
+            dm_messages = list(getattr(agent, "last_dm_messages", []))
+
+            # Fix 3: annotate whether the AP result is valid
+            program = result.get("program_text", "")
+            ap_valid = bool(program and program.strip() and
+                            not program.startswith("⚠️") and
+                            not ee_data.get("errors"))
 
             turn_record = {
                 "turn": i + 1,
                 "user": utt,
-                # ── Step 1 AP ──────────────────────────────────────────────
-                "ap_input": {
-                    "method": "AdkLLMClient.chat_async(ap_messages)",
-                    "prior_dataflow": prior_dataflow_snapshot,
-                    "next_var_index": next_var_index_before,
-                    "messages": ap_messages,        # system + user 完整消息
-                },
-                "ap_output": result.get("program_text", ""),
-                # ── Step 2 EE ──────────────────────────────────────────────
-                "ee_input": {
-                    "method": "ExecutionEngine.execute_program(program_text)",
-                    "program_text": result.get("program_text", ""),
-                },
-                "ee_output": ee_data,               # 含 success/errors/variable_values/say_output/hints
-                # ── Step 3 DM ──────────────────────────────────────────────
-                "dm_input": {
-                    "method": "AdkLLMClient.chat_async(dm_messages)",
-                    "messages": dm_messages,        # system + user 完整消息
-                },
-                "dm_output": result.get("response", ""),
-                # ── 摘要 ──────────────────────────────────────────────────
-                "cumulative_state": result.get("state", {}),
-                "step_timings": dict(agent.step_timings),
+                "original_agent": orig_agent,
+                "program": program,
+                "ap_valid": ap_valid,
+                "ee": ee_data,
+                "response": result.get("response", ""),
+                "state_delta": state_delta,    # 本轮新增变量（来自 EE 执行结果）
+                "cumulative_state": new_state, # 跨轮累积状态（tracker current_state）
+                "timings": dict(agent.step_timings),
+                "ap_messages": ap_messages,    # Fix 5: AP prompt
+                "dm_messages": dm_messages,    # Fix 5: DM prompt
             }
             turns_results.append(turn_record)
 
             if verbose:
                 print(f"[Turn {i+1}] user: {utt[:80]}")
-                print(f"  [AP] program: {result.get('program_text', '')[:120]}")
+                print(f"  [AP] {'✅' if ap_valid else '⚠️ invalid'} program: {program[:120]}")
                 ee_ok = "✅" if ee_data.get("success") else ("❌" if ee_data.get("success") is False else "N/A")
-                print(f"  [EE] {ee_ok} say={ee_data.get('say_output','')[:60]!r}")
+                print(f"  [EE] {ee_ok} say={ee_data.get('say','')[:60]!r}")
                 print(f"  [DM] response: {result.get('response', '')[:100]}")
     else:
-        for i, utt in enumerate(user_turns):
+        for i, (utt, orig_agent) in enumerate(paired_turns):
             turns_results.append({
                 "turn": i + 1,
                 "user": utt,
-                "ap_input": {"method": "N/A (LLM 未配置)", "prior_dataflow": {}, "next_var_index": 1, "messages": []},
-                "ap_output": "⚠️ LLM 未配置",
-                "ee_input": {"method": "N/A", "program_text": ""},
-                "ee_output": {"success": None, "errors": [], "variable_values": {}, "say_output": "", "hint_messages": []},
-                "dm_input": {"method": "N/A (LLM 未配置)", "messages": []},
-                "dm_output": "⚠️ LLM 未配置",
+                "original_agent": orig_agent,
+                "program": "⚠️ LLM 未配置",
+                "ap_valid": False,
+                "ee": {"success": None, "errors": [], "variables": {}, "say": "", "hints": []},
+                "response": "⚠️ LLM 未配置",
+                "state_delta": {},
                 "cumulative_state": {},
-                "step_timings": {},
+                "timings": {},
+                "ap_messages": [],
+                "dm_messages": [],
             })
 
     return {
@@ -228,173 +256,194 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             "timestamp": datetime.now().isoformat(),
             "algorithm": "PyTOD AP→EE→DM (官方三步流水线)",
             "llm_available": llm_available,
-            "scenario": "客服对话",
+            "scenario": "安逸花外呼",
             "registered_apis": _probe_engine.list_functions(),
         },
         "session_id": session.get("session_id", ""),
         "用户信息": session.get("用户信息", ""),
         "actual_response": session.get("坐席回复", ""),
-        "scenario_context": scenario_context,
         "turns": turns_results,
     }
 
 
-def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为详细 Markdown 报告，逐步展开每阶段的输入/输出。"""
-    meta = trace["metadata"]
-    lines = [
-        "# PyTOD 全链路追踪报告",
-        "",
-        f"**时间**: {meta['timestamp']}",
-        f"**算法**: {meta['algorithm']}",
-        f"**场景**: {meta.get('scenario', 'N/A')}",
-        f"**会话 ID**: {trace.get('session_id', 'N/A')}",
-        f"**LLM 可用**: {'✅' if meta['llm_available'] else '❌ 未配置'}",
-        "",
-        "## 用户信息",
-        "",
-        trace.get("用户信息", "（无）"),
-        "",
-        "## 注册 API",
-        "",
-        "| # | 函数名 |",
-        "|---|--------|",
-    ]
-    for i, fn in enumerate(meta.get("registered_apis", []), 1):
-        lines.append(f"| {i} | `{fn}` |")
-    lines += ["", "## 场景 Context（注入所有 AP Prompt）", "", "```", trace.get("scenario_context", ""), "```", ""]
+def _format_messages_collapsible(messages: List[Dict[str, str]], label: str) -> List[str]:
+    """将 LLM 消息列表渲染为可折叠的 <details> HTML 块。
 
-    lines += ["---", "", "## 逐轮追踪", ""]
+    Fix 5: 使用 HTML <details>/<summary> 实现可折叠 LLM prompt 展示。
+    """
+    if not messages:
+        return []
+    lines = [
+        f"<details>",
+        f"<summary>📋 {label}（点击展开）</summary>",
+        "",
+    ]
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        role_label = {"system": "**System**", "user": "**User**", "assistant": "**Assistant**"}.get(role, f"**{role}**")
+        lines += [
+            f"{role_label}:",
+            "",
+            "```",
+            content,
+            "```",
+            "",
+        ]
+    lines += ["</details>", ""]
+    return lines
+
+
+def _render_markdown(trace: Dict[str, Any]) -> str:
+    """将 trace 字典渲染为 Markdown 报告。
+
+    每轮展示：
+    - 原始对话（坐席先说，用户后说）  Fix 2
+    - ① AP 程序（标注是否有效）       Fix 3
+    - ② EE 执行结果
+    - ③ DM 生成回复
+    - 回复对比（原始 vs DM）
+    - 本轮新增状态（delta，不重复显示）Fix 4
+    - AP / DM prompt（可折叠）        Fix 5
+    """
+    meta = trace["metadata"]
+    llm_ok = meta["llm_available"]
+    lines = [
+        "# PyTOD 追踪报告",
+        "",
+        f"| 字段 | 值 |",
+        f"|---|---|",
+        f"| 时间 | {meta['timestamp']} |",
+        f"| 算法 | {meta['algorithm']} |",
+        f"| 场景 | {meta.get('scenario', 'N/A')} |",
+        f"| 会话 ID | `{trace.get('session_id', 'N/A')}` |",
+        f"| LLM | {'✅ 可用' if llm_ok else '❌ 未配置'} |",
+        "",
+    ]
+
+    user_info = trace.get("用户信息")
+    if user_info:
+        lines += [f"**用户信息**: {user_info}", ""]
+
+    apis = meta.get("registered_apis", [])
+    if apis:
+        lines += [f"**注册 API**: {', '.join(f'`{fn}`' for fn in apis)}", ""]
+
+    lines += ["---", ""]
 
     for t in trace.get("turns", []):
+        timings = t.get("timings") or {}
+        timing_str = ""
+        if timings:
+            timing_str = "  *(" + " / ".join(f"{k}: {v}s" for k, v in timings.items()) + ")*"
+
         lines += [
-            f"---",
-            f"### Turn {t['turn']}",
-            "",
-            f"**用户话语**:",
-            f"> {t['user']}",
+            f"### Turn {t['turn']}{timing_str}",
             "",
         ]
 
-        # ── Step 1 AP ──────────────────────────────────────────────────────
-        ai = t.get("ap_input", {})
-        lines += [
-            "#### Step 1 — Action Parser (AP)",
-            "",
-            f"**执行方式**: `{ai.get('method', '')}`",
-            "",
-            f"**输入 — 已计算变量 (prior_dataflow)**:",
-            "```json",
-            json.dumps(ai.get("prior_dataflow", {}), ensure_ascii=False, indent=2),
-            "```",
-            "",
-            f"**输入 — 下一变量编号**: `x{ai.get('next_var_index', 1)}`",
-            "",
-            "**输入 — AP LLM Messages**:",
-        ]
-        for msg in ai.get("messages", []):
-            role_label = "system" if msg.get("role") == "system" else "user"
-            lines += [
-                f"<details><summary>📨 [{role_label}]</summary>",
-                "",
-                "```",
-                msg.get("content", ""),
-                "```",
-                "",
-                "</details>",
-                "",
-            ]
-
-        lines += [
-            "**输出 — PyTOD 程序 (program_text)**:",
-            "```",
-            t.get("ap_output", "(空)") or "(空)",
-            "```",
-            "",
-        ]
-
-        # ── Step 2 EE ──────────────────────────────────────────────────────
-        ei = t.get("ee_input", {})
-        eo = t.get("ee_output", {})
-        ee_ok = eo.get("success")
-        ee_status = "✅ 成功" if ee_ok else ("❌ 失败" if ee_ok is False else "N/A")
-        lines += [
-            "#### Step 2 — Execution Engine (EE)",
-            "",
-            f"**执行方式**: `{ei.get('method', '')}`",
-            "",
-            "**输入 — program_text** (同 AP 输出，见上)",
-            "",
-            f"**输出 — 执行状态**: {ee_status}",
-        ]
-        if eo.get("errors"):
-            lines.append(f"**输出 — 错误**: {'; '.join(eo['errors'])}")
-        if eo.get("say_output"):
-            lines.append(f"**输出 — say() 内容**: `{eo['say_output']}`")
-        if eo.get("hint_messages"):
-            lines.append(f"**输出 — Hint 提示**: {', '.join(eo['hint_messages'])}")
-        if eo.get("variable_values"):
-            lines += [
-                "",
-                "**输出 — 变量绑定 (variable_values)**:",
-                "```json",
-                json.dumps(eo["variable_values"], ensure_ascii=False, indent=2),
-                "```",
-            ]
+        # Fix 2: 原始对话 — 机器人先说，用户后说
+        orig_agent = t.get("original_agent", "")
+        lines += ["**原始对话**:", ""]
+        if orig_agent:
+            lines.append(f"{_AGENT_ICON} **机器人**: {orig_agent}")
+            lines.append("")
+        lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
 
-        # ── Step 3 DM ──────────────────────────────────────────────────────
-        di = t.get("dm_input", {})
+        # Fix 3: ① AP 程序（标注有效性）
+        program = t.get("program") or ""
+        ap_valid = t.get("ap_valid", True)
+        ap_label = "**① AP 程序**" if ap_valid else "**① AP 程序** ⚠️ *（无效 / NONE）*"
         lines += [
-            "#### Step 3 — Dialogue Manager (DM)",
+            ap_label + ":",
+            "```",
+            program or "(空)",
+            "```",
             "",
-            f"**执行方式**: `{di.get('method', '')}`",
-            "",
-            "**输入 — DM LLM Messages**:",
         ]
-        for msg in di.get("messages", []):
-            role_label = "system" if msg.get("role") == "system" else "user"
+
+        # ② EE
+        ee = t.get("ee", {})
+        ee_ok = ee.get("success")
+        ee_status = "✅ 成功" if ee_ok else ("❌ 失败" if ee_ok is False else "–")
+        ee_parts = [f"**② EE**: {ee_status}"]
+        if ee.get("errors"):
+            ee_parts.append(f"· 错误: {'; '.join(ee['errors'])}")
+        if ee.get("say"):
+            ee_parts.append(f"· say: `{ee['say']}`")
+        lines.append("  ".join(ee_parts))
+        if ee.get("variables"):
             lines += [
-                f"<details><summary>📨 [{role_label}]</summary>",
-                "",
+                "```json",
+                json.dumps(ee["variables"], ensure_ascii=False, indent=2),
                 "```",
-                msg.get("content", ""),
-                "```",
+            ]
+        if ee.get("hints"):
+            lines.append(f"hints: {', '.join(ee['hints'])}")
+        lines.append("")
+
+        # ③ DM 生成回复
+        new_response = t.get("response") or "(空)"
+        lines += [
+            "**③ DM 生成回复**:",
+            f"> {new_response}",
+            "",
+        ]
+
+        # 回复对比
+        if orig_agent:
+            lines += [
+                "**回复对比**:",
                 "",
-                "</details>",
+                "| | 回复 |",
+                "|---|---|",
+                f"| {_AGENT_ICON} 原始机器人 | {orig_agent} |",
+                f"| {_AGENT_ICON} DM 生成 | {new_response} |",
                 "",
             ]
 
-        lines += [
-            "**输出 — 坐席回复**:",
-            f"> {t.get('dm_output', '(空)')}",
-            "",
-        ]
+        # 本轮新增状态（来自 EE 执行结果，含 API 返回值与 say 输出）
+        state_delta = t.get("state_delta", {})
+        if state_delta:
+            lines += [
+                "**本轮新增状态**:",
+                "```json",
+                json.dumps(state_delta, ensure_ascii=False, indent=2),
+                "```",
+                "",
+            ]
 
-        # ── 耗时 & 累积状态 ──────────────────────────────────────────────
-        timings = t.get("step_timings") or {}
-        if timings:
-            timing_parts = [f"{k}: **{v}s**" for k, v in timings.items()]
-            lines += [f"**耗时**: {' | '.join(timing_parts)}", ""]
-
+        # 累积状态（tracker 跨轮积累的 API 结果，全量，可折叠）
         cumstate = t.get("cumulative_state", {})
         if cumstate:
             lines += [
-                "**累积状态 (本轮结束后)**:",
+                "<details>",
+                "<summary>📊 累积状态（点击展开）</summary>",
+                "",
                 "```json",
                 json.dumps(cumstate, ensure_ascii=False, indent=2),
                 "```",
                 "",
+                "</details>",
+                "",
             ]
 
-    lines += [
-        "---",
-        "",
-        "## 实际坐席回复（参考）",
-        "",
-        f"> {trace.get('actual_response', '（无）')}",
-        "",
-    ]
+        # Fix 5: AP / DM prompt（可折叠）
+        ap_messages = t.get("ap_messages") or []
+        dm_messages = t.get("dm_messages") or []
+        lines += _format_messages_collapsible(ap_messages, "AP Prompt（动作解析器输入）")
+        lines += _format_messages_collapsible(dm_messages, "DM Prompt（对话管理器输入）")
+
+    actual = trace.get("actual_response")
+    if actual:
+        lines += [
+            "---",
+            "",
+            "**参考坐席回复**:",
+            f"> {actual}",
+            "",
+        ]
     return "\n".join(lines)
 
 
@@ -406,8 +455,12 @@ def main() -> None:
                         help="Markdown 输出路径（默认 output/pytod_trace_output.md）")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
+        "--compact-schema", dest="compact_schema", action="store_true",
+        help="省略 AP prompt 中的详细业务意图说明（减少 token 用量；适合 token 敏感部署）",
+    )
+    parser.add_argument(
         "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 格式）；若提供则替换预定义场景 ServiceSchema",
+        help="schema.json 路径（SGD 格式）；若不提供则默认使用 data/anyihua_schema.json",
     )
     args = parser.parse_args()
 
@@ -415,19 +468,24 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
+    # Fix 1: 默认加载 anyihua_schema.json
     external_schema: Optional[ServiceSchema] = None
-    if args.schema:
-        schema_path = Path(args.schema)
-        if not schema_path.exists():
-            print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
-            sys.exit(1)
+    schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
+    if schema_path.exists():
         external_schema = _load_service_schema_from_file(schema_path)
-        print(f"✓ 已加载外部 Schema: {schema_path} (service={external_schema.service_name})")
+        print(f"✓ 已加载 Schema: {schema_path} (service={external_schema.service_name})")
+    elif args.schema:
+        print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print(f"⚠️  默认 Schema 文件不存在: {schema_path}，将使用内置场景 Schema", file=sys.stderr)
 
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
-    trace = asyncio.run(run_trace(session, verbose=args.verbose, external_schema=external_schema))
+    trace = asyncio.run(run_trace(session, verbose=args.verbose,
+                                   external_schema=external_schema,
+                                   compact_schema=args.compact_schema))
 
     # 输出路径
     if args.output:
@@ -441,7 +499,7 @@ def main() -> None:
     md_path.write_text(md, encoding="utf-8")
     print(f"✓ Markdown 报告已写入: {md_path}")
 
-    # 同时写 JSON（完整结构化数据，便于后续分析）
+    # 同时写 JSON（结构化数据，便于后续分析）
     json_path = md_path.with_suffix(".json")
     json_path.write_text(json.dumps(trace, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"✓ JSON 数据已写入:     {json_path}")

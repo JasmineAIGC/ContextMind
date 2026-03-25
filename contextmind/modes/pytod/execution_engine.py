@@ -8,10 +8,14 @@ PyTOD 执行引擎（Execution Engine）
 from __future__ import annotations
 
 import ast
+import difflib
 import inspect
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -245,6 +249,13 @@ class ExecutionEngine:
     #: 执行结果转换为文本时的最大字符数（超出部分截断）
     MAX_RESULT_LENGTH: int = 2000
 
+    #: 函数名模糊匹配的相似度阈值（取值范围 0.0~1.0）。
+    #: 当 AP 生成的函数名未注册时，自动寻找相似度 ≥ 此值的最近注册名并发出 WARNING。
+    #: - 0.0：匹配任意函数名（不推荐，容易误匹配）
+    #: - 0.6（默认）：容忍前缀相同或词序有差异的近义名（如 ``confirm_identity`` → ``verify_identity``）
+    #: - 1.0：禁用模糊匹配，仅允许精确匹配
+    FUZZY_MATCH_CUTOFF: float = 0.6
+
     # 用于解析 PyTOD 程序语句各行的正则
     _RE_VAR_CALL = re.compile(r"^(x\d+)\s+([A-Za-z_]\w*)\s*\(")
     _RE_SLOT_ASSIGN = re.compile(r"^(x\d+)\.([A-Za-z_]\w*)\s*=\s*(.+)$")
@@ -338,9 +349,14 @@ class ExecutionEngine:
         except (ValueError, TypeError):
             return f"{name}(...)"
 
-    def to_prompt_text(self) -> str:
+    def to_prompt_text(self, compact: bool = False) -> str:
         """
         将所有已注册函数的签名列表生成为适合注入 prompt 的文本块。
+
+        参数:
+            compact: 为 True 时只输出函数名（不含参数列表），大幅缩短 prompt 长度。
+                     适合在函数数量多（如 20+ 个，每个有 30+ 参数）时使用。
+                     AP 使用槽位赋值语法（``x1.slot = 'value'``）时不依赖参数列表。
 
         返回:
             格式化的可用 API 函数说明，例如：
@@ -348,13 +364,22 @@ class ExecutionEngine:
             ### 可用 API 函数
               - restaurants_1_find(cuisine=None, location=None, price_range=None)
               - restaurants_1_reserve(name, date_time, party_size, ...)
+
+            compact=True 时：
+
+            ### 可用 API 函数
+              - restaurants_1_find
+              - restaurants_1_reserve
         """
         if not self.registry:
             return "### 可用 API 函数\n  (无已注册函数)"
         lines = ["### 可用 API 函数"]
         for name in sorted(self.registry):
-            sig = self.get_function_signature(name) or f"{name}(...)"
-            lines.append(f"  - {sig}")
+            if compact:
+                lines.append(f"  - {name}")
+            else:
+                sig = self.get_function_signature(name) or f"{name}(...)"
+                lines.append(f"  - {sig}")
         return "\n".join(lines)
 
     # ------------------------------------------------------------------ #
@@ -757,14 +782,35 @@ class ExecutionEngine:
         LLM 生成的程序可能包含函数签名中不存在的关键字参数；
         调用前先过滤掉未知参数，使演示 API 更健壮。
 
+        当函数名未精确匹配时，自动尝试模糊匹配（difflib 相似度 ≥ 0.6），
+        以容忍 AP 的轻微幻觉（如 ``confirm_identity`` → ``verify_identity``）。
+
         返回:
             - 函数返回值（成功时）
             - Exception 实例（执行异常时）
-            - None（函数未注册时）
+            - None（函数未注册且无近似匹配时）
         """
         func = self.registry.get(func_name)
         if func is None:
-            return None
+            # 尝试模糊匹配：找出最相近的已注册函数名。
+            # n=3 以便在 DEBUG 日志中记录所有近似候选，便于排查模糊情况；
+            # 实际使用第一个（相似度最高的）候选。
+            candidates = difflib.get_close_matches(
+                func_name, self.registry.keys(), n=3, cutoff=self.FUZZY_MATCH_CUTOFF
+            )
+            if candidates:
+                matched = candidates[0]
+                _logger.warning(
+                    f"[EE] 函数名模糊匹配：'{func_name}' 未注册 → 自动使用 '{matched}'"
+                )
+                if len(candidates) > 1:
+                    _logger.debug(
+                        f"[EE] 其他候选（相似度≥{self.FUZZY_MATCH_CUTOFF}）: {candidates[1:]}"
+                    )
+                func = self.registry[matched]
+                func_name = matched
+            else:
+                return None
         try:
             # 过滤函数不接受的 kwargs，优雅处理 LLM 传入
             # 多余或意外参数的情况。

@@ -209,6 +209,7 @@ class AdkPyTODTracker:
         schema: Optional[ServiceSchema] = None,
         scenario_context: str = "",
         max_history_turns: int = 10,
+        compact_schema: bool = False,
     ) -> None:
         self.llm_client = llm_client
         self.engine = engine
@@ -216,8 +217,10 @@ class AdkPyTODTracker:
         self.scenario_context = scenario_context
         self.prompt_builder = PyTODPromptBuilder(
             schema=self.schema,
-            api_signatures=engine.to_prompt_text(),   # 实际函数签名，AP 选函数时的权威来源
+            # compact_schema=True → 仅传入函数名（无参数列表），大幅减少系统指令体积
+            api_signatures=engine.to_prompt_text(compact=compact_schema),
             max_history_turns=max_history_turns,
+            compact_schema=compact_schema,
         )
         self._history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}
@@ -243,11 +246,12 @@ class AdkPyTODTracker:
             adk_model = create_local_adk_model(
                 getattr(llm_client, "_config", None)
             )
-            # AP Agent：静态系统指令 = AP 语法规则 + API 函数签名
+            # AP Agent：静态系统指令 = AP 语法规则 + 函数签名（不含意图描述）
+            # 意图描述已移至每轮用户消息动态注入，系统指令保持轻量以利 KV-cache 复用。
             ap_instruction = (
                 self.prompt_builder._AP_SYSTEM
                 + "\n\n"
-                + self.prompt_builder._build_api_context()
+                + self.prompt_builder._build_api_signatures()
             )
             if scenario_context:
                 ap_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
@@ -388,12 +392,17 @@ class AdkPyTODTracker:
             # ADK 路径：AP LlmAgent 通过 InMemoryRunner 生成程序文本
             # ADK session 积累 (用户输入 → 程序) 历史，AP 自然感知变量上下文
             # ---------------------------------------------------------- #
-            # 构建 AP 的用户消息：仅包含动态部分（history + 当前话语 + 约束）
-            # 静态指令（AP语法规则 + API签名）已在 LlmAgent.instruction 中
+            # 构建 AP 的用户消息：动态部分（history + 意图描述 + 当前话语 + 约束）
+            # 静态指令（AP语法规则 + API签名）已在 LlmAgent.instruction 中；
+            # 意图描述在此动态注入，未来可按对话状态筛选相关意图（动态加载）。
             ap_user_parts = []
             if self._history:
                 history_str = self.prompt_builder._format_history(self._history)
                 ap_user_parts.append(f"## 对话历史\n{history_str}")
+            # 意图描述：每轮动态注入（compact_schema=True 时为空）
+            intent_ctx = self.prompt_builder._build_intent_context()
+            if intent_ctx:
+                ap_user_parts.append(intent_ctx)
             if prior_dataflow:
                 import json as _json
                 ap_user_parts.append(f"## 先前已计算的变量（可通过 xN.field 引用）\n{_json.dumps(prior_dataflow, ensure_ascii=False, indent=2)}")

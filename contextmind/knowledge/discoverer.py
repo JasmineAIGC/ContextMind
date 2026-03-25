@@ -26,7 +26,7 @@
         llm_client=AdkLLMClient(),
         scene_name="银行贷款外呼",
     )
-    items = discoverer.extract({"对话历史": ["坐席：你好", "用户：你好"]})
+    items = discoverer.extract({"对话历史": [{"机器人": "你好", "用户": "你好"}]})
     for item in items:
         print(f"[{item.extraction_class}] {item.label}: {item.value}")
         if item.provenance:
@@ -301,7 +301,7 @@ _DISCOVERY_SYSTEM = """\
 注意：
 - 坐席（机器人）话语中包含大量业务数据（金额、利率、额度等），请务必提取
 - 用户话语中包含其意图和提供的个人信息，也要提取
-- 对话中 "坐席：" 前缀的轮次是机器人，"用户：" 前缀的轮次是客户
+- 对话中 "机器人：" 前缀的轮次是机器人，"用户：" 前缀的轮次是客户
 - 尽可能完整，不遗漏任何业务相关的槽位、意图和事实
 
 ## 输出格式（严格 JSON 数组，只输出 JSON）
@@ -457,41 +457,61 @@ def _build_provenance(
 def _parse_turns(normalized_dlg: Dict[str, Any]) -> List[Tuple[int, str, str]]:
     """将归一化对话 dict 拆解为逐轮列表。
 
+    支持新版配对 dict 格式（``{"机器人": "...", "用户": "..."}``）
+    和旧版平铺字符串格式（``"机器人：..."`` / ``"用户：..."``）。
+
     返回:
         ``[(turn_idx, speaker, utterance), ...]``，``turn_idx`` 从 0 开始。
     """
     history = normalized_dlg.get("对话历史", [])
     turns: List[Tuple[int, str, str]] = []
-    for idx, line in enumerate(history):
-        line = str(line).strip()
-        if not line:
-            continue
-        if line.startswith("坐席：") or line.startswith("坐席:"):
-            speaker = "坐席"
-            utterance = re.sub(r"^坐席[：:]\s*", "", line)
-        elif line.startswith("用户：") or line.startswith("用户:"):
-            speaker = "用户"
-            utterance = re.sub(r"^用户[：:]\s*", "", line)
-        else:
-            # 英文前缀兜底
-            m = re.match(
-                r"^(agent|system|assistant)\s*[：:]\s*(.+)$", line, re.IGNORECASE
-            )
-            if m:
-                speaker = "坐席"
-                utterance = m.group(2)
+    utterance_idx = 0  # sequential utterance index across all entries
+    for entry in history:
+        if isinstance(entry, dict):
+            # 新版配对格式：每个 dict 包含 "机器人" 和/或 "用户" 发言
+            agent_utt = entry.get("机器人", "").strip()
+            user_utt = entry.get("用户", "").strip()
+            if agent_utt:
+                turns.append((utterance_idx, "机器人", agent_utt))
+                utterance_idx += 1
+            if user_utt:
+                turns.append((utterance_idx, "用户", user_utt))
+                utterance_idx += 1
+        elif isinstance(entry, str):
+            # 旧版平铺字符串格式（向后兼容）
+            line = entry.strip()
+            if not line:
+                continue
+            if line.startswith("机器人：") or line.startswith("机器人:"):
+                speaker = "机器人"
+                utterance = re.sub(r"^机器人[：:]\s*", "", line)
+            elif line.startswith("坐席：") or line.startswith("坐席:"):
+                speaker = "机器人"
+                utterance = re.sub(r"^坐席[：:]\s*", "", line)
+            elif line.startswith("用户：") or line.startswith("用户:"):
+                speaker = "用户"
+                utterance = re.sub(r"^用户[：:]\s*", "", line)
             else:
-                m2 = re.match(
-                    r"^(user|human|customer)\s*[：:]\s*(.+)$", line, re.IGNORECASE
+                # 英文前缀兜底
+                m = re.match(
+                    r"^(agent|system|assistant)\s*[：:]\s*(.+)$", line, re.IGNORECASE
                 )
-                if m2:
-                    speaker = "用户"
-                    utterance = m2.group(2)
+                if m:
+                    speaker = "机器人"
+                    utterance = m.group(2)
                 else:
-                    speaker = "未知"
-                    utterance = line
-        if utterance.strip():
-            turns.append((idx, speaker, utterance))
+                    m2 = re.match(
+                        r"^(user|human|customer)\s*[：:]\s*(.+)$", line, re.IGNORECASE
+                    )
+                    if m2:
+                        speaker = "用户"
+                        utterance = m2.group(2)
+                    else:
+                        speaker = "未知"
+                        utterance = line
+            if utterance.strip():
+                turns.append((utterance_idx, speaker, utterance))
+                utterance_idx += 1
     return turns
 
 

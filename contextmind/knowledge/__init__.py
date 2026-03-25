@@ -34,7 +34,7 @@ ContextMind 通用知识库构建模块（contextmind.knowledge）
 
     1. chat_test 格式（dict，含 ``对话历史`` 字段）::
 
-           {"session_id": "xxx", "对话历史": ["坐席：你好", "用户：你好"]}
+           {"session_id": "xxx", "对话历史": [{"机器人": "你好", "用户": "你好"}]}
 
     2. SGD 格式（dict，含 ``turns`` 字段）::
 
@@ -46,7 +46,7 @@ ContextMind 通用知识库构建模块（contextmind.knowledge）
 
     4. 平铺文本格式（单条 str，各轮以换行分隔，每行含说话人前缀）::
 
-           "坐席：你好\\n用户：你好"
+           "机器人：你好\\n用户：你好"
 
 .. note::
 
