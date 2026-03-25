@@ -28,14 +28,10 @@ from contextmind.modes.evolve.pipeline.steps import ContextCompressor
 from contextmind.modes.evolve.pipeline.steps import ContextReorderer
 from contextmind.modes.evolve.pipeline.summarizer import ConversationSummarizer
 
-logger = get_logger(__name__)
+from google.adk.sessions import InMemorySessionService  # type: ignore[import]
+from google.adk.memory import InMemoryMemoryService  # type: ignore[import]
 
-try:
-    from google.adk.sessions import InMemorySessionService  # type: ignore[import]
-    from google.adk.memory import InMemoryMemoryService  # type: ignore[import]
-    _ADK_AVAILABLE = True
-except ImportError:
-    _ADK_AVAILABLE = False
+logger = get_logger(__name__)
 
 
 class EvolveEngine:
@@ -86,18 +82,12 @@ class EvolveEngine:
         # 自动创建 ADK InMemorySessionService / InMemoryMemoryService，
         # 使框架原生利用 ADK 的会话和记忆基础设施。
         # ------------------------------------------------------------------ #
-        if _ADK_AVAILABLE:
-            if session_service is None:
-                session_service = InMemorySessionService()
-                logger.info("[EvolveEngine] ✅ ADK InMemorySessionService 已自动创建")
-            if memory_service is None:
-                memory_service = InMemoryMemoryService()
-                logger.info("[EvolveEngine] ✅ ADK InMemoryMemoryService 已自动创建")
-        else:
-            logger.warning(
-                "[EvolveEngine] google-adk 未安装，会话/记忆功能使用内置实现。"
-                "安装方法: pip install google-adk"
-            )
+        if session_service is None:
+            session_service = InMemorySessionService()
+            logger.info("[EvolveEngine] ✅ ADK InMemorySessionService 已自动创建")
+        if memory_service is None:
+            memory_service = InMemoryMemoryService()
+            logger.info("[EvolveEngine] ✅ ADK InMemoryMemoryService 已自动创建")
 
         # 保存 ADK 服务引用，供 handle_response() 在每轮后持久化会话到记忆服务
         self._adk_session_service = session_service
@@ -340,8 +330,8 @@ class EvolveEngine:
         return result
 
     async def _persist_session_to_memory(self) -> None:
-        """将当前 ADK 会话持久化到 InMemoryMemoryService（仅当两者均可用时执行）。"""
-        if not (_ADK_AVAILABLE and self._adk_memory_service is not None):
+        """将当前 ADK 会话持久化到 InMemoryMemoryService（仅当 memory service 可用时执行）。"""
+        if self._adk_memory_service is None:
             return
         session_id = self.session_manager._session_id
         if session_id is None:

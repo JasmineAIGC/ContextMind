@@ -6,7 +6,6 @@
 - ADK 原生 Session 管理（历史由 InMemoryRunner 自动维护）
 - 动态槽位提取
 - 多意图追踪
-- 无 ADK 时自动降级为直接 chat_async 调用
 """
 
 import time
@@ -19,15 +18,11 @@ from .parser import DSTResponseParser
 from contextmind.infra.logger import get_logger
 from contextmind.infra.llm_client import create_local_adk_model
 
-logger = get_logger(__name__)
+from google.adk.agents import LlmAgent  # type: ignore[import]
+from google.adk.runners import InMemoryRunner  # type: ignore[import]
+from google.genai import types as genai_types  # type: ignore[import]
 
-try:
-    from google.adk.agents import LlmAgent  # type: ignore[import]
-    from google.adk.runners import InMemoryRunner  # type: ignore[import]
-    from google.genai import types as genai_types  # type: ignore[import]
-    _ADK_AVAILABLE = True
-except ImportError:
-    _ADK_AVAILABLE = False
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -135,24 +130,20 @@ class DialogueStateTracker:
         # ------------------------------------------------------------------ #
         self._adk_runner: Optional[Any] = None
         self._adk_session_id: Optional[str] = None
-        if _ADK_AVAILABLE and llm_client is not None:
-            try:
-                adk_model = create_local_adk_model(
-                    getattr(llm_client, "_config", None)
-                )
-                adk_agent = LlmAgent(
-                    name="dst_agent",
-                    model=adk_model,
-                    instruction=self.prompt_manager.get_system_instruction(),
-                )
-                self._adk_runner = InMemoryRunner(
-                    agent=adk_agent,
-                    app_name="contextmind_dst",
-                )
-                logger.info("[DST] ADK LlmAgent + InMemoryRunner 已初始化，使用 ADK 原生会话管理")
-            except Exception as exc:
-                logger.warning(f"[DST] ADK 初始化失败，降级为 chat_async 模式: {exc}")
-                self._adk_runner = None
+        if llm_client is not None:
+            adk_model = create_local_adk_model(
+                getattr(llm_client, "_config", None)
+            )
+            adk_agent = LlmAgent(
+                name="dst_agent",
+                model=adk_model,
+                instruction=self.prompt_manager.get_system_instruction(),
+            )
+            self._adk_runner = InMemoryRunner(
+                agent=adk_agent,
+                app_name="contextmind_dst",
+            )
+            logger.info("[DST] ADK LlmAgent + InMemoryRunner 已初始化，使用 ADK 原生会话管理")
     
     @classmethod
     def from_scenario(cls, 
@@ -252,9 +243,9 @@ class DialogueStateTracker:
         return raw_response.strip()
 
     async def _fallback_chat_async(self, prompt: str) -> str:
-        """当 ADK 运行失败时，降级为直接 chat_async 调用。"""
+        """直接通过 chat_async 调用 LLM（当 ADK runner 未初始化时使用）。"""
         if self.llm_client is None:
-            return "{}"
+            raise RuntimeError("[DST] llm_client 未提供，无法发起 LLM 调用")
         return await self.llm_client.chat_async(
             messages=self.messages,
             temperature=0.0,
@@ -316,38 +307,12 @@ class DialogueStateTracker:
             # - ADK 的 InMemorySessionService 自动维护多轮会话历史
             # - 仅传入当前轮次的对话片段（无需手动构建完整消息列表）
             # ---------------------------------------------------------- #
-            try:
-                raw_response = await self._run_adk_turn(full_prompt)
-                logger.debug(f"[DST ADK] LLM 响应: {raw_response[:200]}")
-            except Exception as exc:
-                logger.error(f"[DST ADK] 运行失败，降级为 chat_async: {exc}")
-                raw_response = await self._fallback_chat_async(full_prompt)
+            raw_response = await self._run_adk_turn(full_prompt)
+            logger.debug(f"[DST ADK] LLM 响应: {raw_response[:200]}")
         elif self.llm_client:
-            # ---------------------------------------------------------- #
-            # 降级路径：直接使用 AdkLLMClient.chat_async() 发起调用
-            # ---------------------------------------------------------- #
-            try:
-                logger.debug("=" * 60)
-                logger.debug("发送给LLM的消息:")
-                for i, msg in enumerate(self.messages):
-                    logger.debug(f"  [{i}] {msg['role']}: {msg['content'][:200]}...")
-                logger.debug("=" * 60)
-                
-                raw_response = await self.llm_client.chat_async(
-                    messages=self.messages,
-                    temperature=0.0
-                )
-                
-                logger.debug("=" * 60)
-                logger.debug(f"LLM完整响应:\n{raw_response}")
-                logger.debug("=" * 60)
-                
-            except Exception as e:
-                logger.error(f"LLM调用失败: {e}")
-                raw_response = "{}"
+            raw_response = await self._fallback_chat_async(full_prompt)
         else:
-            logger.warning("未提供LLM客户端，使用空响应")
-            raw_response = "{}"
+            raise RuntimeError("[DST] 未提供 llm_client，无法发起 LLM 调用")
         self.step_timings['LLM槽位提取'] = time.time() - step_start
         
         step_start = time.time()
