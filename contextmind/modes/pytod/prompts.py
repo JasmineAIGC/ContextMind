@@ -153,21 +153,16 @@ class PyTODPromptBuilder:
             lines.append(f"{prefix}{turn.content}")
         return "\n".join(lines) if lines else "（无历史）"
 
-    def _build_api_context(self) -> str:
-        """构建 AP 所需的 API 上下文块。
+    def _build_api_signatures(self) -> str:
+        """构建函数签名部分（不含业务意图描述）。
 
-        按照官方 PyTOD 思路，分两层展示：
-        1. **实际可调用函数签名**（来自 engine，AP 必须使用这些名称）
-        2. **业务意图描述**（来自 schema，帮助 AP 理解每个函数的业务语义）
-           当 ``compact_schema=True`` 时跳过此层，可大幅减少 prompt token 数。
-           未来扩展方向：按对话状态动态筛选相关意图（动态加载）。
+        用于静态系统指令 — AP 选函数时的权威来源。
+        ``compact_schema=True`` 时 ``api_signatures`` 由 tracker 传入紧凑版（仅函数名），
+        因此此方法无需特殊处理，直接输出 ``api_signatures`` 即可。
 
-        当 ``api_signatures`` 为空时（未传入 engine），回退到仅展示 schema 意图，
-        并将意图名作为函数名（兼容旧用法，但准确性较低）。
+        当 ``api_signatures`` 为空（未传入 engine）时，回退到展示 schema 意图名称。
         """
         lines: List[str] = []
-
-        # 层 1：实际函数签名（AP 选函数时的唯一权威来源）
         if self._api_signatures:
             lines.append("## 可调用 API 函数（程序中的函数名必须与此处完全一致）")
             lines.append(self._api_signatures)
@@ -181,17 +176,37 @@ class PyTODPromptBuilder:
                         f"  - {intent.name}({', '.join(params)})"
                         f"  # {intent.description[:60]}"
                     )
-
-        # 层 2：业务意图描述（辅助 LLM 理解函数的业务场景）
-        # compact_schema=True 时跳过，减少 prompt 长度（适合 token 敏感的部署）
-        if self.schema.intents and not self.compact_schema:
-            lines.append(f"\n## 业务场景说明（服务：{self.schema.service_name}）")
-            lines.append(f"服务描述：{self.schema.description}")
-            lines.append("")
-            for intent in self.schema.intents:
-                lines.append(f"- **{intent.name}**：{intent.description}")
-
         return "\n".join(lines)
+
+    def _build_intent_context(self) -> str:
+        """构建业务意图描述部分，用于每轮动态注入用户消息。
+
+        将意图描述从静态系统消息移至动态用户消息，实现「动态加载」：
+        - 系统消息保持轻量（仅规则 + 函数名称），可被 ADK 高效缓存。
+        - 用户消息每轮包含完整意图描述，未来可按对话状态筛选相关意图。
+
+        ``compact_schema=True`` 时返回空字符串（省略意图描述，最小化 token）。
+        """
+        if not self.schema.intents or self.compact_schema:
+            return ""
+        lines = [f"## 业务场景说明（服务：{self.schema.service_name}）"]
+        lines.append(f"服务描述：{self.schema.description}")
+        lines.append("")
+        for intent in self.schema.intents:
+            lines.append(f"- **{intent.name}**：{intent.description}")
+        return "\n".join(lines)
+
+    def _build_api_context(self) -> str:
+        """构建完整 API 上下文块（函数签名 + 意图描述）。
+
+        保留此方法供向后兼容（非 ADK 回退路径的系统消息仍可使用）。
+        ADK 路径中：函数签名在系统消息，意图描述已移至用户消息（动态加载）。
+        """
+        sig = self._build_api_signatures()
+        intent = self._build_intent_context()
+        if sig and intent:
+            return sig + "\n\n" + intent
+        return sig or intent
 
     # ------------------------------------------------------------------ #
     # Action Parser 提示词
@@ -207,17 +222,23 @@ class PyTODPromptBuilder:
     ) -> List[Dict[str, str]]:
         """构建动作解析器（AP）的 LLM 消息列表。
 
-        AP 提示词结构（与官方 PyTOD 对齐）：
+        AP 提示词结构（优化版 — 静态/动态分离）：
+
+        **系统消息（静态，跨轮不变）**：
         1. 语法规则（AP system）
         2. 业务背景（可选）
-        3. 实际函数签名 + 业务意图描述
+        3. 函数签名（AP 必须使用的名称，``compact_schema=True`` 时仅函数名）
         4. 语言设置
-        5. 对话历史 + 已计算变量（官方 PyTOD 核心：跨轮 dataflow context）
-           + 当前用户话语（user turn）
 
-        官方 PyTOD 关键设计：AP 能看到本对话中所有已通过 API 获取的变量绑定，
-        从而：① 可以用 ``x1.field`` 引用先前变量的字段；
-              ② 避免对已有数据重复发起查询 API 调用。
+        **用户消息（动态，每轮更新）**：
+        5. 对话历史
+        6. 业务意图描述（从系统消息移至此处 — 动态加载；``compact_schema=True`` 时省略）
+        7. 已计算变量（官方 PyTOD dataflow context）
+        8. 当前用户话语
+
+        分离设计的优势：
+        - 系统消息更短，有利于 LLM 缓存（KV-cache）复用。
+        - 意图描述位于用户消息，天然支持按对话状态动态筛选（未来扩展点）。
 
         Args:
             history:          当前对话历史（不含本轮用户话语）。
@@ -230,27 +251,30 @@ class PyTODPromptBuilder:
         Returns:
             可直接传给 ``llm_client.chat_async(messages=...)`` 的消息列表。
         """
+        # ── 系统消息：静态规则 + 函数签名（轻量，有助于 KV-cache 复用）──────────
         system_parts = [self._AP_SYSTEM]
         if scenario_context:
             system_parts.append(f"## 业务背景\n{scenario_context}")
-        system_parts.append(self._build_api_context())
+        system_parts.append(self._build_api_signatures())   # 仅签名，不含意图描述
         if self.response_language != "英文":
             system_parts.append(
                 f"\n注意：Hint 内容和 say() 字符串字面量请使用{self.response_language}。"
             )
         system_msg = "\n\n".join(system_parts)
 
+        # ── 用户消息：每轮动态内容 ──────────────────────────────────────────
         history_text = self._format_history(history)
-
-        # 已计算变量（官方 PyTOD dataflow context）
         dataflow_section = _format_prior_dataflow(prior_dataflow, next_var_index)
 
-        user_msg = (
-            f"## 对话历史\n{history_text}\n\n"
-            f"{dataflow_section}"
-            f"## 当前用户话语\n{user_utterance}\n\n"
-            "请输出 PyTOD 程序："
-        )
+        # 意图描述：动态注入用户消息（系统消息已不再包含），
+        # 未来可调用 _build_intent_context(user_utterance) 实现按轮筛选。
+        intent_ctx = self._build_intent_context()
+
+        user_msg = f"## 对话历史\n{history_text}\n\n"
+        if intent_ctx:
+            user_msg += intent_ctx + "\n\n"
+        user_msg += dataflow_section
+        user_msg += f"## 当前用户话语\n{user_utterance}\n\n请输出 PyTOD 程序："
 
         return [
             {"role": "system", "content": system_msg},

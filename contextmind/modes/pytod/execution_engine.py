@@ -338,9 +338,14 @@ class ExecutionEngine:
         except (ValueError, TypeError):
             return f"{name}(...)"
 
-    def to_prompt_text(self) -> str:
+    def to_prompt_text(self, compact: bool = False) -> str:
         """
         将所有已注册函数的签名列表生成为适合注入 prompt 的文本块。
+
+        参数:
+            compact: 为 True 时只输出函数名（不含参数列表），大幅缩短 prompt 长度。
+                     适合在函数数量多（如 20+ 个，每个有 30+ 参数）时使用。
+                     AP 使用槽位赋值语法（``x1.slot = 'value'``）时不依赖参数列表。
 
         返回:
             格式化的可用 API 函数说明，例如：
@@ -348,13 +353,22 @@ class ExecutionEngine:
             ### 可用 API 函数
               - restaurants_1_find(cuisine=None, location=None, price_range=None)
               - restaurants_1_reserve(name, date_time, party_size, ...)
+
+            compact=True 时：
+
+            ### 可用 API 函数
+              - restaurants_1_find
+              - restaurants_1_reserve
         """
         if not self.registry:
             return "### 可用 API 函数\n  (无已注册函数)"
         lines = ["### 可用 API 函数"]
         for name in sorted(self.registry):
-            sig = self.get_function_signature(name) or f"{name}(...)"
-            lines.append(f"  - {sig}")
+            if compact:
+                lines.append(f"  - {name}")
+            else:
+                sig = self.get_function_signature(name) or f"{name}(...)"
+                lines.append(f"  - {sig}")
         return "\n".join(lines)
 
     # ------------------------------------------------------------------ #
