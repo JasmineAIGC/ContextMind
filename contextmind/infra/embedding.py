@@ -35,10 +35,7 @@ DEFAULT_EMBEDDING_MODEL = "bge-large-zh-v1.5"
 
 
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
-    """按顺序读取环境变量，返回首个非空值。
-    
-    支持多个环境变量名，便于适配不同的部署环境（Qwen、DeepSeek、OpenAI 等）。
-    """
+    """按顺序读取环境变量，返回首个非空值。"""
     for key in keys:
         if value := os.getenv(key):
             return value
@@ -158,11 +155,7 @@ class EmbeddingClient:
     """Embedding 客户端，支持本地 sentence-transformers 模型和 OpenAI 兼容 API 两种方式。"""
 
     def __init__(self, config: Optional[EmbeddingConfig] = None):
-        """初始化 Embedding 客户端。
-
-        Args:
-            config: Embedding 配置，若为 None 则从环境变量加载
-        """
+        """初始化 Embedding 客户端；config 为 None 时从环境变量加载。"""
         try:
             self.config = config or EmbeddingConfig.from_env()
         except ValueError as e:
@@ -216,14 +209,7 @@ class EmbeddingClient:
             self.embedding_supported = False
     
     def generate_embedding(self, text: str) -> Optional[EmbeddingInfo]:
-        """生成文本的 embedding 向量。
-
-        Args:
-            text: 输入文本
-
-        Returns:
-            EmbeddingInfo 对象，失败时返回 None
-        """
+        """生成文本的 embedding 向量；失败时返回 None。"""
         if not self.config:
             return None
 
@@ -238,7 +224,7 @@ class EmbeddingClient:
             try:
                 vector = self.local_model.encode(
                     text,
-                    convert_to_tensor=False,  # 保持 numpy 数组格式，后续统一转换为列表
+                    convert_to_tensor=False,
                     show_progress_bar=False,
                 ).tolist()
                 dimension = len(vector)
@@ -304,15 +290,7 @@ class EmbeddingClient:
 
 
 def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
-    """计算两个向量的余弦相似度，归一化至 [0, 1]。
-
-    Args:
-        vec1: 向量 1
-        vec2: 向量 2
-
-    Returns:
-        余弦相似度，1 表示完全相同
-    """
+    """计算两个向量的余弦相似度，归一化至 [0, 1]（1 表示完全相同）。"""
     if not vec1 or not vec2:
         return 0.0
 
@@ -327,8 +305,7 @@ def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
     if norm1 == 0 or norm2 == 0:
         return 0.0
 
-    # 原始余弦值范围为 [-1, 1]；平移缩放至 [0, 1]
-    # 使下游相似度阈值更直观（0 = 完全无关，1 = 完全相同）。
+    # 平移缩放 [-1, 1] → [0, 1]，使阈值更直观
     similarity = dot_product / (norm1 * norm2)
     return (similarity + 1) / 2
 
@@ -337,15 +314,7 @@ def calculate_embedding_similarity(
     emb1: Optional[EmbeddingInfo],
     emb2: Optional[EmbeddingInfo]
 ) -> Tuple[float, bool]:
-    """计算两个 EmbeddingInfo 的余弦相似度。
-
-    Args:
-        emb1: 第一个 Embedding
-        emb2: 第二个 Embedding
-
-    Returns:
-        (similarity, success)
-    """
+    """计算两个 EmbeddingInfo 的余弦相似度，返回 ``(similarity, success)``。"""
     if not emb1 or not emb2:
         return 0.0, False
 

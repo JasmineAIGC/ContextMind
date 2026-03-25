@@ -7,6 +7,7 @@ import json
 from ..core.data_models import Message, Knowledge, ScoreInfo
 from ..core.config import KnowledgeType
 from ..core.config import ExtractionConfig, DEFAULT_MEMORY_CONFIG
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.infra.logger import get_logger
 from ..core.strategies import ExtractionStrategy as BaseExtractor  # 使用核心基类
 from contextmind.infra.embedding import get_embedding_client
@@ -241,14 +242,14 @@ class LLMBasedExtractor(BaseExtractor):
     
     def __init__(
         self,
-        llm_client: Optional[any] = None,
+        llm_client: Optional[AdkLLMClient] = None,
         config: Optional[ExtractionConfig] = None
     ):
         """
         初始化LLM知识提取器
-        
+
         Args:
-            llm_client: LLM客户端（需要有generate方法）
+            llm_client: AdkLLMClient 实例；未提供时回退到规则提取。
             config: 提取配置
         """
         self.llm_client = llm_client
@@ -355,17 +356,7 @@ class LLMBasedExtractor(BaseExtractor):
         ]
 
         try:
-            if hasattr(self.llm_client, 'chat_async'):
-                response = await self.llm_client.chat_async(messages=messages)
-            elif hasattr(self.llm_client, 'chat'):
-                response = self.llm_client.chat(messages=messages)
-            elif hasattr(self.llm_client, 'generate_async'):
-                _, response = await self.llm_client.generate_async(system_prompt + "\n\n" + user_prompt)
-            elif hasattr(self.llm_client, 'generate'):
-                _, response = self.llm_client.generate(system_prompt + "\n\n" + user_prompt)
-            else:
-                raise ValueError("LLM客户端缺少chat_async、chat、generate_async或generate方法")
-
+            response = await self.llm_client.chat_async(messages=messages)
             return response
             
         except Exception as e:
