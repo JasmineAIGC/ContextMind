@@ -128,8 +128,23 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         llm_available = False
 
     history = session.get("对话历史", [])
-    user_turns = [utt[len(_USER_PREFIX):] for utt in history if utt.startswith(_USER_PREFIX)]
-    if not user_turns:
+    # Extract paired turns: (user_utterance, original_agent_response)
+    paired_turns: List[tuple] = []
+    i = 0
+    while i < len(history):
+        utt = history[i]
+        if utt.startswith(_USER_PREFIX):
+            user_text = utt[len(_USER_PREFIX):]
+            orig_agent = ""
+            if i + 1 < len(history) and history[i + 1].startswith(_AGENT_PREFIX):
+                orig_agent = history[i + 1][len(_AGENT_PREFIX):]
+                i += 2
+            else:
+                i += 1
+            paired_turns.append((user_text, orig_agent))
+        else:
+            i += 1
+    if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 
     turns_results: List[Dict[str, Any]] = []
@@ -153,7 +168,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             **({"schema": external_schema} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
-        for i, utt in enumerate(user_turns):
+        for i, (utt, orig_agent) in enumerate(paired_turns):
             try:
                 result = await agent.process_turn(utt)
             except Exception as exc:
@@ -164,6 +179,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             turn_record = {
                 "turn": i + 1,
                 "user": utt,
+                "original_agent": orig_agent,
                 "program": result.get("program_text", ""),
                 "ee": ee_data,
                 "response": result.get("response", ""),
@@ -179,10 +195,11 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 print(f"  [EE] {ee_ok} say={ee_data.get('say','')[:60]!r}")
                 print(f"  [DM] response: {result.get('response', '')[:100]}")
     else:
-        for i, utt in enumerate(user_turns):
+        for i, (utt, orig_agent) in enumerate(paired_turns):
             turns_results.append({
                 "turn": i + 1,
                 "user": utt,
+                "original_agent": orig_agent,
                 "program": "⚠️ LLM 未配置",
                 "ee": {"success": None, "errors": [], "variables": {}, "say": "", "hints": []},
                 "response": "⚠️ LLM 未配置",
@@ -206,7 +223,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
 
 def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为简洁 Markdown 报告（AP 程序 → EE 结果 → DM 回复）。"""
+    """将 trace 字典渲染为 Markdown 报告，每轮显示原始对话 + 算法步骤 + 回复对比。"""
     meta = trace["metadata"]
     llm_ok = meta["llm_available"]
     lines = [
@@ -241,9 +258,20 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         lines += [
             f"### Turn {t['turn']}{timing_str}",
             "",
-            f"**👤 用户**: {t['user']}",
-            "",
         ]
+
+        # 原始对话（用户 + 原始坐席回复）
+        orig_agent = t.get("original_agent", "")
+        lines += [
+            "**原始对话**:",
+            "",
+            f"| 角色 | 话语 |",
+            f"|---|---|",
+            f"| 👤 用户 | {t['user']} |",
+        ]
+        if orig_agent:
+            lines.append(f"| 🤖 原始坐席 | {orig_agent} |")
+        lines.append("")
 
         # ① AP
         program = t.get("program") or ""
@@ -275,12 +303,25 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
             lines.append(f"hints: {', '.join(ee['hints'])}")
         lines.append("")
 
-        # ③ DM
+        # ③ DM 生成回复
+        new_response = t.get("response") or "(空)"
         lines += [
-            "**③ DM 回复**:",
-            f"> {t.get('response') or '(空)'}",
+            "**③ DM 生成回复**:",
+            f"> {new_response}",
             "",
         ]
+
+        # 回复对比
+        if orig_agent:
+            lines += [
+                "**回复对比**:",
+                "",
+                "| | 回复 |",
+                "|---|---|",
+                f"| 🤖 原始坐席 | {orig_agent} |",
+                f"| 🤖 DM 生成 | {new_response} |",
+                "",
+            ]
 
         # 累积状态
         cumstate = t.get("cumulative_state", {})
