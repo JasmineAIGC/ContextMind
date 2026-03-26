@@ -774,9 +774,15 @@ class ExecutionEngine:
 
         return ProgramExecutionResult(
             success=len(errors) == 0,
-            # 只返回本轮新产生的变量（剔除从 prior_var_values 传入的旧变量），
+            # 返回本轮新产生的变量，以及本轮程序中被显式重新赋值的旧变量（k in var_func）。
+            # 过滤规则：剔除仅从 prior_var_values 继承而未被当前程序重新赋值的变量，
             # 防止 DM prompt 每轮都携带先前轮次的 API 结果，也避免 api_call_log 重复记录。
-            variable_values={k: v for k, v in var_values.items() if k not in prior_keys},
+            # 注意：若 AP 复用了先前变量名（如每轮都用 x1），仍需通过 k in var_func 包含新结果，
+            # 保证 current_state 随轮次正确累积而不会停滞在第一轮的旧值。
+            variable_values={
+                k: v for k, v in var_values.items()
+                if k not in prior_keys or k in var_func
+            },
             hint_messages=hint_messages,
             say_output=say_output,
             say_variable_names=say_variable_names,
