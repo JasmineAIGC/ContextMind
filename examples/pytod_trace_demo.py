@@ -34,6 +34,7 @@ from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
+from contextmind.modes.pytod.tracker import _is_stub_only_result
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
@@ -232,10 +233,13 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 _say_var_names = _execution_obj.say_variable_names or set()
             state_delta: Dict[str, Any] = {
                 k: v for k, v in ee_data.get("variables", {}).items()
-                if k not in _say_var_names
+                if k not in _say_var_names and not _is_stub_only_result(v)
             }
-            # cumulative_state：tracker 跨轮累积的 API 结果（不含 say 输出）
-            new_state: Dict[str, Any] = result.get("state", {})
+            # cumulative_state：tracker 跨轮累积的 API 结果（不含 say 输出、不含存根占位值）
+            new_state: Dict[str, Any] = {
+                k: v for k, v in result.get("state", {}).items()
+                if not _is_stub_only_result(v)
+            }
 
             # Fix 5: capture AP and DM prompt messages for this turn
             ap_messages = list(getattr(agent, "last_ap_messages", []))

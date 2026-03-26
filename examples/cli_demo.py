@@ -24,14 +24,42 @@ import argparse
 import logging
 from typing import Optional
 
+import json
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.modes.pytod.schemas import load_schema_from_dict
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
+
+_PROJECT_ROOT = Path(__file__).parent.parent
+
+
+def _load_external_schemas(schema_path: str):
+    """从 schema.json 文件加载 PyTOD ServiceSchema 和 FnCTOD DomainSpec。"""
+    from contextmind.modes.fnctod.function_manager import FunctionManager
+    with open(schema_path, encoding="utf-8") as f:
+        data = json.load(f)
+    svc = load_schema_from_dict(data)
+    fm = FunctionManager()
+    fm.add_domain_from_slots(
+        domain_name=svc.service_name,
+        domain_description=svc.description,
+        slots={slot.name: slot.description for slot in svc.slots},
+        categorical_slots={
+            slot.name: slot.possible_values
+            for slot in svc.slots if slot.possible_values
+        } or None,
+        required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
+    )
+    domains = fm.get_all_domains()
+    if not domains:
+        raise ValueError(f"Schema produced no valid domains")
+    domain_spec = domains[0]
+    return svc, domain_spec
 
 
 class InteractiveDemo:
@@ -42,6 +70,7 @@ class InteractiveDemo:
         scenario: str = "chat",
         mode: str = "evolve",
         max_history_turns: int = 10,
+        schema_path: Optional[str] = None,
     ):
         self.scenario = scenario
         self.mode = mode
@@ -51,6 +80,15 @@ class InteractiveDemo:
         self.tracker = None
         self.app = None
         self.last_system_reply: str = ""
+        # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
+        self._pytod_schema = None
+        self._fnctod_domain_spec = None
+        if schema_path:
+            try:
+                self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
+                print(f"✓ 已加载外部 Schema: {schema_path}")
+            except Exception as exc:
+                print(f"⚠️  加载 Schema 失败: {exc}，将使用内置场景 Schema")
 
         if mode == "dst":
             self._setup_dst()
@@ -95,11 +133,17 @@ class InteractiveDemo:
 
     def _setup_fnctod(self):
         logger.info(f"初始化 FnCTOD 模式 - {self.config.name}")
-        self.tracker = FnCTODTracker.from_scenario(self._get_llm_client(), self.config)
+        kwargs = {}
+        if self._fnctod_domain_spec is not None:
+            kwargs["domain_spec"] = self._fnctod_domain_spec
+        self.tracker = FnCTODTracker.from_scenario(self._get_llm_client(), self.config, **kwargs)
 
     def _setup_pytod(self):
         logger.info(f"初始化 PyTOD 模式 - {self.config.name}")
-        self.tracker = AdkPyTODTracker.from_scenario(self._get_llm_client(), self.config)
+        kwargs = {}
+        if self._pytod_schema is not None:
+            kwargs["schema"] = self._pytod_schema
+        self.tracker = AdkPyTODTracker.from_scenario(self._get_llm_client(), self.config, **kwargs)
 
     def _setup_evolve(self):
         logger.info(f"初始化 Evolve 模式 - {self.config.name}")
@@ -207,6 +251,10 @@ def parse_args():
                         default="INFO", help="日志级别")
     parser.add_argument("--max-history-turns", type=int, default=10,
                         metavar="N", help="最大历史轮数")
+    parser.add_argument(
+        "--schema", type=str, default=None, metavar="PATH",
+        help="schema.json 路径（SGD 格式，data/ 目录下），用于 PyTOD / FnCTOD 模式",
+    )
     return parser.parse_args()
 
 
@@ -218,6 +266,7 @@ async def main():
         scenario=args.scenario,
         mode=args.mode,
         max_history_turns=args.max_history_turns,
+        schema_path=args.schema,
     )
     await demo.run()
 

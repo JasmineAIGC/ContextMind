@@ -174,19 +174,25 @@ class FnCTODTracker:
         # 过滤掉本类构造函数不认识的参数，保持接口宽容
         kwargs.pop("use_two_stage", None)
         kwargs.pop("max_history_turns", None)
+        # 外部 DomainSpec 优先（来自 --schema 参数）
+        domain_spec = kwargs.pop("domain_spec", None)
         fm = FunctionManager()
-        try:
-            schema = get_function_schema_for_scenario(scenario_config.name)
-            fm.add_domain(schema)
-        except (ValueError, KeyError):
-            if hasattr(scenario_config, "dst_slots") and scenario_config.dst_slots:
-                fm.add_domain_from_slots(
-                    domain_name=scenario_config.name,
-                    domain_description=getattr(scenario_config, "description", scenario_config.name),
-                    slots=dict(scenario_config.dst_slots),
-                )
-            else:
-                logger.warning(f"场景 '{scenario_config.name}' 无预定义 schema，使用空 FunctionManager")
+        if domain_spec is not None:
+            fm.add_domain(domain_spec)
+            logger.info(f"FnCTODTracker: 使用外部 DomainSpec '{domain_spec.name}'")
+        else:
+            try:
+                schema = get_function_schema_for_scenario(scenario_config.name)
+                fm.add_domain(schema)
+            except (ValueError, KeyError):
+                if hasattr(scenario_config, "dst_slots") and scenario_config.dst_slots:
+                    fm.add_domain_from_slots(
+                        domain_name=scenario_config.name,
+                        domain_description=getattr(scenario_config, "description", scenario_config.name),
+                        slots=dict(scenario_config.dst_slots),
+                    )
+                else:
+                    logger.warning(f"场景 '{scenario_config.name}' 无预定义 schema，使用空 FunctionManager")
         if config is not None:
             kwargs["config"] = config
         return cls(function_manager=fm, **kwargs)
