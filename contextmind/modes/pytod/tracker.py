@@ -115,10 +115,14 @@ def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
     return schema
 
 
-def _register_apis_from_schema(engine: ExecutionEngine, schema: ServiceSchema) -> None:
+def _register_apis_from_schema(
+    engine: ExecutionEngine,
+    schema: ServiceSchema,
+    replace_existing: bool = True,
+) -> None:
     """根据 ServiceSchema 的意图定义，在 ExecutionEngine 中注册对应的 API 函数。
 
-    当外部 schema.json 传入时，用来替换预定义的场景 API，确保 ExecutionEngine
+    当外部 schema.json 传入时，用来补充或替换场景 API，确保 ExecutionEngine
     能够执行 AP 依据外部 Schema 生成的程序（意图名和槽位名与 schema 一致）。
 
     注册规则：
@@ -128,23 +132,38 @@ def _register_apis_from_schema(engine: ExecutionEngine, schema: ServiceSchema) -
     - 若 schema 没有 intents，则以 service_name 为函数名注册一个
       接受所有 schema slots 作为参数的通用函数。
 
-    注册的函数均为简单的直通函数（返回传入的非空参数字典），
+    注册的函数均为直通函数（返回传入的非空参数字典；无参数时返回默认成功标记），
     用于演示和追踪场景——真实业务可替换为实际 API 实现。
 
     Args:
-        engine: 目标 ExecutionEngine，会清空 registry 后重新注册。
-        schema: 外部传入的 ServiceSchema。
+        engine:           目标 ExecutionEngine。
+        schema:           外部传入的 ServiceSchema。
+        replace_existing: 为 True（默认）时先清空 registry 再注册，完全替换预定义函数；
+                          为 False 时仅为 registry 中尚未注册的意图添加存根函数，
+                          保留已有的预定义实现（具有真实 mock 数据的函数优先）。
     """
     import inspect
 
-    engine.registry.clear()
+    if replace_existing:
+        engine.registry.clear()
 
     schema_slot_names = [s.name for s in schema.slots]
 
     def _make_api_func(func_name: str, param_names: List[str]) -> Any:
-        """动态创建一个接受指定参数的 API 函数。"""
+        """动态创建一个接受指定参数的 API 存根函数。
+
+        调用时行为：
+        - 有非空参数 → 返回 {param: value} 字典（直通）
+        - 无参数    → 返回 {"status": "success", "intent": func_name}（默认成功标记）
+        """
+        _name = func_name  # 显式绑定到局部变量，确保内部函数捕获当前值
+
         def _api(**kwargs: Any) -> Dict[str, Any]:
-            return {k: v for k, v in kwargs.items() if v is not None}
+            result = {k: v for k, v in kwargs.items() if v is not None}
+            if not result:  # empty dict — no non-None kwargs provided
+                # 无参调用时返回默认成功标记，确保 EE 结果、状态不为空
+                result = {"status": "success", "intent": _name}
+            return result
 
         params = [
             inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None)
@@ -156,6 +175,10 @@ def _register_apis_from_schema(engine: ExecutionEngine, schema: ServiceSchema) -
 
     if schema.intents:
         for intent in schema.intents:
+            # 当 replace_existing=False 时，跳过已注册的函数（保留预定义实现）
+            if not replace_existing and intent.name in engine.registry:
+                logger.debug(f"[schema API] 跳过已注册函数: {intent.name}")
+                continue
             # 合并意图槽位与 schema 级别槽位（去重，保持顺序）
             intent_slots = list(intent.required_slots) + list(intent.optional_slots) + list(intent.result_slots)
             all_slots = list(dict.fromkeys(intent_slots + schema_slot_names))
@@ -164,9 +187,10 @@ def _register_apis_from_schema(engine: ExecutionEngine, schema: ServiceSchema) -
             logger.debug(f"[schema API] 注册意图函数: {intent.name}({', '.join(all_slots)})")
     else:
         # 无意图定义时，以 service_name 为函数名注册通用函数
-        func = _make_api_func(schema.service_name, schema_slot_names)
-        engine.registry[schema.service_name] = func
-        logger.debug(f"[schema API] 注册服务函数: {schema.service_name}({', '.join(schema_slot_names)})")
+        if replace_existing or schema.service_name not in engine.registry:
+            func = _make_api_func(schema.service_name, schema_slot_names)
+            engine.registry[schema.service_name] = func
+            logger.debug(f"[schema API] 注册服务函数: {schema.service_name}({', '.join(schema_slot_names)})")
 
     logger.info(f"已基于外部 Schema 注册 API: {engine.list_functions()}")
 
@@ -320,8 +344,18 @@ class AdkPyTODTracker:
         key = get_scenario_key(scenario_name)
 
         if external_schema is not None:
-            # 外部 schema 传入：用 schema 中的意图动态注册 API，替换预定义函数
-            _register_apis_from_schema(engine, external_schema)
+            # 外部 schema 传入：
+            # 1. 若场景有预定义 API（含真实 mock 数据），先注册它们；
+            # 2. 再用 schema 中的意图填补未覆盖的函数（replace_existing=False），
+            #    确保预定义实现不被覆盖，同时所有 schema 意图都可被 EE 执行。
+            if key and key in SCENARIO_API_REGISTRY:
+                SCENARIO_API_REGISTRY[key](engine)
+                logger.info(
+                    f"已为场景 '{scenario_name}' 注册预定义 API: {engine.list_functions()}"
+                )
+                _register_apis_from_schema(engine, external_schema, replace_existing=False)
+            else:
+                _register_apis_from_schema(engine, external_schema, replace_existing=True)
             schema = external_schema
         else:
             if key:

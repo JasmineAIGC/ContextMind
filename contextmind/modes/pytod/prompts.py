@@ -419,11 +419,12 @@ def _format_execution_result(execution_result: Any) -> str:
             for h in hints:
                 lines.append(f"  - {h}")
 
-        # 3. API 调用结果（过滤掉 say() 的字符串值，避免重复）
+        # 3. API 调用结果（过滤掉 say() 变量，避免重复）
         var_values: Dict[str, Any] = getattr(execution_result, "variable_values", {})
+        say_variable_names: set = getattr(execution_result, "say_variable_names", set())
         api_vars = {
             k: v for k, v in var_values.items()
-            if not (say_output and v == say_output) and not k.startswith("_anon")
+            if k not in say_variable_names and not k.startswith("_anon")
         }
         if api_vars:
             lines.append("【API 调用结果】")

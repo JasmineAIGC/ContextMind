@@ -202,7 +202,7 @@ class ProgramExecutionResult:
 
         api_vars = {
             k: v for k, v in self.variable_values.items()
-            if not (self.say_output and v == self.say_output)
+            if k not in self.say_variable_names
         }
         if api_vars:
             lines.append("API 调用结果:")
