@@ -760,8 +760,17 @@ class ExecutionEngine:
                         parts.append(f"({stripped})")
                 say_output = "; ".join(parts)
                 if stmt.variable:
-                    var_values[stmt.variable] = say_output
-                    say_variable_names.add(stmt.variable)
+                    # 只在变量尚未绑定值时才覆写 var_values 并记录为 say 变量。
+                    # 若 AP 生成了 "x2.say()" 形式（规范化为 "x2 say()"），
+                    # 且 x2 已通过 API 调用绑定了真实结果（当轮或先前轮次），
+                    # 则保留该结果，不用空字符串覆盖，不将 x2 标记为 say 变量。
+                    # 这防止了三个级联 bug：
+                    #   1) EE 返回 {"x2": ""} 而非真实 API 结果
+                    #   2) x2 被 say_variable_names 过滤 → 累积状态永远只有 x1
+                    #   3) state_delta 因 say 过滤后为空 → 无"本轮新增状态"
+                    if stmt.variable not in var_values:
+                        var_values[stmt.variable] = say_output
+                        say_variable_names.add(stmt.variable)
 
         return ProgramExecutionResult(
             success=len(errors) == 0,
