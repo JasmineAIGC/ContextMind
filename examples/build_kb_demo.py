@@ -282,12 +282,12 @@ def main() -> None:
         possible = ""
         if s.get("is_categorical") and s.get("possible_values"):
             possible = f" 可选值: {s['possible_values']}"
-        print(f"  - {s['name']}: {s.get('description', '')}{categorical}{possible}")
+        print(f"  - {s.get('name', '<unnamed>')}: {s.get('description', '')}{categorical}{possible}")
 
     print(f"\n意图（intents）共 {len(intents)} 个：")
     for it in intents:
         trans = "（事务型）" if it.get("is_transactional") else ""
-        print(f"  - {it['name']}: {it.get('description', '')}{trans}")
+        print(f"  - {it.get('name', '<unnamed>')}: {it.get('description', '')}{trans}")
         if it.get("required_slots"):
             print(f"    必填槽位: {it['required_slots']}")
         if it.get("optional_slots"):

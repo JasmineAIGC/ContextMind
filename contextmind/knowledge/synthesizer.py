@@ -173,24 +173,43 @@ def _fill_schema_defaults(
 
 
 def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
-    """尝试从 LLM 响应中解析 JSON，支持 markdown 代码块包裹。"""
+    """尝试从 LLM 响应中解析 JSON，支持 markdown 代码块包裹。
+
+    若 LLM 将 schema 包裹在数组中（如 ``[{...}]``），自动提取第一个 dict 元素，
+    避免调用方因 ``list.get()`` 而崩溃。
+    """
+
+    def _unwrap(obj: Any) -> Optional[Dict[str, Any]]:
+        """若 obj 是 dict 则直接返回；若是非空 list 且首元素为 dict 则提取首元素。"""
+        if isinstance(obj, dict):
+            return obj
+        if isinstance(obj, list) and obj and isinstance(obj[0], dict):
+            return obj[0]
+        return None
+
     # 尝试直接解析
     try:
-        return json.loads(text.strip())
+        result = _unwrap(json.loads(text.strip()))
+        if result is not None:
+            return result
     except json.JSONDecodeError:
         pass
     # 去掉 markdown 代码块
     m = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
     if m:
         try:
-            return json.loads(m.group(1))
+            result = _unwrap(json.loads(m.group(1)))
+            if result is not None:
+                return result
         except json.JSONDecodeError:
             pass
     # 提取第一个 { ... }
     m2 = re.search(r"\{[\s\S]+\}", text)
     if m2:
         try:
-            return json.loads(m2.group(0))
+            result = _unwrap(json.loads(m2.group(0)))
+            if result is not None:
+                return result
         except json.JSONDecodeError:
             pass
     return None
