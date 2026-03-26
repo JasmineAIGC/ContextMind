@@ -219,6 +219,7 @@ class PyTODPromptBuilder:
         scenario_context: str = "",
         prior_dataflow: Optional[Dict[str, Any]] = None,
         next_var_index: int = 1,
+        call_sources: Optional[Dict[str, str]] = None,
     ) -> List[Dict[str, str]]:
         """构建动作解析器（AP）的 LLM 消息列表。
 
@@ -233,7 +234,7 @@ class PyTODPromptBuilder:
         **用户消息（动态，每轮更新）**：
         5. 对话历史
         6. 业务意图描述（从系统消息移至此处 — 动态加载；``compact_schema=True`` 时省略）
-        7. 已计算变量（官方 PyTOD dataflow context）
+        7. 已计算变量（官方 PyTOD dataflow context，含调用来源行）
         8. 当前用户话语
 
         分离设计的优势：
@@ -247,6 +248,10 @@ class PyTODPromptBuilder:
             prior_dataflow:   先前轮次中已计算的变量绑定字典
                               ``{var_name: result_value}``；为 None 或空时不注入。
             next_var_index:   本轮程序中第一个新变量应使用的编号（全局递增）。
+            call_sources:     变量到产生它的程序调用行的映射
+                              ``{var_name: "func_name(arg='v')"}``；
+                              用于在 dataflow 节中显示调用来源，帮助 AP 识别已调用
+                              的函数，避免重复调用相同参数的 API。
 
         Returns:
             可直接传给 ``llm_client.chat_async(messages=...)`` 的消息列表。
@@ -264,7 +269,9 @@ class PyTODPromptBuilder:
 
         # ── 用户消息：每轮动态内容 ──────────────────────────────────────────
         history_text = self._format_history(history)
-        dataflow_section = _format_prior_dataflow(prior_dataflow, next_var_index)
+        dataflow_section = _format_prior_dataflow(
+            prior_dataflow, next_var_index, call_sources=call_sources
+        )
 
         # 意图描述：动态注入用户消息（系统消息已不再包含），
         # 未来可调用 _build_intent_context(user_utterance) 实现按轮筛选。
@@ -347,15 +354,25 @@ class PyTODPromptBuilder:
 def _format_prior_dataflow(
     prior_dataflow: Optional[Dict[str, Any]],
     next_var_index: int = 1,
+    call_sources: Optional[Dict[str, str]] = None,
 ) -> str:
     """将先前轮次的已计算变量格式化为 AP prompt 的 dataflow context 节。
 
     对应官方 PyTOD 的设计：AP 在每轮都能看到本对话中已通过 API 获取的所有变量，
     从而可以直接引用 ``x1.field`` 而无需重新查询，变量编号在整个对话中全局递增。
 
+    当提供 ``call_sources`` 时，每行显示产生该变量的调用源，格式为::
+
+        x4 = inquire_amount_discrepancy(date='七月二十三号')  →  {"date": "七月二十三号"}
+        x5 = confirm_borrowing_history()  [已完成]
+
+    这使 AP 能识别已调用的函数，避免重复调用相同参数的 API（原始 PyTOD 中 AP 接收
+    完整程序历史以实现同样的效果）。
+
     Args:
         prior_dataflow: 先前轮次的变量绑定字典 ``{var_name: value}``。
         next_var_index: 本轮程序中第一个新变量应使用的编号。
+        call_sources:   变量到其产生调用行的映射 ``{var_name: "func(args)"}``。
 
     Returns:
         格式化好的节文本（含末尾两个换行），若无先前变量则返回空字符串。
@@ -370,18 +387,35 @@ def _format_prior_dataflow(
             )
         return ""
 
-    _MAX_VAL_LEN = 300
-    lines = ["## 已计算变量（本对话中已通过 API 获取的数据，可直接引用 xN.field）"]
+    _MAX_VAL_LEN = 200
+    _sources = call_sources or {}
+    lines = [
+        "## 已计算变量（通过 API 调用绑定的变量，可直接引用 xN.field；切勿重复调用相同函数/参数）"
+    ]
     for var, val in prior_dataflow.items():
         if var.startswith("_"):  # 跳过内部元数据键
             continue
-        try:
-            val_str = json.dumps(val, ensure_ascii=False)
-        except (TypeError, ValueError):
-            val_str = str(val)
-        if len(val_str) > _MAX_VAL_LEN:
-            val_str = val_str[:_MAX_VAL_LEN] + "…（已截断）"
-        lines.append(f"  {var} = {val_str}")
+        source_call = _sources.get(var, "")
+        # 检测 schema 存根占位值：{"status":"success","intent":"..."} 无真实业务数据
+        is_stub = isinstance(val, dict) and set(val.keys()) == {"status", "intent"}
+        if is_stub:
+            # 存根：只显示调用行，不显示无意义的占位值
+            if source_call:
+                lines.append(f"  {var} = {source_call}  [已完成，无可引用数据]")
+            else:
+                lines.append(f"  {var}  [已完成，无可引用数据]")
+        else:
+            # 真实数据：显示调用行 + 返回值
+            try:
+                val_str = json.dumps(val, ensure_ascii=False)
+            except (TypeError, ValueError):
+                val_str = str(val)
+            if len(val_str) > _MAX_VAL_LEN:
+                val_str = val_str[:_MAX_VAL_LEN] + "…（已截断）"
+            if source_call:
+                lines.append(f"  {var} = {source_call}  →  {val_str}")
+            else:
+                lines.append(f"  {var} = {val_str}")
     forbidden = next_var_index - 1
     lines.append(
         f"【重要】本轮新变量必须从 x{next_var_index} 开始编号"

@@ -132,6 +132,48 @@ def _is_stub_only_result(val: Any) -> bool:
     return set(val.keys()) == {"status", "intent"}
 
 
+# Names of PyTOD built-in pseudo-functions that are NOT real API calls and
+# therefore should not be recorded in var_call_sources.
+_BUILTIN_FUNC_NAMES: frozenset = frozenset({
+    "say", "hint", "confirm", "perform", "conversation_pause", "none",
+})
+
+
+def _extract_var_call_sources(program_text: str) -> Dict[str, str]:
+    """Parse *program_text* and return a mapping of variable name → call line.
+
+    Only lines of the form ``xN func_name(...)`` (real API calls, not built-ins
+    like ``say``, ``hint``, ``confirm``, etc.) are extracted.  This mapping is
+    used to annotate the AP's prior-dataflow context with the source call that
+    produced each variable, enabling the AP to recognise already-called
+    functions and avoid duplicate calls with the same parameters.
+
+    Example::
+
+        program_text = "x4 inquire_amount_discrepancy(date='七月二十三号')\\nx5 say(x4)"
+        _extract_var_call_sources(program_text)
+        # → {"x4": "inquire_amount_discrepancy(date='七月二十三号')"}
+    """
+    result: Dict[str, str] = {}
+    for raw_line in program_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Normalise 'x1 = func(...)' → 'x1 func(...)'
+        line = re.sub(r"^(x\d+)\s*=\s*(?=[A-Za-z_])", r"\1 ", line)
+        # Normalise 'x1.method(...)' → 'x1 method(...)'
+        line = re.sub(r"^(x\d+)\.([A-Za-z_]\w*)\s*(?=\()", r"\1 \2", line)
+        m = re.match(r"^(x\d+)\s+([A-Za-z_]\w*)\s*\(", line)
+        if m:
+            var_name = m.group(1)
+            func_name = m.group(2)
+            if func_name.lower() not in _BUILTIN_FUNC_NAMES:
+                # Extract call text from func_name to end of line
+                call_start = line.index(func_name)
+                result[var_name] = line[call_start:].strip()
+    return result
+
+
 def _register_apis_from_schema(
     engine: ExecutionEngine,
     schema: ServiceSchema,
@@ -264,6 +306,11 @@ class AdkPyTODTracker:
         self._history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}
         self.api_call_log: List[Dict[str, Any]] = []
+        # Maps each variable name to the call-line that produced it, e.g.
+        # "x4" → "inquire_amount_discrepancy(date='七月二十三号')".
+        # Included in the AP prompt so the LLM can see which function produced
+        # each prior variable and avoid redundant duplicate calls.
+        self.var_call_sources: Dict[str, str] = {}
         self.turn_count: int = 0
         self.last_program_text: str = ""   # 最近一轮 AP 生成的程序（供 web_demo 展示）
         self.last_execution_result: Optional[Any] = None  # 最近一轮 EE 执行结果（供 web_demo 展示）
@@ -424,16 +471,14 @@ class AdkPyTODTracker:
         # Step 1: Action Parser (AP)
         # ------------------------------------------------------------------ #
         t0 = time.time()
-        # 向 AP 传入先前轮次的已计算变量（官方 PyTOD dataflow context），
-        # 使 AP 能用 xN.field 引用已有数据，避免重复调用查询 API。
-        # 过滤规则：
-        #   1. 以 "_anon" 开头的匿名变量（裸调用、无变量绑定）不注入。
-        #   2. Schema 存根占位值 {"status":"success","intent":"..."} 不注入——
-        #      这类值没有实际业务数据，注入后既浪费 token 又可能误导 AP 以为
-        #      已获取到有效结果；同时也防止 prior_dataflow 随轮次线性膨胀。
+        # 向 AP 传入先前轮次的已计算变量（官方 PyTOD dataflow context）。
+        # 过滤规则：以 "_anon" 开头的匿名变量不注入（无意义的裸调用）。
+        # 注意：schema 存根值（{"status":"success","intent":"..."}）仍包含在内，
+        # 但在 _format_prior_dataflow 中以 "[已完成，无可引用数据]" 标注，
+        # 让 AP 知道该 API 已被调用过、无需重复，同时不会误导 AP 引用无意义字段。
         prior_dataflow = {
             k: v for k, v in self.current_state.items()
-            if not k.startswith("_anon") and not _is_stub_only_result(v)
+            if not k.startswith("_anon")
         }
         ap_messages = self.prompt_builder.build_action_parser_prompt(
             self._history,
@@ -441,6 +486,7 @@ class AdkPyTODTracker:
             self.scenario_context,
             prior_dataflow=prior_dataflow or None,
             next_var_index=self._next_var_index,
+            call_sources=self.var_call_sources,
         )
         self.last_ap_messages = ap_messages        # 记录完整 AP 输入（供 trace_demo 保存）
 
@@ -452,6 +498,7 @@ class AdkPyTODTracker:
             # 构建 AP 的用户消息：动态部分（history + 意图描述 + 当前话语 + 约束）
             # 静态指令（AP语法规则 + API签名）已在 LlmAgent.instruction 中；
             # 意图描述在此动态注入，未来可按对话状态筛选相关意图（动态加载）。
+            from contextmind.modes.pytod.prompts import _format_prior_dataflow as _fmt_df
             ap_user_parts = []
             if self._history:
                 history_str = self.prompt_builder._format_history(self._history)
@@ -460,10 +507,20 @@ class AdkPyTODTracker:
             intent_ctx = self.prompt_builder._build_intent_context()
             if intent_ctx:
                 ap_user_parts.append(intent_ctx)
-            if prior_dataflow:
-                import json as _json
-                ap_user_parts.append(f"## 先前已计算的变量（可通过 xN.field 引用）\n{_json.dumps(prior_dataflow, ensure_ascii=False, indent=2)}")
-            ap_user_parts.append(f"## 新变量编号约束\n本轮新变量从 x{self._next_var_index} 开始，不得使用 x1~x{self._next_var_index - 1}")
+            # 已计算变量：含调用来源行，帮助 AP 识别重复调用
+            dataflow_section = _fmt_df(
+                prior_dataflow or None,
+                self._next_var_index,
+                call_sources=self.var_call_sources,
+            )
+            if dataflow_section:
+                ap_user_parts.append(dataflow_section.strip())
+            else:
+                if self._next_var_index > 1:
+                    ap_user_parts.append(
+                        f"## 新变量编号约束\n本轮新变量从 x{self._next_var_index} 开始，"
+                        f"不得使用 x1~x{self._next_var_index - 1}"
+                    )
             ap_user_parts.append(f"## 当前用户话语\n{user_utterance}\n\n请生成 PyTOD 程序：")
             ap_user_message = "\n\n".join(ap_user_parts)
             program_text = await self._run_adk_ap(ap_user_message)
@@ -489,6 +546,10 @@ class AdkPyTODTracker:
         )
         self.last_execution_result = execution_result  # 记录供 web_demo 展示
         self.step_timings["EE (执行引擎)"] = round(time.time() - t1, 3)
+
+        # 更新 var_call_sources：记录本轮程序中每个变量绑定的调用来源，
+        # 供后续轮次 AP 提示词显示（帮助 AP 避免重复调用相同函数）。
+        self.var_call_sources.update(_extract_var_call_sources(program_text))
 
         # 将本轮 API 调用结果合并进累积状态，并记录调用日志。
         # 仅存储真正的 API 调用结果（dict/非字符串），跳过 say() 输出的字符串变量，
@@ -571,6 +632,7 @@ class AdkPyTODTracker:
         self._history = []
         self.current_state = {}
         self.api_call_log = []
+        self.var_call_sources = {}
         self.turn_count = 0
         self.last_program_text = ""
         self.last_execution_result = None
