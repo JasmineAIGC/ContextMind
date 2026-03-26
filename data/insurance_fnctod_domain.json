@@ -1,6 +1,6 @@
 {
   "_schema_source": "insurance_schema.json",
-  "_generated_at": "2026-03-26T11:08:05.584992+00:00",
+  "_generated_at": "2026-03-26T11:48:27.883138+00:00",
   "domain_name": "Insurance_Sales",
   "description": "保险销售对话场景，专注于团体癌症保险产品的电话销售，全面提取客户意图、保险需求、健康状况等信息",
   "slots": {

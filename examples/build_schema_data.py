@@ -4,7 +4,7 @@ Schema 数据预生成脚本
 
 从 data/ 目录下的 *_schema.json 文件生成各算法所需的 companion 数据文件：
 
-  - data/*_pytod_mock.json   — PyTOD API 执行结果的 mock 数据
+  - data/*_pytod_apis.py   — PyTOD API 函数代码（每个意图一个 Python 函数定义）
                                （含 result_slots 字段，供 AP 通过 say(xN.field) 引用）
   - data/*_fnctod_domain.json — FnCTOD 域定义数据
                                （序列化的 DomainSpec，供 FunctionManager 直接加载）
@@ -17,7 +17,7 @@ Schema 数据预生成脚本
     # 处理指定目录
     python examples/build_schema_data.py --data-dir /path/to/schemas
 
-    # 仅生成 PyTOD mock 数据（跳过 FnCTOD）
+    # 仅生成 PyTOD API 函数代码（跳过 FnCTOD）
     python examples/build_schema_data.py --pytod-only
 
     # 不覆盖已存在的文件
@@ -65,7 +65,7 @@ def main() -> None:
     parser.add_argument(
         "--pytod-only",
         action="store_true",
-        help="仅生成 PyTOD mock 文件，跳过 FnCTOD domain 文件",
+        help="仅生成 PyTOD APIs .py 文件，跳过 FnCTOD domain 文件",
     )
     parser.add_argument(
         "--fnctod-only",
@@ -108,7 +108,7 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
         sys.exit(1)
 
     if not args.fnctod_only:
-        p = builder.build_pytod_mock(schema_path, schema=schema)
+        p = builder.build_pytod_apis(schema_path, schema=schema)
         if p:
             print(f"✅ PyTOD mock → {p}")
         else:
@@ -150,7 +150,7 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
         print(f"📋 {schema_path.name} → service={schema.service_name}, intents={len(schema.intents)}")
 
         if not args.fnctod_only:
-            p = builder.build_pytod_mock(schema_path, schema=schema)
+            p = builder.build_pytod_apis(schema_path, schema=schema)
             if p:
                 print(f"   ✅ PyTOD mock  → {p.name}")
                 written_total += 1
@@ -168,7 +168,7 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
     print()
     print(f"🎉 完成！共写入 {written_total} 个文件")
     print()
-    print("💡 提示：请将生成的文件加入版本控制（git add data/*_pytod_mock.json data/*_fnctod_domain.json）")
+    print("💡 提示：请将生成的文件加入版本控制（git add data/*_pytod_apis.json data/*_fnctod_domain.json）")
     print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
 
 

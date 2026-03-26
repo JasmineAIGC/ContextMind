@@ -4,30 +4,37 @@ SchemaDataBuilder — 从 schema.json 预生成各算法 companion 数据文件
 生成逻辑
 --------
 
-PyTOD companion (``*_pytod_mock.json``)
-    对每个 intent，根据其 ``result_slots``、``required_slots``、``optional_slots``
-    和意图名语义自动生成合理的 mock 返回值。生成规则优先级：
-    1. 布尔类意图（confirm_/verify_/close_/decline_）→ ``{result_slot: True}``
-    2. 投诉/回调意图 → 固定操作确认文本
-    3. 其余意图 → 根据 result_slot 名称语义填充合理占位值
+PyTOD companion (``*_pytod_apis.py``)
+    对 schema 中的每个 intent，生成一个同名 Python 函数。函数：
+    - 签名参数 = required_slots + optional_slots（全部带默认值 None）
+    - 函数体返回含 result_slots 字段的语义化 mock 数据（不依赖 LLM）
+    - 文件可直接被 importlib 加载，函数注册到 ExecutionEngine
+
+    生成样例::
+
+        def verify_identity(account_usage_status=None):
+            \"\"\"核实用户身份信息\"\"\"
+            return {
+                "verified_identity": True,
+                "account_usage_status": account_usage_status or "正常",
+                "status": "success",
+            }
 
 FnCTOD companion (``*_fnctod_domain.json``)
-    序列化 FunctionManager.add_domain_from_slots() 生成的 DomainSpec，
-    存储为可直接 json.load() 的字典，包含 domain_name / description / slots 等字段。
+    序列化 FunctionManager.add_domain_from_slots() 所需的 DomainSpec 字典，
+    存储为可直接 json.load() 的格式，包含 domain_name / description / slots 等字段。
 
 文件命名规则
 ------------
 给定 ``data/foo_schema.json``：
-  - PyTOD companion  → ``data/foo_pytod_mock.json``
+  - PyTOD companion  → ``data/foo_pytod_apis.py``
   - FnCTOD companion → ``data/foo_fnctod_domain.json``
-
-若 schema 文件名不含 ``_schema`` 后缀（如 ``myservice.json``），
-则生成 ``myservice_pytod_mock.json`` / ``myservice_fnctod_domain.json``。
 """
 
 from __future__ import annotations
 
 import json
+import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -100,7 +107,7 @@ class SchemaDataBuilder:
             logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
             return []
 
-        p = self.build_pytod_mock(schema_path, schema=schema)
+        p = self.build_pytod_apis(schema_path, schema=schema)
         if p:
             written.append(p)
 
@@ -110,24 +117,19 @@ class SchemaDataBuilder:
 
         return written
 
-    def build_pytod_mock(
+    def build_pytod_apis(
         self,
         schema_path: Union[str, Path],
         schema: Optional[ServiceSchema] = None,
     ) -> Optional[Path]:
-        """从 schema.json 生成 PyTOD ``*_pytod_mock.json`` companion 文件。
+        """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
-        文件格式::
+        生成的 Python 文件包含每个 intent 对应的函数定义，函数：
+        - 签名参数 = required_slots + optional_slots（全部带默认值 None）
+        - 函数体返回含 result_slots 字段及语义化 mock 值的字典
 
-            {
-              "_schema_source": "anyihua_schema.json",
-              "_generated_at": "2024-01-01T00:00:00+00:00",
-              "intent_name": {
-                "result_slot_1": "mock_value",
-                ...
-              },
-              ...
-            }
+        文件可通过 ``load_pytod_api_module(schema_path)`` 加载，
+        返回的函数直接注册到 ExecutionEngine。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
@@ -137,7 +139,7 @@ class SchemaDataBuilder:
             写入成功时返回文件路径，否则返回 None。
         """
         schema_path = Path(schema_path)
-        out_path = _companion_path(schema_path, "pytod_mock")
+        out_path = _companion_path(schema_path, "pytod_apis", suffix=".py")
 
         if out_path.exists() and not self.overwrite:
             logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
@@ -151,19 +153,39 @@ class SchemaDataBuilder:
                 logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
                 return None
 
-        mock: Dict[str, Any] = {
-            "_schema_source": schema_path.name,
-            "_generated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        lines: List[str] = [
+            '"""',
+            f'PyTOD API 函数集合 — 由 {schema_path.name} 生成',
+            f'Service: {schema.service_name}',
+            f'Generated at: {datetime.now(timezone.utc).isoformat()}',
+            '',
+            '每个函数对应 schema 中的一个意图（intent），函数签名参数来自',
+            'required_slots + optional_slots，返回值包含 result_slots 字段。',
+            '这些函数由 SchemaDataBuilder 预生成，运行时通过 load_pytod_api_module()',
+            '加载并注册到 ExecutionEngine，供 PyTOD AP 生成的程序调用。',
+            '"""',
+            '',
+            'from __future__ import annotations',
+            '',
+        ]
 
-        for intent in schema.intents:
-            mock[intent.name] = _generate_intent_mock(intent)
+        if schema.intents:
+            for intent in schema.intents:
+                lines.extend(_generate_function_lines(intent))
+                lines.append('')
+        else:
+            # No intents — generate one generic function using all slots
+            lines.extend(_generate_generic_function_lines(schema))
+            lines.append('')
+
+        # Trailing newline
+        source = '\n'.join(lines)
 
         try:
             with open(out_path, "w", encoding="utf-8") as fh:
-                json.dump(mock, fh, ensure_ascii=False, indent=2)
+                fh.write(source)
             logger.info(
-                f"[SchemaDataBuilder] 已写入 PyTOD mock: {out_path} ({len(schema.intents)} 个意图)"
+                f"[SchemaDataBuilder] 已写入 PyTOD APIs: {out_path} ({len(schema.intents)} 个意图)"
             )
             return out_path
         except Exception as exc:
@@ -197,7 +219,7 @@ class SchemaDataBuilder:
             写入成功时返回文件路径，否则返回 None。
         """
         schema_path = Path(schema_path)
-        out_path = _companion_path(schema_path, "fnctod_domain")
+        out_path = _companion_path(schema_path, "fnctod_domain", suffix=".json")
 
         if out_path.exists() and not self.overwrite:
             logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
@@ -249,104 +271,95 @@ class SchemaDataBuilder:
 # 内部工具函数
 # ---------------------------------------------------------------------------
 
-def _companion_path(schema_path: Path, suffix: str) -> Path:
+def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path:
     """返回 companion 文件路径。
 
-    ``data/foo_schema.json`` → ``data/foo_{suffix}.json``
-    ``data/myservice.json``  → ``data/myservice_{suffix}.json``
+    ``data/foo_schema.json`` → ``data/foo_{kind}{suffix}``
+    ``data/myservice.json``  → ``data/myservice_{kind}{suffix}``
     """
     stem = schema_path.stem
     base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
-    return schema_path.parent / f"{base}_{suffix}.json"
+    return schema_path.parent / f"{base}_{kind}{suffix}"
 
 
-def _generate_intent_mock(intent: IntentDefinition) -> Dict[str, Any]:
-    """为单个 intent 生成合理的 mock 返回值。
+def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str:
+    """为 result_slot 返回合理的 Python 字面量字符串表示。"""
+    name_lower = slot_name.lower()
+    intent_lower = intent.name.lower()
 
-    生成规则（按优先级）：
-    1. 布尔类意图（名称以 confirm_/verify_/close_/decline_/end_ 开头）
-       → result_slot = True
-    2. 投诉/回调/建议类意图（complain_/schedule_/suggest_）
-       → result_slot = 动作确认文本
-    3. 所有 result_slots 均映射到语义化占位值，
-       同时把 required_slots + optional_slots 中有业务语义的字段也加入返回，
-       让 AP 在 ``say(xN.field)`` 时能引用到实际值。
-    """
-    mock: Dict[str, Any] = {}
-
-    name_lower = intent.name.lower()
     is_confirm_like = any(
-        name_lower.startswith(p)
+        intent_lower.startswith(p)
         for p in ("confirm_", "verify_", "close_", "decline_", "end_", "express_")
     )
     is_complaint_like = any(
-        name_lower.startswith(p)
+        intent_lower.startswith(p)
         for p in ("complain_", "complaint_", "dispute_")
     )
-    is_schedule_like = name_lower.startswith("schedule_")
-    is_suggest_like = name_lower.startswith("suggest_")
-    is_inform_like = name_lower.startswith("inform_")
-    is_inquire_like = any(
-        name_lower.startswith(p)
-        for p in ("inquire_", "query_", "search_", "get_", "track_")
-    )
-    is_close_sale = "close_sale" in name_lower or "sale_completed" in name_lower
+    is_schedule_like = intent_lower.startswith("schedule_")
 
-    # ---- result_slots (output fields) ----
+    if is_confirm_like:
+        return "True"
+    if is_complaint_like:
+        return '"已记录，将在3个工作日内处理"'
+    if is_schedule_like:
+        if "time" in name_lower or "date" in name_lower:
+            return '"明天上午10:00"'
+        return "True"
+
+    # Slot-name semantics
+    if "status" in name_lower:
+        return '"success"'
+    if "verified" in name_lower or "confirmed" in name_lower or "declined" in name_lower:
+        return "True"
+    if "id" in name_lower or "number" in name_lower or "policy" in name_lower:
+        return f'"{intent.name.upper()[:8]}-001"'
+    if "amount" in name_lower or "quota" in name_lower or "limit" in name_lower:
+        return '"5000元"'
+    if "time" in name_lower or "date" in name_lower:
+        return '"2024-01-15"'
+    if "info" in name_lower or "result" in name_lower or "data" in name_lower:
+        return f'"[{intent.name} 执行成功]"'
+    # Default: intent name + "_completed"
+    return f'"{intent.name}_completed"'
+
+
+def _generate_function_lines(intent: IntentDefinition) -> List[str]:
+    """为单个 intent 生成 Python 函数定义行列表。"""
+    # Build parameter list: required + optional, all with default None
+    params = list(dict.fromkeys(
+        list(intent.required_slots) + list(intent.optional_slots)
+    ))
+    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+
+    lines: List[str] = []
+    lines.append(f"def {intent.name}({param_str}):")
+    # Docstring
+    desc = intent.description.replace('"', '\\"') if intent.description else intent.name
+    lines.append(f'    """{desc}"""')
+    lines.append(f'    return {{')
+    # result_slots first (output fields)
     for rs in intent.result_slots:
-        rs_lower = rs.lower()
-        if is_confirm_like:
-            mock[rs] = True
-        elif is_complaint_like:
-            mock[rs] = "已记录，将在3个工作日内处理"
-        elif is_schedule_like:
-            if "time" in rs_lower or "date" in rs_lower:
-                mock[rs] = "明天上午10:00"
-            else:
-                mock[rs] = True
-        elif is_suggest_like:
-            mock[rs] = True
-        elif is_inform_like:
-            mock[rs] = True
-        elif is_close_sale:
-            if "number" in rs_lower or "id" in rs_lower or "policy" in rs_lower:
-                mock[rs] = "POL-20240101-001"
-            else:
-                mock[rs] = True
-        elif "status" in rs_lower:
-            mock[rs] = "success"
-        elif "id" in rs_lower:
-            mock[rs] = f"{intent.name.upper()[:8]}-001"
-        elif "amount" in rs_lower or "quota" in rs_lower or "limit" in rs_lower:
-            mock[rs] = "5000元"
-        elif "time" in rs_lower or "date" in rs_lower:
-            mock[rs] = "2024-01-15"
-        elif "info" in rs_lower or "result" in rs_lower:
-            mock[rs] = f"[{intent.name} 执行成功]"
-        elif "verified" in rs_lower or "confirmed" in rs_lower:
-            mock[rs] = True
-        else:
-            mock[rs] = f"{intent.name}_completed"
+        val = _mock_value_for_result_slot(rs, intent)
+        lines.append(f'        "{rs}": {val},')
+    # Echo back non-None input args for business-relevant slots
+    for slot in params:
+        sl = slot.lower()
+        if any(kw in sl for kw in ("amount", "quota", "limit", "date", "id", "number", "name")):
+            lines.append(f'        "{slot}": {slot},')
+    # Always include status
+    lines.append(f'        "status": "success",')
+    lines.append(f'    }}')
+    return lines
 
-    # ---- required/optional slots that carry business-relevant data ----
-    # These are *input* parameters that the caller passes in; echo them back
-    # so AP can reference them via say(xN.slot_name) for DM context.
-    # Only add if not already in mock (result_slots take precedence).
-    for slot in list(intent.required_slots) + list(intent.optional_slots):
-        if slot in mock:
-            continue
-        slot_lower = slot.lower()
-        if "amount" in slot_lower or "quota" in slot_lower or "limit" in slot_lower:
-            mock[slot] = "5000"
-        elif "date" in slot_lower:
-            mock[slot] = "2024-01-15"
-        elif "status" in slot_lower:
-            mock[slot] = "正常"
-        elif "id" in slot_lower or "number" in slot_lower:
-            mock[slot] = f"ID-{intent.name[:6].upper()}"
-        # Skip generic slot names that would add noise without value
 
-    # Always include a status marker
-    mock.setdefault("status", "success")
-
-    return mock
+def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
+    """无意图定义时生成一个以 service_name 命名的通用函数。"""
+    slot_names = [s.name for s in schema.slots]
+    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    lines: List[str] = []
+    lines.append(f"def {schema.service_name}({param_str}):")
+    desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
+    lines.append(f'    """{desc}"""')
+    lines.append(f'    args = {{k: v for k, v in locals().items() if v is not None}}')
+    lines.append(f'    return {{"status": "success", **args}}')
+    return lines

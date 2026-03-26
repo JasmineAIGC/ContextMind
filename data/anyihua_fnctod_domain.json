@@ -1,6 +1,6 @@
 {
   "_schema_source": "anyihua_schema.json",
-  "_generated_at": "2026-03-26T11:08:05.583671+00:00",
+  "_generated_at": "2026-03-26T11:48:27.881942+00:00",
   "domain_name": "AnYiHua_OutboundCall",
   "description": "安逸花外呼促活服务，流程包括核实身份、告知额度、解答疑问、引导借款",
   "slots": {

@@ -34,7 +34,7 @@ from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-from contextmind.modes.pytod.tracker import _is_stub_only_result, load_pytod_mock_data
+from contextmind.modes.pytod.tracker import _is_stub_only_result, load_pytod_api_module
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"

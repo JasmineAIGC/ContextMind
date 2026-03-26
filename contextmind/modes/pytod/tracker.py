@@ -176,51 +176,66 @@ def _extract_var_call_sources(program_text: str) -> Dict[str, str]:
     return result
 
 
-def load_pytod_mock_data(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
-    """从与 schema.json 同目录的 companion 文件加载 PyTOD mock 数据。
+def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+    """从与 schema.json 同目录的 ``*_pytod_apis.py`` companion 文件加载 PyTOD API 函数。
 
     查找规则：给定 ``path/to/foo_schema.json``，自动加载
-    ``path/to/foo_pytod_mock.json``（去掉 ``_schema`` 后缀再加 ``_pytod_mock``）。
-    若 schema 文件名不含 ``_schema`` 后缀（如 ``myservice.json``），
-    则查找 ``myservice_pytod_mock.json``。
+    ``path/to/foo_pytod_apis.py``（去掉 ``_schema`` 后缀再加 ``_pytod_apis``）。
 
-    companion 文件由 ``SchemaDataBuilder.build_pytod_mock()`` 预生成，
+    companion 文件由 ``SchemaDataBuilder.build_pytod_apis()`` 预生成，
+    包含每个 intent 对应的真实 Python 函数定义（含 result_slots 返回值），
     或通过 ``python examples/build_schema_data.py`` 批量生成后提交到版本控制。
 
     Returns:
-        成功时返回字典 ``{intent_name: {result_field: value, ...}}``；
-        文件不存在或解析失败时返回 ``None``（调用方将降级为无 mock 数据的存根）。
+        成功时返回字典 ``{func_name: callable}``，可直接注册到 ExecutionEngine；
+        文件不存在或加载失败时返回 ``None``（调用方将降级为纯存根模式）。
 
     Example::
 
-        mock_data = load_pytod_mock_data("data/anyihua_schema.json")
-        # → {"verify_identity": {"verified_identity": True, ...}, ...}
+        api_funcs = load_pytod_api_module("data/anyihua_schema.json")
+        # → {"verify_identity": <function verify_identity>, ...}
     """
+    import importlib.util
+
     p = Path(schema_path)
     stem = p.stem
-    # Strip optional "_schema" suffix to build companion filename
     base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
-    mock_path = p.parent / f"{base}_pytod_mock.json"
-    if not mock_path.exists():
-        logger.debug(f"[mock] companion mock 文件不存在: {mock_path}")
+    apis_path = p.parent / f"{base}_pytod_apis.py"
+    if not apis_path.exists():
+        logger.debug(f"[api_module] companion apis 文件不存在: {apis_path}")
         return None
     try:
-        with open(mock_path, encoding="utf-8") as fh:
-            data = json.load(fh)
-        # Strip meta-comment keys that start with "_"
-        data = {k: v for k, v in data.items() if not k.startswith("_")}
-        logger.info(f"[mock] 已加载 PyTOD mock 数据: {mock_path} ({len(data)} 个意图)")
-        return data
+        mod_name = f"_pytod_apis_{base}"
+        spec = importlib.util.spec_from_file_location(mod_name, apis_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"无法创建 module spec: {apis_path}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        # Collect all callable functions that don't start with "_"
+        funcs = {
+            name: obj
+            for name, obj in vars(mod).items()
+            if callable(obj) and not name.startswith("_")
+        }
+        logger.info(f"[api_module] 已加载 PyTOD API 函数: {apis_path} ({len(funcs)} 个函数)")
+        return funcs
     except Exception as exc:
-        logger.warning(f"[mock] 加载 mock 数据失败: {mock_path} — {exc}")
+        logger.warning(f"[api_module] 加载 APIs 模块失败: {apis_path} — {exc}")
         return None
+
+
+# Keep backward-compat alias (deprecated)
+def load_pytod_mock_data(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+    """已废弃：请改用 ``load_pytod_api_module()``。"""
+    logger.warning("[deprecated] load_pytod_mock_data() 已废弃，请改用 load_pytod_api_module()")
+    return None
 
 
 def _register_apis_from_schema(
     engine: ExecutionEngine,
     schema: ServiceSchema,
     replace_existing: bool = True,
-    mock_data: Optional[Dict[str, Any]] = None,
+    api_funcs: Optional[Dict[str, Any]] = None,
 ) -> None:
     """根据 ServiceSchema 的意图定义，在 ExecutionEngine 中注册对应的 API 函数。
 
@@ -228,25 +243,21 @@ def _register_apis_from_schema(
     能够执行 AP 依据外部 Schema 生成的程序（意图名和槽位名与 schema 一致）。
 
     注册规则：
-    - 若 schema 定义了 intents，则为每个 intent 注册一个同名函数，
-      函数参数为该 intent 的全部 required_slots + optional_slots。
-    - 若 schema 没有 intents，则以 service_name 为函数名注册一个
-      接受所有 schema slots 作为参数的通用函数。
-
-    注册的函数为存根函数：当 ``mock_data`` 提供时返回预生成的真实 mock 数据
-    （含 result_slots 字段），使 AP 通过 ``say(xN.field)`` 能引用到有意义的值；
-    未提供 mock_data 时退化为直通行为（返回传入的非空参数），用于兼容旧逻辑。
+    - 若提供了 ``api_funcs``（由 ``load_pytod_api_module()`` 加载的预生成函数），
+      则直接注册这些真实函数（含 result_slots 返回值），AP 可通过 ``say(xN.field)``
+      引用结果字段。
+    - 否则退化为存根模式：为每个 intent 注册接受 required+optional slots 的
+      直通函数（无参调用时返回默认成功标记），仅用于保证 EE 不报错。
 
     Args:
         engine:           目标 ExecutionEngine。
         schema:           外部传入的 ServiceSchema。
         replace_existing: 为 True（默认）时先清空 registry 再注册，完全替换预定义函数；
-                          为 False 时仅为 registry 中尚未注册的意图添加存根函数，
-                          保留已有的预定义实现（具有真实 mock 数据的函数优先）。
-        mock_data:        可选的意图 mock 返回值字典，格式为
-                          ``{intent_name: {result_field: value, ...}}``。
-                          通常通过 ``load_pytod_mock_data(schema_path)`` 加载，
-                          或由 ``SchemaDataBuilder.build_pytod_mock()`` 预生成。
+                          为 False 时仅为 registry 中尚未注册的意图添加函数，
+                          保留已有的预定义实现（具有真实业务逻辑的函数优先）。
+        api_funcs:        可选的 ``{func_name: callable}`` 字典，通常通过
+                          ``load_pytod_api_module(schema_path)`` 从预生成的
+                          ``*_pytod_apis.py`` 文件加载。
     """
     import inspect
 
@@ -254,37 +265,14 @@ def _register_apis_from_schema(
         engine.registry.clear()
 
     schema_slot_names = [s.name for s in schema.slots]
-    _mock = mock_data or {}
+    _funcs = api_funcs or {}
 
-    def _make_api_func(func_name: str, param_names: List[str]) -> Any:
-        """动态创建一个接受指定参数的 API 存根函数。
-
-        调用时行为（有 mock 数据时）：
-        - 返回 ``{"status": "success", **mock_result_fields, **caller_args}``
-          mock_result_fields 为该意图预生成的 result_slots 值，caller_args 为
-          调用时传入的非空参数。AP 可通过 ``say(xN.result_field)`` 引用字段。
-
-        调用时行为（无 mock 数据时）：
-        - 有非空参数 → 返回 {param: value} 字典（直通）
-        - 无参数    → 返回 {"status": "success", "intent": func_name}（默认成功标记）
-
-        ``param_names`` 只应包含该意图真正有意义的输入槽位（required + optional），
-        不应包含结果槽位（result_slots）或 schema 级别的通用槽位，以保持
-        AP 提示词中的函数签名简洁，引导 AP 使用语义正确的槽位名。
-        """
-        # Pre-bind the mock result values for this specific intent (if any)
-        mock_result: Optional[Dict[str, Any]] = _mock.get(func_name) or None
-
+    def _make_stub_func(func_name: str, param_names: List[str]) -> Any:
+        """为无预生成函数的意图创建存根（降级模式）。"""
         def _api(**kwargs: Any) -> Dict[str, Any]:
             input_args = {k: v for k, v in kwargs.items() if v is not None}
-            if mock_result:
-                # Merge pre-generated result fields + caller-supplied input args.
-                # input_args overrides mock_result for same-named keys so that
-                # what the AP passed in is accurately reflected.
-                return {"status": "success", **mock_result, **input_args}
-            # No mock data: fall back to pass-through behaviour
             if input_args:
-                return input_args
+                return {"status": "success", **input_args}
             return {"status": "success", "intent": func_name}
 
         params = [
@@ -295,30 +283,38 @@ def _register_apis_from_schema(
         _api.__name__ = func_name
         return _api
 
+    def _wrap_with_signature(func: Any, func_name: str, param_names: List[str]) -> Any:
+        """用声明的签名包装预生成函数，确保 EE 能按签名传参。"""
+        params = [
+            inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None)
+            for p in param_names
+        ]
+        func.__signature__ = inspect.Signature(params)  # type: ignore[union-attr]
+        func.__name__ = func_name
+        return func
+
     if schema.intents:
         for intent in schema.intents:
-            # 当 replace_existing=False 时，跳过已注册的函数（保留预定义实现）
             if not replace_existing and intent.name in engine.registry:
                 logger.debug(f"[schema API] 跳过已注册函数: {intent.name}")
                 continue
-            # 仅使用该意图的输入槽位作为函数签名（required + optional）。
-            # 结果槽位（result_slots）是输出字段而非输入参数，不应出现在签名中；
-            # schema 级别的通用槽位会把所有函数都变成 30 参数长度的"万能函数"，
-            # 严重混淆 AP 对正确槽位名的判断，故也不包含在签名中。
             display_slots = list(dict.fromkeys(
                 list(intent.required_slots) + list(intent.optional_slots)
             ))
-            func = _make_api_func(intent.name, display_slots)
+            if intent.name in _funcs:
+                # 使用预生成的真实函数，并确保签名与 display_slots 一致
+                func = _wrap_with_signature(_funcs[intent.name], intent.name, display_slots)
+                logger.debug(f"[schema API] 注册预生成函数: {intent.name}({', '.join(display_slots)})")
+            else:
+                func = _make_stub_func(intent.name, display_slots)
+                logger.debug(f"[schema API] 注册存根函数: {intent.name}({', '.join(display_slots)})")
             engine.registry[intent.name] = func
-            has_mock = intent.name in _mock
-            logger.debug(
-                f"[schema API] 注册意图函数: {intent.name}({', '.join(display_slots)})"
-                + (" [含 mock 数据]" if has_mock else "")
-            )
     else:
-        # 无意图定义时，以 service_name 为函数名注册通用函数（保留 schema 级别槽位）
         if replace_existing or schema.service_name not in engine.registry:
-            func = _make_api_func(schema.service_name, schema_slot_names)
+            if schema.service_name in _funcs:
+                func = _wrap_with_signature(_funcs[schema.service_name], schema.service_name, schema_slot_names)
+            else:
+                func = _make_stub_func(schema.service_name, schema_slot_names)
             engine.registry[schema.service_name] = func
             logger.debug(f"[schema API] 注册服务函数: {schema.service_name}({', '.join(schema_slot_names)})")
 
@@ -470,8 +466,8 @@ class AdkPyTODTracker:
                              特殊 key:
                              - ``schema`` (ServiceSchema): 外部传入的 schema 对象。
                              - ``schema_path`` (str|Path): schema.json 路径，用于自动
-                               加载 companion mock 文件。若仅传 ``schema`` 而不传
-                               ``schema_path``，则不自动加载 mock 数据。
+                               加载 companion ``*_pytod_apis.py`` 文件中的预生成函数。
+                               若仅传 ``schema`` 而不传 ``schema_path``，则退化为存根模式。
         """
         # 过滤历史遗留的不兼容参数
         kwargs.pop("prompt_builder", None)
@@ -480,13 +476,13 @@ class AdkPyTODTracker:
 
         # 外部 schema 优先取出，决定 API 注册策略
         external_schema = kwargs.pop("schema", None)
-        # schema_path 用于自动加载 companion mock 文件
+        # schema_path 用于自动加载 companion *_pytod_apis.py 文件
         schema_path: Optional[Any] = kwargs.pop("schema_path", None)
 
-        # 加载 mock 数据：优先使用 schema_path 查找 companion 文件
-        mock_data: Optional[Dict[str, Any]] = None
+        # 加载预生成的 API 函数（来自 *_pytod_apis.py companion 文件）
+        api_funcs: Optional[Dict[str, Any]] = None
         if schema_path is not None:
-            mock_data = load_pytod_mock_data(schema_path)
+            api_funcs = load_pytod_api_module(schema_path)
 
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
@@ -494,7 +490,7 @@ class AdkPyTODTracker:
 
         if external_schema is not None:
             # 外部 schema 传入：
-            # 1. 若场景有预定义 API（含真实 mock 数据），先注册它们；
+            # 1. 若场景有预定义 API（含真实业务逻辑），先注册它们；
             # 2. 再用 schema 中的意图填补未覆盖的函数（replace_existing=False），
             #    确保预定义实现不被覆盖，同时所有 schema 意图都可被 EE 执行。
             if key and key in SCENARIO_API_REGISTRY:
@@ -503,11 +499,11 @@ class AdkPyTODTracker:
                     f"已为场景 '{scenario_name}' 注册预定义 API: {engine.list_functions()}"
                 )
                 _register_apis_from_schema(
-                    engine, external_schema, replace_existing=False, mock_data=mock_data
+                    engine, external_schema, replace_existing=False, api_funcs=api_funcs
                 )
             else:
                 _register_apis_from_schema(
-                    engine, external_schema, replace_existing=True, mock_data=mock_data
+                    engine, external_schema, replace_existing=True, api_funcs=api_funcs
                 )
             schema = external_schema
         else:
