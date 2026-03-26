@@ -31,6 +31,7 @@ from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.modes.pytod.schemas import load_schema_from_dict
+from contextmind.modes.pytod.tracker import load_pytod_mock_data
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -44,26 +45,45 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 def _load_external_schemas(schema_path: str):
     """从 schema.json 文件加载 PyTOD ServiceSchema 和 FnCTOD DomainSpec。
 
+    先尝试从预生成的 companion 文件加载（``*_fnctod_domain.json``），
+    若不存在则从 schema.json 在线构建 FunctionManager domain。
+
     Returns:
         (ServiceSchema, DomainSpec) 二元组；加载失败时记录错误并返回 (None, None)。
     """
     import json
     from contextmind.modes.fnctod.function_manager import FunctionManager
+    from pathlib import Path as _Path
     try:
         with open(schema_path, encoding="utf-8") as f:
             data = json.load(f)
         svc = load_schema_from_dict(data)
+
+        # 优先从预生成的 companion fnctod_domain.json 加载 FunctionManager 域
+        sp = _Path(schema_path)
+        base = sp.stem[: -len("_schema")] if sp.stem.endswith("_schema") else sp.stem
+        fnctod_domain_path = sp.parent / f"{base}_fnctod_domain.json"
+
         fm = FunctionManager()
-        fm.add_domain_from_slots(
-            domain_name=svc.service_name,
-            domain_description=svc.description,
-            slots={slot.name: slot.description for slot in svc.slots},
-            categorical_slots={
-                slot.name: slot.possible_values
-                for slot in svc.slots if slot.possible_values
-            } or None,
-            required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
-        )
+        if fnctod_domain_path.exists():
+            try:
+                with open(fnctod_domain_path, encoding="utf-8") as fh:
+                    dd = json.load(fh)
+                fm.add_domain_from_slots(
+                    domain_name=dd["domain_name"],
+                    domain_description=dd.get("description", svc.description),
+                    slots=dd.get("slots", {}),
+                    categorical_slots=dd.get("categorical_slots") or None,
+                    required_slots=dd.get("required_slots") or None,
+                )
+                logger.info(f"已从 companion 文件加载 FnCTOD 域: {fnctod_domain_path.name}")
+            except Exception as exc:
+                logger.warning(f"companion fnctod_domain 加载失败，改用在线构建: {exc}")
+                fm = FunctionManager()  # reset
+                _build_fnctod_domain_inline(fm, svc)
+        else:
+            _build_fnctod_domain_inline(fm, svc)
+
         domains = fm.get_all_domains()
         if not domains:
             raise ValueError(f"Schema '{schema_path}' produced no valid domains")
@@ -73,6 +93,20 @@ def _load_external_schemas(schema_path: str):
     except Exception as exc:
         logger.error(f"加载外部 Schema 失败: {schema_path} — {exc}")
         return None, None
+
+
+def _build_fnctod_domain_inline(fm: Any, svc: Any) -> None:
+    """从 ServiceSchema 在线构建 FnCTOD FunctionManager 域（fallback）。"""
+    fm.add_domain_from_slots(
+        domain_name=svc.service_name,
+        domain_description=svc.description,
+        slots={slot.name: slot.description for slot in svc.slots},
+        categorical_slots={
+            slot.name: slot.possible_values
+            for slot in svc.slots if slot.possible_values
+        } or None,
+        required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
+    )
 
 
 class UnifiedGradioDemo:
@@ -102,6 +136,7 @@ class UnifiedGradioDemo:
         # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
         self._pytod_schema = None
         self._fnctod_domain_spec = None
+        self._schema_path: Optional[str] = schema_path  # 保存路径，用于加载 mock companion
         if schema_path:
             self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
         logger.info("Demo实例创建完成（延迟初始化）")
@@ -187,6 +222,9 @@ class UnifiedGradioDemo:
         kwargs = {}
         if self._pytod_schema is not None:
             kwargs["schema"] = self._pytod_schema
+        # 传入 schema_path 让 from_scenario() 自动加载 companion mock 数据
+        if self._schema_path is not None:
+            kwargs["schema_path"] = self._schema_path
         self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config, **kwargs)
         logger.info("PyTOD模式初始化完成 (三步流程: AP→EE→DM)")
 

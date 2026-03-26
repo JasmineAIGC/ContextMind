@@ -1,0 +1,41 @@
+{
+  "_schema_source": "chat_schema.json",
+  "_generated_at": "2026-03-26T11:08:05.584405+00:00",
+  "get_weather": {
+    "weather_result": "[get_weather 执行成功]",
+    "date": "2024-01-15",
+    "status": "success"
+  },
+  "search_info": {
+    "search_result": "[search_info 执行成功]",
+    "status": "success"
+  },
+  "tell_joke": {
+    "joke_result": "[tell_joke 执行成功]",
+    "status": "success"
+  },
+  "translate_text": {
+    "translation_result": "[translate_text 执行成功]",
+    "status": "success"
+  },
+  "calculate": {
+    "calculation_result": "[calculate 执行成功]",
+    "status": "success"
+  },
+  "get_current_time": {
+    "time_result": "2024-01-15",
+    "status": "success"
+  },
+  "convert_units": {
+    "conversion_result": "[convert_units 执行成功]",
+    "status": "success"
+  },
+  "recommend_content": {
+    "recommendation_result": "[recommend_content 执行成功]",
+    "status": "success"
+  },
+  "get_recipe": {
+    "recipe_result": "[get_recipe 执行成功]",
+    "status": "success"
+  }
+}

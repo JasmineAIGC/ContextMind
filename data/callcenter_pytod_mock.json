@@ -1,0 +1,49 @@
+{
+  "_schema_source": "callcenter_schema.json",
+  "_generated_at": "2026-03-26T11:08:05.583934+00:00",
+  "query_order_status": {
+    "order_status": "success",
+    "order_id": "ID-QUERY_",
+    "status": "success"
+  },
+  "submit_complaint": {
+    "complaint_id": "SUBMIT_C-001",
+    "order_id": "ID-SUBMIT",
+    "status": "success"
+  },
+  "request_refund": {
+    "refund_status": "success",
+    "order_id": "ID-REQUES",
+    "refund_amount": "5000",
+    "status": "success"
+  },
+  "request_exchange": {
+    "exchange_status": "success",
+    "order_id": "ID-REQUES",
+    "status": "success"
+  },
+  "track_logistics": {
+    "logistics_status": "success",
+    "tracking_number": "ID-TRACK_",
+    "order_id": "ID-TRACK_",
+    "status": "success"
+  },
+  "reset_password": {
+    "reset_status": "success",
+    "account_id": "ID-RESET_",
+    "status": "success"
+  },
+  "update_account_info": {
+    "update_status": "success",
+    "account_id": "ID-UPDATE",
+    "status": "success"
+  },
+  "query_service_policy": {
+    "policy_info": "[query_service_policy 执行成功]",
+    "status": "success"
+  },
+  "submit_feedback": {
+    "feedback_id": "SUBMIT_F-001",
+    "status": "success"
+  }
+}

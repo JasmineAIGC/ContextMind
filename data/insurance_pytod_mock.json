@@ -1,0 +1,36 @@
+{
+  "_schema_source": "insurance_schema.json",
+  "_generated_at": "2026-03-26T11:08:05.584825+00:00",
+  "verify_member_identity": {
+    "identity_verified": true,
+    "status": "success"
+  },
+  "introduce_product": {
+    "product_info": "[introduce_product 执行成功]",
+    "status": "success"
+  },
+  "calculate_premium": {
+    "premium_amount": "5000元",
+    "status": "success"
+  },
+  "handle_objection": {
+    "objection_handled": "handle_objection_completed",
+    "status": "success"
+  },
+  "compare_with_existing_insurance": {
+    "comparison_result": "[compare_with_existing_insurance 执行成功]",
+    "status": "success"
+  },
+  "schedule_callback": {
+    "callback_scheduled": true,
+    "status": "success"
+  },
+  "close_sale": {
+    "sale_completed": true,
+    "status": "success"
+  },
+  "end_call_gracefully": {
+    "call_ended": true,
+    "status": "success"
+  }
+}

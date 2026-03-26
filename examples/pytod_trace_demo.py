@@ -34,7 +34,7 @@ from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-from contextmind.modes.pytod.tracker import _is_stub_only_result
+from contextmind.modes.pytod.tracker import _is_stub_only_result, load_pytod_mock_data
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
@@ -204,7 +204,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             scenario_config=scenario_config,
             scenario_context=scenario_context,
             compact_schema=compact_schema,
-            **({"schema": external_schema} if external_schema is not None else {}),
+            **({"schema": external_schema, "schema_path": schema_path} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
         # 使用实际运行引擎的 API 列表（包含预定义 API + schema 自动注册的存根）

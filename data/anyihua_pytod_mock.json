@@ -1,0 +1,120 @@
+{
+  "_schema_source": "anyihua_schema.json",
+  "_generated_at": "2026-03-26T11:08:05.583325+00:00",
+  "confirm_terms": {
+    "confirmed_terms": true,
+    "loan_amount": "5000",
+    "current_credit_limit": "5000",
+    "monthly_interest_amount": "5000",
+    "status": "success"
+  },
+  "verify_identity": {
+    "verified_identity": true,
+    "account_usage_status": "正常",
+    "status": "success"
+  },
+  "complain_repayment_process": {
+    "complaint_repayment_process": "已记录，将在3个工作日内处理",
+    "monthly_payment_amount": "5000",
+    "status": "success"
+  },
+  "complain_interest_rate": {
+    "complaint_interest_rate": "已记录，将在3个工作日内处理",
+    "status": "success"
+  },
+  "confirm_awareness": {
+    "confirmed_awareness": true,
+    "temporary_credit_limit": "5000",
+    "current_credit_limit": "5000",
+    "status": "success"
+  },
+  "dispute_loan": {
+    "disputed_loan": "已记录，将在3个工作日内处理",
+    "loan_date": "2024-01-15",
+    "loan_amount": "5000",
+    "status": "success"
+  },
+  "confirm_borrowing_history": {
+    "confirmed_borrowing_history": true,
+    "borrowing_date": "2024-01-15",
+    "loan_amount": "5000",
+    "status": "success"
+  },
+  "decline_usage": {
+    "declined_usage": true,
+    "current_credit_limit": "5000",
+    "status": "success"
+  },
+  "inquire_concerns_quota_interest": {
+    "inquired_concerns": "inquire_concerns_quota_interest_completed",
+    "current_credit_limit": "5000",
+    "status": "success"
+  },
+  "express_future_intent": {
+    "expressed_future_intent": true,
+    "loan_limit": "5000",
+    "status": "success"
+  },
+  "inquire_repayment_type": {
+    "inquired_repayment_type": "inquire_repayment_type_completed",
+    "monthly_payment_amount": "5000",
+    "status": "success"
+  },
+  "complain_repayment_difficulty": {
+    "complaint_repayment_difficulty": "已记录，将在3个工作日内处理",
+    "monthly_payment_amount": "5000",
+    "status": "success"
+  },
+  "complain_monthly_payment": {
+    "complaint_monthly_payment": "已记录，将在3个工作日内处理",
+    "monthly_payment_amount": "5000",
+    "status": "success"
+  },
+  "inquire_expected_interest_rate": {
+    "inquired_expected_interest": "inquire_expected_interest_rate_completed",
+    "status": "success"
+  },
+  "inquire_annual_interest_rate": {
+    "inquired_annual_interest": "inquire_annual_interest_rate_completed",
+    "status": "success"
+  },
+  "inform_credit_limit_increase": {
+    "informed_credit_limit_increase": true,
+    "temporary_credit_limit": "5000",
+    "status": "success"
+  },
+  "confirm_application": {
+    "confirmed_application": true,
+    "application_date": "2024-01-15",
+    "loan_amount": "5000",
+    "status": "success"
+  },
+  "complain_limit_denied": {
+    "complaint_limit_denied": "已记录，将在3个工作日内处理",
+    "current_credit_limit": "5000",
+    "requested_amount": "5000",
+    "status": "success"
+  },
+  "confirm_account_status": {
+    "confirmed_account_status": true,
+    "account_usage_status": "正常",
+    "temporary_credit_limit": "5000",
+    "status": "success"
+  },
+  "inquire_amount_discrepancy": {
+    "inquired_amount_discrepancy": "5000元",
+    "borrow_amount": "5000",
+    "actual_amount": "5000",
+    "status": "success"
+  },
+  "complain_discrepancy": {
+    "complaint_discrepancy": "已记录，将在3个工作日内处理",
+    "requested_amount": "5000",
+    "actual_amount": "5000",
+    "status": "success"
+  },
+  "suggest_contact_customer_service": {
+    "suggested_contact_service": true,
+    "status": "success"
+  }
+}
