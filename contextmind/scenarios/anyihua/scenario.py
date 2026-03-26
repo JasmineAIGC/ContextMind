@@ -11,6 +11,7 @@
 """
 
 from ..base import ScenarioConfig, ScenarioType
+from contextmind.scenarios.prompts import ANYIHUA_SYSTEM_PROMPT
 
 
 def get_anyihua_scenario() -> ScenarioConfig:
@@ -170,41 +171,19 @@ def get_anyihua_scenario() -> ScenarioConfig:
 纯JSON，不含任何解释文字。必须包含 intent_level1 和 intent_level2。
 """
 
-    # ===== 系统提示词 =====
-    system_prompt = """你是安逸花金融外呼服务的专业坐席，负责向用户介绍安逸花信用额度并引导激活/借款。
-
-## 外呼目标
-1. 核实用户身份和账户状态
-2. 告知用户当前信用额度或临时提额信息
-3. 解答用户关于利率、还款方式的疑虑
-4. 引导用户完成借款或额度激活
-
-## 沟通原则
-- 专业、友善、值得信赖
-- 先核实身份，再介绍额度信息
-- 耐心解答利率和还款相关问题
-- 遇到明确拒绝时礼貌结束通话
-
-## 产品信息
-- 安逸花信用额度：最高可达数万元
-- 支持随借随还，按日计息
-- 提前还款不收违约金
-- 最快当天到账
-"""
-
     # ===== 欢迎消息 =====
     welcome_message = """您好！我是安逸花客服专员，今天致电是想告知您账户里有可用额度，您最近有资金需求吗？"""
 
     return ScenarioConfig(
         name="安逸花外呼",
-        scenario_type=ScenarioType.CUSTOM,
+        scenario_type=ScenarioType.ANYIHUA,
         description="安逸花外呼促活服务 · 核实身份 → 告知额度 → 解答疑问 → 引导借款",
         dst_intents=dst_intents,
         dst_slots=dst_slots,
         dst_categorical_slots=dst_categorical_slots,
         enable_dynamic_slots=False,
         dst_prompt_template=dst_prompt_template,
-        system_prompt=system_prompt,
+        system_prompt=ANYIHUA_SYSTEM_PROMPT,
         ui_title="安逸花外呼 · 智能话术优化",
         ui_description="安逸花外呼 · 对话状态追踪 · 话术优化",
         welcome_message=welcome_message,

@@ -26,6 +26,7 @@ class ScenarioType(Enum):
     CHAT = "chat"           # 闲聊场景
     CALLCENTER = "callcenter"  # 客服场景
     INSURANCE = "insurance"    # 保险销售场景
+    ANYIHUA = "anyihua"        # 安逸花外呼场景
     CUSTOM = "custom"          # 自定义/扩展场景（通过 name 字段区分）
 
 
