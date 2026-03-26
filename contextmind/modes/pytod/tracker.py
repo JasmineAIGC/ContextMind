@@ -134,6 +134,7 @@ def _is_stub_only_result(val: Any) -> bool:
 
 # Names of PyTOD built-in pseudo-functions that are NOT real API calls and
 # therefore should not be recorded in var_call_sources.
+# All entries are lowercase — checked with ``func_name.lower() not in _BUILTIN_FUNC_NAMES``.
 _BUILTIN_FUNC_NAMES: frozenset = frozenset({
     "say", "hint", "confirm", "perform", "conversation_pause", "none",
 })
@@ -214,6 +215,11 @@ def _register_apis_from_schema(
         调用时行为：
         - 有非空参数 → 返回 {param: value} 字典（直通）
         - 无参数    → 返回 {"status": "success", "intent": func_name}（默认成功标记）
+
+        ``param_names`` 只应包含该意图真正有意义的输入槽位（required + optional），
+        不应包含结果槽位（result_slots）或 schema 级别的通用槽位。这样：
+        - AP 提示词中的函数签名简洁，引导 AP 使用语义正确的槽位名
+        - EE 只传入签名中声明的参数，存根返回值与输入槽位名保持一致
         """
         def _api(**kwargs: Any) -> Dict[str, Any]:
             result = {k: v for k, v in kwargs.items() if v is not None}
@@ -236,14 +242,18 @@ def _register_apis_from_schema(
             if not replace_existing and intent.name in engine.registry:
                 logger.debug(f"[schema API] 跳过已注册函数: {intent.name}")
                 continue
-            # 合并意图槽位与 schema 级别槽位（去重，保持顺序）
-            intent_slots = list(intent.required_slots) + list(intent.optional_slots) + list(intent.result_slots)
-            all_slots = list(dict.fromkeys(intent_slots + schema_slot_names))
-            func = _make_api_func(intent.name, all_slots)
+            # 仅使用该意图的输入槽位作为函数签名（required + optional）。
+            # 结果槽位（result_slots）是输出字段而非输入参数，不应出现在签名中；
+            # schema 级别的通用槽位会把所有函数都变成 30 参数长度的"万能函数"，
+            # 严重混淆 AP 对正确槽位名的判断，故也不包含在签名中。
+            display_slots = list(dict.fromkeys(
+                list(intent.required_slots) + list(intent.optional_slots)
+            ))
+            func = _make_api_func(intent.name, display_slots)
             engine.registry[intent.name] = func
-            logger.debug(f"[schema API] 注册意图函数: {intent.name}({', '.join(all_slots)})")
+            logger.debug(f"[schema API] 注册意图函数: {intent.name}({', '.join(display_slots)})")
     else:
-        # 无意图定义时，以 service_name 为函数名注册通用函数
+        # 无意图定义时，以 service_name 为函数名注册通用函数（保留 schema 级别槽位）
         if replace_existing or schema.service_name not in engine.registry:
             func = _make_api_func(schema.service_name, schema_slot_names)
             engine.registry[schema.service_name] = func
