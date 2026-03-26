@@ -751,13 +751,23 @@ class ExecutionEngine:
                         if isinstance(val, dict) and attr in val:
                             parts.append(str(val[attr]))
                         else:
-                            parts.append(f"({stripped})")
+                            # 无法解析：可能是 schema stub（无真实字段）或 AP 幻觉字段名。
+                            # 不将原始表达式注入 say_output，否则 DM 会把 Python
+                            # 变量引用（如 x2.recommended_amount）直接输出给用户。
+                            _logger.debug(
+                                "[EE] say(%s) 无法解析：'%s' 未含字段 '%s'，跳过",
+                                stripped, var_ref, attr,
+                            )
                     # 普通变量引用
                     elif stripped in var_values:
                         val = var_values[stripped]
                         parts.append(str(val))
                     else:
-                        parts.append(f"({stripped})")
+                        # 未定义变量：同上，静默跳过而非注入原始表达式
+                        _logger.debug(
+                            "[EE] say(%s) 无法解析：变量 '%s' 未定义，跳过",
+                            stripped, stripped,
+                        )
                 say_output = "; ".join(parts)
                 if stmt.variable:
                     # 只在变量尚未绑定值时才覆写 var_values 并记录为 say 变量。
