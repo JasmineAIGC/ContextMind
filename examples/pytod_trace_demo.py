@@ -88,6 +88,29 @@ def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
     return random.choice(sessions)
 
 
+def _is_noop_program(program_text: str) -> bool:
+    """Return True when every non-comment line of *program_text* is a no-op sentinel.
+
+    A "no-op" statement is either ``NONE()`` or ``conversation_pause()``,
+    with or without a leading variable binding (e.g. ``x9 conversation_pause()``).
+    These are intentional pause/skip markers that produce no EE output, so the
+    EE result display should read "– 跳过" rather than "✅ 成功".
+    """
+    import re as _re
+    if not program_text:
+        return False
+    lines = [
+        ln.strip() for ln in program_text.strip().splitlines()
+        if ln.strip() and not ln.strip().startswith("#")
+    ]
+    if not lines:
+        return False
+    _noop_re = _re.compile(
+        r"^(?:x\d+\s+)?(?:NONE|CONVERSATION_PAUSE)\s*\(", _re.IGNORECASE
+    )
+    return all(_noop_re.match(line) for line in lines)
+
+
 def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
     """将 ProgramExecutionResult 序列化为可 JSON 化的字典。"""
     if execution_result is None:
@@ -183,6 +206,8 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             **({"schema": external_schema} if external_schema is not None else {}),
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
+        # 使用实际运行引擎的 API 列表（包含预定义 API + schema 自动注册的存根）
+        registered_apis_list = sorted(engine.list_functions())
         for i, (utt, orig_agent) in enumerate(paired_turns):
             try:
                 result = await agent.process_turn(utt)
@@ -197,8 +222,18 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
             ee_data = _serialize_execution(result.get("execution"))
 
-            # state_delta：本轮 EE 新计算的变量（直接来自执行引擎输出，已排除先前轮次变量）
-            state_delta: Dict[str, Any] = dict(ee_data.get("variables", {}))
+            # state_delta：本轮 EE 新计算的变量，排除 say() 输出变量。
+            # say() 变量已从 tracker.current_state 中过滤，这里同步保持一致，
+            # 避免 state_delta 与 cumulative_state 出现差异（say 变量在 delta
+            # 中出现但不在 cumulative 中）。
+            _execution_obj = result.get("execution")
+            _say_var_names: set = set()
+            if hasattr(_execution_obj, "say_variable_names"):
+                _say_var_names = _execution_obj.say_variable_names or set()
+            state_delta: Dict[str, Any] = {
+                k: v for k, v in ee_data.get("variables", {}).items()
+                if k not in _say_var_names
+            }
             # cumulative_state：tracker 跨轮累积的 API 结果（不含 say 输出）
             new_state: Dict[str, Any] = result.get("state", {})
 
@@ -235,6 +270,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 print(f"  [EE] {ee_ok} say={ee_data.get('say','')[:60]!r}")
                 print(f"  [DM] response: {result.get('response', '')[:100]}")
     else:
+        registered_apis_list = sorted(_probe_engine.list_functions())
         for i, (utt, orig_agent) in enumerate(paired_turns):
             turns_results.append({
                 "turn": i + 1,
@@ -257,7 +293,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             "algorithm": "PyTOD AP→EE→DM (官方三步流水线)",
             "llm_available": llm_available,
             "scenario": "安逸花外呼",
-            "registered_apis": _probe_engine.list_functions(),
+            "registered_apis": registered_apis_list,
         },
         "session_id": session.get("session_id", ""),
         "用户信息": session.get("用户信息", ""),
@@ -366,7 +402,13 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         # ② EE
         ee = t.get("ee", {})
         ee_ok = ee.get("success")
-        ee_status = "✅ 成功" if ee_ok else ("❌ 失败" if ee_ok is False else "–")
+        # 检测 NONE / conversation_pause — 这两种语句是无操作占位符，
+        # EE 正确地不产生任何变量；显示为"跳过"而非"成功"，避免产生歧义。
+        is_noop = _is_noop_program(program)
+        if is_noop:
+            ee_status = "– 跳过 (NONE/pause)"
+        else:
+            ee_status = "✅ 成功" if ee_ok else ("❌ 失败" if ee_ok is False else "–")
         ee_parts = [f"**② EE**: {ee_status}"]
         if ee.get("errors"):
             ee_parts.append(f"· 错误: {'; '.join(ee['errors'])}")
