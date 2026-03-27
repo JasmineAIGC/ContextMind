@@ -9,7 +9,7 @@
 1. **chat_test 格式**：含 ``对话历史`` 字段的 dict（如 ``chat_test_100.json``）。
 2. **SGD 格式**：含 ``turns`` 字段的 dict（SYSTEM/USER speaker）。
 3. **简单列表格式**：``List[str]``，每项形如 ``"agent: ..."`` / ``"user: ..."``
-   或 ``"机器人：..."`` / ``"用户：..."``（兼容旧式 ``"坐席：..."``）。
+   或 ``"机器人：..."`` / ``"用户：..."``。
 4. **平铺文本格式**：单条 ``str``，多轮以换行分隔，每行含说话人前缀。
 5. **嵌套 query 格式**：含 ``query`` 字段的 dict，``query`` 本身含 ``对话历史``
    （如 ``chat_test_500.json``，结构为
@@ -48,7 +48,7 @@ _USER_ZH = "用户："
 
 # 英文前缀（常见 agent/user）
 _AGENT_EN_RE = re.compile(
-    r"^(agent|system|assistant|机器人|坐席|客服|ai)\s*[：:]\s*",
+    r"^(agent|system|assistant|机器人|客服|ai)\s*[：:]\s*",
     re.IGNORECASE,
 )
 _USER_EN_RE = re.compile(
@@ -191,11 +191,6 @@ def normalize_dialogue(
             result = dict(raw)
             if not result.get("session_id"):
                 result["session_id"] = dialogue_id or "dlg_0"
-            # 若 对话历史 仍是旧格式字符串列表，在线转换
-            hist = result["对话历史"]
-            if hist and isinstance(hist[0], str):
-                flat_h = [_normalize_line(ln) for ln in hist if isinstance(ln, str) and ln.strip()]
-                result["对话历史"] = _pair_flat_history(flat_h)
             return result
 
         # SGD turns 格式

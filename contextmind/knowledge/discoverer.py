@@ -457,18 +457,17 @@ def _build_provenance(
 def _parse_turns(normalized_dlg: Dict[str, Any]) -> List[Tuple[int, str, str]]:
     """将归一化对话 dict 拆解为逐轮列表。
 
-    支持新版配对 dict 格式（``{"机器人": "...", "用户": "..."}``）
-    和旧版平铺字符串格式（``"机器人：..."`` / ``"用户：..."``）。
+    Args:
+        normalized_dlg: 经 normalize_dialogue() 处理的 dict，对话历史为配对 dict 列表。
 
-    返回:
+    Returns:
         ``[(turn_idx, speaker, utterance), ...]``，``turn_idx`` 从 0 开始。
     """
     history = normalized_dlg.get("对话历史", [])
     turns: List[Tuple[int, str, str]] = []
-    utterance_idx = 0  # sequential utterance index across all entries
+    utterance_idx = 0
     for entry in history:
         if isinstance(entry, dict):
-            # 新版配对格式：每个 dict 包含 "机器人" 和/或 "用户" 发言
             agent_utt = entry.get("机器人", "").strip()
             user_utt = entry.get("用户", "").strip()
             if agent_utt:
@@ -476,41 +475,6 @@ def _parse_turns(normalized_dlg: Dict[str, Any]) -> List[Tuple[int, str, str]]:
                 utterance_idx += 1
             if user_utt:
                 turns.append((utterance_idx, "用户", user_utt))
-                utterance_idx += 1
-        elif isinstance(entry, str):
-            # 旧版平铺字符串格式（向后兼容）
-            line = entry.strip()
-            if not line:
-                continue
-            if line.startswith("机器人：") or line.startswith("机器人:"):
-                speaker = "机器人"
-                utterance = re.sub(r"^机器人[：:]\s*", "", line)
-            elif line.startswith("坐席：") or line.startswith("坐席:"):
-                speaker = "机器人"
-                utterance = re.sub(r"^坐席[：:]\s*", "", line)
-            elif line.startswith("用户：") or line.startswith("用户:"):
-                speaker = "用户"
-                utterance = re.sub(r"^用户[：:]\s*", "", line)
-            else:
-                # 英文前缀兜底
-                m = re.match(
-                    r"^(agent|system|assistant)\s*[：:]\s*(.+)$", line, re.IGNORECASE
-                )
-                if m:
-                    speaker = "机器人"
-                    utterance = m.group(2)
-                else:
-                    m2 = re.match(
-                        r"^(user|human|customer)\s*[：:]\s*(.+)$", line, re.IGNORECASE
-                    )
-                    if m2:
-                        speaker = "用户"
-                        utterance = m2.group(2)
-                    else:
-                        speaker = "未知"
-                        utterance = line
-            if utterance.strip():
-                turns.append((utterance_idx, speaker, utterance))
                 utterance_idx += 1
     return turns
 

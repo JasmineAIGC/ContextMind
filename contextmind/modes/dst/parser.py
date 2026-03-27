@@ -1,8 +1,8 @@
 """
-DST 响应解析器（DST Response Parser）
+DST 响应解析器
 
-鲁棒的JSON响应解析，支持多种格式和容错处理。
-主类为 ``DSTResponseParser``；``ResponseParser`` 是保留的向后兼容别名。
+从 LLM 响应中提取 JSON 格式的槽位更新，支持多种格式和容错处理。
+主类为 ``DSTResponseParser``。
 """
 
 import json

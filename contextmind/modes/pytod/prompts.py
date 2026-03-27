@@ -201,11 +201,7 @@ class PyTODPromptBuilder:
         return "\n".join(lines)
 
     def _build_api_context(self) -> str:
-        """构建完整 API 上下文块（函数签名 + 意图描述）。
-
-        保留此方法供向后兼容（非 ADK 回退路径的系统消息仍可使用）。
-        ADK 路径中：函数签名在系统消息，意图描述已移至用户消息（动态加载）。
-        """
+        """构建完整 API 上下文块（函数签名 + 意图描述）。"""
         sig = self._build_api_signatures()
         intent = self._build_intent_context()
         if sig and intent:

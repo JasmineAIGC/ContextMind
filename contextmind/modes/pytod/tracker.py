@@ -168,13 +168,6 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
         return None
 
 
-# Keep backward-compat alias (deprecated)
-def load_pytod_mock_data(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
-    """已废弃：请改用 ``load_pytod_api_module()``。"""
-    logger.warning("[deprecated] load_pytod_mock_data() 已废弃，请改用 load_pytod_api_module()")
-    return None
-
-
 def _register_apis_from_schema(
     engine: ExecutionEngine,
     schema: ServiceSchema,
@@ -741,22 +734,3 @@ class AdkPyTODTracker:
                     if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
                         response_text += part.text
         return response_text.strip()
-
-
-
-
-# ---------------------------------------------------------------------------
-# 向后兼容别名：保留 adk_tools_from_engine 以防外部代码引用
-# ---------------------------------------------------------------------------
-
-def adk_tools_from_engine(engine: Any) -> List[Any]:
-    """已废弃：此版本不再使用 ADK FunctionTool。
-
-    保留此函数仅为向后兼容，返回空列表。
-    若需要 ADK 原生函数调用，请直接使用 google-adk LlmAgent。
-    """
-    logger.warning(
-        "adk_tools_from_engine() 已废弃：AdkPyTODTracker 现使用 AP→EE→DM 三步流程，"
-        "不再依赖 ADK FunctionTool。"
-    )
-    return []

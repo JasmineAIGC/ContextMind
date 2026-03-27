@@ -5,6 +5,6 @@
 """
 
 from .scenario import get_chat_scenario
-from contextmind.scenarios.app import EvolveApplication as ChatApplication
+from contextmind.modes.evolve.app import EvolveApplication as ChatApplication
 
 __all__ = ["get_chat_scenario", "ChatApplication"]

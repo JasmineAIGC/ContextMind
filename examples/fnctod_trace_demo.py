@@ -162,8 +162,6 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     except Exception:
         llm_available = False
 
-    # 统一格式：每条 entry 为 {"机器人": "xxx", "用户": "yyy"} 配对 dict。
-    # 兼容旧式平铺字符串格式（向后兼容）。
     history = session.get("对话历史", [])
     paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
     for entry in history:
@@ -172,16 +170,6 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             orig_agent = entry.get(_AGENT_KEY, "")
             if user_text:
                 paired_turns.append((user_text, orig_agent))
-        elif isinstance(entry, str):
-            import re as _re
-            if entry.startswith("机器人：") or entry.startswith("坐席："):
-                _pending_agent = _re.sub(r"^(机器人|坐席)[：:]\s*", "", entry)
-            elif entry.startswith("用户："):
-                user_text = entry[len("用户："):]
-                orig_agent = locals().get("_pending_agent", "")
-                if user_text:
-                    paired_turns.append((user_text, orig_agent))
-                _pending_agent = ""
     if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 

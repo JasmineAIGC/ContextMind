@@ -5,6 +5,6 @@
 """
 
 from .scenario import get_insurance_scenario
-from contextmind.scenarios.app import EvolveApplication as InsuranceApplication
+from contextmind.modes.evolve.app import EvolveApplication as InsuranceApplication
 
 __all__ = ["get_insurance_scenario", "InsuranceApplication"]

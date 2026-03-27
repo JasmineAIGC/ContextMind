@@ -47,7 +47,7 @@ from contextmind.scenarios.registry import scenario_registry
 from contextmind.modes.base import BaseTracker
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker, adk_tools_from_function_manager
-from contextmind.modes.pytod import AdkPyTODTracker, adk_tools_from_engine
+from contextmind.modes.pytod import AdkPyTODTracker
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
 from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine, EvolveApplication
 
@@ -83,5 +83,4 @@ __all__ = [
     "create_local_adk_model",
     # ADK 工具转换
     "adk_tools_from_function_manager",
-    "adk_tools_from_engine",
 ]

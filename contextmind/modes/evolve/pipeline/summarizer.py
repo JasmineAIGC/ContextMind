@@ -257,17 +257,15 @@ class ConversationSummarizer:
 
     def __init__(
         self,
-        strategy: Optional[SummarizerStrategy] = None,
         config: Optional[SummarizationConfig] = None,
         window_size: int = 10,
         llm_client = None
     ):
         """
         Args:
-            strategy: 摘要策略（已废弃，使用 config.method 代替）
-            config: SummarizationConfig，优先级高于 strategy
-            window_size: 摘要窗口大小（消息条数）
-            llm_client: LLM客户端
+            config: SummarizationConfig；未提供时使用默认配置。
+            window_size: 摘要窗口大小（消息条数）。
+            llm_client: LLM 客户端；不提供则回退到规则摘要。
         """
         self.config = config or SummarizationConfig()
         self.llm_client = llm_client
@@ -292,7 +290,7 @@ class ConversationSummarizer:
                 self.strategy = LLMBasedSummarizer(llm_client, self.config)
             else:
                 logger.warning("[Summarizer] ⚠️ 未提供llm_client，使用规则摘要")
-                self.strategy = RuleBasedSummarizer(self.config) if strategy is None else strategy
+                self.strategy = RuleBasedSummarizer(self.config)
         
         self.window_size = window_size
 

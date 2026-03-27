@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional
 from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.infra.logger import get_logger
 
-from .engine import EvolveEngine
+from .core.engine import EvolveEngine
 from .core.data_models import ContextResult
 from .core.config import ContextSource
 from .pipeline.summarizer import ConversationSummarizer

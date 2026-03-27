@@ -154,29 +154,13 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         llm_available = False
 
     history = session.get("对话历史", [])
-    # 统一格式：每条 entry 为 {"机器人": "xxx", "用户": "yyy"} 配对 dict。
-    # 兼容旧式平铺字符串格式（向后兼容）。
     paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
     for entry in history:
         if isinstance(entry, dict):
-            # 新格式：配对 dict
             user_text = entry.get(_USER_KEY, "")
             orig_agent = entry.get(_AGENT_KEY, "")
             if user_text:
                 paired_turns.append((user_text, orig_agent))
-        elif isinstance(entry, str):
-            # 旧格式：平铺字符串（向后兼容）
-            import re as _re
-            if entry.startswith("机器人：") or entry.startswith("坐席："):
-                preceding_agent_text = _re.sub(r"^(机器人|坐席)[：:]\s*", "", entry)
-                # 暂存，等待下一条用户发言
-                _pending_agent = preceding_agent_text
-            elif entry.startswith("用户："):
-                user_text = entry[len("用户："):]
-                orig_agent = locals().get("_pending_agent", "")
-                if user_text:
-                    paired_turns.append((user_text, orig_agent))
-                _pending_agent = ""
     if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 
@@ -272,7 +256,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 print(f"  [EE] {ee_ok} say={ee_data.get('say','')[:60]!r}")
                 print(f"  [DM] response: {result.get('response', '')[:100]}")
     else:
-        registered_apis_list = sorted(_probe_engine.list_functions())
+        registered_apis_list = []
         for i, (utt, orig_agent) in enumerate(paired_turns):
             turns_results.append({
                 "turn": i + 1,

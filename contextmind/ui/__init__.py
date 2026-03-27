@@ -3,7 +3,7 @@ ContextMind UI 模块
 
 子模块:
     styles     — CSS 样式常量及版本号
-    components — Gradio 布局、事件绑定和向后兼容入口（需要安装 gradio）
+    components — Gradio 布局和事件绑定（需要安装 gradio）
 """
 
 from .styles import CUSTOM_CSS, APP_VERSION
