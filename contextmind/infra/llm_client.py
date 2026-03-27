@@ -294,7 +294,3 @@ class AdkLLMClient:
         else:
             return asyncio.run(self.generate_async(prompt))
 
-
-# Alias for backward compatibility with code that uses SimpleLLMClient
-SimpleLLMClient = AdkLLMClient
-

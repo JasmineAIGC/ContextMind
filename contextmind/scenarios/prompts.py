@@ -115,11 +115,40 @@ INSURANCE_SYSTEM_PROMPT = """你是共荣保险公司的专业客服代表，负
 **重要提示：始终以客户利益为先，建立长期信任关系，而非仅关注单次成交。**"""
 
 
+# ============================================================================
+# 安逸花外呼场景系统提示词
+# ============================================================================
+
+ANYIHUA_SYSTEM_PROMPT = """你是安逸花金融外呼服务的专业坐席，负责向用户介绍安逸花信用额度并引导激活/借款。
+
+## 外呼目标
+1. 核实用户身份和账户状态
+2. 告知用户当前信用额度或临时提额信息
+3. 解答用户关于利率、还款方式的疑虑
+4. 引导用户完成借款或额度激活
+
+## 沟通原则
+- 专业、友善、值得信赖
+- 先核实身份，再介绍额度信息
+- 耐心解答利率和还款相关问题
+- 遇到明确拒绝时礼貌结束通话
+
+## 产品信息
+- 安逸花信用额度：最高可达数万元
+- 支持随借随还，按日计息
+- 提前还款不收违约金
+- 最快当天到账
+"""
+
+
 # 场景映射字典（用于按名称查找提示词）
 PROMPT_MAP = {
     "chat": CHAT_SYSTEM_PROMPT,
     "callcenter": CALLCENTER_SYSTEM_PROMPT,
     "insurance": INSURANCE_SYSTEM_PROMPT,
+    "anyihua": ANYIHUA_SYSTEM_PROMPT,
+    "安逸花": ANYIHUA_SYSTEM_PROMPT,
+    "安逸花外呼": ANYIHUA_SYSTEM_PROMPT,
 }
 
 # 默认提示词
@@ -131,7 +160,7 @@ def get_prompt(scenario: str = "chat") -> str:
     获取指定场景的系统提示词。
 
     Args:
-        scenario: 场景名称，支持：chat、callcenter、insurance。
+        scenario: 场景名称，支持：chat、callcenter、insurance、anyihua（及中文别名安逸花/安逸花外呼）。
                   传入未知场景名时回退到默认提示词（chat）。
 
     Returns:
@@ -144,6 +173,7 @@ __all__ = [
     "CHAT_SYSTEM_PROMPT",
     "CALLCENTER_SYSTEM_PROMPT",
     "INSURANCE_SYSTEM_PROMPT",
+    "ANYIHUA_SYSTEM_PROMPT",
     "PROMPT_MAP",
     "DEFAULT_PROMPT",
     "get_prompt",

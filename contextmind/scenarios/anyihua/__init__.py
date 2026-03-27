@@ -5,6 +5,6 @@
 """
 
 from .scenario import get_anyihua_scenario
-from contextmind.scenarios.app import EvolveApplication as AnyihuaApplication
+from contextmind.modes.evolve.app import EvolveApplication as AnyihuaApplication
 
 __all__ = ["get_anyihua_scenario", "AnyihuaApplication"]

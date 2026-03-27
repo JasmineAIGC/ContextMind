@@ -5,13 +5,16 @@ FnCTOD Agent — ADK 原生函数调用对话状态追踪器
 （ACL 2024）论文思想，将对话状态追踪（DST）转化为函数调用：每个业务域对应一个函数，
 槽位对应参数，LLM 通过调用函数提取对话中的槽位值，实现零样本 DST。
 
+FnCTOD 不在算法代码内部硬编码场景 Schema 数据。所有 Schema 均通过外部文件传入：
+
 使用示例::
 
     from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
-    from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
+    from contextmind.modes.fnctod.schemas import load_domain_spec_from_file
 
+    domain_spec = load_domain_spec_from_file("schema/callcenter_fnctod_domain.json")
     fm = FunctionManager()
-    fm.add_domain(get_function_schema_for_scenario("callcenter"))
+    fm.add_domain(domain_spec)
     tracker = FnCTODTracker(function_manager=fm)
     updates = await tracker.process_turn("我的订单什么时候到？")
     print(tracker.get_current_state())
@@ -26,7 +29,6 @@ from typing import Any, Dict, List, Optional
 from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
 from contextmind.modes.fnctod.function_manager import FunctionManager
-from contextmind.modes.fnctod.schemas import get_function_schema_for_scenario
 
 from google.adk.agents import LlmAgent  # type: ignore[import]
 from google.adk.runners import InMemoryRunner  # type: ignore[import]
@@ -174,19 +176,18 @@ class FnCTODTracker:
         # 过滤掉本类构造函数不认识的参数，保持接口宽容
         kwargs.pop("use_two_stage", None)
         kwargs.pop("max_history_turns", None)
+        # 外部 DomainSpec（来自 --schema 参数），FnCTOD 不再内置场景 Schema
+        domain_spec = kwargs.pop("domain_spec", None)
         fm = FunctionManager()
-        try:
-            schema = get_function_schema_for_scenario(scenario_config.name)
-            fm.add_domain(schema)
-        except (ValueError, KeyError):
-            if hasattr(scenario_config, "dst_slots") and scenario_config.dst_slots:
-                fm.add_domain_from_slots(
-                    domain_name=scenario_config.name,
-                    domain_description=getattr(scenario_config, "description", scenario_config.name),
-                    slots=dict(scenario_config.dst_slots),
-                )
-            else:
-                logger.warning(f"场景 '{scenario_config.name}' 无预定义 schema，使用空 FunctionManager")
+        if domain_spec is not None:
+            fm.add_domain(domain_spec)
+            logger.info(f"FnCTODTracker: 使用外部 DomainSpec '{domain_spec.name}'")
+        else:
+            logger.warning(
+                f"FnCTODTracker: 场景 '{getattr(scenario_config, 'name', '')}' 未传入 domain_spec，"
+                "使用空 FunctionManager（追踪器将无法提取槽位）。"
+                "请通过 --schema 参数传入 *_fnctod_domain.json 文件。"
+            )
         if config is not None:
             kwargs["config"] = config
         return cls(function_manager=fm, **kwargs)

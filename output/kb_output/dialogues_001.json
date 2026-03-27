@@ -1,0 +1,4245 @@
+[
+  {
+    "dialogue_id": "2025102811215858702023182",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是高先生吗？来电是有事情找一下高先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "喂你说。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶高先生您好，我是马上消费安逸花的工作人员，安逸花这个账户是您自己本人在使用的，对吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "对我就要我就就想和你们说了这个。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您说高先生。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "贷款是怎么回事。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "您在安逸花账户有一笔两万一千九百块钱的额度嘛，对吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "credit_limit",
+                "value": "21900",
+                "start": 10,
+                "exclusive_end": 18
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "credit_limit",
+                "values": [
+                  "21900"
+                ],
+                "canonical_values": [
+                  "21900"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "不是这个我说七月二十三号七月二十三号的这一笔贷款我没贷怎么怎么会有一笔一万三千多块钱的还有一个八月。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_date",
+                "value": "七月二十三号",
+                "start": 6,
+                "exclusive_end": 12
+              },
+              {
+                "slot": "loan_amount",
+                "value": "一万三千多块钱",
+                "start": 35,
+                "exclusive_end": 42
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_date",
+                "values": [
+                  "七月二十三号"
+                ],
+                "canonical_values": [
+                  "七月二十三号"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "一万三千多块钱"
+                ],
+                "canonical_values": [
+                  "一万三千多块钱"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "dispute_loan",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦您是说您之前有借过款吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我有借款我有借款但是都还掉了呀。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_date",
+                "value": "七月二十三号"
+              },
+              {
+                "slot": "loan_amount",
+                "value": "一万三千多块钱"
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_date",
+                "values": [
+                  "七月二十三号"
+                ],
+                "canonical_values": [
+                  "七月二十三号"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "一万三千多块钱"
+                ],
+                "canonical_values": [
+                  "一万三千多块钱"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "inquire_loan_discrepancy",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦是这样的先生，因为您这边就是您上一次借款的话，是在二五年五月份嘛，然后您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子，对吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "borrow_date",
+                "value": "2025年5月",
+                "start": 26,
+                "exclusive_end": 32
+              },
+              {
+                "slot": "borrow_amount",
+                "value": "600元",
+                "start": 39,
+                "exclusive_end": 46
+              },
+              {
+                "slot": "overdue_days",
+                "value": "几天",
+                "start": 63,
+                "exclusive_end": 68
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "borrow_date",
+                "values": [
+                  "2025年5月"
+                ],
+                "canonical_values": [
+                  "2025年5月"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "borrow_amount",
+                "values": [
+                  "600元"
+                ],
+                "canonical_values": [
+                  "600元"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "overdue_days",
+                "values": [
+                  "几天"
+                ],
+                "canonical_values": [
+                  "几天"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "这有有过。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "inquire_loan_discrepancy",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶是这样的哈，因为公司嘛也是考虑到现在是用钱的高峰期嘛，那目前给到您的这个两万一千九百的额度呢还没有开始使用，所以今天专门来电话呢也是重新帮您确认一下账户的这个额度和利息的问题的，明白吧，先生？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "credit_limit",
+                "value": "21900",
+                "start": 37,
+                "exclusive_end": 43
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "credit_limit",
+                "values": [
+                  "21900"
+                ],
+                "canonical_values": [
+                  "21900"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我我说的不是这个你帮我你帮我看一下那个七月二十三号七月二十三号我没有借款为什么有一笔借款。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_terms",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊您说您没有借款，怎么会有这笔借款呢？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "date",
+                "value": "七月二十三号"
+              },
+              {
+                "slot": "loan_transaction",
+                "value": "有一笔借款"
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "date",
+                "values": [
+                  "七月二十三号"
+                ],
+                "canonical_values": [
+                  "七月二十三号"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "loan_transaction",
+                "values": [
+                  "有一笔借款"
+                ],
+                "canonical_values": [
+                  "有一笔借款"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "对还有一个。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "dispute_loan_transaction",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "嗯您稍等哈，我这边儿马上帮您查询一下，您稍等。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "嗯啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "dispute_loan_transaction",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "我这边儿马上帮您查询一下，您稍等。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "三号和八七号。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "dispute_loan_transaction",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "七月二十三号。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "date",
+                "value": "七月二十三号",
+                "start": 0,
+                "exclusive_end": 6
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "date",
+                "values": [
+                  "七月二十三号"
+                ],
+                "canonical_values": [
+                  "七月二十三号"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "dispute_loan_transaction",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "对呀，就是您在二五年五月份的时候有去借款，对吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "五月份有呀我是说七月份。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "dispute_loan_transaction",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦是这样的先生，因为您这边就是您上一次借款的话，是在二五年五月份嘛，然后您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子，对吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "borrow_date",
+                "value": "2025年5月",
+                "start": 26,
+                "exclusive_end": 32
+              },
+              {
+                "slot": "borrow_amount",
+                "value": "600元",
+                "start": 42,
+                "exclusive_end": 46
+              },
+              {
+                "slot": "overdue_status",
+                "value": "逾期几天",
+                "start": 63,
+                "exclusive_end": 71
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "borrow_date",
+                "values": [
+                  "2025年5月"
+                ],
+                "canonical_values": [
+                  "2025年5月"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "borrow_amount",
+                "values": [
+                  "600元"
+                ],
+                "canonical_values": [
+                  "600元"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "overdue_status",
+                "values": [
+                  "逾期几天"
+                ],
+                "canonical_values": [
+                  "逾期几天"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "这这个有什么问题吗。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "dispute_loan_transaction",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ],
+                "overdue_status": [
+                  "逾期几天"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶是这样的哈，因为公司嘛也是考虑到现在是用钱的高峰期嘛，那目前给到您的这个两万一千九百的额度呢还没有开始使用，所以今天专门来电话呢也是重新帮您确认一下账户的这个额度和利息的问题的，明白吧，先生？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_limit",
+                "value": "21900",
+                "start": 37,
+                "exclusive_end": 43
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_limit",
+                "values": [
+                  "21900"
+                ],
+                "canonical_values": [
+                  "21900"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "嗯这现在因为现在我不敢用了因为这个上面不对了你这个安逸花上面。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_terms",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ],
+                "overdue_status": [
+                  "逾期几天"
+                ],
+                "loan_limit": [
+                  "21900"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦您是说现在用不了了吗，先生？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "不是用不了是我没有借款你这个上面。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "decline_loan_usage",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "一万三千多块钱"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ],
+                "overdue_status": [
+                  "逾期几天"
+                ],
+                "loan_limit": [
+                  "21900"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦您说您没有借款，怎么会有这笔借款呢？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "对一万四千四还有一个八月一号。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_amount",
+                "value": "14400",
+                "start": 1,
+                "exclusive_end": 6
+              },
+              {
+                "slot": "due_date",
+                "value": "8月1号",
+                "start": 10,
+                "exclusive_end": 14
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "14400"
+                ],
+                "canonical_values": [
+                  "14400"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "due_date",
+                "values": [
+                  "8月1号"
+                ],
+                "canonical_values": [
+                  "8月1号"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "decline_loan_usage",
+              "requested_slots": [],
+              "slot_values": {
+                "credit_limit": [
+                  "21900"
+                ],
+                "loan_date": [
+                  "七月二十三号"
+                ],
+                "loan_amount": [
+                  "14400"
+                ],
+                "borrow_date": [
+                  "2025年5月"
+                ],
+                "borrow_amount": [
+                  "600元"
+                ],
+                "overdue_days": [
+                  "几天"
+                ],
+                "date": [
+                  "七月二十三号"
+                ],
+                "loan_transaction": [
+                  "有一笔借款"
+                ],
+                "overdue_status": [
+                  "逾期几天"
+                ],
+                "loan_limit": [
+                  "21900"
+                ],
+                "due_date": [
+                  "8月1号"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102210182941202078808",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是杨女士吗？来电是有事情找一下杨女士本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "有什么事你说。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊您好，女士，我是马上消费安逸花的客户经理，来电是关注到您还款记录比较好，目前剩余额度还有三万一千两百元没有使用，来电也是想了解一下您对额度和利息是有什么顾虑吗，女士?",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "remaining_limit",
+                "value": "31200元",
+                "start": 45,
+                "exclusive_end": 52
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "remaining_limit",
+                "values": [
+                  "31200元"
+                ],
+                "canonical_values": [
+                  "31200元"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "inquire_concerns",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "这样的哈女士，因为您是我们安逸花二一年十一月份申请的优质用户，用了四年了，如果说杨女士之后呢还考虑跟安逸花长期合作还有借款需求的话，待会儿呢您挂机以后，您把那个三万一千两百给它按需借到银行卡里，保持一个良好的使用记录，我们安逸花之后呢可能会在您原有的基",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "application_date",
+                "value": "2021年11月",
+                "start": 16,
+                "exclusive_end": 23
+              },
+              {
+                "slot": "usage_duration",
+                "value": "4年",
+                "start": 31,
+                "exclusive_end": 36
+              },
+              {
+                "slot": "available_credit",
+                "value": "31200元",
+                "start": 80,
+                "exclusive_end": 86
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "application_date",
+                "values": [
+                  "2021年11月"
+                ],
+                "canonical_values": [
+                  "2021年11月"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "usage_duration",
+                "values": [
+                  "4年"
+                ],
+                "canonical_values": [
+                  "4年"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "available_credit",
+                "values": [
+                  "31200元"
+                ],
+                "canonical_values": [
+                  "31200元"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "关键是你这个还款太太麻烦了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_repayment_process",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "还款麻烦，您是说的提前还款还是什么？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "每每个月如果是这样的话我每个月要还多还很高我还起太恼火了现在。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_repayment_difficulty",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦您是说您现在利息是多少吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "[语音输入超时]",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_repayment_difficulty",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "对不起，我这边信号不好，您方便再重复一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_repayment_difficulty",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦您是说您现在利息是多少吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我反正不知道。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_repayment_difficulty",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "嗯是这样的哈女",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "利息有点高。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "嗯您这边呢如果说借一万块钱嘛，用一年的话，总的利息费用大概是在一千三百多块钱左右的样子，平摊到每一天的话，大概是在三块多钱左右的样子，具体的话",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_amount",
+                "value": "10000",
+                "start": 8,
+                "exclusive_end": 13
+              },
+              {
+                "slot": "term_years",
+                "value": "1",
+                "start": 15,
+                "exclusive_end": 20
+              },
+              {
+                "slot": "total_interest",
+                "value": "1300+ 元",
+                "start": 21,
+                "exclusive_end": 43
+              },
+              {
+                "slot": "daily_interest",
+                "value": "3+ 元",
+                "start": 44,
+                "exclusive_end": 66
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "10000"
+                ],
+                "canonical_values": [
+                  "10000"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "term_years",
+                "values": [
+                  "1"
+                ],
+                "canonical_values": [
+                  "1"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "total_interest",
+                "values": [
+                  "1300+ 元"
+                ],
+                "canonical_values": [
+                  "1300+ 元"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "daily_interest",
+                "values": [
+                  "3+ 元"
+                ],
+                "canonical_values": [
+                  "3+ 元"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "就就是有点就就是有点高啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ],
+                "loan_amount": [
+                  "10000"
+                ],
+                "term_years": [
+                  "1"
+                ],
+                "total_interest": [
+                  "1300+ 元"
+                ],
+                "daily_interest": [
+                  "3+ 元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "那您这边期望的利息是多少嘛？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "一万块钱就是一千多。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_amount",
+                "value": "10000",
+                "start": 0,
+                "exclusive_end": 4
+              },
+              {
+                "slot": "interest_fee",
+                "value": "1000+",
+                "start": 6,
+                "exclusive_end": 9
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "10000"
+                ],
+                "canonical_values": [
+                  "10000"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "interest_fee",
+                "values": [
+                  "1000+"
+                ],
+                "canonical_values": [
+                  "1000+"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "inquire_expected_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ],
+                "loan_amount": [
+                  "10000"
+                ],
+                "term_years": [
+                  "1"
+                ],
+                "total_interest": [
+                  "1300+ 元"
+                ],
+                "daily_interest": [
+                  "3+ 元"
+                ],
+                "interest_fee": [
+                  "1000+"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "八九百。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "monthly_payment_amount",
+                "value": "八九百",
+                "start": 0,
+                "exclusive_end": 4
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "monthly_payment_amount",
+                "values": [
+                  "八九百"
+                ],
+                "canonical_values": [
+                  "八九百"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "inquire_expected_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ],
+                "loan_amount": [
+                  "10000"
+                ],
+                "term_years": [
+                  "1"
+                ],
+                "total_interest": [
+                  "1300+ 元"
+                ],
+                "daily_interest": [
+                  "3+ 元"
+                ],
+                "interest_fee": [
+                  "1000+"
+                ],
+                "monthly_payment_amount": [
+                  "八九百"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "八九百。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "monthly_payment",
+                "value": "800-900",
+                "start": 0,
+                "exclusive_end": 3
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "monthly_payment",
+                "values": [
+                  "800-900"
+                ],
+                "canonical_values": [
+                  "800-900"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "九百块钱的利息对。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_amount",
+                "value": "900",
+                "start": 0,
+                "exclusive_end": 4
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "900"
+                ],
+                "canonical_values": [
+                  "900"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "inquire_expected_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ],
+                "loan_amount": [
+                  "900"
+                ],
+                "term_years": [
+                  "1"
+                ],
+                "total_interest": [
+                  "1300+ 元"
+                ],
+                "daily_interest": [
+                  "3+ 元"
+                ],
+                "interest_fee": [
+                  "1000+"
+                ],
+                "monthly_payment_amount": [
+                  "八九百"
+                ],
+                "monthly_payment": [
+                  "800-900"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，那您这边期望的年化利率大概是多少呀，女士？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "一个月就在八百多。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "monthly_payment",
+                "value": "八百多",
+                "start": 0,
+                "exclusive_end": 8
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "monthly_payment",
+                "values": [
+                  "八百多"
+                ],
+                "canonical_values": [
+                  "八百多"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "inquire_annual_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ],
+                "loan_amount": [
+                  "900"
+                ],
+                "term_years": [
+                  "1"
+                ],
+                "total_interest": [
+                  "1300+ 元"
+                ],
+                "daily_interest": [
+                  "3+ 元"
+                ],
+                "interest_fee": [
+                  "1000+"
+                ],
+                "monthly_payment_amount": [
+                  "八九百"
+                ],
+                "monthly_payment": [
+                  "八百多"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "那您这边期望的利息是多少嘛？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "八百多啊一万块钱八百多。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "monthly_interest_amount",
+                "value": "每月利息八百多",
+                "start": 0,
+                "exclusive_end": 3
+              },
+              {
+                "slot": "loan_amount",
+                "value": "10000元",
+                "start": 4,
+                "exclusive_end": 8
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "monthly_interest_amount",
+                "values": [
+                  "每月利息八百多"
+                ],
+                "canonical_values": [
+                  "每月利息八百多"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "10000元"
+                ],
+                "canonical_values": [
+                  "10000元"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "inquire_annual_interest_rate",
+              "requested_slots": [],
+              "slot_values": {
+                "remaining_limit": [
+                  "31200元"
+                ],
+                "application_date": [
+                  "2021年11月"
+                ],
+                "usage_duration": [
+                  "4年"
+                ],
+                "available_credit": [
+                  "31200元"
+                ],
+                "loan_amount": [
+                  "10000元"
+                ],
+                "term_years": [
+                  "1"
+                ],
+                "total_interest": [
+                  "1300+ 元"
+                ],
+                "daily_interest": [
+                  "3+ 元"
+                ],
+                "interest_fee": [
+                  "1000+"
+                ],
+                "monthly_payment_amount": [
+                  "八九百"
+                ],
+                "monthly_payment": [
+                  "八百多"
+                ],
+                "monthly_interest_amount": [
+                  "每月利息八百多"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102209390427002149380",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是熊女士吗？来电是有事情找一下熊女士本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "[语音输入超时]",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶女士您好，我这边是马上消费安逸花的工作人员，来电呢跟您确认一下，就是您的安逸花账户是本人在使用，这边给您临时提额了现在是四万九千五百元，有关注到吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "current_credit_limit",
+                "value": "49500",
+                "start": 61,
+                "exclusive_end": 68
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "current_credit_limit",
+                "values": [
+                  "49500"
+                ],
+                "canonical_values": [
+                  "49500"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "你那个不是一次性不是一百吗。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "49500"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦女士，我们这边呢最高是可以申请到二十万的，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "current_credit_limit",
+                "value": "49500"
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "current_credit_limit",
+                "values": [
+                  "49500"
+                ],
+                "canonical_values": [
+                  "49500"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "那我现在申请了你那个一百一百的算。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_amount",
+                "value": "一百",
+                "start": 10,
+                "exclusive_end": 12
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "一百"
+                ],
+                "canonical_values": [
+                  "一百"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "confirm_previous_offer",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "49500"
+                ],
+                "loan_amount": [
+                  "一百"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "九百多块钱，您是说的多少吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "monthly_payment_amount",
+                "value": "九百多块钱",
+                "start": 0,
+                "exclusive_end": 5
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "monthly_payment_amount",
+                "values": [
+                  "九百多块钱"
+                ],
+                "canonical_values": [
+                  "九百多块钱"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "不是说不能五万吗要四万四万的话都没你们弄。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_amount_limit",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "49500"
+                ],
+                "loan_amount": [
+                  "一百"
+                ],
+                "monthly_payment_amount": [
+                  "九百多块钱"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "因为我们也是看到您这边资质比",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "不是一百一百的只能一百一百的。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "amount",
+                "value": "100",
+                "start": 2,
+                "exclusive_end": 6
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "amount",
+                "values": [
+                  "100"
+                ],
+                "canonical_values": [
+                  "100"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "complain_amount_limit",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "49500"
+                ],
+                "loan_amount": [
+                  "一百"
+                ],
+                "monthly_payment_amount": [
+                  "九百多块钱"
+                ],
+                "amount": [
+                  "100"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦女士，我们这边呢最高是可以申请到二十万的，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "那我申请了有没有啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_amount_limit",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "49500"
+                ],
+                "loan_amount": [
+                  "一百"
+                ],
+                "monthly_payment_amount": [
+                  "九百多块钱"
+                ],
+                "amount": [
+                  "100"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，那您这边可以去看一下嘛，好吧",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "都没有那后面四万。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_amount_limit",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "49500"
+                ],
+                "loan_amount": [
+                  "一百"
+                ],
+                "monthly_payment_amount": [
+                  "九百多块钱"
+                ],
+                "amount": [
+                  "100"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102809333656702064141",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是杨先生吗？来电是有事情找一下杨先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "嗯你说。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶先生您好，我这边是马上消费安逸花的工作人员，来电呢跟您确认一下，就是您的安逸花账户是本人在使用，这边给您临时提额了现在是一万四千七百元，有关注到吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "current_credit_limit",
+                "value": "14700",
+                "start": 61,
+                "exclusive_end": 68
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "current_credit_limit",
+                "values": [
+                  "14700"
+                ],
+                "canonical_values": [
+                  "14700"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "嗯没有关了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_awareness",
+              "requested_slots": [],
+              "slot_values": {
+                "current_credit_limit": [
+                  "14700"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102209274007502021422",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是邵先生吗？来电是有事情找一下邵先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊是。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶邵先生您好，我是马上消费安逸花的工作人员，安逸花这个账户是您自己本人在使用的，这边给您临时提额了现在是一千五百，有关注到吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "temporary_increase_amount",
+                "value": "1500",
+                "start": 44,
+                "exclusive_end": 56
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "temporary_increase_amount",
+                "values": [
+                  "1500"
+                ],
+                "canonical_values": [
+                  "1500"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "关注到它这个不行啊它这个它这个提前只能我上次提五百它是它是直接让我提四百我提三百它让我提一百不行啊这个东西。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_system_logic",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_increase_amount": [
+                  "1500"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，您是说您这边每次借的额度不一样吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "对啊我自己填的是五百他让他让我提出来结果到账四百。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "requested_amount",
+                "value": "500",
+                "start": 8,
+                "exclusive_end": 10
+              },
+              {
+                "slot": "actual_amount_received",
+                "value": "400",
+                "start": 22,
+                "exclusive_end": 24
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "requested_amount",
+                "values": [
+                  "500"
+                ],
+                "canonical_values": [
+                  "500"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "actual_amount_received",
+                "values": [
+                  "400"
+                ],
+                "canonical_values": [
+                  "400"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "complain_discrepancy_amount",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_increase_amount": [
+                  "1500"
+                ],
+                "requested_amount": [
+                  "500"
+                ],
+                "actual_amount_received": [
+                  "400"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "对，那您这边待会儿的话，您可以去打我们的客服热线九五零九零去问一下嘛，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我问他干啥。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "suggest_contact_customer_service",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_increase_amount": [
+                  "1500"
+                ],
+                "requested_amount": [
+                  "500"
+                ],
+                "actual_amount_received": [
+                  "400"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "不好意思，我这边没听清楚，您能再说一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我问他干啥听见不。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "suggest_contact_customer_service",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_increase_amount": [
+                  "1500"
+                ],
+                "requested_amount": [
+                  "500"
+                ],
+                "actual_amount_received": [
+                  "400"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102114305562802126248",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是曹先生吗？来电是有事情找一下曹先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊您好先生，我这边是马上消费安逸花的工作人员，就您名下的安逸花是您本人在使用和还款的，这边给您临时提额了，有关注到吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "提额。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "request_increase_limit",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "嗯是这样的，我们安逸花现在呢最高额度更新到二十万了，之前一直没有给您大幅度的调整过额度和利息，那现在的话我们系统评估之后呢，您的资质非常好，所以来电呢重新跟您确认一下，这边特别给您把额度临时提高到了一万六千七百元了，临时额度有效期比较短，建议您需要把您现在的一万六千按需借出来，您保持",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "temporary_credit_limit",
+                "value": "16700",
+                "start": 99,
+                "exclusive_end": 106
+              },
+              {
+                "slot": "current_credit_limit",
+                "value": "16000",
+                "start": 99,
+                "exclusive_end": 103
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "temporary_credit_limit",
+                "values": [
+                  "16700"
+                ],
+                "canonical_values": [
+                  "16700"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "current_credit_limit",
+                "values": [
+                  "16000"
+                ],
+                "canonical_values": [
+                  "16000"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "借不出来呀。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_update",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "借不了了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "借不出来啊我申请了又不是没申请过。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_update",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我说的我申请过没有借出来。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "apply_no_success",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "中午的时候去操",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "转人工。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "apply_no_success",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "中午的时候去操作的嘛。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "apply_no_success",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "我这边看到您的账户是正常的呀，您是在那个app里面操作的，还是在支付宝里面操作的嘛？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "apply_no_success",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "您是用的那个微信小程序还是支付宝小程序嘛？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "app。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "apply_no_success",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊那您这边可以换一个渠道嘛，您可以在那个支付宝里面搜索安逸花，然后您在那个支付宝里面操作试一下，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "嗯好好好要要是再借不出来怎么办呢。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "apply_no_success",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，那您这边换一个渠道嘛，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "再换渠道。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "inquire_alternative_solution",
+              "requested_slots": [],
+              "slot_values": {
+                "temporary_credit_limit": [
+                  "16700"
+                ],
+                "current_credit_limit": [
+                  "16000"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102109290899402056483",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是黄女士吗？来电是有事情找一下黄女士本人",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "哪里。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊我这边是马上消费安逸花的工作人员，请问黄女士方便接听电话吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "你说。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102820390337902014847",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是周先生吗？来电是有事情找一下周先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "有什么事你说。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊您好先生，我这边是马上消费安逸花的客户经理，安逸花是您本人在用的，对吧？绑定的那个三六六的手机号。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "是这样的哈先生，因为您是我们安逸花二五年七月份申请的优质用户，我们给您把额度提高到两万四千块钱了嘛，今天来电就是跟您确认一下，如果说您这边还有需要的话，您可以把那个剩余的六千六百给它按需全部借到银行卡里不",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "application_date",
+                "value": "2025年7月",
+                "start": 17,
+                "exclusive_end": 23
+              },
+              {
+                "slot": "credit_limit",
+                "value": "24000元",
+                "start": 36,
+                "exclusive_end": 47
+              },
+              {
+                "slot": "remaining_amount",
+                "value": "6600元",
+                "start": 82,
+                "exclusive_end": 89
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "application_date",
+                "values": [
+                  "2025年7月"
+                ],
+                "canonical_values": [
+                  "2025年7月"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "credit_limit",
+                "values": [
+                  "24000元"
+                ],
+                "canonical_values": [
+                  "24000元"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "remaining_amount",
+                "values": [
+                  "6600元"
+                ],
+                "canonical_values": [
+                  "6600元"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "那个借不出来了呀。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "offer_loan",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "借不了了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "借不出来了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "decline_loan_availability",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我说那个额度借不了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "decline_loan",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "借不了了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "你们给我不是限制了吗啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "unable_to_borrow",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我说那个额度你们给我限制了我借不了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_credit_limit_restricted",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "借不了了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我我不是你还没听明白哈。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_credit_limit_restricted",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "我们安逸花不可能说为了这几千",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "知道我说的意思啊你听我说完。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_credit_limit_restricted",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "嗯您说嘛。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "听我说完啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_credit_limit_restricted",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，那您这边是姓周是吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我现在那个你们安逸花。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_credit_limit_restricted",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦您说您今天还可以借多少钱吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我现在借不出来你们安逸花不是本来我那个额度给停了吗。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_status",
+                "value": "无法借款",
+                "start": 0,
+                "exclusive_end": 7
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_status",
+                "values": [
+                  "无法借款"
+                ],
+                "canonical_values": [
+                  "无法借款"
+                ]
+              }
+            ],
+            "state": {
+              "active_intent": "complain_credit_limit_restricted",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ],
+                "loan_status": [
+                  "无法借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "借不了了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊对一点都借不出来。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "decline_loan_access",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ],
+                "loan_status": [
+                  "无法借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，那您这边可以打一下我们的客服热线九五零九零，您可以咨询一下，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "九五零九零哈。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "decline_loan_access",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ],
+                "loan_status": [
+                  "无法借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "对的，九五零九零。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "对我我我还想问你。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "decline_loan_access",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ],
+                "loan_status": [
+                  "无法借款"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "哦，那请问手机尾号三六六的周先生在吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "phone_last_digits",
+                "value": "366",
+                "start": 5,
+                "exclusive_end": 12
+              },
+              {
+                "slot": "user_name",
+                "value": "周先生",
+                "start": 13,
+                "exclusive_end": 16
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "phone_last_digits",
+                "values": [
+                  "366"
+                ],
+                "canonical_values": [
+                  "366"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "user_name",
+                "values": [
+                  "周先生"
+                ],
+                "canonical_values": [
+                  "周先生"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "六三六六。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "inquire_presence",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ],
+                "loan_status": [
+                  "无法借款"
+                ],
+                "phone_last_digits": [
+                  "366"
+                ],
+                "user_name": [
+                  "周先生"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "嗯周先生能听见吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "啊我就是。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "inquire_presence",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年7月"
+                ],
+                "credit_limit": [
+                  "24000元"
+                ],
+                "remaining_amount": [
+                  "6600元"
+                ],
+                "loan_status": [
+                  "无法借款"
+                ],
+                "phone_last_digits": [
+                  "366"
+                ],
+                "user_name": [
+                  "周先生"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102109235516102142878",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是赵先生吗？来电是有事情找一下赵先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "[语音输入超时]",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊您好，先生，我这边是马上消费安逸花的客户经理",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "谢谢赵先生请不要挂断电话。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "是这样的哈先生，因为您是我们安逸花二五年二月份申请的优质用户，用了也有一段时间了，这边也临时给您提额到了两万六千块了，如果说您有借款需求，待会儿呢您挂机以后，把那个剩余的一万七千八百元按需提现到银行卡里不要逾期，之后呢安逸花可能有更多提固定额度以及得优惠券的活动机会给到我们的赵先生方便您用，而且额度五年之内都是有效的，您自己想用的话随时可以用可以吧先生，",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "application_date",
+                "value": "2025年2月",
+                "start": 17,
+                "exclusive_end": 23
+              },
+              {
+                "slot": "current_limit",
+                "value": "26000元",
+                "start": 48,
+                "exclusive_end": 57
+              },
+              {
+                "slot": "available_amount",
+                "value": "17800元",
+                "start": 82,
+                "exclusive_end": 92
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "application_date",
+                "values": [
+                  "2025年2月"
+                ],
+                "canonical_values": [
+                  "2025年2月"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "current_limit",
+                "values": [
+                  "26000元"
+                ],
+                "canonical_values": [
+                  "26000元"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "available_amount",
+                "values": [
+                  "17800元"
+                ],
+                "canonical_values": [
+                  "17800元"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "说。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_convenience",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年2月"
+                ],
+                "current_limit": [
+                  "26000元"
+                ],
+                "available_amount": [
+                  "17800元"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "对，但是有一点您这边需要注意哈，赵先生，就是待会儿挂机以后呢一定要马上操作提现，因为如果说我们通知到您，您待会儿挂机以后呢，忙忘了不常用，那未来几年安逸花可能就不会再给您提高额度，降低利息费用了，所以说您这边一定要重视一下，好吧？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "current_limit",
+                "value": "26000"
+              },
+              {
+                "slot": "remaining_amount",
+                "value": "17800"
+              },
+              {
+                "slot": "limit_validity_period",
+                "value": "5年"
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "current_limit",
+                "values": [
+                  "26000"
+                ],
+                "canonical_values": [
+                  "26000"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "remaining_amount",
+                "values": [
+                  "17800"
+                ],
+                "canonical_values": [
+                  "17800"
+                ]
+              },
+              {
+                "act": "INFORM",
+                "slot": "limit_validity_period",
+                "values": [
+                  "5年"
+                ],
+                "canonical_values": [
+                  "5年"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "安逸花是吧。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_usage_permission",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年2月"
+                ],
+                "current_limit": [
+                  "26000"
+                ],
+                "available_amount": [
+                  "17800元"
+                ],
+                "remaining_amount": [
+                  "17800"
+                ],
+                "limit_validity_period": [
+                  "5年"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "安逸花。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我知道他怎么了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "confirm_usage_permission",
+              "requested_slots": [],
+              "slot_values": {
+                "application_date": [
+                  "2025年2月"
+                ],
+                "current_limit": [
+                  "26000"
+                ],
+                "available_amount": [
+                  "17800元"
+                ],
+                "remaining_amount": [
+                  "17800"
+                ],
+                "limit_validity_period": [
+                  "5年"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102111163504102156849",
+    "services": [
+      "AnYiHua_OutboundCall"
+    ],
+    "turns": [
+      {
+        "speaker": "SYSTEM",
+        "utterance": "诶您好，打扰一下，请问您这边是覃先生吗？来电是有事情找一下覃先生本人。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "说了。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "NONE",
+              "requested_slots": [],
+              "slot_values": {}
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "啊您好，先生，我这边是马上消费安逸花的客户经理，安逸花是您本人在用的，之前没有逾期过，这边给您临时提额到了四万五千五百了，您有关注到吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [
+              {
+                "slot": "loan_amount",
+                "value": "45500",
+                "start": 53,
+                "exclusive_end": 59
+              }
+            ],
+            "actions": [
+              {
+                "act": "INFORM",
+                "slot": "loan_amount",
+                "values": [
+                  "45500"
+                ],
+                "canonical_values": [
+                  "45500"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "你打电话来都没用啊你上去搞我是进去都借不了钱打电话来干嘛呢。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "inquire_confirmation",
+              "requested_slots": [],
+              "slot_values": {
+                "loan_amount": [
+                  "45500"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "speaker": "SYSTEM",
+        "utterance": "您是说您借不出来吗？",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": []
+          }
+        ]
+      },
+      {
+        "speaker": "USER",
+        "utterance": "我借出来我跟你说什么呢你上一次我不知道是不是你打来的啊。",
+        "frames": [
+          {
+            "service": "AnYiHua_OutboundCall",
+            "slots": [],
+            "actions": [],
+            "state": {
+              "active_intent": "complain_service_useless",
+              "requested_slots": [],
+              "slot_values": {
+                "loan_amount": [
+                  "45500"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

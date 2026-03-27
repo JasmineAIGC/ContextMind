@@ -11,11 +11,17 @@ ContextMind 场景定义
 
 from .base import ScenarioConfig, ScenarioType
 from .registry import scenario_registry
-from .app import EvolveApplication, ChatApplication, CallCenterApplication, InsuranceApplication
+from contextmind.modes.evolve.app import EvolveApplication
 from .chat import get_chat_scenario
 from .callcenter import get_callcenter_scenario
 from .insurance import get_insurance_scenario
 from .anyihua import get_anyihua_scenario
+
+# 场景别名（每个场景共用同一个 EvolveApplication 实现）
+ChatApplication = EvolveApplication
+CallCenterApplication = EvolveApplication
+InsuranceApplication = EvolveApplication
+AnyihuaApplication = EvolveApplication
 
 __all__ = [
     "ScenarioConfig",
@@ -25,6 +31,7 @@ __all__ = [
     "ChatApplication",
     "CallCenterApplication",
     "InsuranceApplication",
+    "AnyihuaApplication",
     "get_chat_scenario",
     "get_callcenter_scenario",
     "get_insurance_scenario",

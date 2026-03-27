@@ -8,7 +8,6 @@
     from contextmind.scenarios.registry import scenario_registry
 
     app_class = scenario_registry.get_app_class("chat")
-    schema = scenario_registry.get_schema("insurance")
 
     # 添加新场景：只需在 scenarios.yaml 中添加配置
 """
@@ -39,9 +38,16 @@ class ScenarioRegistry:
         self._scenarios: Dict[str, Dict[str, Any]] = {}
         self._aliases: Dict[str, str] = {}
         self._config_file = config_file
+        self._loaded = False
         
-        # 加载配置
-        self._load_from_config()
+        # 延迟加载配置，避免循环导入
+        # self._load_from_config()
+    
+    def _ensure_loaded(self):
+        """确保配置已加载"""
+        if not self._loaded:
+            self._load_from_config()
+            self._loaded = True
     
     def _load_from_config(self) -> None:
         """从YAML配置文件加载场景定义"""
@@ -82,16 +88,10 @@ class ScenarioRegistry:
         if 'app_class' in config:
             app_class = self._import_class(config['app_class'])
         
-        # 动态导入Schema获取函数
-        schema_getter = None
-        if 'schema_getter' in config:
-            schema_getter = self._import_callable(config['schema_getter'])
-        
         # 存储场景信息
         self._scenarios[name] = {
             'name': name,
             'app_class': app_class,
-            'schema_getter': schema_getter,
             'aliases': config.get('aliases', []),
             'description': config.get('description', ''),
         }
@@ -147,6 +147,7 @@ class ScenarioRegistry:
         Returns:
             规范名称，如果不存在返回None
         """
+        self._ensure_loaded()
         name = name.lower().strip()
         
         # 直接匹配
@@ -161,29 +162,20 @@ class ScenarioRegistry:
     
     def get_app_class(self, name: str) -> Optional[Type]:
         """获取场景的应用类（Evolve模式使用）"""
+        self._ensure_loaded()
         canonical_name = self._resolve_name(name)
         if canonical_name is None:
             return None
         return self._scenarios[canonical_name].get('app_class')
     
-    def get_schema(self, name: str) -> Optional[Any]:
-        """获取场景的Schema（FnCTOD模式使用）"""
-        canonical_name = self._resolve_name(name)
-        if canonical_name is None:
-            return None
-        
-        schema_getter = self._scenarios[canonical_name].get('schema_getter')
-        if schema_getter is None:
-            return None
-        
-        return schema_getter()
-    
     def list_scenarios(self) -> list:
         """列出所有已注册的场景名称"""
+        self._ensure_loaded()
         return list(self._scenarios.keys())
     
     def is_registered(self, name: str) -> bool:
         """检查场景是否已注册"""
+        self._ensure_loaded()
         return self._resolve_name(name) is not None
 
 

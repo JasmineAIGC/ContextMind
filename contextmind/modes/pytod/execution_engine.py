@@ -202,7 +202,7 @@ class ProgramExecutionResult:
 
         api_vars = {
             k: v for k, v in self.variable_values.items()
-            if not (self.say_output and v == self.say_output)
+            if k not in self.say_variable_names
         }
         if api_vars:
             lines.append("API 调用结果:")
@@ -751,23 +751,48 @@ class ExecutionEngine:
                         if isinstance(val, dict) and attr in val:
                             parts.append(str(val[attr]))
                         else:
-                            parts.append(f"({stripped})")
+                            # 无法解析：可能是 schema stub（无真实字段）或 AP 幻觉字段名。
+                            # 不将原始表达式注入 say_output，否则 DM 会把 Python
+                            # 变量引用（如 x2.recommended_amount）直接输出给用户。
+                            _logger.debug(
+                                "[EE] say(%s) 无法解析：'%s' 未含字段 '%s'，跳过",
+                                stripped, var_ref, attr,
+                            )
                     # 普通变量引用
                     elif stripped in var_values:
                         val = var_values[stripped]
                         parts.append(str(val))
                     else:
-                        parts.append(f"({stripped})")
+                        # 未定义变量：同上，静默跳过而非注入原始表达式
+                        _logger.debug(
+                            "[EE] say(%s) 无法解析：变量 '%s' 未定义，跳过",
+                            stripped, stripped,
+                        )
                 say_output = "; ".join(parts)
                 if stmt.variable:
-                    var_values[stmt.variable] = say_output
-                    say_variable_names.add(stmt.variable)
+                    # 只在变量尚未绑定值时才覆写 var_values 并记录为 say 变量。
+                    # 若 AP 生成了 "x2.say()" 形式（规范化为 "x2 say()"），
+                    # 且 x2 已通过 API 调用绑定了真实结果（当轮或先前轮次），
+                    # 则保留该结果，不用空字符串覆盖，不将 x2 标记为 say 变量。
+                    # 这防止了三个级联 bug：
+                    #   1) EE 返回 {"x2": ""} 而非真实 API 结果
+                    #   2) x2 被 say_variable_names 过滤 → 累积状态永远只有 x1
+                    #   3) state_delta 因 say 过滤后为空 → 无"本轮新增状态"
+                    if stmt.variable not in var_values:
+                        var_values[stmt.variable] = say_output
+                        say_variable_names.add(stmt.variable)
 
         return ProgramExecutionResult(
             success=len(errors) == 0,
-            # 只返回本轮新产生的变量（剔除从 prior_var_values 传入的旧变量），
+            # 返回本轮新产生的变量，以及本轮程序中被显式重新赋值的旧变量（k in var_func）。
+            # 过滤规则：剔除仅从 prior_var_values 继承而未被当前程序重新赋值的变量，
             # 防止 DM prompt 每轮都携带先前轮次的 API 结果，也避免 api_call_log 重复记录。
-            variable_values={k: v for k, v in var_values.items() if k not in prior_keys},
+            # 注意：若 AP 复用了先前变量名（如每轮都用 x1），仍需通过 k in var_func 包含新结果，
+            # 保证 current_state 随轮次正确累积而不会停滞在第一轮的旧值。
+            variable_values={
+                k: v for k, v in var_values.items()
+                if k not in prior_keys or k in var_func
+            },
             hint_messages=hint_messages,
             say_output=say_output,
             say_variable_names=say_variable_names,

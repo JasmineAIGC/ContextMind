@@ -457,18 +457,17 @@ def _build_provenance(
 def _parse_turns(normalized_dlg: Dict[str, Any]) -> List[Tuple[int, str, str]]:
     """将归一化对话 dict 拆解为逐轮列表。
 
-    支持新版配对 dict 格式（``{"机器人": "...", "用户": "..."}``）
-    和旧版平铺字符串格式（``"机器人：..."`` / ``"用户：..."``）。
+    Args:
+        normalized_dlg: 经 normalize_dialogue() 处理的 dict，对话历史为配对 dict 列表。
 
-    返回:
+    Returns:
         ``[(turn_idx, speaker, utterance), ...]``，``turn_idx`` 从 0 开始。
     """
     history = normalized_dlg.get("对话历史", [])
     turns: List[Tuple[int, str, str]] = []
-    utterance_idx = 0  # sequential utterance index across all entries
+    utterance_idx = 0
     for entry in history:
         if isinstance(entry, dict):
-            # 新版配对格式：每个 dict 包含 "机器人" 和/或 "用户" 发言
             agent_utt = entry.get("机器人", "").strip()
             user_utt = entry.get("用户", "").strip()
             if agent_utt:
@@ -476,41 +475,6 @@ def _parse_turns(normalized_dlg: Dict[str, Any]) -> List[Tuple[int, str, str]]:
                 utterance_idx += 1
             if user_utt:
                 turns.append((utterance_idx, "用户", user_utt))
-                utterance_idx += 1
-        elif isinstance(entry, str):
-            # 旧版平铺字符串格式（向后兼容）
-            line = entry.strip()
-            if not line:
-                continue
-            if line.startswith("机器人：") or line.startswith("机器人:"):
-                speaker = "机器人"
-                utterance = re.sub(r"^机器人[：:]\s*", "", line)
-            elif line.startswith("坐席：") or line.startswith("坐席:"):
-                speaker = "机器人"
-                utterance = re.sub(r"^坐席[：:]\s*", "", line)
-            elif line.startswith("用户：") or line.startswith("用户:"):
-                speaker = "用户"
-                utterance = re.sub(r"^用户[：:]\s*", "", line)
-            else:
-                # 英文前缀兜底
-                m = re.match(
-                    r"^(agent|system|assistant)\s*[：:]\s*(.+)$", line, re.IGNORECASE
-                )
-                if m:
-                    speaker = "机器人"
-                    utterance = m.group(2)
-                else:
-                    m2 = re.match(
-                        r"^(user|human|customer)\s*[：:]\s*(.+)$", line, re.IGNORECASE
-                    )
-                    if m2:
-                        speaker = "用户"
-                        utterance = m2.group(2)
-                    else:
-                        speaker = "未知"
-                        utterance = line
-            if utterance.strip():
-                turns.append((utterance_idx, speaker, utterance))
                 utterance_idx += 1
     return turns
 
@@ -824,19 +788,57 @@ class GenericDialogueDiscoverer:
 
     @staticmethod
     def _format_dialogue(normalized_dlg: Dict[str, Any]) -> str:
-        """将归一化对话 dict 格式化为可读的对话文本（所有轮次）。"""
+        """将归一化对话 dict 格式化为可读的对话文本（所有轮次）。
+
+        支持新版配对 dict 格式（``{"机器人": "...", "用户": "..."}``）和旧版
+        平铺字符串格式（``"机器人：..."`` / ``"用户：..."``）。对 dict 格式使用
+        ``机器人：...`` / ``用户：...`` 前缀输出，而非 Python dict repr，确保
+        LLM 能正确理解对话内容。
+        """
         history = normalized_dlg.get("对话历史", [])
-        return "\n".join(str(turn) for turn in history if turn)
+        lines: List[str] = []
+        for turn in history:
+            if not turn:
+                continue
+            if isinstance(turn, dict):
+                agent = turn.get("机器人", "").strip()
+                user = turn.get("用户", "").strip()
+                if agent:
+                    lines.append(f"机器人：{agent}")
+                if user:
+                    lines.append(f"用户：{user}")
+                if not agent and not user:
+                    logger.debug(
+                        f"[GenericDialogueDiscoverer] 跳过无有效发言的轮次: "
+                        f"{list(turn.keys())}"
+                    )
+            else:
+                s = str(turn).strip()
+                if s:
+                    lines.append(s)
+        return "\n".join(lines)
 
     @staticmethod
     def _format_user_turns(normalized_dlg: Dict[str, Any]) -> str:
-        """将归一化对话 dict 中的用户话语格式化为文本（仅保留用户轮次）。"""
+        """将归一化对话 dict 中的用户话语格式化为文本（仅保留用户轮次）。
+
+        支持新版配对 dict 格式（``{"机器人": "...", "用户": "..."}``）和旧版
+        平铺字符串格式（``"用户：..."``）。
+        """
         history = normalized_dlg.get("对话历史", [])
-        return "\n".join(
-            str(turn)
-            for turn in history
-            if str(turn).strip().startswith("用户：") or str(turn).strip().startswith("用户:")
-        )
+        lines: List[str] = []
+        for turn in history:
+            if not turn:
+                continue
+            if isinstance(turn, dict):
+                user = turn.get("用户", "").strip()
+                if user:
+                    lines.append(f"用户：{user}")
+            else:
+                s = str(turn).strip()
+                if s.startswith("用户：") or s.startswith("用户:"):
+                    lines.append(s)
+        return "\n".join(lines)
 
     @staticmethod
     def _parse_llm_response(text: str) -> List[DiscoveryItem]:

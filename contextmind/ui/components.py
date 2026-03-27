@@ -2,10 +2,10 @@
 """
 Gradio UI 组件定义
 
-提供三个独立函数：
+提供三个函数：
 - ``create_layout()``   — 纯布局构建，不含任何事件绑定
 - ``bind_events()``     — 将事件处理器绑定到已创建的组件
-- ``create_gradio_ui()``— 向后兼容入口，组合以上两步
+- ``create_gradio_ui()``— 组合以上两步，创建完整 UI
 """
 
 import json
@@ -331,9 +331,7 @@ def bind_events(app: gr.Blocks, components: dict, demo_instance) -> None:
 
 
 def create_gradio_ui(demo_instance=None) -> tuple:
-    """创建 Gradio UI 界面（向后兼容入口）。
-
-    组合 ``create_layout()`` 和 ``bind_events()`` 两步。
+    """创建 Gradio UI 界面（``create_layout()`` + ``bind_events()`` 的组合）。
 
     Args:
         demo_instance: 提供对话相关方法的 Demo 实例；传 None 则仅返回布局。

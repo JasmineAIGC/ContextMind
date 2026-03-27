@@ -42,12 +42,11 @@ if str(_PROJECT_ROOT) not in sys.path:
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
 from contextmind.modes.fnctod.function_manager import DomainSpec
-from contextmind.modes.fnctod.schemas import get_callcenter_function_schema
 from contextmind.modes.pytod.schemas import load_schema_from_dict
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-# 默认 schema：安逸花外呼业务（data/anyihua_schema.json）
-_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "data" / "anyihua_schema.json"
+# 默认 schema：安逸花外呼业务（schema/anyihua_schema.json）
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "schema" / "anyihua_schema.json"
 _AGENT_KEY = "机器人"
 _USER_KEY = "用户"
 
@@ -151,11 +150,11 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         session:     对话会话字典。
         verbose:     是否打印详细日志。
         domain_spec: 外部传入的 DomainSpec（来自 ``--schema``）；
-                     若为 None 则使用预定义的客服场景 Schema。
+                     若为 None 则使用空 FunctionManager（无 schema 模式）。
     """
-    schema = domain_spec if domain_spec is not None else get_callcenter_function_schema()
     fm = FunctionManager()
-    fm.add_domain(schema)
+    if domain_spec is not None:
+        fm.add_domain(domain_spec)
 
     try:
         config = LLMConfig.from_env()
@@ -163,8 +162,6 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     except Exception:
         llm_available = False
 
-    # 统一格式：每条 entry 为 {"机器人": "xxx", "用户": "yyy"} 配对 dict。
-    # 兼容旧式平铺字符串格式（向后兼容）。
     history = session.get("对话历史", [])
     paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
     for entry in history:
@@ -173,16 +170,6 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             orig_agent = entry.get(_AGENT_KEY, "")
             if user_text:
                 paired_turns.append((user_text, orig_agent))
-        elif isinstance(entry, str):
-            import re as _re
-            if entry.startswith("机器人：") or entry.startswith("坐席："):
-                _pending_agent = _re.sub(r"^(机器人|坐席)[：:]\s*", "", entry)
-            elif entry.startswith("用户："):
-                user_text = entry[len("用户："):]
-                orig_agent = locals().get("_pending_agent", "")
-                if user_text:
-                    paired_turns.append((user_text, orig_agent))
-                _pending_agent = ""
     if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 
@@ -429,7 +416,7 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 或 FnCTOD 格式）；若不提供则默认使用 data/anyihua_schema.json",
+        help="schema.json 路径（SGD 或 FnCTOD 格式）；若不提供则默认使用 schema/anyihua_schema.json",
     )
     args = parser.parse_args()
 
@@ -437,7 +424,7 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
-    # 默认加载 anyihua_schema.json（与 pytod_trace_demo 保持一致）
+    # 加载 schema（必须指定 --schema 或存在默认 anyihua_schema.json）
     domain_spec: Optional[DomainSpec] = None
     schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
     if schema_path.exists():
@@ -447,7 +434,13 @@ def main() -> None:
         print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
         sys.exit(1)
     else:
-        print(f"⚠️  默认 Schema 文件不存在: {schema_path}，将使用内置场景 Schema", file=sys.stderr)
+        print(
+            f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
+            "   请先运行: python examples/build_schema_data.py\n"
+            "   或通过 --schema 指定 schema 文件路径",
+            file=sys.stderr,
+        )
+        print("   继续运行（无 schema 模式，FnCTOD 将无法提取槽位）", file=sys.stderr)
 
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")

@@ -35,21 +35,52 @@ from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.modes.pytod.schemas import load_schema_from_dict
 from contextmind.scenarios import get_insurance_scenario
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
 
+_PROJECT_ROOT = Path(__file__).parent.parent
+
+# 模块级 schema 路径，由 main() 在启动时设置（Gradio 回调无法直接接收 CLI 参数）
+_BATCH_SCHEMA_PATH: Optional[str] = None
+
+
+def _load_external_schemas(schema_path: str):
+    """从 schema.json 文件加载 PyTOD ServiceSchema 和 FnCTOD DomainSpec。"""
+    from contextmind.modes.fnctod.function_manager import FunctionManager
+    with open(schema_path, encoding="utf-8") as f:
+        data = json.load(f)
+    svc = load_schema_from_dict(data)
+    fm = FunctionManager()
+    fm.add_domain_from_slots(
+        domain_name=svc.service_name,
+        domain_description=svc.description,
+        slots={slot.name: slot.description for slot in svc.slots},
+        categorical_slots={
+            slot.name: slot.possible_values
+            for slot in svc.slots if slot.possible_values
+        } or None,
+        required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
+    )
+    domains = fm.get_all_domains()
+    if not domains:
+        raise ValueError("Schema produced no valid domains")
+    domain_spec = domains[0]
+    return svc, domain_spec
+
 
 class BatchDialogueTest:
     """批量对话测试类"""
     
-    def __init__(self, max_history_turns: int = 10):
+    def __init__(self, max_history_turns: int = 10, schema_path: Optional[str] = None):
         """
         初始化测试类
         
         Args:
             max_history_turns: DST模式的最大历史轮数
+            schema_path: 可选的 schema.json 路径（schema/ 目录下），用于 PyTOD / FnCTOD 模式
         """
         self.max_history_turns = max_history_turns
         self.llm_client = None
@@ -59,6 +90,15 @@ class BatchDialogueTest:
         self.app = None
         self.current_mode = None
         self.results_history = []
+        # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
+        self._pytod_schema = None
+        self._fnctod_domain_spec = None
+        if schema_path:
+            try:
+                self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
+                logger.info(f"已加载外部 Schema: {schema_path}")
+            except Exception as exc:
+                logger.warning(f"加载外部 Schema 失败: {exc}，请确认文件格式正确")
         logger.info("BatchDialogueTest 实例创建完成")
     
     def initialize(self, mode: str = "dst"):
@@ -117,11 +157,13 @@ class BatchDialogueTest:
         使用工厂方法简化初始化
         """
         # 使用工厂方法创建FnCTOD追踪器
+        kwargs = {"use_two_stage": True, "max_history_turns": self.max_history_turns}
+        if self._fnctod_domain_spec is not None:
+            kwargs["domain_spec"] = self._fnctod_domain_spec
         self.fnctod_tracker = FnCTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
-            use_two_stage=True,
-            max_history_turns=self.max_history_turns
+            **kwargs,
         )
         
         logger.info("FnCTOD 模式初始化完成")
@@ -132,10 +174,13 @@ class BatchDialogueTest:
 
         使用工厂方法简化初始化，自动注册保险场景 API。
         """
+        kwargs = {"max_history_turns": self.max_history_turns}
+        if self._pytod_schema is not None:
+            kwargs["schema"] = self._pytod_schema
         self.pytod_tracker = AdkPyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
-            max_history_turns=self.max_history_turns,
+            **kwargs,
         )
 
         logger.info("PyTOD 模式初始化完成")
@@ -437,10 +482,13 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         # 为每个对话创建新的 tracker 实例，确保测试结果独立
+        _pytod_kwargs: Dict[str, Any] = {"max_history_turns": self.max_history_turns}
+        if self._pytod_schema is not None:
+            _pytod_kwargs["schema"] = self._pytod_schema
         tracker = AdkPyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
-            max_history_turns=self.max_history_turns,
+            **_pytod_kwargs,
         )
         logger.info("✅ 为新对话创建 PyTOD tracker")
 
@@ -611,7 +659,7 @@ def get_test_instance():
     """获取测试实例（延迟初始化）"""
     global test_instance
     if test_instance is None:
-        test_instance = BatchDialogueTest()
+        test_instance = BatchDialogueTest(schema_path=_BATCH_SCHEMA_PATH)
     return test_instance
 
 
@@ -849,16 +897,25 @@ def parse_args():
     parser.add_argument('--port', type=int, default=7861, help='端口号')
     parser.add_argument('--share', action='store_true', help='创建公共链接')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO')
+    parser.add_argument(
+        '--schema', type=str, default=None, metavar='PATH',
+        help='schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式',
+    )
     return parser.parse_args()
 
 
 def main():
     """主函数"""
+    global _BATCH_SCHEMA_PATH
     args = parse_args()
     
     # 设置日志
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
     setup_logging(level=log_level, save_to_file=True, log_dir="output/logs")
+
+    if args.schema:
+        _BATCH_SCHEMA_PATH = args.schema
+        logger.info(f"外部 Schema: {args.schema}")
     
     logger.info("启动 ContextMind 批量对话测试Demo")
     

@@ -101,11 +101,11 @@ class PyTODPromptBuilder:
         "- 只输出程序代码，不要任何解释\n"
         "- 不要加 markdown 代码块（禁止用 ``` 包裹）\n"
         "- 每条语句独占一行\n"
-        "- 函数名必须与「可调用 API 函数」中列出的名称完全一致\n"
+        "- 函数名必须与「可调用 API 函数」中列出的名称完全一致；"
+        "若当前情况没有匹配的 API，使用 NONE() 而非虚构函数名\n"
         "- 新变量编号必须严格遵守「新变量编号约束」中的起始编号，不得使用已被占用的编号\n"
-        "- say() 指定「本轮 DM 应向用户传达的具体内容」\n"
-        "- 若「业务背景」中已明确提供了所需数据（如用户额度、利率、账单日等），"
-        "直接在 say() 中引用这些已知数据，无需再次调用查询 API\n"
+        "- say() 是可选语句，仅在需要将 API 计算结果的特定字段明确告知 DM 时才使用；"
+        "「业务背景」中的信息 DM 已可通过对话历史获取，无需通过 say() 再次传递\n"
     )
 
     # ------------------------------------------------------------------ #
@@ -120,8 +120,12 @@ class PyTODPromptBuilder:
         "- 若执行结果包含 Hint 提示，在回复中自然地向用户询问对应信息\n"
         "- 若执行结果包含 confirm 确认请求，向用户朗读待确认的参数，请求用户确认\n"
         "- 准确引用执行结果中的数据，禁止自行估算或捏造数字\n"
+        "- 若执行结果中无 say 输出（或 say 输出为空），根据 API 调用结果和对话历史给出合理的纯语言回应\n"
+        "- 回复中只允许出现执行结果里的真实数据值；"
+        "变量名或表达式（如 x1、x2.field、(x2.amount)）是内部程序符号，不是数据，禁止出现在回复中\n"
         "- 若执行失败，根据错误信息给出合理的回应或引导用户重新提供信息\n"
         "- 若程序为 NONE() / conversation_pause() 或无执行结果，根据对话历史给出合理的纯语言回应\n"
+        "- 回复简洁，通常 1-2 句话，不要冗长解释或无关铺垫\n"
         "- 直接输出回复文本，不要任何前缀或解释\n"
         "- 语气友好、专业\n"
     )
@@ -197,11 +201,7 @@ class PyTODPromptBuilder:
         return "\n".join(lines)
 
     def _build_api_context(self) -> str:
-        """构建完整 API 上下文块（函数签名 + 意图描述）。
-
-        保留此方法供向后兼容（非 ADK 回退路径的系统消息仍可使用）。
-        ADK 路径中：函数签名在系统消息，意图描述已移至用户消息（动态加载）。
-        """
+        """构建完整 API 上下文块（函数签名 + 意图描述）。"""
         sig = self._build_api_signatures()
         intent = self._build_intent_context()
         if sig and intent:
@@ -219,6 +219,7 @@ class PyTODPromptBuilder:
         scenario_context: str = "",
         prior_dataflow: Optional[Dict[str, Any]] = None,
         next_var_index: int = 1,
+        call_sources: Optional[Dict[str, str]] = None,
     ) -> List[Dict[str, str]]:
         """构建动作解析器（AP）的 LLM 消息列表。
 
@@ -233,7 +234,7 @@ class PyTODPromptBuilder:
         **用户消息（动态，每轮更新）**：
         5. 对话历史
         6. 业务意图描述（从系统消息移至此处 — 动态加载；``compact_schema=True`` 时省略）
-        7. 已计算变量（官方 PyTOD dataflow context）
+        7. 已计算变量（官方 PyTOD dataflow context，含调用来源行）
         8. 当前用户话语
 
         分离设计的优势：
@@ -247,6 +248,10 @@ class PyTODPromptBuilder:
             prior_dataflow:   先前轮次中已计算的变量绑定字典
                               ``{var_name: result_value}``；为 None 或空时不注入。
             next_var_index:   本轮程序中第一个新变量应使用的编号（全局递增）。
+            call_sources:     变量到产生它的程序调用行的映射
+                              ``{var_name: "func_name(arg='v')"}``；
+                              用于在 dataflow 节中显示调用来源，帮助 AP 识别已调用
+                              的函数，避免重复调用相同参数的 API。
 
         Returns:
             可直接传给 ``llm_client.chat_async(messages=...)`` 的消息列表。
@@ -264,7 +269,9 @@ class PyTODPromptBuilder:
 
         # ── 用户消息：每轮动态内容 ──────────────────────────────────────────
         history_text = self._format_history(history)
-        dataflow_section = _format_prior_dataflow(prior_dataflow, next_var_index)
+        dataflow_section = _format_prior_dataflow(
+            prior_dataflow, next_var_index, call_sources=call_sources
+        )
 
         # 意图描述：动态注入用户消息（系统消息已不再包含），
         # 未来可调用 _build_intent_context(user_utterance) 实现按轮筛选。
@@ -347,15 +354,25 @@ class PyTODPromptBuilder:
 def _format_prior_dataflow(
     prior_dataflow: Optional[Dict[str, Any]],
     next_var_index: int = 1,
+    call_sources: Optional[Dict[str, str]] = None,
 ) -> str:
     """将先前轮次的已计算变量格式化为 AP prompt 的 dataflow context 节。
 
     对应官方 PyTOD 的设计：AP 在每轮都能看到本对话中已通过 API 获取的所有变量，
     从而可以直接引用 ``x1.field`` 而无需重新查询，变量编号在整个对话中全局递增。
 
+    当提供 ``call_sources`` 时，每行显示产生该变量的调用源，格式为::
+
+        x4 = inquire_amount_discrepancy(date='七月二十三号')  →  {"date": "七月二十三号"}
+        x5 = confirm_borrowing_history()  [已完成]
+
+    这使 AP 能识别已调用的函数，避免重复调用相同参数的 API（原始 PyTOD 中 AP 接收
+    完整程序历史以实现同样的效果）。
+
     Args:
         prior_dataflow: 先前轮次的变量绑定字典 ``{var_name: value}``。
         next_var_index: 本轮程序中第一个新变量应使用的编号。
+        call_sources:   变量到其产生调用行的映射 ``{var_name: "func(args)"}``。
 
     Returns:
         格式化好的节文本（含末尾两个换行），若无先前变量则返回空字符串。
@@ -370,18 +387,35 @@ def _format_prior_dataflow(
             )
         return ""
 
-    _MAX_VAL_LEN = 300
-    lines = ["## 已计算变量（本对话中已通过 API 获取的数据，可直接引用 xN.field）"]
+    _MAX_VAL_LEN = 200   # truncate long values to keep AP prompt compact
+    _sources = call_sources or {}
+    lines = [
+        "## 已计算变量（通过 API 调用绑定的变量，可直接引用 xN.field；切勿重复调用相同函数/参数）"
+    ]
     for var, val in prior_dataflow.items():
         if var.startswith("_"):  # 跳过内部元数据键
             continue
-        try:
-            val_str = json.dumps(val, ensure_ascii=False)
-        except (TypeError, ValueError):
-            val_str = str(val)
-        if len(val_str) > _MAX_VAL_LEN:
-            val_str = val_str[:_MAX_VAL_LEN] + "…（已截断）"
-        lines.append(f"  {var} = {val_str}")
+        source_call = _sources.get(var, "")
+        # 检测 schema 存根占位值：{"status":"success","intent":"..."} 无真实业务数据
+        is_stub = isinstance(val, dict) and set(val.keys()) == {"status", "intent"}
+        if is_stub:
+            # 存根：只显示调用行，不显示无意义的占位值
+            if source_call:
+                lines.append(f"  {var} = {source_call}  [已完成，无可引用数据]")
+            else:
+                lines.append(f"  {var}  [已完成，无可引用数据]")
+        else:
+            # 真实数据：显示调用行 + 返回值
+            try:
+                val_str = json.dumps(val, ensure_ascii=False)
+            except (TypeError, ValueError):
+                val_str = str(val)
+            if len(val_str) > _MAX_VAL_LEN:
+                val_str = val_str[:_MAX_VAL_LEN] + "…（已截断）"
+            if source_call:
+                lines.append(f"  {var} = {source_call}  →  {val_str}")
+            else:
+                lines.append(f"  {var} = {val_str}")
     forbidden = next_var_index - 1
     lines.append(
         f"【重要】本轮新变量必须从 x{next_var_index} 开始编号"
@@ -419,11 +453,12 @@ def _format_execution_result(execution_result: Any) -> str:
             for h in hints:
                 lines.append(f"  - {h}")
 
-        # 3. API 调用结果（过滤掉 say() 的字符串值，避免重复）
+        # 3. API 调用结果（过滤掉 say() 变量，避免重复）
         var_values: Dict[str, Any] = getattr(execution_result, "variable_values", {})
+        say_variable_names: set = getattr(execution_result, "say_variable_names", set())
         api_vars = {
             k: v for k, v in var_values.items()
-            if not (say_output and v == say_output) and not k.startswith("_anon")
+            if k not in say_variable_names and not k.startswith("_anon")
         }
         if api_vars:
             lines.append("【API 调用结果】")

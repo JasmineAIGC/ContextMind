@@ -47,11 +47,6 @@ ContextMind 通用知识库构建模块（contextmind.knowledge）
     4. 平铺文本格式（单条 str，各轮以换行分隔，每行含说话人前缀）::
 
            "机器人：你好\\n用户：你好"
-
-.. note::
-
-    旧路径 ``contextmind.kb`` 保留为向后兼容的重定向入口，
-    新代码应使用 ``contextmind.knowledge``。
 """
 
 from .builder import KnowledgeBaseBuilder

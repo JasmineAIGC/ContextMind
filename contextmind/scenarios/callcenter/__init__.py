@@ -5,6 +5,6 @@
 """
 
 from .scenario import get_callcenter_scenario
-from contextmind.scenarios.app import EvolveApplication as CallCenterApplication
+from contextmind.modes.evolve.app import EvolveApplication as CallCenterApplication
 
 __all__ = ["get_callcenter_scenario", "CallCenterApplication"]

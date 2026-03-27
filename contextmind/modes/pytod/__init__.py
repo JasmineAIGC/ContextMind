@@ -10,20 +10,17 @@ PyTOD — 任务型对话模块（AP → EE → DM 三步流程）
 
 使用示例::
 
-    from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
-    from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+    from contextmind.modes.pytod import AdkPyTODTracker
+    from contextmind.modes.pytod.schemas import load_schema_from_dict
     from contextmind.infra.llm_client import AdkLLMClient
+    import json
 
     llm = AdkLLMClient()
-    engine = ExecutionEngine()
-    SCENARIO_API_REGISTRY["callcenter"](engine)
-    tracker = AdkPyTODTracker(llm_client=llm, engine=engine)
+    schema = load_schema_from_dict(json.load(open("schema/my_schema.json")))
+    tracker = AdkPyTODTracker.from_scenario(llm, scenario_config, schema=schema)
     result = await tracker.process_turn("查询订单状态")
     print(result["program_text"])  # x1 lookup_order(order_id='ORD-001')
     print(result["response"])      # 您的订单已发货...
-
-    # 或使用工厂方法
-    tracker = AdkPyTODTracker.from_scenario(llm, scenario_config)
 """
 
 from .schemas import SlotDefinition, IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -40,7 +37,7 @@ from .execution_engine import (
     ProgramExecutionResult,
 )
 from .prompts import ConversationTurn, PyTODPromptBuilder
-from .tracker import AdkPyTODTracker, adk_tools_from_engine
+from .tracker import AdkPyTODTracker
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [
@@ -49,8 +46,6 @@ __all__ = [
     # 提示词构建
     "PyTODPromptBuilder",
     "ConversationTurn",
-    # 工具转换（已废弃，保留向后兼容）
-    "adk_tools_from_engine",
     # 执行引擎
     "ExecutionEngine",
     "ProgramStatement",

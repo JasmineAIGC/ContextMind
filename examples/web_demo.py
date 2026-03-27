@@ -30,6 +30,8 @@ from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.modes.pytod.schemas import load_schema_from_dict
+from contextmind.modes.pytod.tracker import load_pytod_api_module
 from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, get_insurance_scenario, get_anyihua_scenario
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
@@ -37,16 +39,108 @@ from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 # 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)
 
+_PROJECT_ROOT = Path(__file__).parent.parent
+
+
+def _load_external_schemas(schema_path: str):
+    """从 schema.json 文件加载 PyTOD ServiceSchema 和 FnCTOD DomainSpec。
+
+    先尝试从预生成的 companion 文件加载（``*_fnctod_domain.json``），
+    若不存在则从 schema.json 在线构建 FunctionManager domain。
+
+    Returns:
+        (ServiceSchema, DomainSpec) 二元组；加载失败时记录错误并返回 (None, None)。
+    """
+    import json
+    from contextmind.modes.fnctod.function_manager import FunctionManager
+    from pathlib import Path as _Path
+    try:
+        with open(schema_path, encoding="utf-8") as f:
+            data = json.load(f)
+        svc = load_schema_from_dict(data)
+
+        # 优先从预生成的 companion fnctod_domain.json 加载 FunctionManager 域
+        sp = _Path(schema_path)
+        base = sp.stem[: -len("_schema")] if sp.stem.endswith("_schema") else sp.stem
+        fnctod_domain_path = sp.parent / f"{base}_fnctod_domain.json"
+
+        fm = FunctionManager()
+        if fnctod_domain_path.exists():
+            try:
+                with open(fnctod_domain_path, encoding="utf-8") as fh:
+                    dd = json.load(fh)
+                # New format: OpenAI JSON Schema (name/description/parameters.properties)
+                if "parameters" in dd and "properties" in dd.get("parameters", {}):
+                    from contextmind.modes.fnctod.function_manager import (
+                        DomainSpec, FunctionParameter, ParameterType,
+                    )
+                    spec = DomainSpec(
+                        name=dd["name"],
+                        description=dd.get("description", ""),
+                    )
+                    params_schema = dd["parameters"]
+                    required_set = set(params_schema.get("required", []))
+                    for slot_name, prop in params_schema.get("properties", {}).items():
+                        spec.add_parameter(FunctionParameter(
+                            name=slot_name,
+                            description=prop.get("description", ""),
+                            param_type=ParameterType.STRING,
+                            required=slot_name in required_set,
+                            enum_values=prop.get("enum"),
+                        ))
+                    fm.add_domain(spec)
+                else:
+                    # Legacy format: add_domain_from_slots() input
+                    fm.add_domain_from_slots(
+                        domain_name=dd.get("domain_name", dd.get("name", svc.service_name)),
+                        domain_description=dd.get("description", svc.description),
+                        slots=dd.get("slots", {}),
+                        categorical_slots=dd.get("categorical_slots") or None,
+                        required_slots=dd.get("required_slots") or None,
+                    )
+                logger.info(f"已从 companion 文件加载 FnCTOD 域: {fnctod_domain_path.name}")
+            except Exception as exc:
+                logger.warning(f"companion fnctod_domain 加载失败，改用在线构建: {exc}")
+                fm = FunctionManager()  # reset
+                _build_fnctod_domain_inline(fm, svc)
+        else:
+            _build_fnctod_domain_inline(fm, svc)
+
+        domains = fm.get_all_domains()
+        if not domains:
+            raise ValueError(f"Schema '{schema_path}' produced no valid domains")
+        domain_spec = domains[0]
+        logger.info(f"已加载外部 Schema: {schema_path} (service={svc.service_name})")
+        return svc, domain_spec
+    except Exception as exc:
+        logger.error(f"加载外部 Schema 失败: {schema_path} — {exc}")
+        return None, None
+
+
+def _build_fnctod_domain_inline(fm: Any, svc: Any) -> None:
+    """从 ServiceSchema 在线构建 FnCTOD FunctionManager 域（fallback）。"""
+    fm.add_domain_from_slots(
+        domain_name=svc.service_name,
+        domain_description=svc.description,
+        slots={slot.name: slot.description for slot in svc.slots},
+        categorical_slots={
+            slot.name: slot.possible_values
+            for slot in svc.slots if slot.possible_values
+        } or None,
+        required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
+    )
+
 
 class UnifiedGradioDemo:
     """统一的Gradio Demo类"""
     
-    def __init__(self, max_history_turns: int = 10):
+    def __init__(self, max_history_turns: int = 10, schema_path: Optional[str] = None):
         """
         初始化Demo
         
         Args:
             max_history_turns: DST模式的最大历史轮数
+            schema_path: 可选的 schema.json 路径（schema/ 目录下），用于 PyTOD / FnCTOD 模式
         """
         self.current_scenario = None
         self.current_mode = None
@@ -61,6 +155,12 @@ class UnifiedGradioDemo:
         self.history = []
         # 存储用户输入处理后、机器人回复前的对话状态
         self.post_user_state = None
+        # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
+        self._pytod_schema = None
+        self._fnctod_domain_spec = None
+        self._schema_path: Optional[str] = schema_path  # 保存路径，用于加载 mock companion
+        if schema_path:
+            self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
         logger.info("Demo实例创建完成（延迟初始化）")
     
     def initialize_scenario(self, scenario: str, mode: str):
@@ -131,14 +231,23 @@ class UnifiedGradioDemo:
         """初始化FnCTOD模式"""
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
-        self.fnctod_tracker = FnCTODTracker.from_scenario(self.llm_client, self.config)
+        kwargs = {}
+        if self._fnctod_domain_spec is not None:
+            kwargs["domain_spec"] = self._fnctod_domain_spec
+        self.fnctod_tracker = FnCTODTracker.from_scenario(self.llm_client, self.config, **kwargs)
         logger.info("FnCTOD模式初始化完成")
 
     def _setup_pytod_tracker(self):
         """初始化PyTOD模式（三步流程：AP → EE → DM）"""
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
-        self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config)
+        kwargs = {}
+        if self._pytod_schema is not None:
+            kwargs["schema"] = self._pytod_schema
+        # 传入 schema_path 让 from_scenario() 自动加载 companion mock 数据
+        if self._schema_path is not None:
+            kwargs["schema_path"] = self._schema_path
+        self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config, **kwargs)
         logger.info("PyTOD模式初始化完成 (三步流程: AP→EE→DM)")
 
     def _setup_evolve_app(self):
@@ -709,6 +818,17 @@ def parse_args():
         action='store_true',
         help='创建公共分享链接'
     )
+
+    parser.add_argument(
+        '--schema',
+        type=str,
+        default=None,
+        metavar='PATH',
+        help=(
+            'schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式。'
+            '例如: --schema schema/anyihua_schema.json'
+        ),
+    )
     
     return parser.parse_args()
 
@@ -724,10 +844,15 @@ def main():
     
     logger.info("[__main__] 启动 ContextMind Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")
+    if args.schema:
+        logger.info(f"外部 Schema: {args.schema}")
     
     # 创建Demo实例
     try:
-        demo_instance = UnifiedGradioDemo(max_history_turns=args.max_history_turns)
+        demo_instance = UnifiedGradioDemo(
+            max_history_turns=args.max_history_turns,
+            schema_path=args.schema,
+        )
         logger.info("✅ Demo实例创建成功")
     except Exception as e:
         logger.error(f"❌ Demo初始化失败: {e}")
