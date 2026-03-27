@@ -32,7 +32,6 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from contextmind.infra.llm_client import LLMConfig, AdkLLMClient
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
-from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
 from contextmind.modes.pytod.tracker import _is_stub_only_result, load_pytod_api_module
 from contextmind.scenarios import get_anyihua_scenario
@@ -136,6 +135,7 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False,
                     external_schema: Optional[ServiceSchema] = None,
+                    schema_path: Optional[Path] = None,
                     compact_schema: bool = False) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。
 
@@ -143,15 +143,10 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         session:         对话会话字典。
         verbose:         是否打印详细日志。
         external_schema: 外部传入的 ServiceSchema（来自 ``--schema`` 或默认 anyihua_schema.json）；
-                         若为 None 则使用预定义的场景 Schema。
+                         若为 None 则使用空引擎运行（无 API 注册模式）。
+        schema_path:     schema.json 文件路径，用于加载 companion ``*_pytod_apis.py`` 函数。
         compact_schema:  为 True 时，AP prompt 中省略详细业务意图说明（减少 token 用量）。
     """
-    # 用于获取已注册 API 列表（无论 LLM 是否可用）
-    _probe_engine = ExecutionEngine()
-    register_fn = SCENARIO_API_REGISTRY.get("anyihua")
-    if register_fn:
-        register_fn(_probe_engine)
-
     try:
         config = LLMConfig.from_env()
         llm_available = True
@@ -196,18 +191,21 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
     if llm_available:
         llm_client = AdkLLMClient(config=config)
-        # 使用 from_scenario() 自动加载安逸花外呼场景 API 和 Schema。
-        # Fix 1: 默认使用 anyihua 场景 + anyihua_schema.json
         scenario_config = get_anyihua_scenario()
+        from_kwargs: Dict[str, Any] = {
+            "scenario_context": scenario_context,
+            "compact_schema": compact_schema,
+        }
+        if external_schema is not None:
+            from_kwargs["schema"] = external_schema
+            from_kwargs["schema_path"] = schema_path
         agent = AdkPyTODTracker.from_scenario(
             llm_client=llm_client,
             scenario_config=scenario_config,
-            scenario_context=scenario_context,
-            compact_schema=compact_schema,
-            **({"schema": external_schema, "schema_path": schema_path} if external_schema is not None else {}),
+            **from_kwargs,
         )
         engine = agent.engine  # 从追踪器获取已注册 API 的执行引擎
-        # 使用实际运行引擎的 API 列表（包含预定义 API + schema 自动注册的存根）
+        # 使用实际运行引擎的 API 列表（包含 schema 自动注册的函数）
         registered_apis_list = sorted(engine.list_functions())
         for i, (utt, orig_agent) in enumerate(paired_turns):
             try:
@@ -514,7 +512,7 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
-    # Fix 1: 默认加载 anyihua_schema.json
+    # 加载 schema（必须指定 --schema 或存在默认 anyihua_schema.json）
     external_schema: Optional[ServiceSchema] = None
     schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
     if schema_path.exists():
@@ -524,13 +522,20 @@ def main() -> None:
         print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
         sys.exit(1)
     else:
-        print(f"⚠️  默认 Schema 文件不存在: {schema_path}，将使用内置场景 Schema", file=sys.stderr)
+        print(
+            f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
+            "   请先运行: python examples/build_schema_data.py\n"
+            "   或通过 --schema 指定 schema 文件路径",
+            file=sys.stderr,
+        )
+        print("   继续运行（无 schema 模式，AP 将无法调用业务 API）", file=sys.stderr)
 
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
     trace = asyncio.run(run_trace(session, verbose=args.verbose,
                                    external_schema=external_schema,
+                                   schema_path=schema_path if external_schema is not None else None,
                                    compact_schema=args.compact_schema))
 
     # 输出路径

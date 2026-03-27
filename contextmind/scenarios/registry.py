@@ -8,7 +8,6 @@
     from contextmind.scenarios.registry import scenario_registry
 
     app_class = scenario_registry.get_app_class("chat")
-    schema = scenario_registry.get_schema("insurance")
 
     # 添加新场景：只需在 scenarios.yaml 中添加配置
 """
@@ -82,16 +81,10 @@ class ScenarioRegistry:
         if 'app_class' in config:
             app_class = self._import_class(config['app_class'])
         
-        # 动态导入Schema获取函数
-        schema_getter = None
-        if 'schema_getter' in config:
-            schema_getter = self._import_callable(config['schema_getter'])
-        
         # 存储场景信息
         self._scenarios[name] = {
             'name': name,
             'app_class': app_class,
-            'schema_getter': schema_getter,
             'aliases': config.get('aliases', []),
             'description': config.get('description', ''),
         }
@@ -165,18 +158,6 @@ class ScenarioRegistry:
         if canonical_name is None:
             return None
         return self._scenarios[canonical_name].get('app_class')
-    
-    def get_schema(self, name: str) -> Optional[Any]:
-        """获取场景的Schema（FnCTOD模式使用）"""
-        canonical_name = self._resolve_name(name)
-        if canonical_name is None:
-            return None
-        
-        schema_getter = self._scenarios[canonical_name].get('schema_getter')
-        if schema_getter is None:
-            return None
-        
-        return schema_getter()
     
     def list_scenarios(self) -> list:
         """列出所有已注册的场景名称"""

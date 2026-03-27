@@ -88,7 +88,8 @@ class InteractiveDemo:
                 self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
                 print(f"✓ 已加载外部 Schema: {schema_path}")
             except Exception as exc:
-                print(f"⚠️  加载 Schema 失败: {exc}，将使用内置场景 Schema")
+                print(f"❌ 加载 Schema 失败: {exc}")
+                print(f"   请确认 schema 文件格式正确，或运行: python examples/build_schema_data.py")
 
         if mode == "dst":
             self._setup_dst()

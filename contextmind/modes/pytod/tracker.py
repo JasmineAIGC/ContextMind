@@ -13,36 +13,38 @@ ADK 集成优势：
 - AP session 积累（程序生成历史），使 AP 能感知跨轮次的变量上下文
 - DM session 积累对话历史，保证回复自然、连贯
 
+PyTOD 不在算法代码内部硬编码场景 Schema 和 API 数据。所有 Schema 均通过外部文件传入：
+  1. 生成 companion 文件：``python examples/build_schema_data.py --schema data/xxx_schema.json``
+  2. 传入追踪器：``AdkPyTODTracker.from_scenario(..., schema=svc, schema_path="data/xxx_schema.json")``
+
 使用示例::
 
-    from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
-    from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY
+    from contextmind.modes.pytod import AdkPyTODTracker
+    from contextmind.modes.pytod.schemas import load_schema_from_dict
     from contextmind.infra.llm_client import AdkLLMClient
+    import json
+
+    with open("data/anyihua_schema.json") as f:
+        svc = load_schema_from_dict(json.load(f))
 
     llm = AdkLLMClient()
-    engine = ExecutionEngine()
-    SCENARIO_API_REGISTRY["callcenter"](engine)
-    tracker = AdkPyTODTracker(llm_client=llm, engine=engine)
+    from contextmind.scenarios import get_anyihua_scenario
+    config = get_anyihua_scenario()
+    tracker = AdkPyTODTracker.from_scenario(
+        llm, config, schema=svc, schema_path="data/anyihua_schema.json"
+    )
     result = await tracker.process_turn("查询我的账户余额")
-    print(result["program_text"])  # x1 query_account()
-    print(result["response"])      # 您的可用额度为…
-
-    # 或使用工厂方法
-    from contextmind.scenarios import get_callcenter_scenario
-    config = get_callcenter_scenario()
-    tracker = AdkPyTODTracker.from_scenario(llm, config)
+    print(result["program_text"])
+    print(result["response"])
 """
 
 from __future__ import annotations
 
-import functools
 import json
 import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
-import yaml
 
 from contextmind.infra.logger import get_logger
 from contextmind.infra.llm_client import create_local_adk_model
@@ -56,64 +58,6 @@ from google.adk.runners import InMemoryRunner  # type: ignore[import]
 from google.genai import types as genai_types  # type: ignore[import]
 
 logger = get_logger(__name__)
-
-_SCENARIO_SCHEMAS_YAML = Path(__file__).parent / "scenario_schemas.yaml"
-
-# 规范化 key（中文别名 → 英文基础 key）以便在 YAML 中查找
-_KEY_ALIASES: Dict[str, str] = {
-    "闲聊": "chat",
-    "客服": "callcenter",
-    "保险": "insurance",
-    "保险销售": "insurance",
-    "安逸花": "anyihua",
-    "安逸花外呼": "anyihua",
-}
-
-
-@functools.lru_cache(maxsize=None)
-def _load_all_scenario_schemas() -> Dict[str, ServiceSchema]:
-    """从 scenario_schemas.yaml 一次性加载所有场景的 ServiceSchema，结果缓存。"""
-    if not _SCENARIO_SCHEMAS_YAML.exists():
-        logger.warning("scenario_schemas.yaml 不存在，PyTOD 将使用空 Schema 运行")
-        return {}
-    with open(_SCENARIO_SCHEMAS_YAML, encoding="utf-8") as f:
-        raw = yaml.safe_load(f) or {}
-    schemas: Dict[str, ServiceSchema] = {}
-    for name, data in raw.items():
-        try:
-            schemas[name] = ServiceSchema.from_dict(data)
-        except Exception as exc:
-            logger.warning(f"场景 '{name}' 的 Schema 加载失败: {exc}")
-    return schemas
-
-
-# ---------------------------------------------------------------------------
-# 内部工具
-# ---------------------------------------------------------------------------
-
-def _load_scenario_schema(key: Optional[str]) -> Optional[ServiceSchema]:
-    """按场景 key 懒加载对应的预定义 ServiceSchema。
-
-    从 scenario_schemas.yaml 加载内置场景 Schema（chat / callcenter / insurance）。
-    当用户未通过 build_kb_demo.py 创建知识库时，PyTOD 演示脚本可直接使用这些
-    预置 Schema，保证 AP 提示词包含完整的业务意图和槽位描述。
-
-    Args:
-        key: SCENARIO_API_REGISTRY 中的场景键（如 "callcenter"、"insurance"、"chat"
-             或其中文别名）。
-
-    Returns:
-        对应场景的 ServiceSchema；找不到时返回 None。
-    """
-    if not key:
-        return None
-    # 将中文别名规范化为英文 key
-    canonical = _KEY_ALIASES.get(key, key)
-    schemas = _load_all_scenario_schemas()
-    schema = schemas.get(canonical)
-    if schema is None:
-        logger.debug(f"场景 '{key}' 无预置 Schema，AP 将使用空 Schema 运行（开放域模式）")
-    return schema
 
 
 def _is_stub_only_result(val: Any) -> bool:
@@ -455,8 +399,7 @@ class AdkPyTODTracker:
         """从场景配置创建 AdkPyTODTracker。
 
         自动注册场景 API、加载 ServiceSchema 并填充场景描述。
-        当传入 ``schema`` 且存在对应的 ``*_pytod_mock.json`` companion 文件时，
-        自动加载预生成的 mock 数据，让 EE 返回值包含真实 result_slots 字段。
+        所有 Schema 和 API 均通过外部文件传入，PyTOD 不再内置场景数据。
 
         Args:
             llm_client:      LLM 客户端（如 ``AdkLLMClient``）。
@@ -464,7 +407,7 @@ class AdkPyTODTracker:
             config:          保留参数，已忽略（兼容旧接口）。
             **kwargs:        传递给 ``__init__`` 的额外参数（如 ``max_history_turns``）。
                              特殊 key:
-                             - ``schema`` (ServiceSchema): 外部传入的 schema 对象。
+                             - ``schema`` (ServiceSchema): 外部传入的 schema 对象（必须提供）。
                              - ``schema_path`` (str|Path): schema.json 路径，用于自动
                                加载 companion ``*_pytod_apis.py`` 文件中的预生成函数。
                                若仅传 ``schema`` 而不传 ``schema_path``，则退化为存根模式。
@@ -486,33 +429,22 @@ class AdkPyTODTracker:
 
         engine = ExecutionEngine()
         scenario_name = getattr(scenario_config, "name", "")
-        key = get_scenario_key(scenario_name)
 
         if external_schema is not None:
-            # 外部 schema 传入：
-            # 1. 若场景有预定义 API（含真实业务逻辑），先注册它们；
-            # 2. 再用 schema 中的意图填补未覆盖的函数（replace_existing=False），
-            #    确保预定义实现不被覆盖，同时所有 schema 意图都可被 EE 执行。
-            if key and key in SCENARIO_API_REGISTRY:
-                SCENARIO_API_REGISTRY[key](engine)
-                logger.info(
-                    f"已为场景 '{scenario_name}' 注册预定义 API: {engine.list_functions()}"
-                )
-                _register_apis_from_schema(
-                    engine, external_schema, replace_existing=False, api_funcs=api_funcs
-                )
-            else:
-                _register_apis_from_schema(
-                    engine, external_schema, replace_existing=True, api_funcs=api_funcs
-                )
+            # 外部 schema 传入：从 schema 中的意图注册 API 函数（companion 文件优先）
+            _register_apis_from_schema(
+                engine, external_schema, replace_existing=True, api_funcs=api_funcs
+            )
             schema = external_schema
         else:
-            if key:
-                SCENARIO_API_REGISTRY[key](engine)
-                logger.info(f"已为场景 '{scenario_name}' 注册 API: {engine.list_functions()}")
-            else:
-                logger.warning(f"场景 '{scenario_name}' 无预置 API，运行开放域模式")
-            schema = _load_scenario_schema(key)
+            # 未提供外部 schema：空引擎 + None schema（开放域模式）
+            logger.warning(
+                f"AdkPyTODTracker: 场景 '{scenario_name}' 未传入 schema，"
+                "使用空引擎运行（AP 将无法引用业务 API）。"
+                "请通过 schema= 参数传入 ServiceSchema 对象，"
+                "或通过 schema_path= 指向 data/*_schema.json 文件。"
+            )
+            schema = None
 
         scenario_context = kwargs.pop(
             "scenario_context",

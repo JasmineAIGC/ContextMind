@@ -98,7 +98,7 @@ class BatchDialogueTest:
                 self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
                 logger.info(f"已加载外部 Schema: {schema_path}")
             except Exception as exc:
-                logger.warning(f"加载外部 Schema 失败: {exc}，将使用内置场景 Schema")
+                logger.warning(f"加载外部 Schema 失败: {exc}，请确认文件格式正确")
         logger.info("BatchDialogueTest 实例创建完成")
     
     def initialize(self, mode: str = "dst"):
