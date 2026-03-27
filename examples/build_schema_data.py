@@ -11,8 +11,11 @@ Schema 数据预生成脚本
 
 使用方式::
 
-    # 处理 schema/ 下所有 schema
+    # 处理 schema/ 下所有 schema（规则生成 stub 函数）
     python examples/build_schema_data.py
+
+    # 使用 LLM 生成真实业务逻辑函数体（需配置 .env 中的 LLM_API_KEY 等）
+    python examples/build_schema_data.py --with-llm
 
     # 处理指定目录
     python examples/build_schema_data.py --data-dir /path/to/schemas
@@ -25,6 +28,18 @@ Schema 数据预生成脚本
 
     # 处理单个 schema 文件
     python examples/build_schema_data.py --schema schema/anyihua_schema.json
+
+    # 单个文件 + LLM 模式
+    python examples/build_schema_data.py --schema schema/anyihua_schema.json --with-llm
+
+两种生成模式
+------------
+1. **规则模式**（默认）：不依赖 LLM，使用语义化规则生成 mock 返回值的 stub 函数。
+   速度快，但函数体没有真实业务计算逻辑。
+
+2. **LLM 模式**（--with-llm）：对每个意图调用 LLM 生成真实的 Python 函数体，
+   包含实际计算（如 PMT 月供公式、工单号生成、参数验证等），函数行为更贴近生产环境。
+   LLM 失败时自动回退到规则模式（保证文件始终生成）。
 
 这是一个 **一次性预生成步骤**，生成的文件应加入版本控制（git），
 这样运行时无需重新生成，PyTOD 追踪器在初始化时直接加载 companion 文件。
@@ -77,9 +92,27 @@ def main() -> None:
         action="store_true",
         help="跳过已存在的文件，不覆盖",
     )
+    parser.add_argument(
+        "--with-llm",
+        action="store_true",
+        help=(
+            "使用 LLM 为每个意图函数生成真实业务逻辑（需要在 .env 中配置 LLM_API_KEY "
+            "/ LLM_BASE_URL / LLM_MODEL）。未指定时使用规则生成 stub 函数。"
+        ),
+    )
     args = parser.parse_args()
 
-    builder = SchemaDataBuilder(overwrite=not args.no_overwrite)
+    # Optionally initialize LLM client for real business logic generation
+    llm_client = None
+    if args.with_llm:
+        try:
+            from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
+            llm_client = AdkLLMClient(config=LLMConfig.from_env())
+            print("🤖 LLM 模式启用：将为每个意图函数生成真实业务逻辑")
+        except Exception as exc:
+            print(f"⚠️  LLM 初始化失败，回退到 stub 生成模式: {exc}", file=sys.stderr)
+
+    builder = SchemaDataBuilder(overwrite=not args.no_overwrite, llm_client=llm_client)
 
     if args.schema:
         schema_path = Path(args.schema)

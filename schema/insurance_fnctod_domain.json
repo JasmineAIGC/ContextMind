@@ -1,0 +1,107 @@
+{
+  "_schema_source": "insurance_schema.json",
+  "_generated_at": "2026-03-27T06:38:19.387230+00:00",
+  "name": "Insurance_Sales",
+  "description": "保险销售对话场景，专注于团体癌症保险产品的电话销售，全面提取客户意图、保险需求、健康状况等信息",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "intent_level1": {
+        "type": "string",
+        "description": "一级意图（主意图）",
+        "enum": [
+          "拒绝",
+          "无意向",
+          "用户忙",
+          "考虑",
+          "质疑类",
+          "接受",
+          "咨询"
+        ]
+      },
+      "intent_level2": {
+        "type": "string",
+        "description": "二级意图（子意图）"
+      },
+      "intent_level3": {
+        "type": "string",
+        "description": "三级意图（详细信息，基于用户对话模式提取）"
+      },
+      "customer_age_range": {
+        "type": "string",
+        "description": "客户年龄段",
+        "enum": [
+          "30岁以下",
+          "30-40岁",
+          "40-50岁",
+          "50岁以上"
+        ]
+      },
+      "customer_gender": {
+        "type": "string",
+        "description": "客户性别",
+        "enum": [
+          "男",
+          "女",
+          "未知"
+        ]
+      },
+      "has_insurance": {
+        "type": "string",
+        "description": "是否已有保险",
+        "enum": [
+          "是",
+          "否",
+          "未知"
+        ]
+      },
+      "has_cancer_insurance": {
+        "type": "string",
+        "description": "是否已有癌症保险",
+        "enum": [
+          "是",
+          "否",
+          "未知"
+        ]
+      },
+      "budget_range": {
+        "type": "string",
+        "description": "预算范围"
+      },
+      "decision_maker": {
+        "type": "string",
+        "description": "决策者（本人/配偶/家人）",
+        "enum": [
+          "本人",
+          "配偶",
+          "家人",
+          "需商量"
+        ]
+      },
+      "callback_needed": {
+        "type": "string",
+        "description": "是否需要回访",
+        "enum": [
+          "是",
+          "否",
+          "待定"
+        ]
+      },
+      "conversation_stage": {
+        "type": "string",
+        "description": "对话阶段",
+        "enum": [
+          "初次接触",
+          "了解产品",
+          "处理异议",
+          "促成签约",
+          "客户拒绝"
+        ]
+      },
+      "insurance_type": {
+        "type": "string",
+        "description": "保险类型"
+      }
+    }
+  }
+}

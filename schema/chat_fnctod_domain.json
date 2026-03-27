@@ -1,0 +1,93 @@
+{
+  "_schema_source": "chat_schema.json",
+  "_generated_at": "2026-03-27T06:38:19.386907+00:00",
+  "name": "Chat_Assistant",
+  "description": "通用闲聊与助手服务，支持天气查询、信息搜索、翻译、计算、新闻、笑话、菜谱推荐等功能",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "city": {
+        "type": "string",
+        "description": "城市名称"
+      },
+      "date": {
+        "type": "string",
+        "description": "日期（今天/明天/后天等）"
+      },
+      "query": {
+        "type": "string",
+        "description": "搜索关键词或问题"
+      },
+      "category": {
+        "type": "string",
+        "description": "分类（新闻类别、搜索类别等）"
+      },
+      "topic": {
+        "type": "string",
+        "description": "话题或主题（如笑话话题）"
+      },
+      "text": {
+        "type": "string",
+        "description": "待翻译的文本内容"
+      },
+      "target_language": {
+        "type": "string",
+        "description": "翻译目标语言（中文/英文/日文/韩文等）"
+      },
+      "source_language": {
+        "type": "string",
+        "description": "翻译源语言（可选，不指定则自动检测）"
+      },
+      "expression": {
+        "type": "string",
+        "description": "数学表达式（如 100*0.85 或 1200/12）"
+      },
+      "timezone": {
+        "type": "string",
+        "description": "时区（如 Asia/Shanghai、America/New_York）"
+      },
+      "value": {
+        "type": "string",
+        "description": "待换算的数值"
+      },
+      "from_unit": {
+        "type": "string",
+        "description": "原始单位（米/英尺/千克/磅/摄氏度/华氏度等）"
+      },
+      "to_unit": {
+        "type": "string",
+        "description": "目标单位"
+      },
+      "content_type": {
+        "type": "string",
+        "description": "内容类型（电影/音乐/书籍/播客）",
+        "enum": [
+          "电影",
+          "音乐",
+          "书籍",
+          "播客"
+        ]
+      },
+      "genre": {
+        "type": "string",
+        "description": "风格或类型"
+      },
+      "mood": {
+        "type": "string",
+        "description": "当前心情"
+      },
+      "dish_name": {
+        "type": "string",
+        "description": "菜品名称"
+      },
+      "dietary_restrictions": {
+        "type": "string",
+        "description": "饮食限制（素食/低糖/低脂等）"
+      },
+      "servings": {
+        "type": "string",
+        "description": "份量（人数）"
+      }
+    }
+  }
+}
