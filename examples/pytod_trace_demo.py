@@ -37,8 +37,8 @@ from contextmind.modes.pytod.tracker import _is_stub_only_result, load_pytod_api
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-# 默认 schema：安逸花外呼业务（data/anyihua_schema.json）
-_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "data" / "anyihua_schema.json"
+# 默认 schema：安逸花外呼业务（schema/anyihua_schema.json）
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "schema" / "anyihua_schema.json"
 _AGENT_KEY = "机器人"
 _USER_KEY = "用户"
 
@@ -488,7 +488,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 格式）；若不提供则默认使用 data/anyihua_schema.json",
+        help="schema.json 路径（SGD 格式）；若不提供则默认使用 schema/anyihua_schema.json",
     )
     args = parser.parse_args()
 

@@ -12,7 +12,7 @@ FnCTOD 不在算法代码内部硬编码场景 Schema 数据。所有 Schema 均
     from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
     from contextmind.modes.fnctod.schemas import load_domain_spec_from_file
 
-    domain_spec = load_domain_spec_from_file("data/callcenter_fnctod_domain.json")
+    domain_spec = load_domain_spec_from_file("schema/callcenter_fnctod_domain.json")
     fm = FunctionManager()
     fm.add_domain(domain_spec)
     tracker = FnCTODTracker(function_manager=fm)

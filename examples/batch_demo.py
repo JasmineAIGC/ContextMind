@@ -80,7 +80,7 @@ class BatchDialogueTest:
         
         Args:
             max_history_turns: DST模式的最大历史轮数
-            schema_path: 可选的 schema.json 路径（data/ 目录下），用于 PyTOD / FnCTOD 模式
+            schema_path: 可选的 schema.json 路径（schema/ 目录下），用于 PyTOD / FnCTOD 模式
         """
         self.max_history_turns = max_history_turns
         self.llm_client = None
@@ -899,7 +899,7 @@ def parse_args():
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO')
     parser.add_argument(
         '--schema', type=str, default=None, metavar='PATH',
-        help='schema.json 路径（SGD 格式，data/ 目录下），用于 PyTOD / FnCTOD 模式',
+        help='schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式',
     )
     return parser.parse_args()
 

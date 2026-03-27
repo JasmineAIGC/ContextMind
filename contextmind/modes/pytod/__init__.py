@@ -16,7 +16,7 @@ PyTOD — 任务型对话模块（AP → EE → DM 三步流程）
     import json
 
     llm = AdkLLMClient()
-    schema = load_schema_from_dict(json.load(open("data/my_schema.json")))
+    schema = load_schema_from_dict(json.load(open("schema/my_schema.json")))
     tracker = AdkPyTODTracker.from_scenario(llm, scenario_config, schema=schema)
     result = await tracker.process_turn("查询订单状态")
     print(result["program_text"])  # x1 lookup_order(order_id='ORD-001')

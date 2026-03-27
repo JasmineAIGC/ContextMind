@@ -254,7 +254,7 @@ def parse_args():
                         metavar="N", help="最大历史轮数")
     parser.add_argument(
         "--schema", type=str, default=None, metavar="PATH",
-        help="schema.json 路径（SGD 格式，data/ 目录下），用于 PyTOD / FnCTOD 模式",
+        help="schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式",
     )
     return parser.parse_args()
 

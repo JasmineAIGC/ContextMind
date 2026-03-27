@@ -14,8 +14,8 @@ ADK 集成优势：
 - DM session 积累对话历史，保证回复自然、连贯
 
 PyTOD 不在算法代码内部硬编码场景 Schema 和 API 数据。所有 Schema 均通过外部文件传入：
-  1. 生成 companion 文件：``python examples/build_schema_data.py --schema data/xxx_schema.json``
-  2. 传入追踪器：``AdkPyTODTracker.from_scenario(..., schema=svc, schema_path="data/xxx_schema.json")``
+  1. 生成 companion 文件：``python examples/build_schema_data.py --schema schema/xxx_schema.json``
+  2. 传入追踪器：``AdkPyTODTracker.from_scenario(..., schema=svc, schema_path="schema/xxx_schema.json")``
 
 使用示例::
 
@@ -24,14 +24,14 @@ PyTOD 不在算法代码内部硬编码场景 Schema 和 API 数据。所有 Sch
     from contextmind.infra.llm_client import AdkLLMClient
     import json
 
-    with open("data/anyihua_schema.json") as f:
+    with open("schema/anyihua_schema.json") as f:
         svc = load_schema_from_dict(json.load(f))
 
     llm = AdkLLMClient()
     from contextmind.scenarios import get_anyihua_scenario
     config = get_anyihua_scenario()
     tracker = AdkPyTODTracker.from_scenario(
-        llm, config, schema=svc, schema_path="data/anyihua_schema.json"
+        llm, config, schema=svc, schema_path="schema/anyihua_schema.json"
     )
     result = await tracker.process_turn("查询我的账户余额")
     print(result["program_text"])
@@ -136,7 +136,7 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
 
     Example::
 
-        api_funcs = load_pytod_api_module("data/anyihua_schema.json")
+        api_funcs = load_pytod_api_module("schema/anyihua_schema.json")
         # → {"verify_identity": <function verify_identity>, ...}
     """
     import importlib.util
@@ -435,7 +435,7 @@ class AdkPyTODTracker:
                 f"AdkPyTODTracker: 场景 '{scenario_name}' 未传入 schema，"
                 "使用空引擎运行（AP 将无法引用业务 API）。"
                 "请通过 schema= 参数传入 ServiceSchema 对象，"
-                "或通过 schema_path= 指向 data/*_schema.json 文件。"
+                "或通过 schema_path= 指向 schema/*_schema.json 文件。"
             )
             schema = None
 

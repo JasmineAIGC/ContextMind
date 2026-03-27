@@ -2,16 +2,16 @@
 """
 Schema 数据预生成脚本
 
-从 data/ 目录下的 *_schema.json 文件生成各算法所需的 companion 数据文件：
+从 schema/ 目录下的 *_schema.json 文件生成各算法所需的 companion 数据文件：
 
-  - data/*_pytod_apis.py   — PyTOD API 函数代码（每个意图一个 Python 函数定义）
+  - schema/*_pytod_apis.py   — PyTOD API 函数代码（每个意图一个 Python 函数定义）
                                （含 result_slots 字段，供 AP 通过 say(xN.field) 引用）
-  - data/*_fnctod_domain.json — FnCTOD 域定义数据
+  - schema/*_fnctod_domain.json — FnCTOD 域定义数据
                                （序列化的 DomainSpec，供 FunctionManager 直接加载）
 
 使用方式::
 
-    # 处理 data/ 下所有 schema
+    # 处理 schema/ 下所有 schema
     python examples/build_schema_data.py
 
     # 处理指定目录
@@ -24,7 +24,7 @@ Schema 数据预生成脚本
     python examples/build_schema_data.py --no-overwrite
 
     # 处理单个 schema 文件
-    python examples/build_schema_data.py --schema data/anyihua_schema.json
+    python examples/build_schema_data.py --schema schema/anyihua_schema.json
 
 这是一个 **一次性预生成步骤**，生成的文件应加入版本控制（git），
 这样运行时无需重新生成，PyTOD 追踪器在初始化时直接加载 companion 文件。
@@ -43,7 +43,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from contextmind.schema_builder import SchemaDataBuilder
 
-_DEFAULT_DATA_DIR = _PROJECT_ROOT / "data"
+_DEFAULT_DATA_DIR = _PROJECT_ROOT / "schema"
 
 
 def main() -> None:
@@ -168,7 +168,7 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
     print()
     print(f"🎉 完成！共写入 {written_total} 个文件")
     print()
-    print("💡 提示：请将生成的文件加入版本控制（git add data/*_pytod_apis.json data/*_fnctod_domain.json）")
+    print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.json schema/*_fnctod_domain.json）")
     print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
 
 

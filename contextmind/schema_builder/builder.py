@@ -26,9 +26,9 @@ FnCTOD companion (``*_fnctod_domain.json``)
 
 文件命名规则
 ------------
-给定 ``data/foo_schema.json``：
-  - PyTOD companion  → ``data/foo_pytod_apis.py``
-  - FnCTOD companion → ``data/foo_fnctod_domain.json``
+给定 ``schema/foo_schema.json``：
+  - PyTOD companion  → ``schema/foo_pytod_apis.py``
+  - FnCTOD companion → ``schema/foo_fnctod_domain.json``
 """
 
 from __future__ import annotations
@@ -297,8 +297,8 @@ class SchemaDataBuilder:
 def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path:
     """返回 companion 文件路径。
 
-    ``data/foo_schema.json`` → ``data/foo_{kind}{suffix}``
-    ``data/myservice.json``  → ``data/myservice_{kind}{suffix}``
+    ``schema/foo_schema.json`` → ``schema/foo_{kind}{suffix}``
+    ``schema/myservice.json``  → ``schema/myservice_{kind}{suffix}``
     """
     stem = schema_path.stem
     base = stem[: -len("_schema")] if stem.endswith("_schema") else stem

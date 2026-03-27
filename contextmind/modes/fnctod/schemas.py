@@ -5,8 +5,8 @@ FnCTOD Schema 加载工具
 FnCTOD 不再在算法代码内部硬编码场景 Schema 数据，所有 Schema 均通过外部文件传入。
 
 推荐使用方式：
-    1. 生成 companion 文件：``python examples/build_schema_data.py --schema data/xxx_schema.json``
-    2. 加载：``domain_spec = load_domain_spec_from_file("data/xxx_fnctod_domain.json")``
+    1. 生成 companion 文件：``python examples/build_schema_data.py --schema schema/xxx_schema.json``
+    2. 加载：``domain_spec = load_domain_spec_from_file("schema/xxx_fnctod_domain.json")``
     3. 传入追踪器：``FnCTODTracker.from_scenario(..., domain_spec=domain_spec)``
 """
 

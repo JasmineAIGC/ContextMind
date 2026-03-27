@@ -5,8 +5,8 @@ FnCTOD — ADK 原生函数调用对话状态追踪模块
 论文思想，利用 Google ADK 原生 Function Calling 实现结构化槽位提取。
 
 FnCTOD 不在算法代码内部硬编码场景 Schema 数据。所有 Schema 均通过外部文件传入：
-  1. 生成 companion 文件：``python examples/build_schema_data.py --schema data/xxx_schema.json``
-  2. 加载 DomainSpec：``domain_spec = load_domain_spec_from_file("data/xxx_fnctod_domain.json")``
+  1. 生成 companion 文件：``python examples/build_schema_data.py --schema schema/xxx_schema.json``
+  2. 加载 DomainSpec：``domain_spec = load_domain_spec_from_file("schema/xxx_fnctod_domain.json")``
   3. 传入追踪器：``FnCTODTracker.from_scenario(..., domain_spec=domain_spec)``
 
 核心组件：
@@ -20,7 +20,7 @@ FnCTOD 不在算法代码内部硬编码场景 Schema 数据。所有 Schema 均
     from contextmind.modes.fnctod import FnCTODTracker, FunctionManager
     from contextmind.modes.fnctod.schemas import load_domain_spec_from_file
 
-    domain_spec = load_domain_spec_from_file("data/callcenter_fnctod_domain.json")
+    domain_spec = load_domain_spec_from_file("schema/callcenter_fnctod_domain.json")
     fm = FunctionManager()
     fm.add_domain(domain_spec)
     tracker = FnCTODTracker(function_manager=fm)

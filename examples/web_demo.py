@@ -140,7 +140,7 @@ class UnifiedGradioDemo:
         
         Args:
             max_history_turns: DST模式的最大历史轮数
-            schema_path: 可选的 schema.json 路径（data/ 目录下），用于 PyTOD / FnCTOD 模式
+            schema_path: 可选的 schema.json 路径（schema/ 目录下），用于 PyTOD / FnCTOD 模式
         """
         self.current_scenario = None
         self.current_mode = None
@@ -825,8 +825,8 @@ def parse_args():
         default=None,
         metavar='PATH',
         help=(
-            'schema.json 路径（SGD 格式，data/ 目录下），用于 PyTOD / FnCTOD 模式。'
-            '例如: --schema data/anyihua_schema.json'
+            'schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式。'
+            '例如: --schema schema/anyihua_schema.json'
         ),
     )
     

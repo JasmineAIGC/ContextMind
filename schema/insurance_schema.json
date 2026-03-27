@@ -1,0 +1,146 @@
+[
+  {
+    "service_name": "Insurance_Sales",
+    "description": "保险销售对话场景，专注于团体癌症保险产品的电话销售，全面提取客户意图、保险需求、健康状况等信息",
+    "slots": [
+      {
+        "name": "intent_level1",
+        "description": "一级意图（主意图）",
+        "is_categorical": true,
+        "possible_values": ["拒绝", "无意向", "用户忙", "考虑", "质疑类", "接受", "咨询"]
+      },
+      {
+        "name": "intent_level2",
+        "description": "二级意图（子意图）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "intent_level3",
+        "description": "三级意图（详细信息，基于用户对话模式提取）",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "customer_age_range",
+        "description": "客户年龄段",
+        "is_categorical": true,
+        "possible_values": ["30岁以下", "30-40岁", "40-50岁", "50岁以上"]
+      },
+      {
+        "name": "customer_gender",
+        "description": "客户性别",
+        "is_categorical": true,
+        "possible_values": ["男", "女", "未知"]
+      },
+      {
+        "name": "has_insurance",
+        "description": "是否已有保险",
+        "is_categorical": true,
+        "possible_values": ["是", "否", "未知"]
+      },
+      {
+        "name": "has_cancer_insurance",
+        "description": "是否已有癌症保险",
+        "is_categorical": true,
+        "possible_values": ["是", "否", "未知"]
+      },
+      {
+        "name": "budget_range",
+        "description": "预算范围",
+        "is_categorical": false,
+        "possible_values": []
+      },
+      {
+        "name": "decision_maker",
+        "description": "决策者（本人/配偶/家人）",
+        "is_categorical": true,
+        "possible_values": ["本人", "配偶", "家人", "需商量"]
+      },
+      {
+        "name": "callback_needed",
+        "description": "是否需要回访",
+        "is_categorical": true,
+        "possible_values": ["是", "否", "待定"]
+      },
+      {
+        "name": "conversation_stage",
+        "description": "对话阶段",
+        "is_categorical": true,
+        "possible_values": ["初次接触", "了解产品", "处理异议", "促成签约", "客户拒绝"]
+      },
+      {
+        "name": "insurance_type",
+        "description": "保险类型",
+        "is_categorical": false,
+        "possible_values": []
+      }
+    ],
+    "intents": [
+      {
+        "name": "verify_member_identity",
+        "description": "核实客户身份，确认是否为生活协同组合会员",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": ["customer_age_range", "customer_gender"],
+        "result_slots": ["identity_verified"]
+      },
+      {
+        "name": "introduce_product",
+        "description": "介绍团体癌症保险产品特点、保障范围及优惠政策",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": ["insurance_type"],
+        "result_slots": ["product_info"]
+      },
+      {
+        "name": "calculate_premium",
+        "description": "计算保费，根据客户年龄、性别和选择的保额",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": ["customer_age_range", "customer_gender", "budget_range"],
+        "result_slots": ["premium_amount"]
+      },
+      {
+        "name": "handle_objection",
+        "description": "处理客户异议，针对价格、必要性、信任等顾虑给出专业解答",
+        "is_transactional": false,
+        "required_slots": ["intent_level1"],
+        "optional_slots": ["intent_level2", "intent_level3"],
+        "result_slots": ["objection_handled"]
+      },
+      {
+        "name": "compare_with_existing_insurance",
+        "description": "与客户现有保险对比，说明补充保障的价值",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": ["has_insurance", "has_cancer_insurance", "insurance_type"],
+        "result_slots": ["comparison_result"]
+      },
+      {
+        "name": "schedule_callback",
+        "description": "安排后续回访时间，适用于客户需要考虑或与家人商量的情况",
+        "is_transactional": true,
+        "required_slots": [],
+        "optional_slots": ["callback_needed", "decision_maker"],
+        "result_slots": ["callback_scheduled"]
+      },
+      {
+        "name": "close_sale",
+        "description": "促成成交，引导客户完成电话投保流程",
+        "is_transactional": true,
+        "required_slots": [],
+        "optional_slots": ["customer_age_range", "customer_gender", "budget_range"],
+        "result_slots": ["sale_completed"]
+      },
+      {
+        "name": "end_call_gracefully",
+        "description": "礼貌结束通话，适用于客户明确拒绝或当前不方便的情况",
+        "is_transactional": false,
+        "required_slots": [],
+        "optional_slots": ["callback_needed"],
+        "result_slots": ["call_ended"]
+      }
+    ]
+  }
+]

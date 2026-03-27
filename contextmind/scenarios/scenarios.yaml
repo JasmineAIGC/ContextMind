@@ -4,8 +4,8 @@
 #   - 添加新场景：在 scenarios 下新增条目，重启后生效
 #   - app_class:    Evolve 模式使用的应用类
 #
-# FnCTOD 和 PyTOD 的 schema 数据均通过外部文件传入（data/*_fnctod_domain.json 或
-# data/*_schema.json），不再在此配置 schema_getter。
+# FnCTOD 和 PyTOD 的 schema 数据均通过外部文件传入（schema/*_fnctod_domain.json 或
+# schema/*_schema.json），不再在此配置 schema_getter。
 # 请使用 --schema 参数指定 schema 文件路径。
 
 scenarios:
