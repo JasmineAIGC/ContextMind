@@ -97,7 +97,7 @@ logger = get_logger(__name__)
 #: These helper functions are available to all intent API functions in the
 #: same module, so generated code (both rule-based and LLM-based) can call
 #: them instead of repeating boilerplate.
-_SHARED_HELPERS = '''\
+_SHARED_HELPERS = r'''
 # ---------------------------------------------------------------------------
 # 共享工具函数 — 由 SchemaDataBuilder 自动生成，所有 API 函数均可调用
 # ---------------------------------------------------------------------------
@@ -184,6 +184,7 @@ _MODULE_GEN_SYSTEM = """\
 - 只使用 Python 标准库（不要 import 第三方库）
 - 模块顶部已有 `from __future__ import annotations`
 - **不要重复定义** `_parse_amount`、`_ticket_id`、`_calc_monthly_payment`、`_next_work_day`（已在文件头部定义）
+- **不要添加 `INTENT_REGISTRY`**（由生成器自动追加，不需要在函数区中定义）
 
 ## 输出格式
 直接输出 Python 代码，不要包含 markdown 代码块标记，不要包含解释文字。
@@ -603,6 +604,9 @@ def _clean_llm_module(raw: str, schema: ServiceSchema) -> Optional[str]:
             stripped.startswith(f"def {h}") for h in helper_names
         ):
             skip_block = True
+        # Detect INTENT_REGISTRY block (we generate it ourselves)
+        elif stripped.startswith("INTENT_REGISTRY"):
+            skip_block = True
         elif skip_block and stripped and not stripped.startswith(" ") and not stripped.startswith("\t"):
             skip_block = False
 
@@ -872,9 +876,31 @@ class SchemaDataBuilder:
                     mode_str = f"规则生成 {rule_count} 个意图函数"
 
         # ------------------------------------------------------------------
+        # Build INTENT_REGISTRY (plan.md Phase 5)
+        # Maps intent_name → function for easy programmatic access
+        # ------------------------------------------------------------------
+        registry_lines: List[str] = [
+            '',
+            '# ---------------------------------------------------------------------------',
+            '# INTENT_REGISTRY — intent 名称到函数的映射，供外部代码通过名称调用意图函数',
+            '# ---------------------------------------------------------------------------',
+            '',
+            'INTENT_REGISTRY: dict = {',
+        ]
+        if schema.intents:
+            for intent in schema.intents:
+                registry_lines.append(f'    "{intent.name}": {intent.name},')
+        else:
+            registry_lines.append(f'    "{schema.service_name}": {schema.service_name},')
+        registry_lines += [
+            '}',
+            '',
+        ]
+
+        # ------------------------------------------------------------------
         # Assemble and write
         # ------------------------------------------------------------------
-        source = '\n'.join(header_lines) + '\n'.join(intent_lines)
+        source = '\n'.join(header_lines) + '\n'.join(intent_lines) + '\n'.join(registry_lines)
 
         try:
             with open(out_path, "w", encoding="utf-8") as fh:
