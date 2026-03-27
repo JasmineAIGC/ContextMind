@@ -41,7 +41,7 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from contextmind.modes.schema_builder import SchemaDataBuilder
+from contextmind.schema_builder import SchemaDataBuilder
 
 _DEFAULT_DATA_DIR = _PROJECT_ROOT / "data"
 
