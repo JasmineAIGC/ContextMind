@@ -44,6 +44,13 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
 真实的 result_slots 字段，AP 可正确地通过 ``say(xN.field)`` 引用。
 """
 
-from contextmind.schema_builder.builder import PyTODApiCodeGenerator, SchemaDataBuilder, TestCaseItem
+from contextmind.schema_builder.builder import SchemaDataBuilder
+from contextmind.schema_builder.generator import PyTODApiCodeGenerator
+from contextmind.schema_builder.models import FuncValidation, TestCaseItem
 
-__all__ = ["SchemaDataBuilder", "PyTODApiCodeGenerator", "TestCaseItem"]
+__all__ = [
+    "SchemaDataBuilder",
+    "PyTODApiCodeGenerator",
+    "TestCaseItem",
+    "FuncValidation",
+]
