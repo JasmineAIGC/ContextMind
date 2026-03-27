@@ -38,9 +38,16 @@ class ScenarioRegistry:
         self._scenarios: Dict[str, Dict[str, Any]] = {}
         self._aliases: Dict[str, str] = {}
         self._config_file = config_file
+        self._loaded = False
         
-        # 加载配置
-        self._load_from_config()
+        # 延迟加载配置，避免循环导入
+        # self._load_from_config()
+    
+    def _ensure_loaded(self):
+        """确保配置已加载"""
+        if not self._loaded:
+            self._load_from_config()
+            self._loaded = True
     
     def _load_from_config(self) -> None:
         """从YAML配置文件加载场景定义"""
@@ -140,6 +147,7 @@ class ScenarioRegistry:
         Returns:
             规范名称，如果不存在返回None
         """
+        self._ensure_loaded()
         name = name.lower().strip()
         
         # 直接匹配
@@ -154,6 +162,7 @@ class ScenarioRegistry:
     
     def get_app_class(self, name: str) -> Optional[Type]:
         """获取场景的应用类（Evolve模式使用）"""
+        self._ensure_loaded()
         canonical_name = self._resolve_name(name)
         if canonical_name is None:
             return None
@@ -161,10 +170,12 @@ class ScenarioRegistry:
     
     def list_scenarios(self) -> list:
         """列出所有已注册的场景名称"""
+        self._ensure_loaded()
         return list(self._scenarios.keys())
     
     def is_registered(self, name: str) -> bool:
         """检查场景是否已注册"""
+        self._ensure_loaded()
         return self._resolve_name(name) is not None
 
 

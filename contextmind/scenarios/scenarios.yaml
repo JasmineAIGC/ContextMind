@@ -12,19 +12,19 @@ scenarios:
   chat:
     description: 通用闲聊场景
     aliases: [闲聊]
-    app_class: contextmind.scenarios.app.EvolveApplication
+    app_class: contextmind.scenarios.ChatApplication
 
   callcenter:
     description: 客服场景
     aliases: [客服]
-    app_class: contextmind.scenarios.app.EvolveApplication
+    app_class: contextmind.scenarios.CallCenterApplication
 
   insurance:
     description: 保险销售场景
     aliases: [保险, 保险销售]
-    app_class: contextmind.scenarios.app.EvolveApplication
+    app_class: contextmind.scenarios.InsuranceApplication
 
   anyihua:
     description: 安逸花外呼场景
     aliases: [安逸花, 安逸花外呼, anyihua_outbound]
-    app_class: contextmind.scenarios.app.EvolveApplication
+    app_class: contextmind.scenarios.AnyihuaApplication

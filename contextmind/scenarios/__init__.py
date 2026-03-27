@@ -21,6 +21,7 @@ from .anyihua import get_anyihua_scenario
 ChatApplication = EvolveApplication
 CallCenterApplication = EvolveApplication
 InsuranceApplication = EvolveApplication
+AnyihuaApplication = EvolveApplication
 
 __all__ = [
     "ScenarioConfig",
@@ -30,6 +31,7 @@ __all__ = [
     "ChatApplication",
     "CallCenterApplication",
     "InsuranceApplication",
+    "AnyihuaApplication",
     "get_chat_scenario",
     "get_callcenter_scenario",
     "get_insurance_scenario",
