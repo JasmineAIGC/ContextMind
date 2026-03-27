@@ -8,7 +8,7 @@
 - **核心代码**: `benchmark/algorithms/fnctod.py`
 - **评测脚本**: `benchmark/run_fnctod_transfertod.py`
 - **支持数据集**: TransferTOD
-- **论文参考**: [FnCTOD: Functional Context for Task-Oriented Dialogue](https://arxiv.org/abs/2405.02568)（ACL 2024）
+- **论文参考**: [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）
 
 ---
 
