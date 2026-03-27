@@ -1,15 +1,14 @@
 """
-Phase 4/5 validation for generated *_pytod_apis.py function code.
+PyTOD 生成函数的 Phase 4/5 验证模块。
 
 :func:`validate_function`
-    Executes a generated intent function against a set of test cases and
-    reports pass/fail details.  Uses Python ``exec()`` with the shared
-    helper library prepended so the function can call ``_ticket_id()``,
-    ``_next_work_day()``, etc.
+    将生成的意图函数针对一组测试用例执行并报告通过/失败详情。
+    通过 Python ``exec()`` 执行，并预先加载共享工具函数库，
+    使函数可调用 ``_ticket_id()``、``_next_work_day()`` 等工具。
 
 :func:`write_validation_report`
-    Serialises :class:`~contextmind.schema_builder.models.FuncValidation`
-    objects to ``*_validation_report.json`` beside the schema file.
+    将 :class:`~contextmind.schema_builder.pytod.models.FuncValidation`
+    对象序列化为 ``*_validation_report.json`` 文件（与 schema 文件同目录）。
 """
 
 from __future__ import annotations
@@ -22,8 +21,8 @@ from typing import Any, Dict, List, Optional
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition
 
-from .models import FuncValidation, TestCaseItem
-from .utils import companion_path
+from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.utils import companion_path
 
 logger = get_logger(__name__)
 
@@ -56,7 +55,7 @@ def validate_function(
     if not test_cases:
         return FuncValidation(intent_name=intent.name, total=0, passed=0)
 
-    # Compile shared helpers + function code into a namespace
+    # 将共享工具函数 + 意图函数代码编译到同一命名空间
     exec_source = "from __future__ import annotations\n" + shared_helpers + "\n" + func_code
 
     namespace: Dict[str, Any] = {}
@@ -98,7 +97,7 @@ def validate_function(
         except Exception as exc:
             error_msg = f"{type(exc).__name__}: {exc}"
 
-        # Validate result
+        # 验证返回值格式
         if error_msg is None:
             if not isinstance(result, dict):
                 error_msg = f"返回值不是 dict，实际类型: {type(result).__name__}"
@@ -173,7 +172,7 @@ def write_validation_report(
             "pass_rate": round(v.pass_rate, 4),
             "iterations": v.iterations,
             "error": v.error,
-            "failures": v.failures[:3],   # keep at most 3 sample failures
+            "failures": v.failures[:3],   # 最多保留 3 条失败样本
         }
 
     total = len(validations)

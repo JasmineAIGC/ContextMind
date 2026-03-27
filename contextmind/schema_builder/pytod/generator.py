@@ -1,20 +1,19 @@
 """
-LLM-based Python function code generator for *_pytod_apis.py files.
+基于 LLM 的 PyTOD API 代码生成器。
 
-:class:`PyTODApiCodeGenerator` drives the LLM-intensive phases of the
-plan.md 5-phase pipeline:
+:class:`PyTODApiCodeGenerator` 驱动 plan.md 5 阶段流水线中需要 LLM 的各阶段：
 
-- **Phase 2** (:meth:`~PyTODApiCodeGenerator.build_test_cases`):
-  Per-intent test case generation using structured LLM prompts.
-- **Phase 3** (:meth:`~PyTODApiCodeGenerator.generate_function_body`):
-  Generates a single intent function body with optional few-shot examples.
-- **Phase 4** (:meth:`~PyTODApiCodeGenerator.repair_function`):
-  Iterative repair: re-generates a function body given failure details.
+- **Phase 2** (:meth:`~PyTODApiCodeGenerator.build_test_cases`)：
+  使用结构化提示词为每个意图生成测试用例。
+- **Phase 3** (:meth:`~PyTODApiCodeGenerator.generate_function_body`)：
+  可选带 few-shot 测试用例的单函数体生成。
+- **Phase 4** (:meth:`~PyTODApiCodeGenerator.repair_function`)：
+  迭代修复：根据失败详情重新生成函数体。
 
-The module also exports the two LLM-output cleanup helpers used internally:
+本模块还导出两个 LLM 输出清洗辅助函数：
 
-- :func:`clean_llm_function_body` — extract / normalize a single function body.
-- :func:`clean_llm_module` — extract / normalize a full module's function block.
+- :func:`clean_llm_function_body` — 提取并规范化单个函数体。
+- :func:`clean_llm_module` — 提取并规范化完整模块的函数定义区。
 """
 
 from __future__ import annotations
@@ -29,8 +28,8 @@ from typing import Any, Dict, List, Optional, Union
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 
-from .models import FuncValidation, TestCaseItem
-from .prompts import (
+from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.prompts import (
     DIALOGUE_CONTEXT_SECTION,
     FUNCTION_GEN_SYSTEM,
     FUNCTION_GEN_USER_TEMPLATE,
@@ -41,7 +40,7 @@ from .prompts import (
     TEST_CASE_GEN_SYSTEM,
     TEST_CASE_GEN_USER_TEMPLATE,
 )
-from .rule_generator import function_def_header
+from contextmind.schema_builder.pytod.rule_generator import function_def_header
 
 logger = get_logger(__name__)
 
@@ -93,7 +92,7 @@ class PyTODApiCodeGenerator:
         Returns:
             包含所有函数定义的 Python 代码字符串，失败时返回 None。
         """
-        # Build intents summary
+        # 构建意图摘要
         intents_lines: List[str] = []
         for intent in schema.intents:
             params = list(dict.fromkeys(
@@ -107,14 +106,14 @@ class PyTODApiCodeGenerator:
             intents_lines.append(f"  result_slots: {rs}")
         intents_summary = "\n".join(intents_lines)
 
-        # Build slots summary
+        # 构建槽位摘要
         slot_lines: List[str] = []
         for slot in schema.slots:
             vals = f"  可选值: {', '.join(slot.possible_values)}" if slot.possible_values else ""
             slot_lines.append(f"- {slot.name}: {slot.description}{vals}")
         slots_summary = "\n".join(slot_lines) if slot_lines else "（无槽位）"
 
-        # Build dialogue context section
+        # 构建对话背景章节（可选）
         dialogue_context_section = ""
         if dialogue_data_path:
             samples = self._load_dialogue_samples(
@@ -200,7 +199,7 @@ class PyTODApiCodeGenerator:
             else "  （无专用 result_slots，返回输入参数即可）"
         )
 
-        # Build few-shot section from test cases
+        # 从测试用例构建 few-shot 示例章节
         few_shot_section = ""
         if test_cases:
             example_lines = ["## 参考测试用例（few-shot 示例，用于校准函数输出）"]
@@ -264,7 +263,7 @@ class PyTODApiCodeGenerator:
         Returns:
             字典，key 为 intent_name，value 为 ``TestCaseItem`` 列表。
         """
-        # Load dialogue hint (brief context, not the full samples)
+        # 加载对话提示（仅摘要，不加载完整样本）
         dialogue_hint = ""
         if dialogue_data_path:
             samples = self._load_dialogue_samples(dialogue_data_path, max_samples=2)
@@ -372,7 +371,7 @@ class PyTODApiCodeGenerator:
             f"  - {rs}: {all_slot_descs.get(rs, rs)}" for rs in intent.result_slots
         ) or "  （无专用 result_slots，返回输入参数即可）"
 
-        # Format failure cases (limit to 5 for prompt length)
+        # 格式化失败用例（最多 5 条，控制 prompt 长度）
         fail_lines: List[str] = []
         for i, f in enumerate(failures[:5], 1):
             fail_lines.append(
@@ -401,14 +400,14 @@ class PyTODApiCodeGenerator:
 
         try:
             raw = self._chat_sync(messages)
-            # Expect a full function definition
+            # 期望收到完整的函数定义
             cleaned = clean_llm_function_body(raw, intent.name, param_str)
             if cleaned is None:
                 logger.warning(
                     f"[PyTODApiCodeGenerator] {intent.name}: 修复响应无法解析（轮次 {iteration}）"
                 )
                 return None
-            # Return as full function definition (header + body)
+            # 返回完整函数定义（def 行 + 函数体）
             header = "\n".join(function_def_header(intent))
             return header + "\n" + cleaned
         except Exception as exc:
@@ -454,14 +453,14 @@ class PyTODApiCodeGenerator:
                 if len(samples) >= max_samples:
                     break
 
-                # Determine format and extract fields
+                # 判断对话数据格式并提取字段
                 if "query" in item:
-                    # chat_test_500 format: {label, query:{用户信息, 对话历史}}
+                    # chat_test_500 格式：{label, query:{用户信息, 对话历史}}
                     q = item["query"]
                     user_info = q.get("用户信息", "")
                     history = q.get("对话历史", [])
                 else:
-                    # chat_test_100 format: {session_id, 用户信息, 对话历史}
+                    # chat_test_100 格式：{session_id, 用户信息, 对话历史}
                     user_info = item.get("用户信息", "")
                     history = item.get("对话历史", [])
 
@@ -469,13 +468,13 @@ class PyTODApiCodeGenerator:
                     continue
 
                 lines: List[str] = []
-                # Include a brief user info excerpt (first 3 fields)
+                # 截取用户信息前 3 个字段摘要
                 if user_info:
                     brief = "、".join(user_info.split("#")[1:4])
                     lines.append(f"[用户信息] {brief}")
 
-                # Format dialogue turns
-                for turn in history[:8]:  # limit to first 8 turns
+                # 格式化对话轮次
+                for turn in history[:8]:  # 最多取前 8 轮
                     if isinstance(turn, dict):
                         for speaker, text in turn.items():
                             lines.append(f"{speaker}：{text[:80]}")
@@ -527,12 +526,12 @@ class PyTODApiCodeGenerator:
         """将 LLM 返回的 JSON 文本解析为 ``TestCaseItem`` 列表。"""
         raw = raw.strip()
 
-        # Strip markdown code fences
+        # 去除 markdown 代码块标记
         m = re.search(r"```(?:json|python)?\s*([\s\S]+?)\s*```", raw)
         if m:
             raw = m.group(1).strip()
 
-        # Find first '[' — JSON array
+        # 找到 JSON 数组起始位置
         start = raw.find("[")
         end = raw.rfind("]")
         if start == -1 or end == -1:
@@ -581,15 +580,15 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
     Returns:
         经过验证的 4 空格缩进函数体字符串，或 None（无法解析）。
     """
-    # Strip markdown code fences
+    # 去除 markdown 代码块标记
     raw = raw.strip()
     m = re.search(r"```(?:python)?\s*([\s\S]+?)\s*```", raw)
     if m:
         raw = m.group(1).strip()
 
-    # If LLM included the def line, extract just the body
+    # 若 LLM 包含了 def 行，提取函数体部分
     if raw.startswith("def "):
-        # Parse as full function, extract body
+        # 解析完整函数，提取函数体
         try:
             tree = ast.parse(raw)
             func_def = None
@@ -605,16 +604,16 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
         except SyntaxError:
             pass
 
-    # Normalize indentation to 4 spaces
+    # 规范化缩进为 4 空格
     lines = raw.splitlines()
     if lines:
         raw = textwrap.dedent("\n".join(lines))
 
-    # Ensure 4-space indent by re-indenting (empty lines remain empty)
+    # 重新缩进为 4 空格（空行保持为空）
     indented_lines = ["    " + line if line.strip() else "" for line in raw.splitlines()]
     body = "\n".join(indented_lines)
 
-    # Validate: wrap in a function def and parse
+    # 校验：包装为完整函数定义后解析
     full_src = f"def {func_name}({param_str}):\n{body}\n"
     try:
         ast.parse(full_src)
@@ -635,24 +634,24 @@ def clean_llm_module(raw: str, schema: ServiceSchema) -> Optional[str]:
     """
     raw = raw.strip()
 
-    # Strip markdown code fences
+    # 去除 markdown 代码块标记
     m = re.search(r"```(?:python)?\s*([\s\S]+?)\s*```", raw)
     if m:
         raw = m.group(1).strip()
 
-    # Remove any re-definition of shared helpers that LLM shouldn't emit
+    # 移除 LLM 不应输出的共享工具函数重定义
     helper_names = ("_parse_amount", "_ticket_id", "_calc_monthly_payment", "_next_work_day")
     lines = raw.splitlines()
     filtered: List[str] = []
     skip_block = False
     for line in lines:
         stripped = line.strip()
-        # Detect start of a helper function re-definition
+        # 检测共享工具函数重定义的开始
         if stripped.startswith("def ") and any(
             stripped.startswith(f"def {h}") for h in helper_names
         ):
             skip_block = True
-        # Detect INTENT_REGISTRY block (we generate it ourselves)
+        # 检测 INTENT_REGISTRY（由生成器自动追加，LLM 不应输出）
         elif stripped.startswith("INTENT_REGISTRY"):
             skip_block = True
         elif skip_block and stripped and not stripped.startswith(" ") and not stripped.startswith("\t"):
@@ -663,12 +662,12 @@ def clean_llm_module(raw: str, schema: ServiceSchema) -> Optional[str]:
 
     raw = "\n".join(filtered).strip()
 
-    # Find where the first 'def ' function starts (skip any leading prose)
+    # 找到第一个 def 函数的起始位置（跳过前置说明文字）
     first_def = re.search(r"^def ", raw, re.MULTILINE)
     if first_def:
         raw = raw[first_def.start():]
 
-    # Validate as Python source
+    # 校验为合法 Python 源码
     minimal_preamble = "from __future__ import annotations\n"
     try:
         ast.parse(minimal_preamble + raw)
@@ -676,7 +675,7 @@ def clean_llm_module(raw: str, schema: ServiceSchema) -> Optional[str]:
         logger.debug(f"[clean_llm_module] SyntaxError: {exc}")
         return None
 
-    # Warn if any expected intent functions are missing
+    # 若有意图函数缺失则发出警告
     expected = {intent.name for intent in schema.intents}
     found = set(re.findall(r"^def (\w+)\(", raw, re.MULTILINE))
     missing = expected - found

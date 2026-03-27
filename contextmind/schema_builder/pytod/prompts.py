@@ -1,21 +1,20 @@
 """
-LLM prompt templates for the schema_builder 5-phase generation pipeline.
+PyTOD schema 构建流程各阶段的 LLM 提示词常量。
 
-Each prompt pair (system + user template) corresponds to one phase of the
-plan.md workflow:
+每对提示词（system + user 模板）对应 plan.md 5 阶段流水线的一个阶段：
 
-- :data:`MODULE_GEN_SYSTEM` / :data:`MODULE_GEN_USER_TEMPLATE`:
-  Full-module generation (one LLM call → all intent functions).
-- :data:`TEST_CASE_GEN_SYSTEM` / :data:`TEST_CASE_GEN_USER_TEMPLATE`:
-  Phase 2 — per-intent test case generation.
-- :data:`FUNCTION_GEN_SYSTEM` / :data:`FUNCTION_GEN_USER_TEMPLATE`:
-  Phase 3 — per-function generation with few-shot test cases.
-- :data:`REPAIR_SYSTEM` / :data:`REPAIR_USER_TEMPLATE`:
-  Phase 4 — iterative function repair with failure context.
+- :data:`MODULE_GEN_SYSTEM` / :data:`MODULE_GEN_USER_TEMPLATE`：
+  全模块生成（一次 LLM 调用 → 所有意图函数）。
+- :data:`TEST_CASE_GEN_SYSTEM` / :data:`TEST_CASE_GEN_USER_TEMPLATE`：
+  Phase 2 — 逐意图测试用例生成。
+- :data:`FUNCTION_GEN_SYSTEM` / :data:`FUNCTION_GEN_USER_TEMPLATE`：
+  Phase 3 — 带 few-shot 测试用例的单函数生成。
+- :data:`REPAIR_SYSTEM` / :data:`REPAIR_USER_TEMPLATE`：
+  Phase 4 — 基于失败信息的迭代修复。
 """
 
 # ---------------------------------------------------------------------------
-# Full-module generation (one LLM call for all intents)
+# 全模块生成（一次调用生成所有意图函数）
 # ---------------------------------------------------------------------------
 
 MODULE_GEN_SYSTEM = """\
@@ -47,7 +46,7 @@ MODULE_GEN_SYSTEM = """\
 - 只使用 Python 标准库（不要 import 第三方库）
 - 模块顶部已有 `from __future__ import annotations`
 - **不要重复定义** `_parse_amount`、`_ticket_id`、`_calc_monthly_payment`、`_next_work_day`（已在文件头部定义）
-- **不要添加 `INTENT_REGISTRY`**（由生成器自动追加，不需要在函数区中定义）
+- **不要添加 `INTENT_REGISTRY`**（由生成器自动追加）
 
 ## 输出格式
 直接输出 Python 代码，不要包含 markdown 代码块标记，不要包含解释文字。
@@ -69,9 +68,8 @@ MODULE_GEN_USER_TEMPLATE = """\
 请为上述所有意图生成完整的 Python 函数实现（从第一个 def 开始，不包含 import）。
 """
 
-#: Optional section inserted into MODULE_GEN_USER_TEMPLATE when dialogue data
-#: is provided. The ``{dialogue_samples}`` placeholder is filled with formatted
-#: dialogue text excerpts.
+# 当提供对话数据时插入 MODULE_GEN_USER_TEMPLATE 的可选章节。
+# {dialogue_samples} 占位符填充格式化后的对话文本摘录。
 DIALOGUE_CONTEXT_SECTION = """\
 ## 真实对话示例（参考以下对话提炼业务细节）
 {dialogue_samples}
@@ -80,7 +78,7 @@ DIALOGUE_CONTEXT_SECTION = """\
 
 
 # ---------------------------------------------------------------------------
-# Phase 2: Per-intent test case generation
+# Phase 2：逐意图测试用例生成
 # ---------------------------------------------------------------------------
 
 TEST_CASE_GEN_SYSTEM = """\
@@ -123,7 +121,7 @@ result_slots（预期返回字段）：
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Per-function generation (with few-shot test cases)
+# Phase 3：带 few-shot 测试用例的单函数生成
 # ---------------------------------------------------------------------------
 
 FUNCTION_GEN_SYSTEM = """\
@@ -161,7 +159,7 @@ result_slots（必须在返回值中包含）：
 
 
 # ---------------------------------------------------------------------------
-# Phase 4: Function repair (iterative fix with failure context)
+# Phase 4：基于失败信息的迭代函数修复
 # ---------------------------------------------------------------------------
 
 REPAIR_SYSTEM = """\

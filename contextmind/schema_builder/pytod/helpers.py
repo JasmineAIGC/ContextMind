@@ -1,17 +1,13 @@
 """
-Shared helper code template for generated *_pytod_apis.py files.
+PyTOD 生成文件的共享工具函数模板。
 
-The ``SHARED_HELPERS`` constant is embedded near the top of every generated
-*_pytod_apis.py file. It provides utility functions (``_parse_amount``,
-``_ticket_id``, ``_calc_monthly_payment``, ``_next_work_day``) that all
-intent functions in the generated module can call directly, without
-repeating boilerplate.
+``SHARED_HELPERS`` 常量会嵌入到每个生成的 ``*_pytod_apis.py`` 文件顶部附近。
+它提供了若干工具函数（``_parse_amount``、``_ticket_id``、``_calc_monthly_payment``、
+``_next_work_day``），同一模块中的所有意图函数均可直接调用，无需重复编写样板代码。
 """
 
-#: Template string that is inserted near the top of every generated file.
-#: These helper functions are available to all intent API functions in the
-#: same module, so generated code (both rule-based and LLM-based) can call
-#: them instead of repeating boilerplate.
+# 嵌入到每个生成的 *_pytod_apis.py 文件顶部的工具函数模板字符串。
+# 规则生成和 LLM 生成的意图函数都可以调用这些工具，避免重复代码。
 SHARED_HELPERS = r'''
 # ---------------------------------------------------------------------------
 # 共享工具函数 — 由 SchemaDataBuilder 自动生成，所有 API 函数均可调用
@@ -43,9 +39,9 @@ def _calc_monthly_payment(principal: float, annual_rate: float, months: int) -> 
     """等额还款月供计算（PMT 公式）。
 
     Args:
-        principal: 贷款本金（元）
+        principal:   贷款本金（元）
         annual_rate: 年化利率（小数，如 0.24 表示 24%）
-        months: 还款期数（月）
+        months:      还款期数（月）
     """
     if principal <= 0 or months <= 0:
         return 0.0
@@ -56,9 +52,9 @@ def _calc_monthly_payment(principal: float, annual_rate: float, months: int) -> 
 
 
 def _next_work_day() -> str:
-    """返回下一个工作日日期字符串（格式 YYYY-MM-DD），跳过周末。"""
+    """返回下一个工作日日期字符串（格式 YYYY-MM-DD），跳过周末（周六/周日）。"""
     d = _dt.date.today() + _dt.timedelta(days=1)
-    while d.weekday() >= 5:   # 5=Saturday, 6=Sunday (Mon=0)
+    while d.weekday() >= 5:   # 5=周六, 6=周日（周一=0）
         d += _dt.timedelta(days=1)
     return d.strftime("%Y-%m-%d")
 
