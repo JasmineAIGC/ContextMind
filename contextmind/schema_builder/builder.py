@@ -1456,7 +1456,9 @@ class SchemaDataBuilder:
                             f"通过率: {new_validation.pass_rate:.1%} "
                             f"({new_validation.passed}/{new_validation.total})"
                         )
-                        # Accept if improved or equal
+                        # Accept if improved or equal.
+                        # Equal pass rate is accepted because the repaired code may handle
+                        # edge cases differently, and might improve further in the next round.
                         if new_validation.pass_rate >= validation.pass_rate:
                             func_code = repaired_code
                             validation = new_validation
