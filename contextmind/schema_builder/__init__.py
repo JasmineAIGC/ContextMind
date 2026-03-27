@@ -34,6 +34,6 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
 真实的 result_slots 字段，AP 可正确地通过 ``say(xN.field)`` 引用。
 """
 
-from contextmind.modes.schema_builder.builder import SchemaDataBuilder
+from contextmind.schema_builder.builder import SchemaDataBuilder
 
 __all__ = ["SchemaDataBuilder"]
