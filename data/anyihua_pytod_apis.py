@@ -1,7 +1,7 @@
 """
 PyTOD API 函数集合 — 由 anyihua_schema.json 生成
 Service: AnYiHua_OutboundCall
-Generated at: 2026-03-26T11:48:27.881706+00:00
+Generated at: 2026-03-27T01:28:29.512587+00:00
 
 每个函数对应 schema 中的一个意图（intent），函数签名参数来自
 required_slots + optional_slots，返回值包含 result_slots 字段。
@@ -16,7 +16,11 @@ def confirm_terms(loan_amount=None, monthly_payment=None, current_credit_limit=N
     return {
         "confirmed_terms": True,
         "loan_amount": loan_amount,
+        "monthly_payment": monthly_payment,
         "current_credit_limit": current_credit_limit,
+        "total_interest": total_interest,
+        "term_years": term_years,
+        "daily_interest": daily_interest,
         "monthly_interest_amount": monthly_interest_amount,
         "status": "success",
     }
@@ -25,6 +29,7 @@ def verify_identity(account_usage_status=None):
     """坐席尝试核实用户身份"""
     return {
         "verified_identity": True,
+        "account_usage_status": account_usage_status,
         "status": "success",
     }
 
@@ -40,6 +45,8 @@ def complain_interest_rate(total_interest=None, daily_interest=None):
     """用户认为利率偏高"""
     return {
         "complaint_interest_rate": "已记录，将在3个工作日内处理",
+        "total_interest": total_interest,
+        "daily_interest": daily_interest,
         "status": "success",
     }
 
@@ -73,7 +80,7 @@ def confirm_borrowing_history(borrowing_date=None, loan_amount=None):
 def decline_usage(current_credit_limit=None):
     """用户表示不敢使用额度"""
     return {
-        "declined_usage": True,
+        "declined_usage": False,
         "current_credit_limit": current_credit_limit,
         "status": "success",
     }
@@ -81,8 +88,9 @@ def decline_usage(current_credit_limit=None):
 def inquire_concerns_quota_interest(current_credit_limit=None, total_interest=None):
     """询问用户对额度和利息的顾虑"""
     return {
-        "inquired_concerns": "inquire_concerns_quota_interest_completed",
+        "inquired_concerns": "[inquire_concerns_quota_interest查询结果]",
         "current_credit_limit": current_credit_limit,
+        "total_interest": total_interest,
         "status": "success",
     }
 
@@ -97,7 +105,7 @@ def express_future_intent(loan_limit=None):
 def inquire_repayment_type(monthly_payment_amount=None):
     """询问具体是哪种还款方式（如提前还款等）"""
     return {
-        "inquired_repayment_type": "inquire_repayment_type_completed",
+        "inquired_repayment_type": "[inquire_repayment_type查询结果]",
         "monthly_payment_amount": monthly_payment_amount,
         "status": "success",
     }
@@ -121,21 +129,23 @@ def complain_monthly_payment(monthly_payment_amount=None):
 def inquire_expected_interest_rate(total_interest=None):
     """询问用户期望的利息水平"""
     return {
-        "inquired_expected_interest": "inquire_expected_interest_rate_completed",
+        "inquired_expected_interest": "年利率7.2%",
+        "total_interest": total_interest,
         "status": "success",
     }
 
 def inquire_annual_interest_rate(total_interest=None):
     """询问用户期望的年化利率"""
     return {
-        "inquired_annual_interest": "inquire_annual_interest_rate_completed",
+        "inquired_annual_interest": "年利率7.2%",
+        "total_interest": total_interest,
         "status": "success",
     }
 
 def inform_credit_limit_increase(temporary_credit_limit=None):
     """告知用户临时提额情况"""
     return {
-        "informed_credit_limit_increase": "5000元",
+        "informed_credit_limit_increase": True,
         "temporary_credit_limit": temporary_credit_limit,
         "status": "success",
     }
@@ -162,6 +172,7 @@ def confirm_account_status(account_usage_status=None, temporary_credit_limit=Non
     """确认账户使用状态及提额情况"""
     return {
         "confirmed_account_status": True,
+        "account_usage_status": account_usage_status,
         "temporary_credit_limit": temporary_credit_limit,
         "status": "success",
     }
@@ -187,6 +198,6 @@ def complain_discrepancy(requested_amount=None, actual_amount=None):
 def suggest_contact_customer_service():
     """建议用户拨打客服热线95090咨询"""
     return {
-        "suggested_contact_service": "suggest_contact_customer_service_completed",
+        "suggested_contact_service": True,
         "status": "success",
     }

@@ -199,17 +199,32 @@ class SchemaDataBuilder:
     ) -> Optional[Path]:
         """从 schema.json 生成 FnCTOD ``*_fnctod_domain.json`` companion 文件。
 
-        文件格式（可直接被 FunctionManager 重新加载）::
+        输出格式为标准 OpenAI Function Calling JSON Schema（FnCTOD 算法的原生格式）：
 
             {
               "_schema_source": "anyihua_schema.json",
               "_generated_at": "...",
-              "domain_name": "AnYiHua_OutboundCall",
+              "name": "AnYiHua_OutboundCall",
               "description": "...",
-              "slots": {"slot_name": "slot_description", ...},
-              "categorical_slots": {"slot_name": ["val1", "val2"], ...},
-              "required_slots": ["slot_name", ...]
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "slot_name": {
+                    "type": "string",
+                    "description": "slot_description"
+                  },
+                  "categorical_slot": {
+                    "type": "string",
+                    "description": "...",
+                    "enum": ["val1", "val2", ...]
+                  }
+                },
+                "required": ["required_slot_name", ...]
+              }
             }
+
+        对应 FunctionManager 中 ``DomainSpec.to_json_schema()`` 的输出格式，
+        可通过 ``load_fnctod_domain_spec(path)`` 直接重建 DomainSpec 对象。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
@@ -233,33 +248,41 @@ class SchemaDataBuilder:
                 logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
                 return None
 
-        slots: Dict[str, str] = {slot.name: slot.description for slot in schema.slots}
-        categorical_slots: Dict[str, List[str]] = {
-            slot.name: slot.possible_values
-            for slot in schema.slots
-            if slot.possible_values
+        # Build properties dict: each slot → {type, description, enum?}
+        properties: Dict[str, Any] = {}
+        required_list: List[str] = []
+
+        for slot in schema.slots:
+            prop: Dict[str, Any] = {
+                "type": "string",
+                "description": slot.description,
+            }
+            if slot.is_categorical and slot.possible_values:
+                prop["enum"] = slot.possible_values
+            properties[slot.name] = prop
+            if slot.is_required:
+                required_list.append(slot.name)
+
+        parameters_schema: Dict[str, Any] = {
+            "type": "object",
+            "properties": properties,
         }
-        required_slots: List[str] = [
-            slot.name for slot in schema.slots if slot.is_required
-        ]
+        if required_list:
+            parameters_schema["required"] = required_list
 
         domain_data: Dict[str, Any] = {
             "_schema_source": schema_path.name,
             "_generated_at": datetime.now(timezone.utc).isoformat(),
-            "domain_name": schema.service_name,
+            "name": schema.service_name,
             "description": schema.description,
-            "slots": slots,
+            "parameters": parameters_schema,
         }
-        if categorical_slots:
-            domain_data["categorical_slots"] = categorical_slots
-        if required_slots:
-            domain_data["required_slots"] = required_slots
 
         try:
             with open(out_path, "w", encoding="utf-8") as fh:
                 json.dump(domain_data, fh, ensure_ascii=False, indent=2)
             logger.info(
-                f"[SchemaDataBuilder] 已写入 FnCTOD domain: {out_path} ({len(slots)} 个槽位)"
+                f"[SchemaDataBuilder] 已写入 FnCTOD domain: {out_path} ({len(properties)} 个槽位)"
             )
             return out_path
         except Exception as exc:
@@ -287,39 +310,94 @@ def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str
     name_lower = slot_name.lower()
     intent_lower = intent.name.lower()
 
-    is_confirm_like = any(
-        intent_lower.startswith(p)
-        for p in ("confirm_", "verify_", "close_", "decline_", "end_", "express_")
-    )
-    is_complaint_like = any(
-        intent_lower.startswith(p)
-        for p in ("complain_", "complaint_", "dispute_")
-    )
-    is_schedule_like = intent_lower.startswith("schedule_")
-
-    if is_confirm_like:
+    # ---- Intent-level semantics ----
+    # Confirmation / verification intents → boolean result
+    if any(intent_lower.startswith(p) for p in (
+        "confirm_", "verify_", "close_", "decline_", "end_",
+        "express_", "acknowledge_",
+    )):
+        if any(kw in name_lower for kw in ("declined", "rejected", "refused", "closed", "end")):
+            return "False"
         return "True"
-    if is_complaint_like:
+
+    # Complaint / dispute intents → acknowledgement string
+    if any(intent_lower.startswith(p) for p in (
+        "complain_", "complaint_", "dispute_", "reject_",
+    )):
         return '"已记录，将在3个工作日内处理"'
-    if is_schedule_like:
+
+    # Schedule intents
+    if intent_lower.startswith("schedule_"):
         if "time" in name_lower or "date" in name_lower:
             return '"明天上午10:00"'
         return "True"
 
-    # Slot-name semantics
-    if "status" in name_lower:
-        return '"success"'
-    if "verified" in name_lower or "confirmed" in name_lower or "declined" in name_lower:
-        return "True"
-    if "id" in name_lower or "number" in name_lower or "policy" in name_lower:
-        return f'"{intent.name.upper()[:8]}-001"'
-    if "amount" in name_lower or "quota" in name_lower or "limit" in name_lower:
+    # Inquiry / query intents
+    if any(intent_lower.startswith(p) for p in ("inquire_", "query_", "check_", "search_", "find_")):
+        # specific slot-name heuristics for query results
+        if "status" in name_lower:
+            return '"已发货"'
+        if "info" in name_lower or "policy" in name_lower or "detail" in name_lower:
+            return '"标准服务条款：退换货政策7天内有效。"'
+        if "amount" in name_lower or "limit" in name_lower or "quota" in name_lower:
+            return '"5000元"'
+        if "rate" in name_lower or "interest" in name_lower:
+            return '"年利率7.2%"'
+        return f'"[{intent.name}查询结果]"'
+
+    # ---- Slot-name semantics ----
+    # Boolean-like result slots
+    if any(kw in name_lower for kw in (
+        "verified", "confirmed", "declined", "acknowledged",
+        "informed", "accepted", "approved", "suggested",
+    )):
+        is_negative = any(kw in name_lower for kw in ("declined", "rejected", "refused"))
+        return "False" if is_negative else "True"
+
+    # ID / ticket slots
+    if "complaint_id" in name_lower or name_lower.endswith("_id"):
+        prefix = "".join(w[0].upper() for w in intent.name.split("_"))[:4]
+        return f'"{prefix}-20240115-001"'
+
+    if "number" in name_lower or "policy" in name_lower:
+        return f'"{intent.name.upper()[:6]}-001"'
+
+    # Status slots — domain-aware
+    if name_lower.endswith("_status"):
+        base = name_lower.replace("_status", "")
+        status_map = {
+            "order": '"已发货"',
+            "refund": '"退款处理中"',
+            "exchange": '"换货处理中"',
+            "logistics": '"快递运输中"',
+            "reset": '"密码重置成功"',
+            "update": '"信息更新成功"',
+            "payment": '"支付成功"',
+            "repayment": '"还款成功"',
+            "account": '"账户正常"',
+        }
+        for key, val in status_map.items():
+            if key in base:
+                return val
+        return '"处理成功"'
+
+    # Amount / money slots
+    if any(kw in name_lower for kw in ("amount", "quota", "limit", "balance", "fee", "price")):
         return '"5000元"'
-    if "time" in name_lower or "date" in name_lower:
+
+    # Date / time slots
+    if any(kw in name_lower for kw in ("date", "time", "datetime", "schedule")):
         return '"2024-01-15"'
-    if "info" in name_lower or "result" in name_lower or "data" in name_lower:
-        return f'"[{intent.name} 执行成功]"'
-    # Default: intent name + "_completed"
+
+    # Info / content / detail slots
+    if any(kw in name_lower for kw in ("info", "detail", "content", "description", "data", "result")):
+        return f'"[{intent.name}执行成功]"'
+
+    # Interest / rate slots
+    if any(kw in name_lower for kw in ("interest", "rate", "ratio")):
+        return '"年利率7.2%"'
+
+    # Default: slot is a named completion marker
     return f'"{intent.name}_completed"'
 
 
@@ -337,15 +415,13 @@ def _generate_function_lines(intent: IntentDefinition) -> List[str]:
     desc = intent.description.replace('"', '\\"') if intent.description else intent.name
     lines.append(f'    """{desc}"""')
     lines.append(f'    return {{')
-    # result_slots first (output fields)
+    # result_slots first (output/computed fields with semantic mock values)
     for rs in intent.result_slots:
         val = _mock_value_for_result_slot(rs, intent)
         lines.append(f'        "{rs}": {val},')
-    # Echo back non-None input args for business-relevant slots
+    # Echo back ALL input parameters so AP can reference x1.slot_name in say()
     for slot in params:
-        sl = slot.lower()
-        if any(kw in sl for kw in ("amount", "quota", "limit", "date", "id", "number", "name")):
-            lines.append(f'        "{slot}": {slot},')
+        lines.append(f'        "{slot}": {slot},')
     # Always include status
     lines.append(f'        "status": "success",')
     lines.append(f'    }}')

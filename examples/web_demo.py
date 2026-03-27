@@ -69,13 +69,35 @@ def _load_external_schemas(schema_path: str):
             try:
                 with open(fnctod_domain_path, encoding="utf-8") as fh:
                     dd = json.load(fh)
-                fm.add_domain_from_slots(
-                    domain_name=dd["domain_name"],
-                    domain_description=dd.get("description", svc.description),
-                    slots=dd.get("slots", {}),
-                    categorical_slots=dd.get("categorical_slots") or None,
-                    required_slots=dd.get("required_slots") or None,
-                )
+                # New format: OpenAI JSON Schema (name/description/parameters.properties)
+                if "parameters" in dd and "properties" in dd.get("parameters", {}):
+                    from contextmind.modes.fnctod.function_manager import (
+                        DomainSpec, FunctionParameter, ParameterType,
+                    )
+                    spec = DomainSpec(
+                        name=dd["name"],
+                        description=dd.get("description", ""),
+                    )
+                    params_schema = dd["parameters"]
+                    required_set = set(params_schema.get("required", []))
+                    for slot_name, prop in params_schema.get("properties", {}).items():
+                        spec.add_parameter(FunctionParameter(
+                            name=slot_name,
+                            description=prop.get("description", ""),
+                            param_type=ParameterType.STRING,
+                            required=slot_name in required_set,
+                            enum_values=prop.get("enum"),
+                        ))
+                    fm.add_domain(spec)
+                else:
+                    # Legacy format: add_domain_from_slots() input
+                    fm.add_domain_from_slots(
+                        domain_name=dd.get("domain_name", dd.get("name", svc.service_name)),
+                        domain_description=dd.get("description", svc.description),
+                        slots=dd.get("slots", {}),
+                        categorical_slots=dd.get("categorical_slots") or None,
+                        required_slots=dd.get("required_slots") or None,
+                    )
                 logger.info(f"已从 companion 文件加载 FnCTOD 域: {fnctod_domain_path.name}")
             except Exception as exc:
                 logger.warning(f"companion fnctod_domain 加载失败，改用在线构建: {exc}")

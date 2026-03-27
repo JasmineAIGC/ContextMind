@@ -5,11 +5,15 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
 为每种对话算法生成对应的 companion 数据文件，存放在同一目录下：
 
 - **PyTOD**：``*_pytod_apis.py`` — 每个意图（intent）对应一个 Python 函数定义，
-  函数签名来自 required_slots + optional_slots，返回值包含 result_slots 字段。
+  函数签名来自 required_slots + optional_slots，返回值同时包含：
+  (1) result_slots 字段（语义化 mock 值，如 ``"order_status": "已发货"``）；
+  (2) ALL 输入参数回传（供 AP 通过 ``say(xN.slot_name)`` 引用任意输入值）。
   运行时通过 ``load_pytod_api_module(schema_path)`` 加载，直接注册到 ExecutionEngine。
 
-- **FnCTOD**：``*_fnctod_domain.json`` — FunctionManager 可直接加载的
-  DomainSpec 序列化 JSON，包含 domain_name / description / slots 等字段。
+- **FnCTOD**：``*_fnctod_domain.json`` — 标准 OpenAI Function Calling JSON Schema 格式，
+  对应 ``DomainSpec.to_json_schema()`` 的输出。每个槽位（slot）映射为一个 property，
+  含 ``type``、``description``，以及分类槽位的 ``enum`` 可选值列表（槽位-值 数据）。
+  运行时通过 ``web_demo._load_external_schemas()`` 重建为 ``DomainSpec`` 对象。
 
 使用方式::
 
