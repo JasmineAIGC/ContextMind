@@ -1,0 +1,1952 @@
+[
+  {
+    "dialogue_id": "2025102811215858702023182",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是高先生吗？来电是有事情找一下高先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "喂你说。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "诶高先生您好，我是马上消费安逸花的工作人员，安逸花这个账户是您自己本人在使用的，对吧？",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "account_usage_verification",
+            "value": "安逸花账户由高先生本人使用",
+            "provenance": "「诶高先生您好，我是马上消费安逸花的工作人员，安逸花这个账户是您自己本人在使用的，对吧？」[第3轮(机器人) 位置 0:43]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "对我就要我就就想和你们说了这个。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "诶您说高先生。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "贷款是怎么回事。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "您在安逸花账户有一笔两万一千九百块钱的额度嘛，对吧？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "credit_limit",
+            "value": "21900",
+            "provenance": "「两万一千九百块钱」[第7轮(机器人) 位置 10:18]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "credit_limit_confirmation",
+            "value": "系统提示用户在安逸花账户有一笔 21900 元的额度",
+            "provenance": "「您在安逸花账户有一笔两万一千九百块钱的额度嘛」[第7轮(机器人) 位置 0:22]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "不是这个我说七月二十三号七月二十三号的这一笔贷款我没贷怎么怎么会有一笔一万三千多块钱的还有一个八月。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_date",
+            "value": "七月二十三号",
+            "provenance": "「七月二十三号」[第8轮(用户) 位置 6:12]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "一万三千多块钱",
+            "provenance": "「一万三千多块钱」[第8轮(用户) 位置 35:42]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "dispute_loan",
+            "value": "用户质疑存在未申请的贷款",
+            "provenance": "「我没贷怎么怎么会有一笔」[第8轮(用户) 位置 24:35]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "additional_loan_reference",
+            "value": "用户提及还有八月的一笔贷款",
+            "provenance": "「还有一个八月」[第8轮(用户) 位置 43:49]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "哦您是说您之前有借过款吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "我有借款我有借款但是都还掉了呀。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_date",
+            "value": "七月二十三号",
+            "provenance": "「七月二十三号七月二十三号的这一笔贷款」[第10轮(用户) 溯源失败]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "一万三千多块钱",
+            "provenance": "「一万三千多块钱」[第10轮(用户) 溯源失败]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "loan_dispute",
+            "value": "用户表示未申请该笔贷款，质疑为何存在该笔贷款记录",
+            "provenance": "「我没贷怎么怎么会有一笔一万三千多块钱的」[第10轮(用户) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "inquire_loan_discrepancy",
+            "value": "用户对贷款记录存在疑问并提出质疑",
+            "provenance": "「我没贷怎么怎么会有一笔」[第10轮(用户) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 10,
+        "speaker": "机器人",
+        "utterance": "哦是这样的先生，因为您这边就是您上一次借款的话，是在二五年五月份嘛，然后您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子，对吧？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "borrow_date",
+            "value": "2025年5月",
+            "provenance": "「二五年五月份」[第11轮(机器人) 位置 26:32]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "borrow_amount",
+            "value": "600元",
+            "provenance": "「借款了六百块钱」[第11轮(机器人) 位置 39:46]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "overdue_days",
+            "value": "几天",
+            "provenance": "「逾期了几天」[第11轮(机器人) 位置 63:68]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "borrow_and_overdue_fact",
+            "value": "用户曾在2025年5月借款600元，并在还款时逾期了几天",
+            "provenance": "「您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子」[第11轮(机器人) 位置 34:71]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 11,
+        "speaker": "用户",
+        "utterance": "这有有过。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 12,
+        "speaker": "机器人",
+        "utterance": "诶是这样的哈，因为公司嘛也是考虑到现在是用钱的高峰期嘛，那目前给到您的这个两万一千九百的额度呢还没有开始使用，所以今天专门来电话呢也是重新帮您确认一下账户的这个额度和利息的问题的，明白吧，先生？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "credit_limit",
+            "value": "21900",
+            "provenance": "「两万一千九百」[第13轮(机器人) 位置 37:43]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "credit_not_used",
+            "value": "用户当前额度尚未使用",
+            "provenance": "「额度呢还没有开始使用」[第13轮(机器人) 位置 44:54]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_terms",
+            "value": "客服意图确认账户额度与利息",
+            "provenance": "「重新帮您确认一下账户的这个额度和利息的问题」[第13轮(机器人) 位置 67:88]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 13,
+        "speaker": "用户",
+        "utterance": "我我说的不是这个你帮我你帮我看一下那个七月二十三号七月二十三号我没有借款为什么有一笔借款。",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "dispute_loan_record",
+            "value": "用户声称在7月23日没有借款，但系统记录有一笔借款，表示质疑",
+            "provenance": "「我我说的不是这个你帮我你帮我看一下那个七月二十三号七月二十三号我没有借款为什么有一笔借款。」[第14轮(用户) 位置 0:45]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 14,
+        "speaker": "机器人",
+        "utterance": "啊您说您没有借款，怎么会有这笔借款呢？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "date",
+            "value": "七月二十三号",
+            "provenance": "「七月二十三号」[第15轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_transaction",
+            "value": "有一笔借款",
+            "provenance": "「一笔借款」[第15轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "request_investigation",
+            "value": "请求核实非本人借款记录",
+            "provenance": "「我我说的不是这个你帮我你帮我看一下」[第15轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "dispute_loan_transaction",
+            "value": "质疑某日期存在非本人借款记录",
+            "provenance": "「我我说的不是这个你帮我你帮我看一下那个七月二十三号七月二十三号我没有借款为什么有一笔借款」[第15轮(机器人) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 15,
+        "speaker": "用户",
+        "utterance": "对还有一个。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 16,
+        "speaker": "机器人",
+        "utterance": "嗯您稍等哈，我这边儿马上帮您查询一下，您稍等。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 17,
+        "speaker": "用户",
+        "utterance": "嗯啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 18,
+        "speaker": "机器人",
+        "utterance": "我这边儿马上帮您查询一下，您稍等。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 19,
+        "speaker": "用户",
+        "utterance": "三号和八七号。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 20,
+        "speaker": "机器人",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 21,
+        "speaker": "用户",
+        "utterance": "七月二十三号。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "date",
+            "value": "七月二十三号",
+            "provenance": "「七月二十三号」[第22轮(用户) 位置 0:6]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 22,
+        "speaker": "机器人",
+        "utterance": "对呀，就是您在二五年五月份的时候有去借款，对吧？",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "loan_confirmation",
+            "value": "用户确认其在2025年5月份有借款记录",
+            "provenance": "「对呀，就是您在二五年五月份的时候有去借款，对吧？」[第23轮(机器人) 位置 0:24]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 23,
+        "speaker": "用户",
+        "utterance": "五月份有呀我是说七月份。",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "clarification_date",
+            "value": "用户澄清时间为七月份",
+            "provenance": "「七月份有呀我是说七月份。」[第24轮(用户) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 24,
+        "speaker": "机器人",
+        "utterance": "哦是这样的先生，因为您这边就是您上一次借款的话，是在二五年五月份嘛，然后您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子，对吧？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "borrow_date",
+            "value": "2025年5月",
+            "provenance": "「二五年五月份」[第25轮(机器人) 位置 26:32]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "borrow_amount",
+            "value": "600元",
+            "provenance": "「六百块钱」[第25轮(机器人) 位置 42:46]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "overdue_status",
+            "value": "逾期几天",
+            "provenance": "「逾期了几天的样子」[第25轮(机器人) 位置 63:71]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "previous_borrowing_overview",
+            "value": "用户在2025年5月借款600元，还款时逾期了几天",
+            "provenance": "「您上一次借款的话，是在二五年五月份嘛，然后您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子，对吧？」[第25轮(机器人) 位置 8:75]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 25,
+        "speaker": "用户",
+        "utterance": "这这个有什么问题吗。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 26,
+        "speaker": "机器人",
+        "utterance": "诶是这样的哈，因为公司嘛也是考虑到现在是用钱的高峰期嘛，那目前给到您的这个两万一千九百的额度呢还没有开始使用，所以今天专门来电话呢也是重新帮您确认一下账户的这个额度和利息的问题的，明白吧，先生？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_limit",
+            "value": "21900",
+            "provenance": "「两万一千九百」[第27轮(机器人) 位置 37:43]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_status",
+            "value": "额度尚未使用",
+            "provenance": "「额度呢还没有开始使用」[第27轮(机器人) 位置 44:54]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_terms",
+            "value": "确认账户额度和利息信息",
+            "provenance": "「重新帮您确认一下账户的这个额度和利息的问题」[第27轮(机器人) 位置 67:88]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 27,
+        "speaker": "用户",
+        "utterance": "嗯这现在因为现在我不敢用了因为这个上面不对了你这个安逸花上面。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 28,
+        "speaker": "机器人",
+        "utterance": "哦您是说现在用不了了吗，先生？",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "decline_usage",
+            "value": "用户表示不敢使用额度",
+            "provenance": "「不敢用了」[第29轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_issue",
+            "value": "用户指出安逸花平台上的信息有误",
+            "provenance": "「因为这个上面不对了你这个安逸花上面」[第29轮(机器人) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 29,
+        "speaker": "用户",
+        "utterance": "不是用不了是我没有借款你这个上面。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "decline_loan_usage",
+            "value": "用户表示自己并未借款",
+            "provenance": "「不是用不了是我没有借款你这个上面。」[第30轮(用户) 位置 0:17]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "no_loan_taken",
+            "value": "用户澄清问题并非额度无法使用，而是自己并未进行借款操作",
+            "provenance": "「不是用不了是我没有借款你这个上面。」[第30轮(用户) 位置 0:17]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 30,
+        "speaker": "机器人",
+        "utterance": "哦您说您没有借款，怎么会有这笔借款呢？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 31,
+        "speaker": "用户",
+        "utterance": "对一万四千四还有一个八月一号。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "14400",
+            "provenance": "「一万四千四」[第32轮(用户) 位置 1:6]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "due_date",
+            "value": "8月1号",
+            "provenance": "「八月一号」[第32轮(用户) 位置 10:14]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102210182941202078808",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是杨女士吗？来电是有事情找一下杨女士本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "有什么事你说。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "啊您好，女士，我是马上消费安逸花的客户经理，来电是关注到您还款记录比较好，目前剩余额度还有三万一千两百元没有使用，来电也是想了解一下您对额度和利息是有什么顾虑吗，女士?",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "remaining_limit",
+            "value": "31200元",
+            "provenance": "「三万一千两百元」[第3轮(机器人) 位置 45:52]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "current_limit_status",
+            "value": "用户当前剩余额度为31200元，尚未使用",
+            "provenance": "「目前剩余额度还有三万一千两百元没有使用」[第3轮(机器人) 位置 37:56]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "inquire_concerns",
+            "value": "询问用户对额度和利息是否有顾虑",
+            "provenance": "「来电也是想了解一下您对额度和利息是有什么顾虑吗」[第3轮(机器人) 位置 57:80]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "我。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "这样的哈女士，因为您是我们安逸花二一年十一月份申请的优质用户，用了四年了，如果说杨女士之后呢还考虑跟安逸花长期合作还有借款需求的话，待会儿呢您挂机以后，您把那个三万一千两百给它按需借到银行卡里，保持一个良好的使用记录，我们安逸花之后呢可能会在您原有的基",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "application_date",
+            "value": "2021年11月",
+            "provenance": "「二一年十一月份」[第5轮(机器人) 位置 16:23]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "usage_duration",
+            "value": "4年",
+            "provenance": "「用了四年了」[第5轮(机器人) 位置 31:36]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "available_credit",
+            "value": "31200元",
+            "provenance": "「三万一千两百」[第5轮(机器人) 位置 80:86]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "express_future_interest",
+            "value": "表达未来有继续合作和借款的意愿",
+            "provenance": "「还考虑跟安逸花长期合作还有借款需求」[第5轮(机器人) 位置 46:63]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "user_status",
+            "value": "用户是2021年11月申请的安逸花优质用户",
+            "provenance": "「因为您是我们安逸花二一年十一月份申请的优质用户」[第5轮(机器人) 位置 7:30]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "关键是你这个还款太太麻烦了。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_repayment_process",
+            "value": "用户认为还款流程过于麻烦",
+            "provenance": "「关键是你这个还款太太麻烦了。」[第6轮(用户) 位置 0:14]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "还款麻烦，您是说的提前还款还是什么？",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_repayment_process",
+            "value": "用户认为还款流程复杂或不便",
+            "provenance": "「还款麻烦」[第7轮(机器人) 位置 0:4]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "inquire_repayment_type",
+            "value": "询问具体是哪种还款方式（如提前还款等）",
+            "provenance": "「您是说的提前还款还是什么？」[第7轮(机器人) 位置 5:18]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "每每个月如果是这样的话我每个月要还多还很高我还起太恼火了现在。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_repayment_difficulty",
+            "value": "用户表示还款金额过高，感到烦恼",
+            "provenance": "「还起太恼火了」[第8轮(用户) 位置 22:28]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "哦您是说您现在利息是多少吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "[语音输入超时]",
+        "extractions": []
+      },
+      {
+        "turn_idx": 10,
+        "speaker": "机器人",
+        "utterance": "对不起，我这边信号不好，您方便再重复一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 11,
+        "speaker": "用户",
+        "utterance": "啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 12,
+        "speaker": "机器人",
+        "utterance": "哦您是说您现在利息是多少吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 13,
+        "speaker": "用户",
+        "utterance": "我反正不知道。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 14,
+        "speaker": "机器人",
+        "utterance": "嗯是这样的哈女",
+        "extractions": []
+      },
+      {
+        "turn_idx": 15,
+        "speaker": "用户",
+        "utterance": "利息有点高。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_interest_rate",
+            "value": "用户认为利息偏高",
+            "provenance": "「利息有点高。」[第16轮(用户) 位置 0:6]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 16,
+        "speaker": "机器人",
+        "utterance": "嗯您这边呢如果说借一万块钱嘛，用一年的话，总的利息费用大概是在一千三百多块钱左右的样子，平摊到每一天的话，大概是在三块多钱左右的样子，具体的话",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "10000",
+            "provenance": "「借一万块钱」[第17轮(机器人) 位置 8:13]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "term_years",
+            "value": "1",
+            "provenance": "「用一年的话」[第17轮(机器人) 位置 15:20]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "total_interest",
+            "value": "1300+ 元",
+            "provenance": "「总的利息费用大概是在一千三百多块钱左右的样子」[第17轮(机器人) 位置 21:43]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "daily_interest",
+            "value": "3+ 元",
+            "provenance": "「平摊到每一天的话，大概是在三块多钱左右的样子」[第17轮(机器人) 位置 44:66]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 17,
+        "speaker": "用户",
+        "utterance": "就就是有点就就是有点高啊。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_interest_rate",
+            "value": "用户认为利率偏高",
+            "provenance": "「就就是有点就就是有点高啊。」[第18轮(用户) 位置 0:13]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 18,
+        "speaker": "机器人",
+        "utterance": "那您这边期望的利息是多少嘛？",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "inquire_expected_interest_rate",
+            "value": "询问用户期望的利息水平",
+            "provenance": "「那您这边期望的利息是多少嘛？」[第19轮(机器人) 位置 0:14]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 19,
+        "speaker": "用户",
+        "utterance": "一万块钱就是一千多。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "10000",
+            "provenance": "「一万块钱」[第20轮(用户) 位置 0:4]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "interest_fee",
+            "value": "1000+",
+            "provenance": "「一千多」[第20轮(用户) 位置 6:9]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 20,
+        "speaker": "机器人",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 21,
+        "speaker": "用户",
+        "utterance": "八九百。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "monthly_payment_amount",
+            "value": "八九百",
+            "provenance": "「八九百。」[第22轮(用户) 位置 0:4]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 22,
+        "speaker": "机器人",
+        "utterance": "八九百。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "monthly_payment",
+            "value": "800-900",
+            "provenance": "「八九百」[第23轮(机器人) 位置 0:3]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 23,
+        "speaker": "用户",
+        "utterance": "九百块钱的利息对。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "900",
+            "provenance": "「九百块钱」[第24轮(用户) 位置 0:4]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "interest_confirmation",
+            "value": "用户确认利息金额正确",
+            "provenance": "「利息对」[第24轮(用户) 位置 5:8]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 24,
+        "speaker": "机器人",
+        "utterance": "哦，那您这边期望的年化利率大概是多少呀，女士？",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "inquire_annual_interest_rate",
+            "value": "询问用户期望的年化利率",
+            "provenance": "「期望的年化利率大概是多少」[第25轮(机器人) 位置 6:18]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 25,
+        "speaker": "用户",
+        "utterance": "一个月就在八百多。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "monthly_payment",
+            "value": "八百多",
+            "provenance": "「一个月就在八百多」[第26轮(用户) 位置 0:8]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 26,
+        "speaker": "机器人",
+        "utterance": "那您这边期望的利息是多少嘛？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 27,
+        "speaker": "用户",
+        "utterance": "八百多啊一万块钱八百多。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "monthly_interest_amount",
+            "value": "每月利息八百多",
+            "provenance": "「八百多」[第28轮(用户) 位置 0:3]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "10000元",
+            "provenance": "「一万块钱」[第28轮(用户) 位置 4:8]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102209390427002149380",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是熊女士吗？来电是有事情找一下熊女士本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "[语音输入超时]",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "诶女士您好，我这边是马上消费安逸花的工作人员，来电呢跟您确认一下，就是您的安逸花账户是本人在使用，这边给您临时提额了现在是四万九千五百元，有关注到吗？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "current_credit_limit",
+            "value": "49500",
+            "provenance": "「四万九千五百元」[第3轮(机器人) 位置 61:68]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_usage_confirmation",
+            "value": "账户由本人使用",
+            "provenance": "「您的安逸花账户是本人在使用」[第3轮(机器人) 位置 35:48]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "credit_limit_adjustment",
+            "value": "临时额度提升",
+            "provenance": "「临时提额」[第3轮(机器人) 位置 53:57]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "confirmation_of_notice",
+            "value": "确认用户是否注意到提额",
+            "provenance": "「有关注到吗」[第3轮(机器人) 位置 69:74]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "你那个不是一次性不是一百吗。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "哦女士，我们这边呢最高是可以申请到二十万的，好吧？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "current_credit_limit",
+            "value": "49500",
+            "provenance": "「四万九千五百元」[第5轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "inform_credit_limit_increase",
+            "value": "通知用户临时提额",
+            "provenance": "「给您临时提额了」[第5轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_usage_verification",
+            "value": "确认账户为本人使用",
+            "provenance": "「您的安逸花账户是本人在使用」[第5轮(机器人) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "那我现在申请了你那个一百一百的算。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "一百",
+            "provenance": "「你那个不是一次性不是一百吗」[第6轮(用户) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_previous_offer",
+            "value": "用户确认之前申请的金额为一百",
+            "provenance": "「你那个不是一次性不是一百吗」[第6轮(用户) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "九百多块钱，您是说的多少吗？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "monthly_payment_amount",
+            "value": "九百多块钱",
+            "provenance": "「九百多块钱」[第7轮(机器人) 位置 0:5]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "不是说不能五万吗要四万四万的话都没你们弄。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_amount_limit",
+            "value": "用户抱怨五万元额度不可用，认为四万四以下额度不合理",
+            "provenance": "「不是说不能五万吗要四万四万的话都没你们弄。」[第8轮(用户) 位置 0:21]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "因为我们也是看到您这边资质比",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "不是一百一百的只能一百一百的。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "amount",
+            "value": "100",
+            "provenance": "「一百一百」[第10轮(用户) 位置 2:6]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 10,
+        "speaker": "机器人",
+        "utterance": "哦女士，我们这边呢最高是可以申请到二十万的，好吧？",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "max_loan_amount",
+            "value": "最高可申请金额为二十万",
+            "provenance": "「最高是可以申请到二十万的」[第11轮(机器人) 位置 9:21]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 11,
+        "speaker": "用户",
+        "utterance": "那我申请了有没有啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 12,
+        "speaker": "机器人",
+        "utterance": "哦，那您这边可以去看一下嘛，好吧",
+        "extractions": []
+      },
+      {
+        "turn_idx": 13,
+        "speaker": "用户",
+        "utterance": "都没有那后面四万。",
+        "extractions": []
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102809333656702064141",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是杨先生吗？来电是有事情找一下杨先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "嗯你说。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "诶先生您好，我这边是马上消费安逸花的工作人员，来电呢跟您确认一下，就是您的安逸花账户是本人在使用，这边给您临时提额了现在是一万四千七百元，有关注到吗？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "current_credit_limit",
+            "value": "14700",
+            "provenance": "「一万四千七百元」[第3轮(机器人) 位置 61:68]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_usage_verification",
+            "value": "确认账户由本人使用",
+            "provenance": "「来电呢跟您确认一下，就是您的安逸花账户是本人在使用」[第3轮(机器人) 位置 23:48]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "temporary_credit_increase",
+            "value": "账户临时提额至14700元",
+            "provenance": "「临时提额了现在是一万四千七百元」[第3轮(机器人) 位置 53:68]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_awareness",
+            "value": "确认用户是否注意到提额情况",
+            "provenance": "「有关注到吗」[第3轮(机器人) 位置 69:74]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "嗯没有关了。",
+        "extractions": []
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102209274007502021422",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是邵先生吗？来电是有事情找一下邵先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "啊是。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "诶邵先生您好，我是马上消费安逸花的工作人员，安逸花这个账户是您自己本人在使用的，这边给您临时提额了现在是一千五百，有关注到吗？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "temporary_increase_amount",
+            "value": "1500",
+            "provenance": "「临时提额了现在是一千五百」[第3轮(机器人) 位置 44:56]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_usage_verification",
+            "value": "账户由本人使用",
+            "provenance": "「安逸花这个账户是您自己本人在使用的」[第3轮(机器人) 位置 22:39]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "关注到它这个不行啊它这个它这个提前只能我上次提五百它是它是直接让我提四百我提三百它让我提一百不行啊这个东西。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_service_issue",
+            "value": "用户对提额流程或系统行为表示不满",
+            "provenance": "「关注到它这个不行啊」[第4轮(用户) 位置 0:9]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "fact_previous_increase_attempt",
+            "value": "用户上次尝试提额500，系统提示需提400",
+            "provenance": "「我上次提五百它是它是直接让我提四百」[第4轮(用户) 位置 19:36]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "fact_current_increase_attempt",
+            "value": "用户尝试提额300，系统提示需提100",
+            "provenance": "「我提三百它让我提一百」[第4轮(用户) 位置 36:46]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "complain_system_logic",
+            "value": "用户认为系统提额逻辑不合理",
+            "provenance": "「不行啊这个东西」[第4轮(用户) 位置 46:53]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "哦，您是说您这边每次借的额度不一样吗？",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "inquire_amount_discrepancy",
+            "value": "询问每次借款额度不一致的情况",
+            "provenance": "「您是说您这边每次借的额度不一样吗？」[第5轮(机器人) 位置 2:19]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "对啊我自己填的是五百他让他让我提出来结果到账四百。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "requested_amount",
+            "value": "500",
+            "provenance": "「五百」[第6轮(用户) 位置 8:10]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "actual_amount_received",
+            "value": "400",
+            "provenance": "「四百」[第6轮(用户) 位置 22:24]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "complain_discrepancy_amount",
+            "value": "用户指出申请金额与到账金额不一致",
+            "provenance": "「他让他让我提出来结果到账四百」[第6轮(用户) 位置 10:24]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "对，那您这边待会儿的话，您可以去打我们的客服热线九五零九零去问一下嘛，好吧？",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "suggest_contact_customer_service",
+            "value": "建议用户拨打客服热线95090咨询",
+            "provenance": "「您这边待会儿的话，您可以去打我们的客服热线九五零九零去问一下嘛」[第7轮(机器人) 位置 3:34]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "我问他干啥。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "不好意思，我这边没听清楚，您能再说一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "我问他干啥听见不。",
+        "extractions": []
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102114305562802126248",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是曹先生吗？来电是有事情找一下曹先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "啊您好先生，我这边是马上消费安逸花的工作人员，就您名下的安逸花是您本人在使用和还款的，这边给您临时提额了，有关注到吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "提额。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "request_increase_limit",
+            "value": "用户提出提额请求",
+            "provenance": "「提额。」[第4轮(用户) 位置 0:3]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "嗯是这样的，我们安逸花现在呢最高额度更新到二十万了，之前一直没有给您大幅度的调整过额度和利息，那现在的话我们系统评估之后呢，您的资质非常好，所以来电呢重新跟您确认一下，这边特别给您把额度临时提高到了一万六千七百元了，临时额度有效期比较短，建议您需要把您现在的一万六千按需借出来，您保持",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "temporary_credit_limit",
+            "value": "16700",
+            "provenance": "「一万六千七百元」[第5轮(机器人) 位置 99:106]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "current_credit_limit",
+            "value": "16000",
+            "provenance": "「一万六千」[第5轮(机器人) 位置 99:103]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "credit_limit_update",
+            "value": "安逸花当前最高额度更新至200000元",
+            "provenance": "「我们安逸花现在呢最高额度更新到二十万了」[第5轮(机器人) 位置 6:25]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "temporary_limit_validity",
+            "value": "临时额度有效期较短",
+            "provenance": "「临时额度有效期比较短」[第5轮(机器人) 位置 108:118]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_update",
+            "value": "与用户确认额度更新信息",
+            "provenance": "「重新跟您确认一下」[第5轮(机器人) 位置 75:83]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "借不出来呀。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "借不了了。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "借不出来啊我申请了又不是没申请过。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "我说的我申请过没有借出来。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "apply_no_success",
+            "value": "用户表示曾申请但未成功借款",
+            "provenance": "「申请过没有借出来」[第10轮(用户) 位置 4:12]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 10,
+        "speaker": "机器人",
+        "utterance": "中午的时候去操",
+        "extractions": []
+      },
+      {
+        "turn_idx": 11,
+        "speaker": "用户",
+        "utterance": "转人工。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 12,
+        "speaker": "机器人",
+        "utterance": "中午的时候去操作的嘛。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 13,
+        "speaker": "用户",
+        "utterance": "啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 14,
+        "speaker": "机器人",
+        "utterance": "我这边看到您的账户是正常的呀，您是在那个app里面操作的，还是在支付宝里面操作的嘛？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 15,
+        "speaker": "用户",
+        "utterance": "啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 16,
+        "speaker": "机器人",
+        "utterance": "您是用的那个微信小程序还是支付宝小程序嘛？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 17,
+        "speaker": "用户",
+        "utterance": "app。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 18,
+        "speaker": "机器人",
+        "utterance": "啊那您这边可以换一个渠道嘛，您可以在那个支付宝里面搜索安逸花，然后您在那个支付宝里面操作试一下，好吧？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 19,
+        "speaker": "用户",
+        "utterance": "嗯好好好要要是再借不出来怎么办呢。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 20,
+        "speaker": "机器人",
+        "utterance": "哦，那您这边换一个渠道嘛，好吧？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 21,
+        "speaker": "用户",
+        "utterance": "再换渠道。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "inquire_alternative_solution",
+            "value": "询问如果再次无法借款的应对方案",
+            "provenance": "「要是再借不出来怎么办呢」[第22轮(用户) 溯源失败]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102109290899402056483",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是黄女士吗？来电是有事情找一下黄女士本人",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "哪里。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "啊我这边是马上消费安逸花的工作人员，请问黄女士方便接听电话吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "你说。",
+        "extractions": []
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102820390337902014847",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是周先生吗？来电是有事情找一下周先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "有什么事你说。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "啊您好先生，我这边是马上消费安逸花的客户经理，安逸花是您本人在用的，对吧？绑定的那个三六六的手机号。",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "fact_product_usage",
+            "value": "用户正在使用安逸花",
+            "provenance": "「安逸花是您本人在用的，对吧？」[第3轮(机器人) 位置 23:37]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "fact_bound_phone",
+            "value": "绑定手机号为三六六开头",
+            "provenance": "「绑定的那个三六六的手机号。」[第3轮(机器人) 位置 37:50]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "是这样的哈先生，因为您是我们安逸花二五年七月份申请的优质用户，我们给您把额度提高到两万四千块钱了嘛，今天来电就是跟您确认一下，如果说您这边还有需要的话，您可以把那个剩余的六千六百给它按需全部借到银行卡里不",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "application_date",
+            "value": "2025年7月",
+            "provenance": "「二五年七月份」[第5轮(机器人) 位置 17:23]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "credit_limit",
+            "value": "24000元",
+            "provenance": "「额度提高到两万四千块钱」[第5轮(机器人) 位置 36:47]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "remaining_amount",
+            "value": "6600元",
+            "provenance": "「剩余的六千六百」[第5轮(机器人) 位置 82:89]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "offer_loan",
+            "value": "邀请用户借款剩余额度",
+            "provenance": "「把剩余的六千六百给它按需全部借到银行卡里不」[第5轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "user_status",
+            "value": "用户为2025年7月申请的优质用户",
+            "provenance": "「您是我们安逸花二五年七月份申请的优质用户」[第5轮(机器人) 位置 10:30]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "那个借不出来了呀。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "借不了了。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "decline_loan_availability",
+            "value": "用户表示无法借款",
+            "provenance": "「借不出来了呀。」[第7轮(机器人) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "借不出来了。",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "loan_not_available",
+            "value": "当前无法借款",
+            "provenance": "「借不出来了。」[第8轮(用户) 位置 0:6]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "我说那个额度借不了。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "decline_loan",
+            "value": "用户表示无法借款",
+            "provenance": "「借不了」[第10轮(用户) 位置 6:9]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 10,
+        "speaker": "机器人",
+        "utterance": "借不了了。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "unable_to_borrow",
+            "value": "用户表示无法借款",
+            "provenance": "「借不了了。」[第11轮(机器人) 位置 0:5]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 11,
+        "speaker": "用户",
+        "utterance": "你们给我不是限制了吗啊。",
+        "extractions": [
+          {
+            "extraction_class": "fact",
+            "label": "account_restricted",
+            "value": "用户认为其账户被限制了",
+            "provenance": "「你们给我不是限制了吗啊。」[第12轮(用户) 位置 0:12]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 12,
+        "speaker": "机器人",
+        "utterance": "抱歉哈，没听清楚，您能再讲一遍吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 13,
+        "speaker": "用户",
+        "utterance": "我说那个额度你们给我限制了我借不了。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_credit_limit_restricted",
+            "value": "用户声称额度被限制导致无法借款",
+            "provenance": "「我说那个额度你们给我限制了我借不了。」[第14轮(用户) 位置 0:18]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 14,
+        "speaker": "机器人",
+        "utterance": "借不了了。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 15,
+        "speaker": "用户",
+        "utterance": "我我不是你还没听明白哈。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 16,
+        "speaker": "机器人",
+        "utterance": "我们安逸花不可能说为了这几千",
+        "extractions": []
+      },
+      {
+        "turn_idx": 17,
+        "speaker": "用户",
+        "utterance": "知道我说的意思啊你听我说完。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 18,
+        "speaker": "机器人",
+        "utterance": "嗯您说嘛。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 19,
+        "speaker": "用户",
+        "utterance": "听我说完啊。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 20,
+        "speaker": "机器人",
+        "utterance": "哦，那您这边是姓周是吧？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 21,
+        "speaker": "用户",
+        "utterance": "我现在那个你们安逸花。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 22,
+        "speaker": "机器人",
+        "utterance": "哦您说您今天还可以借多少钱吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 23,
+        "speaker": "用户",
+        "utterance": "我现在借不出来你们安逸花不是本来我那个额度给停了吗。",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_status",
+            "value": "无法借款",
+            "provenance": "「我现在借不出来」[第24轮(用户) 位置 0:7]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "credit_limit_suspended",
+            "value": "用户认为自己的额度被暂停",
+            "provenance": "「本来我那个额度给停了吗」[第24轮(用户) 位置 14:25]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 24,
+        "speaker": "机器人",
+        "utterance": "借不了了。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 25,
+        "speaker": "用户",
+        "utterance": "啊对一点都借不出来。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "decline_loan_access",
+            "value": "用户确认无法借款",
+            "provenance": "「啊对一点都借不出来。」[第26轮(用户) 位置 0:10]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "loan_access_status",
+            "value": "当前无法借款",
+            "provenance": "「啊对一点都借不出来。」[第26轮(用户) 位置 0:10]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 26,
+        "speaker": "机器人",
+        "utterance": "哦，那您这边可以打一下我们的客服热线九五零九零，您可以咨询一下，好吧？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 27,
+        "speaker": "用户",
+        "utterance": "九五零九零哈。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 28,
+        "speaker": "机器人",
+        "utterance": "对的，九五零九零。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 29,
+        "speaker": "用户",
+        "utterance": "对我我我还想问你。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 30,
+        "speaker": "机器人",
+        "utterance": "哦，那请问手机尾号三六六的周先生在吗？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "phone_last_digits",
+            "value": "366",
+            "provenance": "「手机尾号三六六」[第31轮(机器人) 位置 5:12]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "user_name",
+            "value": "周先生",
+            "provenance": "「周先生」[第31轮(机器人) 位置 13:16]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "inquire_presence",
+            "value": "询问某人是否在场",
+            "provenance": "「在吗」[第31轮(机器人) 位置 16:18]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 31,
+        "speaker": "用户",
+        "utterance": "六三六六。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 32,
+        "speaker": "机器人",
+        "utterance": "嗯周先生能听见吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 33,
+        "speaker": "用户",
+        "utterance": "啊我就是。",
+        "extractions": []
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102109235516102142878",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是赵先生吗？来电是有事情找一下赵先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "[语音输入超时]",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "啊您好，先生，我这边是马上消费安逸花的客户经理",
+        "extractions": []
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "谢谢赵先生请不要挂断电话。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "是这样的哈先生，因为您是我们安逸花二五年二月份申请的优质用户，用了也有一段时间了，这边也临时给您提额到了两万六千块了，如果说您有借款需求，待会儿呢您挂机以后，把那个剩余的一万七千八百元按需提现到银行卡里不要逾期，之后呢安逸花可能有更多提固定额度以及得优惠券的活动机会给到我们的赵先生方便您用，而且额度五年之内都是有效的，您自己想用的话随时可以用可以吧先生，",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "application_date",
+            "value": "2025年2月",
+            "provenance": "「二五年二月份」[第5轮(机器人) 位置 17:23]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "current_limit",
+            "value": "26000元",
+            "provenance": "「提额到了两万六千块」[第5轮(机器人) 位置 48:57]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "available_amount",
+            "value": "17800元",
+            "provenance": "「剩余的一万七千八百元」[第5轮(机器人) 位置 82:92]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "validity_period",
+            "value": "额度在五年内有效",
+            "provenance": "「额度五年之内都是有效的」[第5轮(机器人) 位置 148:159]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "request_withdrawal",
+            "value": "用户可按需提现到银行卡",
+            "provenance": "「按需提现到银行卡里」[第5轮(机器人) 位置 92:101]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_convenience",
+            "value": "确认用户方便使用额度",
+            "provenance": "「赵先生方便您用」[第5轮(机器人) 位置 138:145]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "说。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 6,
+        "speaker": "机器人",
+        "utterance": "对，但是有一点您这边需要注意哈，赵先生，就是待会儿挂机以后呢一定要马上操作提现，因为如果说我们通知到您，您待会儿挂机以后呢，忙忘了不常用，那未来几年安逸花可能就不会再给您提高额度，降低利息费用了，所以说您这边一定要重视一下，好吧？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "current_limit",
+            "value": "26000",
+            "provenance": "「两万六千块」[第7轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "remaining_amount",
+            "value": "17800",
+            "provenance": "「一万七千八百元」[第7轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "slot_value",
+            "label": "limit_validity_period",
+            "value": "5年",
+            "provenance": "「五年之内」[第7轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "user_status",
+            "value": "优质用户（2025年2月申请）",
+            "provenance": "「因为您是我们安逸花二五年二月份申请的优质用户」[第7轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "suggest_withdrawal",
+            "value": "建议用户提现剩余金额",
+            "provenance": "「您挂机以后，把那个剩余的一万七千八百元按需提现到银行卡里」[第7轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "future_benefits",
+            "value": "可能有提额和优惠券活动",
+            "provenance": "「安逸花可能有更多提固定额度以及得优惠券的活动机会给到我们的赵先生」[第7轮(机器人) 溯源失败]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "confirm_usage_permission",
+            "value": "确认用户可随时使用额度",
+            "provenance": "「您自己想用的话随时可以用可以吧先生」[第7轮(机器人) 溯源失败]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 7,
+        "speaker": "用户",
+        "utterance": "安逸花是吧。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 8,
+        "speaker": "机器人",
+        "utterance": "安逸花。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 9,
+        "speaker": "用户",
+        "utterance": "我知道他怎么了。",
+        "extractions": []
+      }
+    ]
+  },
+  {
+    "dialogue_id": "2025102111163504102156849",
+    "turns": [
+      {
+        "turn_idx": 0,
+        "speaker": "机器人",
+        "utterance": "诶您好，打扰一下，请问您这边是覃先生吗？来电是有事情找一下覃先生本人。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 1,
+        "speaker": "用户",
+        "utterance": "说了。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 2,
+        "speaker": "机器人",
+        "utterance": "啊您好，先生，我这边是马上消费安逸花的客户经理，安逸花是您本人在用的，之前没有逾期过，这边给您临时提额到了四万五千五百了，您有关注到吗？",
+        "extractions": [
+          {
+            "extraction_class": "slot_value",
+            "label": "loan_amount",
+            "value": "45500",
+            "provenance": "「四万五千五百」[第3轮(机器人) 位置 53:59]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "account_status",
+            "value": "用户本人使用，无逾期记录",
+            "provenance": "「安逸花是您本人在用的，之前没有逾期过」[第3轮(机器人) 位置 24:42]"
+          },
+          {
+            "extraction_class": "fact",
+            "label": "credit_limit_change",
+            "value": "临时提额至45500元",
+            "provenance": "「这边给您临时提额到了四万五千五百了」[第3轮(机器人) 位置 43:60]"
+          },
+          {
+            "extraction_class": "intent",
+            "label": "inquire_confirmation",
+            "value": "确认用户是否注意到提额",
+            "provenance": "「您有关注到吗？」[第3轮(机器人) 位置 61:68]"
+          }
+        ]
+      },
+      {
+        "turn_idx": 3,
+        "speaker": "用户",
+        "utterance": "你打电话来都没用啊你上去搞我是进去都借不了钱打电话来干嘛呢。",
+        "extractions": []
+      },
+      {
+        "turn_idx": 4,
+        "speaker": "机器人",
+        "utterance": "您是说您借不出来吗？",
+        "extractions": []
+      },
+      {
+        "turn_idx": 5,
+        "speaker": "用户",
+        "utterance": "我借出来我跟你说什么呢你上一次我不知道是不是你打来的啊。",
+        "extractions": [
+          {
+            "extraction_class": "intent",
+            "label": "complain_service_useless",
+            "value": "用户认为来电无用，无法借款，质疑来电目的",
+            "provenance": "「你打电话来都没用啊你上去搞我是进去都借不了钱打电话来干嘛呢。」[第6轮(用户) 溯源失败]"
+          }
+        ]
+      }
+    ]
+  }
+]

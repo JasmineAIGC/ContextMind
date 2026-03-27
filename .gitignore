@@ -48,4 +48,4 @@ Thumbs.db
 benchmark_results/
 
 # Demo output artifacts
-output/
+# output/
