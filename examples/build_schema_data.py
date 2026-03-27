@@ -96,23 +96,51 @@ def main() -> None:
         "--with-llm",
         action="store_true",
         help=(
-            "使用 LLM 为每个意图函数生成真实业务逻辑（需要在 .env 中配置 LLM_API_KEY "
-            "/ LLM_BASE_URL / LLM_MODEL）。未指定时使用规则生成 stub 函数。"
+            "使用 LLM 为意图函数生成真实业务逻辑（一次 LLM 调用生成整个模块，"
+            "需要在 .env 中配置 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL）。"
+            "未指定时使用规则引擎生成（含共享工具函数调用，无需 LLM）。"
+        ),
+    )
+    parser.add_argument(
+        "--dialogue-data",
+        default=None,
+        metavar="PATH",
+        help=(
+            "可选：真实对话数据文件路径（与 --with-llm 配合使用）。"
+            "支持 chat_test_100.json / chat_test_500.json 格式。"
+            "LLM 将参考这些对话样本提炼业务细节，生成更贴近真实流程的函数实现。"
+            "示例: --dialogue-data resources/data/chat_test_100.json"
         ),
     )
     args = parser.parse_args()
 
     # Optionally initialize LLM client for real business logic generation
     llm_client = None
+    dialogue_data_path = None
     if args.with_llm:
         try:
             from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
             llm_client = AdkLLMClient(config=LLMConfig.from_env())
-            print("🤖 LLM 模式启用：将为每个意图函数生成真实业务逻辑")
+            dialogue_note = ""
+            if args.dialogue_data:
+                dialogue_data_path = Path(args.dialogue_data)
+                if dialogue_data_path.exists():
+                    dialogue_note = f"，对话数据: {dialogue_data_path.name}"
+                else:
+                    print(
+                        f"⚠️  对话数据文件不存在，将忽略: {dialogue_data_path}",
+                        file=sys.stderr,
+                    )
+                    dialogue_data_path = None
+            print(f"🤖 LLM 模式启用：一次调用生成整个模块{dialogue_note}")
         except Exception as exc:
-            print(f"⚠️  LLM 初始化失败，回退到 stub 生成模式: {exc}", file=sys.stderr)
+            print(f"⚠️  LLM 初始化失败，回退到规则生成模式: {exc}", file=sys.stderr)
 
-    builder = SchemaDataBuilder(overwrite=not args.no_overwrite, llm_client=llm_client)
+    builder = SchemaDataBuilder(
+        overwrite=not args.no_overwrite,
+        llm_client=llm_client,
+        dialogue_data_path=dialogue_data_path,
+    )
 
     if args.schema:
         schema_path = Path(args.schema)

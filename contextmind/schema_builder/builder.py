@@ -90,78 +90,245 @@ logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# LLM-based function body generator
+# Shared helper library — embedded into every generated *_pytod_apis.py
 # ---------------------------------------------------------------------------
 
-# System prompt for generating PyTOD API function bodies
-_FUNCTION_GEN_SYSTEM = """\
-你是一名 Python 开发专家，专门为任务型对话系统（ToD）编写 API 函数实现。
+#: Template string that is inserted near the top of every generated file.
+#: These helper functions are available to all intent API functions in the
+#: same module, so generated code (both rule-based and LLM-based) can call
+#: them instead of repeating boilerplate.
+_SHARED_HELPERS = '''\
+# ---------------------------------------------------------------------------
+# 共享工具函数 — 由 SchemaDataBuilder 自动生成，所有 API 函数均可调用
+# ---------------------------------------------------------------------------
 
-你将收到一个意图（intent）的函数签名、描述以及业务背景，需要生成该函数的 **完整 Python 实现**。
+import datetime as _dt
+import math as _math
+import re as _re
 
-## 要求
 
-1. **保持函数签名不变**（包括参数名和默认值 None）
-2. **包含真实的业务逻辑处理**，不要只是直接返回固定字符串
-3. **输入参数处理**：对 None 值设置合理默认值，对金额/日期等做简单格式化
-4. **业务计算**：根据意图语义，做相应计算（如确认利率、生成工单号、计算金额等）
-5. **返回值**：包含所有 result_slots 字段和输入参数，以及 "status": "success"
-6. **只输出函数体代码**，不要输出函数签名、不要输出说明文字、不要添加注释
-7. 代码必须是合法 Python，可直接插入到函数定义之后
-8. 使用 4 空格缩进
-9. 可以 import 标准库（如 datetime, re, math），但不要 import 第三方库
-10. 函数体要简洁（不超过 30 行）
+def _parse_amount(value) -> float:
+    """将字符串金额（如 '21900元'、'两万一千九百'）解析为浮点数，无法解析时返回 0.0。"""
+    if value is None:
+        return 0.0
+    s = _re.sub(r"[^\d.]", "", str(value).replace(",", "").replace("，", ""))
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _ticket_id(prefix: str = "TICKET") -> str:
+    """生成工单编号，格式：{PREFIX}-YYYYMMDD-001。适用于投诉、申请、纠纷等意图。"""
+    today = _dt.date.today().strftime("%Y%m%d")
+    return f"{prefix}-{today}-001"
+
+
+def _calc_monthly_payment(principal: float, annual_rate: float, months: int) -> float:
+    """等额还款月供计算（PMT 公式）。
+
+    Args:
+        principal: 贷款本金（元）
+        annual_rate: 年化利率（小数，如 0.24 表示 24%）
+        months: 还款期数（月）
+    """
+    if principal <= 0 or months <= 0:
+        return 0.0
+    r = annual_rate / 12.0
+    if r == 0:
+        return principal / months
+    return principal * r / (1.0 - (1.0 + r) ** (-months))
+
+
+def _next_work_day() -> str:
+    """返回下一个工作日日期字符串（格式 YYYY-MM-DD），跳过周末。"""
+    d = _dt.date.today() + _dt.timedelta(days=1)
+    while d.weekday() >= 5:   # 5=Saturday, 6=Sunday
+        d += _dt.timedelta(days=1)
+    return d.strftime("%Y-%m-%d")
+
+'''
+
+
+# ---------------------------------------------------------------------------
+# LLM-based full-module generator
+# ---------------------------------------------------------------------------
+
+#: System prompt for generating the entire *_pytod_apis.py module in one call.
+_MODULE_GEN_SYSTEM = """\
+你是一名 Python 高级开发专家，专门为任务型对话系统（ToD）编写 API 函数实现。
+
+你将收到一个服务的完整 Schema（意图列表、槽位定义）以及可选的真实对话示例。
+你需要生成该服务对应的 **完整 Python 模块代码**，包含所有意图的函数实现。
+
+## 生成要求
+
+### 函数签名
+- 每个意图对应一个函数，函数名 = 意图名（snake_case）
+- 函数参数 = required_slots + optional_slots（全部带默认值 None）
+- 函数必须包含 docstring（意图描述）
+
+### 函数体（每个函数都必须有真实计算逻辑）
+1. **输入处理**：对 None 值设置合理默认值；金额/日期字段做格式化
+2. **业务计算**：根据意图语义做相应计算
+   - `complain_*`/`dispute_*`：调用 `_ticket_id(prefix)` 生成工单号
+   - `verify_*`/`confirm_*`：根据必填参数是否存在推导布尔结果
+   - `schedule_*`/`book_*`：调用 `_next_work_day()` 计算回调时间
+   - `inquire_*`/`query_*`：必填参数校验后返回查询结果
+   - 财务计算意图：调用 `_calc_monthly_payment()` / `_parse_amount()`
+3. **返回值**：包含所有 result_slots 字段 + 输入参数 + `"status": "success"`
+4. 可以直接调用文件顶部已定义的 `_ticket_id()`、`_calc_monthly_payment()` 等工具函数
+
+### 代码质量
+- 每个函数体不超过 25 行
+- 只使用 Python 标准库（不要 import 第三方库）
+- 模块顶部已有 `from __future__ import annotations`
+- **不要重复定义** `_parse_amount`、`_ticket_id`、`_calc_monthly_payment`、`_next_work_day`（已在文件头部定义）
 
 ## 输出格式
-
-只输出函数体代码，例如：
-    import datetime
-    today = datetime.date.today().strftime("%Y%m%d")
-    ticket_id = f"COMP-{today}-001"
-    return {
-        "complaint_id": ticket_id,
-        "status": "success",
-    }
+直接输出 Python 代码，不要包含 markdown 代码块标记，不要包含解释文字。
+输出从第一个 `def` 函数定义开始，不包含 import 语句和工具函数定义。
 """
 
-_FUNCTION_GEN_USER_TEMPLATE = """\
-## 业务背景
+_MODULE_GEN_USER_TEMPLATE = """\
+## 服务信息
 服务名称：{service_name}
 服务描述：{service_description}
 
-## 函数签名
-def {func_name}({param_str}):
-    \"\"\"{description}\"\"\"
+## 意图列表
+{intents_summary}
 
-## 槽位说明
-{slot_descriptions}
+## 槽位定义
+{slots_summary}
 
-## 需要返回的字段（result_slots）
-{result_slots}
+{dialogue_context_section}## 任务
+请为上述所有意图生成完整的 Python 函数实现（从第一个 def 开始，不包含 import）。
+"""
 
-## 任务
-请为上面的函数生成真实的业务逻辑函数体（只输出函数体，4空格缩进，不包含def行）。
+_DIALOGUE_CONTEXT_SECTION = """\
+## 真实对话示例（参考以下对话提炼业务细节）
+{dialogue_samples}
+
 """
 
 
 class PyTODApiCodeGenerator:
-    """使用 LLM 为 PyTOD API 函数生成真实业务逻辑代码体。
+    """使用 LLM 为 PyTOD API 模块生成真实业务逻辑代码。
+
+    支持两种生成模式：
+
+    1. **全模块生成**（推荐，:meth:`generate_module`）：一次 LLM 调用生成整个
+       ``*_pytod_apis.py`` 模块，包含所有意图函数。可选传入真实对话数据文件路径
+       （``dialogue_data_path``）使 LLM 参考真实业务流程生成更贴近生产环境的代码。
+
+    2. **单函数生成**（:meth:`generate_function_body`）：逐个意图调用 LLM。
+       用于 fallback 场景。
 
     Args:
         llm_client: AdkLLMClient 实例。若为 None 则从环境变量加载。
-        timeout_per_intent: 每个意图的 LLM 调用超时秒数（默认 60）。
     """
 
     def __init__(
         self,
         llm_client: Optional[Any] = None,
-        timeout_per_intent: int = 60,
     ) -> None:
         if llm_client is None:
             from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
             llm_client = AdkLLMClient(config=LLMConfig.from_env())
         self._llm = llm_client
-        self.timeout_per_intent = timeout_per_intent
+
+    # ------------------------------------------------------------------
+    # 全模块生成（首选方式）
+    # ------------------------------------------------------------------
+
+    def generate_module(
+        self,
+        schema: ServiceSchema,
+        dialogue_data_path: Optional[Union[str, Path]] = None,
+        max_dialogue_samples: int = 5,
+    ) -> Optional[str]:
+        """一次 LLM 调用生成整个 ``*_pytod_apis.py`` 模块的函数定义区（不含 import 和工具函数）。
+
+        Args:
+            schema: 服务 schema。
+            dialogue_data_path: 可选，真实对话数据文件路径（JSON 格式）。
+                支持 resources/data/chat_test_100.json 等格式。
+                传入后 LLM 将参考真实业务流程生成更准确的函数体。
+            max_dialogue_samples: 从对话数据中最多取几条样本（避免 prompt 过长）。
+
+        Returns:
+            包含所有函数定义的 Python 代码字符串，失败时返回 None。
+        """
+        # Build intents summary
+        intents_lines: List[str] = []
+        for intent in schema.intents:
+            params = list(dict.fromkeys(
+                list(intent.required_slots) + list(intent.optional_slots)
+            ))
+            param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+            rs = ", ".join(intent.result_slots) if intent.result_slots else "（无）"
+            intents_lines.append(
+                f"- def {intent.name}({param_str})  # {intent.description or intent.name}"
+            )
+            intents_lines.append(f"  result_slots: {rs}")
+        intents_summary = "\n".join(intents_lines)
+
+        # Build slots summary
+        slot_lines: List[str] = []
+        for slot in schema.slots:
+            vals = f"  可选值: {', '.join(slot.possible_values)}" if slot.possible_values else ""
+            slot_lines.append(f"- {slot.name}: {slot.description}{vals}")
+        slots_summary = "\n".join(slot_lines) if slot_lines else "（无槽位）"
+
+        # Build dialogue context section
+        dialogue_context_section = ""
+        if dialogue_data_path:
+            samples = self._load_dialogue_samples(
+                dialogue_data_path, max_samples=max_dialogue_samples
+            )
+            if samples:
+                formatted = "\n\n".join(
+                    f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples)
+                )
+                dialogue_context_section = _DIALOGUE_CONTEXT_SECTION.format(
+                    dialogue_samples=formatted
+                )
+                logger.info(
+                    f"[PyTODApiCodeGenerator] 已加载 {len(samples)} 条对话样本用于辅助生成"
+                )
+
+        user_msg = _MODULE_GEN_USER_TEMPLATE.format(
+            service_name=schema.service_name,
+            service_description=schema.description or schema.service_name,
+            intents_summary=intents_summary,
+            slots_summary=slots_summary,
+            dialogue_context_section=dialogue_context_section,
+        )
+
+        messages = [
+            {"role": "system", "content": _MODULE_GEN_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+
+        try:
+            raw = self._chat_sync(messages)
+            cleaned = _clean_llm_module(raw, schema)
+            if cleaned is None:
+                logger.warning(
+                    "[PyTODApiCodeGenerator] generate_module: LLM 响应无法解析为合法模块，"
+                    "将回退到规则生成"
+                )
+            return cleaned
+        except Exception as exc:
+            logger.warning(
+                f"[PyTODApiCodeGenerator] generate_module: LLM 调用失败 ({exc})，"
+                "将回退到规则生成"
+            )
+            return None
+
+    # ------------------------------------------------------------------
+    # 单函数生成（fallback）
+    # ------------------------------------------------------------------
 
     def generate_function_body(
         self,
@@ -172,13 +339,13 @@ class PyTODApiCodeGenerator:
         """调用 LLM 生成单个意图函数的完整函数体代码（4空格缩进）。
 
         返回函数体字符串（可直接拼接到 def 行之后），失败时返回 None。
+        此方法作为 :meth:`generate_module` 失败时的 fallback。
         """
         params = list(dict.fromkeys(
             list(intent.required_slots) + list(intent.optional_slots)
         ))
         param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
 
-        # Build slot descriptions section
         slot_desc_lines: List[str] = []
         for p in params:
             desc = all_slot_descs.get(p, p)
@@ -211,16 +378,92 @@ class PyTODApiCodeGenerator:
             body = _clean_llm_function_body(raw, intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[PyTODApiCodeGenerator] {intent.name}: LLM 响应无法解析为合法函数体，"
-                    "将回退到 stub 生成"
+                    f"[PyTODApiCodeGenerator] {intent.name}: LLM 响应无法解析，回退到规则生成"
                 )
             return body
         except Exception as exc:
             logger.warning(
-                f"[PyTODApiCodeGenerator] {intent.name}: LLM 调用失败 ({exc})，"
-                "将回退到 stub 生成"
+                f"[PyTODApiCodeGenerator] {intent.name}: LLM 调用失败 ({exc})，回退到规则生成"
             )
             return None
+
+    # ------------------------------------------------------------------
+    # 对话数据加载
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _load_dialogue_samples(
+        data_path: Union[str, Path],
+        max_samples: int = 5,
+    ) -> List[str]:
+        """从对话数据文件中加载并格式化对话样本。
+
+        支持以下 JSON 格式：
+        - ``[{"session_id":..., "用户信息":..., "对话历史":[{"机器人":..., "用户":...},...]}]``
+          （chat_test_100.json 格式）
+        - ``[{"label":..., "query":{"用户信息":..., "对话历史":[...]}}]``
+          （chat_test_500.json 格式）
+
+        Returns:
+            格式化后的对话文本列表（每条为一个对话的字符串表示）。
+        """
+        try:
+            path = Path(data_path)
+            if not path.exists():
+                logger.warning(f"[PyTODApiCodeGenerator] 对话数据文件不存在: {path}")
+                return []
+
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+
+            if not isinstance(data, list) or not data:
+                return []
+
+            samples: List[str] = []
+            for item in data:
+                if len(samples) >= max_samples:
+                    break
+
+                # Determine format and extract fields
+                if "query" in item:
+                    # chat_test_500 format: {label, query:{用户信息, 对话历史}}
+                    q = item["query"]
+                    user_info = q.get("用户信息", "")
+                    history = q.get("对话历史", [])
+                else:
+                    # chat_test_100 format: {session_id, 用户信息, 对话历史}
+                    user_info = item.get("用户信息", "")
+                    history = item.get("对话历史", [])
+
+                if not history:
+                    continue
+
+                lines: List[str] = []
+                # Include a brief user info excerpt (first 3 fields)
+                if user_info:
+                    brief = "、".join(user_info.split("#")[1:4])
+                    lines.append(f"[用户信息] {brief}")
+
+                # Format dialogue turns
+                for turn in history[:8]:  # limit to first 8 turns
+                    if isinstance(turn, dict):
+                        for speaker, text in turn.items():
+                            lines.append(f"{speaker}：{text[:80]}")
+                    elif isinstance(turn, str):
+                        lines.append(turn[:100])
+
+                if lines:
+                    samples.append("\n".join(lines))
+
+            return samples
+
+        except Exception as exc:
+            logger.warning(f"[PyTODApiCodeGenerator] 加载对话数据失败: {exc}")
+            return []
+
+    # ------------------------------------------------------------------
+    # 内部 LLM 调用
+    # ------------------------------------------------------------------
 
     def _chat_sync(self, messages: List[Dict[str, Any]]) -> str:
         """同步调用 LLM chat 接口。"""
@@ -241,6 +484,41 @@ class PyTODApiCodeGenerator:
                 return future.result()
         else:
             return asyncio.run(_run())
+
+
+# Single-function fallback prompt (kept for generate_function_body)
+_FUNCTION_GEN_SYSTEM = """\
+你是一名 Python 开发专家，专门为任务型对话系统（ToD）编写 API 函数实现。
+
+你将收到一个意图（intent）的函数签名、描述以及业务背景，需要生成该函数的 **完整函数体**。
+
+## 要求
+1. 保持函数签名不变（参数名和默认值 None）
+2. 包含真实的业务逻辑处理，不要只是直接返回固定字符串
+3. 可以直接调用文件中已定义的工具函数：`_parse_amount()`、`_ticket_id()`、
+   `_calc_monthly_payment()`、`_next_work_day()`
+4. 返回值包含所有 result_slots 字段和输入参数，以及 "status": "success"
+5. 只输出函数体代码，不包含 def 行，4 空格缩进，不超过 25 行
+
+## 输出格式
+只输出函数体代码（4空格缩进），例如：
+    _ok = bool(account_usage_status is not None)
+    return {
+        "verified_identity": _ok,
+        "status": "success",
+    }
+"""
+
+_FUNCTION_GEN_USER_TEMPLATE = """\
+服务：{service_name}（{service_description}）
+
+函数：def {func_name}({param_str}):
+描述：{description}
+输入槽位：
+{slot_descriptions}
+result_slots（必须在返回值中包含）：
+{result_slots}
+"""
 
 
 def _clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optional[str]:
@@ -298,6 +576,66 @@ def _clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Option
     return body
 
 
+def _clean_llm_module(raw: str, schema: ServiceSchema) -> Optional[str]:
+    """从 LLM 响应中提取并验证完整模块的函数定义区。
+
+    处理 markdown 代码块、多余说明文字、重复工具函数定义等常见问题。
+
+    Returns:
+        包含所有函数定义的 Python 代码字符串，或 None（无法解析为合法 Python）。
+    """
+    raw = raw.strip()
+
+    # Strip markdown code fences
+    m = re.search(r"```(?:python)?\s*([\s\S]+?)\s*```", raw)
+    if m:
+        raw = m.group(1).strip()
+
+    # Remove any re-definition of shared helpers that LLM shouldn't emit
+    helper_names = ("_parse_amount", "_ticket_id", "_calc_monthly_payment", "_next_work_day")
+    lines = raw.splitlines()
+    filtered: List[str] = []
+    skip_block = False
+    for line in lines:
+        stripped = line.strip()
+        # Detect start of a helper function re-definition
+        if stripped.startswith("def ") and any(
+            stripped.startswith(f"def {h}") for h in helper_names
+        ):
+            skip_block = True
+        elif skip_block and stripped and not stripped.startswith(" ") and not stripped.startswith("\t"):
+            skip_block = False
+
+        if not skip_block:
+            filtered.append(line)
+
+    raw = "\n".join(filtered).strip()
+
+    # Find where the first 'def ' function starts (skip any leading prose)
+    first_def = re.search(r"^def ", raw, re.MULTILINE)
+    if first_def:
+        raw = raw[first_def.start():]
+
+    # Validate as Python source (wrap with minimal imports to satisfy ast.parse)
+    minimal_preamble = "from __future__ import annotations\n"
+    try:
+        ast.parse(minimal_preamble + raw)
+    except SyntaxError as exc:
+        logger.debug(f"[_clean_llm_module] SyntaxError: {exc}")
+        return None
+
+    # Verify that expected intent functions are present
+    expected = {intent.name for intent in schema.intents}
+    found = set(re.findall(r"^def (\w+)\(", raw, re.MULTILINE))
+    missing = expected - found
+    if missing:
+        logger.warning(
+            f"[_clean_llm_module] LLM 生成的模块缺少以下函数: {missing}"
+        )
+
+    return raw
+
+
 class SchemaDataBuilder:
     """从 schema.json 预生成各算法所需的 companion 数据文件。
 
@@ -305,11 +643,20 @@ class SchemaDataBuilder:
         overwrite: 目标文件已存在时是否覆盖（默认 True）。
         llm_client: 可选的 AdkLLMClient 实例。提供时使用 LLM 为 PyTOD 函数生成
             真实业务逻辑；不提供时回退到基于规则的 stub 生成。
+        dialogue_data_path: 可选的真实对话数据文件路径。在 LLM 模式下作为业务背景
+            传给 LLM，帮助生成更贴近真实业务流程的函数实现。
+            支持 chat_test_100.json / chat_test_500.json 格式。
     """
 
-    def __init__(self, overwrite: bool = True, llm_client: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        overwrite: bool = True,
+        llm_client: Optional[Any] = None,
+        dialogue_data_path: Optional[Union[str, Path]] = None,
+    ) -> None:
         self.overwrite = overwrite
         self._llm_client = llm_client
+        self._dialogue_data_path = Path(dialogue_data_path) if dialogue_data_path else None
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -380,13 +727,23 @@ class SchemaDataBuilder:
     ) -> Optional[Path]:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
-        生成的 Python 文件包含每个 intent 对应的函数定义，函数：
-        - 签名参数 = required_slots + optional_slots（全部带默认值 None）
-        - 函数体包含真实业务逻辑（若提供了 llm_client）或语义化 mock 值（fallback）
+        生成的 Python 文件结构：
 
-        当 ``SchemaDataBuilder`` 初始化时传入了 ``llm_client``，则调用
-        :class:`PyTODApiCodeGenerator` 为每个意图生成有真实计算逻辑的函数体。
-        若 LLM 调用失败，自动回退到基于规则的 stub 生成（保证文件始终生成）。
+        1. **模块 docstring**：包含生成时间、服务名、生成模式等元信息。
+        2. **共享工具函数区**（:data:`_SHARED_HELPERS`）：`_parse_amount`、
+           `_ticket_id`、`_calc_monthly_payment`、`_next_work_day` 等，
+           所有意图函数均可直接调用。
+        3. **意图函数区**：每个 intent 对应一个函数，函数体包含真实计算逻辑。
+
+        生成模式（优先级从高到低）：
+
+        - **LLM 全模块模式**（首选，需 ``llm_client``）：一次 LLM 调用生成所有函数，
+          可选传入真实对话数据（``dialogue_data_path``）作为业务背景。
+          LLM 提示词要求 LLM 调用共享工具函数，并生成涵盖所有意图的完整实现。
+        - **LLM 单函数 fallback**：全模块生成失败时，逐函数调用 LLM。
+        - **规则模式**（默认/兜底）：无 LLM 时，根据意图名称前缀推断语义，
+          生成调用共享工具函数的计算代码（投诉→_ticket_id，排期→_next_work_day，
+          核实→布尔推导，查询→必填校验等）。
 
         文件可通过 ``load_pytod_api_module(schema_path)`` 加载，
         返回的函数直接注册到 ExecutionEngine。
@@ -413,83 +770,115 @@ class SchemaDataBuilder:
                 logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
                 return None
 
-        # Decide generation mode: LLM vs stub fallback
-        use_llm = self._llm_client is not None
+        # Decide generation mode: LLM vs rule-based
         llm_generator: Optional[PyTODApiCodeGenerator] = None
-        if use_llm:
+        if self._llm_client is not None:
             try:
                 llm_generator = PyTODApiCodeGenerator(llm_client=self._llm_client)
                 logger.info(
-                    f"[SchemaDataBuilder] 使用 LLM 为 {schema.service_name} 生成真实函数逻辑"
+                    f"[SchemaDataBuilder] 使用 LLM 为 {schema.service_name} 生成函数模块"
                 )
             except Exception as exc:
                 logger.warning(
-                    f"[SchemaDataBuilder] LLM 初始化失败，回退到 stub 生成: {exc}"
+                    f"[SchemaDataBuilder] LLM 初始化失败，回退到规则生成: {exc}"
                 )
-                llm_generator = None
 
-        # Build slot description index for LLM context
-        all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
-
-        # File header
-        mode_note = (
-            "函数体包含 LLM 生成的真实业务逻辑。"
-            if llm_generator
-            else "函数体由规则引擎根据意图语义生成（含输入校验、工单号生成、布尔推导等计算逻辑）。"
+        # ------------------------------------------------------------------
+        # Build file header (docstring + imports + shared helpers)
+        # ------------------------------------------------------------------
+        mode_info = (
+            "LLM 生成（参考真实对话数据）" if (llm_generator and self._dialogue_data_path)
+            else "LLM 生成" if llm_generator
+            else "规则引擎生成（含共享工具函数调用）"
         )
-        lines: List[str] = [
+        header_lines: List[str] = [
             '"""',
             f'PyTOD API 函数集合 — 由 {schema_path.name} 生成',
             f'Service: {schema.service_name}',
             f'Generated at: {datetime.now(timezone.utc).isoformat()}',
+            f'Generation mode: {mode_info}',
             '',
             '每个函数对应 schema 中的一个意图（intent），函数签名参数来自',
             'required_slots + optional_slots，返回值包含 result_slots 字段。',
-            mode_note,
-            '这些函数由 SchemaDataBuilder 预生成，运行时通过 load_pytod_api_module()',
-            '加载并注册到 ExecutionEngine，供 PyTOD AP 生成的程序调用。',
+            '文件头部定义了共享工具函数（_parse_amount、_ticket_id 等），',
+            '意图函数通过调用这些工具函数实现真实计算逻辑。',
+            '运行时通过 load_pytod_api_module() 加载并注册到 ExecutionEngine。',
             '"""',
             '',
             'from __future__ import annotations',
             '',
+            # Inline shared helpers (already includes import datetime/math/re and 4 functions)
+            _SHARED_HELPERS,
         ]
 
-        llm_success_count = 0
-        stub_fallback_count = 0
+        # ------------------------------------------------------------------
+        # Generate intent functions
+        # ------------------------------------------------------------------
+        intent_lines: List[str] = []
+        mode_str = ""
 
-        if schema.intents:
-            for intent in schema.intents:
-                # Try LLM generation first
-                if llm_generator is not None:
-                    llm_body = llm_generator.generate_function_body(intent, schema, all_slot_descs)
-                    if llm_body is not None:
-                        lines.extend(_function_def_header(intent))
-                        # The llm_body is already 4-space indented
-                        lines.extend(llm_body.splitlines())
-                        lines.append('')
-                        llm_success_count += 1
-                        continue
-
-                # Fallback: rule-based stub
-                lines.extend(_generate_function_lines(intent))
-                lines.append('')
-                stub_fallback_count += 1
+        if not schema.intents:
+            intent_lines.extend(_generate_generic_function_lines(schema))
+            intent_lines.append('')
+            mode_str = "通用函数（无意图定义）"
         else:
-            # No intents — generate one generic function using all slots
-            lines.extend(_generate_generic_function_lines(schema))
-            lines.append('')
+            # Try LLM full-module generation first
+            if llm_generator is not None:
+                module_code = llm_generator.generate_module(
+                    schema,
+                    dialogue_data_path=self._dialogue_data_path,
+                )
+                if module_code is not None:
+                    intent_lines = module_code.splitlines()
+                    intent_lines.append('')
+                    n_dialogue = (
+                        f"，对话数据: {self._dialogue_data_path.name}"
+                        if self._dialogue_data_path else ""
+                    )
+                    mode_str = f"LLM全模块生成{n_dialogue}"
+                    logger.info(
+                        f"[SchemaDataBuilder] LLM 全模块生成完成: {out_path.name}"
+                    )
 
-        # Trailing newline
-        source = '\n'.join(lines)
+            # Fallback: per-function LLM or rule-based
+            if not intent_lines:
+                all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
+                llm_count = 0
+                rule_count = 0
+                for intent in schema.intents:
+                    func_lines_added = False
+
+                    # Per-function LLM fallback
+                    if llm_generator is not None:
+                        llm_body = llm_generator.generate_function_body(
+                            intent, schema, all_slot_descs
+                        )
+                        if llm_body is not None:
+                            intent_lines.extend(_function_def_header(intent))
+                            intent_lines.extend(llm_body.splitlines())
+                            intent_lines.append('')
+                            llm_count += 1
+                            func_lines_added = True
+
+                    # Rule-based fallback
+                    if not func_lines_added:
+                        intent_lines.extend(_generate_function_lines(intent))
+                        intent_lines.append('')
+                        rule_count += 1
+
+                if llm_generator:
+                    mode_str = f"LLM单函数生成 {llm_count} 个，规则fallback {rule_count} 个"
+                else:
+                    mode_str = f"规则生成 {rule_count} 个意图函数"
+
+        # ------------------------------------------------------------------
+        # Assemble and write
+        # ------------------------------------------------------------------
+        source = '\n'.join(header_lines) + '\n'.join(intent_lines)
 
         try:
             with open(out_path, "w", encoding="utf-8") as fh:
                 fh.write(source)
-            mode_str = (
-                f"LLM生成 {llm_success_count} 个，规则fallback {stub_fallback_count} 个"
-                if llm_generator
-                else f"规则生成 {stub_fallback_count} 个"
-            )
             logger.info(
                 f"[SchemaDataBuilder] 已写入 PyTOD APIs: {out_path} "
                 f"({len(schema.intents)} 个意图，{mode_str})"
@@ -692,12 +1081,10 @@ def _echo_params(params: List[str]) -> List[str]:
 
 
 def _complaint_body(intent: IntentDefinition, params: List[str]) -> List[str]:
-    """complaint/dispute 意图体：生成工单号，返回受理信息。"""
+    """complaint/dispute 意图体：调用 _ticket_id() 生成工单号，返回受理信息。"""
     prefix = intent.name.upper()[:8].replace("_", "")
     lines = [
-        "    import datetime as _dt",
-        f"    _today = _dt.date.today().strftime('%Y%m%d')",
-        f"    _ticket = f'{prefix}-{{_today}}-001'",
+        f"    _ticket = _ticket_id('{prefix}')",
         "    return {",
     ]
     for rs in intent.result_slots:
@@ -758,13 +1145,9 @@ def _decline_body(intent: IntentDefinition, params: List[str]) -> List[str]:
 
 
 def _schedule_body(intent: IntentDefinition, params: List[str]) -> List[str]:
-    """schedule 意图体：计算下一个工作日作为回调时间。"""
+    """schedule 意图体：调用 _next_work_day() 计算下一个工作日作为回调时间。"""
     lines = [
-        "    import datetime as _dt",
-        "    _d = _dt.date.today() + _dt.timedelta(days=1)",
-        "    while _d.weekday() >= 5:",  # skip Saturday(5) and Sunday(6)
-        "        _d += _dt.timedelta(days=1)",
-        "    _callback_time = _d.strftime('%Y-%m-%d') + ' 10:00'",
+        "    _callback_time = _next_work_day() + ' 10:00'",
         "    return {",
     ]
     for rs in intent.result_slots:
