@@ -7,7 +7,7 @@ SchemaDataBuilder — 从 schema.json 预生成各算法所需的 companion 数�
 - **PyTOD**（`pytod/`）：``*_pytod_apis.py`` — 意图函数定义文件，
   供 PyTOD ExecutionEngine 在运行时注册并调用。
 - **FnCTOD**（`fnctod/`）：``*_fnctod_domain.json`` — 标准 OpenAI Function
-  Calling JSON Schema 格式，供 FnCTOD 算法使用（**待实现**）。
+  Calling JSON Schema 格式，符合 FnCTOD 论文原理（ACL 2024），供 FnCTOD 算法使用。
 
 文件命名规则
 ------------
@@ -142,7 +142,7 @@ class SchemaDataBuilder:
         if p:
             written.append(p)
 
-        # FnCTOD：待实现（当前为占位，返回 None）
+        # FnCTOD：生成 *_fnctod_domain.json
         p = self.build_fnctod_domain(schema_path, schema=schema)
         if p:
             written.append(p)
@@ -187,15 +187,15 @@ class SchemaDataBuilder:
 
         委托给 :func:`contextmind.schema_builder.fnctod.builder.build_fnctod_domain`。
 
-        .. note::
-            **当前功能尚未实现**，调用后将记录警告日志并返回 None。
+        依据 FnCTOD 原论文将服务/域整体建模为一个 OpenAI Function Calling 函数，
+        所有槽位成为参数，分类槽位携带枚举值列表。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
             schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
 
         Returns:
-            当前始终返回 None（待实现）。
+            写入成功时返回生成的文件路径，否则返回 None。
         """
         return _build_fnctod_domain(
             schema_path,
