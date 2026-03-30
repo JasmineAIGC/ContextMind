@@ -644,6 +644,12 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
             )
             body_lines = lines[body_start:body_end]
             raw = textwrap.dedent("\n".join(body_lines))
+    else:
+        # 无 def 行 —— LLM 直接输出函数体。
+        # 修复 LLM 常见 quirk：第一个语句行缺少前导缩进，其余行均有 4 空格缩进。
+        # 若检测到该模式，将第一行补齐到其余行的最小缩进级别，
+        # 使后续 textwrap.dedent 能正确归一化所有行。
+        raw = _fix_body_first_line_indent(raw)
 
     # 4. 规范化缩进 → 重新缩进为 4 空格
     raw = textwrap.dedent("\n".join(raw.splitlines()))
@@ -668,6 +674,39 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
         return None
 
     return body
+
+
+def _fix_body_first_line_indent(raw: str) -> str:
+    """修复 LLM 常见 quirk：函数体第一语句行缺少前导缩进。
+
+    某些 LLM 输出纯函数体（无 def 行）时，第一个非空行的缩进为 0，
+    而其余非空行均保有 4 空格（或更多）的缩进，导致整体缩进不一致。
+
+    检测条件：
+    - 第一个非空行缩进为 0
+    - 其余非空行的最小缩进 >= 4
+
+    修复方案：将第一行的缩进补齐到其余行的最小缩进级别，
+    之后 textwrap.dedent 即可正确归一化所有行。
+
+    只有当上述条件严格满足时才修复，否则原样返回，不影响其他格式。
+    """
+    lines = raw.splitlines()
+    nonempty = [(i, line) for i, line in enumerate(lines) if line.strip()]
+    if len(nonempty) < 2:
+        return raw
+
+    first_idx, first_line = nonempty[0]
+    first_indent = len(first_line) - len(first_line.lstrip())
+    other_indents = [len(line) - len(line.lstrip()) for _, line in nonempty[1:]]
+    min_other = min(other_indents)
+
+    if first_indent == 0 and min_other >= 4:
+        fixed = list(lines)
+        fixed[first_idx] = " " * min_other + first_line
+        return "\n".join(fixed)
+
+    return raw
 
 
 def _truncate_to_first_function(raw: str) -> str:
