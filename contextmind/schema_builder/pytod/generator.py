@@ -79,15 +79,18 @@ class PyTODApiCodeGenerator:
         schema: ServiceSchema,
         dialogue_data_path: Optional[Union[str, Path]] = None,
         max_dialogue_samples: int = 5,
+        sgd_dialogue_data_path: Optional[Union[str, Path]] = None,
+        discovery_data_path: Optional[Union[str, Path]] = None,
     ) -> Optional[str]:
         """一次 LLM 调用生成整个 ``*_pytod_apis.py`` 模块的函数定义区（不含 import 和工具函数）。
 
         Args:
             schema: 服务 schema。
-            dialogue_data_path: 可选，真实对话数据文件路径（JSON 格式）。
-                支持 resources/data/chat_test_100.json 等格式。
+            dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
                 传入后 LLM 将参考真实业务流程生成更准确的函数体。
             max_dialogue_samples: 从对话数据中最多取几条样本（避免 prompt 过长）。
+            sgd_dialogue_data_path: 可选，dialogues_001.json（SGD 格式）路径。
+            discovery_data_path: 可选，discovery_raw.json 路径，提供真实槽位示例。
 
         Returns:
             包含所有函数定义的 Python 代码字符串，失败时返回 None。
@@ -113,22 +116,41 @@ class PyTODApiCodeGenerator:
             slot_lines.append(f"- {slot.name}: {slot.description}{vals}")
         slots_summary = "\n".join(slot_lines) if slot_lines else "（无槽位）"
 
-        # 构建对话背景章节（可选）
+        # 构建对话背景章节（dialogue_data_path 优先；其次 sgd_dialogue_data_path）
         dialogue_context_section = ""
+        samples: List[str] = []
         if dialogue_data_path:
             samples = self._load_dialogue_samples(
                 dialogue_data_path, max_samples=max_dialogue_samples
             )
-            if samples:
-                formatted = "\n\n".join(
-                    f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples)
-                )
+        elif sgd_dialogue_data_path:
+            samples = self._load_sgd_dialogue_samples(
+                sgd_dialogue_data_path, max_samples=max_dialogue_samples
+            )
+        if samples:
+            formatted = "\n\n".join(
+                f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples)
+            )
+            # 附加 discovery_raw 摘要（若有）
+            disc_summary = ""
+            if discovery_data_path:
+                disc_summary = self._load_discovery_samples(discovery_data_path)
+            if disc_summary:
+                formatted += f"\n\n{disc_summary}"
+            dialogue_context_section = DIALOGUE_CONTEXT_SECTION.format(
+                dialogue_samples=formatted
+            )
+            logger.info(
+                f"[PyTODApiCodeGenerator] 已加载 {len(samples)} 条对话样本用于辅助生成"
+            )
+        elif discovery_data_path:
+            # 即便无对话样本，也可以单独注入 discovery 摘要
+            disc_summary = self._load_discovery_samples(discovery_data_path)
+            if disc_summary:
                 dialogue_context_section = DIALOGUE_CONTEXT_SECTION.format(
-                    dialogue_samples=formatted
+                    dialogue_samples=disc_summary
                 )
-                logger.info(
-                    f"[PyTODApiCodeGenerator] 已加载 {len(samples)} 条对话样本用于辅助生成"
-                )
+
 
         user_msg = MODULE_GEN_USER_TEMPLATE.format(
             service_name=schema.service_name,
@@ -251,6 +273,8 @@ class PyTODApiCodeGenerator:
         schema: ServiceSchema,
         dialogue_data_path: Optional[Union[str, Path]] = None,
         max_cases_per_intent: int = 5,
+        discovery_data_path: Optional[Union[str, Path]] = None,
+        sgd_dialogue_data_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, List[TestCaseItem]]:
         """Phase 2：为 schema 中的每个意图生成测试用例（LLM 驱动）。
 
@@ -259,19 +283,31 @@ class PyTODApiCodeGenerator:
 
         Args:
             schema: 服务 schema，包含意图和槽位定义。
-            dialogue_data_path: 可选，真实对话数据文件路径（提供业务背景）。
+            dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
             max_cases_per_intent: 每个意图最多生成的测试用例数。
+            discovery_data_path: 可选，discovery_raw.json 路径，提供真实槽位示例。
+            sgd_dialogue_data_path: 可选，dialogues_001.json（SGD 格式）路径。
 
         Returns:
             字典，key 为 intent_name，value 为 ``TestCaseItem`` 列表。
         """
-        # 加载对话提示（仅摘要，不加载完整样本）
+        # 构建对话提示（dialogue_data_path 优先；其次 sgd_dialogue_data_path）
         dialogue_hint = ""
         if dialogue_data_path:
             samples = self._load_dialogue_samples(dialogue_data_path, max_samples=2)
             if samples:
                 brief = samples[0][:300]
                 dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
+        elif sgd_dialogue_data_path:
+            samples = self._load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=2)
+            if samples:
+                brief = samples[0][:300]
+                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
+        # 附加 discovery_raw 提取的真实槽位示例
+        if discovery_data_path:
+            disc_summary = self._load_discovery_samples(discovery_data_path)
+            if disc_summary:
+                dialogue_hint += disc_summary + "\n\n"
 
         all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
         result: Dict[str, List[TestCaseItem]] = {}
@@ -491,6 +527,132 @@ class PyTODApiCodeGenerator:
         except Exception as exc:
             logger.warning(f"[PyTODApiCodeGenerator] 加载对话数据失败: {exc}")
             return []
+
+    @staticmethod
+    def _load_sgd_dialogue_samples(
+        data_path: Union[str, Path],
+        max_samples: int = 5,
+    ) -> List[str]:
+        """从 SGD 格式的 dialogues_001.json 加载并格式化对话样本。
+
+        SGD 格式：``[{"dialogue_id":..., "services":[...], "turns":[{"speaker":..., "utterance":...}, ...]}]``
+
+        Returns:
+            格式化后的对话文本列表。
+        """
+        try:
+            path = Path(data_path)
+            if not path.exists():
+                logger.warning(f"[PyTODApiCodeGenerator] SGD 对话文件不存在: {path}")
+                return []
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if not isinstance(data, list) or not data:
+                return []
+            samples: List[str] = []
+            for item in data:
+                if len(samples) >= max_samples:
+                    break
+                turns = item.get("turns", [])
+                if not turns:
+                    continue
+                lines: List[str] = []
+                for turn in turns[:10]:
+                    speaker = turn.get("speaker", "")
+                    utterance = turn.get("utterance", "")
+                    # SGD 中机器人说话者标签为 SYSTEM，用户为 USER
+                    label = "机器人" if speaker.upper() in ("SYSTEM", "机器人") else "用户"
+                    lines.append(f"{label}：{utterance[:80]}")
+                if lines:
+                    samples.append("\n".join(lines))
+            return samples
+        except Exception as exc:
+            logger.warning(f"[PyTODApiCodeGenerator] 加载 SGD 对话数据失败: {exc}")
+            return []
+
+    @staticmethod
+    def _load_discovery_samples(
+        data_path: Union[str, Path],
+        max_items: int = 20,
+    ) -> str:
+        """从 discovery_raw.json 提取真实槽位示例，格式化为 LLM 可读的摘要。
+
+        discovery_raw.json 格式：
+        ``[{"dialogue_id":..., "turns":[{"turn_idx":..., "speaker":..., "utterance":...,
+            "extractions":[{"extraction_class":..., "label":..., "value":...}]}]}]``
+
+        Returns:
+            格式化后的槽位示例摘要字符串（空时返回空字符串）。
+        """
+        try:
+            path = Path(data_path)
+            if not path.exists():
+                return ""
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if not isinstance(data, list):
+                return ""
+            # 收集所有有 extractions 的轮次中的 intent/slot 示例
+            examples: Dict[str, List[str]] = {}
+            count = 0
+            for item in data:
+                for turn in item.get("turns", []):
+                    for ext in turn.get("extractions", []):
+                        label = ext.get("label", "")
+                        value = ext.get("value", "")
+                        cls = ext.get("extraction_class", "")
+                        if label and value and cls in ("intent", "slot"):
+                            examples.setdefault(label, [])
+                            if value not in examples[label]:
+                                examples[label].append(value)
+                                count += 1
+                    if count >= max_items * 3:
+                        break
+                if count >= max_items * 3:
+                    break
+            if not examples:
+                return ""
+            lines = ["## 真实对话中提取到的槽位/意图示例（参考生成真实值）"]
+            shown = 0
+            for label, values in list(examples.items())[:max_items]:
+                sample_vals = "、".join(values[:3])
+                lines.append(f"- {label}：{sample_vals}")
+                shown += 1
+            return "\n".join(lines)
+        except Exception as exc:
+            logger.warning(f"[PyTODApiCodeGenerator] 加载 discovery_raw 失败: {exc}")
+            return ""
+
+    @staticmethod
+    def load_kb_context(
+        kb_dir: Union[str, Path],
+    ) -> Dict[str, Any]:
+        """从 KB 输出目录加载 4 个数据文件的上下文信息。
+
+        KB 输出目录（由 :func:`contextmind.knowledge.KnowledgeBaseBuilder.save_dataset` 生成）
+        中包含以下文件（全部可选，缺失时跳过）：
+
+        - ``schema.json``         — 服务 schema（意图/槽位定义）
+        - ``dialogues_001.json``  — SGD 格式的处理后对话
+        - ``discovery_raw.json``  — 逐轮槽位提取原始数据
+        - ``conversion_summary.json`` — 转换摘要统计
+
+        Returns:
+            包含以下键的字典：
+            ``dialogues_path``  (Path|None)、``discovery_path``  (Path|None)、
+            ``summary_path``    (Path|None)、``schema_path``     (Path|None)。
+        """
+        kb_dir = Path(kb_dir)
+        def _find(name: str) -> Optional[Path]:
+            p = kb_dir / name
+            return p if p.exists() else None
+
+        return {
+            "dialogues_path": _find("dialogues_001.json"),
+            "discovery_path": _find("discovery_raw.json"),
+            "summary_path": _find("conversion_summary.json"),
+            "schema_path": _find("schema.json"),
+        }
 
     # ------------------------------------------------------------------
     # Internal LLM call

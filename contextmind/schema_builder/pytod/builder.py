@@ -48,6 +48,7 @@ def build_pytod_apis(
     pass_rate_threshold: float = 0.9,
     max_test_cases_per_intent: int = 5,
     generate_report: bool = False,
+    kb_dir: Optional[Union[str, Path]] = None,
 ) -> Optional[Path]:
     """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
@@ -73,10 +74,16 @@ def build_pytod_apis(
         overwrite:                目标文件已存在时是否覆盖（默认 True）。
         llm_client:               可选的 AdkLLMClient 实例。
         dialogue_data_path:       可选的真实对话数据文件路径（LLM 模式业务背景）。
+                                  支持 chat_test_100.json / chat_test_500.json 格式。
         max_iterations:           Phase 4 最大修复轮次（默认 3）。
         pass_rate_threshold:      Phase 4 通过率阈值（默认 0.9）。
         max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 5）。
         generate_report:          是否写入 ``*_validation_report.json``（默认 False）。
+        kb_dir:                   可选，KB 输出目录路径（由 KnowledgeBaseBuilder.save_dataset()
+                                  生成）。提供后自动加载目录内的 ``dialogues_001.json``、
+                                  ``discovery_raw.json``、``conversion_summary.json``，
+                                  为 LLM 生成函数提供更丰富的业务背景。
+                                  ``dialogue_data_path`` 优先级高于 ``kb_dir``。
 
     Returns:
         写入成功时返回生成的文件路径，否则返回 None。
@@ -118,9 +125,23 @@ def build_pytod_apis(
         )
 
     # ------------------------------------------------------------------
-    # Phase 2：构建测试用例（LLM 模式）
+    # 解析 KB 目录（可选）—— 当 kb_dir 存在时自动发现补充数据文件
     # ------------------------------------------------------------------
     _dlg_path = Path(dialogue_data_path) if dialogue_data_path else None
+    _discovery_path: Optional[Path] = None
+    _sgd_dlg_path: Optional[Path] = None
+    if kb_dir is not None:
+        kb_context = PyTODApiCodeGenerator.load_kb_context(kb_dir)
+        if _dlg_path is None and kb_context.get("dialogues_path"):
+            _sgd_dlg_path = kb_context["dialogues_path"]
+            logger.info(f"[PyTOD] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
+        if kb_context.get("discovery_path"):
+            _discovery_path = kb_context["discovery_path"]
+            logger.info(f"[PyTOD] kb_dir: 使用 discovery_raw.json → {_discovery_path}")
+
+    # ------------------------------------------------------------------
+    # Phase 2：构建测试用例（LLM 模式）
+    # ------------------------------------------------------------------
     test_cases_by_intent: Dict[str, List[TestCaseItem]] = {}
     if llm_generator is not None and schema.intents:
         logger.info(f"[PyTOD] Phase 2: 为 {len(schema.intents)} 个意图生成测试用例 ...")
@@ -128,6 +149,8 @@ def build_pytod_apis(
             schema,
             dialogue_data_path=_dlg_path,
             max_cases_per_intent=max_test_cases_per_intent,
+            discovery_data_path=_discovery_path,
+            sgd_dialogue_data_path=_sgd_dlg_path,
         )
         total_cases = sum(len(v) for v in test_cases_by_intent.values())
         logger.info(

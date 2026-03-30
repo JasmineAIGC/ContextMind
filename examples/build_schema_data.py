@@ -36,6 +36,9 @@ Schema 数据预生成脚本
     python examples/build_schema_data.py --with-llm \\
         --dialogue-data resources/data/chat_test_100.json --generate-report
 
+    # LLM 模式 + KB 输出目录（自动加载 dialogues_001.json / discovery_raw.json）
+    python examples/build_schema_data.py --with-llm --kb-dir output/kb_output
+
     # 自定义迭代参数
     python examples/build_schema_data.py --with-llm --max-iterations 5 --pass-rate-threshold 0.8
 
@@ -45,7 +48,7 @@ Schema 数据预生成脚本
    速度快，但函数体没有真实业务计算逻辑。
 
 2. **LLM 模式**（--with-llm）：完整运行 plan.md 定义的 5 阶段流程：
-   - Phase 2: 为每个意图生成测试用例（可指定 --dialogue-data 提供业务背景）
+   - Phase 2: 为每个意图生成测试用例（可指定 --dialogue-data 或 --kb-dir 提供业务背景）
    - Phase 3: 逐意图调用 LLM 生成函数体（Prompt 包含 few-shot 测试用例）
    - Phase 4: 批量执行验证 + 迭代修复（通过率低于阈值时调用 LLM 修复）
    - Phase 5: 生成最终文件 + 可选 validation_report.json
@@ -162,11 +165,25 @@ def main() -> None:
             "迭代次数等信息。仅在 --with-llm 时生效。"
         ),
     )
+    parser.add_argument(
+        "--kb-dir",
+        default=None,
+        metavar="DIR",
+        help=(
+            "可选：KB 输出目录路径（与 --with-llm 配合使用）。"
+            "由 KnowledgeBaseBuilder.save_dataset() 生成，包含 "
+            "dialogues_001.json、discovery_raw.json、conversion_summary.json、schema.json。"
+            "提供后 PyTOD 生成器自动加载这些文件作为补充上下文，生成更贴近真实业务逻辑的函数。"
+            "与 --dialogue-data 同时指定时，--dialogue-data 优先级更高。"
+            "示例: --kb-dir output/kb_output"
+        ),
+    )
     args = parser.parse_args()
 
     # Optionally initialize LLM client for real business logic generation
     llm_client = None
     dialogue_data_path = None
+    kb_dir = None
     if args.with_llm:
         try:
             from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
@@ -182,6 +199,16 @@ def main() -> None:
                         file=sys.stderr,
                     )
                     dialogue_data_path = None
+            if args.kb_dir:
+                kb_dir_candidate = Path(args.kb_dir)
+                if kb_dir_candidate.is_dir():
+                    kb_dir = kb_dir_candidate
+                    dialogue_note += f"，KB目录: {kb_dir.name}"
+                else:
+                    print(
+                        f"⚠️  KB 目录不存在，将忽略: {kb_dir_candidate}",
+                        file=sys.stderr,
+                    )
             print(
                 f"🤖 LLM 模式启用：5 阶段生成流程{dialogue_note}"
                 f"（最大迭代: {args.max_iterations} 轮，"
@@ -195,6 +222,7 @@ def main() -> None:
         overwrite=not args.no_overwrite,
         llm_client=llm_client,
         dialogue_data_path=dialogue_data_path,
+        kb_dir=kb_dir,
         max_iterations=args.max_iterations,
         pass_rate_threshold=args.pass_rate_threshold,
         max_test_cases_per_intent=args.max_test_cases,

@@ -57,6 +57,10 @@ class SchemaDataBuilder:
                                   生成真实业务逻辑；不提供时回退到基于规则的生成。
         dialogue_data_path:       可选的真实对话数据文件路径（LLM 模式业务背景）。
                                   支持 chat_test_100.json / chat_test_500.json 格式。
+        kb_dir:                   可选的 KB 输出目录路径（由 KnowledgeBaseBuilder.save_dataset()
+                                  生成）。提供后自动加载 ``dialogues_001.json``、
+                                  ``discovery_raw.json``、``conversion_summary.json``
+                                  作为补充上下文。``dialogue_data_path`` 优先级更高。
         max_iterations:           PyTOD Phase 4 最大修复轮次（默认 3）。
         pass_rate_threshold:      PyTOD Phase 4 通过率阈值（默认 0.9）。
         max_test_cases_per_intent: PyTOD Phase 2 每意图最多测试用例数（默认 5）。
@@ -68,6 +72,7 @@ class SchemaDataBuilder:
         overwrite: bool = True,
         llm_client: Optional[Any] = None,
         dialogue_data_path: Optional[Union[str, Path]] = None,
+        kb_dir: Optional[Union[str, Path]] = None,
         max_iterations: int = 3,
         pass_rate_threshold: float = 0.9,
         max_test_cases_per_intent: int = 5,
@@ -76,6 +81,7 @@ class SchemaDataBuilder:
         self.overwrite = overwrite
         self._llm_client = llm_client
         self._dialogue_data_path = Path(dialogue_data_path) if dialogue_data_path else None
+        self._kb_dir = Path(kb_dir) if kb_dir else None
         self._max_iterations = max_iterations
         self._pass_rate_threshold = pass_rate_threshold
         self._max_test_cases = max_test_cases_per_intent
@@ -176,6 +182,7 @@ class SchemaDataBuilder:
             pass_rate_threshold=self._pass_rate_threshold,
             max_test_cases_per_intent=self._max_test_cases,
             generate_report=self._generate_report,
+            kb_dir=self._kb_dir,
         )
 
     def build_fnctod_domain(

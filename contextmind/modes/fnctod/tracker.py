@@ -187,6 +187,15 @@ class FnCTODTracker:
         kwargs.pop("max_history_turns", None)
         # 业务场景背景（可选，注入到系统指令中让 LLM 了解对话场景）
         scenario_context = kwargs.pop("scenario_context", "")
+        # 若调用方未显式传入 scenario_context，且也未传入 system_instruction，
+        # 则使用场景配置自带的 system_prompt 作为背景，确保机器人身份与场景匹配。
+        if (
+            not scenario_context
+            and "system_instruction" not in kwargs
+            and hasattr(scenario_config, "system_prompt")
+            and scenario_config.system_prompt
+        ):
+            scenario_context = scenario_config.system_prompt
         # 外部 DomainSpec（来自 --schema 参数），FnCTOD 不再内置场景 Schema
         domain_spec = kwargs.pop("domain_spec", None)
         fm = FunctionManager()
