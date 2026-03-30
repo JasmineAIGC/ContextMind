@@ -689,6 +689,7 @@ def _fix_body_first_line_indent(raw: str) -> str:
     修复方案：将第一行的缩进补齐到其余行的最小缩进级别，
     之后 textwrap.dedent 即可正确归一化所有行。
 
+    若函数体只有一行（len(nonempty) < 2），则不需要修复，直接返回原内容。
     只有当上述条件严格满足时才修复，否则原样返回，不影响其他格式。
     """
     lines = raw.splitlines()
