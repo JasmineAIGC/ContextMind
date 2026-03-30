@@ -230,8 +230,10 @@ class PyTODApiCodeGenerator:
             raw = self._chat_sync(messages)
             body = clean_llm_function_body(raw, intent.name, param_str)
             if body is None:
+                # 记录原始响应前 300 字符，辅助诊断解析失败原因
                 logger.warning(
-                    f"[PyTODApiCodeGenerator] {intent.name}: LLM 响应无法解析，回退到规则生成"
+                    f"[PyTODApiCodeGenerator] {intent.name}: LLM 响应无法解析，回退到规则生成\n"
+                    f"  响应片段: {raw[:300]!r}"
                 )
             return body
         except Exception as exc:
@@ -570,58 +572,122 @@ class PyTODApiCodeGenerator:
 # ---------------------------------------------------------------------------
 
 def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optional[str]:
-    """从 LLM 响应中提取并验证函数体代码。
+    """从 LLM 响应中提取并验证函数体代码（支持多种 LLM 输出格式）。
 
-    处理以下常见情况：
-    - LLM 返回了完整的函数定义（包含 def 行）
-    - LLM 用 markdown 代码块包裹了输出
-    - LLM 在函数体前后有多余文字
+    处理 LLM 常见的各种输出模式：
+    - 仅输出函数体（无 def 行）
+    - 输出完整函数定义（包含 def 行）
+    - 用 markdown 代码块包裹
+    - def 行前有说明文字（如 "以下是实现：" 或模块级 import）
+    - 包含多个函数定义
 
     Returns:
         经过验证的 4 空格缩进函数体字符串，或 None（无法解析）。
     """
-    # 去除 markdown 代码块标记
-    raw = raw.strip()
+    # 1. 规范化缩进后去除首尾空白
+    #    先 dedent 再 strip，确保多行内容缩进一致（避免 strip() 仅移除第一行前导空格
+    #    导致后续行出现额外缩进的问题）
+    raw = textwrap.dedent(raw).strip()
+
+    # 2. 去除 markdown 代码块标记（```python ... ``` 或 ``` ... ```）
     m = re.search(r"```(?:python)?\s*([\s\S]+?)\s*```", raw)
     if m:
-        raw = m.group(1).strip()
+        raw = textwrap.dedent(m.group(1)).strip()
 
-    # 若 LLM 包含了 def 行，提取函数体部分
-    if raw.startswith("def "):
-        # 解析完整函数，提取函数体
+    # 3. 在文本中定位函数定义（支持 LLM 在代码前加说明文字或 import 语句的情况）
+    #    优先精确匹配函数名，次之匹配任意 def 行
+    def_match = re.search(
+        r"^def\s+" + re.escape(func_name) + r"\s*\(", raw, re.MULTILINE
+    )
+    if def_match is None:
+        # 兜底：匹配文本中任意 def 行（覆盖 LLM 使用了不同名称的情况）
+        def_match = re.search(r"^def\s+\w+\s*\(", raw, re.MULTILINE)
+
+    if def_match:
+        # 截取从 def 行开始的部分，丢弃前置说明文字 / import 语句
+        raw = raw[def_match.start():]
+
+        # 先尝试直接 parse；若失败则截取到第一个完整函数后重试
         try:
             tree = ast.parse(raw)
-            func_def = None
+        except SyntaxError:
+            raw = _truncate_to_first_function(raw)
+            try:
+                tree = ast.parse(raw)
+            except SyntaxError as exc:
+                logger.debug(
+                    f"[clean_llm_function_body] {func_name}: 函数定义语法错误 ({exc})，"
+                    f"原始片段: {raw[:300]!r}"
+                )
+                return None
+
+        # 找到目标函数节点（先按名称精确匹配，再取第一个）
+        func_def = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == func_name:
+                func_def = node
+                break
+        if func_def is None:
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
                     func_def = node
                     break
-            if func_def:
-                lines = raw.splitlines()
-                body_start = func_def.body[0].lineno - 1
-                body_lines = lines[body_start:]
-                raw = textwrap.dedent("\n".join(body_lines))
-        except SyntaxError:
-            pass
 
-    # 规范化缩进为 4 空格
-    lines = raw.splitlines()
-    if lines:
-        raw = textwrap.dedent("\n".join(lines))
+        if func_def:
+            lines = raw.splitlines()
+            body_start = func_def.body[0].lineno - 1
+            # 用 end_lineno（Python 3.8+）精确截止，避免把后续函数定义包进来
+            body_end = (
+                func_def.end_lineno
+                if hasattr(func_def, "end_lineno") and func_def.end_lineno
+                else len(lines)
+            )
+            body_lines = lines[body_start:body_end]
+            raw = textwrap.dedent("\n".join(body_lines))
 
-    # 重新缩进为 4 空格（空行保持为空）
-    indented_lines = ["    " + line if line.strip() else "" for line in raw.splitlines()]
+    # 4. 规范化缩进 → 重新缩进为 4 空格
+    raw = textwrap.dedent("\n".join(raw.splitlines()))
+    indented_lines = [
+        "    " + line if line.strip() else "" for line in raw.splitlines()
+    ]
     body = "\n".join(indented_lines)
 
-    # 校验：包装为完整函数定义后解析
+    if not body.strip():
+        logger.debug(f"[clean_llm_function_body] {func_name}: 提取的函数体为空")
+        return None
+
+    # 5. 校验：包装为完整函数定义后解析
     full_src = f"def {func_name}({param_str}):\n{body}\n"
     try:
         ast.parse(full_src)
     except SyntaxError as exc:
-        logger.debug(f"[clean_llm_function_body] SyntaxError for {func_name}: {exc}")
+        logger.debug(
+            f"[clean_llm_function_body] {func_name}: 语法校验失败: {exc}\n"
+            f"代码片段:\n{full_src[:400]}"
+        )
         return None
 
     return body
+
+
+def _truncate_to_first_function(raw: str) -> str:
+    """将 raw 截取到第一个完整函数定义结束处（遇到顶层语法错误时的 fallback）。
+
+    逐行扫描：遇到第二个顶层 def/class/import/# 时停止，
+    以此隔离出第一个函数的内容供单独 parse。
+    """
+    lines = raw.splitlines()
+    result: List[str] = []
+    in_func = False
+    for line in lines:
+        is_toplevel_def = bool(re.match(r"^def\s+", line) or re.match(r"^class\s+", line))
+        if is_toplevel_def:
+            if in_func:
+                # 遇到第二个顶层定义：停止采集
+                break
+            in_func = True
+        result.append(line)
+    return "\n".join(result)
 
 
 def clean_llm_module(raw: str, schema: ServiceSchema) -> Optional[str]:
