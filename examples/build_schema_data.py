@@ -42,6 +42,9 @@ Schema 数据预生成脚本
     # 自定义迭代参数
     python examples/build_schema_data.py --with-llm --max-iterations 5 --pass-rate-threshold 0.8
 
+    # 开启详细输出（打印每个阶段的详细进度日志）
+    python examples/build_schema_data.py --with-llm --verbose
+
 两种生成模式
 ------------
 1. **规则模式**（默认）：不依赖 LLM，使用语义化规则生成 mock 返回值的 stub 函数。
@@ -178,7 +181,23 @@ def main() -> None:
             "示例: --kb-dir output/kb_output"
         ),
     )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help=(
+            "开启详细进度输出。启用后将把底层生成器的每阶段日志（Phase 1~5 进度、"
+            "每意图通过率、LLM 调用结果等）打印到终端，方便调试和监控生成过程。"
+            "不指定时仅显示摘要信息。"
+        ),
+    )
     args = parser.parse_args()
+
+    # --verbose 模式：路由底层 logger.info / logger.debug 到 stdout
+    if args.verbose:
+        from contextmind.infra.logger import setup_logging, LogLevel
+        setup_logging(level=LogLevel.INFO, save_to_file=False)
+        print("🔍 详细输出模式已开启 — 底层阶段日志将实时打印到终端")
+        print()
 
     # Optionally initialize LLM client for real business logic generation
     llm_client = None
