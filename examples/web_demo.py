@@ -143,7 +143,7 @@ def _load_pytod_service_schema(apis_py_path: str):
     return load_schema_from_dict(data)
 
 
-def _build_fnctod_domain_inline(fm: Any, svc: Any) -> None:
+def _build_fnctod_domain_inline(fm: any, svc: any) -> None:
     """从 ServiceSchema 在线构建 FnCTOD FunctionManager 域（fallback）。"""
     fm.add_domain_from_slots(
         domain_name=svc.service_name,
