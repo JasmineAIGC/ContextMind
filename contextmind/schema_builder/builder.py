@@ -49,11 +49,35 @@ class SchemaDataBuilder:
     """从 schema.json 预生成各算法所需的 companion 数据文件。
 
     Args:
-        overwrite: 目标文件已存在时是否覆盖（默认 True）。
+        overwrite:                 目标文件已存在时是否覆盖（默认 True）。
+        llm_client:                可选的 AdkLLMClient 实例；提供时启用 LLM 5 阶段生成流程。
+        dialogue_data_path:        可选的真实对话数据文件路径（LLM 模式业务背景）。
+        kb_dir:                    可选，KB 输出目录路径。
+        max_iterations:            Phase 4 最大修复轮次（默认 3）。
+        pass_rate_threshold:       Phase 4 通过率阈值（默认 0.9）。
+        max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 5）。
+        generate_report:           是否写入验证报告（默认 False）。
     """
 
-    def __init__(self, overwrite: bool = True) -> None:
+    def __init__(
+        self,
+        overwrite: bool = True,
+        llm_client: Optional[Any] = None,
+        dialogue_data_path: Optional[Union[str, Path]] = None,
+        kb_dir: Optional[Union[str, Path]] = None,
+        max_iterations: int = 3,
+        pass_rate_threshold: float = 0.9,
+        max_test_cases_per_intent: int = 5,
+        generate_report: bool = False,
+    ) -> None:
         self.overwrite = overwrite
+        self.llm_client = llm_client
+        self.dialogue_data_path = dialogue_data_path
+        self.kb_dir = kb_dir
+        self.max_iterations = max_iterations
+        self.pass_rate_threshold = pass_rate_threshold
+        self.max_test_cases_per_intent = max_test_cases_per_intent
+        self.generate_report = generate_report
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -124,9 +148,10 @@ class SchemaDataBuilder:
     ) -> Optional[Path]:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
-        生成的 Python 文件包含每个 intent 对应的函数定义，函数：
-        - 签名参数 = required_slots + optional_slots（全部带默认值 None）
-        - 函数体返回含 result_slots 字段及语义化 mock 值的字典
+        当实例携带 ``llm_client`` 时，委托给
+        :func:`contextmind.schema_builder.pytod.builder.build_pytod_apis`
+        执行完整的 5 阶段 LLM 生成流程（plan.md）；
+        否则使用内置规则引擎生成 mock stub 函数。
 
         文件可通过 ``load_pytod_api_module(schema_path)`` 加载，
         返回的函数直接注册到 ExecutionEngine。
@@ -138,6 +163,24 @@ class SchemaDataBuilder:
         Returns:
             写入成功时返回文件路径，否则返回 None。
         """
+        # 如果初始化时提供了 llm_client（或其他 LLM 相关参数），
+        # 委托给具备完整 5 阶段逻辑的 pytod 子包构建器。
+        if self.llm_client is not None:
+            from contextmind.schema_builder.pytod.builder import build_pytod_apis as _pytod_build
+            return _pytod_build(
+                schema_path,
+                schema=schema,
+                overwrite=self.overwrite,
+                llm_client=self.llm_client,
+                dialogue_data_path=self.dialogue_data_path,
+                kb_dir=self.kb_dir,
+                max_iterations=self.max_iterations,
+                pass_rate_threshold=self.pass_rate_threshold,
+                max_test_cases_per_intent=self.max_test_cases_per_intent,
+                generate_report=self.generate_report,
+            )
+
+        # ------- 规则模式（无 LLM）-------
         schema_path = Path(schema_path)
         out_path = _companion_path(schema_path, "pytod_apis", suffix=".py")
 
