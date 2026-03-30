@@ -1,47 +1,46 @@
 """
-SchemaDataBuilder — 从 schema.json 预生成各算法所需的 companion 数据文件。
+SchemaDataBuilder — 从 schema.json 预生成各算法 companion 数据文件
 
-本模块是 schema_builder 包的**顶层协调器**。它读取 ``*_schema.json`` 文件，
-分别调用各算法子包的构建器，生成对应的 companion 文件：
+生成逻辑
+--------
 
-- **PyTOD**（`pytod/`）：``*_pytod_apis.py`` — 意图函数定义文件，
-  供 PyTOD ExecutionEngine 在运行时注册并调用。
-- **FnCTOD**（`fnctod/`）：``*_fnctod_domain.json`` — 标准 OpenAI Function
-  Calling JSON Schema 格式，符合 FnCTOD 论文原理（ACL 2024），供 FnCTOD 算法使用。
+PyTOD companion (``*_pytod_apis.py``)
+    对 schema 中的每个 intent，生成一个同名 Python 函数。函数：
+    - 签名参数 = required_slots + optional_slots（全部带默认值 None）
+    - 函数体返回含 result_slots 字段的语义化 mock 数据（不依赖 LLM）
+    - 文件可直接被 importlib 加载，函数注册到 ExecutionEngine
+
+    生成样例::
+
+        def verify_identity(account_usage_status=None):
+            \"\"\"核实用户身份信息\"\"\"
+            return {
+                "verified_identity": True,
+                "account_usage_status": account_usage_status or "正常",
+                "status": "success",
+            }
+
+FnCTOD companion (``*_fnctod_domain.json``)
+    序列化 FunctionManager.add_domain_from_slots() 所需的 DomainSpec 字典，
+    存储为可直接 json.load() 的格式，包含 domain_name / description / slots 等字段。
 
 文件命名规则
 ------------
-给定 ``schema/foo_schema.json``：
-  - PyTOD companion  → ``schema/foo_pytod_apis.py``
-  - FnCTOD companion → ``schema/foo_fnctod_domain.json``
-
-使用方式::
-
-    # 基础规则模式（无需 LLM）
-    from contextmind.schema_builder import SchemaDataBuilder
-    builder = SchemaDataBuilder()
-    builder.build_all("schema/")
-
-    # LLM 模式（生成真实业务逻辑）
-    from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
-    from contextmind.schema_builder import SchemaDataBuilder
-    llm = AdkLLMClient(config=LLMConfig.from_env())
-    builder = SchemaDataBuilder(llm_client=llm)
-    builder.build_pytod_apis("schema/anyihua_schema.json")
+给定 ``data/foo_schema.json``：
+  - PyTOD companion  → ``data/foo_pytod_apis.py``
+  - FnCTOD companion → ``data/foo_fnctod_domain.json``
 """
 
 from __future__ import annotations
 
 import json
+import textwrap
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.logger import get_logger
-from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-
-# 各算法子包构建器
-from contextmind.schema_builder.fnctod.builder import build_fnctod_domain as _build_fnctod_domain
-from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build_pytod_apis
+from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 
 logger = get_logger(__name__)
 
@@ -49,50 +48,19 @@ logger = get_logger(__name__)
 class SchemaDataBuilder:
     """从 schema.json 预生成各算法所需的 companion 数据文件。
 
-    顶层协调器，内部委托给各算法子包（``pytod/``、``fnctod/`` 等）完成具体构建工作。
-
     Args:
-        overwrite:                目标文件已存在时是否覆盖（默认 True）。
-        llm_client:               可选的 AdkLLMClient 实例。提供时 PyTOD 构建器使用 LLM
-                                  生成真实业务逻辑；不提供时回退到基于规则的生成。
-        dialogue_data_path:       可选的真实对话数据文件路径（LLM 模式业务背景）。
-                                  支持 chat_test_100.json / chat_test_500.json 格式。
-        kb_dir:                   可选的 KB 输出目录路径（由 KnowledgeBaseBuilder.save_dataset()
-                                  生成）。提供后自动加载 ``dialogues_001.json``、
-                                  ``discovery_raw.json``、``conversion_summary.json``
-                                  作为补充上下文。``dialogue_data_path`` 优先级更高。
-        max_iterations:           PyTOD Phase 4 最大修复轮次（默认 3）。
-        pass_rate_threshold:      PyTOD Phase 4 通过率阈值（默认 0.9）。
-        max_test_cases_per_intent: PyTOD Phase 2 每意图最多测试用例数（默认 5）。
-        generate_report:          是否写入 PyTOD ``*_validation_report.json``（默认 False）。
+        overwrite: 目标文件已存在时是否覆盖（默认 True）。
     """
 
-    def __init__(
-        self,
-        overwrite: bool = True,
-        llm_client: Optional[Any] = None,
-        dialogue_data_path: Optional[Union[str, Path]] = None,
-        kb_dir: Optional[Union[str, Path]] = None,
-        max_iterations: int = 3,
-        pass_rate_threshold: float = 0.9,
-        max_test_cases_per_intent: int = 5,
-        generate_report: bool = False,
-    ) -> None:
+    def __init__(self, overwrite: bool = True) -> None:
         self.overwrite = overwrite
-        self._llm_client = llm_client
-        self._dialogue_data_path = Path(dialogue_data_path) if dialogue_data_path else None
-        self._kb_dir = Path(kb_dir) if kb_dir else None
-        self._max_iterations = max_iterations
-        self._pass_rate_threshold = pass_rate_threshold
-        self._max_test_cases = max_test_cases_per_intent
-        self._generate_report = generate_report
 
     # ------------------------------------------------------------------
     # 公开 API
     # ------------------------------------------------------------------
 
     def build_all(self, data_dir: Union[str, Path]) -> List[Path]:
-        """处理目录下所有 ``*_schema.json`` 文件，生成全部算法的 companion 文件。
+        """处理目录下所有 ``*_schema.json`` 文件，生成全部 companion 文件。
 
         Args:
             data_dir: 包含 ``*_schema.json`` 文件的目录路径。
@@ -115,40 +83,34 @@ class SchemaDataBuilder:
             written.extend(self.build_single(schema_path))
 
         logger.info(
-            f"[SchemaDataBuilder] 全部完成: "
-            f"处理 {len(schema_files)} 个 schema，写入 {len(written)} 个文件"
+            f"[SchemaDataBuilder] 完成: 处理 {len(schema_files)} 个 schema，写入 {len(written)} 个文件"
         )
         return written
 
     def build_single(self, schema_path: Union[str, Path]) -> List[Path]:
-        """处理单个 schema.json，为所有已实现的算法生成 companion 文件。
-
-        当前已实现：PyTOD（``*_pytod_apis.py``）。
-        待实现：FnCTOD（``*_fnctod_domain.json``）。
+        """处理单个 schema.json，生成 PyTOD + FnCTOD companion 文件。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
 
         Returns:
-            成功写入的文件路径列表。
+            成功写入的文件路径列表（最多 2 个）。
         """
         schema_path = Path(schema_path)
         written: List[Path] = []
 
-        # 加载 schema 对象，避免各子构建器重复 IO
         try:
             with open(schema_path, encoding="utf-8") as fh:
-                schema = load_schema_from_dict(json.load(fh))
+                raw = json.load(fh)
+            schema = load_schema_from_dict(raw)
         except Exception as exc:
             logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
             return []
 
-        # PyTOD：生成 *_pytod_apis.py
         p = self.build_pytod_apis(schema_path, schema=schema)
         if p:
             written.append(p)
 
-        # FnCTOD：生成 *_fnctod_domain.json
         p = self.build_fnctod_domain(schema_path, schema=schema)
         if p:
             written.append(p)
@@ -162,8 +124,12 @@ class SchemaDataBuilder:
     ) -> Optional[Path]:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
-        委托给 :func:`contextmind.schema_builder.pytod.builder.build_pytod_apis`。
-        完整实现 plan.md 定义的 5 阶段生成流程（解析 → 测试用例 → 生成 → 验证修复 → 组装）。
+        生成的 Python 文件包含每个 intent 对应的函数定义，函数：
+        - 签名参数 = required_slots + optional_slots（全部带默认值 None）
+        - 函数体返回含 result_slots 字段及语义化 mock 值的字典
+
+        文件可通过 ``load_pytod_api_module(schema_path)`` 加载，
+        返回的函数直接注册到 ExecutionEngine。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
@@ -172,18 +138,59 @@ class SchemaDataBuilder:
         Returns:
             写入成功时返回文件路径，否则返回 None。
         """
-        return _build_pytod_apis(
-            schema_path,
-            schema=schema,
-            overwrite=self.overwrite,
-            llm_client=self._llm_client,
-            dialogue_data_path=self._dialogue_data_path,
-            max_iterations=self._max_iterations,
-            pass_rate_threshold=self._pass_rate_threshold,
-            max_test_cases_per_intent=self._max_test_cases,
-            generate_report=self._generate_report,
-            kb_dir=self._kb_dir,
-        )
+        schema_path = Path(schema_path)
+        out_path = _companion_path(schema_path, "pytod_apis", suffix=".py")
+
+        if out_path.exists() and not self.overwrite:
+            logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
+            return None
+
+        if schema is None:
+            try:
+                with open(schema_path, encoding="utf-8") as fh:
+                    schema = load_schema_from_dict(json.load(fh))
+            except Exception as exc:
+                logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
+                return None
+
+        lines: List[str] = [
+            '"""',
+            f'PyTOD API 函数集合 — 由 {schema_path.name} 生成',
+            f'Service: {schema.service_name}',
+            f'Generated at: {datetime.now(timezone.utc).isoformat()}',
+            '',
+            '每个函数对应 schema 中的一个意图（intent），函数签名参数来自',
+            'required_slots + optional_slots，返回值包含 result_slots 字段。',
+            '这些函数由 SchemaDataBuilder 预生成，运行时通过 load_pytod_api_module()',
+            '加载并注册到 ExecutionEngine，供 PyTOD AP 生成的程序调用。',
+            '"""',
+            '',
+            'from __future__ import annotations',
+            '',
+        ]
+
+        if schema.intents:
+            for intent in schema.intents:
+                lines.extend(_generate_function_lines(intent))
+                lines.append('')
+        else:
+            # No intents — generate one generic function using all slots
+            lines.extend(_generate_generic_function_lines(schema))
+            lines.append('')
+
+        # Trailing newline
+        source = '\n'.join(lines)
+
+        try:
+            with open(out_path, "w", encoding="utf-8") as fh:
+                fh.write(source)
+            logger.info(
+                f"[SchemaDataBuilder] 已写入 PyTOD APIs: {out_path} ({len(schema.intents)} 个意图)"
+            )
+            return out_path
+        except Exception as exc:
+            logger.error(f"[SchemaDataBuilder] 写入失败: {out_path} — {exc}")
+            return None
 
     def build_fnctod_domain(
         self,
@@ -192,20 +199,243 @@ class SchemaDataBuilder:
     ) -> Optional[Path]:
         """从 schema.json 生成 FnCTOD ``*_fnctod_domain.json`` companion 文件。
 
-        委托给 :func:`contextmind.schema_builder.fnctod.builder.build_fnctod_domain`。
+        输出格式为标准 OpenAI Function Calling JSON Schema（FnCTOD 算法的原生格式）：
 
-        依据 FnCTOD 原论文将服务/域整体建模为一个 OpenAI Function Calling 函数，
-        所有槽位成为参数，分类槽位携带枚举值列表。
+            {
+              "_schema_source": "anyihua_schema.json",
+              "_generated_at": "...",
+              "name": "AnYiHua_OutboundCall",
+              "description": "...",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "slot_name": {
+                    "type": "string",
+                    "description": "slot_description"
+                  },
+                  "categorical_slot": {
+                    "type": "string",
+                    "description": "...",
+                    "enum": ["val1", "val2", ...]
+                  }
+                },
+                "required": ["required_slot_name", ...]
+              }
+            }
+
+        对应 FunctionManager 中 ``DomainSpec.to_json_schema()`` 的输出格式，
+        可通过 ``load_fnctod_domain_spec(path)`` 直接重建 DomainSpec 对象。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
             schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
 
         Returns:
-            写入成功时返回生成的文件路径，否则返回 None。
+            写入成功时返回文件路径，否则返回 None。
         """
-        return _build_fnctod_domain(
-            schema_path,
-            schema=schema,
-            overwrite=self.overwrite,
-        )
+        schema_path = Path(schema_path)
+        out_path = _companion_path(schema_path, "fnctod_domain", suffix=".json")
+
+        if out_path.exists() and not self.overwrite:
+            logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
+            return None
+
+        if schema is None:
+            try:
+                with open(schema_path, encoding="utf-8") as fh:
+                    schema = load_schema_from_dict(json.load(fh))
+            except Exception as exc:
+                logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
+                return None
+
+        # Build properties dict: each slot → {type, description, enum?}
+        properties: Dict[str, Any] = {}
+        required_list: List[str] = []
+
+        for slot in schema.slots:
+            prop: Dict[str, Any] = {
+                "type": "string",
+                "description": slot.description,
+            }
+            if slot.is_categorical and slot.possible_values:
+                prop["enum"] = slot.possible_values
+            properties[slot.name] = prop
+            if slot.is_required:
+                required_list.append(slot.name)
+
+        parameters_schema: Dict[str, Any] = {
+            "type": "object",
+            "properties": properties,
+        }
+        if required_list:
+            parameters_schema["required"] = required_list
+
+        domain_data: Dict[str, Any] = {
+            "_schema_source": schema_path.name,
+            "_generated_at": datetime.now(timezone.utc).isoformat(),
+            "name": schema.service_name,
+            "description": schema.description,
+            "parameters": parameters_schema,
+        }
+
+        try:
+            with open(out_path, "w", encoding="utf-8") as fh:
+                json.dump(domain_data, fh, ensure_ascii=False, indent=2)
+            logger.info(
+                f"[SchemaDataBuilder] 已写入 FnCTOD domain: {out_path} ({len(properties)} 个槽位)"
+            )
+            return out_path
+        except Exception as exc:
+            logger.error(f"[SchemaDataBuilder] 写入失败: {out_path} — {exc}")
+            return None
+
+
+# ---------------------------------------------------------------------------
+# 内部工具函数
+# ---------------------------------------------------------------------------
+
+def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path:
+    """返回 companion 文件路径。
+
+    ``data/foo_schema.json`` → ``data/foo_{kind}{suffix}``
+    ``data/myservice.json``  → ``data/myservice_{kind}{suffix}``
+    """
+    stem = schema_path.stem
+    base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
+    return schema_path.parent / f"{base}_{kind}{suffix}"
+
+
+def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str:
+    """为 result_slot 返回合理的 Python 字面量字符串表示。"""
+    name_lower = slot_name.lower()
+    intent_lower = intent.name.lower()
+
+    # ---- Intent-level semantics ----
+    # Confirmation / verification intents → boolean result
+    if any(intent_lower.startswith(p) for p in (
+        "confirm_", "verify_", "close_", "decline_", "end_",
+        "express_", "acknowledge_",
+    )):
+        if any(kw in name_lower for kw in ("declined", "rejected", "refused", "closed", "end")):
+            return "False"
+        return "True"
+
+    # Complaint / dispute intents → acknowledgement string
+    if any(intent_lower.startswith(p) for p in (
+        "complain_", "complaint_", "dispute_", "reject_",
+    )):
+        return '"已记录，将在3个工作日内处理"'
+
+    # Schedule intents
+    if intent_lower.startswith("schedule_"):
+        if "time" in name_lower or "date" in name_lower:
+            return '"明天上午10:00"'
+        return "True"
+
+    # Inquiry / query intents
+    if any(intent_lower.startswith(p) for p in ("inquire_", "query_", "check_", "search_", "find_")):
+        # specific slot-name heuristics for query results
+        if "status" in name_lower:
+            return '"已发货"'
+        if "info" in name_lower or "policy" in name_lower or "detail" in name_lower:
+            return '"标准服务条款：退换货政策7天内有效。"'
+        if "amount" in name_lower or "limit" in name_lower or "quota" in name_lower:
+            return '"5000元"'
+        if "rate" in name_lower or "interest" in name_lower:
+            return '"年利率7.2%"'
+        return f'"[{intent.name}查询结果]"'
+
+    # ---- Slot-name semantics ----
+    # Boolean-like result slots
+    if any(kw in name_lower for kw in (
+        "verified", "confirmed", "declined", "acknowledged",
+        "informed", "accepted", "approved", "suggested",
+    )):
+        is_negative = any(kw in name_lower for kw in ("declined", "rejected", "refused"))
+        return "False" if is_negative else "True"
+
+    # ID / ticket slots
+    if "complaint_id" in name_lower or name_lower.endswith("_id"):
+        prefix = "".join(w[0].upper() for w in intent.name.split("_"))[:4]
+        return f'"{prefix}-20240115-001"'
+
+    if "number" in name_lower or "policy" in name_lower:
+        return f'"{intent.name.upper()[:6]}-001"'
+
+    # Status slots — domain-aware
+    if name_lower.endswith("_status"):
+        base = name_lower.replace("_status", "")
+        status_map = {
+            "order": '"已发货"',
+            "refund": '"退款处理中"',
+            "exchange": '"换货处理中"',
+            "logistics": '"快递运输中"',
+            "reset": '"密码重置成功"',
+            "update": '"信息更新成功"',
+            "payment": '"支付成功"',
+            "repayment": '"还款成功"',
+            "account": '"账户正常"',
+        }
+        for key, val in status_map.items():
+            if key in base:
+                return val
+        return '"处理成功"'
+
+    # Amount / money slots
+    if any(kw in name_lower for kw in ("amount", "quota", "limit", "balance", "fee", "price")):
+        return '"5000元"'
+
+    # Date / time slots
+    if any(kw in name_lower for kw in ("date", "time", "datetime", "schedule")):
+        return '"2024-01-15"'
+
+    # Info / content / detail slots
+    if any(kw in name_lower for kw in ("info", "detail", "content", "description", "data", "result")):
+        return f'"[{intent.name}执行成功]"'
+
+    # Interest / rate slots
+    if any(kw in name_lower for kw in ("interest", "rate", "ratio")):
+        return '"年利率7.2%"'
+
+    # Default: slot is a named completion marker
+    return f'"{intent.name}_completed"'
+
+
+def _generate_function_lines(intent: IntentDefinition) -> List[str]:
+    """为单个 intent 生成 Python 函数定义行列表。"""
+    # Build parameter list: required + optional, all with default None
+    params = list(dict.fromkeys(
+        list(intent.required_slots) + list(intent.optional_slots)
+    ))
+    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+
+    lines: List[str] = []
+    lines.append(f"def {intent.name}({param_str}):")
+    # Docstring
+    desc = intent.description.replace('"', '\\"') if intent.description else intent.name
+    lines.append(f'    """{desc}"""')
+    lines.append(f'    return {{')
+    # result_slots first (output/computed fields with semantic mock values)
+    for rs in intent.result_slots:
+        val = _mock_value_for_result_slot(rs, intent)
+        lines.append(f'        "{rs}": {val},')
+    # Echo back ALL input parameters so AP can reference x1.slot_name in say()
+    for slot in params:
+        lines.append(f'        "{slot}": {slot},')
+    # Always include status
+    lines.append(f'        "status": "success",')
+    lines.append(f'    }}')
+    return lines
+
+
+def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
+    """无意图定义时生成一个以 service_name 命名的通用函数。"""
+    slot_names = [s.name for s in schema.slots]
+    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    lines: List[str] = []
+    lines.append(f"def {schema.service_name}({param_str}):")
+    desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
+    lines.append(f'    """{desc}"""')
+    lines.append(f'    args = {{k: v for k, v in locals().items() if v is not None}}')
+    lines.append(f'    return {{"status": "success", **args}}')
+    return lines
