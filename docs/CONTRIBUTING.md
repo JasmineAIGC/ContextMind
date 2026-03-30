@@ -385,7 +385,7 @@ ContextMind/
 
 ### 添加新场景
 
-参考 [扩展场景指南](extending-scenarios.md)。
+参考 [扩展场景指南](configuration.md)。
 
 ### 运行测试
 

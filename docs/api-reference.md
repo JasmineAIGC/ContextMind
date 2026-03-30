@@ -552,4 +552,4 @@ async def process_dialogue(
 
 - [快速开始](quick-start.md)
 - [配置指南](configuration.md)
-- [示例代码](examples.md)
+- [示例代码](quick-start.md)

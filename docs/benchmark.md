@@ -124,3 +124,63 @@ print(ev2.calculate_metrics().to_dict())
 2. 在 `algorithms/__init__.py` 中导出新评测器
 3. 在 `runners/` 下创建对应的运行脚本
 
+
+---
+
+## 评测指标说明
+
+### DST 指标
+
+| 指标 | 说明 |
+|------|------|
+| **Slot Accuracy** | 每轮次中所有槽位值都预测正确的比例 |
+| **Joint Goal Accuracy (JGA)** | 所有槽位在所有轮次均正确的对话比例（最严格指标） |
+| **Slot F1** | 槽位预测的 F1 分数（精确率与召回率的调和平均） |
+
+**JGA 计算示意**：
+
+```
+对话 1: 轮次1✅ 轮次2✅ 轮次3❌ → JGA=0（任一轮次出错即整条对话失败）
+对话 2: 轮次1✅ 轮次2✅ 轮次3✅ → JGA=1
+整体 JGA = 1/2 = 0.5
+```
+
+### 意图识别指标
+
+| 指标 | 说明 |
+|------|------|
+| **Intent Accuracy** | 预测意图与真实意图完全匹配的比例 |
+| **Intent F1** | 意图预测的 F1 分数（含局部匹配） |
+
+### Evolve 指标
+
+| 指标 | 说明 |
+|------|------|
+| **Knowledge Extraction Rate** | 成功从对话中提取知识的比例 |
+| **Context Utilization Rate** | 历史上下文被有效引用的比例 |
+
+---
+
+## 意图评测（IntentEvaluator）
+
+`benchmark/shared/intent_evaluator.py` 提供独立的意图评测器，可与任意算法组合使用。
+
+```python
+from benchmark.shared import IntentEvaluator
+
+evaluator = IntentEvaluator()
+
+# 添加预测结果
+evaluator.add_prediction(
+    predicted_intents=["查询酒店", "订房"],
+    ground_truth_intents=["查询酒店"],
+    domain="酒店"
+)
+
+# 计算指标
+metrics = evaluator.calculate_metrics()
+print(f"Intent Accuracy: {metrics.intent_accuracy:.3f}")
+print(f"Intent F1: {metrics.intent_f1:.3f}")
+```
+
+意图标签配置文件位于 `benchmark/shared/configs/`，按领域区分（TransferTOD 格式）。

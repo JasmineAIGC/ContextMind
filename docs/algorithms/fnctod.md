@@ -83,7 +83,7 @@ FnCTOD 输入：
 
 ## 评测指标
 
-FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.md`](../metrics-explanation.md)）：
+FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.md`](../benchmark.md)）：
 
 | 指标 | 粒度 | 说明 |
 |------|------|------|
@@ -260,7 +260,7 @@ python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 10 --verbose
 
 ## 参考资料
 
-- [评测指标说明](../metrics-explanation.md)
-- [TransferTOD 数据集](../datasets/transfertod.md)
-- [FnCTOD 模式代码文档](../../contextmind/modes/fnctod/README.md)
+- [评测指标说明](../benchmark.md)
+- [TransferTOD 数据集](../datasets/datasets.md)
+- [API 参考](../api-reference.md)
 - [FnCTOD 论文](https://arxiv.org/abs/2405.02568)

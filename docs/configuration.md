@@ -449,6 +449,69 @@ ENABLE_MEMORY=False
 ENABLE_EVOLUTION=False
 ```
 
+---
+
+## 扩展新场景
+
+ContextMind v0.3.0+ 使用 **配置文件驱动** 的场景管理机制。所有场景在 `scenarios.yaml` 中定义，无需修改核心代码。
+
+### 添加新场景（3步）
+
+**步骤1**：在 `scenarios.yaml` 中注册场景及其 Schema
+
+```yaml
+scenes:
+  - name: 医疗咨询
+    description: 医疗问诊场景
+    schema_path: resources/schemas/medical.json
+    mode: pytod
+```
+
+**步骤2（PyTOD 模式）**：创建 API 注册函数
+
+```python
+# contextmind/scenarios/registry.py（或自定义模块）
+from contextmind.modes.pytod import AdkPyTODTracker
+
+def register_medical_apis(tracker: AdkPyTODTracker):
+    def query_symptoms(symptom: str):
+        # 调用真实医疗系统
+        return {"status": "success", "diagnosis": "..."}
+    tracker.register_api("query_symptoms", query_symptoms)
+```
+
+**步骤3**：使用 ContextPipeline 加载
+
+```python
+from contextmind import ContextPipeline
+from contextmind.infra.llm_client import AdkLLMClient
+
+pipeline = ContextPipeline(llm_client=AdkLLMClient())
+pipeline.set_schema(schema_dict)  # 从 JSON 加载 schema
+pipeline.register_api("query_symptoms", query_symptoms_fn)
+
+result = await pipeline.process_turn("我最近头疼，该怎么办？")
+```
+
+### 场景 Schema 格式
+
+```json
+{
+  "scene_name": "医疗咨询",
+  "intents": [
+    {
+      "intent": "query_symptoms",
+      "description": "查询症状",
+      "required_slots": ["symptom"],
+      "optional_slots": ["duration"],
+      "result_slots": ["diagnosis", "recommendation"]
+    }
+  ]
+}
+```
+
+---
+
 ## 相关文档
 
 - [快速开始](quick-start.md)

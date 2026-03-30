@@ -203,11 +203,11 @@ python my_first_app.py
 ### 学习路径
 
 1. **理解四种模式**
-   - 阅读 [模式对比文档](modes.md)
+   - 阅读 [模式对比文档](README.md)
    - 了解 DST、FnCTOD、PyTOD、Evolve 的区别和适用场景
 
 2. **查看更多示例**
-   - 浏览 [示例代码集合](examples.md)
+   - 浏览 [示例代码集合](quick-start.md)
    - 学习不同场景的使用方法
 
 3. **深入 API**
@@ -215,7 +215,7 @@ python my_first_app.py
    - 了解所有可用的类和方法
 
 4. **扩展场景**
-   - 阅读 [扩展场景指南](extending-scenarios.md)
+   - 阅读 [扩展场景指南](configuration.md)
    - 创建自己的对话场景
 
 ### 常见问题
@@ -245,9 +245,66 @@ python examples/cli_demo.py --scenario chat --mode dst --verbose
 
 **更多问题？** 查看 [故障排查指南](troubleshooting.md)
 
+## 更多示例
+
+### 批量处理多轮对话
+
+```python
+import asyncio
+from contextmind import ContextPipeline
+from contextmind.infra.llm_client import AdkLLMClient
+
+async def process_session(utterances: list[str]) -> list[dict]:
+    pipeline = ContextPipeline(llm_client=AdkLLMClient())
+    pipeline.set_schema(my_schema)
+
+    results = []
+    for utterance in utterances:
+        result = await pipeline.process_turn(utterance)
+        results.append(result)
+    return results
+```
+
+### 从已有 Schema 启动（跳过 KB 构建）
+
+```python
+from contextmind import ContextPipeline
+from contextmind.infra.llm_client import AdkLLMClient
+from contextmind.knowledge.builder import KnowledgeBaseBuilder
+import json
+
+# 加载已存在的 schema
+schema = KnowledgeBaseBuilder.load_schema("data/output/schema.json")
+
+pipeline = ContextPipeline(llm_client=AdkLLMClient())
+pipeline.set_schema(schema)
+
+result = await pipeline.process_turn("帮我查一下贷款额度")
+```
+
+### 直接使用 AdkPyTODTracker
+
+```python
+from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.infra.llm_client import AdkLLMClient
+
+tracker = AdkPyTODTracker(llm_client=AdkLLMClient())
+tracker.from_scenario("安逸花外呼")
+
+result = await tracker.process_turn(
+    system_utterance="您好，请问有什么可以帮您？",
+    user_utterance="我想查一下我的贷款额度"
+)
+print(result["response"])
+```
+
+---
+
 ## 相关资源
 
 - [完整文档](README.md)
+- [API 参考](api-reference.md)
+- [配置指南](configuration.md)
 - [GitHub 仓库](https://github.com/JasmineAIGC/ContextMind)
 - [问题反馈](https://github.com/JasmineAIGC/ContextMind/issues)
 

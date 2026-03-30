@@ -7,7 +7,7 @@
 - **实现状态**: ✅ 已实现
 - **官方源码**: https://github.com/apple/ml-pytod
 - **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/abs/2508.15456)
-- **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/sgd.md)
+- **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/datasets.md)
 
 ---
 
@@ -119,7 +119,7 @@ pyTOD 包含以下核心组件（来自官方源码）：
 
 ## SGD 数据集集成
 
-pyTOD 使用 SGD（Schema-Guided Dialogue）数据集，详细说明见 [SGD 数据集文档](../datasets/sgd.md)。
+pyTOD 使用 SGD（Schema-Guided Dialogue）数据集，详细说明见 [SGD 数据集文档](../datasets/datasets.md)。
 
 关键特性：
 - 20 个服务，16 个领域
@@ -262,7 +262,7 @@ response = await tracker.process_turn("我要预订一家餐厅")
 
 - [pyTOD 官方 GitHub](https://github.com/apple/ml-pytod)
 - [PyTOD 论文](https://arxiv.org/abs/2508.15456)
-- [SGD 数据集文档](../datasets/sgd.md)
+- [SGD 数据集文档](../datasets/datasets.md)
 - [SGD 原始论文](https://arxiv.org/abs/1909.05855)
 - [DST 算法文档](dst.md)
 - [FnCTOD 算法文档](fnctod.md)
