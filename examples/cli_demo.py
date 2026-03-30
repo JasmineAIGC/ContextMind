@@ -8,11 +8,12 @@ ContextMind 命令行交互 Demo
 使用方式:
     python examples/cli_demo.py --scenario chat --mode evolve
     python examples/cli_demo.py --scenario callcenter --mode dst
-    python examples/cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_schema.json
+    python examples/cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_fnctod_domain.json
     python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
 
 Schema 说明:
-    FnCTOD 使用 JSON schema 文件（--fnctod-schema schema/xxx_schema.json）
+    FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
+           也接受原始 schema（schema/xxx_schema.json），自动寻找 companion 文件
     PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
 """
 
@@ -43,26 +44,39 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 
 
 def _load_fnctod_schema(json_path: str):
-    """从 schema.json 文件加载 FnCTOD DomainSpec（及 ServiceSchema）。"""
-    from contextmind.modes.fnctod.function_manager import FunctionManager
-    with open(json_path, encoding="utf-8") as f:
-        data = json.load(f)
-    svc = load_schema_from_dict(data)
-    fm = FunctionManager()
-    fm.add_domain_from_slots(
-        domain_name=svc.service_name,
-        domain_description=svc.description,
-        slots={slot.name: slot.description for slot in svc.slots},
-        categorical_slots={
-            slot.name: slot.possible_values
-            for slot in svc.slots if slot.possible_values
-        } or None,
-        required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
-    )
-    domains = fm.get_all_domains()
-    if not domains:
-        raise ValueError(f"Schema produced no valid domains")
-    domain_spec = domains[0]
+    """从 schema 文件加载 FnCTOD DomainSpec（及 ServiceSchema）。
+
+    支持两种输入：
+
+    1. ``*_fnctod_domain.json`` — 预生成的 companion 文件（推荐，由
+       ``python examples/build_schema_data.py`` 生成）。
+    2. ``*_schema.json`` — 原始 schema 文件；若同目录存在对应的
+       ``*_fnctod_domain.json`` 则自动优先使用它，否则在线构建。
+
+    Returns:
+        ``(ServiceSchema, DomainSpec)`` 二元组；加载失败时抛出异常。
+    """
+    from contextmind.modes.fnctod.schemas import load_domain_spec_from_file
+
+    sp = Path(json_path)
+
+    # 若传入 *_schema.json，自动检查同目录是否存在预生成的 companion 文件
+    load_path = sp
+    if sp.stem.endswith("_schema"):
+        base = sp.stem[: -len("_schema")]
+        companion = sp.parent / f"{base}_fnctod_domain.json"
+        if companion.exists():
+            load_path = companion
+
+    domain_spec = load_domain_spec_from_file(load_path)
+
+    # 同时加载 ServiceSchema（供需要服务元信息的调用方使用）
+    svc = None
+    raw_schema = Path(json_path)
+    if raw_schema.stem.endswith("_schema") and raw_schema.exists():
+        with open(raw_schema, encoding="utf-8") as f:
+            svc = load_schema_from_dict(json.load(f))
+
     return svc, domain_spec
 
 
@@ -299,7 +313,8 @@ def parse_args():
                         metavar="N", help="最大历史轮数")
     parser.add_argument(
         "--fnctod-schema", type=str, default=None, metavar="PATH",
-        help="FnCTOD 模式的 schema.json 路径（SGD 格式，schema/ 目录下）",
+        help="FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json "
+             "（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）",
     )
     parser.add_argument(
         "--pytod-apis", type=str, default=None, metavar="PATH",

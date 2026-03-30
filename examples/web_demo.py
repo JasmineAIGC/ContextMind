@@ -9,11 +9,12 @@ ContextMind Web界面Demo
     python examples/web_demo.py
     python examples/web_demo.py --log-level DEBUG --port 8080
     python examples/web_demo.py --max-history-turns 20 --share
-    python examples/web_demo.py --fnctod-schema schema/anyihua_schema.json
+    python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
     python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
 
 Schema 说明:
-    FnCTOD 使用 JSON schema 文件（--fnctod-schema schema/xxx_schema.json）
+    FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
+           也接受原始 schema（schema/xxx_schema.json），自动寻找 companion 文件
     PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
 """
 
@@ -823,7 +824,7 @@ def parse_args():
   python examples/web_demo.py --log-level DEBUG
   python examples/web_demo.py --port 8080 --share
   python examples/web_demo.py --max-history-turns 20 --log-level INFO
-  python examples/web_demo.py --fnctod-schema schema/anyihua_schema.json
+  python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
   python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
         """
     )
@@ -860,7 +861,8 @@ def parse_args():
         type=str,
         default=None,
         metavar='PATH',
-        help='FnCTOD 模式的 schema.json 路径（SGD 格式，schema/ 目录下）。例如: --fnctod-schema schema/anyihua_schema.json',
+        help='FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json '
+             '（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
     )
 
     parser.add_argument(

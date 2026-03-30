@@ -20,7 +20,8 @@ FnCTOD 对话状态追踪脚本
     python examples/fnctod_trace_demo.py --seed 42
     python examples/fnctod_trace_demo.py --index 5
     python examples/fnctod_trace_demo.py --output /tmp/trace.md --verbose
-    python examples/fnctod_trace_demo.py --schema /path/to/schema.json
+    python examples/fnctod_trace_demo.py --schema schema/anyihua_fnctod_domain.json
+    python examples/fnctod_trace_demo.py --schema schema/anyihua_schema.json
 """
 
 from __future__ import annotations
@@ -45,8 +46,10 @@ from contextmind.modes.fnctod.function_manager import DomainSpec
 from contextmind.modes.pytod.schemas import load_schema_from_dict
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-# 默认 schema：安逸花外呼业务（schema/anyihua_schema.json）
-_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "schema" / "anyihua_schema.json"
+# 默认 schema：安逸花外呼业务 companion 文件（schema/anyihua_fnctod_domain.json）
+# 若 companion 文件不存在，自动回退到 anyihua_schema.json
+_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "schema" / "anyihua_fnctod_domain.json"
+_DEFAULT_SCHEMA_PATH_FALLBACK = _PROJECT_ROOT / "schema" / "anyihua_schema.json"
 _AGENT_KEY = "机器人"
 _USER_KEY = "用户"
 
@@ -62,70 +65,32 @@ _USER_ICON = "👤"
 
 
 def _load_domain_spec_from_schema_file(path: Path) -> DomainSpec:
-    """从 schema.json 文件加载 DomainSpec，替换预定义的场景 Schema。
+    """从 schema 文件加载 DomainSpec，供 FnCTOD 追踪器使用。
 
-    支持两种 JSON 格式：
+    支持以下输入格式（按优先级排序）：
 
-    1. **SGD / KB-builder 格式**（推荐，由 ``save_dataset()`` 生成）::
-
-           [{"service_name": "...", "description": "...",
-             "slots": [...], "intents": [...]}]
-
-    2. **FnCTOD 原生参数格式**（直接含 ``parameters`` 列表）::
-
-           {"name": "...", "description": "...",
-            "parameters": [{"name": "...", "description": "...", ...}]}
+    1. ``*_fnctod_domain.json`` — 预生成的 companion 文件（推荐），由
+       ``python examples/build_schema_data.py`` 生成。
+    2. ``*_schema.json`` — 原始 SGD/KB-builder 格式；若同目录存在对应的
+       ``*_fnctod_domain.json`` companion 文件则自动优先使用它。
 
     Args:
-        path: schema.json 文件路径。
+        path: schema 文件路径（``*_fnctod_domain.json`` 或 ``*_schema.json``）。
 
     Returns:
         对应的 DomainSpec，可直接传给 ``FunctionManager.add_domain()``。
     """
-    from contextmind.modes.fnctod.function_manager import FunctionParameter, ParameterType
+    from contextmind.modes.fnctod.schemas import load_domain_spec_from_file
 
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    # 若传入 *_schema.json，自动检查同目录是否存在预生成的 companion 文件
+    load_path = path
+    if path.stem.endswith("_schema"):
+        base = path.stem[: -len("_schema")]
+        companion = path.parent / f"{base}_fnctod_domain.json"
+        if companion.exists():
+            load_path = companion
 
-    entry = data[0] if isinstance(data, list) else data
-
-    # FnCTOD 原生格式：顶层包含 "parameters" 列表且元素为参数定义字典
-    params_raw = entry.get("parameters", [])
-    if (
-        isinstance(params_raw, list)
-        and params_raw
-        and isinstance(params_raw[0], dict)
-        and "name" in params_raw[0]
-    ):
-        domain = DomainSpec(
-            name=entry.get("name", entry.get("service_name", "custom")),
-            description=entry.get("description", ""),
-        )
-        for p in params_raw:
-            domain.add_parameter(FunctionParameter(
-                name=p["name"],
-                description=p.get("description", ""),
-                param_type=ParameterType.STRING,
-                required=p.get("required", False),
-                enum_values=p.get("enum") or p.get("enum_values") or None,
-            ))
-        return domain
-
-    # SGD / ServiceSchema 格式
-    svc = load_schema_from_dict(data)
-    fm = FunctionManager()
-    fm.add_domain_from_slots(
-        domain_name=svc.service_name,
-        domain_description=svc.description,
-        slots={slot.name: slot.description for slot in svc.slots},
-        categorical_slots={
-            slot.name: slot.possible_values
-            for slot in svc.slots
-            if slot.possible_values
-        } or None,
-        required_slots=[slot.name for slot in svc.slots if slot.is_required] or None,
-    )
-    return fm.get_all_domains()[0]
+    return load_domain_spec_from_file(load_path)
 
 
 def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
@@ -416,7 +381,9 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 或 FnCTOD 格式）；若不提供则默认使用 schema/anyihua_schema.json",
+        help="schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 build_schema_data.py 生成）；"
+             "也接受 *_schema.json（自动寻找同目录 companion 文件）；"
+             "若不提供则默认使用 schema/anyihua_schema.json",
     )
     args = parser.parse_args()
 
@@ -424,15 +391,22 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
-    # 加载 schema（必须指定 --schema 或存在默认 anyihua_schema.json）
+    # 加载 schema（必须指定 --schema 或存在默认 companion / schema 文件）
     domain_spec: Optional[DomainSpec] = None
-    schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
+    if args.schema:
+        schema_path = Path(args.schema)
+        if not schema_path.exists():
+            print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # 优先使用预生成的 companion 文件，不存在则回退到原始 schema
+        schema_path = (
+            _DEFAULT_SCHEMA_PATH if _DEFAULT_SCHEMA_PATH.exists()
+            else _DEFAULT_SCHEMA_PATH_FALLBACK
+        )
     if schema_path.exists():
         domain_spec = _load_domain_spec_from_schema_file(schema_path)
         print(f"✓ 已加载 Schema: {schema_path} (domain={domain_spec.name})")
-    elif args.schema:
-        print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
-        sys.exit(1)
     else:
         print(
             f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
