@@ -4,7 +4,7 @@
 
 ## 概述
 
-ContextMind v0.2.1+ 使用 **配置文件驱动** 的场景管理机制。所有场景定义在 `scenarios.yaml` 配置文件中，系统自动加载。
+ContextMind v0.3.0+ 使用 **配置文件驱动** 的场景管理机制。所有场景定义在 `scenarios.yaml` 配置文件中，系统自动加载。
 
 ## 快速开始
 
@@ -405,7 +405,7 @@ class MyTracker:
 ```python
 from contextmind.modes.base import BaseTracker
 
-tracker = MyTracker(llm_client=None)  # None 仅用于协议验证，实际使用需传入 SimpleLLMClient()
+tracker = MyTracker(llm_client=None)  # None 仅用于协议验证，实际使用需传入 AdkLLMClient()
 assert isinstance(tracker, BaseTracker), "未满足 BaseTracker 协议！"
 print("✅ MyTracker 协议验证通过")
 ```
@@ -418,9 +418,9 @@ print("✅ MyTracker 协议验证通过")
 from contextmind.modes.base import BaseTracker
 from my_module import MyTracker
 from contextmind.scenarios import get_chat_scenario
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
-llm = SimpleLLMClient()
+llm = AdkLLMClient()
 config = get_chat_scenario()
 
 # 工厂方法创建实例
@@ -432,7 +432,7 @@ print(tracker.get_current_state())
 
 ---
 
-**最后更新**: 2026-02-10 | **版本**: 0.2.1
+**最后更新**: 2026-03-30 | **版本**: 0.3.0
 
 #### 步骤1: 创建应用类（Evolve模式）
 

@@ -99,7 +99,7 @@
 
 2. 验证场景名称拼写
    ```python
-   from contextmind.config.registry import scenario_registry
+   from contextmind.scenarios.registry import scenario_registry
    print(scenario_registry.list_scenarios())
    ```
 
@@ -208,7 +208,7 @@
 
 2. 验证 Schema 定义
    ```python
-   from contextmind.config.registry import scenario_registry
+   from contextmind.scenarios.registry import scenario_registry
    schema = scenario_registry.get_schema("insurance")
    print(schema)
    ```

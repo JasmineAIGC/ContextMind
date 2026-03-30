@@ -91,24 +91,21 @@ DEFAULT_MODE=dst
 ### 自定义 LLM 客户端
 
 ```python
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
-# 基本配置
-client = SimpleLLMClient(
-    api_key="your_key",
-    base_url="https://api.example.com/v1",
-    model="model-name"
-)
+# 方式1：从 .env 自动加载配置（推荐）
+client = AdkLLMClient()
 
-# 高级配置
-client = SimpleLLMClient(
-    api_key="your_key",
-    base_url="https://api.example.com/v1",
-    model="model-name",
-    timeout=120,  # 超时时间
-    max_retries=5,  # 最大重试次数
-    temperature=0.7,  # 温度参数
-    max_tokens=2000  # 最大生成token数
+# 方式2：显式传入配置
+from contextmind.infra.llm_client import LLMConfig
+client = AdkLLMClient(
+    config=LLMConfig(
+        api_key="your_key",
+        base_url="https://api.example.com/v1",
+        model="model-name",
+        temperature=0.7,     # 温度参数（默认 0.3）
+        max_tokens=2000,     # 最大生成 token 数（默认 4096）
+    )
 )
 ```
 
@@ -116,10 +113,10 @@ client = SimpleLLMClient(
 
 ```python
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 config = get_chat_scenario()
 
 tracker = DialogueStateTracker.from_scenario(
@@ -142,10 +139,10 @@ tracker.use_llm_summary = False  # 使用模板摘要（不使用LLM）
 
 ```python
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_insurance_scenario
 
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 config = get_insurance_scenario()
 
 tracker = FnCTODTracker.from_scenario(
@@ -165,9 +162,9 @@ tracker.max_history_turns = 10
 
 ```python
 from contextmind.modes.evolve import EvolveEngine
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 
 engine = EvolveEngine(
     app_name="my_app",
@@ -258,21 +255,18 @@ custom_config = ScenarioConfig(
 ### 性能优化
 
 ```python
-# 减少延迟
-client = SimpleLLMClient(
-    timeout=30,  # 降低超时时间
-    model="qwen-turbo"  # 使用更快的模型
-)
+# 减少延迟：使用更快的模型（通过 .env 配置 QWEN3_MODEL=qwen-turbo）
+client = AdkLLMClient()
 
 # 减少成本
 tracker.max_history_turns = 5  # 减少历史轮数
 tracker.use_llm_summary = False  # 不使用 LLM 摘要
 engine.memory_limit = 20  # 减少记忆库大小
 
-# 提高质量
-client = SimpleLLMClient(
-    model="qwen-max",  # 使用更强的模型
-    temperature=0.3  # 降低随机性
+# 提高质量：使用更强模型，降低随机性
+from contextmind.infra.llm_client import LLMConfig
+client = AdkLLMClient(
+    config=LLMConfig(model="qwen-max", temperature=0.3)
 )
 tracker.max_history_turns = 20  # 增加上下文
 ```
@@ -364,7 +358,8 @@ ENABLE_EVOLUTION=True
 **示例：**
 ```python
 # 1. 代码中指定（优先级最高）
-client = SimpleLLMClient(model="qwen-max")
+from contextmind.infra.llm_client import LLMConfig
+client = AdkLLMClient(config=LLMConfig(model="qwen-max"))
 
 # 2. 环境变量
 os.environ['QWEN3_MODEL'] = "qwen-plus"
@@ -400,11 +395,11 @@ for var in required_vars:
 
 ```python
 import asyncio
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 async def test_connection():
     try:
-        client = SimpleLLMClient()
+        client = AdkLLMClient()
         response = await client.chat_async([
             {"role": "user", "content": "Hello"}
         ])
@@ -462,4 +457,4 @@ ENABLE_EVOLUTION=False
 
 ---
 
-**最后更新**: 2026-02-10 | **版本**: 0.2.1
+**最后更新**: 2026-03-30 | **版本**: 0.3.0

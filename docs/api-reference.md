@@ -5,30 +5,135 @@
 ## 核心导入
 
 ```python
-# 主包导入（推荐方式）
-import contextmind
-
-# 共享接口协议
-from contextmind.modes.base import BaseTracker
-
-# 追踪器导入
-from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.modes.pytod import PyTODTracker
-from contextmind.modes.evolve import EvolveEngine, create_app_for_scenario
-
-# 场景导入
-from contextmind.scenarios import (
-    get_chat_scenario,
-    get_callcenter_scenario,
-    get_insurance_scenario
+# 推荐方式：通过主包统一导入
+from contextmind import (
+    ContextPipeline,         # 统一上下文工程流水线（推荐入口）
+    KnowledgeBaseBuilder,    # 知识库构建（Phase 1）
+    AdkLLMClient,            # LLM 客户端
+    # 追踪器
+    DialogueStateTracker,
+    FnCTODTracker,
+    AdkPyTODTracker,
+    EvolveEngine,
+    create_app_for_scenario,
+    # Schema 数据模型
+    ServiceSchema,
+    load_schema_from_dict,
 )
 
-# 基础设施导入
-from contextmind.infra.llm_client import SimpleLLMClient
+# 底层导入（高级用法）
+from contextmind.modes.base import BaseTracker
+from contextmind.scenarios.registry import scenario_registry
 from contextmind.infra.logger import get_logger
-from contextmind.config.registry import scenario_registry
 ```
+
+---
+
+## ContextPipeline（统一流水线，推荐入口）
+
+### ContextPipeline
+
+`contextmind.pipeline.ContextPipeline` 是框架推荐的统一入口，将知识库构建（Phase 1）和对话上下文提取（Phase 2）整合为一个简洁 API。
+
+```python
+from contextmind import ContextPipeline, AdkLLMClient
+
+pipeline = ContextPipeline(
+    llm_client=AdkLLMClient(),
+    mode="pytod",       # 执行模式：pytod（默认）、fnctod、dst、evolve
+    scene_name="银行贷款外呼",
+)
+```
+
+#### 初始化参数
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `llm_client` | `AdkLLMClient` | LLM 客户端 |
+| `mode` | `str` | 执行模式，默认 `"pytod"` |
+| `scene_name` | `str` | 场景名称 |
+| `scene_description` | `str` | 场景描述（可选） |
+
+#### 主要方法
+
+| 方法 | 说明 |
+|------|------|
+| `build_kb(dialogues, scene_name, ...)` | Phase 1：从原始对话构建知识库 |
+| `load_kb(path)` | 从已保存的 `schema.json` 加载知识库 |
+| `set_schema(schema_dict)` | 直接从 schema 字典加载（Phase 1→2 直通） |
+| `register_api(name)(fn)` | 注册 API 函数（PyTOD 模式，装饰器用法） |
+| `async process_turn(user_utterance, ...)` | 处理单轮对话，返回上下文 |
+| `reset()` | 重置对话状态，开始新会话 |
+
+#### 示例
+
+```python
+import asyncio
+from contextmind import ContextPipeline, AdkLLMClient
+
+pipeline = ContextPipeline(llm_client=AdkLLMClient())
+
+# Phase 1: 构建知识库
+pipeline.build_kb(
+    dialogues=my_dialogues,
+    scene_name="银行贷款外呼",
+    scene_description="银行客服主动致电老客户推介个人贷款产品",
+)
+
+# 注册业务 API（PyTOD 模式）
+@pipeline.register_api("query_loan_info")
+def query_loan_info(customer_name: str) -> dict:
+    return {"credit_limit": 50000, "interest_rate": 0.12}
+
+# Phase 2: 处理对话
+async def main():
+    result = await pipeline.process_turn("我是李明，想查询贷款额度")
+    print(result["response"])           # 系统回复
+    print(result["context"])            # 本轮提取的上下文
+    print(result["cumulative_context"]) # 累积的全量上下文
+
+asyncio.run(main())
+```
+
+---
+
+## 知识库构建 API（Phase 1）
+
+### KnowledgeBaseBuilder
+
+`contextmind.knowledge.KnowledgeBaseBuilder` 接受任意格式的对话数据，经过两阶段 LLM 处理，生成标准 SGD `schema.json`。
+
+```python
+from contextmind.knowledge import KnowledgeBaseBuilder
+
+builder = KnowledgeBaseBuilder(
+    scene_name="银行贷款外呼",
+    scene_description="银行客服主动致电老客户推介个人贷款产品",
+)
+```
+
+#### 主要方法
+
+| 方法 | 说明 |
+|------|------|
+| `build(dialogues) -> dict` | 从对话数据构建 schema 字典（Phase 1：发现+合成） |
+| `save(schema_dict, path)` | 保存 schema.json 及对话文件 |
+| `build_dataset(dialogues)` | 构建完整 SGD 数据集（schema + 标注对话） |
+| `save_dataset(output_dir)` | 保存数据集到指定目录 |
+| `to_service_schema(schema_dict)` | 将 schema 字典转换为 `ServiceSchema`（Phase 1→2 桥接） |
+| `load_schema(path)` | 从 `schema.json` 加载 `ServiceSchema` |
+| `build_async(dialogues)` | 异步版 `build()` |
+| `build_dataset_async(dialogues)` | 异步版 `build_dataset()` |
+
+#### 支持的对话输入格式
+
+- **chat_test 格式**：`{"对话历史": [{"机器人": "...", "用户": "..."}]}`
+- **SGD 格式**：`{"turns": [{"speaker": "USER", "utterance": "..."}]}`
+- **文本列表**：`["agent: 你好", "user: 你好"]`
+- **平铺文本**：`"机器人：你好\n用户：你好"`
+- **嵌套格式**：`{"label": "...", "query": {"对话历史": [...]}}`（chat_test_500.json）
+
+---
 
 ---
 
@@ -36,7 +141,7 @@ from contextmind.config.registry import scenario_registry
 
 ### BaseTracker
 
-`contextmind.modes.base.BaseTracker` 是一个 [结构子类型](https://mypy.readthedocs.io/en/stable/protocols.html) Protocol，定义所有对话追踪器的公共接口。内置的 `DialogueStateTracker`、`FnCTODTracker`、`PyTODTracker` 均满足此协议。
+`contextmind.modes.base.BaseTracker` 是一个 [结构子类型](https://mypy.readthedocs.io/en/stable/protocols.html) Protocol，定义所有对话追踪器的公共接口。内置的 `DialogueStateTracker`、`FnCTODTracker`、`AdkPyTODTracker` 均满足此协议。
 
 ```python
 from contextmind.modes.base import BaseTracker
@@ -96,7 +201,7 @@ assert isinstance(MyTracker(), BaseTracker)
 
 ```python
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 # 方式1: 使用工厂方法（推荐）
 tracker = DialogueStateTracker.from_scenario(
@@ -128,12 +233,12 @@ tracker = DialogueStateTracker(
 await tracker.process_turn("我想订一个明天的桌子")
 ```
 
-**get_state() -> Dict[str, Any]**
+**get_current_state() -> Dict[str, Any]**
 
 获取当前对话状态。
 
 ```python
-current_state = tracker.get_state()
+current_state = tracker.get_current_state()
 ```
 
 **reset() -> None**
@@ -156,7 +261,7 @@ tracker.reset()
 
 ```python
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 # 使用工厂方法（推荐）
 tracker = FnCTODTracker.from_scenario(
@@ -202,7 +307,7 @@ tracker.reset()
 
 ```python
 from contextmind.modes.evolve import EvolveEngine
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 engine = EvolveEngine(
     app_name="my_app",
@@ -294,29 +399,41 @@ config = ScenarioConfig(
 
 ## 基础设施 API
 
-### SimpleLLMClient
+### AdkLLMClient
 
-简单的 LLM 客户端封装。
+基于 Google ADK（LiteLLM）的无状态 LLM 客户端，支持所有 OpenAI 兼容端点（Qwen、本地 vLLM、OpenAI 等）。配置通过 `.env` 文件或环境变量自动读取。
 
 ```python
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 
-client = SimpleLLMClient(
-    api_key="your_key",
-    base_url="https://api.openai.com/v1",
-    model="gpt-3.5-turbo"
+# 方式1：从 .env 自动加载配置（推荐）
+client = AdkLLMClient()
+
+# 方式2：显式传入配置
+client = AdkLLMClient(
+    config=LLMConfig(
+        api_key="your_key",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        model="qwen-plus",
+    )
 )
 
-# 同步调用
-response = client.chat(messages=[
-    {"role": "user", "content": "你好"}
-])
-
-# 异步调用
+# 异步调用（主要接口）
 response = await client.chat_async(messages=[
-    {"role": "user", "content": "你好"}
+    {"role": "system", "content": "你是智能助手"},
+    {"role": "user", "content": "你好"},
 ])
 ```
+
+#### LLMConfig 环境变量
+
+| 环境变量 | 说明 |
+|----------|------|
+| `QWEN3_API_KEY` / `LLM_API_KEY` | API 密钥（按优先级读取） |
+| `QWEN3_BASE_URL` / `LLM_BASE_URL` | API 基础 URL |
+| `QWEN3_MODEL` / `LLM_MODEL` | 模型名称 |
+| `LLM_TEMPERATURE` | 温度（默认 0.3） |
+| `LLM_MAX_TOKENS` | 最大 token 数（默认 4096） |
 
 ### Logger
 
@@ -334,7 +451,7 @@ logger.error("错误日志")
 ### 场景注册表
 
 ```python
-from contextmind.config.registry import scenario_registry
+from contextmind.scenarios.registry import scenario_registry
 
 # 列出所有场景
 scenarios = scenario_registry.list_scenarios()

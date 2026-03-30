@@ -2,6 +2,62 @@
 
 本文档提供 ContextMind 各种使用场景的完整示例代码。
 
+## 推荐入口：ContextPipeline 端到端示例
+
+### 0. 从原始对话到上下文提取（端到端）
+
+```python
+import asyncio
+from contextmind import ContextPipeline, AdkLLMClient
+
+async def full_pipeline():
+    """ContextPipeline 端到端演示：从原始对话到上下文提取"""
+    pipeline = ContextPipeline(llm_client=AdkLLMClient())
+
+    # Phase 1: 从原始对话构建知识库
+    my_dialogues = [
+        "坐席：你好，请问是张先生吗？\n用户：是的。\n坐席：您有 5 万元可用额度。",
+        "坐席：您好，我是安逸花客服。\n用户：我想了解一下借款利率。",
+    ]
+    pipeline.build_kb(
+        dialogues=my_dialogues,
+        scene_name="银行贷款外呼",
+        scene_description="银行客服主动致电客户推介贷款产品",
+    )
+
+    # 注册业务 API（PyTOD 模式，可选）
+    @pipeline.register_api("query_loan_info")
+    def query_loan_info(customer_name: str) -> dict:
+        return {"credit_limit": 50000, "interest_rate": 0.12}
+
+    # Phase 2: 对话上下文提取
+    result = await pipeline.process_turn("我想查询一下我的贷款额度")
+    print("回复:", result["response"])
+    print("本轮上下文:", result["context"])
+    print("累积上下文:", result["cumulative_context"])
+
+asyncio.run(full_pipeline())
+```
+
+### 0b. 从已有 schema.json 加载
+
+```python
+import asyncio
+from contextmind import ContextPipeline, AdkLLMClient
+
+async def load_and_chat():
+    """从已有 schema.json 加载知识库并对话"""
+    pipeline = ContextPipeline(llm_client=AdkLLMClient(), mode="pytod")
+    pipeline.load_kb("output/schema.json")
+
+    result = await pipeline.process_turn("我是李明，想了解借款利率")
+    print("回复:", result["response"])
+
+asyncio.run(load_and_chat())
+```
+
+---
+
 ## 基础示例
 
 ### 1. 最简单的对话
@@ -9,19 +65,19 @@
 ```python
 import asyncio
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
 async def simple_chat():
     """最简单的对话示例"""
     # 初始化
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_chat_scenario()
     tracker = DialogueStateTracker.from_scenario(llm_client, config)
     
     # 对话
     await tracker.process_turn("你好")
-    state = tracker.get_state()
+    state = tracker.get_current_state()
     print(f"对话状态: {state}")
 
 # 运行
@@ -33,12 +89,12 @@ asyncio.run(simple_chat())
 ```python
 import asyncio
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_callcenter_scenario
 
 async def multi_turn_dialogue():
     """多轮对话示例"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_callcenter_scenario()
     tracker = DialogueStateTracker.from_scenario(llm_client, config)
     
@@ -51,7 +107,7 @@ async def multi_turn_dialogue():
     
     for user_input in turns:
         await tracker.process_turn(user_input)
-        state = tracker.get_state()
+        state = tracker.get_current_state()
         print(f"用户: {user_input}")
         print(f"状态: {state}\n")
 
@@ -67,30 +123,30 @@ asyncio.run(multi_turn_dialogue())
 ```python
 import asyncio
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_callcenter_scenario
 
 async def callcenter_tracking():
     """客服问题追踪"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_callcenter_scenario()
     tracker = DialogueStateTracker.from_scenario(llm_client, config)
     
     # 客服对话流程
     await tracker.process_turn("我的订单还没到")
-    state = tracker.get_state()
+    state = tracker.get_current_state()
     
     if 'intent' in state:
         intent = state['intent']
         if intent == '查询':
             print("检测到查询意图，请求订单号...")
             await tracker.process_turn("订单号是ABC123")
-            state = tracker.get_state()
+            state = tracker.get_current_state()
             order_id = state.get('order_id')
             print(f"订单号: {order_id}")
     
     # 获取最终状态
-    final_state = tracker.get_state()
+    final_state = tracker.get_current_state()
     print(f"最终状态: {final_state}")
 
 asyncio.run(callcenter_tracking())
@@ -100,11 +156,11 @@ asyncio.run(callcenter_tracking())
 
 ```python
 from contextmind.modes.dst import DialogueStateTracker, PromptManager
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 async def custom_slots():
     """自定义槽位示例"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     
     # 创建提示管理器
     pm = PromptManager(domain="restaurant")
@@ -124,7 +180,7 @@ async def custom_slots():
     
     # 对话
     await tracker.process_turn("我想订明天晚上7点的桌子，4个人")
-    state = tracker.get_state()
+    state = tracker.get_current_state()
     print(state)
 
 asyncio.run(custom_slots())
@@ -139,12 +195,12 @@ asyncio.run(custom_slots())
 ```python
 import asyncio
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_insurance_scenario
 
 async def insurance_function_calling():
     """保险场景函数调用"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_insurance_scenario()
     tracker = FnCTODTracker.from_scenario(
         llm_client=llm_client,
@@ -172,12 +228,12 @@ asyncio.run(insurance_function_calling())
 ```python
 import asyncio
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_insurance_scenario
 
 async def handle_function_result():
     """处理函数调用结果"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_insurance_scenario()
     tracker = FnCTODTracker.from_scenario(llm_client, config)
     
@@ -214,11 +270,11 @@ asyncio.run(handle_function_result())
 ```python
 import asyncio
 from contextmind.modes.evolve import EvolveEngine
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 async def memory_demo():
     """记忆功能演示"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     
     engine = EvolveEngine(
         app_name="memory_test",
@@ -249,11 +305,11 @@ asyncio.run(memory_demo())
 ```python
 import asyncio
 from contextmind.modes.evolve import EvolveEngine
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 async def evolution_demo():
     """进化学习演示"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     
     engine = EvolveEngine(
         app_name="evolution_test",
@@ -283,12 +339,12 @@ asyncio.run(evolution_demo())
 ```python
 import asyncio
 from contextmind.modes.evolve import create_app_for_scenario
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
 async def scenario_app_demo():
     """使用场景应用"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_chat_scenario()
     
     # 创建应用
@@ -316,18 +372,18 @@ import asyncio
 from contextmind.modes.dst import DialogueStateTracker
 from contextmind.modes.fnctod import FnCTODTracker
 from contextmind.modes.evolve import create_app_for_scenario
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_insurance_scenario
 
 async def multi_mode_demo():
     """同时使用多个模式"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_insurance_scenario()
     
     # DST: 提取状态
     dst_tracker = DialogueStateTracker.from_scenario(llm_client, config)
     await dst_tracker.process_turn("我想买保险")
-    dst_state = dst_tracker.get_state()
+    dst_state = dst_tracker.get_current_state()
     print(f"DST状态: {dst_state}")
     
     # FnCTOD: 生成函数调用
@@ -346,10 +402,10 @@ asyncio.run(multi_mode_demo())
 ### 自定义LLM客户端
 
 ```python
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from typing import List, Dict, Any
 
-class CustomLLMClient(SimpleLLMClient):
+class CustomLLMClient(AdkLLMClient):
     """自定义LLM客户端"""
     
     def __init__(self, **kwargs):
@@ -392,12 +448,12 @@ async def use_custom_client():
 ```python
 import asyncio
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
 async def error_handling_demo():
     """错误处理示例"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_chat_scenario()
     tracker = DialogueStateTracker.from_scenario(llm_client, config)
     
@@ -424,12 +480,12 @@ asyncio.run(error_handling_demo())
 ```python
 import asyncio
 from contextmind.modes.evolve import create_app_for_scenario
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
 async def chatbot():
     """简单聊天机器人"""
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_chat_scenario()
     app = create_app_for_scenario("chat", llm_client, config)
     

@@ -8,15 +8,13 @@
 ContextMind/
 ├── contextmind/          # 主包（核心代码）
 ├── data/                 # 运行时输出数据（如知识提取结果 JSON）
-├── examples/             # 示例程序（10个演示脚本）
+├── examples/             # 示例程序（演示脚本）
 ├── benchmark/            # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
 ├── docs/                 # 文档（quick-start / modes / api-reference 等）
 ├── resources/            # 静态资源与测试数据
 ├── logs/                 # 日志文件（运行时生成）
 ├── setup.py              # 安装配置
 ├── requirements.txt      # Python依赖
-├── guide.md              # 安逸花场景开发指南（Phase 分析与分工）
-├── NEXT_STEPS.md         # 后续任务规划（T1–T11 详细执行计划）
 ├── .env                  # 环境变量（需创建）
 ├── .gitignore            # Git忽略配置
 └── README.md             # 项目说明
@@ -31,13 +29,56 @@ ContextMind/
 ```
 contextmind/
 ├── __init__.py          # 包入口，导出主要接口
+├── pipeline.py          # ContextPipeline（统一上下文工程流水线，推荐入口）
+├── knowledge/           # 通用知识库构建（Phase 1）
 ├── infra/               # 基础设施层
 ├── ui/                  # UI层
-├── modes/               # 对话处理模式
+├── modes/               # 对话处理模式（Phase 2）
+├── schema_builder/      # SchemaDataBuilder（为 schema 生成 PyTOD API 函数）
 └── scenarios/           # 场景配置与应用（含注册表和YAML配置）
 ```
 
-### 1. 基础设施层 (infra/)
+### 0. 统一流水线 (pipeline.py)
+
+**用途**: `ContextPipeline` — 将 Phase 1（知识库构建）和 Phase 2（对话上下文提取）整合为一个简洁 API，是框架推荐的统一入口。
+
+```
+pipeline.py
+└── ContextPipeline     # 统一上下文工程流水线
+    ├── build_kb()      # Phase 1：从原始对话构建知识库
+    ├── load_kb()       # 从 schema.json 加载知识库
+    ├── set_schema()    # 直接从 schema 字典加载
+    ├── register_api()  # 注册 PyTOD API 函数（装饰器）
+    ├── process_turn()  # Phase 2：处理单轮对话，提取上下文
+    └── reset()         # 重置对话状态
+```
+
+### 1. 知识库构建模块 (knowledge/)
+
+**用途**: Phase 1 — 将任意对话数据转换为标准 SGD `schema.json`，供 Phase 2 执行算法使用。
+
+```
+knowledge/
+├── __init__.py
+├── builder.py      # KnowledgeBaseBuilder（发现+合成+转换 三阶段流程）
+│                   #   + to_service_schema(schema_dict) → ServiceSchema（Phase 1→2 桥接）
+│                   #   + load_schema(path) → ServiceSchema
+│                   #   + build_async() / build_dataset_async() 异步方法
+├── discoverer.py   # GenericDialogueDiscoverer（LLM 逐轮发现槽位和意图，含溯源）
+├── synthesizer.py  # SchemaSynthesizer（LLM 将发现结果合成为 SGD ServiceSchema）
+└── normalizer.py   # 多格式对话归一化（5种输入格式统一处理）
+```
+
+**支持的输入格式**:
+- chat_test `{"对话历史": [{"机器人": "...", "用户": "..."}]}`
+- SGD `{"turns": [{"speaker": "USER", "utterance": "..."}]}`
+- 文本列表 `["agent: ...", "user: ..."]`
+- 平铺文本 `"机器人：...\n用户：..."`
+- 嵌套格式 `{"label": "...", "query": {"对话历史": [...]}}`
+
+**依赖**: infra
+
+### 2. 基础设施层 (infra/)
 
 **用途**: 提供底层工具和服务
 
@@ -49,7 +90,8 @@ infra/
 │   └── get_logger()    # 获取日志器
 │
 ├── llm_client.py        # LLM客户端封装
-│   └── SimpleLLMClient # 简单客户端实现
+│   └── AdkLLMClient    # 基于 Google ADK（LiteLLM）的无状态 LLM 客户端
+│   └── LLMConfig       # 配置数据类（从 .env 自动读取）
 │
 ├── embedding.py         # 向量嵌入工具
 │   └── calculate_embedding_similarity()
@@ -60,7 +102,7 @@ infra/
 
 **依赖**: 无其他内部依赖
 
-### 2. UI层 (ui/)
+### 3. UI层 (ui/)
 
 **用途**: 用户界面组件
 
@@ -74,9 +116,9 @@ ui/
 
 **依赖**: infra
 
-### 3. 对话处理模式 (modes/)
+### 4. 对话处理模式 (modes/)
 
-**用途**: 四种核心对话处理算法
+**用途**: 四种核心对话处理算法（Phase 2）
 
 ```
 modes/

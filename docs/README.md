@@ -81,6 +81,13 @@ docs/
 
 ## 🚀 快速链接
 
+### 推荐入口
+
+| 功能 | 说明 | 文档 | 示例脚本 |
+|------|------|------|---------|
+| ContextPipeline | 统一流水线（Phase 1+2） | [快速开始](quick-start.md) | `context_pipeline_demo.py` |
+| KnowledgeBaseBuilder | 知识库构建（Phase 1） | [API 参考](api-reference.md) | `build_kb_demo.py` |
+
 ### 算法评测
 
 | 算法 | 状态 | 数据集 | 文档 | 评测脚本 |
@@ -88,6 +95,7 @@ docs/
 | DST | ✅ 已实现 | TransferTOD、RiSAWOZ | [文档](algorithms/dst.md) | `run_dst_transfertod.py` |
 | FnCTOD | ✅ 已实现 | TransferTOD | [文档](algorithms/fnctod.md) | `run_fnctod_transfertod.py` |
 | pyTOD | ✅ 已实现（评测⏳待完成） | SGD | [文档](algorithms/pytod.md) | — |
+| Evolve | ✅ 已实现 | — | [文档](algorithms/evolve.md) | — |
 
 ### 数据集
 
@@ -118,4 +126,4 @@ docs/
 
 ---
 
-**最后更新**: 2026-02-25 | **版本**: 0.2.1
+**最后更新**: 2026-03-30 | **版本**: 0.3.0

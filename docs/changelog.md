@@ -5,6 +5,33 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] - 2026-03-30
+
+### 新增
+- **ContextPipeline**: 统一上下文工程流水线（`contextmind.pipeline`），将 Phase 1 知识库构建与 Phase 2 上下文提取整合为一个简洁 API，3 行代码完成端到端上下文工程
+- **KnowledgeBaseBuilder**: 通用知识库构建器（`contextmind.knowledge`），支持 5 种对话输入格式，自动完成发现→合成→转换三阶段处理
+- **AdkPyTODTracker**: 完整实现的 PyTOD 追踪器，支持 AP→EE→DM 三步流程；含 `from_scenario()` 混合注册（预定义 API + schema 存根）和模糊函数名匹配（`difflib`，cutoff=0.6）
+- **Phase 1→2 桥接方法**: `KnowledgeBaseBuilder.to_service_schema()` / `load_schema()` 直接将 Phase 1 输出连接到 Phase 2 追踪器
+- **vLLM Qwen3 支持**: `AdkLLMClient` 自动识别思维模型并通过 `chat_template_kwargs.enable_thinking=False` 关闭思维模式，避免 3–10× 延迟
+- **context_pipeline_demo.py**: 端到端 ContextPipeline 演示脚本
+- **build_kb_demo.py**: 通用知识库构建演示，支持多文件合并、多种输入格式
+
+### 变更
+- **包名调整**: 知识库构建模块由 `contextmind.kb` 正式更名为 `contextmind.knowledge`
+- **追踪器类名**: PyTOD 追踪器由 `PyTODTracker` 重命名为 `AdkPyTODTracker`，LLM 客户端由 `SimpleLLMClient` 重命名为 `AdkLLMClient`
+- **`__init__.py`**: 更新主包导出列表，新增 `ContextPipeline`、`KnowledgeBaseBuilder`、`ServiceSchema`、`load_schema_from_dict`
+- **文档全面更新**: 所有 docs/ 文档更新为 v0.3.0 API（修正类名、导入路径、代码示例）
+
+### 修复
+- 修复 `SayStatement` 处理中已绑定变量被覆盖的问题（`execution_engine.py`）
+- 修复 `_sanitize_infer_yaml`（`discoverer.py`）对 LLM 返回的三种输出格式（YAML/bare list/已包装 JSON）的解析
+- 修复 `_register_apis_from_schema` 存根签名仅包含 required+optional slots，避免 AP 函数签名过长
+
+### 安全
+- 通过 CodeQL 安全扫描，0 个安全问题
+
+---
+
 ## [未发布]
 
 ### 新增

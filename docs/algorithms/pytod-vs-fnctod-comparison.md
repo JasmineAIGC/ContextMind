@@ -30,7 +30,7 @@
 | **学术来源** | Apple Research，arxiv:2508.15456 | Meta AI，ACL 2024，arxiv:2405.02568 |
 | **核心隐喻** | **程序执行**——对话管理器生成可执行程序，引擎真实运行它 | **函数调用**——LLM 像调用函数一样填充 Schema 定义的参数 |
 | **ContextMind 实现路径** | `contextmind/modes/pytod/` | `contextmind/modes/fnctod/` |
-| **入口追踪器** | `PyTODTracker` | `FnCTODTracker` |
+| **入口追踪器** | `AdkPyTODTracker` | `FnCTODTracker` |
 | **已知测试数据集** | SGD（Schema-Guided Dialogue）、安逸花外呼质检 | TransferTOD、安逸花外呼质检 |
 
 ---
@@ -121,7 +121,7 @@ FnCTOD 解法：
 | `PyTODPromptBuilder` | `prompt_builder.py` | Action Parser / DM 的 Prompt 构建 |
 | `ServiceSchema` / `SlotDefinition` | `schema.py` | 可选 Schema 数据结构 |
 | `ActionValidator` | `validator.py` | 动作合法性校验 |
-| `PyTODTracker` | `tracker.py` | 三步流程编排，接口统一 |
+| `AdkPyTODTracker` | `tracker.py` | 三步流程编排，接口统一 |
 
 ### 3.2 FnCTOD 两层架构
 
@@ -173,7 +173,7 @@ FnCTOD 解法：
 
 ```python
 # 开放域模式（默认）：无需任何预定义
-tracker = PyTODTracker(
+tracker = AdkPyTODTracker(
     llm_client=llm,
     execution_engine=engine,   # 注册了哪些 API 函数就能用哪些
     prompt_builder=PyTODPromptBuilder(schema=None),  # schema=None 开放域
@@ -182,7 +182,7 @@ tracker = PyTODTracker(
 # 和槽位（city、date、topic），无需事先声明
 
 # Schema 约束模式（生产环境）：可选注入，增强 LLM 理解
-tracker = PyTODTracker(
+tracker = AdkPyTODTracker(
     ...
     prompt_builder=PyTODPromptBuilder(schema=my_service_schema),
 )
@@ -310,7 +310,7 @@ exec_result.variable_values = {
 exec_result.say_output = "request value: check_in_date"               # say(x2) 的输出
 ```
 
-**状态累积机制**：PyTODTracker 将执行结果中有意义的字段合并到 `current_state`：
+**状态累积机制**：AdkPyTODTracker 将执行结果中有意义的字段合并到 `current_state`：
 
 ```python
 # current_state 随对话推进逐渐积累：

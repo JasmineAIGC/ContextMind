@@ -85,7 +85,7 @@ pip install -e .
 ## 环境信息
 - OS: [例如 Ubuntu 20.04]
 - Python 版本: [例如 3.9.7]
-- ContextMind 版本: [例如 0.2.1]
+- ContextMind 版本: [例如 0.3.0]
 - LLM 提供商: [例如 Qwen]
 
 ## 错误日志
@@ -139,12 +139,12 @@ pip install -e .
 ```python
 # 好的例子
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 class MyTracker:
     """跟踪器类的文档字符串"""
     
-    def __init__(self, client: SimpleLLMClient):
+    def __init__(self, client: AdkLLMClient):
         """初始化方法"""
         self.client = client
         self.state = {}

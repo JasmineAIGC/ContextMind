@@ -138,7 +138,7 @@ PyTOD 核心算法已在 `contextmind/modes/pytod/` 目录下完整实现：
 ```
 contextmind/modes/pytod/
 ├── __init__.py           # 模块入口，导出所有公共接口
-├── tracker.py            # PyTODTracker — 主追踪器（三步流程协调）
+├── tracker.py            # AdkPyTODTracker — 主追踪器（三步流程协调）
 ├── prompt_builder.py     # PyTODPromptBuilder — 动作解析器和对话管理器 prompt 构建
 ├── execution_engine.py   # ExecutionEngine — 安全解析并执行程序语句
 ├── schema.py             # ServiceSchema / IntentDefinition / SlotDefinition
@@ -225,21 +225,21 @@ pipenv run python scripts/evaluate_pytod.py split=dev version=v0.9.1
 ### 开放域模式（无需预定义意图）
 
 ```python
-from contextmind.modes.pytod import PyTODTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.modes.pytod import AdkPyTODTracker
+from contextmind.infra.llm_client import AdkLLMClient
 
-tracker = PyTODTracker(llm_client=SimpleLLMClient())
+tracker = AdkPyTODTracker(llm_client=AdkLLMClient())
 response = await tracker.process_turn("查一下北京今天的天气")
 ```
 
 ### Schema 驱动模式（预定义意图和槽位）
 
 ```python
-from contextmind.modes.pytod import PyTODTracker, ServiceSchema, load_schema_from_dict
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.modes.pytod import AdkPyTODTracker, ServiceSchema, load_schema_from_dict
+from contextmind.infra.llm_client import AdkLLMClient
 
 schema = load_schema_from_dict({...})  # 加载 JSON schema
-tracker = PyTODTracker(llm_client=SimpleLLMClient(), schema=schema)
+tracker = AdkPyTODTracker(llm_client=AdkLLMClient(), schema=schema)
 response = await tracker.process_turn("我要预订一家餐厅")
 ```
 

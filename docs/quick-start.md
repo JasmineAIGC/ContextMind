@@ -88,9 +88,42 @@ python test_config.py
 
 ## 第一个示例
 
-### 选项 1：命令行界面
+### 选项 1：推荐方式 — ContextPipeline（端到端流水线）
 
-最简单的方式是使用命令行界面：
+`ContextPipeline` 是 ContextMind 推荐的统一入口，3 行代码完成端到端上下文工程：
+
+```python
+import asyncio
+from contextmind import ContextPipeline, AdkLLMClient
+
+# 步骤1：创建流水线
+pipeline = ContextPipeline(llm_client=AdkLLMClient())
+
+# 步骤2a：从原始对话构建知识库（Phase 1）
+my_dialogues = [
+    "坐席：你好，请问是张先生吗？\n用户：是的。\n坐席：您有 5 万元可用额度。",
+]
+pipeline.build_kb(dialogues=my_dialogues, scene_name="银行贷款外呼")
+
+# 或步骤2b：从已有 schema.json 加载
+# pipeline.load_kb("output/schema.json")
+
+# 步骤3：对话上下文提取（Phase 2）
+async def main():
+    result = await pipeline.process_turn("我想查询我的贷款额度")
+    print(result["response"])           # 系统回复
+    print(result["context"])            # 本轮提取的上下文（槽位、意图等）
+    print(result["cumulative_context"]) # 全量累积上下文
+
+asyncio.run(main())
+```
+
+运行完整演示：
+```bash
+python examples/context_pipeline_demo.py
+```
+
+### 选项 2：命令行界面
 
 ```bash
 # 运行 DST 模式的闲聊场景
@@ -117,7 +150,7 @@ python examples/cli_demo.py --scenario insurance --mode pytod
 
 输入 `退出`、`quit` 或 `exit` 结束对话。
 
-### 选项 2：Web 界面（Gradio）
+### 选项 3：Web 界面（Gradio）
 
 更直观的图形界面：
 
@@ -132,19 +165,17 @@ python examples/web_demo.py
 - 调整高级参数
 - 查看对话状态
 
-### 选项 3：编写代码
-
-创建 `my_first_app.py`：
+### 选项 4：直接使用追踪器（底层 API）
 
 ```python
 import asyncio
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
 async def main():
     # 初始化
-    llm_client = SimpleLLMClient()
+    llm_client = AdkLLMClient()
     config = get_chat_scenario()
     tracker = DialogueStateTracker.from_scenario(llm_client, config)
     
@@ -152,7 +183,7 @@ async def main():
     result = await tracker.process_turn("你好，我想了解一下你们的服务")
     
     # 查看状态
-    state = tracker.get_state()
+    state = tracker.get_current_state()
     print(f"提取的状态: {state}")
 
 # 运行
@@ -222,4 +253,4 @@ python examples/cli_demo.py --scenario chat --mode dst --verbose
 
 ---
 
-**最后更新**: 2026-03-04 | **版本**: 0.2.1
+**最后更新**: 2026-03-30 | **版本**: 0.3.0

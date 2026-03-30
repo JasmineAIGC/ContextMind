@@ -278,10 +278,10 @@ class SessionState:
 
 ```python
 from contextmind.modes.evolve import create_app_for_scenario
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 # 创建Evolve应用
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 app = create_app_for_scenario(
     scenario_name="chat",
     llm_client=llm_client
