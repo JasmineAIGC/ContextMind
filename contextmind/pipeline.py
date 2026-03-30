@@ -199,6 +199,9 @@ class ContextPipeline:
         self.tracker: Optional[Any] = None
         self._engine: Optional[Any] = None
         self._kb_builder: Optional[KnowledgeBaseBuilder] = None
+        # schema.json 路径（load_kb() 时设置），用于自动加载同目录下的
+        # companion *_pytod_apis.py 预生成函数文件
+        self._schema_path: Optional[Path] = None
 
         # 用于记录最近一次 build_kb() 的统计摘要
         self.last_build_summary: Dict[str, Any] = {}
@@ -322,6 +325,8 @@ class ContextPipeline:
             self.schema = self.schema.merge(new_schema)
         else:
             self.schema = new_schema
+        # 保存 schema 文件路径，供 _init_tracker() 加载 companion *_pytod_apis.py
+        self._schema_path = Path(schema_path)
         self._init_tracker()
         logger.info(
             f"[ContextPipeline] 已加载 schema: {self.schema.service_name}，"
@@ -574,6 +579,7 @@ class ContextPipeline:
         if self.mode == "pytod":
             from contextmind.modes.pytod.tracker import AdkPyTODTracker
             from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
+            from contextmind.modes.pytod.tracker import load_pytod_api_module
 
             engine = self._get_engine()
             # 优先注册预定义的场景 API（如 callcenter、insurance 等），
@@ -586,6 +592,17 @@ class ContextPipeline:
                     f"[ContextPipeline] 已为场景 '{self.scene_name}' 注册预置 API: "
                     f"{engine.list_functions()}"
                 )
+            # 尝试从与 schema.json 同目录的 companion *_pytod_apis.py 加载预生成函数。
+            # 预生成函数含真实业务逻辑，优先级高于存根；已注册的函数不会被覆盖。
+            if self._schema_path is not None:
+                api_funcs = load_pytod_api_module(self._schema_path)
+                if api_funcs:
+                    for func_name, func in api_funcs.items():
+                        if func_name not in engine.registry:
+                            engine.registry[func_name] = func
+                    logger.info(
+                        f"[ContextPipeline] 已从 companion 文件加载 {len(api_funcs)} 个预生成 API 函数"
+                    )
             # 为 schema 中尚未注册的意图自动生成存根，确保 AP 程序可执行
             self._register_schema_stubs(engine)
             self.tracker = AdkPyTODTracker(

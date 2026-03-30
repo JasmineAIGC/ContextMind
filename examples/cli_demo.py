@@ -83,6 +83,7 @@ class InteractiveDemo:
         # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
         self._pytod_schema = None
         self._fnctod_domain_spec = None
+        self._schema_path: Optional[str] = schema_path  # 保存路径，用于加载 companion 预生成函数
         if schema_path:
             try:
                 self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
@@ -144,6 +145,9 @@ class InteractiveDemo:
         kwargs = {}
         if self._pytod_schema is not None:
             kwargs["schema"] = self._pytod_schema
+        # 传入 schema_path 让 from_scenario() 自动加载 companion *_pytod_apis.py 预生成函数
+        if self._schema_path is not None:
+            kwargs["schema_path"] = self._schema_path
         self.tracker = AdkPyTODTracker.from_scenario(self._get_llm_client(), self.config, **kwargs)
 
     def _setup_evolve(self):
