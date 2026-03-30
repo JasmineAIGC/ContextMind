@@ -140,19 +140,31 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
     turns_results: List[Dict[str, Any]] = []
 
+    # 将会话中的用户信息注入 scenario_context，让 LLM 了解用户的账户详情，
+    # 避免重复询问已知信息（如身份、额度等）。与 pytod_trace_demo.py 保持一致。
+    user_info = session.get("用户信息", "")
+    scenario_context = _SCENARIO_CONTEXT
+    if user_info:
+        scenario_context = f"{_SCENARIO_CONTEXT}\n\n## 本次通话用户信息\n{user_info}"
+
     if llm_available:
-        agent = FnCTODTracker(function_manager=fm, config=config)
+        agent = FnCTODTracker(function_manager=fm, config=config,
+                              scenario_context=scenario_context)
         prev_state: Dict[str, Any] = {}
         for idx, (utt, orig_agent) in enumerate(paired_turns):
             # 捕获本轮 LLM 输入上下文（system + 历史对话 + 当前用户发言）
+            # effective_user_content 反映实际发送给 LLM 的完整对话对（坐席+用户）
             hist_before = list(getattr(agent, "_dialogue_history", []))
+            effective_user_content = (
+                f"坐席: {orig_agent}\n用户: {utt}" if orig_agent else utt
+            )
             llm_input_messages = (
                 [{"role": "system", "content": agent.system_instruction}]
                 + hist_before
-                + [{"role": "user", "content": utt}]
+                + [{"role": "user", "content": effective_user_content}]
             )
             try:
-                result = await agent.process_turn(utt)
+                result = await agent.process_turn(utt, agent_utterance=orig_agent)
             except Exception as exc:
                 result = {"response": f"(error: {exc})", "state": {}, "updates": {}}
 
