@@ -673,7 +673,7 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
 def _truncate_to_first_function(raw: str) -> str:
     """将 raw 截取到第一个完整函数定义结束处（遇到顶层语法错误时的 fallback）。
 
-    逐行扫描：遇到第二个顶层 def/class/import/# 时停止，
+    逐行扫描：遇到第二个顶层 def 或 class 定义时停止，
     以此隔离出第一个函数的内容供单独 parse。
     """
     lines = raw.splitlines()

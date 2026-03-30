@@ -40,7 +40,7 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
 
 # 各算法子包构建器
-from contextmind.schema_builder.fnctod.builder import build_fnctod_domain
+from contextmind.schema_builder.fnctod.builder import build_fnctod_domain as _build_fnctod_domain
 from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build_pytod_apis
 
 logger = get_logger(__name__)
@@ -197,7 +197,7 @@ class SchemaDataBuilder:
         Returns:
             当前始终返回 None（待实现）。
         """
-        return build_fnctod_domain(
+        return _build_fnctod_domain(
             schema_path,
             schema=schema,
             overwrite=self.overwrite,
