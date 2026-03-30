@@ -128,13 +128,21 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         llm_available = False
 
     history = session.get("对话历史", [])
-    paired_turns: List[tuple] = []  # (user_text, preceding_agent_text)
-    for entry in history:
-        if isinstance(entry, dict):
-            user_text = entry.get(_USER_KEY, "")
-            orig_agent = entry.get(_AGENT_KEY, "")
-            if user_text:
-                paired_turns.append((user_text, orig_agent))
+    # 每条 entry 格式：{"机器人": "坐席说的话", "用户": "用户回复"}
+    # preceding_agent = entry[i]['机器人']：坐席在用户发言「之前」说的话（用于过程上下文）
+    # following_agent = entry[i+1]['机器人']（或 坐席回复）：坐席对用户的「实际回应」（用于效果对比）
+    history_entries = [e for e in history if isinstance(e, dict) and e.get(_USER_KEY)]
+    final_agent_response = session.get("坐席回复", "")
+    paired_turns: List[tuple] = []  # (user_text, preceding_agent, following_agent)
+    for i, entry in enumerate(history_entries):
+        user_text = entry[_USER_KEY]
+        preceding_agent = entry.get(_AGENT_KEY, "")
+        following_agent = (
+            history_entries[i + 1].get(_AGENT_KEY, "")
+            if i + 1 < len(history_entries)
+            else final_agent_response
+        )
+        paired_turns.append((user_text, preceding_agent, following_agent))
     if not paired_turns:
         return {"error": "no user turns found", "session_id": session.get("session_id", "")}
 
@@ -151,12 +159,12 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         agent = FnCTODTracker(function_manager=fm, config=config,
                               scenario_context=scenario_context)
         prev_state: Dict[str, Any] = {}
-        for idx, (utt, orig_agent) in enumerate(paired_turns):
+        for idx, (utt, preceding_agent, following_agent) in enumerate(paired_turns):
             # 捕获本轮 LLM 输入上下文（system + 历史对话 + 当前用户发言）
             # effective_user_content 反映实际发送给 LLM 的完整对话对（坐席+用户）
             hist_before = list(getattr(agent, "_dialogue_history", []))
             effective_user_content = (
-                f"坐席: {orig_agent}\n用户: {utt}" if orig_agent else utt
+                f"坐席: {preceding_agent}\n用户: {utt}" if preceding_agent else utt
             )
             llm_input_messages = (
                 [{"role": "system", "content": agent.system_instruction}]
@@ -164,7 +172,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 + [{"role": "user", "content": effective_user_content}]
             )
             try:
-                result = await agent.process_turn(utt, agent_utterance=orig_agent)
+                result = await agent.process_turn(utt, agent_utterance=preceding_agent)
             except Exception as exc:
                 result = {"response": f"(error: {exc})", "state": {}, "updates": {}}
 
@@ -177,7 +185,8 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
             turn_record = {
                 "turn": idx + 1,
                 "user": utt,
-                "original_agent": orig_agent,
+                "preceding_agent": preceding_agent,  # 坐席在本轮用户发言前说的话（过程上下文）
+                "original_agent": following_agent,   # 坐席对本轮用户的实际回应（对比基准）
                 "function_call": {
                     "domains": fm.get_domain_names(),
                     "args": state_delta,
@@ -195,11 +204,12 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 print(f"  [FC] updates: {state_delta}")
                 print(f"  [DM] response: {response_text[:100]}")
     else:
-        for idx, (utt, orig_agent) in enumerate(paired_turns):
+        for idx, (utt, preceding_agent, following_agent) in enumerate(paired_turns):
             turns_results.append({
                 "turn": idx + 1,
                 "user": utt,
-                "original_agent": orig_agent,
+                "preceding_agent": preceding_agent,
+                "original_agent": following_agent,
                 "function_call": {"domains": fm.get_domain_names(), "args": {}},
                 "response": "⚠️ LLM 未配置",
                 "state_delta": {},
@@ -296,10 +306,13 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         ]
 
         # 原始对话（机器人先说，用户后说）
+        # preceding_agent：本轮用户发言之前坐席说的话（提供对话上下文）
+        preceding_agent = t.get("preceding_agent", t.get("original_agent", ""))
+        # original_agent：本轮用户发言之后坐席的实际回复（作为对比基准）
         orig_agent = t.get("original_agent", "")
         lines += ["**原始对话**:", ""]
-        if orig_agent:
-            lines.append(f"{_AGENT_ICON} **机器人**: {orig_agent}")
+        if preceding_agent:
+            lines.append(f"{_AGENT_ICON} **机器人**: {preceding_agent}")
             lines.append("")
         lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
@@ -372,15 +385,6 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         llm_msgs = t.get("llm_input_messages") or []
         lines += _format_messages_collapsible(llm_msgs, "LLM 输入上下文（点击展开）")
 
-    actual = trace.get("actual_response")
-    if actual:
-        lines += [
-            "---",
-            "",
-            "**参考坐席回复**:",
-            f"> {actual}",
-            "",
-        ]
     return "\n".join(lines)
 
 
