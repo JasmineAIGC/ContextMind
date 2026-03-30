@@ -8,8 +8,12 @@ ContextMind 命令行交互 Demo
 使用方式:
     python examples/cli_demo.py --scenario chat --mode evolve
     python examples/cli_demo.py --scenario callcenter --mode dst
-    python examples/cli_demo.py --scenario insurance --mode fnctod
-    python examples/cli_demo.py --scenario insurance --mode pytod
+    python examples/cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_schema.json
+    python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
+
+Schema 说明:
+    FnCTOD 使用 JSON schema 文件（--fnctod-schema schema/xxx_schema.json）
+    PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
 """
 
 import sys
@@ -38,10 +42,10 @@ logger = get_logger(__name__)
 _PROJECT_ROOT = Path(__file__).parent.parent
 
 
-def _load_external_schemas(schema_path: str):
-    """从 schema.json 文件加载 PyTOD ServiceSchema 和 FnCTOD DomainSpec。"""
+def _load_fnctod_schema(json_path: str):
+    """从 schema.json 文件加载 FnCTOD DomainSpec（及 ServiceSchema）。"""
     from contextmind.modes.fnctod.function_manager import FunctionManager
-    with open(schema_path, encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
     svc = load_schema_from_dict(data)
     fm = FunctionManager()
@@ -62,6 +66,23 @@ def _load_external_schemas(schema_path: str):
     return svc, domain_spec
 
 
+def _load_pytod_service_schema(apis_py_path: str):
+    """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
+
+    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
+    若对应 JSON 不存在则返回 None，PyTOD 将退化为无结构 prompt 模式。
+    """
+    p = Path(apis_py_path)
+    stem = p.stem  # e.g. "anyihua_pytod_apis"
+    base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
+    json_path = p.parent / f"{base}_schema.json"
+    if not json_path.exists():
+        return None
+    with open(json_path, encoding="utf-8") as f:
+        data = json.load(f)
+    return load_schema_from_dict(data)
+
+
 class InteractiveDemo:
     """统一的命令行交互 Demo。"""
 
@@ -70,7 +91,8 @@ class InteractiveDemo:
         scenario: str = "chat",
         mode: str = "evolve",
         max_history_turns: int = 10,
-        schema_path: Optional[str] = None,
+        fnctod_schema_path: Optional[str] = None,
+        pytod_apis_path: Optional[str] = None,
     ):
         self.scenario = scenario
         self.mode = mode
@@ -80,17 +102,26 @@ class InteractiveDemo:
         self.tracker = None
         self.app = None
         self.last_system_reply: str = ""
-        # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
-        self._pytod_schema = None
+        # FnCTOD：从 schema.json 加载 DomainSpec
         self._fnctod_domain_spec = None
-        self._schema_path: Optional[str] = schema_path  # 保存路径，用于加载 companion 预生成函数
-        if schema_path:
+        if fnctod_schema_path:
             try:
-                self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
-                print(f"✓ 已加载外部 Schema: {schema_path}")
+                _, self._fnctod_domain_spec = _load_fnctod_schema(fnctod_schema_path)
+                print(f"✓ 已加载 FnCTOD Schema: {fnctod_schema_path}")
             except Exception as exc:
-                print(f"❌ 加载 Schema 失败: {exc}")
-                print(f"   请确认 schema 文件格式正确，或运行: python examples/build_schema_data.py")
+                print(f"❌ 加载 FnCTOD Schema 失败: {exc}")
+        # PyTOD：从 *_pytod_apis.py 加载 ServiceSchema（推导对应 JSON）
+        self._pytod_schema = None
+        self._pytod_apis_path: Optional[str] = pytod_apis_path
+        if pytod_apis_path:
+            try:
+                self._pytod_schema = _load_pytod_service_schema(pytod_apis_path)
+                if self._pytod_schema is not None:
+                    print(f"✓ 已加载 PyTOD ServiceSchema（从 {pytod_apis_path} 推导）")
+                print(f"✓ 已加载 PyTOD APIs: {pytod_apis_path}")
+            except Exception as exc:
+                print(f"❌ 加载 PyTOD APIs 失败: {exc}")
+                print(f"   请确认文件存在且格式正确，或运行: python examples/build_schema_data.py")
 
         if mode == "dst":
             self._setup_dst()
@@ -145,9 +176,9 @@ class InteractiveDemo:
         kwargs = {}
         if self._pytod_schema is not None:
             kwargs["schema"] = self._pytod_schema
-        # 传入 schema_path 让 from_scenario() 自动加载 companion *_pytod_apis.py 预生成函数
-        if self._schema_path is not None:
-            kwargs["schema_path"] = self._schema_path
+        # 直接传入 *_pytod_apis.py 路径，load_pytod_api_module 可直接加载
+        if self._pytod_apis_path is not None:
+            kwargs["schema_path"] = self._pytod_apis_path
         self.tracker = AdkPyTODTracker.from_scenario(self._get_llm_client(), self.config, **kwargs)
 
     def _setup_evolve(self):
@@ -247,7 +278,17 @@ class InteractiveDemo:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="ContextMind 命令行 Demo")
+    parser = argparse.ArgumentParser(
+        description="ContextMind 命令行 Demo",
+        epilog="""
+使用示例:
+  python examples/cli_demo.py --scenario chat --mode evolve
+  python examples/cli_demo.py --scenario callcenter --mode dst
+  python examples/cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_schema.json
+  python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--scenario", choices=["chat", "callcenter", "insurance"],
                         default="chat", help="场景")
     parser.add_argument("--mode", choices=["dst", "evolve", "fnctod", "pytod"],
@@ -257,8 +298,12 @@ def parse_args():
     parser.add_argument("--max-history-turns", type=int, default=10,
                         metavar="N", help="最大历史轮数")
     parser.add_argument(
-        "--schema", type=str, default=None, metavar="PATH",
-        help="schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式",
+        "--fnctod-schema", type=str, default=None, metavar="PATH",
+        help="FnCTOD 模式的 schema.json 路径（SGD 格式，schema/ 目录下）",
+    )
+    parser.add_argument(
+        "--pytod-apis", type=str, default=None, metavar="PATH",
+        help="PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件，schema/ 目录下）",
     )
     return parser.parse_args()
 
@@ -271,7 +316,8 @@ async def main():
         scenario=args.scenario,
         mode=args.mode,
         max_history_turns=args.max_history_turns,
-        schema_path=args.schema,
+        fnctod_schema_path=args.fnctod_schema,
+        pytod_apis_path=args.pytod_apis,
     )
     await demo.run()
 

@@ -121,10 +121,13 @@ def _extract_var_call_sources(program_text: str) -> Dict[str, str]:
 
 
 def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
-    """从与 schema.json 同目录的 ``*_pytod_apis.py`` companion 文件加载 PyTOD API 函数。
+    """从 ``*_pytod_apis.py`` companion 文件加载 PyTOD API 函数。
 
-    查找规则：给定 ``path/to/foo_schema.json``，自动加载
-    ``path/to/foo_pytod_apis.py``（去掉 ``_schema`` 后缀再加 ``_pytod_apis``）。
+    支持两种输入方式：
+
+    1. **直接传入 .py 文件路径**（推荐）：``path/to/foo_pytod_apis.py``，直接加载。
+    2. **传入 schema.json 路径**（兼容旧接口）：``path/to/foo_schema.json``，
+       自动推导对应的 ``path/to/foo_pytod_apis.py`` 并加载。
 
     companion 文件由 ``SchemaDataBuilder.build_pytod_apis()`` 预生成，
     包含每个 intent 对应的真实 Python 函数定义（含 result_slots 返回值），
@@ -136,15 +139,25 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
 
     Example::
 
+        # 推荐：直接传入 .py 文件
+        api_funcs = load_pytod_api_module("schema/anyihua_pytod_apis.py")
+        # 兼容：传入 schema.json，自动推导 .py 路径
         api_funcs = load_pytod_api_module("schema/anyihua_schema.json")
         # → {"verify_identity": <function verify_identity>, ...}
     """
     import importlib.util
 
     p = Path(schema_path)
-    stem = p.stem
-    base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
-    apis_path = p.parent / f"{base}_pytod_apis.py"
+    if p.suffix == ".py":
+        # 直接 .py 文件路径 — strip "_pytod_apis" suffix (if present) for a clean module name
+        apis_path = p
+        stem = p.stem
+        base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
+    else:
+        # JSON schema 路径 → 推导 companion .py
+        stem = p.stem
+        base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
+        apis_path = p.parent / f"{base}_pytod_apis.py"
     if not apis_path.exists():
         logger.debug(f"[api_module] companion apis 文件不存在: {apis_path}")
         return None

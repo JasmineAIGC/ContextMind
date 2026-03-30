@@ -13,6 +13,12 @@ ContextMind 批量对话测试Demo
     python examples/batch_demo.py
     python examples/batch_demo.py --port 7861
     python examples/batch_demo.py --log-level DEBUG
+    python examples/batch_demo.py --fnctod-schema schema/anyihua_schema.json
+    python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+
+Schema 说明:
+    FnCTOD 使用 JSON schema 文件（--fnctod-schema schema/xxx_schema.json）
+    PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
 """
 
 import sys
@@ -44,13 +50,14 @@ logger = get_logger(__name__)
 _PROJECT_ROOT = Path(__file__).parent.parent
 
 # 模块级 schema 路径，由 main() 在启动时设置（Gradio 回调无法直接接收 CLI 参数）
-_BATCH_SCHEMA_PATH: Optional[str] = None
+_BATCH_FNCTOD_SCHEMA_PATH: Optional[str] = None
+_BATCH_PYTOD_APIS_PATH: Optional[str] = None
 
 
-def _load_external_schemas(schema_path: str):
-    """从 schema.json 文件加载 PyTOD ServiceSchema 和 FnCTOD DomainSpec。"""
+def _load_fnctod_schema(json_path: str):
+    """从 schema.json 文件加载 FnCTOD DomainSpec（及 ServiceSchema）。"""
     from contextmind.modes.fnctod.function_manager import FunctionManager
-    with open(schema_path, encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
     svc = load_schema_from_dict(data)
     fm = FunctionManager()
@@ -71,16 +78,39 @@ def _load_external_schemas(schema_path: str):
     return svc, domain_spec
 
 
+def _load_pytod_service_schema(apis_py_path: str):
+    """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
+
+    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
+    若对应 JSON 不存在则返回 None，PyTOD 将退化为无结构 prompt 模式。
+    """
+    p = Path(apis_py_path)
+    stem = p.stem  # e.g. "anyihua_pytod_apis"
+    base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
+    json_path = p.parent / f"{base}_schema.json"
+    if not json_path.exists():
+        return None
+    with open(json_path, encoding="utf-8") as f:
+        data = json.load(f)
+    return load_schema_from_dict(data)
+
+
 class BatchDialogueTest:
     """批量对话测试类"""
     
-    def __init__(self, max_history_turns: int = 10, schema_path: Optional[str] = None):
+    def __init__(
+        self,
+        max_history_turns: int = 10,
+        fnctod_schema_path: Optional[str] = None,
+        pytod_apis_path: Optional[str] = None,
+    ):
         """
         初始化测试类
-        
+
         Args:
-            max_history_turns: DST模式的最大历史轮数
-            schema_path: 可选的 schema.json 路径（schema/ 目录下），用于 PyTOD / FnCTOD 模式
+            max_history_turns:   DST 模式的最大历史轮数
+            fnctod_schema_path:  FnCTOD 模式的 schema.json 路径
+            pytod_apis_path:     PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件）
         """
         self.max_history_turns = max_history_turns
         self.llm_client = None
@@ -90,16 +120,25 @@ class BatchDialogueTest:
         self.app = None
         self.current_mode = None
         self.results_history = []
-        # 外部 Schema（PyTOD ServiceSchema 和 FnCTOD DomainSpec）
-        self._pytod_schema = None
+        # FnCTOD：从 schema.json 加载 DomainSpec
         self._fnctod_domain_spec = None
-        self._schema_path: Optional[str] = schema_path  # 保存路径，用于加载 companion 预生成函数
-        if schema_path:
+        if fnctod_schema_path:
             try:
-                self._pytod_schema, self._fnctod_domain_spec = _load_external_schemas(schema_path)
-                logger.info(f"已加载外部 Schema: {schema_path}")
+                _, self._fnctod_domain_spec = _load_fnctod_schema(fnctod_schema_path)
+                logger.info(f"已加载 FnCTOD Schema: {fnctod_schema_path}")
             except Exception as exc:
-                logger.warning(f"加载外部 Schema 失败: {exc}，请确认文件格式正确")
+                logger.warning(f"加载 FnCTOD Schema 失败: {exc}")
+        # PyTOD：从 *_pytod_apis.py 加载 ServiceSchema（推导对应 JSON）
+        self._pytod_schema = None
+        self._pytod_apis_path: Optional[str] = pytod_apis_path
+        if pytod_apis_path:
+            try:
+                self._pytod_schema = _load_pytod_service_schema(pytod_apis_path)
+                if self._pytod_schema is not None:
+                    logger.info(f"已加载 PyTOD ServiceSchema（从 {pytod_apis_path} 推导）")
+                logger.info(f"已加载 PyTOD APIs: {pytod_apis_path}")
+            except Exception as exc:
+                logger.warning(f"加载 PyTOD APIs 失败: {exc}")
         logger.info("BatchDialogueTest 实例创建完成")
     
     def initialize(self, mode: str = "dst"):
@@ -178,9 +217,9 @@ class BatchDialogueTest:
         kwargs = {"max_history_turns": self.max_history_turns}
         if self._pytod_schema is not None:
             kwargs["schema"] = self._pytod_schema
-        # 传入 schema_path 让 from_scenario() 自动加载 companion *_pytod_apis.py 预生成函数
-        if self._schema_path is not None:
-            kwargs["schema_path"] = self._schema_path
+        # 直接传入 *_pytod_apis.py 路径，load_pytod_api_module 可直接加载
+        if self._pytod_apis_path is not None:
+            kwargs["schema_path"] = self._pytod_apis_path
         self.pytod_tracker = AdkPyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -489,6 +528,9 @@ class BatchDialogueTest:
         _pytod_kwargs: Dict[str, Any] = {"max_history_turns": self.max_history_turns}
         if self._pytod_schema is not None:
             _pytod_kwargs["schema"] = self._pytod_schema
+        # 直接传入 *_pytod_apis.py 路径，load_pytod_api_module 可直接加载
+        if self._pytod_apis_path is not None:
+            _pytod_kwargs["schema_path"] = self._pytod_apis_path
         tracker = AdkPyTODTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -663,7 +705,10 @@ def get_test_instance():
     """获取测试实例（延迟初始化）"""
     global test_instance
     if test_instance is None:
-        test_instance = BatchDialogueTest(schema_path=_BATCH_SCHEMA_PATH)
+        test_instance = BatchDialogueTest(
+            fnctod_schema_path=_BATCH_FNCTOD_SCHEMA_PATH,
+            pytod_apis_path=_BATCH_PYTOD_APIS_PATH,
+        )
     return test_instance
 
 
@@ -897,29 +942,46 @@ def create_test_ui():
 
 def parse_args():
     """解析命令行参数"""
-    parser = argparse.ArgumentParser(description="ContextMind 批量对话测试Demo")
+    parser = argparse.ArgumentParser(
+        description="ContextMind 批量对话测试Demo",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  python examples/batch_demo.py
+  python examples/batch_demo.py --port 7861 --log-level DEBUG
+  python examples/batch_demo.py --fnctod-schema schema/anyihua_schema.json
+  python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+        """,
+    )
     parser.add_argument('--port', type=int, default=7861, help='端口号')
     parser.add_argument('--share', action='store_true', help='创建公共链接')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO')
     parser.add_argument(
-        '--schema', type=str, default=None, metavar='PATH',
-        help='schema.json 路径（SGD 格式，schema/ 目录下），用于 PyTOD / FnCTOD 模式',
+        '--fnctod-schema', type=str, default=None, metavar='PATH',
+        help='FnCTOD 模式的 schema.json 路径（SGD 格式，schema/ 目录下）',
+    )
+    parser.add_argument(
+        '--pytod-apis', type=str, default=None, metavar='PATH',
+        help='PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件，schema/ 目录下）',
     )
     return parser.parse_args()
 
 
 def main():
     """主函数"""
-    global _BATCH_SCHEMA_PATH
+    global _BATCH_FNCTOD_SCHEMA_PATH, _BATCH_PYTOD_APIS_PATH
     args = parse_args()
     
     # 设置日志
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
     setup_logging(level=log_level, save_to_file=True, log_dir="output/logs")
 
-    if args.schema:
-        _BATCH_SCHEMA_PATH = args.schema
-        logger.info(f"外部 Schema: {args.schema}")
+    if args.fnctod_schema:
+        _BATCH_FNCTOD_SCHEMA_PATH = args.fnctod_schema
+        logger.info(f"FnCTOD Schema: {args.fnctod_schema}")
+    if args.pytod_apis:
+        _BATCH_PYTOD_APIS_PATH = args.pytod_apis
+        logger.info(f"PyTOD APIs: {args.pytod_apis}")
     
     logger.info("启动 ContextMind 批量对话测试Demo")
     

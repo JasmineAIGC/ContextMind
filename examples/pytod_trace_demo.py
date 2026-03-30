@@ -11,7 +11,11 @@ PyTOD 对话追踪脚本
     python examples/pytod_trace_demo.py --seed 42
     python examples/pytod_trace_demo.py --index 5
     python examples/pytod_trace_demo.py --output /tmp/trace.md --verbose
-    python examples/pytod_trace_demo.py --schema /path/to/schema.json
+    python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+
+Schema 说明:
+    PyTOD 使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）。
+    对应的 JSON schema（xxx_schema.json）会从同目录自动推导以加载 ServiceSchema。
 """
 
 from __future__ import annotations
@@ -37,8 +41,8 @@ from contextmind.modes.pytod.tracker import _is_stub_only_result, load_pytod_api
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-# 默认 schema：安逸花外呼业务（schema/anyihua_schema.json）
-_DEFAULT_SCHEMA_PATH = _PROJECT_ROOT / "schema" / "anyihua_schema.json"
+# 默认 PyTOD APIs 文件：安逸花外呼业务（schema/anyihua_pytod_apis.py）
+_DEFAULT_PYTOD_APIS_PATH = _PROJECT_ROOT / "schema" / "anyihua_pytod_apis.py"
 _AGENT_KEY = "机器人"
 _USER_KEY = "用户"
 
@@ -53,26 +57,23 @@ _SCENARIO_CONTEXT = (
 )
 
 
-def _load_service_schema_from_file(path: Path) -> ServiceSchema:
-    """从 schema.json 文件加载 ServiceSchema，替换预定义的场景 Schema。
+def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
+    """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
 
-    支持 SGD / KB-builder 输出格式::
-
-        [{"service_name": "...", "description": "...",
-          "slots": [...], "intents": [...]}]
-
-    或单对象格式::
-
-        {"service_name": "...", "description": "...",
-         "slots": [...], "intents": [...]}
+    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
 
     Args:
-        path: schema.json 文件路径。
+        apis_path: *_pytod_apis.py 文件路径。
 
     Returns:
-        解析后的 ServiceSchema，可直接传给 ``AdkPyTODTracker.from_scenario()``。
+        解析后的 ServiceSchema；若对应 JSON 不存在则返回 None。
     """
-    with open(path, encoding="utf-8") as f:
+    stem = apis_path.stem  # e.g. "anyihua_pytod_apis"
+    base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
+    json_path = apis_path.parent / f"{base}_schema.json"
+    if not json_path.exists():
+        return None
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
     return load_schema_from_dict(data)
 
@@ -476,7 +477,16 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="PyTOD 全链路追踪脚本")
+    parser = argparse.ArgumentParser(
+        description="PyTOD 全链路追踪脚本",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  python examples/pytod_trace_demo.py
+  python examples/pytod_trace_demo.py --seed 42 --verbose
+  python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+        """,
+    )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--output", type=str, default=None,
@@ -487,8 +497,8 @@ def main() -> None:
         help="省略 AP prompt 中的详细业务意图说明（减少 token 用量；适合 token 敏感部署）",
     )
     parser.add_argument(
-        "--schema", type=str, default=None,
-        help="schema.json 路径（SGD 格式）；若不提供则默认使用 schema/anyihua_schema.json",
+        "--pytod-apis", dest="pytod_apis", type=str, default=None,
+        help="*_pytod_apis.py 路径（预生成 API 函数文件）；若不提供则默认使用 schema/anyihua_pytod_apis.py",
     )
     args = parser.parse_args()
 
@@ -496,20 +506,23 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
-    # 加载 schema（必须指定 --schema 或存在默认 anyihua_schema.json）
+    # 加载 PyTOD APIs 文件（*.py）并推导对应 schema.json 加载 ServiceSchema
     external_schema: Optional[ServiceSchema] = None
-    schema_path = Path(args.schema) if args.schema else _DEFAULT_SCHEMA_PATH
-    if schema_path.exists():
-        external_schema = _load_service_schema_from_file(schema_path)
-        print(f"✓ 已加载 Schema: {schema_path} (service={external_schema.service_name})")
-    elif args.schema:
-        print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
+    apis_path = Path(args.pytod_apis) if args.pytod_apis else _DEFAULT_PYTOD_APIS_PATH
+    if apis_path.exists():
+        external_schema = _load_service_schema_from_apis(apis_path)
+        if external_schema is not None:
+            print(f"✓ 已加载 PyTOD APIs: {apis_path} (service={external_schema.service_name})")
+        else:
+            print(f"✓ 已加载 PyTOD APIs: {apis_path}（未找到对应 schema.json，无 ServiceSchema）")
+    elif args.pytod_apis:
+        print(f"❌ PyTOD APIs 文件不存在: {apis_path}", file=sys.stderr)
         sys.exit(1)
     else:
         print(
-            f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
+            f"⚠️  默认 PyTOD APIs 文件不存在: {apis_path}\n"
             "   请先运行: python examples/build_schema_data.py\n"
-            "   或通过 --schema 指定 schema 文件路径",
+            "   或通过 --pytod-apis 指定 *_pytod_apis.py 文件路径",
             file=sys.stderr,
         )
         print("   继续运行（无 schema 模式，AP 将无法调用业务 API）", file=sys.stderr)
@@ -517,9 +530,10 @@ def main() -> None:
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
+    # 将 apis_path 传给 run_trace()；load_pytod_api_module 支持直接接受 .py 路径
     trace = asyncio.run(run_trace(session, verbose=args.verbose,
                                    external_schema=external_schema,
-                                   schema_path=schema_path if external_schema is not None else None,
+                                   schema_path=apis_path if apis_path.exists() else None,
                                    compact_schema=args.compact_schema))
 
     # 输出路径
