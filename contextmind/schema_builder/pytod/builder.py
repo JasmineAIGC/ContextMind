@@ -220,10 +220,12 @@ def build_pytod_apis(
                         print(f"      expected_keys: {tc.expected_keys}", flush=True)
                 print(flush=True)
 
-            # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例）
+            # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例 + KB 业务背景）
             logger.info(f"[PyTOD]   Phase 3: {intent.name} — LLM 生成函数体 ...")
             llm_body = llm_generator.generate_function_body(
-                intent, schema, all_slot_descs, test_cases=intent_test_cases
+                intent, schema, all_slot_descs,
+                test_cases=intent_test_cases,
+                dialogue_hint=dialogue_hint,
             )
 
             if llm_body is not None:
@@ -269,6 +271,7 @@ def build_pytod_apis(
                         iteration=iteration,
                         total=validation.total,
                         passed=validation.passed,
+                        dialogue_hint=dialogue_hint,
                     )
                     if repaired_code is None:
                         logger.warning(f"[PyTOD]   Phase 4: {intent.name} 修复失败，停止迭代")

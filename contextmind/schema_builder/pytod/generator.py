@@ -33,6 +33,7 @@ from contextmind.schema_builder.pytod.prompts import (
     DIALOGUE_CONTEXT_SECTION,
     FUNCTION_GEN_SYSTEM,
     FUNCTION_GEN_USER_TEMPLATE,
+    FUNCTION_KB_CONTEXT_SECTION,
     MODULE_GEN_SYSTEM,
     MODULE_GEN_USER_TEMPLATE,
     REPAIR_SYSTEM,
@@ -191,6 +192,7 @@ class PyTODApiCodeGenerator:
         schema: ServiceSchema,
         all_slot_descs: Dict[str, str],
         test_cases: Optional[List[TestCaseItem]] = None,
+        dialogue_hint: str = "",
     ) -> Optional[str]:
         """调用 LLM 生成单个意图函数的完整函数体代码（4空格缩进）。
 
@@ -200,6 +202,8 @@ class PyTODApiCodeGenerator:
             all_slot_descs: slot_name → description 映射。
             test_cases: 可选，该意图的测试用例列表（Phase 2 构建）。
                 传入后 LLM 将把这些用例当作 few-shot 示例生成更准确的函数体。
+            dialogue_hint: 可选，KB 业务背景字符串（由 _prepare_dialogue_hint 构建）。
+                传入后 LLM 可参考真实对话数据深入理解意图语义，生成更贴近业务的函数体。
 
         Returns:
             函数体字符串（可直接拼接到 def 行之后），失败时返回 None。
@@ -218,13 +222,20 @@ class PyTODApiCodeGenerator:
         result_slots_text = (
             "\n".join(f"  - {rs}" for rs in intent.result_slots)
             if intent.result_slots
-            else "  （无专用 result_slots，返回输入参数即可）"
+            else "  （无专用 result_slots，返回输入参数及计算结果即可）"
         )
+
+        # 注入 KB 业务背景章节（仅当有背景数据时）
+        kb_context_section = ""
+        if dialogue_hint:
+            kb_context_section = FUNCTION_KB_CONTEXT_SECTION.format(
+                kb_context=dialogue_hint.rstrip()
+            )
 
         # 从测试用例构建 few-shot 示例章节
         few_shot_section = ""
         if test_cases:
-            example_lines = ["## 参考测试用例（few-shot 示例，用于校准函数输出）"]
+            example_lines = ["## 参考测试用例（few-shot 示例，校准函数对不同对话阶段输入的处理）"]
             for i, tc in enumerate(test_cases[:3], 1):
                 example_lines.append(
                     f"示例 {i}（{tc.description or '典型输入'}）: "
@@ -240,6 +251,7 @@ class PyTODApiCodeGenerator:
             description=intent.description or intent.name,
             slot_descriptions=slot_desc_text,
             result_slots=result_slots_text,
+            kb_context_section=kb_context_section,
             few_shot_section=few_shot_section,
         )
 
@@ -458,8 +470,9 @@ class PyTODApiCodeGenerator:
         iteration: int,
         total: int = 0,
         passed: int = 0,
+        dialogue_hint: str = "",
     ) -> Optional[str]:
-        """Phase 4：根据测试失败信息调用 LLM 修复函数体。
+        """Phase 4：根据测试失败信息调用 LLM 从语义理解出发重新生成函数体。
 
         Args:
             intent: 当前意图定义。
@@ -470,6 +483,8 @@ class PyTODApiCodeGenerator:
             iteration: 当前修复轮次（从 1 开始）。
             total: 总测试用例数（用于显示通过率）。
             passed: 已通过的用例数。
+            dialogue_hint: 可选，KB 业务背景字符串（由 _prepare_dialogue_hint 构建）。
+                传入后 LLM 可参考真实对话数据重新理解意图语义。
 
         Returns:
             修复后的完整函数定义代码字符串，失败时返回 None。
@@ -481,7 +496,7 @@ class PyTODApiCodeGenerator:
 
         rs_desc = "\n".join(
             f"  - {rs}: {all_slot_descs.get(rs, rs)}" for rs in intent.result_slots
-        ) or "  （无专用 result_slots，返回输入参数即可）"
+        ) or "  （无专用 result_slots，返回输入参数及计算结果即可）"
 
         # 格式化失败用例（最多 5 条，控制 prompt 长度）
         fail_lines: List[str] = []
@@ -493,8 +508,16 @@ class PyTODApiCodeGenerator:
             )
         pass_rate_str = f"{passed}/{total}" if total > 0 else "未知"
 
+        # 注入 KB 业务背景（若有）
+        service_description = schema.description or schema.service_name
+        if dialogue_hint:
+            service_description = (
+                f"{service_description}\n\n## 真实对话业务背景参考\n{dialogue_hint.rstrip()}"
+            )
+
         user_msg = REPAIR_USER_TEMPLATE.format(
             service_name=schema.service_name,
+            service_description=service_description,
             intent_name=intent.name,
             intent_description=intent.description or intent.name,
             result_slots_desc=rs_desc,
