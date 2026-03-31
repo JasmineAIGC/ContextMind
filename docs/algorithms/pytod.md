@@ -9,6 +9,16 @@
 - **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/abs/2508.15456)
 - **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/datasets.md)
 
+### 三步框架依赖
+
+| 步骤 | 是否需要 | 说明 |
+|------|:-------:|------|
+| **① 建立知识库** | ✅ 可选 | 可从原始对话自动生成 `schema.json`，也可使用预定义 SGD Schema |
+| **② Schema 数据生成** | ✅ 可选 | 将 `schema.json` 自动生成 PyTOD API 代码文件（`xxx_pytod_apis.py`） |
+| **③ 算法执行（PyTOD）** | ✅ 必须 | AP→EE→DM 三步程序执行流程 |
+
+PyTOD 是唯一可以完整利用三步框架的算法：第一步生成 Schema，第二步自动生成 API 实现代码，第三步驱动程序执行型对话。当然也可以跳过前两步，直接手写 API 进入第三步。
+
 ---
 
 ## 核心思想
@@ -222,7 +232,47 @@ pipenv run python scripts/evaluate_pytod.py split=dev version=v0.9.1
 
 ## 快速使用
 
-### 开放域模式（无需预定义意图）
+### 完整三步流程（推荐）
+
+```python
+import asyncio
+from contextmind.knowledge import KnowledgeBaseBuilder
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
+from contextmind.infra.llm_client import AdkLLMClient
+
+llm = AdkLLMClient()
+
+# 第一步：建立知识库（从原始业务对话生成 schema.json）
+kb_builder = KnowledgeBaseBuilder(scene_name="餐厅预订", llm_client=llm)
+schema_dict = kb_builder.build(my_dialogues)
+kb_builder.save(schema_dict, "output/restaurant_schema.json")
+
+# 第二步：Schema 数据生成（自动生成 PyTOD API 代码）
+schema_builder = SchemaDataBuilder(
+    llm_client=llm,
+    schema_path="output/restaurant_schema.json",
+    test_data_paths=["resources/data/restaurant_test.json"],  # 可选
+)
+schema_builder.build_pytod_apis(output_path="output/restaurant_apis.py")
+
+# 第三步：算法执行（加载 API，运行 PyTOD 对话）
+engine = ExecutionEngine()
+from output.restaurant_apis import INTENT_REGISTRY
+for name, fn in INTENT_REGISTRY.items():
+    engine.register(name)(fn)
+
+service_schema = KnowledgeBaseBuilder.load_schema("output/restaurant_schema.json")
+tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+
+async def main():
+    result = await tracker.process_turn("我要预订一家餐厅")
+    print(result["response"])
+
+asyncio.run(main())
+```
+
+### 开放域模式（仅第三步，无需预定义意图）
 
 ```python
 from contextmind.modes.pytod import AdkPyTODTracker
@@ -232,7 +282,7 @@ tracker = AdkPyTODTracker(llm_client=AdkLLMClient())
 response = await tracker.process_turn("查一下北京今天的天气")
 ```
 
-### Schema 驱动模式（预定义意图和槽位）
+### Schema 驱动模式（跳过第二步，使用预定义意图和槽位）
 
 ```python
 from contextmind.modes.pytod import AdkPyTODTracker, ServiceSchema, load_schema_from_dict

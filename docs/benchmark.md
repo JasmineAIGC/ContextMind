@@ -101,6 +101,17 @@ ev2.add_turn(extracted_knowledge_count=3, context_items_used=2, response="好的
 print(ev2.calculate_metrics().to_dict())
 ```
 
+## 算法步骤依赖矩阵
+
+评测前，请确认所用算法需要哪些前置步骤：
+
+| 算法 | ① 建立知识库 | ② Schema 数据生成 | ③ 算法执行（评测） |
+|------|:-----------:|:----------------:|:----------------:|
+| **DST** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
+| **FnCTOD** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
+| **PyTOD** | ✅ 可选 | ✅ 可选 | ✅ 必须 |
+| **Evolve** | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
+
 ## 算法 × 数据集 支持矩阵
 
 | 算法 / 数据集 | TransferTOD | RiSAWOZ | 安逸花外呼 |

@@ -8,7 +8,7 @@
 # 推荐方式：通过主包统一导入
 from contextmind import (
     ContextPipeline,         # 统一上下文工程流水线（推荐入口）
-    KnowledgeBaseBuilder,    # 知识库构建（Phase 1）
+    KnowledgeBaseBuilder,    # 知识库构建（第一步）
     AdkLLMClient,            # LLM 客户端
     # 追踪器
     DialogueStateTracker,
@@ -25,6 +25,9 @@ from contextmind import (
 from contextmind.modes.base import BaseTracker
 from contextmind.scenarios.registry import scenario_registry
 from contextmind.infra.logger import get_logger
+
+# 第二步 Schema 数据生成（PyTOD 可选）
+from contextmind.schema_builder import SchemaDataBuilder
 ```
 
 ---
@@ -33,7 +36,7 @@ from contextmind.infra.logger import get_logger
 
 ### ContextPipeline
 
-`contextmind.pipeline.ContextPipeline` 是框架推荐的统一入口，将知识库构建（Phase 1）和对话上下文提取（Phase 2）整合为一个简洁 API。
+`contextmind.pipeline.ContextPipeline` 是框架推荐的统一入口，灵活整合三步框架——将知识库构建（第一步）、Schema 数据生成（第二步，按需）和对话上下文提取（第三步）整合为一个简洁 API。
 
 ```python
 from contextmind import ContextPipeline, AdkLLMClient
@@ -58,9 +61,9 @@ pipeline = ContextPipeline(
 
 | 方法 | 说明 |
 |------|------|
-| `build_kb(dialogues, scene_name, ...)` | Phase 1：从原始对话构建知识库 |
+| `build_kb(dialogues, scene_name, ...)` | 第一步：从原始对话构建知识库 |
 | `load_kb(path)` | 从已保存的 `schema.json` 加载知识库 |
-| `set_schema(schema_dict)` | 直接从 schema 字典加载（Phase 1→2 直通） |
+| `set_schema(schema_dict)` | 直接从 schema 字典加载（第一步→第三步直通） |
 | `register_api(name)(fn)` | 注册 API 函数（PyTOD 模式，装饰器用法） |
 | `async process_turn(user_utterance, ...)` | 处理单轮对话，返回上下文 |
 | `reset()` | 重置对话状态，开始新会话 |
@@ -73,19 +76,19 @@ from contextmind import ContextPipeline, AdkLLMClient
 
 pipeline = ContextPipeline(llm_client=AdkLLMClient())
 
-# Phase 1: 构建知识库
+# 第一步: 构建知识库
 pipeline.build_kb(
     dialogues=my_dialogues,
     scene_name="银行贷款外呼",
     scene_description="银行客服主动致电老客户推介个人贷款产品",
 )
 
-# 注册业务 API（PyTOD 模式）
+# 注册业务 API（PyTOD 模式，可使用第二步生成的代码或手写实现）
 @pipeline.register_api("query_loan_info")
 def query_loan_info(customer_name: str) -> dict:
     return {"credit_limit": 50000, "interest_rate": 0.12}
 
-# Phase 2: 处理对话
+# 第三步: 处理对话
 async def main():
     result = await pipeline.process_turn("我是李明，想查询贷款额度")
     print(result["response"])           # 系统回复
@@ -97,7 +100,7 @@ asyncio.run(main())
 
 ---
 
-## 知识库构建 API（Phase 1）
+## 知识库构建 API（第一步）
 
 ### KnowledgeBaseBuilder
 
@@ -116,11 +119,11 @@ builder = KnowledgeBaseBuilder(
 
 | 方法 | 说明 |
 |------|------|
-| `build(dialogues) -> dict` | 从对话数据构建 schema 字典（Phase 1：发现+合成） |
+| `build(dialogues) -> dict` | 从对话数据构建 schema 字典（第一步：发现+合成） |
 | `save(schema_dict, path)` | 保存 schema.json 及对话文件 |
 | `build_dataset(dialogues)` | 构建完整 SGD 数据集（schema + 标注对话） |
 | `save_dataset(output_dir)` | 保存数据集到指定目录 |
-| `to_service_schema(schema_dict)` | 将 schema 字典转换为 `ServiceSchema`（Phase 1→2 桥接） |
+| `to_service_schema(schema_dict)` | 将 schema 字典转换为 `ServiceSchema`（第一步→第三步桥接） |
 | `load_schema(path)` | 从 `schema.json` 加载 `ServiceSchema` |
 | `build_async(dialogues)` | 异步版 `build()` |
 | `build_dataset_async(dialogues)` | 异步版 `build_dataset()` |
@@ -134,6 +137,68 @@ builder = KnowledgeBaseBuilder(
 - **嵌套格式**：`{"label": "...", "query": {"对话历史": [...]}}`（chat_test_500.json）
 
 ---
+
+## Schema 数据生成 API（第二步，PyTOD 可选）
+
+### SchemaDataBuilder
+
+`contextmind.schema_builder.SchemaDataBuilder` 将第一步生成的 `schema.json` 转换为算法专用的结构化数据。目前支持为 PyTOD 生成 API 代码文件（`xxx_pytod_apis.py`）。
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+builder = SchemaDataBuilder(
+    llm_client=AdkLLMClient(),
+    schema_path="output/schema.json",
+    test_data_paths=["resources/data/chat_test_100.json"],  # 可选
+)
+```
+
+#### 初始化参数
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `llm_client` | `AdkLLMClient` | LLM 客户端 |
+| `schema_path` | `str` | 第一步输出的 `schema.json` 路径 |
+| `test_data_paths` | `List[str]` | 可选，用于构建测试用例提升生成质量 |
+
+#### 主要方法
+
+| 方法 | 说明 |
+|------|------|
+| `build_pytod_apis(output_path, ...)` | 生成 PyTOD API 代码文件（`xxx_pytod_apis.py`） |
+
+#### `build_pytod_apis()` 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `output_path` | `str` | — | 输出文件路径 |
+| `max_iterations` | `int` | `3` | 最大优化迭代次数 |
+| `pass_rate_threshold` | `float` | `0.9` | 验证通过率阈值 |
+| `max_test_cases_per_intent` | `int` | `5` | 每意图最大测试用例数 |
+| `generate_report` | `bool` | `False` | 是否生成 `validation_report.json` |
+
+#### 示例
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+builder = SchemaDataBuilder(
+    llm_client=AdkLLMClient(),
+    schema_path="output/loan_schema.json",
+    test_data_paths=["resources/data/loan_test.json"],
+)
+
+result = builder.build_pytod_apis(
+    output_path="output/loan_apis.py",
+    max_iterations=3,
+    generate_report=True,
+)
+# 输出: output/loan_apis.py（含所有意图函数 + INTENT_REGISTRY）
+# 可选: output/validation_report.json（含各意图通过率）
+```
 
 ---
 

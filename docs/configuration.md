@@ -158,6 +158,41 @@ tracker.max_history_turns = 10
 **参数说明：**
 - `use_two_stage`: 是否使用两阶段处理（先选择domain，再调用函数）
 
+### SchemaDataBuilder 配置（第二步，PyTOD 可选）
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+llm_client = AdkLLMClient()
+
+builder = SchemaDataBuilder(
+    llm_client=llm_client,
+    schema_path="output/schema.json",         # 第一步输出的 schema 文件
+    test_data_paths=[                          # 可选：真实业务数据，提升生成质量
+        "resources/data/chat_test_100.json"
+    ],
+)
+
+# 生成 PyTOD API 代码文件
+result = builder.build_pytod_apis(
+    output_path="output/my_pytod_apis.py",
+    max_iterations=3,             # 最大优化迭代次数（默认：3）
+    pass_rate_threshold=0.9,      # 验证通过率阈值（默认：0.9）
+    max_test_cases_per_intent=5,  # 每意图最大测试用例数（默认：5）
+    generate_report=False,        # 是否生成验证报告（默认：False）
+)
+```
+
+**参数说明：**
+- `schema_path`: 第一步 `KnowledgeBaseBuilder.save()` 输出的 `schema.json` 路径
+- `test_data_paths`: 真实业务数据文件列表，用于构建测试用例（可选）
+- `max_iterations`: 函数迭代优化的最大轮数（默认：3）
+- `pass_rate_threshold`: 函数验证通过率阈值，低于此值触发重新生成（默认：0.9）
+- `generate_report`: 是否生成 `validation_report.json`（默认：False）
+
+> **注意**：此步骤仅适用于 **PyTOD** 算法；DST、FnCTOD、Evolve 不需要此步骤。
+
 ### Evolve 模式配置
 
 ```python
@@ -453,11 +488,40 @@ ENABLE_EVOLUTION=False
 
 ## 扩展新场景
 
-ContextMind v0.3.0+ 使用 **配置文件驱动** 的场景管理机制。所有场景在 `scenarios.yaml` 中定义，无需修改核心代码。
+ContextMind v0.3.0+ 使用 **配置文件驱动** 的场景管理机制。所有场景在 `scenarios.yaml` 中定义，无需修改核心代码。新场景可根据算法选择灵活使用三步框架：
 
-### 添加新场景（3步）
+### 添加新场景（三步框架）
 
-**步骤1**：在 `scenarios.yaml` 中注册场景及其 Schema
+**框架第一步（可选）**：从真实业务对话构建知识库
+
+```python
+from contextmind.knowledge import KnowledgeBaseBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+builder = KnowledgeBaseBuilder(
+    scene_name="医疗咨询",
+    scene_description="医疗问诊场景",
+    llm_client=AdkLLMClient(),
+)
+schema_dict = builder.build(my_medical_dialogues)
+builder.save(schema_dict, "resources/schemas/medical.json")
+```
+
+**框架第二步（PyTOD 可选）**：生成算法专用 API 代码
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+
+schema_builder = SchemaDataBuilder(
+    llm_client=AdkLLMClient(),
+    schema_path="resources/schemas/medical.json",
+)
+schema_builder.build_pytod_apis(output_path="output/medical_apis.py")
+```
+
+**框架第三步**：在 `scenarios.yaml` 中注册场景并执行
+
+在 `scenarios.yaml` 中注册场景：
 
 ```yaml
 scenes:
@@ -467,27 +531,16 @@ scenes:
     mode: pytod
 ```
 
-**步骤2（PyTOD 模式）**：创建 API 注册函数
-
-```python
-# contextmind/scenarios/registry.py（或自定义模块）
-from contextmind.modes.pytod import AdkPyTODTracker
-
-def register_medical_apis(tracker: AdkPyTODTracker):
-    def query_symptoms(symptom: str):
-        # 调用真实医疗系统
-        return {"status": "success", "diagnosis": "..."}
-    tracker.register_api("query_symptoms", query_symptoms)
-```
-
-**步骤3**：使用 ContextPipeline 加载
+注册 API 并执行：
 
 ```python
 from contextmind import ContextPipeline
 from contextmind.infra.llm_client import AdkLLMClient
 
 pipeline = ContextPipeline(llm_client=AdkLLMClient())
-pipeline.set_schema(schema_dict)  # 从 JSON 加载 schema
+pipeline.set_schema(schema_dict)  # 从第一步输出加载
+
+# 手写 API 或加载第二步生成的 API
 pipeline.register_api("query_symptoms", query_symptoms_fn)
 
 result = await pipeline.process_turn("我最近头疼，该怎么办？")
@@ -520,4 +573,4 @@ result = await pipeline.process_turn("我最近头疼，该怎么办？")
 
 ---
 
-**最后更新**: 2026-03-30 | **版本**: 0.3.0
+**最后更新**: 2026-03-31 | **版本**: 0.3.0

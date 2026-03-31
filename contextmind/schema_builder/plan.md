@@ -1,4 +1,11 @@
-**第二步（Step 2）完整运行过程和步骤**
+**第二步（Step 2）：知识库 → 算法专用 Schema 数据生成**
+
+> **ContextMind 三步框架中的第二步**：  
+> - **第一步**（`contextmind.knowledge`）：任意数据集 → 知识库（`schema.json`）  
+> - **第二步**（`contextmind.schema_builder`，本文档）：知识库 → 适配不同算法的 Schema 数据  
+> - **第三步**（`contextmind.modes.*`）：算法执行（DST / FnCTOD / PyTOD / Evolve）  
+>  
+> 注意：第二步为可选步骤，仅 PyTOD 等需要自动生成 API 代码的算法才用到；DST、FnCTOD、Evolve 可跳过此步直接进入第三步。
 
 以下是最终确定的、清晰规范的 **Step 2 完整运行流程**，严格按照你的要求设计，最终只输出一个 `xxx_pytod_apis.py` 文件。
 
@@ -90,9 +97,10 @@ def run_step2(schema_path, test_data_paths=None, output_path="xxx_pytod_apis.py"
 ```
 
 ### 运行注意事项
-- 整个过程以 `schema.json` 中的意图和槽位为核心依据
+- 整个过程以 `schema.json`（第一步输出）中的意图和槽位为核心依据
 - 测试数据仅用于增强生成质量和迭代优化，不强制要求
 - 最终输出仅为一个 `xxx_pytod_apis.py` 文件，结构清晰、函数独立、可直接执行
 - 迭代优化仅针对有测试用例且初始验证失败的意图，控制计算成本
-- Step 3 可直接通过 `INTENT_REGISTRY` 调用任意意图函数
+- **第三步**（`contextmind.modes.pytod`）可直接 import 该文件，通过 `INTENT_REGISTRY` 调用任意意图函数
+- DST、FnCTOD、Evolve 等算法**不需要**执行第二步，可从第一步直接进入第三步
 

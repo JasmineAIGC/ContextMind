@@ -13,12 +13,12 @@
 
 ### 算法文档
 
-| 算法 | 状态 | 文档 |
-|------|------|------|
-| DST | ✅ 已实现 | [算法说明](algorithms/dst.md) |
-| FnCTOD | ✅ 已实现 | [算法说明](algorithms/fnctod.md) |
-| PyTOD | ✅ 已实现 | [算法说明](algorithms/pytod.md) |
-| Evolve | ✅ 已实现 | [算法说明](algorithms/evolve.md) |
+| 算法 | 状态 | 所需步骤 | 文档 |
+|------|------|---------|------|
+| DST | ✅ 已实现 | 第三步（第一步可选） | [算法说明](algorithms/dst.md) |
+| FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [算法说明](algorithms/fnctod.md) |
+| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [算法说明](algorithms/pytod.md) |
+| Evolve | ✅ 已实现 | 仅第三步 | [算法说明](algorithms/evolve.md) |
 
 ### 评测与数据集
 
@@ -36,15 +36,36 @@
 
 ---
 
+## 🏗️ 三步核心框架
+
+ContextMind 的整体设计围绕三个核心步骤，不同算法对各步骤的依赖各不相同：
+
+| 步骤 | 模块 | 说明 |
+|------|------|------|
+| **① 建立知识库** | `contextmind.knowledge` | 任意数据集 → SGD `schema.json` |
+| **② Schema 数据生成** | `contextmind.schema_builder` | `schema.json` → 算法专用数据（如 PyTOD API 代码） |
+| **③ 算法执行** | `contextmind.modes.*` | 对话上下文提取与管理 |
+
+### 算法步骤依赖矩阵
+
+| 算法 | ① 建立知识库 | ② Schema 生成 | ③ 算法执行 |
+|------|:-----------:|:------------:|:---------:|
+| **DST** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
+| **FnCTOD** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
+| **PyTOD** | ✅ 可选 | ✅ 可选 | ✅ 必须 |
+| **Evolve** | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
+
+---
+
 ## 🗂️ 项目结构（概览）
 
 ```
 ContextMind/
 ├── contextmind/          # 主包
 │   ├── pipeline.py       # ContextPipeline（推荐入口）
-│   ├── knowledge/        # KnowledgeBaseBuilder（Phase 1）
-│   ├── schema_builder/   # SchemaDataBuilder（API代码生成）
-│   ├── modes/            # DST / FnCTOD / PyTOD / Evolve 追踪器
+│   ├── knowledge/        # ① KnowledgeBaseBuilder（第一步）
+│   ├── schema_builder/   # ② SchemaDataBuilder（第二步，API代码生成）
+│   ├── modes/            # ③ DST / FnCTOD / PyTOD / Evolve 追踪器（第三步）
 │   ├── infra/            # AdkLLMClient、配置
 │   └── scenarios/        # 场景注册与配置
 ├── benchmark/            # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
@@ -64,4 +85,4 @@ ContextMind/
 
 ---
 
-**最后更新**: 2026-03-30 | **版本**: 0.3.0
+**最后更新**: 2026-03-31 | **版本**: 0.3.0

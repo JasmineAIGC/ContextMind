@@ -4,20 +4,25 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
 
-**ContextMind** 是一个通用的、高质量的**上下文工程（Context Engineering）**框架，整体设计分为两步：
+**ContextMind** 是一个通用的、高质量的**上下文工程（Context Engineering）**框架，整体设计围绕三个核心步骤：
 
-**第一步：建立知识库**（`contextmind.kb`）——针对任意数据集，通过 LLM 自动发现槽位和意图，合成标准 SGD 格式 `schema.json`。
+**第一步：建立知识库**（`contextmind.knowledge`）——针对任意数据集，通过 LLM 自动发现槽位和意图，合成标准 SGD 格式 `schema.json`。
 
-**第二步：执行**（`contextmind.pipeline` / `contextmind.modes.*`）——基于知识库，在对话中提取有效的上下文，提升对话质量。
+**第二步：Schema 数据生成**（`contextmind.schema_builder`）——将知识库输出的 `schema.json` 转换为适配不同算法所需的结构化数据（如 PyTOD 的 `xxx_pytod_apis.py` API 代码文件）。
 
-推荐使用 **`ContextPipeline`** 作为统一入口——将两步无缝整合，3 行代码完成端到端上下文工程。
+**第三步：算法执行**（`contextmind.pipeline` / `contextmind.modes.*`）——基于知识库与生成的 schema 数据，在对话中提取有效的上下文，提升对话质量。
+
+> **注意**：并非所有算法都需要全部三步。Evolve 等算法可直接进入第三步；DST/FnCTOD 可选使用第一步；PyTOD 可完整利用三步流程。详见[算法步骤依赖矩阵](#算法步骤依赖矩阵)。
+
+推荐使用 **`ContextPipeline`** 作为统一入口——灵活整合所需步骤，3 行代码完成端到端上下文工程。
 
 ---
 
 ## 核心特性
 
-- 🚀 **统一流水线** - `ContextPipeline` 一键整合知识库构建 + 对话上下文提取
+- 🚀 **统一流水线** - `ContextPipeline` 灵活整合三步流程，端到端上下文工程
 - 🗄️ **通用知识库构建** - 任意对话数据集 → SGD `schema.json`（两阶段 LLM 抽取+合成）
+- 🔧 **Schema 数据生成** - 知识库 → 算法专用 schema 数据（如 PyTOD API 代码文件）
 - 🎯 **四种执行模式** - DST（状态追踪）/ FnCTOD（函数调用）/ Evolve（记忆进化）/ PyTOD（程序执行）
 - 🔌 **模型无关** - 适配任何 LLM API（OpenAI、Qwen、Claude 等）
 - 🧠 **智能记忆** - 自动知识提取和语义检索（Evolve 模式）
@@ -53,10 +58,10 @@ from contextmind import ContextPipeline, AdkLLMClient
 
 pipeline = ContextPipeline(llm_client=AdkLLMClient())
 
-# Phase 1: 从原始对话构建知识库
+# 第一步: 从原始对话构建知识库
 pipeline.build_kb(dialogues=my_dialogues, scene_name="银行贷款外呼")
 
-# Phase 2: 对话上下文提取
+# 第三步: 对话上下文提取（第二步 Schema 生成可按需选用）
 async def chat():
     result = await pipeline.process_turn("我想查询贷款额度")
     print(result["response"])      # 系统回复
@@ -74,7 +79,18 @@ python examples/context_pipeline_demo.py
 
 ---
 
-## 两步框架详解
+## 三步框架详解
+
+### 算法步骤依赖矩阵
+
+不同算法对三个步骤的需求各不相同：
+
+| 算法 | 第一步：建立知识库 | 第二步：Schema 数据生成 | 第三步：算法执行 |
+|------|:-----------------:|:---------------------:|:--------------:|
+| **DST** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
+| **FnCTOD** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
+| **PyTOD** | ✅ 可选 | ✅ 可选 | ✅ 必须 |
+| **Evolve** | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
 
 ### 第一步：建立知识库
 
@@ -93,7 +109,7 @@ builder = KnowledgeBaseBuilder(
     scene_name="银行贷款外呼",
     scene_description="银行客服主动致电老客户推介个人贷款产品",
 )
-schema_dict = builder.build(dialogues)       # Phase 1: 发现+合成 → schema dict
+schema_dict = builder.build(dialogues)       # 第一步: 发现+合成 → schema dict
 builder.save(schema_dict, "output/schema.json")
 ```
 
@@ -109,7 +125,26 @@ python examples/build_kb_demo.py \
     --output data/my_kb/schema.json
 ```
 
-### 第二步：执行
+### 第二步：Schema 数据生成
+
+`SchemaDataBuilder` 将第一步生成的 `schema.json` 转换为算法专用的结构化数据，目前支持为 PyTOD 生成 API 代码文件（`xxx_pytod_apis.py`）：
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+builder = SchemaDataBuilder(
+    llm_client=AdkLLMClient(),
+    schema_path="output/schema.json",
+    test_data_paths=["resources/data/chat_test_100.json"],  # 可选，提升生成质量
+)
+# 生成 PyTOD API 代码文件（含函数实现 + INTENT_REGISTRY）
+result = builder.build_pytod_apis(output_path="output/my_pytod_apis.py")
+```
+
+> **注意**：此步骤为可选步骤。DST/FnCTOD/Evolve 不需要此步骤；PyTOD 可直接注册手写 API，也可利用此步骤自动生成 API 代码。
+
+### 第三步：算法执行
 
 **推荐方式：使用 `ContextPipeline`（统一接口）**
 
@@ -123,13 +158,13 @@ pipeline = ContextPipeline(
     scene_name="银行贷款外呼",
 )
 
-# 从已保存的 schema.json 加载
+# 从已保存的 schema.json 加载（第一步输出）
 pipeline.load_kb("output/schema.json")
 
-# 或从 Phase 1 的 schema dict 直接加载
+# 或从第一步的 schema dict 直接加载
 # pipeline.set_schema(schema_dict)
 
-# 注册业务 API（可选，pytod 模式）
+# 注册业务 API（pytod 模式，可使用第二步生成的代码或手写实现）
 @pipeline.register_api("verify_identity")
 def verify_identity(customer_name: str) -> dict:
     return {"verified": True, "customer_name": customer_name}
@@ -147,11 +182,11 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from contextmind.kb import KnowledgeBaseBuilder
+from contextmind.knowledge import KnowledgeBaseBuilder
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
 from contextmind.infra.llm_client import AdkLLMClient
 
-# 从 Phase 1 生成的 schema.json 加载 ServiceSchema（Phase 1→2 桥接）
+# 从第一步生成的 schema.json 加载 ServiceSchema（第一步→第三步桥接）
 service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
 # 也可以直接从 build() 结果转换
 # service_schema = KnowledgeBaseBuilder.to_service_schema(schema_dict)
@@ -243,15 +278,19 @@ response = await app.process_turn("你好，记住我叫张三")
 ContextMind/
 ├── contextmind/               # 核心包
 │   ├── pipeline.py           # 🚀 ContextPipeline（统一上下文工程流水线）
-│   ├── kb/                   # 通用知识库构建（Phase 1）
+│   ├── knowledge/            # ① 通用知识库构建（第一步）
 │   │   ├── builder.py        #   KnowledgeBaseBuilder（发现+合成）
 │   │   │                     #   + to_service_schema() / load_schema() 桥接方法
 │   │   │                     #   + build_async() / build_dataset_async() 异步方法
 │   │   ├── discoverer.py     #   GenericDialogueDiscoverer（LLM开放式发现+溯源）
 │   │   ├── synthesizer.py    #   SchemaSynthesizer（LLM合成 SGD schema）
-│   │   └── normalizer.py     #   多格式对话归一化（4种输入格式）
+│   │   └── normalizer.py     #   多格式对话归一化（5种输入格式）
+│   ├── schema_builder/       # ② Schema 数据生成（第二步，适配不同算法）
+│   │   ├── builder.py        #   SchemaDataBuilder（orchestrator，第一步→算法数据）
+│   │   ├── pytod/            #   PyTOD 专用生成器（schema.json → xxx_pytod_apis.py）
+│   │   └── fnctod/           #   FnCTOD 专用生成器（stub，待实现）
 │   ├── infra/                # 基础设施（LLM 客户端、日志、嵌入向量等）
-│   ├── modes/                # 四种执行模式（Phase 2）
+│   ├── modes/                # ③ 四种算法执行模式（第三步）
 │   │   ├── base.py          #   BaseTracker 协议
 │   │   ├── dst/             #   对话状态追踪（槽位提取）
 │   │   ├── fnctod/          #   函数调用式对话（ADK 原生）
@@ -265,8 +304,8 @@ ContextMind/
 ├── data/                     # 运行时输出
 ├── examples/                 # 示例程序
 │   ├── context_pipeline_demo.py  # 🚀 ContextPipeline 端到端演示
-│   ├── build_kb_demo.py         #   Phase 1 演示：任意数据 → schema.json
-│   └── pytod_trace_demo.py      #   Phase 2 演示：schema.json + API → 对话
+│   ├── build_kb_demo.py         #   第一步演示：任意数据 → schema.json
+│   └── pytod_trace_demo.py      #   第三步演示：schema.json + API → 对话
 ├── benchmark/                # 评测框架
 ├── resources/                # 静态资源与测试数据
 └── docs/                     # 文档

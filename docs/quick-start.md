@@ -88,6 +88,16 @@ python test_config.py
 
 ## 第一个示例
 
+### 三步框架概述
+
+ContextMind 的三个核心步骤及其对不同算法的适用情况：
+
+| 步骤 | 内容 | DST | FnCTOD | PyTOD | Evolve |
+|------|------|:---:|:------:|:-----:|:------:|
+| **① 建立知识库** | 任意数据集 → `schema.json` | ✅ 可选 | ✅ 可选 | ✅ 可选 | ❌ |
+| **② Schema 数据生成** | `schema.json` → 算法专用数据 | ❌ | ❌ | ✅ 可选 | ❌ |
+| **③ 算法执行** | 对话上下文提取与管理 | ✅ | ✅ | ✅ | ✅ |
+
 ### 选项 1：推荐方式 — ContextPipeline（端到端流水线）
 
 `ContextPipeline` 是 ContextMind 推荐的统一入口，3 行代码完成端到端上下文工程：
@@ -99,16 +109,16 @@ from contextmind import ContextPipeline, AdkLLMClient
 # 步骤1：创建流水线
 pipeline = ContextPipeline(llm_client=AdkLLMClient())
 
-# 步骤2a：从原始对话构建知识库（Phase 1）
+# 步骤2a：从原始对话构建知识库（第一步）
 my_dialogues = [
     "坐席：你好，请问是张先生吗？\n用户：是的。\n坐席：您有 5 万元可用额度。",
 ]
 pipeline.build_kb(dialogues=my_dialogues, scene_name="银行贷款外呼")
 
-# 或步骤2b：从已有 schema.json 加载
+# 或步骤2b：从已有 schema.json 加载（跳过第一步）
 # pipeline.load_kb("output/schema.json")
 
-# 步骤3：对话上下文提取（Phase 2）
+# 步骤3：对话上下文提取（第三步）
 async def main():
     result = await pipeline.process_turn("我想查询我的贷款额度")
     print(result["response"])           # 系统回复
@@ -202,8 +212,8 @@ python my_first_app.py
 
 ### 学习路径
 
-1. **理解四种模式**
-   - 阅读 [模式对比文档](README.md)
+1. **理解三步框架**
+   - 阅读 [文档中心](README.md) 了解三步框架概述
    - 了解 DST、FnCTOD、PyTOD、Evolve 的区别和适用场景
 
 2. **查看更多示例**
@@ -247,6 +257,43 @@ python examples/cli_demo.py --scenario chat --mode dst --verbose
 
 ## 更多示例
 
+### 完整三步流程示例（PyTOD）
+
+```python
+import asyncio
+from contextmind.knowledge import KnowledgeBaseBuilder
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
+from contextmind.infra.llm_client import AdkLLMClient
+
+llm = AdkLLMClient()
+
+# 第一步：建立知识库
+builder = KnowledgeBaseBuilder(scene_name="银行贷款外呼", llm_client=llm)
+schema_dict = builder.build(my_dialogues)
+builder.save(schema_dict, "output/schema.json")
+
+# 第二步：Schema 数据生成（PyTOD 专用，可选）
+schema_builder = SchemaDataBuilder(llm_client=llm, schema_path="output/schema.json")
+schema_builder.build_pytod_apis(output_path="output/loan_apis.py")
+
+# 第三步：算法执行
+engine = ExecutionEngine()
+# 加载第二步生成的 API 或手写实现
+from output.loan_apis import INTENT_REGISTRY
+for name, fn in INTENT_REGISTRY.items():
+    engine.register(name)(fn)
+
+service_schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
+tracker = AdkPyTODTracker(llm_client=llm, engine=engine, schema=service_schema)
+
+async def main():
+    result = await tracker.process_turn("我想查询我的贷款额度")
+    print(result["response"])
+
+asyncio.run(main())
+```
+
 ### 批量处理多轮对话
 
 ```python
@@ -265,7 +312,7 @@ async def process_session(utterances: list[str]) -> list[dict]:
     return results
 ```
 
-### 从已有 Schema 启动（跳过 KB 构建）
+### 从已有 Schema 启动（跳过第一步）
 
 ```python
 from contextmind import ContextPipeline
@@ -282,7 +329,7 @@ pipeline.set_schema(schema)
 result = await pipeline.process_turn("帮我查一下贷款额度")
 ```
 
-### 直接使用 AdkPyTODTracker
+### 直接使用 AdkPyTODTracker（仅第三步）
 
 ```python
 from contextmind.modes.pytod import AdkPyTODTracker
@@ -310,4 +357,4 @@ print(result["response"])
 
 ---
 
-**最后更新**: 2026-03-30 | **版本**: 0.3.0
+**最后更新**: 2026-03-31 | **版本**: 0.3.0
