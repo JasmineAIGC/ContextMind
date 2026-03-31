@@ -57,6 +57,8 @@ class SchemaDataBuilder:
         pass_rate_threshold:       Phase 4 通过率阈值（默认 0.9）。
         max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 5）。
         generate_report:           是否写入验证报告（默认 False）。
+        verbose:                   是否输出详细进度信息（测试用例内容、每轮迭代后函数代码、
+                                   通过率等），默认 False。
     """
 
     def __init__(
@@ -69,6 +71,7 @@ class SchemaDataBuilder:
         pass_rate_threshold: float = 0.9,
         max_test_cases_per_intent: int = 5,
         generate_report: bool = False,
+        verbose: bool = False,
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
@@ -78,6 +81,7 @@ class SchemaDataBuilder:
         self.pass_rate_threshold = pass_rate_threshold
         self.max_test_cases_per_intent = max_test_cases_per_intent
         self.generate_report = generate_report
+        self.verbose = verbose
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -178,6 +182,7 @@ class SchemaDataBuilder:
                 pass_rate_threshold=self.pass_rate_threshold,
                 max_test_cases_per_intent=self.max_test_cases_per_intent,
                 generate_report=self.generate_report,
+                verbose=self.verbose,
             )
 
         # ------- 规则模式（无 LLM）-------

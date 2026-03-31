@@ -246,6 +246,7 @@ def main() -> None:
         pass_rate_threshold=args.pass_rate_threshold,
         max_test_cases_per_intent=args.max_test_cases,
         generate_report=args.generate_report,
+        verbose=args.verbose,
     )
 
     if args.schema:

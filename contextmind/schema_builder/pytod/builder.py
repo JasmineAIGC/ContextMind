@@ -37,6 +37,14 @@ from .validator import validate_function, write_validation_report
 logger = get_logger(__name__)
 
 
+def _print_section(title: str, width: int = 70) -> None:
+    """在终端打印带标题的分隔线，用于 verbose 模式的分段显示。"""
+    line = "─" * width
+    print(line)
+    print(f"  {title}")
+    print(line)
+
+
 def build_pytod_apis(
     schema_path: Union[str, Path],
     schema: Optional[ServiceSchema] = None,
@@ -49,6 +57,7 @@ def build_pytod_apis(
     max_test_cases_per_intent: int = 5,
     generate_report: bool = False,
     kb_dir: Optional[Union[str, Path]] = None,
+    verbose: bool = False,
 ) -> Optional[Path]:
     """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
@@ -84,6 +93,8 @@ def build_pytod_apis(
                                   ``discovery_raw.json``、``conversion_summary.json``，
                                   为 LLM 生成函数提供更丰富的业务背景。
                                   ``dialogue_data_path`` 优先级高于 ``kb_dir``。
+        verbose:                  是否输出详细进度信息（测试用例内容、每轮迭代后函数代码、
+                                  通过率等）。默认 False。
 
     Returns:
         写入成功时返回生成的文件路径，否则返回 None。
@@ -157,6 +168,17 @@ def build_pytod_apis(
             f"[PyTOD] Phase 2 完成 — "
             f"{len(test_cases_by_intent)} 个意图共 {total_cases} 条测试用例"
         )
+        if verbose and test_cases_by_intent:
+            _print_section("Phase 2 — 生成的测试用例")
+            for intent_name, cases in test_cases_by_intent.items():
+                print(f"  📌 意图: {intent_name}（{len(cases)} 条用例）")
+                for i, tc in enumerate(cases, 1):
+                    desc = f" [{tc.description}]" if tc.description else ""
+                    print(f"    用例 #{i}{desc}")
+                    print(f"      input_slots  : {tc.input_slots}")
+                    if tc.expected_keys:
+                        print(f"      expected_keys: {tc.expected_keys}")
+            print()
 
     # ------------------------------------------------------------------
     # Phase 3：初始函数生成（LLM 逐函数 + 测试用例 few-shot）
@@ -194,6 +216,11 @@ def build_pytod_apis(
                 # LLM 失败时回退到规则生成
                 func_code = "\n".join(generate_function_lines(intent))
                 rule_count += 1
+
+            if verbose:
+                _print_section(f"Phase 3 — {intent.name} 初始函数代码")
+                print(func_code)
+                print()
 
             # Phase 4：执行测试验证 + 迭代修复（仅当有测试用例且 LLM 生成成功）
             if intent_test_cases and llm_body is not None:
@@ -235,6 +262,14 @@ def build_pytod_apis(
                         f"通过率: {new_validation.pass_rate:.1%} "
                         f"({new_validation.passed}/{new_validation.total})"
                     )
+                    if verbose:
+                        _print_section(
+                            f"Phase 4 — {intent.name} 第 {iteration} 轮修复后代码"
+                            f"（通过率: {new_validation.pass_rate:.1%}"
+                            f" {new_validation.passed}/{new_validation.total}）"
+                        )
+                        print(repaired_code)
+                        print()
                     # 通过率提升或持平时接受修复结果（持平也接受，后续轮次可能继续改善）
                     if new_validation.pass_rate >= validation.pass_rate:
                         func_code = repaired_code
@@ -266,6 +301,23 @@ def build_pytod_apis(
                 total_p = sum(v.passed for v in validated)
                 total_t = sum(v.total for v in validated)
                 mode_str += f"，测试验证 {total_p}/{total_t} ({avg_rate:.1%})"
+
+        if verbose and validations:
+            _print_section("Phase 4 — 验证汇总")
+            for intent_name, v in validations.items():
+                if v.total > 0:
+                    status = "✅" if v.pass_rate >= pass_rate_threshold else "⚠️ "
+                    print(
+                        f"  {status} {intent_name}: "
+                        f"{v.pass_rate:.1%} ({v.passed}/{v.total})"
+                        f"，迭代 {v.iterations} 轮"
+                    )
+                    if v.failures:
+                        for fail in v.failures[:3]:
+                            print(f"       ✗ {fail}")
+                else:
+                    print(f"  —  {intent_name}: 无测试用例（跳过验证）")
+            print()
 
     else:
         # 规则模式：无 LLM
