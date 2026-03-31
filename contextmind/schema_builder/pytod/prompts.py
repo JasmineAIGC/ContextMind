@@ -32,16 +32,36 @@ MODULE_GEN_SYSTEM = """\
 - 函数参数 = required_slots + optional_slots（全部带默认值 None）
 - 函数必须包含 docstring（意图描述）
 
-### 函数体（每个函数都必须有真实计算逻辑）
-1. **输入处理**：对 None 值设置合理默认值；金额/日期字段做格式化
-2. **业务计算**：根据意图语义做相应计算
-   - `complain_*`/`dispute_*`：调用 `_ticket_id(prefix)` 生成工单号
-   - `verify_*`/`confirm_*`：根据必填参数是否存在推导布尔结果
-   - `schedule_*`/`book_*`：调用 `_next_work_day()` 计算回调时间
-   - `inquire_*`/`query_*`：必填参数校验后返回查询结果
-   - 财务计算意图：调用 `_calc_monthly_payment()` / `_parse_amount()`
-3. **返回值**：包含所有 result_slots 字段 + 输入参数 + `"status": "success"`
-4. 可以直接调用文件顶部已定义的 `_ticket_id()`、`_calc_monthly_payment()` 等工具函数
+### 函数体（每个函数都必须体现对业务意图的深度理解）
+
+**在编写每个函数前，先思考：这个意图在这个业务场景中代表了什么真实动作？**
+
+1. **投诉/纠纷类**（complain_/dispute_）：
+   - 受理投诉/纠纷，用 `_ticket_id(prefix)` 生成工单号
+   - 基于槽位值（金额大小、逾期天数）推断投诉严重程度，计算预计处理时长
+   - 返回工单号、严重级别、处理时长等对客服跟进有价值的信息
+
+2. **确认/核实类**（verify_/confirm_）：
+   - 理解确认的业务含义：是核实用户身份？确认账户信息？还是确认某个业务申请？
+   - 基于槽位值的**语义内容**（而非是否为None）判断确认结果（如账户状态="正常"表示已核实）
+   - 必要时计算差值（申请额度 vs 可用额度）或比较状态值
+
+3. **查询/询问类**（inquire_/query_）：
+   - 基于槽位值推断或计算用户关心的信息（用 `_parse_amount()` 处理金额，`_calc_monthly_payment()` 算月供）
+   - 返回推导后的业务结论（如利息占比、还款压力评估），而非简单回传输入
+
+4. **拒绝/表态类**（decline_/express_/suggest_）：
+   - 记录用户决策及关键背景（为何拒绝？拒绝时的账户状况？）
+   - 提取对后续回访有价值的业务信号（如高额度用户拒绝需高优先级跟进）
+
+5. **通知/告知类**（inform_/offer_）：
+   - 基于槽位值做实际计算推导（临时额度 → 每日可用额度；还款计划 → 利息总额）
+   - 返回有实际业务价值的推导结果，而不只是透传输入
+
+### 严格禁止
+- ❌ 不要写 `if required_param is None: return {"status": "error"}` 这类防御性 if/else——函数应对 None 输入给出合理默认结果
+- ❌ 不要只是把输入参数原样塞进返回字典
+- ❌ 不要写万能返回如 `return {"status": "success", **{k:v for k,v in locals().items()}}`
 
 ### 代码质量
 - 每个函数体不超过 25 行
@@ -167,43 +187,125 @@ FUNCTION_GEN_SYSTEM = """\
 
 ## 核心要求：透彻理解业务意图，写出本质逻辑
 
-**在编写任何代码之前，先理解这个意图在当前业务场景中的本质含义：**
+**在编写任何代码之前，先深入理解这个意图在当前业务场景中的本质含义：**
 
-- 这个意图在对话中代表了什么动作/事件？
-- 执行这个函数意味着什么业务操作？
-- 返回值应该反映什么真实的业务结果？
+- 这个意图在对话中代表了什么动作/事件？用户或客服做了什么？
+- 执行这个函数意味着什么业务操作？对客户账户/记录/关系有什么影响？
+- 返回值应该反映什么真实的业务结果？什么信息对后续对话管理（DM）最有价值？
 
-**函数体必须体现对意图的深度理解：**
+**函数体必须体现对意图的深度理解，每类意图的实现示例如下：**
 
-1. **投诉/纠纷类**（complain_/dispute_）：
-   - 创建投诉/纠纷记录，确定问题严重程度
-   - 基于槽位值（金额、时间等）计算或推断处理优先级
-   - 返回工单号（`_ticket_id()`）、处理优先级、预计处理时间等有意义的字段
+### 1. 投诉/纠纷类（complain_/dispute_）
+这类意图表示客户在对话中提出了投诉或纠纷。函数应当：
+- 用 `_ticket_id()` 生成工单号（这是核心动作——系统受理了这个投诉）
+- 基于槽位值（金额大小、逾期天数）推断投诉的严重程度
+- 返回工单号、严重级别、预计处理时长等对后续跟进有价值的字段
 
-2. **询问/查询类**（inquire_/query_）：
-   - 基于现有槽位值推断或计算用户真正关心的信息
-   - 合理利用 `_parse_amount()` 处理金额，`_calc_monthly_payment()` 计算还款
-   - 返回经过计算/推断的有效业务信息，而非简单回传输入
+```python
+# 示例：complain_interest_rate(total_interest=None, daily_interest=None)
+    # 受理利率投诉，基于利息金额判断投诉严重程度
+    ticket = _ticket_id("INTEREST")
+    total = _parse_amount(total_interest)
+    severity = "高" if total > 5000 else ("中" if total > 1000 else "低")
+    return {
+        "complaint_interest_rate": ticket,
+        "ticket_id": ticket,
+        "severity": severity,
+        "handling_days": 3 if severity == "高" else 5,
+        "total_interest": total_interest or "未提供",
+        "daily_interest": daily_interest or "未提供",
+        "status": "success",
+    }
+```
 
-3. **确认/核实类**（confirm_/verify_）：
-   - 根据必填槽位是否存在以及其语义内容判断确认结果
-   - 必要时进行数值比较（如申请额度 vs 可用额度）
-   - 返回确认状态、差异说明等
+### 2. 询问/查询类（inquire_/query_）
+这类意图表示客服询问用户某方面的意见或情况，或用户查询信息。函数应当：
+- 基于槽位值推断用户真正关心的问题，给出有意义的查询结果
+- 用 `_parse_amount()` 处理金额，必要时用 `_calc_monthly_payment()` 计算还款
+- 返回推断/计算后的业务结论，而非简单重复输入
 
-4. **拒绝/表态类**（decline_/express_/suggest_）：
-   - 记录用户意图和态度，提取关键业务信号
-   - 基于槽位值判断后续处理建议（如用户余额 0 时 decline 的建议与有余额不同）
-   - 返回业务处理建议、状态标记
+```python
+# 示例：inquire_concerns_quota_interest(current_credit_limit=None, total_interest=None)
+    # 询问用户对额度和利息的顾虑，记录用户关注点
+    limit = _parse_amount(current_credit_limit)
+    interest = _parse_amount(total_interest)
+    # 根据实际额度和利息判断用户可能的顾虑方向
+    concern_focus = "利息较高" if interest > 0 and interest / max(limit, 1) > 0.15 else "额度使用"
+    return {
+        "inquired_concerns": concern_focus,
+        "current_credit_limit": current_credit_limit or "未提供",
+        "total_interest": total_interest or "未提供",
+        "interest_to_limit_ratio": f"{interest/max(limit,1)*100:.1f}%" if limit > 0 else "N/A",
+        "status": "success",
+    }
+```
 
-5. **通知/告知类**（inform_/offer_）：
-   - 利用槽位值执行实际计算（如临时额度 + 有效期 → 完整的提额方案）
-   - 返回对 DM 有用的推导结果，而不仅仅是透传输入
+### 3. 确认/核实类（confirm_/verify_）
+这类意图表示对某事项的确认。函数应当：
+- 根据槽位值（如账户使用状态、申请日期）判断确认的实际含义
+- 必要时对比数值（申请额度 vs 可用额度、当前状态 vs 正常状态）
+- 返回确认结果及支撑该结论的业务数据
+
+```python
+# 示例：verify_identity(account_usage_status=None)
+    # 核实用户身份——通过账户使用状态确认身份有效性
+    # 账户"正常使用"中的用户即为身份可核实的真实用户
+    status = str(account_usage_status or "").strip()
+    is_verified = bool(status) and status not in ("注销", "冻结", "黑名单")
+    return {
+        "verified_identity": is_verified,
+        "account_usage_status": status or "未知",
+        "verification_basis": "账户状态核查",
+        "status": "success",
+    }
+```
+
+### 4. 拒绝/表态类（decline_/express_/suggest_）
+这类意图表示用户拒绝/表达态度，或客服给出建议。函数应当：
+- 记录用户的决定及相关背景信息（为什么拒绝、什么建议）
+- 基于槽位值提取关键业务信号（如拒绝借款时的额度信息）
+- 返回记录状态和对后续流程有指导意义的标记
+
+```python
+# 示例：decline_usage(current_credit_limit=None)
+    # 用户表示不敢使用额度——记录拒绝原因，便于后续针对性回访
+    limit = _parse_amount(current_credit_limit)
+    follow_up_priority = "高" if limit > 10000 else "中"
+    return {
+        "declined_usage": True,
+        "current_credit_limit": current_credit_limit or "未告知",
+        "follow_up_priority": follow_up_priority,
+        "decline_reason_category": "风险顾虑",
+        "status": "success",
+    }
+```
+
+### 5. 通知/告知类（inform_/offer_）
+这类意图表示向用户告知信息。函数应当：
+- 利用槽位值执行实际计算（如临时额度 + 有效期 → 完整提额方案）
+- 推导出对用户有价值的衍生信息（如每日可用额度、月利息等）
+- 返回推导结果，而不仅仅是透传输入
+
+```python
+# 示例：inform_credit_limit_increase(temporary_credit_limit=None)
+    # 告知临时提额——计算提额后的业务影响
+    new_limit = _parse_amount(temporary_credit_limit)
+    valid_days = 30  # 临时提额通常有效期30天
+    return {
+        "informed_credit_limit_increase": True,
+        "temporary_credit_limit": temporary_credit_limit or "未知",
+        "valid_days": valid_days,
+        "daily_available": f"{new_limit/valid_days:.0f}元/天" if new_limit > 0 else "待确认",
+        "status": "success",
+    }
+```
 
 ## 严格禁止的模式
 - ❌ 不要写 `return {"status": "success", **{k:v for k,v in locals().items()}}` 这样的万能返回
-- ❌ 不要只是把输入参数原样塞进返回字典（除非这是唯一合理的业务逻辑）
-- ❌ 不要写 `if x is None: return {"status": "error"}` 这样的防御性 if/else——函数应该自然处理 None
-- ❌ 不要为了通过测试而硬编码特定输入值的 if 判断
+- ❌ 不要只是把输入参数原样塞进返回字典（每个字段都应有计算意义）
+- ❌ 不要写 `if x is None: return {"status": "error"}` 这样的防御性 if/else——None 输入时应用合理默认值继续运行
+- ❌ 不要为了通过测试而硬编码特定输入值的 if 判断（如 `if value == "21900元": ...`）
+- ❌ 不要用 if/else 分支来针对性处理某个测试用例的特殊值
 
 ## 编写规范
 - 可以直接调用：`_parse_amount()`、`_ticket_id()`、`_calc_monthly_payment()`、`_next_work_day()`
@@ -248,29 +350,53 @@ REPAIR_SYSTEM = """\
 
 你将收到一个意图函数的完整代码以及测试失败信息，需要**重新理解意图语义**并生成更好的实现。
 
-## 核心原则：从语义理解出发，而非打补丁
+## 核心原则：从语义理解出发重写，而非打补丁
 
 **失败的根本原因往往不是代码细节出错，而是对业务意图的理解不够深入。**
 
 请按以下步骤思考：
-1. 重新分析这个意图在当前业务场景中的本质含义
-2. 找出现有实现在语义理解上的不足（而非语法问题）
-3. 设计一个在业务逻辑上自然正确的新实现
+1. 重新分析这个意图在当前业务场景中的**本质含义**——它到底代表了什么业务动作？
+2. 检查现有实现：它真正"做"了什么？这与业务实际需要一致吗？
+3. 如果理解有偏差，**完全重写**——不要在旧代码上打补丁
 
-## 严格禁止的修复方式
+## 严格禁止的修复方式（这些都是逃避本质理解的捷径）
 - ❌ 不要添加 `if input_value == "某个测试值": return {"status": "success", ...}` 这类判断
-- ❌ 不要给现有函数添加 if/else 分支来专门处理失败的测试用例
+- ❌ 不要给现有函数添加 if/else 分支来专门处理某个失败的测试用例
 - ❌ 不要为了让某条测试通过而硬编码条件判断
-- ❌ 不要在原有逻辑之上叠加补丁——如果原逻辑有缺陷，应该重写
+- ❌ 不要在原有逻辑之上叠加补丁——如果原逻辑有缺陷，应该重写整个函数体
+- ❌ 不要把 None 参数当错误处理——None 表示该轮对话中用户还未提供这个信息，函数应正常运行
 
-## 正确的修复思路
+## 正确的修复思路（基于深度业务理解）
 
-- ✅ 分析意图名称和描述，理解它在这个业务场景中的实际意义
-- ✅ 检查返回值是否真的包含了所有 result_slots（可能是漏掉了某个字段）
-- ✅ 检查 None 输入的处理：槽位为 None 时函数应该仍能正确运行并返回有意义的值
-- ✅ 考虑当所有槽位都为 None 时（对话早期），函数的合理返回是什么
-- ✅ 考虑当部分槽位有值时，如何利用这些值进行有意义的计算
-- ✅ 如果原实现思路有根本性缺陷，完全重写比修补更好
+- ✅ **检查 result_slots**：返回值是否真的包含了所有 result_slots？漏掉某个字段是最常见的失败原因
+- ✅ **理解 None 输入的业务含义**：当某个槽位为 None 时，说明对话中还未收集该信息，函数应给出合理的默认结果（而非报错）
+- ✅ **检查业务逻辑的合理性**：比如 verify_identity 应该基于账户状态判断身份有效性，而不仅仅检查参数是否存在
+- ✅ **利用工具函数做真正的计算**：`_parse_amount()` 解析金额，`_calc_monthly_payment()` 计算月供，`_ticket_id()` 生成工单
+- ✅ **返回有业务价值的推导结果**：不要只回传输入，要根据意图语义计算出有意义的结论
+
+## 典型的深度理解改写示例
+
+**差的修复（if/else 打补丁）**：
+```python
+# ❌ 这不是修复，是回避理解
+if account_usage_status == "正常":
+    return {"verified_identity": True, ...}
+else:
+    return {"verified_identity": False, ...}
+```
+
+**好的修复（从业务语义出发）**：
+```python
+# ✅ 理解意图：核实身份 = 确认账户是真实活跃的，非注销/冻结账户
+status = str(account_usage_status or "").strip()
+is_verified = bool(status) and status not in ("注销", "冻结", "黑名单", "异常")
+return {
+    "verified_identity": is_verified,
+    "account_usage_status": status or "未知",
+    "verification_basis": "账户状态核查",
+    "status": "success",
+}
+```
 
 ## 技术规范
 - 保持函数签名不变（参数名和默认值 None）

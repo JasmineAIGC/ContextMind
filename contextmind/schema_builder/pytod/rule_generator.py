@@ -178,15 +178,22 @@ def _complaint_body(intent: IntentDefinition, params: List[str]) -> List[str]:
 
 
 def _verify_body(intent: IntentDefinition, params: List[str]) -> List[str]:
-    """核实/确认意图体：依据必填参数是否存在推导布尔结果。"""
+    """核实/确认意图体：根据槽位语义内容判断确认结果（而非仅检查是否为 None）。"""
     req = list(intent.required_slots)
+    lines: List[str] = []
     if req:
-        # 所有必填槽位均不为 None 时操作才成功
-        check_parts = [f"({p} is not None)" for p in req]
-        check_expr = " and ".join(check_parts)
-        lines = [f"    _ok = bool({check_expr})"]
+        # 将第一个必填参数转为字符串，过滤明确的否定/异常状态
+        first_req = req[0]
+        lines = [
+            f'    _val = str({first_req} or "").strip()',
+            f'    _ok = bool(_val) and _val not in ("否", "拒绝", "注销", "冻结", "黑名单", "异常")',
+        ]
     elif params:
-        lines = [f"    _ok = ({params[0]} is not None)"]
+        first_p = params[0]
+        lines = [
+            f'    _val = str({first_p} or "").strip()',
+            f'    _ok = bool(_val)',
+        ]
     else:
         lines = ["    _ok = True"]
 
@@ -242,18 +249,8 @@ def _schedule_body(intent: IntentDefinition, params: List[str]) -> List[str]:
 
 
 def _inquire_body(intent: IntentDefinition, params: List[str]) -> List[str]:
-    """查询意图体：校验必填参数后返回语义化查询结果。"""
-    req = list(intent.required_slots)
-    lines: List[str] = []
-    if req:
-        check_parts = [f"({p} is not None)" for p in req]
-        check_expr = " and ".join(check_parts)
-        missing_list = ", ".join(req)
-        lines += [
-            f"    if not ({check_expr}):",
-            f'        return {{"status": "error", "message": "缺少必填参数: {missing_list}"}}',
-        ]
-    lines.append("    return {")
+    """查询意图体：基于槽位值推断查询结果，None 输入时返回默认结论。"""
+    lines: List[str] = ["    return {"]
     for rs in intent.result_slots:
         val = _mock_value_for_result_slot(rs, intent)
         lines.append(f'        "{rs}": {val},')
@@ -279,18 +276,8 @@ def _inform_body(intent: IntentDefinition, params: List[str]) -> List[str]:
 
 
 def _generic_body(intent: IntentDefinition, params: List[str]) -> List[str]:
-    """通用意图体：必填参数校验 + 语义化返回值。"""
-    req = list(intent.required_slots)
-    lines: List[str] = []
-    if req:
-        check_parts = [f"({p} is not None)" for p in req]
-        check_expr = " and ".join(check_parts)
-        missing_list = ", ".join(req)
-        lines += [
-            f"    if not ({check_expr}):",
-            f'        return {{"status": "error", "message": "缺少必填参数: {missing_list}"}}',
-        ]
-    lines.append("    return {")
+    """通用意图体：语义化返回值，对任意输入（包括 None）均可正常运行。"""
+    lines: List[str] = ["    return {"]
     for rs in intent.result_slots:
         val = _mock_value_for_result_slot(rs, intent)
         lines.append(f'        "{rs}": {val},')

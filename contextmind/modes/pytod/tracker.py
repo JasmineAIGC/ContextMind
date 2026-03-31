@@ -51,7 +51,7 @@ from contextmind.infra.llm_client import create_local_adk_model
 from contextmind.modes.pytod.execution_engine import ExecutionEngine, ProgramExecutionResult
 from contextmind.modes.pytod.prompts import ConversationTurn, PyTODPromptBuilder
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
-from contextmind.modes.pytod.schemas import ServiceSchema
+from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 
 from google.adk.agents import LlmAgent  # type: ignore[import]
 from google.adk.runners import InMemoryRunner  # type: ignore[import]
@@ -442,13 +442,41 @@ class AdkPyTODTracker:
                 engine, external_schema, replace_existing=True, api_funcs=api_funcs
             )
             schema = external_schema
+        elif api_funcs:
+            # 未提供 schema.json，但已从 *_pytod_apis.py 加载了真实 API 函数：
+            # 从函数签名和 docstring 推导最小化 ServiceSchema，直接注册 API 函数。
+            # 这样即使没有对应的 schema.json，AP 也能看到函数签名和意图描述。
+            import inspect as _inspect
+            synthetic_intents: List[IntentDefinition] = []
+            for func_name, func in api_funcs.items():
+                sig = _inspect.signature(func)
+                all_params = [p for p in sig.parameters]
+                synthetic_intents.append(IntentDefinition(
+                    name=func_name,
+                    description=(func.__doc__ or func_name).strip().split("\n")[0],
+                    required_slots=[],
+                    optional_slots=all_params,
+                    result_slots=[],
+                ))
+            schema = ServiceSchema(
+                service_name=scenario_name or "api_functions",
+                description="从 pytod_apis.py 文件推导的服务 Schema",
+                intents=synthetic_intents,
+            )
+            _register_apis_from_schema(
+                engine, schema, replace_existing=True, api_funcs=api_funcs
+            )
+            logger.info(
+                f"AdkPyTODTracker: 场景 '{scenario_name}' 已从 pytod_apis 文件推导 schema，"
+                f"注册 {len(api_funcs)} 个 API 函数。"
+            )
         else:
-            # 未提供外部 schema：空引擎 + None schema（开放域模式）
+            # 未提供外部 schema 也未加载 api_funcs：空引擎（开放域模式）
             logger.warning(
                 f"AdkPyTODTracker: 场景 '{scenario_name}' 未传入 schema，"
                 "使用空引擎运行（AP 将无法引用业务 API）。"
                 "请通过 schema= 参数传入 ServiceSchema 对象，"
-                "或通过 schema_path= 指向 schema/*_schema.json 文件。"
+                "或通过 schema_path= 指向 *_pytod_apis.py 或 schema/*_schema.json 文件。"
             )
             schema = None
 
