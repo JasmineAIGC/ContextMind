@@ -40,9 +40,9 @@ logger = get_logger(__name__)
 def _print_section(title: str, width: int = 70) -> None:
     """在终端打印带标题的分隔线，用于 verbose 模式的分段显示。"""
     line = "─" * width
-    print(line)
-    print(f"  {title}")
-    print(line)
+    print(line, flush=True)
+    print(f"  {title}", flush=True)
+    print(line, flush=True)
 
 
 def build_pytod_apis(
@@ -171,14 +171,14 @@ def build_pytod_apis(
         if verbose and test_cases_by_intent:
             _print_section("Phase 2 — 生成的测试用例")
             for intent_name, cases in test_cases_by_intent.items():
-                print(f"  📌 意图: {intent_name}（{len(cases)} 条用例）")
+                print(f"  📌 意图: {intent_name}（{len(cases)} 条用例）", flush=True)
                 for i, tc in enumerate(cases, 1):
                     desc = f" [{tc.description}]" if tc.description else ""
-                    print(f"    用例 #{i}{desc}")
-                    print(f"      input_slots  : {tc.input_slots}")
+                    print(f"    用例 #{i}{desc}", flush=True)
+                    print(f"      input_slots  : {tc.input_slots}", flush=True)
                     if tc.expected_keys:
-                        print(f"      expected_keys: {tc.expected_keys}")
-            print()
+                        print(f"      expected_keys: {tc.expected_keys}", flush=True)
+            print(flush=True)
 
     # ------------------------------------------------------------------
     # Phase 3：初始函数生成（LLM 逐函数 + 测试用例 few-shot）
@@ -219,8 +219,8 @@ def build_pytod_apis(
 
             if verbose:
                 _print_section(f"Phase 3 — {intent.name} 初始函数代码")
-                print(func_code)
-                print()
+                print(func_code, flush=True)
+                print(flush=True)
 
             # Phase 4：执行测试验证 + 迭代修复（仅当有测试用例且 LLM 生成成功）
             if intent_test_cases and llm_body is not None:
@@ -268,8 +268,8 @@ def build_pytod_apis(
                             f"（通过率: {new_validation.pass_rate:.1%}"
                             f" {new_validation.passed}/{new_validation.total}）"
                         )
-                        print(repaired_code)
-                        print()
+                        print(repaired_code, flush=True)
+                        print(flush=True)
                     # 通过率提升或持平时接受修复结果（持平也接受，后续轮次可能继续改善）
                     if new_validation.pass_rate >= validation.pass_rate:
                         func_code = repaired_code
@@ -310,14 +310,15 @@ def build_pytod_apis(
                     print(
                         f"  {status} {intent_name}: "
                         f"{v.pass_rate:.1%} ({v.passed}/{v.total})"
-                        f"，迭代 {v.iterations} 轮"
+                        f"，迭代 {v.iterations} 轮",
+                        flush=True,
                     )
                     if v.failures:
                         for fail in v.failures[:3]:
-                            print(f"       ✗ {fail}")
+                            print(f"       ✗ {fail}", flush=True)
                 else:
-                    print(f"  —  {intent_name}: 无测试用例（跳过验证）")
-            print()
+                    print(f"  —  {intent_name}: 无测试用例（跳过验证）", flush=True)
+            print(flush=True)
 
     else:
         # 规则模式：无 LLM
