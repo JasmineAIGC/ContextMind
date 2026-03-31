@@ -8,7 +8,7 @@
 - **核心代码**: `benchmark/algorithms/fnctod.py`
 - **评测脚本**: `benchmark/run_fnctod_transfertod.py`
 - **支持数据集**: TransferTOD
-- **论文参考**: [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）
+- **论文**: [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）
 
 ### 三步框架依赖
 
@@ -273,4 +273,4 @@ python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 10 --verbose
 - [评测指标说明](../benchmark.md)
 - [TransferTOD 数据集](../datasets/datasets.md)
 - [API 参考](../api-reference.md)
-- [FnCTOD 论文](https://arxiv.org/abs/2405.02568)
+- [FnCTOD 论文：Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）

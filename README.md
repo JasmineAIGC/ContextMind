@@ -228,7 +228,7 @@ state = await tracker.process_turn("我要订明天去北京的票")
 
 ### 2. **FnCTOD 模式**（函数调用）
 
-基于 FnCTOD 论文（ACL 2024），将 DST 转化为函数调用，实现零样本对话状态追踪。
+基于 [FnCTOD 论文（ACL 2024）](https://arxiv.org/pdf/2402.10466)，将 DST 转化为函数调用，实现零样本对话状态追踪。
 
 ```python
 from contextmind.modes.fnctod import FnCTODTracker
@@ -242,7 +242,7 @@ result = await tracker.process_turn("我想买重疾险")
 
 ### 3. **PyTOD 模式**（可编程任务型对话）
 
-基于 Apple 研究院 PyTOD 论文，将对话建模为程序执行问题。
+基于 Apple 研究院 [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)，将对话建模为程序执行问题。
 
 ```python
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
@@ -257,7 +257,7 @@ print(result["response"])      # 您的可用余额为…
 
 ### 4. **Evolve 模式**（演化式上下文）
 
-基于 AlphaEvolve/ThetaEvolve 算法的高级对话管理，支持长对话记忆。
+基于 [ThetaEvolve 算法：ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) 的高级对话管理，支持长对话记忆。
 
 ```python
 from contextmind.modes.evolve import create_app_for_scenario
@@ -321,9 +321,10 @@ ContextMind/
 
 ## 致谢
 
-- PyTOD 模式基于 Apple 研究院论文 "Task-Oriented Dialogue as Dataflow Synthesis"
-- FnCTOD 模式基于 ACL 2024 论文 "Large Language Models as Zero-shot Dialogue State Tracker through Function Calling" 实现
-- Evolve 模式采用 AlphaEvolve 和 ThetaEvolve 算法
+- PyTOD 模式基于 Apple 研究院论文 ["PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback"](https://arxiv.org/pdf/2508.15456)
+- FnCTOD 模式基于 ACL 2024 论文 ["Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"](https://arxiv.org/pdf/2402.10466)
+- Evolve 模式采用 AlphaEvolve 和 [ThetaEvolve](https://arxiv.org/pdf/2511.23473) 算法
+- DST 模式实现标准对话状态追踪（Dialogue State Tracking）技术
 
 ---
 

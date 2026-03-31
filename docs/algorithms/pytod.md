@@ -6,7 +6,7 @@
 
 - **实现状态**: ✅ 已实现
 - **官方源码**: https://github.com/apple/ml-pytod
-- **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/abs/2508.15456)
+- **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)
 - **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/datasets.md)
 
 ### 三步框架依赖
@@ -311,7 +311,7 @@ response = await tracker.process_turn("我要预订一家餐厅")
 ## 参考资料
 
 - [pyTOD 官方 GitHub](https://github.com/apple/ml-pytod)
-- [PyTOD 论文](https://arxiv.org/abs/2508.15456)
+- [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)
 - [SGD 数据集文档](../datasets/datasets.md)
 - [SGD 原始论文](https://arxiv.org/abs/1909.05855)
 - [DST 算法文档](dst.md)

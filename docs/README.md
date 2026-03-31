@@ -13,12 +13,12 @@
 
 ### 算法文档
 
-| 算法 | 状态 | 所需步骤 | 文档 |
-|------|------|---------|------|
-| DST | ✅ 已实现 | 第三步（第一步可选） | [算法说明](algorithms/dst.md) |
-| FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [算法说明](algorithms/fnctod.md) |
-| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [算法说明](algorithms/pytod.md) |
-| Evolve | ✅ 已实现 | 仅第三步 | [算法说明](algorithms/evolve.md) |
+| 算法 | 状态 | 所需步骤 | 论文 | 文档 |
+|------|------|---------|------|------|
+| DST | ✅ 已实现 | 第三步（第一步可选） | 对话状态追踪（通用技术，无单一论文） | [算法说明](algorithms/dst.md) |
+| FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024） | [算法说明](algorithms/fnctod.md) |
+| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456) | [算法说明](algorithms/pytod.md) |
+| Evolve | ✅ 已实现 | 仅第三步 | [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) | [算法说明](algorithms/evolve.md) |
 
 ### 评测与数据集
 

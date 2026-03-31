@@ -2,12 +2,13 @@
 
 ## 概述
 
-**DST**（Dialogue State Tracking，对话状态追踪）是 ContextMind 中已实现的第一个基准评测算法。该算法通过提示词工程驱动大语言模型（LLM），从多轮对话中逐轮提取槽位-值对，构建累积的对话状态。
+**DST**（Dialogue State Tracking，对话状态追踪）是 ContextMind 中已实现的第一个基准评测算法。DST 是对话系统中的核心技术，旨在从多轮对话历史中持续追踪用户的意图和需求（即槽位-值对）。该算法通过提示词工程驱动大语言模型（LLM），从多轮对话中逐轮提取槽位-值对，构建累积的对话状态。
 
 - **实现状态**: ✅ 已实现
 - **核心代码**: `benchmark/algorithms/dst.py`
 - **评测脚本**: `benchmark/run_dst_transfertod.py`、`benchmark/run_dst_risawoz.py`
 - **支持数据集**: TransferTOD、RiSAWOZ
+- **技术概念**: DST（Dialogue State Tracking）是任务型对话中的基础技术，不对应单一论文，而是业界广泛使用的对话状态追踪方法论
 
 ### 三步框架依赖
 

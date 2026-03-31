@@ -4,6 +4,9 @@
 
 Evolve（Evolutionary Context Optimization，演化式上下文优化）是一种基于**AlphaEvolve和ThetaEvolve算法**的高级对话管理模式。它通过智能的记忆管理和上下文优化，实现更自然、更智能的长对话处理。
 
+- **实现状态**: ✅ 已实现
+- **论文（ThetaEvolve）**: [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473)
+
 ### 三步框架依赖
 
 | 步骤 | 是否需要 | 说明 |
@@ -445,3 +448,9 @@ Evolve支持插件扩展：
 ## 总结
 
 Evolve模式是基于AlphaEvolve和ThetaEvolve算法的先进对话系统，通过智能的记忆管理和上下文优化，实现了真正智能和个性化的对话体验。它特别适合需要长期记忆、上下文理解和个性化服务的应用场景。
+
+## 参考资料
+
+- [ThetaEvolve 论文：ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473)
+- [评测指标说明](../benchmark.md)
+- [API 参考](../api-reference.md)
