@@ -306,35 +306,88 @@ class SchemaSynthesizer:
         ----
         SGD 格式的单服务 schema dict（不带顶层列表包裹）。
         """
-        slots_text = _format_discovery_items(slot_counter, slot_sample_values)
-        intents_text = _format_discovery_items(intent_counter, intent_sample_descs)
         _fact_counter = fact_counter or Counter()
-        facts_text = _format_discovery_items(
-            _fact_counter, fact_sample_descs or {}
-        )
 
-        user_msg = _SYNTHESIS_USER_TEMPLATE.format(
-            scene_name=scene_name,
-            scene_description=scene_description or scene_name,
-            n_dialogues=n_dialogues,
-            slots_text=slots_text,
-            intents_text=intents_text,
-            facts_text=facts_text,
-            n_slots=len(slot_counter),
-            n_intents=len(intent_counter),
-            n_facts=len(_fact_counter),
-        )
+        # 渐进式缩减策略：当输入超出模型上下文窗口时，逐步减少每类最大条目数后重试。
+        # 初始 max_items=200，每次减半，直到成功或降至最低下限 10。
+        max_items = 200
+        response: Optional[str] = None
+        last_exc: Optional[Exception] = None
 
-        messages = [
-            {"role": "system", "content": _SYNTHESIS_SYSTEM},
-            {"role": "user", "content": user_msg},
-        ]
+        while max_items >= 10:
+            slots_text = _format_discovery_items(slot_counter, slot_sample_values, max_items=max_items)
+            intents_text = _format_discovery_items(intent_counter, intent_sample_descs, max_items=max_items)
+            facts_text = _format_discovery_items(
+                _fact_counter, fact_sample_descs or {}, max_items=max_items
+            )
 
-        logger.info("[SchemaSynthesizer] 调用 LLM 合成 ServiceSchema …")
-        try:
-            response = self._chat_sync(messages)
-        except Exception as exc:
-            raise RuntimeError(f"LLM 调用失败: {exc}") from exc
+            user_msg = _SYNTHESIS_USER_TEMPLATE.format(
+                scene_name=scene_name,
+                scene_description=scene_description or scene_name,
+                n_dialogues=n_dialogues,
+                slots_text=slots_text,
+                intents_text=intents_text,
+                facts_text=facts_text,
+                n_slots=len(slot_counter),
+                n_intents=len(intent_counter),
+                n_facts=len(_fact_counter),
+            )
+
+            messages = [
+                {"role": "system", "content": _SYNTHESIS_SYSTEM},
+                {"role": "user", "content": user_msg},
+            ]
+
+            if max_items < 200:
+                logger.info(
+                    f"[SchemaSynthesizer] 调用 LLM 合成 ServiceSchema …"
+                    f"（每类最多 {max_items} 条，输入已缩减）"
+                )
+            else:
+                logger.info("[SchemaSynthesizer] 调用 LLM 合成 ServiceSchema …")
+
+            try:
+                response = self._chat_sync(messages)
+                break  # 成功，退出重试循环
+            except Exception as exc:
+                error_str = str(exc).lower()
+                # 检测 token 超限相关错误（litellm / openai / vLLM / qwen 均可能触发）
+                is_context_error = any(
+                    kw in error_str
+                    for kw in (
+                        "context_window_exceeded",
+                        "context window",
+                        "context length",
+                        "maximum context length",
+                        "input is too long",
+                        "content too large",
+                        "request too large",
+                        "input length",
+                        "max_tokens",
+                        "tokens exceed",
+                        "prompt is too long",
+                        "超过",  # 中文错误消息中的"超过"
+                    )
+                )
+                if is_context_error and max_items > 10:
+                    max_items = max(10, max_items // 2)
+                    logger.warning(
+                        f"[SchemaSynthesizer] 输入超出模型上下文限制，"
+                        f"缩减每类最大条目数至 {max_items} 后重试… 原始错误: {exc}"
+                    )
+                    last_exc = exc
+                    continue
+                if is_context_error:
+                    # max_items 已降至最低下限仍超限，记录后退出循环
+                    last_exc = exc
+                    break
+                raise RuntimeError(f"LLM 调用失败: {exc}") from exc
+
+        if response is None:
+            raise RuntimeError(
+                f"输入数据过多，即使缩减至最低条目数（{max_items}）仍超出模型上下文限制。"
+                f"原始错误: {last_exc}"
+            )
 
         logger.debug(f"[SchemaSynthesizer] LLM 原始响应（前 500 字）: {response[:500]}")
 

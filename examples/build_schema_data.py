@@ -146,7 +146,7 @@ def main() -> None:
         default=0.9,
         metavar="RATE",
         help=(
-            "Phase 4 通过率阈值（默认: 0.9，即 90%%）。"
+            "Phase 4 通过率阈值（默认: 0.9，即 90%）。"
             "函数通过率达到阈值后停止迭代修复。仅在 --with-llm 时生效。"
         ),
     )
