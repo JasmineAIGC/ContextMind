@@ -268,6 +268,116 @@ class PyTODApiCodeGenerator:
     # Phase 2: Test case generation
     # ------------------------------------------------------------------
 
+    def _prepare_dialogue_hint(
+        self,
+        dialogue_data_path: Optional[Union[str, Path]] = None,
+        sgd_dialogue_data_path: Optional[Union[str, Path]] = None,
+        discovery_data_path: Optional[Union[str, Path]] = None,
+    ) -> str:
+        """构建对话提示字符串（仅需计算一次，供各意图共用）。
+
+        Args:
+            dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
+            sgd_dialogue_data_path: 可选，dialogues_001.json（SGD 格式）路径。
+            discovery_data_path: 可选，discovery_raw.json 路径，提供真实槽位示例。
+
+        Returns:
+            格式化好的对话提示字符串，无数据时返回空字符串。
+        """
+        dialogue_hint = ""
+        if dialogue_data_path:
+            samples = self._load_dialogue_samples(dialogue_data_path, max_samples=2)
+            if samples:
+                brief = samples[0][:300]
+                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
+        elif sgd_dialogue_data_path:
+            samples = self._load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=2)
+            if samples:
+                brief = samples[0][:300]
+                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
+        if discovery_data_path:
+            disc_summary = self._load_discovery_samples(discovery_data_path)
+            if disc_summary:
+                dialogue_hint += disc_summary + "\n\n"
+        return dialogue_hint
+
+    def build_test_cases_for_intent(
+        self,
+        intent: IntentDefinition,
+        schema: ServiceSchema,
+        all_slot_descs: Dict[str, str],
+        dialogue_hint: str = "",
+        max_cases: int = 5,
+    ) -> List[TestCaseItem]:
+        """Phase 2：为单个意图生成测试用例（LLM 驱动）。
+
+        ``build_test_cases`` 的单意图版本。调用方（builder 逐函数循环）先通过
+        :meth:`_prepare_dialogue_hint` 准备好对话提示，再对每个意图单独调用本方法，
+        从而实现「一个函数完整处理完再进入下一个」的流式处理。
+
+        Args:
+            intent: 当前处理的意图定义。
+            schema: 完整服务 schema（用于 service_name、description 等字段）。
+            all_slot_descs: 槽位名到描述的映射字典。
+            dialogue_hint: 已准备好的对话提示字符串（由 :meth:`_prepare_dialogue_hint` 生成）。
+            max_cases: 最多生成的测试用例数。
+
+        Returns:
+            ``TestCaseItem`` 列表；生成或解析失败时返回空列表。
+        """
+        params_req = list(intent.required_slots)
+        params_opt = list(intent.optional_slots)
+        params_all = list(dict.fromkeys(params_req + params_opt))
+        param_str = ", ".join([f"{p}=None" for p in params_all]) if params_all else ""
+
+        req_desc = "\n".join(
+            f"  - {p}: {all_slot_descs.get(p, p)}" for p in params_req
+        ) or "  （无必填槽位）"
+        opt_desc = "\n".join(
+            f"  - {p}: {all_slot_descs.get(p, p)}" for p in params_opt
+        ) or "  （无可选槽位）"
+        rs_desc = "\n".join(
+            f"  - {rs}" for rs in intent.result_slots
+        ) or "  （无 result_slots，返回输入参数即可）"
+
+        user_msg = TEST_CASE_GEN_USER_TEMPLATE.format(
+            service_name=schema.service_name,
+            service_description=schema.description or schema.service_name,
+            intent_name=intent.name,
+            intent_description=intent.description or intent.name,
+            func_name=intent.name,
+            param_str=param_str,
+            required_slots_desc=req_desc,
+            optional_slots_desc=opt_desc,
+            result_slots_desc=rs_desc,
+            dialogue_hint=dialogue_hint,
+            max_cases=max_cases,
+        )
+
+        messages = [
+            {"role": "system", "content": TEST_CASE_GEN_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+
+        try:
+            raw = self._chat_sync(messages)
+            cases = self._parse_test_cases(raw, intent)
+            if cases:
+                logger.info(
+                    f"[PyTODApiCodeGenerator] {intent.name}: 生成 {len(cases)} 条测试用例"
+                )
+                return cases
+            else:
+                logger.warning(
+                    f"[PyTODApiCodeGenerator] {intent.name}: 测试用例解析失败，跳过"
+                )
+                return []
+        except Exception as exc:
+            logger.warning(
+                f"[PyTODApiCodeGenerator] {intent.name}: 测试用例生成失败 ({exc})"
+            )
+            return []
+
     def build_test_cases(
         self,
         schema: ServiceSchema,
@@ -281,6 +391,9 @@ class PyTODApiCodeGenerator:
         每个意图独立调用 LLM，生成 ``max_cases_per_intent`` 条包含真实业务值的
         测试用例。可选传入对话数据文件提供业务背景，使生成的槽位值更贴近真实对话。
 
+        内部调用 :meth:`_prepare_dialogue_hint` 和 :meth:`build_test_cases_for_intent`。
+        如需逐函数流式处理，请直接使用这两个方法。
+
         Args:
             schema: 服务 schema，包含意图和槽位定义。
             dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
@@ -291,78 +404,20 @@ class PyTODApiCodeGenerator:
         Returns:
             字典，key 为 intent_name，value 为 ``TestCaseItem`` 列表。
         """
-        # 构建对话提示（dialogue_data_path 优先；其次 sgd_dialogue_data_path）
-        dialogue_hint = ""
-        if dialogue_data_path:
-            samples = self._load_dialogue_samples(dialogue_data_path, max_samples=2)
-            if samples:
-                brief = samples[0][:300]
-                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
-        elif sgd_dialogue_data_path:
-            samples = self._load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=2)
-            if samples:
-                brief = samples[0][:300]
-                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
-        # 附加 discovery_raw 提取的真实槽位示例
-        if discovery_data_path:
-            disc_summary = self._load_discovery_samples(discovery_data_path)
-            if disc_summary:
-                dialogue_hint += disc_summary + "\n\n"
-
+        dialogue_hint = self._prepare_dialogue_hint(
+            dialogue_data_path=dialogue_data_path,
+            sgd_dialogue_data_path=sgd_dialogue_data_path,
+            discovery_data_path=discovery_data_path,
+        )
         all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
         result: Dict[str, List[TestCaseItem]] = {}
 
         for intent in schema.intents:
-            params_req = list(intent.required_slots)
-            params_opt = list(intent.optional_slots)
-            params_all = list(dict.fromkeys(params_req + params_opt))
-            param_str = ", ".join([f"{p}=None" for p in params_all]) if params_all else ""
-
-            req_desc = "\n".join(
-                f"  - {p}: {all_slot_descs.get(p, p)}" for p in params_req
-            ) or "  （无必填槽位）"
-            opt_desc = "\n".join(
-                f"  - {p}: {all_slot_descs.get(p, p)}" for p in params_opt
-            ) or "  （无可选槽位）"
-            rs_desc = "\n".join(
-                f"  - {rs}" for rs in intent.result_slots
-            ) or "  （无 result_slots，返回输入参数即可）"
-
-            user_msg = TEST_CASE_GEN_USER_TEMPLATE.format(
-                service_name=schema.service_name,
-                service_description=schema.description or schema.service_name,
-                intent_name=intent.name,
-                intent_description=intent.description or intent.name,
-                func_name=intent.name,
-                param_str=param_str,
-                required_slots_desc=req_desc,
-                optional_slots_desc=opt_desc,
-                result_slots_desc=rs_desc,
-                dialogue_hint=dialogue_hint,
-                max_cases=max_cases_per_intent,
+            cases = self.build_test_cases_for_intent(
+                intent, schema, all_slot_descs, dialogue_hint, max_cases_per_intent
             )
-
-            messages = [
-                {"role": "system", "content": TEST_CASE_GEN_SYSTEM},
-                {"role": "user", "content": user_msg},
-            ]
-
-            try:
-                raw = self._chat_sync(messages)
-                cases = self._parse_test_cases(raw, intent)
-                if cases:
-                    result[intent.name] = cases
-                    logger.info(
-                        f"[PyTODApiCodeGenerator] {intent.name}: 生成 {len(cases)} 条测试用例"
-                    )
-                else:
-                    logger.warning(
-                        f"[PyTODApiCodeGenerator] {intent.name}: 测试用例解析失败，跳过"
-                    )
-            except Exception as exc:
-                logger.warning(
-                    f"[PyTODApiCodeGenerator] {intent.name}: 测试用例生成失败 ({exc})"
-                )
+            if cases:
+                result[intent.name] = cases
 
         logger.info(
             f"[PyTODApiCodeGenerator] 测试用例构建完成: "
