@@ -36,8 +36,11 @@ Schema 数据预生成脚本
     python examples/build_schema_data.py --with-llm \\
         --dialogue-data resources/data/chat_test_100.json --generate-report
 
-    # LLM 模式 + KB 输出目录（自动加载 dialogues_001.json / discovery_raw.json）
+    # LLM 模式 + KB 输出目录（自动利用全部 4 个 json，并自动检测 schema.json）
     python examples/build_schema_data.py --with-llm --kb-dir output/kb_output
+
+    # 仅使用第一步生成的 schema.json（不需要其他 KB 文件）
+    python examples/build_schema_data.py --with-llm --schema output/kb_output/schema.json
 
     # 自定义迭代参数
     python examples/build_schema_data.py --with-llm --max-iterations 5 --pass-rate-threshold 0.8
@@ -51,11 +54,19 @@ Schema 数据预生成脚本
    速度快，但函数体没有真实业务计算逻辑。
 
 2. **LLM 模式**（--with-llm）：完整运行 plan.md 定义的 5 阶段流程：
-   - Phase 2: 为每个意图生成测试用例（可指定 --dialogue-data 或 --kb-dir 提供业务背景）
+   - Phase 2: 为每个意图生成多轮对话复杂度的测试用例（覆盖早期/中期/完整/上下文依赖/边界场景）
    - Phase 3: 逐意图调用 LLM 生成函数体（Prompt 包含 few-shot 测试用例）
    - Phase 4: 批量执行验证 + 迭代修复（通过率低于阈值时调用 LLM 修复）
    - Phase 5: 生成最终文件 + 可选 validation_report.json
    LLM 失败时自动回退到规则模式（保证文件始终生成）。
+
+KB 目录数据利用
+--------------
+指定 --kb-dir 时，自动充分利用 KnowledgeBaseBuilder 生成的 4 个 json 文件：
+   - schema.json              自动用作 --schema（若未单独指定）
+   - dialogues_001.json       真实对话样本（含多轮槽位积累快照）
+   - discovery_raw.json       逐轮槽位/意图/事实提取示例（覆盖全部提取类型）
+   - conversion_summary.json  发现的意图/槽位统计，提供业务全貌背景
 
 这是一个 **一次性预生成步骤**，生成的文件应加入版本控制（git），
 这样运行时无需重新生成，PyTOD 追踪器在初始化时直接加载 companion 文件。
@@ -236,6 +247,15 @@ def main() -> None:
             )
         except Exception as exc:
             print(f"⚠️  LLM 初始化失败，回退到规则生成模式: {exc}", file=sys.stderr)
+
+    # 当 --kb-dir 指定且 --schema 未指定时，自动从 kb-dir 中检测 schema.json。
+    # 此处修改 args.schema 相当于模拟用户未显式指定时的默认行为：
+    # "用 kb_output 里的 schema.json 作为处理源"，使 --kb-dir 成为自洽的单一入口。
+    if kb_dir is not None and not args.schema:
+        kb_schema_candidate = kb_dir / "schema.json"
+        if kb_schema_candidate.exists():
+            args.schema = str(kb_schema_candidate)
+            print(f"💡 自动从 --kb-dir 检测到 schema: {kb_schema_candidate}")
 
     builder = SchemaDataBuilder(
         overwrite=not args.no_overwrite,

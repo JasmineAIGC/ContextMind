@@ -273,33 +273,52 @@ class PyTODApiCodeGenerator:
         dialogue_data_path: Optional[Union[str, Path]] = None,
         sgd_dialogue_data_path: Optional[Union[str, Path]] = None,
         discovery_data_path: Optional[Union[str, Path]] = None,
+        summary_data_path: Optional[Union[str, Path]] = None,
     ) -> str:
         """构建对话提示字符串（仅需计算一次，供各意图共用）。
+
+        综合利用 KB 输出的 4 个 JSON 文件：
+        - dialogues_001.json：真实对话样本（含槽位注解）
+        - discovery_raw.json：逐轮槽位提取示例
+        - conversion_summary.json：发现的意图/槽位统计摘要
+        - chat_test_100/500 格式对话（若提供 dialogue_data_path）
 
         Args:
             dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
             sgd_dialogue_data_path: 可选，dialogues_001.json（SGD 格式）路径。
             discovery_data_path: 可选，discovery_raw.json 路径，提供真实槽位示例。
+            summary_data_path: 可选，conversion_summary.json 路径，提供发现统计摘要。
 
         Returns:
             格式化好的对话提示字符串，无数据时返回空字符串。
         """
-        dialogue_hint = ""
+        hint_parts: List[str] = []
+
+        # 1. 对话样本（优先 chat_test 格式，次之 SGD 格式）
         if dialogue_data_path:
-            samples = self._load_dialogue_samples(dialogue_data_path, max_samples=2)
+            samples = self._load_dialogue_samples(dialogue_data_path, max_samples=3)
             if samples:
-                brief = samples[0][:300]
-                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
+                formatted = "\n\n".join(f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples))
+                hint_parts.append(f"## 真实对话样本（参考提炼多轮对话场景和槽位值）\n{formatted}")
         elif sgd_dialogue_data_path:
-            samples = self._load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=2)
+            samples = self._load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=3)
             if samples:
-                brief = samples[0][:300]
-                dialogue_hint = f"## 真实对话片段（参考提炼真实槽位值）\n{brief}\n\n"
+                formatted = "\n\n".join(f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples))
+                hint_parts.append(f"## 真实对话样本（参考提炼多轮对话场景和槽位值）\n{formatted}")
+
+        # 2. 逐轮槽位提取示例（discovery_raw.json）
         if discovery_data_path:
             disc_summary = self._load_discovery_samples(discovery_data_path)
             if disc_summary:
-                dialogue_hint += disc_summary + "\n\n"
-        return dialogue_hint
+                hint_parts.append(disc_summary)
+
+        # 3. 知识库构建统计摘要（conversion_summary.json）
+        if summary_data_path:
+            summary_ctx = self._load_conversion_summary_context(summary_data_path)
+            if summary_ctx:
+                hint_parts.append(summary_ctx)
+
+        return "\n\n".join(hint_parts) + "\n\n" if hint_parts else ""
 
     def build_test_cases_for_intent(
         self,
@@ -590,10 +609,14 @@ class PyTODApiCodeGenerator:
     ) -> List[str]:
         """从 SGD 格式的 dialogues_001.json 加载并格式化对话样本。
 
-        SGD 格式：``[{"dialogue_id":..., "services":[...], "turns":[{"speaker":..., "utterance":...}, ...]}]``
+        SGD 格式：``[{"dialogue_id":..., "services":[...], "turns":[{"speaker":..., "utterance":...,
+        "frames":[{"service":..., "slots":[...], "state":{"slot_values":{...}}}]}]}]``
+
+        除对话文本外，还会提取 ``frames.state.slot_values`` 中的实际槽位值，
+        帮助 LLM 了解多轮对话中槽位的积累过程。
 
         Returns:
-            格式化后的对话文本列表。
+            格式化后的对话文本列表（每条包含对话内容和槽位状态快照）。
         """
         try:
             path = Path(data_path)
@@ -612,12 +635,28 @@ class PyTODApiCodeGenerator:
                 if not turns:
                     continue
                 lines: List[str] = []
-                for turn in turns[:10]:
+                # 记录最后一次出现的 slot_values 快照（反映多轮积累结果）
+                slot_snapshots: List[str] = []
+                for turn in turns[:12]:
                     speaker = turn.get("speaker", "")
                     utterance = turn.get("utterance", "")
                     # SGD 中机器人说话者标签为 SYSTEM，用户为 USER
                     label = "机器人" if speaker.upper() in ("SYSTEM", "机器人") else "用户"
                     lines.append(f"{label}：{utterance[:80]}")
+                    # 提取该轮的槽位值快照（USER 轮次 frames 中的 state.slot_values）
+                    if speaker.upper() in ("USER", "用户"):
+                        for frame in turn.get("frames", []):
+                            state = frame.get("state", {})
+                            sv = state.get("slot_values", {})
+                            if sv:
+                                sv_str = "、".join(
+                                    f"{k}={v[0] if isinstance(v, list) else v}"
+                                    for k, v in list(sv.items())[:6]
+                                )
+                                slot_snapshots.append(f"  [已收集槽位: {sv_str}]")
+                # 在对话末尾附加槽位快照（展示多轮积累的槽位状态）
+                if slot_snapshots:
+                    lines.append(slot_snapshots[-1])  # 只展示最终状态，避免过长
                 if lines:
                     samples.append("\n".join(lines))
             return samples
@@ -628,13 +667,16 @@ class PyTODApiCodeGenerator:
     @staticmethod
     def _load_discovery_samples(
         data_path: Union[str, Path],
-        max_items: int = 20,
+        max_items: int = 25,
     ) -> str:
         """从 discovery_raw.json 提取真实槽位示例，格式化为 LLM 可读的摘要。
 
         discovery_raw.json 格式：
         ``[{"dialogue_id":..., "turns":[{"turn_idx":..., "speaker":..., "utterance":...,
             "extractions":[{"extraction_class":..., "label":..., "value":...}]}]}]``
+
+        提取所有 extraction_class 类型（intent、slot、slot_value、fact）中的标签和值，
+        为 LLM 提供更丰富的真实业务数据示例。
 
         Returns:
             格式化后的槽位示例摘要字符串（空时返回空字符串）。
@@ -647,7 +689,7 @@ class PyTODApiCodeGenerator:
                 data = json.load(fh)
             if not isinstance(data, list):
                 return ""
-            # 收集所有有 extractions 的轮次中的 intent/slot 示例
+            # 收集所有有 extractions 的轮次中的意图/槽位/事实示例
             examples: Dict[str, List[str]] = {}
             count = 0
             for item in data:
@@ -656,7 +698,8 @@ class PyTODApiCodeGenerator:
                         label = ext.get("label", "")
                         value = ext.get("value", "")
                         cls = ext.get("extraction_class", "")
-                        if label and value and cls in ("intent", "slot"):
+                        # 覆盖所有有意义的提取类型
+                        if label and value and cls in ("intent", "slot", "slot_value", "fact"):
                             examples.setdefault(label, [])
                             if value not in examples[label]:
                                 examples[label].append(value)
@@ -667,15 +710,56 @@ class PyTODApiCodeGenerator:
                     break
             if not examples:
                 return ""
-            lines = ["## 真实对话中提取到的槽位/意图示例（参考生成真实值）"]
-            shown = 0
+            lines = ["## 真实对话中提取到的槽位/意图示例（参考生成真实业务值）"]
             for label, values in list(examples.items())[:max_items]:
-                sample_vals = "、".join(values[:3])
+                sample_vals = "、".join(str(v)[:60] for v in values[:3])
                 lines.append(f"- {label}：{sample_vals}")
-                shown += 1
             return "\n".join(lines)
         except Exception as exc:
             logger.warning(f"[PyTODApiCodeGenerator] 加载 discovery_raw 失败: {exc}")
+            return ""
+
+    @staticmethod
+    def _load_conversion_summary_context(
+        data_path: Union[str, Path],
+    ) -> str:
+        """从 conversion_summary.json 提取发现的意图/槽位统计，格式化为 LLM 可读摘要。
+
+        conversion_summary.json 格式（由 KnowledgeBaseBuilder.save_dataset() 生成）：
+        ``{"output_dir":..., "dialogues":N, "turns":N, "schema_coverage":
+           {"extracted_slots":[...], "extracted_intents":[...]}, ...}``
+
+        Returns:
+            格式化后的统计摘要字符串（空时返回空字符串）。
+        """
+        try:
+            path = Path(data_path)
+            if not path.exists():
+                return ""
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if not isinstance(data, dict):
+                return ""
+            lines: List[str] = ["## 知识库构建统计（来自 conversion_summary）"]
+            n_dlg = data.get("dialogues", "?")
+            n_turns = data.get("turns", "?")
+            lines.append(f"- 对话数: {n_dlg}，总轮次: {n_turns}")
+            coverage = data.get("schema_coverage", {})
+            extracted_intents: List[str] = coverage.get("extracted_intents", [])
+            extracted_slots: List[str] = coverage.get("extracted_slots", [])
+            if extracted_intents:
+                shown = "、".join(extracted_intents[:20])
+                lines.append(
+                    f"- 从真实对话中发现的意图（共 {len(extracted_intents)} 个）: {shown}"
+                )
+            if extracted_slots:
+                shown = "、".join(extracted_slots[:20])
+                lines.append(
+                    f"- 从真实对话中发现的槽位（共 {len(extracted_slots)} 个）: {shown}"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            logger.warning(f"[PyTODApiCodeGenerator] 加载 conversion_summary 失败: {exc}")
             return ""
 
     @staticmethod

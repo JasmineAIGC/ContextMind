@@ -141,6 +141,7 @@ def build_pytod_apis(
     _dlg_path = Path(dialogue_data_path) if dialogue_data_path else None
     _discovery_path: Optional[Path] = None
     _sgd_dlg_path: Optional[Path] = None
+    _summary_path: Optional[Path] = None
     if kb_dir is not None:
         kb_context = PyTODApiCodeGenerator.load_kb_context(kb_dir)
         if _dlg_path is None and kb_context.get("dialogues_path"):
@@ -149,6 +150,9 @@ def build_pytod_apis(
         if kb_context.get("discovery_path"):
             _discovery_path = kb_context["discovery_path"]
             logger.info(f"[PyTOD] kb_dir: 使用 discovery_raw.json → {_discovery_path}")
+        if kb_context.get("summary_path"):
+            _summary_path = kb_context["summary_path"]
+            logger.info(f"[PyTOD] kb_dir: 使用 conversion_summary.json → {_summary_path}")
 
     # ------------------------------------------------------------------
     # Phase 2~4：逐函数流式处理
@@ -158,6 +162,7 @@ def build_pytod_apis(
     all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
     intent_lines: List[str] = []
     validations: Dict[str, FuncValidation] = {}
+    test_cases_by_intent: Dict[str, List[TestCaseItem]] = {}
     mode_str = ""
 
     # 预先构建对话提示（所有意图共用，避免重复 IO）
@@ -167,6 +172,7 @@ def build_pytod_apis(
             dialogue_data_path=_dlg_path,
             sgd_dialogue_data_path=_sgd_dlg_path,
             discovery_data_path=_discovery_path,
+            summary_data_path=_summary_path,
         )
 
     if not schema.intents:
@@ -195,6 +201,7 @@ def build_pytod_apis(
                 intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
             )
             if intent_test_cases:
+                test_cases_by_intent[intent.name] = intent_test_cases
                 logger.info(
                     f"[PyTOD]   Phase 2 完成: {intent.name} — "
                     f"{len(intent_test_cases)} 条测试用例"
