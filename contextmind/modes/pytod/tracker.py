@@ -168,11 +168,16 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
             raise ImportError(f"无法创建 module spec: {apis_path}")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)  # type: ignore[union-attr]
-        # Collect all callable functions that don't start with "_"
+        # Collect only functions defined in this module (not imported callables).
+        # Using __module__ check prevents imported typing aliases (Optional, Dict, Any)
+        # and other callables from being registered as API functions, which would
+        # cause unexpected TypeError when the AP accidentally calls them.
         funcs = {
             name: obj
             for name, obj in vars(mod).items()
-            if callable(obj) and not name.startswith("_")
+            if callable(obj)
+            and not name.startswith("_")
+            and getattr(obj, "__module__", None) == mod_name
         }
         logger.info(f"[api_module] 已加载 PyTOD API 函数: {apis_path} ({len(funcs)} 个函数)")
         return funcs
