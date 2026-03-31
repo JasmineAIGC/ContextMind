@@ -21,20 +21,49 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.logger import get_logger
-from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
+from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 from contextmind.schema_builder.utils import companion_path
 
 from .generator import PyTODApiCodeGenerator
 from .helpers import SHARED_HELPERS
 from .models import FuncValidation, TestCaseItem
-from .rule_generator import (
-    function_def_header,
-    generate_function_lines,
-    generate_generic_function_lines,
-)
 from .validator import validate_function, write_validation_report
 
 logger = get_logger(__name__)
+
+
+def _function_def_header(intent: IntentDefinition) -> List[str]:
+    """返回函数 def 行 + docstring 行（不含函数体）。"""
+    params = list(dict.fromkeys(
+        list(intent.required_slots) + list(intent.optional_slots)
+    ))
+    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+    desc = intent.description.replace('"', '\\"') if intent.description else intent.name
+    return [
+        f"def {intent.name}({param_str}):",
+        f'    """{desc}"""',
+    ]
+
+
+def _generate_stub_function_lines(intent: IntentDefinition) -> List[str]:
+    """为意图生成最小 stub 函数（LLM 不可用时的简单兜底）。"""
+    header = _function_def_header(intent)
+    return header + [
+        '    return {"status": "success"}',
+    ]
+
+
+def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
+    """schema 无意图定义时，生成一个以 service_name 命名的通用函数。"""
+    slot_names = [s.name for s in schema.slots]
+    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
+    return [
+        f"def {schema.service_name}({param_str}):",
+        f'    """{desc}"""',
+        f'    args = {{k: v for k, v in locals().items() if v is not None}}',
+        f'    return {{"status": "success", **args}}',
+    ]
 
 
 def _print_section(title: str, width: int = 70) -> None:
@@ -177,7 +206,7 @@ def build_pytod_apis(
 
     if not schema.intents:
         # 无意图定义时生成通用函数
-        intent_lines.extend(generate_generic_function_lines(schema))
+        intent_lines.extend(_generate_generic_function_lines(schema))
         intent_lines.append('')
         mode_str = "通用函数（无意图定义）"
 
@@ -229,14 +258,14 @@ def build_pytod_apis(
             )
 
             if llm_body is not None:
-                func_code = "\n".join(function_def_header(intent)) + "\n" + llm_body
+                func_code = "\n".join(_function_def_header(intent)) + "\n" + llm_body
                 llm_count += 1
             else:
-                # LLM 失败时回退到规则生成
-                func_code = "\n".join(generate_function_lines(intent))
+                # LLM 失败时回退到 stub 生成
+                func_code = "\n".join(_generate_stub_function_lines(intent))
                 rule_count += 1
                 logger.warning(
-                    f"[PyTOD]   Phase 3: {intent.name} — LLM 失败，回退到规则生成"
+                    f"[PyTOD]   Phase 3: {intent.name} — LLM 失败，回退到 stub 生成"
                 )
 
             if verbose:
@@ -351,13 +380,13 @@ def build_pytod_apis(
             print(flush=True)
 
     else:
-        # 规则模式：无 LLM
+        # 规则模式：无 LLM，生成最小 stub 函数
         rule_count = 0
         for intent in schema.intents:
-            intent_lines.extend(generate_function_lines(intent))
+            intent_lines.extend(_generate_stub_function_lines(intent))
             intent_lines.append('')
             rule_count += 1
-        mode_str = f"规则引擎生成 {rule_count} 个意图函数"
+        mode_str = f"stub 生成 {rule_count} 个意图函数（无 LLM）"
 
     # ------------------------------------------------------------------
     # Phase 5：组装完整 Python 文件 + 写入磁盘
@@ -367,7 +396,7 @@ def build_pytod_apis(
     )
     mode_info = (
         f"LLM 逐函数生成 + 迭代优化{n_dialogue}" if llm_generator
-        else "规则引擎生成（含共享工具函数调用）"
+        else "stub 生成（无 LLM，使用最小返回值）"
     )
 
     # 文件头部：模块注释 + import + 共享工具函数

@@ -41,9 +41,20 @@ from contextmind.schema_builder.pytod.prompts import (
     TEST_CASE_GEN_SYSTEM,
     TEST_CASE_GEN_USER_TEMPLATE,
 )
-from contextmind.schema_builder.pytod.rule_generator import function_def_header
-
 logger = get_logger(__name__)
+
+
+def _function_def_header(intent: IntentDefinition) -> List[str]:
+    """返回函数 def 行 + docstring 行（不含函数体）。"""
+    params = list(dict.fromkeys(
+        list(intent.required_slots) + list(intent.optional_slots)
+    ))
+    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+    desc = intent.description.replace('"', '\\"') if intent.description else intent.name
+    return [
+        f"def {intent.name}({param_str}):",
+        f'    """{desc}"""',
+    ]
 
 
 class PyTODApiCodeGenerator:
@@ -543,7 +554,7 @@ class PyTODApiCodeGenerator:
                 )
                 return None
             # 返回完整函数定义（def 行 + 函数体）
-            header = "\n".join(function_def_header(intent))
+            header = "\n".join(_function_def_header(intent))
             return header + "\n" + cleaned
         except Exception as exc:
             logger.warning(

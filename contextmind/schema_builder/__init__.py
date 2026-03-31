@@ -17,7 +17,6 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
         models.py        — 数据类（TestCaseItem、FuncValidation）
         helpers.py       — SHARED_HELPERS 嵌入式工具函数模板
         prompts.py       — LLM 提示词常量
-        rule_generator.py— 基于规则的意图函数体生成
         generator.py     — PyTODApiCodeGenerator（LLM 驱动）
         validator.py     — validate_function、write_validation_report
         builder.py       — build_pytod_apis() 5 阶段生成流程

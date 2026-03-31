@@ -6,7 +6,6 @@ PyTOD 算法的 schema 数据构建子包。
 - ``models.py``        — 数据类：``TestCaseItem``、``FuncValidation``
 - ``helpers.py``       — 生成文件中嵌入的共享工具函数模板（``SHARED_HELPERS``）
 - ``prompts.py``       — LLM 提示词常量（5 阶段流程各阶段）
-- ``rule_generator.py``— 基于规则的意图函数体生成（无需 LLM）
 - ``generator.py``     — ``PyTODApiCodeGenerator``（LLM 驱动的代码生成器）
 - ``validator.py``     — 函数执行验证与报告（``validate_function``、``write_validation_report``）
 - ``builder.py``       — ``build_pytod_apis()`` 5 阶段生成流程的具体实现

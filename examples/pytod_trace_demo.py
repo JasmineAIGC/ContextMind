@@ -144,8 +144,9 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         session:         对话会话字典。
         verbose:         是否打印详细日志。
         external_schema: 外部传入的 ServiceSchema（来自 ``--schema`` 或默认 anyihua_schema.json）；
-                         若为 None 则使用空引擎运行（无 API 注册模式）。
-        schema_path:     schema.json 文件路径，用于加载 companion ``*_pytod_apis.py`` 函数。
+                         若为 None 但提供了 schema_path，则从 pytod_apis.py 推导 schema。
+        schema_path:     ``*_pytod_apis.py`` 或 ``schema.json`` 文件路径，用于加载 API 函数。
+                         直接传入 ``*_pytod_apis.py`` 时无需对应 schema.json。
         compact_schema:  为 True 时，AP prompt 中省略详细业务意图说明（减少 token 用量）。
     """
     try:
@@ -191,6 +192,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         }
         if external_schema is not None:
             from_kwargs["schema"] = external_schema
+        if schema_path is not None:
             from_kwargs["schema_path"] = schema_path
         agent = AdkPyTODTracker.from_scenario(
             llm_client=llm_client,
