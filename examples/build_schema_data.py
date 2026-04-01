@@ -92,9 +92,9 @@ from contextmind.schema_builder import SchemaDataBuilder
 _DEFAULT_DATA_DIR = _PROJECT_ROOT / "schema"
 
 # LLM 选项默认值常量（同时用于 argparse 默认值与后置警告检查，保持一致）
-_DEFAULT_MAX_ITERATIONS = 3
+_DEFAULT_MAX_ITERATIONS = 10
 _DEFAULT_PASS_RATE_THRESHOLD = 0.9
-_DEFAULT_MAX_TEST_CASES = 5
+_DEFAULT_MAX_TEST_CASES = 10
 
 
 # ---------------------------------------------------------------------------
