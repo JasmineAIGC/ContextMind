@@ -175,16 +175,37 @@ def _fill_schema_defaults(
 def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
     """尝试从 LLM 响应中解析 JSON，支持 markdown 代码块包裹。
 
-    若 LLM 将 schema 包裹在数组中（如 ``[{...}]``），自动提取第一个 dict 元素，
-    避免调用方因 ``list.get()`` 而崩溃。
+    若 LLM 将 schema 包裹在数组中（如 ``[{...}]``），将数组中所有 dict 元素合并为
+    一个 schema dict：slots 和 intents 列表跨所有元素合并，其余字段取第一个元素的值。
+    这能正确处理 LLM 将 100+ 个意图拆分到多个服务对象中的情况。
     """
 
+    def _merge_service_list(items: List[Any]) -> Optional[Dict[str, Any]]:
+        """将列表中所有 dict 元素合并为一个 schema dict。"""
+        dicts = [item for item in items if isinstance(item, dict)]
+        if not dicts:
+            return None
+        merged: Dict[str, Any] = dict(dicts[0])
+
+        def _merge_named_list(base: List[Dict], extra: List[Dict]) -> List[Dict]:
+            """按 name 字段去重合并两个 dict 列表，后出现的覆盖先出现的。"""
+            index = {item["name"]: item for item in base if item.get("name")}
+            for item in extra:
+                if item.get("name"):
+                    index[item["name"]] = item
+            return list(index.values())
+
+        for d in dicts[1:]:
+            merged["slots"] = _merge_named_list(merged.get("slots", []), d.get("slots", []))
+            merged["intents"] = _merge_named_list(merged.get("intents", []), d.get("intents", []))
+        return merged
+
     def _unwrap(obj: Any) -> Optional[Dict[str, Any]]:
-        """若 obj 是 dict 则直接返回；若是非空 list 且首元素为 dict 则提取首元素。"""
+        """若 obj 是 dict 则直接返回；若是非空 list 则合并所有 dict 元素。"""
         if isinstance(obj, dict):
             return obj
-        if isinstance(obj, list) and obj and isinstance(obj[0], dict):
-            return obj[0]
+        if isinstance(obj, list) and obj:
+            return _merge_service_list(obj)
         return None
 
     # 尝试直接解析
