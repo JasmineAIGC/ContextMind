@@ -17,8 +17,11 @@ Schema 数据预生成脚本
     # 使用 LLM 生成真实业务逻辑函数体（需配置 .env 中的 LLM_API_KEY 等）
     python examples/build_schema_data.py --with-llm
 
-    # 处理指定目录
+    # 处理指定输入目录
     python examples/build_schema_data.py --data-dir /path/to/schemas
+
+    # 指定输出目录（默认与 schema 文件同目录）
+    python examples/build_schema_data.py --output-dir output/schema_data
 
     # 仅生成 PyTOD API 函数代码（跳过 FnCTOD）
     python examples/build_schema_data.py --pytod-only
@@ -94,92 +97,22 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument(
+
+    # ── 输入参数 ──────────────────────────────────────────────────────────
+    input_group = parser.add_argument_group("输入参数")
+    input_group.add_argument(
         "--data-dir",
         default=str(_DEFAULT_DATA_DIR),
+        metavar="DIR",
         help=f"包含 *_schema.json 文件的目录（默认: {_DEFAULT_DATA_DIR}）",
     )
-    parser.add_argument(
+    input_group.add_argument(
         "--schema",
         default=None,
+        metavar="FILE",
         help="处理单个 schema.json 文件（与 --data-dir 互斥）",
     )
-    parser.add_argument(
-        "--pytod-only",
-        action="store_true",
-        help="仅生成 PyTOD APIs .py 文件，跳过 FnCTOD domain 文件",
-    )
-    parser.add_argument(
-        "--fnctod-only",
-        action="store_true",
-        help="仅生成 FnCTOD domain 文件，跳过 PyTOD mock 文件",
-    )
-    parser.add_argument(
-        "--no-overwrite",
-        action="store_true",
-        help="跳过已存在的文件，不覆盖",
-    )
-    parser.add_argument(
-        "--with-llm",
-        action="store_true",
-        help=(
-            "使用 LLM 完整运行 5 阶段生成流程（Phase 2: 测试用例生成，Phase 3: 逐函数 LLM 生成，"
-            "Phase 4: 验证+迭代修复，Phase 5: 文件组装）。"
-            "需要在 .env 中配置 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL。"
-            "未指定时使用规则引擎生成（含共享工具函数调用，无需 LLM）。"
-        ),
-    )
-    parser.add_argument(
-        "--dialogue-data",
-        default=None,
-        metavar="PATH",
-        help=(
-            "可选：真实对话数据文件路径（与 --with-llm 配合使用）。"
-            "支持 chat_test_100.json / chat_test_500.json 格式。"
-            "Phase 2 生成测试用例时 LLM 将参考这些对话样本提炼业务细节，"
-            "生成更贴近真实流程的槽位值和函数实现。"
-            "示例: --dialogue-data resources/data/chat_test_100.json"
-        ),
-    )
-    parser.add_argument(
-        "--max-iterations",
-        type=int,
-        default=3,
-        metavar="N",
-        help=(
-            "Phase 4 迭代优化最大轮次（默认: 3）。"
-            "每个意图函数通过率低于阈值时最多修复 N 轮。仅在 --with-llm 时生效。"
-        ),
-    )
-    parser.add_argument(
-        "--pass-rate-threshold",
-        type=float,
-        default=0.9,
-        metavar="RATE",
-        help=(
-            "Phase 4 通过率阈值（默认: 0.9，即 90%）。"
-            "函数通过率达到阈值后停止迭代修复。仅在 --with-llm 时生效。"
-        ),
-    )
-    parser.add_argument(
-        "--max-test-cases",
-        type=int,
-        default=5,
-        metavar="N",
-        help=(
-            "Phase 2 每个意图最多生成的测试用例数（默认: 5）。"
-            "仅在 --with-llm 时生效。"
-        ),
-    )
-    parser.add_argument(
-        "--generate-report",
-        action="store_true",
-        help=(
-            "Phase 5 生成 *_validation_report.json 验证报告，记录每个意图的通过率、"
-            "迭代次数等信息。仅在 --with-llm 时生效。"
-        ),
-    )
-    parser.add_argument(
+    input_group.add_argument(
         "--kb-dir",
         default=None,
         metavar="DIR",
@@ -192,6 +125,99 @@ def main() -> None:
             "示例: --kb-dir output/kb_output"
         ),
     )
+    input_group.add_argument(
+        "--dialogue-data",
+        default=None,
+        metavar="FILE",
+        help=(
+            "可选：真实对话数据文件路径（与 --with-llm 配合使用）。"
+            "支持 chat_test_100.json / chat_test_500.json 格式。"
+            "Phase 2 生成测试用例时 LLM 将参考这些对话样本提炼业务细节，"
+            "生成更贴近真实流程的槽位值和函数实现。"
+            "示例: --dialogue-data resources/data/chat_test_100.json"
+        ),
+    )
+
+    # ── 输出参数 ──────────────────────────────────────────────────────────
+    output_group = parser.add_argument_group("输出参数")
+    output_group.add_argument(
+        "--output-dir",
+        default=None,
+        metavar="DIR",
+        help=(
+            "可选：输出目录。指定时所有生成的 companion 文件写入该目录，"
+            "否则与对应的 schema 文件同目录。目录不存在时自动创建。"
+            "示例: --output-dir output/schema_data"
+        ),
+    )
+    output_group.add_argument(
+        "--no-overwrite",
+        action="store_true",
+        help="跳过已存在的文件，不覆盖",
+    )
+    output_group.add_argument(
+        "--generate-report",
+        action="store_true",
+        help=(
+            "Phase 5 生成 *_validation_report.json 验证报告，记录每个意图的通过率、"
+            "迭代次数等信息。仅在 --with-llm 时生效。"
+        ),
+    )
+
+    # ── 生成模式 ──────────────────────────────────────────────────────────
+    mode_group = parser.add_argument_group("生成模式")
+    mode_group.add_argument(
+        "--pytod-only",
+        action="store_true",
+        help="仅生成 PyTOD APIs .py 文件，跳过 FnCTOD domain 文件",
+    )
+    mode_group.add_argument(
+        "--fnctod-only",
+        action="store_true",
+        help="仅生成 FnCTOD domain 文件，跳过 PyTOD mock 文件",
+    )
+    mode_group.add_argument(
+        "--with-llm",
+        action="store_true",
+        help=(
+            "使用 LLM 完整运行 5 阶段生成流程（Phase 2: 测试用例生成，Phase 3: 逐函数 LLM 生成，"
+            "Phase 4: 验证+迭代修复，Phase 5: 文件组装）。"
+            "需要在 .env 中配置 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL。"
+            "未指定时使用规则引擎生成（含共享工具函数调用，无需 LLM）。"
+        ),
+    )
+
+    # ── LLM 选项（仅 --with-llm 时生效）─────────────────────────────────
+    llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
+    llm_group.add_argument(
+        "--max-iterations",
+        type=int,
+        default=3,
+        metavar="N",
+        help=(
+            "Phase 4 迭代优化最大轮次（默认: 3）。"
+            "每个意图函数通过率低于阈值时最多修复 N 轮。"
+        ),
+    )
+    llm_group.add_argument(
+        "--pass-rate-threshold",
+        type=float,
+        default=0.9,
+        metavar="RATE",
+        help=(
+            "Phase 4 通过率阈值（默认: 0.9，即 90%）。"
+            "函数通过率达到阈值后停止迭代修复。"
+        ),
+    )
+    llm_group.add_argument(
+        "--max-test-cases",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Phase 2 每个意图最多生成的测试用例数（默认: 5）。",
+    )
+
+    # ── 其他 ──────────────────────────────────────────────────────────────
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
@@ -257,11 +283,14 @@ def main() -> None:
             args.schema = str(kb_schema_candidate)
             print(f"💡 自动从 --kb-dir 检测到 schema: {kb_schema_candidate}")
 
+    output_dir = Path(args.output_dir) if args.output_dir else None
+
     builder = SchemaDataBuilder(
         overwrite=not args.no_overwrite,
         llm_client=llm_client,
         dialogue_data_path=dialogue_data_path,
         kb_dir=kb_dir,
+        output_dir=output_dir,
         max_iterations=args.max_iterations,
         pass_rate_threshold=args.pass_rate_threshold,
         max_test_cases_per_intent=args.max_test_cases,
@@ -356,7 +385,10 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
     print()
     print(f"🎉 完成！共写入 {written_total} 个文件")
     print()
-    print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.py schema/*_fnctod_domain.json）")
+    if args.output_dir:
+        print(f"💡 提示：输出目录: {args.output_dir}")
+    else:
+        print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.py schema/*_fnctod_domain.json）")
     print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
 
 

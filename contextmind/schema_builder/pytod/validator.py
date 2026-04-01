@@ -135,6 +135,8 @@ def write_validation_report(
     schema_path: Path,
     validations: Dict[str, FuncValidation],
     test_cases_by_intent: Dict[str, List[TestCaseItem]],
+    *,
+    output_dir: Optional[Path] = None,
 ) -> Optional[Path]:
     """Phase 5：将验证结果写入 ``xxx_validation_report.json`` 文件。
 
@@ -158,11 +160,12 @@ def write_validation_report(
         validations: intent_name → :class:`~contextmind.schema_builder.models.FuncValidation` 映射。
         test_cases_by_intent: intent_name → :class:`~contextmind.schema_builder.models.TestCaseItem`
             列表映射。
+        output_dir:  可选的输出目录。指定时报告文件写入该目录，否则与 schema 文件同目录。
 
     Returns:
         报告文件路径，写入失败时返回 None。
     """
-    report_path = companion_path(schema_path, "validation_report", suffix=".json")
+    report_path = companion_path(schema_path, "validation_report", suffix=".json", output_dir=output_dir)
 
     intent_report: Dict[str, Any] = {}
     for name, v in validations.items():

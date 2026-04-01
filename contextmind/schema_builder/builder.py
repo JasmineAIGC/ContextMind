@@ -53,6 +53,8 @@ class SchemaDataBuilder:
         llm_client:                可选的 AdkLLMClient 实例；提供时启用 LLM 5 阶段生成流程。
         dialogue_data_path:        可选的真实对话数据文件路径（LLM 模式业务背景）。
         kb_dir:                    可选，KB 输出目录路径。
+        output_dir:                可选，输出目录。指定时所有 companion 文件写入该目录，
+                                   否则与 schema 文件同目录。
         max_iterations:            Phase 4 最大修复轮次（默认 3）。
         pass_rate_threshold:       Phase 4 通过率阈值（默认 0.9）。
         max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 5）。
@@ -67,6 +69,7 @@ class SchemaDataBuilder:
         llm_client: Optional[Any] = None,
         dialogue_data_path: Optional[Union[str, Path]] = None,
         kb_dir: Optional[Union[str, Path]] = None,
+        output_dir: Optional[Union[str, Path]] = None,
         max_iterations: int = 3,
         pass_rate_threshold: float = 0.9,
         max_test_cases_per_intent: int = 5,
@@ -77,6 +80,9 @@ class SchemaDataBuilder:
         self.llm_client = llm_client
         self.dialogue_data_path = dialogue_data_path
         self.kb_dir = kb_dir
+        self.output_dir = Path(output_dir) if output_dir is not None else None
+        if self.output_dir is not None:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
         self.max_iterations = max_iterations
         self.pass_rate_threshold = pass_rate_threshold
         self.max_test_cases_per_intent = max_test_cases_per_intent
@@ -178,6 +184,7 @@ class SchemaDataBuilder:
                 llm_client=self.llm_client,
                 dialogue_data_path=self.dialogue_data_path,
                 kb_dir=self.kb_dir,
+                output_dir=self.output_dir,
                 max_iterations=self.max_iterations,
                 pass_rate_threshold=self.pass_rate_threshold,
                 max_test_cases_per_intent=self.max_test_cases_per_intent,
@@ -187,7 +194,7 @@ class SchemaDataBuilder:
 
         # ------- 规则模式（无 LLM）-------
         schema_path = Path(schema_path)
-        out_path = _companion_path(schema_path, "pytod_apis", suffix=".py")
+        out_path = _companion_path(schema_path, "pytod_apis", suffix=".py", output_dir=self.output_dir)
 
         if out_path.exists() and not self.overwrite:
             logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
@@ -282,7 +289,7 @@ class SchemaDataBuilder:
             写入成功时返回文件路径，否则返回 None。
         """
         schema_path = Path(schema_path)
-        out_path = _companion_path(schema_path, "fnctod_domain", suffix=".json")
+        out_path = _companion_path(schema_path, "fnctod_domain", suffix=".json", output_dir=self.output_dir)
 
         if out_path.exists() and not self.overwrite:
             logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
@@ -342,7 +349,7 @@ class SchemaDataBuilder:
 # 内部工具函数
 # ---------------------------------------------------------------------------
 
-def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path:
+def _companion_path(schema_path: Path, kind: str, suffix: str = ".json", *, output_dir: Optional[Path] = None) -> Path:
     """返回 companion 文件路径。
 
     ``data/foo_schema.json`` → ``data/foo_{kind}{suffix}``
@@ -350,7 +357,8 @@ def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path
     """
     stem = schema_path.stem
     base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
-    return schema_path.parent / f"{base}_{kind}{suffix}"
+    parent = output_dir if output_dir is not None else schema_path.parent
+    return parent / f"{base}_{kind}{suffix}"
 
 
 def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str:
