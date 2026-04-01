@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -54,6 +54,9 @@ from .normalizer import normalize_dialogues
 from .synthesizer import SchemaSynthesizer
 
 logger = get_logger(__name__)
+
+# discovery_raw.json: extraction_class sort order (intents first, then slots, then facts)
+_DISCOVERY_CLASS_ORDER: Dict[str, int] = {"intent": 0, "slot_value": 1, "fact": 2}
 
 
 def _extract_slot_char_positions(
@@ -135,6 +138,7 @@ class KnowledgeBaseBuilder:
 
         self.last_slot_counter: Counter = Counter()
         self.last_intent_counter: Counter = Counter()
+        self.last_fact_counter: Counter = Counter()
         # 最近一次 build_dataset() 发现阶段的逐轮原始 DiscoveryItem 列表。
         # 结构：List[ List[ (turn_idx, speaker, utterance, [DiscoveryItem, ...]) ] ]
         # 每项对应一条对话，可通过 save_dataset() 写入 discovery_raw.json。
@@ -280,6 +284,7 @@ class KnowledgeBaseBuilder:
         ) = self._run_discovery_per_turn(normalized)
         self.last_slot_counter = slot_counter
         self.last_intent_counter = intent_counter
+        self.last_fact_counter = fact_counter
         self.last_discovery_turns = per_dlg_turns
 
         logger.info(
@@ -377,35 +382,45 @@ class KnowledgeBaseBuilder:
         # 统计总轮次
         total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
 
-        # 写入 discovery_raw.json（逐轮原始提取结果，含 langextract 溯源信息）
+        # 写入 discovery_raw.json（以知识为主体的提取结果，含 langextract 溯源信息）
+        # 格式：按 extraction_class（intent/slot_value/fact）和 label 聚合，每条知识附带
+        # 来源对话、轮次、说话人、话语及 provenance 溯源字符串。
         if self.last_discovery_turns:
-            raw_records = []
+            # 按 (extraction_class, label) 聚合所有出现记录
+            knowledge_index: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
             for sgd_dlg, per_turn in zip(sgd_dialogues, self.last_discovery_turns):
-                turn_records = []
+                dialogue_id = sgd_dlg.get("dialogue_id", "")
                 for turn_idx, speaker, utterance, items in per_turn:
-                    extractions = [
-                        {
-                            "extraction_class": item.extraction_class,
-                            "label": item.label,
-                            "value": item.value,
-                            "provenance": item.provenance,
-                        }
-                        for item in items
-                    ]
-                    turn_records.append(
-                        {
-                            "turn_idx": turn_idx,
-                            "speaker": speaker,
-                            "utterance": utterance,
-                            "extractions": extractions,
-                        }
-                    )
-                raw_records.append(
-                    {
-                        "dialogue_id": sgd_dlg.get("dialogue_id", ""),
-                        "turns": turn_records,
-                    }
-                )
+                    for item in items:
+                        if not item.label:
+                            continue
+                        key = (item.extraction_class, item.label)
+                        knowledge_index[key].append(
+                            {
+                                "value": item.value,
+                                "provenance": item.provenance,
+                                "dialogue_id": dialogue_id,
+                                "turn_idx": turn_idx,
+                                "speaker": speaker,
+                                "utterance": utterance,
+                            }
+                        )
+
+            # 按 extraction_class 排序输出，类内按出现次数降序
+            sorted_keys = sorted(
+                knowledge_index.keys(),
+                key=lambda k: (_DISCOVERY_CLASS_ORDER.get(k[0], 9), -len(knowledge_index[k])),
+            )
+            raw_records = [
+                {
+                    "extraction_class": ec,
+                    "label": label,
+                    "total_occurrences": len(knowledge_index[(ec, label)]),
+                    "occurrences": knowledge_index[(ec, label)],
+                }
+                for ec, label in sorted_keys
+            ]
+
             raw_path = output_dir / "discovery_raw.json"
             raw_path.write_text(
                 json.dumps(raw_records, ensure_ascii=False, indent=2),
@@ -413,7 +428,7 @@ class KnowledgeBaseBuilder:
             )
             logger.info(
                 f"[KnowledgeBaseBuilder] discovery_raw.json 已写入: {raw_path} "
-                f"（{len(raw_records)} 条对话）"
+                f"（{len(raw_records)} 条知识条目）"
             )
 
         # 写入 conversion_summary.json
@@ -426,10 +441,12 @@ class KnowledgeBaseBuilder:
             "services": [service_name],
             "converted_at": datetime.datetime.now().isoformat(timespec="seconds"),
             "discovered_schema_items": len(self.last_slot_counter)
-            + len(self.last_intent_counter),
+            + len(self.last_intent_counter)
+            + len(self.last_fact_counter),
             "schema_coverage": {
                 "extracted_slots": list(self.last_slot_counter.keys()),
                 "extracted_intents": list(self.last_intent_counter.keys()),
+                "extracted_facts": list(self.last_fact_counter.keys()),
                 "schema_slots": [
                     s["name"] for s in schema_dict.get("slots", [])
                 ],

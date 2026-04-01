@@ -51,7 +51,7 @@ from contextmind.infra.llm_client import create_local_adk_model
 from contextmind.modes.pytod.execution_engine import ExecutionEngine, ProgramExecutionResult
 from contextmind.modes.pytod.prompts import ConversationTurn, PyTODPromptBuilder
 from contextmind.modes.pytod.registry import SCENARIO_API_REGISTRY, get_scenario_key
-from contextmind.modes.pytod.schemas import ServiceSchema
+from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 
 from google.adk.agents import LlmAgent  # type: ignore[import]
 from google.adk.runners import InMemoryRunner  # type: ignore[import]
@@ -121,10 +121,13 @@ def _extract_var_call_sources(program_text: str) -> Dict[str, str]:
 
 
 def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
-    """从与 schema.json 同目录的 ``*_pytod_apis.py`` companion 文件加载 PyTOD API 函数。
+    """从 ``*_pytod_apis.py`` companion 文件加载 PyTOD API 函数。
 
-    查找规则：给定 ``path/to/foo_schema.json``，自动加载
-    ``path/to/foo_pytod_apis.py``（去掉 ``_schema`` 后缀再加 ``_pytod_apis``）。
+    支持两种输入方式：
+
+    1. **直接传入 .py 文件路径**（推荐）：``path/to/foo_pytod_apis.py``，直接加载。
+    2. **传入 schema.json 路径**（兼容旧接口）：``path/to/foo_schema.json``，
+       自动推导对应的 ``path/to/foo_pytod_apis.py`` 并加载。
 
     companion 文件由 ``SchemaDataBuilder.build_pytod_apis()`` 预生成，
     包含每个 intent 对应的真实 Python 函数定义（含 result_slots 返回值），
@@ -136,15 +139,25 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
 
     Example::
 
+        # 推荐：直接传入 .py 文件
+        api_funcs = load_pytod_api_module("schema/anyihua_pytod_apis.py")
+        # 兼容：传入 schema.json，自动推导 .py 路径
         api_funcs = load_pytod_api_module("schema/anyihua_schema.json")
         # → {"verify_identity": <function verify_identity>, ...}
     """
     import importlib.util
 
     p = Path(schema_path)
-    stem = p.stem
-    base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
-    apis_path = p.parent / f"{base}_pytod_apis.py"
+    if p.suffix == ".py":
+        # 直接 .py 文件路径 — strip "_pytod_apis" suffix (if present) for a clean module name
+        apis_path = p
+        stem = p.stem
+        base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
+    else:
+        # JSON schema 路径 → 推导 companion .py
+        stem = p.stem
+        base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
+        apis_path = p.parent / f"{base}_pytod_apis.py"
     if not apis_path.exists():
         logger.debug(f"[api_module] companion apis 文件不存在: {apis_path}")
         return None
@@ -155,12 +168,38 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
             raise ImportError(f"无法创建 module spec: {apis_path}")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)  # type: ignore[union-attr]
-        # Collect all callable functions that don't start with "_"
-        funcs = {
+        # Collect only functions defined in this module (not imported callables).
+        # Using __module__ check prevents imported typing aliases (Optional, Dict, Any)
+        # and other callables from being registered as API functions, which would
+        # cause unexpected TypeError when the AP accidentally calls them.
+        raw_funcs = {
             name: obj
             for name, obj in vars(mod).items()
-            if callable(obj) and not name.startswith("_")
+            if callable(obj)
+            and not name.startswith("_")
+            and getattr(obj, "__module__", None) == mod_name
         }
+        # Validate each function with a no-arg test call to detect LLM-generated bugs
+        # (e.g. a function body that calls a string variable raises
+        # "TypeError: 'str' object is not callable").  All generated API functions
+        # accept only keyword arguments with default=None, so a zero-arg call is safe
+        # and representative.  Functions that raise any exception are excluded so the
+        # engine falls back to a stub instead of propagating a runtime error later.
+        funcs: dict = {}
+        for name, obj in raw_funcs.items():
+            try:
+                obj()
+                funcs[name] = obj
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    f"[api_module] 函数 '{name}' 测试调用失败（将使用存根替代）: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+        if len(funcs) < len(raw_funcs):
+            skipped = len(raw_funcs) - len(funcs)
+            logger.warning(
+                f"[api_module] {skipped} 个函数因测试调用失败而跳过，将使用存根替代"
+            )
         logger.info(f"[api_module] 已加载 PyTOD API 函数: {apis_path} ({len(funcs)} 个函数)")
         return funcs
     except Exception as exc:
@@ -429,13 +468,41 @@ class AdkPyTODTracker:
                 engine, external_schema, replace_existing=True, api_funcs=api_funcs
             )
             schema = external_schema
+        elif api_funcs:
+            # 未提供 schema.json，但已从 *_pytod_apis.py 加载了真实 API 函数：
+            # 从函数签名和 docstring 推导最小化 ServiceSchema，直接注册 API 函数。
+            # 这样即使没有对应的 schema.json，AP 也能看到函数签名和意图描述。
+            import inspect as _inspect
+            synthetic_intents: List[IntentDefinition] = []
+            for func_name, func in api_funcs.items():
+                sig = _inspect.signature(func)
+                all_params = [p for p in sig.parameters]
+                synthetic_intents.append(IntentDefinition(
+                    name=func_name,
+                    description=(func.__doc__ or func_name).strip().split("\n")[0],
+                    required_slots=[],
+                    optional_slots=all_params,
+                    result_slots=[],
+                ))
+            schema = ServiceSchema(
+                service_name=scenario_name or "api_functions",
+                description="从 pytod_apis.py 文件推导的服务 Schema",
+                intents=synthetic_intents,
+            )
+            _register_apis_from_schema(
+                engine, schema, replace_existing=True, api_funcs=api_funcs
+            )
+            logger.info(
+                f"AdkPyTODTracker: 场景 '{scenario_name}' 已从 pytod_apis 文件推导 schema，"
+                f"注册 {len(api_funcs)} 个 API 函数。"
+            )
         else:
-            # 未提供外部 schema：空引擎 + None schema（开放域模式）
+            # 未提供外部 schema 也未加载 api_funcs：空引擎（开放域模式）
             logger.warning(
                 f"AdkPyTODTracker: 场景 '{scenario_name}' 未传入 schema，"
                 "使用空引擎运行（AP 将无法引用业务 API）。"
                 "请通过 schema= 参数传入 ServiceSchema 对象，"
-                "或通过 schema_path= 指向 schema/*_schema.json 文件。"
+                "或通过 schema_path= 指向 *_pytod_apis.py 或 schema/*_schema.json 文件。"
             )
             schema = None
 

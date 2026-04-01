@@ -4,6 +4,19 @@
 
 Evolve（Evolutionary Context Optimization，演化式上下文优化）是一种基于**AlphaEvolve和ThetaEvolve算法**的高级对话管理模式。它通过智能的记忆管理和上下文优化，实现更自然、更智能的长对话处理。
 
+- **实现状态**: ✅ 已实现
+- **论文（ThetaEvolve）**: [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473)
+
+### 三步框架依赖
+
+| 步骤 | 是否需要 | 说明 |
+|------|:-------:|------|
+| **① 建立知识库** | ❌ 不需要 | Evolve 基于长期记忆，无需外部 schema.json |
+| **② Schema 数据生成** | ❌ 不需要 | Evolve 不依赖算法专用代码文件 |
+| **③ 算法执行（Evolve）** | ✅ 必须 | 演化式上下文检索、记忆管理与对话生成 |
+
+Evolve 是最独立的算法——完全不依赖第一步和第二步，直接进入第三步执行，适合通用聊天、开放域长对话等无需预定义业务 Schema 的场景。
+
 ## 核心原理
 
 Evolve模式基于两个核心算法：
@@ -278,10 +291,10 @@ class SessionState:
 
 ```python
 from contextmind.modes.evolve import create_app_for_scenario
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 # 创建Evolve应用
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 app = create_app_for_scenario(
     scenario_name="chat",
     llm_client=llm_client
@@ -435,3 +448,9 @@ Evolve支持插件扩展：
 ## 总结
 
 Evolve模式是基于AlphaEvolve和ThetaEvolve算法的先进对话系统，通过智能的记忆管理和上下文优化，实现了真正智能和个性化的对话体验。它特别适合需要长期记忆、上下文理解和个性化服务的应用场景。
+
+## 参考资料
+
+- [ThetaEvolve 论文：ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473)
+- [评测指标说明](../benchmark.md)
+- [API 参考](../api-reference.md)

@@ -8,7 +8,17 @@
 - **核心代码**: `benchmark/algorithms/fnctod.py`
 - **评测脚本**: `benchmark/run_fnctod_transfertod.py`
 - **支持数据集**: TransferTOD
-- **论文参考**: [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）
+- **论文**: [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）
+
+### 三步框架依赖
+
+| 步骤 | 是否需要 | 说明 |
+|------|:-------:|------|
+| **① 建立知识库** | ✅ 可选 | 可从原始对话自动生成函数 Schema，也可使用预定义 Schema |
+| **② Schema 数据生成** | ❌ 不需要 | FnCTOD 不需要生成额外的算法专用代码文件 |
+| **③ 算法执行（FnCTOD）** | ✅ 必须 | 两阶段函数调用：领域选择 + 参数填充 |
+
+FnCTOD 可选使用第一步从原始对话自动发现槽位；也可直接使用预定义的 TransferTOD Schema 进入第三步执行。
 
 ---
 
@@ -83,7 +93,7 @@ FnCTOD 输入：
 
 ## 评测指标
 
-FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.md`](../metrics-explanation.md)）：
+FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.md`](../benchmark.md)）：
 
 | 指标 | 粒度 | 说明 |
 |------|------|------|
@@ -260,7 +270,7 @@ python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 10 --verbose
 
 ## 参考资料
 
-- [评测指标说明](../metrics-explanation.md)
-- [TransferTOD 数据集](../datasets/transfertod.md)
-- [FnCTOD 模式代码文档](../../contextmind/modes/fnctod/README.md)
-- [FnCTOD 论文](https://arxiv.org/abs/2405.02568)
+- [评测指标说明](../benchmark.md)
+- [TransferTOD 数据集](../datasets/datasets.md)
+- [API 参考](../api-reference.md)
+- [FnCTOD 论文：Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）

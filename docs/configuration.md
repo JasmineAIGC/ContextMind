@@ -91,24 +91,21 @@ DEFAULT_MODE=dst
 ### 自定义 LLM 客户端
 
 ```python
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
-# 基本配置
-client = SimpleLLMClient(
-    api_key="your_key",
-    base_url="https://api.example.com/v1",
-    model="model-name"
-)
+# 方式1：从 .env 自动加载配置（推荐）
+client = AdkLLMClient()
 
-# 高级配置
-client = SimpleLLMClient(
-    api_key="your_key",
-    base_url="https://api.example.com/v1",
-    model="model-name",
-    timeout=120,  # 超时时间
-    max_retries=5,  # 最大重试次数
-    temperature=0.7,  # 温度参数
-    max_tokens=2000  # 最大生成token数
+# 方式2：显式传入配置
+from contextmind.infra.llm_client import LLMConfig
+client = AdkLLMClient(
+    config=LLMConfig(
+        api_key="your_key",
+        base_url="https://api.example.com/v1",
+        model="model-name",
+        temperature=0.7,     # 温度参数（默认 0.3）
+        max_tokens=2000,     # 最大生成 token 数（默认 4096）
+    )
 )
 ```
 
@@ -116,10 +113,10 @@ client = SimpleLLMClient(
 
 ```python
 from contextmind.modes.dst import DialogueStateTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_chat_scenario
 
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 config = get_chat_scenario()
 
 tracker = DialogueStateTracker.from_scenario(
@@ -142,10 +139,10 @@ tracker.use_llm_summary = False  # 使用模板摘要（不使用LLM）
 
 ```python
 from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 from contextmind.scenarios import get_insurance_scenario
 
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 config = get_insurance_scenario()
 
 tracker = FnCTODTracker.from_scenario(
@@ -161,13 +158,48 @@ tracker.max_history_turns = 10
 **参数说明：**
 - `use_two_stage`: 是否使用两阶段处理（先选择domain，再调用函数）
 
+### SchemaDataBuilder 配置（第二步，PyTOD 可选）
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+llm_client = AdkLLMClient()
+
+builder = SchemaDataBuilder(
+    llm_client=llm_client,
+    schema_path="output/schema.json",         # 第一步输出的 schema 文件
+    test_data_paths=[                          # 可选：真实业务数据，提升生成质量
+        "resources/data/chat_test_100.json"
+    ],
+)
+
+# 生成 PyTOD API 代码文件
+result = builder.build_pytod_apis(
+    output_path="output/my_pytod_apis.py",
+    max_iterations=3,             # 最大优化迭代次数（默认：3）
+    pass_rate_threshold=0.9,      # 验证通过率阈值（默认：0.9）
+    max_test_cases_per_intent=5,  # 每意图最大测试用例数（默认：5）
+    generate_report=False,        # 是否生成验证报告（默认：False）
+)
+```
+
+**参数说明：**
+- `schema_path`: 第一步 `KnowledgeBaseBuilder.save()` 输出的 `schema.json` 路径
+- `test_data_paths`: 真实业务数据文件列表，用于构建测试用例（可选）
+- `max_iterations`: 函数迭代优化的最大轮数（默认：3）
+- `pass_rate_threshold`: 函数验证通过率阈值，低于此值触发重新生成（默认：0.9）
+- `generate_report`: 是否生成 `validation_report.json`（默认：False）
+
+> **注意**：此步骤仅适用于 **PyTOD** 算法；DST、FnCTOD、Evolve 不需要此步骤。
+
 ### Evolve 模式配置
 
 ```python
 from contextmind.modes.evolve import EvolveEngine
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
-llm_client = SimpleLLMClient()
+llm_client = AdkLLMClient()
 
 engine = EvolveEngine(
     app_name="my_app",
@@ -258,21 +290,18 @@ custom_config = ScenarioConfig(
 ### 性能优化
 
 ```python
-# 减少延迟
-client = SimpleLLMClient(
-    timeout=30,  # 降低超时时间
-    model="qwen-turbo"  # 使用更快的模型
-)
+# 减少延迟：使用更快的模型（通过 .env 配置 QWEN3_MODEL=qwen-turbo）
+client = AdkLLMClient()
 
 # 减少成本
 tracker.max_history_turns = 5  # 减少历史轮数
 tracker.use_llm_summary = False  # 不使用 LLM 摘要
 engine.memory_limit = 20  # 减少记忆库大小
 
-# 提高质量
-client = SimpleLLMClient(
-    model="qwen-max",  # 使用更强的模型
-    temperature=0.3  # 降低随机性
+# 提高质量：使用更强模型，降低随机性
+from contextmind.infra.llm_client import LLMConfig
+client = AdkLLMClient(
+    config=LLMConfig(model="qwen-max", temperature=0.3)
 )
 tracker.max_history_turns = 20  # 增加上下文
 ```
@@ -364,7 +393,8 @@ ENABLE_EVOLUTION=True
 **示例：**
 ```python
 # 1. 代码中指定（优先级最高）
-client = SimpleLLMClient(model="qwen-max")
+from contextmind.infra.llm_client import LLMConfig
+client = AdkLLMClient(config=LLMConfig(model="qwen-max"))
 
 # 2. 环境变量
 os.environ['QWEN3_MODEL'] = "qwen-plus"
@@ -400,11 +430,11 @@ for var in required_vars:
 
 ```python
 import asyncio
-from contextmind.infra.llm_client import SimpleLLMClient
+from contextmind.infra.llm_client import AdkLLMClient
 
 async def test_connection():
     try:
-        client = SimpleLLMClient()
+        client = AdkLLMClient()
         response = await client.chat_async([
             {"role": "user", "content": "Hello"}
         ])
@@ -454,6 +484,87 @@ ENABLE_MEMORY=False
 ENABLE_EVOLUTION=False
 ```
 
+---
+
+## 扩展新场景
+
+ContextMind v0.3.0+ 使用 **配置文件驱动** 的场景管理机制。所有场景在 `scenarios.yaml` 中定义，无需修改核心代码。新场景可根据算法选择灵活使用三步框架：
+
+### 添加新场景（三步框架）
+
+**框架第一步（可选）**：从真实业务对话构建知识库
+
+```python
+from contextmind.knowledge import KnowledgeBaseBuilder
+from contextmind.infra.llm_client import AdkLLMClient
+
+builder = KnowledgeBaseBuilder(
+    scene_name="医疗咨询",
+    scene_description="医疗问诊场景",
+    llm_client=AdkLLMClient(),
+)
+schema_dict = builder.build(my_medical_dialogues)
+builder.save(schema_dict, "resources/schemas/medical.json")
+```
+
+**框架第二步（PyTOD 可选）**：生成算法专用 API 代码
+
+```python
+from contextmind.schema_builder import SchemaDataBuilder
+
+schema_builder = SchemaDataBuilder(
+    llm_client=AdkLLMClient(),
+    schema_path="resources/schemas/medical.json",
+)
+schema_builder.build_pytod_apis(output_path="output/medical_apis.py")
+```
+
+**框架第三步**：在 `scenarios.yaml` 中注册场景并执行
+
+在 `scenarios.yaml` 中注册场景：
+
+```yaml
+scenes:
+  - name: 医疗咨询
+    description: 医疗问诊场景
+    schema_path: resources/schemas/medical.json
+    mode: pytod
+```
+
+注册 API 并执行：
+
+```python
+from contextmind import ContextPipeline
+from contextmind.infra.llm_client import AdkLLMClient
+
+pipeline = ContextPipeline(llm_client=AdkLLMClient())
+pipeline.set_schema(schema_dict)  # 从第一步输出加载
+
+# 手写 API 或加载第二步生成的 API
+pipeline.register_api("query_symptoms", query_symptoms_fn)
+
+result = await pipeline.process_turn("我最近头疼，该怎么办？")
+```
+
+### 场景 Schema 格式
+
+```json
+{
+  "scene_name": "医疗咨询",
+  "intents": [
+    {
+      "intent": "query_symptoms",
+      "description": "查询症状",
+      "required_slots": ["symptom"],
+      "optional_slots": ["duration"],
+      "result_slots": ["diagnosis", "recommendation"]
+    }
+  ]
+}
+```
+
+---
+
 ## 相关文档
 
 - [快速开始](quick-start.md)
@@ -462,4 +573,4 @@ ENABLE_EVOLUTION=False
 
 ---
 
-**最后更新**: 2026-02-10 | **版本**: 0.2.1
+**最后更新**: 2026-03-31 | **版本**: 0.3.0

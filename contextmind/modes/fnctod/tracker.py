@@ -108,6 +108,11 @@ class FnCTODTracker:
         已注册 domain 的函数管理器。
     system_instruction : str | None
         系统指令；若为 None 则自动从 FunctionManager 生成。
+        若同时提供 ``scenario_context``，背景信息会追加到自动生成的指令末尾。
+    scenario_context : str
+        业务场景背景描述（可选）。追加到系统指令中，让 LLM 了解对话所处的
+        业务场景（如"安逸花外呼促活"），从而生成符合场景的回复。
+        若提供了显式的 ``system_instruction``，则此参数被忽略。
     config : LLMConfig | None
         本地 LLM 配置；若为 None 则从 ``.env`` 自动加载。
     """
@@ -116,11 +121,13 @@ class FnCTODTracker:
         self,
         function_manager: Any,
         system_instruction: Optional[str] = None,
+        scenario_context: str = "",
         config: Optional[LLMConfig] = None,
     ) -> None:
         self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
         adk_model = create_local_adk_model(self._llm_config)
         self.function_manager = function_manager
+        self.scenario_context = scenario_context
 
         if system_instruction is None:
             domain_names = function_manager.get_domain_names()
@@ -132,6 +139,8 @@ class FnCTODTracker:
                 "2. 未在本轮对话中提及的槽位保持为空，不要猜测；\n"
                 "3. 函数调用完成后，立即用简洁的中文给出对话回复。"
             )
+            if scenario_context:
+                system_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
         self.system_instruction = system_instruction
 
         tools = adk_tools_from_function_manager(function_manager)
@@ -176,6 +185,17 @@ class FnCTODTracker:
         # 过滤掉本类构造函数不认识的参数，保持接口宽容
         kwargs.pop("use_two_stage", None)
         kwargs.pop("max_history_turns", None)
+        # 业务场景背景（可选，注入到系统指令中让 LLM 了解对话场景）
+        scenario_context = kwargs.pop("scenario_context", "")
+        # 若调用方未显式传入 scenario_context，且也未传入 system_instruction，
+        # 则使用场景配置自带的 system_prompt 作为背景，确保机器人身份与场景匹配。
+        if (
+            not scenario_context
+            and "system_instruction" not in kwargs
+            and hasattr(scenario_config, "system_prompt")
+            and scenario_config.system_prompt
+        ):
+            scenario_context = scenario_config.system_prompt
         # 外部 DomainSpec（来自 --schema 参数），FnCTOD 不再内置场景 Schema
         domain_spec = kwargs.pop("domain_spec", None)
         fm = FunctionManager()
@@ -190,6 +210,8 @@ class FnCTODTracker:
             )
         if config is not None:
             kwargs["config"] = config
+        if scenario_context:
+            kwargs["scenario_context"] = scenario_context
         return cls(function_manager=fm, **kwargs)
 
     async def _get_or_create_session(self) -> str:
@@ -208,8 +230,20 @@ class FnCTODTracker:
         self._session_id = None
         self.last_turn_updates = {}
 
-    async def process_turn(self, user_utterance: str, **kwargs: Any) -> Dict[str, Any]:
+    async def process_turn(
+        self,
+        user_utterance: str,
+        agent_utterance: str = "",
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
         """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位并生成回复。
+
+        Args:
+            user_utterance:  本轮用户话语。
+            agent_utterance: 本轮用户话语之前坐席/机器人说的内容（可选）。
+                             外呼场景中每轮对话是"坐席先说 → 用户回应"的形式，
+                             传入 ``agent_utterance`` 可让 LLM 理解用户话语所针对的上下文，
+                             避免 LLM 在缺乏上下文时生成与业务无关的回复。
 
         Returns:
             包含以下键的字典:
@@ -220,9 +254,16 @@ class FnCTODTracker:
         session_id = await self._get_or_create_session()
         self.turn_count += 1
 
+        # 若本轮有坐席先说的内容，将其与用户话语合并为完整对话对，
+        # 使 LLM 能理解用户回复的上下文（外呼场景：坐席先说→用户回应）。
+        if agent_utterance:
+            effective_user_text = f"坐席: {agent_utterance}\n用户: {user_utterance}"
+        else:
+            effective_user_text = user_utterance
+
         content = genai_types.Content(
             role="user",
-            parts=[genai_types.Part(text=user_utterance)],
+            parts=[genai_types.Part(text=effective_user_text)],
         )
 
         turn_updates: Dict[str, Any] = {}
@@ -246,7 +287,7 @@ class FnCTODTracker:
 
         self._current_state.update(turn_updates)
         self.last_turn_updates = turn_updates
-        self._dialogue_history.append({"role": "user", "content": user_utterance})
+        self._dialogue_history.append({"role": "user", "content": effective_user_text})
         response_text = final_text.strip()
         if response_text:
             self._dialogue_history.append({"role": "assistant", "content": response_text})

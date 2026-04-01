@@ -183,11 +183,13 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
     handlers = []
 
     # 使用 UTF-8 编码的 stdout 流，确保中文等非 ASCII 字符在任何终端环境中都能正常显示，
-    # 而非以 \uXXXX 形式输出。
+    # 而非以 \uXXXX 形式输出。同时替换 sys.stdout，使 print() 与 logging 共享同一个
+    # 行缓冲流，避免 verbose 模式下 print() 输出被块缓冲而不实时显示。
     if hasattr(sys.stdout, 'buffer'):
         utf8_stdout = io.TextIOWrapper(
             sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True
         )
+        sys.stdout = utf8_stdout
     else:
         utf8_stdout = sys.stdout
     console_handler = logging.StreamHandler(utf8_stdout)

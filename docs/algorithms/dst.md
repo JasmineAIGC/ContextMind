@@ -2,12 +2,23 @@
 
 ## 概述
 
-**DST**（Dialogue State Tracking，对话状态追踪）是 ContextMind 中已实现的第一个基准评测算法。该算法通过提示词工程驱动大语言模型（LLM），从多轮对话中逐轮提取槽位-值对，构建累积的对话状态。
+**DST**（Dialogue State Tracking，对话状态追踪）是 ContextMind 中已实现的第一个基准评测算法。DST 是对话系统中的核心技术，旨在从多轮对话历史中持续追踪用户的意图和需求（即槽位-值对）。该算法通过提示词工程驱动大语言模型（LLM），从多轮对话中逐轮提取槽位-值对，构建累积的对话状态。
 
 - **实现状态**: ✅ 已实现
 - **核心代码**: `benchmark/algorithms/dst.py`
 - **评测脚本**: `benchmark/run_dst_transfertod.py`、`benchmark/run_dst_risawoz.py`
 - **支持数据集**: TransferTOD、RiSAWOZ
+- **技术概念**: DST（Dialogue State Tracking）是任务型对话中的基础技术，不对应单一论文，而是业界广泛使用的对话状态追踪方法论
+
+### 三步框架依赖
+
+| 步骤 | 是否需要 | 说明 |
+|------|:-------:|------|
+| **① 建立知识库** | ✅ 可选 | 可从原始对话自动生成槽位定义，也可手动定义 |
+| **② Schema 数据生成** | ❌ 不需要 | DST 不需要生成算法专用代码文件 |
+| **③ 算法执行（DST）** | ✅ 必须 | 零样本 LLM 槽位提取与状态追踪 |
+
+DST 是最轻量的使用方式——可以完全跳过第一步和第二步，直接手动定义槽位后进入第三步执行。
 
 ---
 
@@ -60,7 +71,7 @@ DST 算法的本质是**零样本提示词槽位提取**（Zero-shot Prompt-base
 
 ## 评测指标
 
-DST 算法使用以下指标评估性能（详见 [`metrics-explanation.md`](../metrics-explanation.md)）：
+DST 算法使用以下指标评估性能（详见 [`metrics-explanation.md`](../benchmark.md)）：
 
 | 指标 | 粒度 | 说明 |
 |------|------|------|
@@ -185,7 +196,7 @@ python benchmark/run_dst_risawoz.py --domain 酒店 --verbose
 
 ## 参考资料
 
-- [评测指标说明](../metrics-explanation.md)
-- [TransferTOD 数据集](../datasets/transfertod.md)
-- [RiSAWOZ 数据集](../datasets/risawoz.md)
-- [DST 模式代码文档](../../contextmind/modes/dst/README.md)
+- [评测指标说明](../benchmark.md)
+- [TransferTOD 数据集](../datasets/datasets.md)
+- [RiSAWOZ 数据集](../datasets/datasets.md)
+- [API 参考](../api-reference.md)
