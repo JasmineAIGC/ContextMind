@@ -13,6 +13,7 @@ Schema 合成器
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 from collections import Counter
@@ -185,14 +186,15 @@ def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
         dicts = [item for item in items if isinstance(item, dict)]
         if not dicts:
             return None
-        merged: Dict[str, Any] = dict(dicts[0])
+        # 深拷贝第一个 dict 避免修改 LLM 返回的原始数据
+        merged: Dict[str, Any] = copy.deepcopy(dicts[0])
 
         def _merge_named_list(base: List[Dict], extra: List[Dict]) -> List[Dict]:
             """按 name 字段去重合并两个 dict 列表，后出现的覆盖先出现的。"""
-            index = {item["name"]: item for item in base if item.get("name")}
+            index = {item.get("name"): item for item in base if item.get("name")}
             for item in extra:
                 if item.get("name"):
-                    index[item["name"]] = item
+                    index[item.get("name")] = item
             return list(index.values())
 
         for d in dicts[1:]:
@@ -342,6 +344,11 @@ class SchemaSynthesizer:
                 _fact_counter, fact_sample_descs or {}, max_items=max_items
             )
 
+            # n_shown_* 反映实际展示给 LLM 的条目数（max_items 缩减后可能小于发现总数），
+            # 与 intents_text/slots_text 保持一致，避免 LLM 看到矛盾的数量提示。
+            n_shown_intents = min(len(intent_counter), max_items)
+            n_shown_slots = min(len(slot_counter), max_items)
+            n_shown_facts = min(len(_fact_counter), max_items)
             user_msg = _SYNTHESIS_USER_TEMPLATE.format(
                 scene_name=scene_name,
                 scene_description=scene_description or scene_name,
@@ -349,9 +356,9 @@ class SchemaSynthesizer:
                 slots_text=slots_text,
                 intents_text=intents_text,
                 facts_text=facts_text,
-                n_slots=len(slot_counter),
-                n_intents=len(intent_counter),
-                n_facts=len(_fact_counter),
+                n_slots=n_shown_slots,
+                n_intents=n_shown_intents,
+                n_facts=n_shown_facts,
             )
 
             messages = [
