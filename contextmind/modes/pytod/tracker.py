@@ -172,13 +172,34 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
         # Using __module__ check prevents imported typing aliases (Optional, Dict, Any)
         # and other callables from being registered as API functions, which would
         # cause unexpected TypeError when the AP accidentally calls them.
-        funcs = {
+        raw_funcs = {
             name: obj
             for name, obj in vars(mod).items()
             if callable(obj)
             and not name.startswith("_")
             and getattr(obj, "__module__", None) == mod_name
         }
+        # Validate each function with a no-arg test call to detect LLM-generated bugs
+        # (e.g. a function body that calls a string variable raises
+        # "TypeError: 'str' object is not callable").  All generated API functions
+        # accept only keyword arguments with default=None, so a zero-arg call is safe
+        # and representative.  Functions that raise any exception are excluded so the
+        # engine falls back to a stub instead of propagating a runtime error later.
+        funcs: dict = {}
+        for name, obj in raw_funcs.items():
+            try:
+                obj()
+                funcs[name] = obj
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    f"[api_module] 函数 '{name}' 测试调用失败（将使用存根替代）: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+        if len(funcs) < len(raw_funcs):
+            skipped = len(raw_funcs) - len(funcs)
+            logger.warning(
+                f"[api_module] {skipped} 个函数因测试调用失败而跳过，将使用存根替代"
+            )
         logger.info(f"[api_module] 已加载 PyTOD API 函数: {apis_path} ({len(funcs)} 个函数)")
         return funcs
     except Exception as exc:

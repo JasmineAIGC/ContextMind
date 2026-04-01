@@ -49,3 +49,8 @@ benchmark_results/
 
 # Demo output artifacts
 # output/
+
+# Generated PyTOD API companion files (produced by build_pytod_apis / build_schema_data.py)
+# Run `python examples/build_schema_data.py --schema schema/xxx_schema.json` to regenerate.
+schema/*_pytod_apis.py
+schema/*_validation_report.json
