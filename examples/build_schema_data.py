@@ -90,6 +90,37 @@ from contextmind.schema_builder import SchemaDataBuilder
 
 _DEFAULT_DATA_DIR = _PROJECT_ROOT / "schema"
 
+# LLM 选项默认值常量（同时用于 argparse 默认值与后置警告检查，保持一致）
+_DEFAULT_MAX_ITERATIONS = 3
+_DEFAULT_PASS_RATE_THRESHOLD = 0.9
+_DEFAULT_MAX_TEST_CASES = 5
+
+
+# ---------------------------------------------------------------------------
+# argparse 类型验证器
+# ---------------------------------------------------------------------------
+
+def _positive_int(value: str) -> int:
+    """argparse 类型：正整数（>= 1）。"""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"必须是整数，收到: {value!r}")
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"必须 ≥ 1，收到: {n}")
+    return n
+
+
+def _pass_rate(value: str) -> float:
+    """argparse 类型：通过率（0.0–1.0）。"""
+    try:
+        f = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"必须是浮点数，收到: {value!r}")
+    if not 0.0 <= f <= 1.0:
+        raise argparse.ArgumentTypeError(f"必须在 0.0–1.0 范围内，收到: {f}")
+    return f
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -102,7 +133,7 @@ def main() -> None:
     input_group = parser.add_argument_group("输入参数")
     input_group.add_argument(
         "--data-dir",
-        default=str(_DEFAULT_DATA_DIR),
+        default=None,   # None 表示"未显式提供"；main() 内部会回退到 _DEFAULT_DATA_DIR
         metavar="DIR",
         help=f"包含 *_schema.json 文件的目录（默认: {_DEFAULT_DATA_DIR}）",
     )
@@ -166,12 +197,13 @@ def main() -> None:
 
     # ── 生成模式 ──────────────────────────────────────────────────────────
     mode_group = parser.add_argument_group("生成模式")
-    mode_group.add_argument(
+    output_mode_group = mode_group.add_mutually_exclusive_group()
+    output_mode_group.add_argument(
         "--pytod-only",
         action="store_true",
         help="仅生成 PyTOD APIs .py 文件，跳过 FnCTOD domain 文件",
     )
-    mode_group.add_argument(
+    output_mode_group.add_argument(
         "--fnctod-only",
         action="store_true",
         help="仅生成 FnCTOD domain 文件，跳过 PyTOD mock 文件",
@@ -191,30 +223,30 @@ def main() -> None:
     llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
     llm_group.add_argument(
         "--max-iterations",
-        type=int,
-        default=3,
+        type=_positive_int,
+        default=_DEFAULT_MAX_ITERATIONS,
         metavar="N",
         help=(
-            "Phase 4 迭代优化最大轮次（默认: 3）。"
+            f"Phase 4 迭代优化最大轮次（默认: {_DEFAULT_MAX_ITERATIONS}，必须 ≥ 1）。"
             "每个意图函数通过率低于阈值时最多修复 N 轮。"
         ),
     )
     llm_group.add_argument(
         "--pass-rate-threshold",
-        type=float,
-        default=0.9,
+        type=_pass_rate,
+        default=_DEFAULT_PASS_RATE_THRESHOLD,
         metavar="RATE",
         help=(
-            "Phase 4 通过率阈值（默认: 0.9，即 90%）。"
+            f"Phase 4 通过率阈值（默认: {_DEFAULT_PASS_RATE_THRESHOLD:.0%}，取值范围 0.0–1.0）。"
             "函数通过率达到阈值后停止迭代修复。"
         ),
     )
     llm_group.add_argument(
         "--max-test-cases",
-        type=int,
-        default=5,
+        type=_positive_int,
+        default=_DEFAULT_MAX_TEST_CASES,
         metavar="N",
-        help="Phase 2 每个意图最多生成的测试用例数（默认: 5）。",
+        help=f"Phase 2 每个意图最多生成的测试用例数（默认: {_DEFAULT_MAX_TEST_CASES}，必须 ≥ 1）。",
     )
 
     # ── 其他 ──────────────────────────────────────────────────────────────
@@ -228,6 +260,48 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+
+    # ── 参数一致性检查（后置验证）──────────────────────────────────────
+    # 1. --schema 和 --data-dir 同时指定时，--data-dir 会被忽略。
+    #    通过 default=None 的哨兵值精确判断用户是否显式提供了 --data-dir。
+    if args.schema and args.data_dir is not None:
+        print(
+            f"⚠️  --schema 与 --data-dir 同时指定，将以 --schema 为准，"
+            f"--data-dir ({args.data_dir}) 被忽略。",
+            file=sys.stderr,
+        )
+    # 未显式提供时回退到默认目录
+    if args.data_dir is None:
+        args.data_dir = str(_DEFAULT_DATA_DIR)
+
+    # 2. LLM 专属选项在未指定 --with-llm 时无效。
+    if not args.with_llm:
+        _llm_only_flags: list[tuple[bool, str]] = [
+            (bool(args.kb_dir), "--kb-dir"),
+            (bool(args.dialogue_data), "--dialogue-data"),
+            (args.generate_report, "--generate-report"),
+            (args.max_iterations != _DEFAULT_MAX_ITERATIONS,
+             f"--max-iterations {args.max_iterations}"),
+            (args.pass_rate_threshold != _DEFAULT_PASS_RATE_THRESHOLD,
+             f"--pass-rate-threshold {args.pass_rate_threshold}"),
+            (args.max_test_cases != _DEFAULT_MAX_TEST_CASES,
+             f"--max-test-cases {args.max_test_cases}"),
+        ]
+        active_llm_flags = [name for active, name in _llm_only_flags if active]
+        if active_llm_flags:
+            print(
+                f"⚠️  以下参数仅在 --with-llm 模式下生效，当前未指定 --with-llm，"
+                f"这些参数将被忽略: {', '.join(active_llm_flags)}",
+                file=sys.stderr,
+            )
+
+    # 3. --fnctod-only 与 --with-llm 同时指定时，LLM 仅用于 PyTOD 生成，
+    #    但 --fnctod-only 会跳过 PyTOD，导致 LLM 被初始化后完全未使用。
+    if args.fnctod_only and args.with_llm:
+        print(
+            "⚠️  --fnctod-only 跳过 PyTOD 生成，--with-llm 的 LLM 流程将不会被执行。",
+            file=sys.stderr,
+        )
 
     # --verbose 模式：路由底层 logger.info / logger.debug 到 stdout
     if args.verbose:
@@ -260,6 +334,13 @@ def main() -> None:
                 if kb_dir_candidate.is_dir():
                     kb_dir = kb_dir_candidate
                     dialogue_note += f"，KB目录: {kb_dir.name}"
+                    if dialogue_data_path and (kb_dir_candidate / "dialogues_001.json").exists():
+                        print(
+                            f"💡 --dialogue-data 与 --kb-dir 同时指定："
+                            f"对话样本将使用 {dialogue_data_path.name}，"
+                            f"kb-dir 中的 dialogues_001.json 不用于对话提示"
+                            f"（discovery_raw.json / conversion_summary.json 仍正常加载）。"
+                        )
                 else:
                     print(
                         f"⚠️  KB 目录不存在，将忽略: {kb_dir_candidate}",
