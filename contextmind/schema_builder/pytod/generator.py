@@ -323,11 +323,25 @@ class PyTODApiCodeGenerator:
             if samples:
                 formatted = "\n\n".join(f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples))
                 hint_parts.append(f"## 真实对话样本（参考提炼多轮对话场景和槽位值）\n{formatted}")
+                logger.info(
+                    f"[PyTODApiCodeGenerator] 对话数据: 从 {Path(dialogue_data_path).name} 加载 {len(samples)} 条样本"
+                )
+            else:
+                logger.warning(
+                    f"[PyTODApiCodeGenerator] 对话数据文件无可用样本，已忽略: {dialogue_data_path}"
+                )
         elif sgd_dialogue_data_path:
             samples = self._load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=3)
             if samples:
                 formatted = "\n\n".join(f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples))
                 hint_parts.append(f"## 真实对话样本（参考提炼多轮对话场景和槽位值）\n{formatted}")
+                logger.info(
+                    f"[PyTODApiCodeGenerator] 对话数据(SGD): 从 {Path(sgd_dialogue_data_path).name} 加载 {len(samples)} 条样本"
+                )
+            else:
+                logger.warning(
+                    f"[PyTODApiCodeGenerator] SGD 对话数据文件无可用样本，已忽略: {sgd_dialogue_data_path}"
+                )
 
         # 2. 逐轮槽位提取示例（discovery_raw.json）
         if discovery_data_path:

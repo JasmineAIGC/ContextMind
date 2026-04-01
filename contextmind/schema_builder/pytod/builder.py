@@ -208,6 +208,12 @@ def build_pytod_apis(
             discovery_data_path=_discovery_path,
             summary_data_path=_summary_path,
         )
+        if dialogue_hint:
+            logger.info(
+                f"[PyTOD] 对话提示已构建（{len(dialogue_hint)} 字符），将注入每个意图的测试用例生成 Prompt"
+            )
+        else:
+            logger.info("[PyTOD] 对话提示为空（未提供对话数据或加载失败），函数生成将仅依赖 schema 定义")
 
     if not schema.intents:
         # 无意图定义时生成通用函数
