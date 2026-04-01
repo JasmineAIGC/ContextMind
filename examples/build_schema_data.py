@@ -80,6 +80,7 @@ KB 目录数据利用
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 # 添加项目根目录到 Python 路径，无需安装即可直接运行
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -122,6 +123,50 @@ def _pass_rate(value: str) -> float:
     return f
 
 
+# ---------------------------------------------------------------------------
+# 辅助函数
+# ---------------------------------------------------------------------------
+
+def _print_llm_mode_summary(
+    dialogue_data_path: Optional[Path],
+    kb_dir: Optional[Path],
+    max_iterations: int,
+    pass_rate_threshold: float,
+    max_test_cases: int,
+) -> None:
+    """以结构化多行格式打印 LLM 模式状态摘要，便于用户快速确认数据来源和参数。"""
+    print("🤖 LLM 模式已启用（5 阶段生成流程）")
+    print("   数据来源:")
+
+    if dialogue_data_path:
+        print(f"     ● 对话样本: {dialogue_data_path}（Phase 2 测试用例业务背景）")
+    else:
+        print("     ● 对话样本: 未指定（可用 --dialogue-data 提供）")
+
+    if kb_dir:
+        kb_files = []
+        for fname in ("discovery_raw.json", "conversion_summary.json"):
+            if (kb_dir / fname).exists():
+                kb_files.append(fname)
+        if kb_files:
+            print(f"     ● KB 目录 ({kb_dir.name}): {', '.join(kb_files)}")
+        dlg_in_kb = kb_dir / "dialogues_001.json"
+        if dlg_in_kb.exists():
+            if dialogue_data_path:
+                print(f"     ● KB 对话 ({dlg_in_kb.name}): 已跳过（--dialogue-data 优先）")
+            else:
+                print(f"     ● KB 对话: {dlg_in_kb}")
+    else:
+        print("     ● KB 目录: 未指定（可用 --kb-dir 提供 discovery_raw.json 等上下文）")
+
+    print(
+        f"   生成参数: 最大迭代 {max_iterations} 轮 | "
+        f"通过率阈值 {pass_rate_threshold:.0%} | "
+        f"每意图 {max_test_cases} 条测试用例"
+    )
+    print()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="从 schema.json 预生成 PyTOD / FnCTOD companion 数据文件",
@@ -154,18 +199,6 @@ def main() -> None:
             "提供后 PyTOD 生成器自动加载这些文件作为补充上下文，生成更贴近真实业务逻辑的函数。"
             "与 --dialogue-data 同时指定时，--dialogue-data 优先级更高。"
             "示例: --kb-dir output/kb_output"
-        ),
-    )
-    input_group.add_argument(
-        "--dialogue-data",
-        default=None,
-        metavar="FILE",
-        help=(
-            "可选：真实对话数据文件路径（与 --with-llm 配合使用）。"
-            "支持 chat_test_100.json / chat_test_500.json 格式。"
-            "Phase 2 生成测试用例时 LLM 将参考这些对话样本提炼业务细节，"
-            "生成更贴近真实流程的槽位值和函数实现。"
-            "示例: --dialogue-data resources/data/chat_test_100.json"
         ),
     )
 
@@ -221,6 +254,19 @@ def main() -> None:
 
     # ── LLM 选项（仅 --with-llm 时生效）─────────────────────────────────
     llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
+    llm_group.add_argument(
+        "--dialogue-data",
+        default=None,
+        metavar="FILE",
+        help=(
+            "可选：真实对话数据文件路径。"
+            "支持 chat_test_100.json / chat_test_500.json 格式。"
+            "Phase 2 生成测试用例时 LLM 将参考这些对话样本提炼业务细节，"
+            "生成更贴近真实流程的槽位值和函数实现。"
+            "与 --kb-dir 同时指定时，此文件的对话样本优先于 kb-dir/dialogues_001.json。"
+            "示例: --dialogue-data resources/data/chat_test_100.json"
+        ),
+    )
     llm_group.add_argument(
         "--max-iterations",
         type=_positive_int,
@@ -318,12 +364,9 @@ def main() -> None:
         try:
             from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
             llm_client = AdkLLMClient(config=LLMConfig.from_env())
-            dialogue_note = ""
             if args.dialogue_data:
                 dialogue_data_path = Path(args.dialogue_data)
-                if dialogue_data_path.exists():
-                    dialogue_note = f"，对话数据: {dialogue_data_path.name}"
-                else:
+                if not dialogue_data_path.exists():
                     print(
                         f"⚠️  对话数据文件不存在，将忽略: {dialogue_data_path}",
                         file=sys.stderr,
@@ -333,24 +376,18 @@ def main() -> None:
                 kb_dir_candidate = Path(args.kb_dir)
                 if kb_dir_candidate.is_dir():
                     kb_dir = kb_dir_candidate
-                    dialogue_note += f"，KB目录: {kb_dir.name}"
-                    if dialogue_data_path and (kb_dir_candidate / "dialogues_001.json").exists():
-                        print(
-                            f"💡 --dialogue-data 与 --kb-dir 同时指定："
-                            f"对话样本将使用 {dialogue_data_path.name}，"
-                            f"kb-dir 中的 dialogues_001.json 不用于对话提示"
-                            f"（discovery_raw.json / conversion_summary.json 仍正常加载）。"
-                        )
                 else:
                     print(
                         f"⚠️  KB 目录不存在，将忽略: {kb_dir_candidate}",
                         file=sys.stderr,
                     )
-            print(
-                f"🤖 LLM 模式启用：5 阶段生成流程{dialogue_note}"
-                f"（最大迭代: {args.max_iterations} 轮，"
-                f"通过率阈值: {args.pass_rate_threshold:.0%}，"
-                f"每意图测试用例: {args.max_test_cases} 条）"
+            # 打印结构化的 LLM 模式状态摘要
+            _print_llm_mode_summary(
+                dialogue_data_path=dialogue_data_path,
+                kb_dir=kb_dir,
+                max_iterations=args.max_iterations,
+                pass_rate_threshold=args.pass_rate_threshold,
+                max_test_cases=args.max_test_cases,
             )
         except Exception as exc:
             print(f"⚠️  LLM 初始化失败，回退到规则生成模式: {exc}", file=sys.stderr)
@@ -395,7 +432,6 @@ def main() -> None:
 
 def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argparse.Namespace) -> None:
     """处理单个 schema 文件。"""
-    print(f"📋 处理 schema: {schema_path}")
     import json
     from contextmind.modes.pytod.schemas import load_schema_from_dict
     try:
@@ -404,6 +440,15 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
     except Exception as exc:
         print(f"❌ 加载失败: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    print(
+        f"📋 处理 schema: {schema_path}"
+        f"（服务: {schema.service_name}，{len(schema.intents)} 个意图，{len(schema.slots)} 个槽位）"
+    )
+
+    # 如果 --kb-dir 已提供，检查 schema 意图数是否与 KB 发现结果一致
+    if args.kb_dir:
+        _check_schema_vs_discovery(schema_path, Path(args.kb_dir), len(schema.intents))
 
     if not args.fnctod_only:
         p = builder.build_pytod_apis(schema_path, schema=schema)
@@ -418,6 +463,33 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
             print(f"✅ FnCTOD domain → {p}")
         else:
             print(f"⚠️  FnCTOD domain 未写入（已存在且 --no-overwrite）")
+
+
+def _check_schema_vs_discovery(
+    schema_path: Path,
+    kb_dir: Path,
+    schema_intent_count: int,
+) -> None:
+    """若 KB 目录中 conversion_summary.json 显示发现的意图数多于 schema，打印提醒。"""
+    import json as _json
+    summary_path = kb_dir / "conversion_summary.json"
+    if not summary_path.exists():
+        return
+    try:
+        with open(summary_path, encoding="utf-8") as fh:
+            summary = _json.load(fh)
+        coverage = summary.get("schema_coverage", {})
+        extracted = coverage.get("extracted_intents", [])
+        discovered_count = len(extracted) if isinstance(extracted, list) else int(extracted or 0)
+        if discovered_count > schema_intent_count:
+            print(
+                f"💡 提示：KB 共发现 {discovered_count} 个意图，"
+                f"但 schema.json 中仅有 {schema_intent_count} 个。"
+                f"如需完整覆盖，请重新运行 KB 构建步骤（build_kb.py）"
+                f"以生成包含全部意图的 schema.json。"
+            )
+    except Exception:
+        pass  # 读取失败时静默忽略，不影响主流程
 
 
 def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Namespace) -> None:

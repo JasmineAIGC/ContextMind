@@ -258,6 +258,8 @@ def build_pytod_apis(
                     print(f"      input_slots  : {tc.input_slots}", flush=True)
                     if tc.expected_keys:
                         print(f"      expected_keys: {tc.expected_keys}", flush=True)
+                    if tc.expected_values:
+                        print(f"      expected_vals: {tc.expected_values}", flush=True)
                 print(flush=True)
 
             # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例 + KB 业务背景）

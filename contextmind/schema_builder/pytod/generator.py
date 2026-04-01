@@ -243,14 +243,17 @@ class PyTODApiCodeGenerator:
                 kb_context=dialogue_hint.rstrip()
             )
 
-        # 从测试用例构建 few-shot 示例章节
+        # 从测试用例构建 few-shot 示例章节（含 expected_values 帮助 LLM 校准输出）
         few_shot_section = ""
         if test_cases:
             example_lines = ["## 参考测试用例（few-shot 示例，校准函数对不同对话阶段输入的处理）"]
             for i, tc in enumerate(test_cases[:3], 1):
+                ev_hint = ""
+                if tc.expected_values:
+                    ev_hint = f", 预期关键输出 = {json.dumps(tc.expected_values, ensure_ascii=False)}"
                 example_lines.append(
                     f"示例 {i}（{tc.description or '典型输入'}）: "
-                    f"输入 = {json.dumps(tc.input_slots, ensure_ascii=False)}"
+                    f"输入 = {json.dumps(tc.input_slots, ensure_ascii=False)}{ev_hint}"
                 )
             few_shot_section = "\n".join(example_lines) + "\n\n"
 
@@ -905,10 +908,15 @@ class PyTODApiCodeGenerator:
             if not isinstance(slots, dict):
                 continue
             desc = entry.get("description", "")
+            # 提取预期计算值（expected_values），用于验证业务逻辑正确性
+            ev = entry.get("expected_values", {})
+            if not isinstance(ev, dict):
+                ev = {}
             items.append(
                 TestCaseItem(
                     input_slots=slots,
                     expected_keys=expected_keys,
+                    expected_values=ev,
                     description=desc,
                 )
             )
