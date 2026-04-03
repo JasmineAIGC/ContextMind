@@ -50,17 +50,20 @@ class SchemaDataBuilder:
 
     Args:
         overwrite:                 目标文件已存在时是否覆盖（默认 True）。
-        llm_client:                可选的 AdkLLMClient 实例；提供时启用 LLM 5 阶段生成流程。
+        llm_client:                可选的 AdkLLMClient 实例；提供时启用 LLM 生成流程。
         dialogue_data_path:        可选的真实对话数据文件路径（LLM 模式业务背景）。
         kb_dir:                    可选，KB 输出目录路径。
         output_dir:                可选，输出目录。指定时所有 companion 文件写入该目录，
                                    否则与 schema 文件同目录。
-        max_iterations:            Phase 4 最大修复轮次（默认 3）。
-        pass_rate_threshold:       Phase 4 通过率阈值（默认 0.9）。
-        max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 5）。
+        max_iterations:            最大修复轮次（默认 3）。
+        pass_rate_threshold:       通过率阈值（默认 0.9）。
+        max_test_cases_per_intent: 每意图最多测试用例数（默认 5）。
         generate_report:           是否写入验证报告（默认 False）。
-        verbose:                   是否输出详细进度信息（测试用例内容、每轮迭代后函数代码、
-                                   通过率等），默认 False。
+        verbose:                   是否输出详细进度信息，默认 False。
+        generator:                 PyTOD 生成算法选择：
+                                   ``"pytod"``（默认）— 原始 5 阶段 LLM 流水线；
+                                   ``"alpha"`` — AlphaCodium 风格 ACIA 合成器
+                                   （反思 + 骨架约束生成 + 失败分析 + 收敛重启）。
     """
 
     def __init__(
@@ -75,6 +78,7 @@ class SchemaDataBuilder:
         max_test_cases_per_intent: int = 5,
         generate_report: bool = False,
         verbose: bool = False,
+        generator: str = "pytod",
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
@@ -88,6 +92,7 @@ class SchemaDataBuilder:
         self.max_test_cases_per_intent = max_test_cases_per_intent
         self.generate_report = generate_report
         self.verbose = verbose
+        self.generator = generator
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -174,10 +179,14 @@ class SchemaDataBuilder:
             写入成功时返回文件路径，否则返回 None。
         """
         # 如果初始化时提供了 llm_client（或其他 LLM 相关参数），
-        # 委托给具备完整 5 阶段逻辑的 pytod 子包构建器。
+        # 根据 generator 参数委托给对应的构建器。
         if self.llm_client is not None:
-            from contextmind.schema_builder.pytod.builder import build_pytod_apis as _pytod_build
-            return _pytod_build(
+            if self.generator == "alpha":
+                from contextmind.schema_builder.alpha.builder import build_pytod_apis_alpha as _build
+                logger.info("[SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）")
+            else:
+                from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build  # type: ignore[assignment]
+            return _build(
                 schema_path,
                 schema=schema,
                 overwrite=self.overwrite,

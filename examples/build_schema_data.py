@@ -133,9 +133,14 @@ def _print_llm_mode_summary(
     max_iterations: int,
     pass_rate_threshold: float,
     max_test_cases: int,
+    generator: str = "pytod",
 ) -> None:
     """以结构化多行格式打印 LLM 模式状态摘要，便于用户快速确认数据来源和参数。"""
-    print("🤖 LLM 模式已启用（5 阶段生成流程）")
+    gen_label = {
+        "pytod": "pytod（原始 5 阶段流水线）",
+        "alpha": "alpha（ACIA：反思 + 骨架约束 + 失败分析 + 收敛重启）",
+    }.get(generator, generator)
+    print(f"🤖 LLM 模式已启用  生成器: {gen_label}")
     print("   数据来源:")
 
     if dialogue_data_path:
@@ -255,6 +260,22 @@ def main() -> None:
     # ── LLM 选项（仅 --with-llm 时生效）─────────────────────────────────
     llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
     llm_group.add_argument(
+        "--generator",
+        choices=["pytod", "alpha"],
+        default="pytod",
+        metavar="NAME",
+        help=(
+            "PyTOD API 代码生成算法选择（默认: pytod）。\n"
+            "  pytod — 原始 5 阶段流水线（Phase 2 测试用例 → Phase 3 LLM 生成 → Phase 4 迭代修复）\n"
+            "  alpha — ACIA 算法（AlphaCodium 风格）：\n"
+            "           · Phase R 反思：生成前分析业务语义，提供更准确的上下文\n"
+            "           · Phase G 骨架约束生成：预指定 result_slots 返回骨架，消除键缺失失败\n"
+            "           · Phase A 失败分析：按类型分类失败原因，为定向修复提供依据\n"
+            "           · Phase F 定向修复 + 收敛重启：无改善时全新重启，避免 docstring 累积\n"
+            "示例: --with-llm --generator alpha"
+        ),
+    )
+    llm_group.add_argument(
         "--dialogue-data",
         default=None,
         metavar="FILE",
@@ -332,6 +353,7 @@ def main() -> None:
              f"--pass-rate-threshold {args.pass_rate_threshold}"),
             (args.max_test_cases != _DEFAULT_MAX_TEST_CASES,
              f"--max-test-cases {args.max_test_cases}"),
+            (args.generator != "pytod", f"--generator {args.generator}"),
         ]
         active_llm_flags = [name for active, name in _llm_only_flags if active]
         if active_llm_flags:
@@ -388,6 +410,7 @@ def main() -> None:
                 max_iterations=args.max_iterations,
                 pass_rate_threshold=args.pass_rate_threshold,
                 max_test_cases=args.max_test_cases,
+                generator=args.generator,
             )
         except Exception as exc:
             print(f"⚠️  LLM 初始化失败，回退到规则生成模式: {exc}", file=sys.stderr)
@@ -414,6 +437,7 @@ def main() -> None:
         max_test_cases_per_intent=args.max_test_cases,
         generate_report=args.generate_report,
         verbose=args.verbose,
+        generator=args.generator,
     )
 
     if args.schema:
