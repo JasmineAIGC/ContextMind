@@ -39,7 +39,7 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
 
-from contextmind.schema_builder.ctree.prompts import (
+from contextmind.schema_builder.pytod.ctree.prompts import (
     EXPAND_SYSTEM,
     EXPAND_USER_TEMPLATE,
     REFLECT_SYSTEM,

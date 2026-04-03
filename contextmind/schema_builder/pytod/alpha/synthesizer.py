@@ -31,7 +31,7 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
 
-from contextmind.schema_builder.alpha.prompts import (
+from contextmind.schema_builder.pytod.alpha.prompts import (
     ANALYZE_SYSTEM,
     ANALYZE_USER_TEMPLATE,
     GENERATE_SYSTEM,

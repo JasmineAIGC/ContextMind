@@ -1,27 +1,22 @@
 """
-CodeTree PyTOD API 构建器入口。
+S*（S-star）PyTOD API 构建器入口。
 
-:func:`build_pytod_apis_ctree` 与
+:func:`build_pytod_apis_sstar` 与
 :func:`contextmind.schema_builder.pytod.builder.build_pytod_apis` 具有完全相同的函数签名，
 可直接替换调用。
 
-算法简介
---------
-CodeTree（arXiv:2411.04329，2024/2025）用树形搜索替代线性或平铺搜索：
-
-- **Phase G（根节点）**：生成初始候选函数
-- **Phase E（扩展）**：针对每个失败用例独立生成修复子节点
-- **Phase S（UCB 选择）**：UCB 引导，平衡利用（高通过率）与探索（未访问节点）
-- 递归直到预算耗尽或达到通过率阈值
-
-与 ACIA（线性修复）和 S*（平铺并行）的区别：
-- 树形结构避免"修好 A 破坏 B"的相互干扰
-- UCB 机制同时实现深度优先和广度优先的平衡
+流水线结构
+----------
+- **Phase 1**：解析 schema（与 pytod/alpha 相同）
+- **Phase 2**：测试用例生成（复用 :class:`~contextmind.schema_builder.pytod.generator.PyTODApiCodeGenerator`）
+- **Phase P→D→S→R**：SStarSynthesizer 四阶段合成
+  （并行草稿 → 执行追踪修复 → 区分性测试选择 → 最优候选精炼）
+- **Phase 5**：组装 Python 文件（与 pytod/alpha 相同格式，可被 load_pytod_api_module 直接加载）
 
 论文参考
 --------
-CodeTree: Agent-guided Tree Search for Code Generation
-with Large Language Models, arXiv:2411.04329, 2024/2025.
+Dacheng Li et al., "S*: Test Time Scaling for Code Generation",
+arXiv:2502.14382, 2025. https://arxiv.org/abs/2502.14382
 """
 
 from __future__ import annotations
@@ -39,7 +34,7 @@ from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.pytod.validator import validate_function, write_validation_report
 
-from contextmind.schema_builder.ctree.synthesizer import CodeTreeSynthesizer
+from contextmind.schema_builder.pytod.sstar.synthesizer import SStarSynthesizer
 
 logger = get_logger(__name__)
 
@@ -80,7 +75,7 @@ def _print_section(title: str, width: int = 70) -> None:
     print(line, flush=True)
 
 
-def build_pytod_apis_ctree(
+def build_pytod_apis_sstar(
     schema_path: Union[str, Path],
     schema: Optional[ServiceSchema] = None,
     *,
@@ -95,15 +90,15 @@ def build_pytod_apis_ctree(
     output_dir: Optional[Union[str, Path]] = None,
     verbose: bool = False,
 ) -> Optional[Path]:
-    """从 schema.json 用 CodeTree 算法生成 PyTOD ``*_pytod_apis.py`` companion 文件。
+    """从 schema.json 用 S* 算法生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
     与 :func:`contextmind.schema_builder.pytod.builder.build_pytod_apis` 接口相同，
-    可直接替换调用。内部使用 CodeTreeSynthesizer：
+    可直接替换调用。差异在于内部使用 SStarSynthesizer 替代原有的生成器：
 
-    - **Phase G（根节点生成）**：生成初始候选函数
-    - **Phase E（树扩展）**：对每个失败用例独立生成修复子节点
-    - **Phase S（UCB 选择）**：UCB 引导在整棵树中选最优扩展点
-    - 递归直到预算耗尽或通过率阈值达到
+    - **Phase P（并行草稿）**：以 N 种不同思维模式并行生成 N 个候选实现
+    - **Phase D（执行追踪修复）**：基于 execution traces 精准修复，而非仅凭错误信息
+    - **Phase S（区分性测试选择）**：LLM 生成区分性输入，通过执行行为选出最优候选
+    - **Phase R（最优候选精炼）**：对选出候选继续精炼直至达到通过率阈值
 
     Args:
         schema_path:               ``*_schema.json`` 文件路径。
@@ -111,7 +106,7 @@ def build_pytod_apis_ctree(
         overwrite:                 目标文件已存在时是否覆盖（默认 True）。
         llm_client:                可选的 AdkLLMClient 实例。
         dialogue_data_path:        可选的真实对话数据文件路径（Phase 2 业务背景）。
-        max_iterations:            总最大迭代轮次（跨所有扩展轮次共享，默认 10）。
+        max_iterations:            总最大迭代轮次（跨 D/R 阶段共享，默认 10）。
         pass_rate_threshold:       通过率阈值（默认 0.9）。
         max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 10）。
         generate_report:           是否写入验证报告（默认 False）。
@@ -130,7 +125,7 @@ def build_pytod_apis_ctree(
 
     # 目标文件已存在且不覆盖时跳过
     if out_path.exists() and not overwrite:
-        logger.debug(f"[CodeTree] 跳过已存在文件: {out_path}")
+        logger.debug(f"[S*] 跳过已存在文件: {out_path}")
         return None
 
     # ------------------------------------------------------------------
@@ -141,23 +136,23 @@ def build_pytod_apis_ctree(
             with open(schema_path, encoding="utf-8") as fh:
                 schema = load_schema_from_dict(json.load(fh))
         except Exception as exc:
-            logger.error(f"[CodeTree] 加载 schema 失败: {schema_path} — {exc}")
+            logger.error(f"[S*] 加载 schema 失败: {schema_path} — {exc}")
             return None
 
-    # 初始化 CodeTreeSynthesizer（仅当有 llm_client 时）
-    synthesizer: Optional[CodeTreeSynthesizer] = None
+    # 初始化 SStarSynthesizer（仅当有 llm_client 时）
+    synthesizer: Optional[SStarSynthesizer] = None
     if llm_client is not None:
         try:
-            synthesizer = CodeTreeSynthesizer(llm_client=llm_client)
+            synthesizer = SStarSynthesizer(llm_client=llm_client)
             logger.info(
-                f"[CodeTree] Phase 1 完成 — 服务: {schema.service_name}, "
-                f"意图数: {len(schema.intents)}, 模式: CodeTree (LLM)"
+                f"[S*] Phase 1 完成 — 服务: {schema.service_name}, "
+                f"意图数: {len(schema.intents)}, 模式: S* (LLM)"
             )
         except Exception as exc:
-            logger.warning(f"[CodeTree] CodeTreeSynthesizer 初始化失败，回退到 stub 生成: {exc}")
+            logger.warning(f"[S*] SStarSynthesizer 初始化失败，回退到 stub 生成: {exc}")
     else:
         logger.info(
-            f"[CodeTree] Phase 1 完成 — 服务: {schema.service_name}, "
+            f"[S*] Phase 1 完成 — 服务: {schema.service_name}, "
             f"意图数: {len(schema.intents)}, 模式: stub（无 LLM）"
         )
 
@@ -173,13 +168,13 @@ def build_pytod_apis_ctree(
         kb_context = PyTODApiCodeGenerator.load_kb_context(kb_dir)
         if _dlg_path is None and kb_context.get("dialogues_path"):
             _sgd_dlg_path = kb_context["dialogues_path"]
-            logger.info(f"[CodeTree] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
+            logger.info(f"[S*] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
         if kb_context.get("discovery_path"):
             _discovery_path = kb_context["discovery_path"]
-            logger.info(f"[CodeTree] kb_dir: 使用 discovery_raw.json → {_discovery_path}")
+            logger.info(f"[S*] kb_dir: 使用 discovery_raw.json → {_discovery_path}")
         if kb_context.get("summary_path"):
             _summary_path = kb_context["summary_path"]
-            logger.info(f"[CodeTree] kb_dir: 使用 conversion_summary.json → {_summary_path}")
+            logger.info(f"[S*] kb_dir: 使用 conversion_summary.json → {_summary_path}")
 
     # ------------------------------------------------------------------
     # Phase 2：测试用例生成（复用 PyTODApiCodeGenerator）
@@ -196,7 +191,7 @@ def build_pytod_apis_ctree(
         mode_str = "通用函数（无意图定义）"
 
     elif synthesizer is not None:
-        # CodeTree LLM 模式
+        # S* LLM 模式
         from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
         phase2_gen = PyTODApiCodeGenerator(llm_client=llm_client)
 
@@ -209,29 +204,29 @@ def build_pytod_apis_ctree(
         )
         if dialogue_hint:
             logger.info(
-                f"[CodeTree] 对话提示已构建（{len(dialogue_hint)} 字符），注入 Phase 2 测试用例生成"
+                f"[S*] 对话提示已构建（{len(dialogue_hint)} 字符），注入 Phase 2 测试用例生成"
             )
 
         total_intents = len(schema.intents)
-        logger.info(f"[CodeTree] 开始逐函数 CodeTree 合成（共 {total_intents} 个意图）...")
+        logger.info(f"[S*] 开始逐函数 S* 合成（共 {total_intents} 个意图）...")
 
         for idx, intent in enumerate(schema.intents, 1):
-            logger.info(f"[CodeTree] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────")
+            logger.info(f"[S*] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────")
             if verbose:
-                _print_section(f"[CodeTree] 函数 {idx}/{total_intents}: {intent.name}")
+                _print_section(f"[S*] 函数 {idx}/{total_intents}: {intent.name}")
 
             # Phase 2：测试用例生成
-            logger.info(f"[CodeTree]   Phase 2: {intent.name} — 生成测试用例...")
+            logger.info(f"[S*]   Phase 2: {intent.name} — 生成测试用例...")
             intent_test_cases = phase2_gen.build_test_cases_for_intent(
                 intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
             )
             if intent_test_cases:
                 test_cases_by_intent[intent.name] = intent_test_cases
                 logger.info(
-                    f"[CodeTree]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
+                    f"[S*]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
                 )
             else:
-                logger.warning(f"[CodeTree]   Phase 2: {intent.name} — 未获得测试用例")
+                logger.warning(f"[S*]   Phase 2: {intent.name} — 未获得测试用例")
             if verbose and intent_test_cases:
                 print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
                 for i, tc in enumerate(intent_test_cases, 1):
@@ -239,7 +234,7 @@ def build_pytod_apis_ctree(
                     print(f"    用例 #{i}{desc}: {tc.input_slots}", flush=True)
                 print(flush=True)
 
-            # Phase G/E/S：CodeTree 合成
+            # Phase P→D→S→R：S* 合成
             func_code, validation = synthesizer.synthesize(
                 intent=intent,
                 schema=schema,
@@ -252,7 +247,7 @@ def build_pytod_apis_ctree(
 
             if verbose:
                 _print_section(
-                    f"[CodeTree] {intent.name} 最终代码"
+                    f"[S*] {intent.name} 最终代码"
                     + (
                         f"（通过率: {validation.pass_rate:.1%} "
                         f"{validation.passed}/{validation.total}）"
@@ -268,7 +263,7 @@ def build_pytod_apis_ctree(
                 else "⚠️ "
             )
             logger.info(
-                f"[CodeTree]   {status_sym} {intent.name} 完成 — "
+                f"[S*]   {status_sym} {intent.name} 完成 — "
                 + (
                     f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})，"
                     f"迭代 {validation.iterations} 轮"
@@ -280,7 +275,7 @@ def build_pytod_apis_ctree(
             intent_lines.append("")
 
         # 汇总模式信息
-        mode_str = f"CodeTree 合成 {len(schema.intents)} 个意图"
+        mode_str = f"S* 合成 {len(schema.intents)} 个意图"
         if validations:
             validated = [v for v in validations.values() if v.total > 0]
             if validated:
@@ -290,7 +285,7 @@ def build_pytod_apis_ctree(
                 mode_str += f"，测试验证 {total_p}/{total_t} ({avg_rate:.1%})"
 
         if verbose and validations:
-            _print_section("[CodeTree] 验证汇总")
+            _print_section("[S*] 验证汇总")
             for intent_name, v in validations.items():
                 if v.total > 0:
                     status = "✅" if v.pass_rate >= pass_rate_threshold else "⚠️ "
@@ -319,7 +314,7 @@ def build_pytod_apis_ctree(
     # ------------------------------------------------------------------
     n_dialogue = f"（参考对话数据: {_dlg_path.name}）" if _dlg_path else ""
     mode_info = (
-        f"CodeTree（树搜索，arXiv:2411.04329）LLM 生成{n_dialogue}" if synthesizer
+        f"S*（Test Time Scaling，arXiv:2502.14382）LLM 生成{n_dialogue}" if synthesizer
         else "stub 生成（无 LLM，使用最小返回值）"
     )
 
@@ -363,11 +358,11 @@ def build_pytod_apis_ctree(
         with open(out_path, "w", encoding="utf-8") as fh:
             fh.write(source)
         logger.info(
-            f"[CodeTree] Phase 5 完成 — 已写入: {out_path} "
+            f"[S*] Phase 5 完成 — 已写入: {out_path} "
             f"({len(schema.intents)} 个意图，{mode_str})"
         )
     except Exception as exc:
-        logger.error(f"[CodeTree] 写入失败: {out_path} — {exc}")
+        logger.error(f"[S*] 写入失败: {out_path} — {exc}")
         return None
 
     # 可选：写入验证报告

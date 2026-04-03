@@ -186,13 +186,13 @@ class SchemaDataBuilder:
         # 根据 generator 参数委托给对应的构建器。
         if self.llm_client is not None:
             if self.generator == "alpha":
-                from contextmind.schema_builder.alpha.builder import build_pytod_apis_alpha as _build
+                from contextmind.schema_builder.pytod.alpha.builder import build_pytod_apis_alpha as _build
                 logger.info("[SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）")
             elif self.generator == "sstar":
-                from contextmind.schema_builder.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 S* 生成器（--generator sstar，arXiv:2502.14382）")
             elif self.generator == "ctree":
-                from contextmind.schema_builder.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
             else:
                 from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build  # type: ignore[assignment]

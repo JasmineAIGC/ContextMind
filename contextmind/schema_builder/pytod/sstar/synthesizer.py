@@ -38,7 +38,7 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
 
-from contextmind.schema_builder.sstar.prompts import (
+from contextmind.schema_builder.pytod.sstar.prompts import (
     DISCRIMINATE_SYSTEM,
     DISCRIMINATE_USER_TEMPLATE,
     DRAFT_SYSTEM_TEMPLATE,
