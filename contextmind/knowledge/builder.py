@@ -317,6 +317,14 @@ class KnowledgeBaseBuilder:
             global_intent_counter.update(local_intent_counter)
             global_fact_counter.update(local_fact_counter)
 
+            # 提取结果摘要（每通对话均输出，供监控进度使用）
+            logger.info(
+                f"[KnowledgeBaseBuilder] 对话 {i + 1}/{len(normalized)} ({dialogue_id}) "
+                f"提取结果 — 槽位 {len(local_slot_counter)} 个，"
+                f"意图 {len(local_intent_counter)} 个，"
+                f"事实 {len(local_fact_counter)} 个"
+            )
+
             # 1c. 仅当本对话有有效提取结果时，才对其单独做 schema 合成
             if local_slot_counter or local_intent_counter:
                 try:
@@ -332,6 +340,12 @@ class KnowledgeBaseBuilder:
                         fact_sample_descs=local_fact_samples,
                     )
                     schema_parts.append(schema_part)
+                    logger.info(
+                        f"[KnowledgeBaseBuilder] 对话 {i + 1}/{len(normalized)} ({dialogue_id}) "
+                        f"合成结果 — 槽位 {len(schema_part.get('slots', []))} 个，"
+                        f"意图 {len(schema_part.get('intents', []))} 个"
+                        f"（累计已合成 {len(schema_parts)} 条对话）"
+                    )
                 except Exception as exc:
                     logger.warning(
                         f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"
@@ -723,6 +737,13 @@ class KnowledgeBaseBuilder:
             global_slot_counter.update(local_slot_counter)
             global_intent_counter.update(local_intent_counter)
 
+            # 提取结果摘要（每通对话均输出，供监控进度使用）
+            logger.info(
+                f"[KnowledgeBaseBuilder] 对话 {i + 1}/{len(normalized_dialogues)} ({dialogue_id}) "
+                f"提取结果 — 槽位 {len(local_slot_counter)} 个，"
+                f"意图 {len(local_intent_counter)} 个"
+            )
+
             if local_slot_counter or local_intent_counter:
                 try:
                     schema_part = synthesizer.synthesize(
@@ -735,6 +756,12 @@ class KnowledgeBaseBuilder:
                         n_dialogues=1,
                     )
                     schema_parts.append(schema_part)
+                    logger.info(
+                        f"[KnowledgeBaseBuilder] 对话 {i + 1}/{len(normalized_dialogues)} ({dialogue_id}) "
+                        f"合成结果 — 槽位 {len(schema_part.get('slots', []))} 个，"
+                        f"意图 {len(schema_part.get('intents', []))} 个"
+                        f"（累计已合成 {len(schema_parts)} 条对话）"
+                    )
                 except Exception as exc:
                     logger.warning(
                         f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"

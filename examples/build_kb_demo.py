@@ -231,12 +231,16 @@ def main() -> None:
     print("  第一步：建立知识库 → 完整 SGD 数据集")
     print("=" * 70)
 
-    # ── verbose 日志设置 ──
+    # ── 日志设置 ──
+    # 无论是否指定 --verbose，都初始化日志系统以显示 INFO 级别的进度信息。
+    # --verbose 在此基础上开启 DEBUG 级别，额外输出 LLM 原始响应等底层细节。
+    from contextmind.infra.logger import setup_logging, LogLevel
     if args.verbose:
-        from contextmind.infra.logger import setup_logging, LogLevel
-        setup_logging(level=LogLevel.INFO, save_to_file=False)
-        print("🔍 详细输出模式已开启 — 底层阶段日志将实时打印到终端")
+        setup_logging(level=LogLevel.DEBUG, save_to_file=False)
+        print("🔍 详细输出模式已开启 — 底层阶段日志（含 LLM 响应等 DEBUG 信息）将实时打印到终端")
         print()
+    else:
+        setup_logging(level=LogLevel.INFO, save_to_file=False)
 
     # ── 加载对话 ──
     if args.demo or args.data is None:
