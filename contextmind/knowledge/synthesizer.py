@@ -14,9 +14,7 @@ Schema 合成器
 from __future__ import annotations
 
 import copy
-import dataclasses
 import json
-import os
 import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
@@ -265,25 +263,10 @@ class SchemaSynthesizer:
         若为 None，则从 ``.env`` 自动加载。
     """
 
-    # Schema 合成的 LLM 输出可能包含数百个槽位和意图，每条 JSON 约 80–150 token，
-    # 默认 4096 max_tokens 会在约 50 个槽位时截断输出导致 schema 不完整。
-    # 此处将合成专用的输出 token 上限提升至 16384，确保完整输出所有槽位。
-    _DEFAULT_MAX_OUTPUT_TOKENS: int = 16384
-
     def __init__(self, llm_client: Optional[AdkLLMClient] = None) -> None:
         if llm_client is None:
             try:
-                config = LLMConfig.from_env()
-                # 若用户未通过环境变量显式配置 max_tokens，则使用更大的合成专用上限，
-                # 避免 LLM 在输出大型 schema JSON 时被截断（通常发生在 50+ 个槽位时）。
-                if not any(
-                    os.environ.get(k)
-                    for k in ("QWEN3_MAX_TOKENS", "LLM_MAX_TOKENS", "MAX_TOKENS")
-                ):
-                    config = dataclasses.replace(
-                        config, max_tokens=self._DEFAULT_MAX_OUTPUT_TOKENS
-                    )
-                llm_client = AdkLLMClient(config=config)
+                llm_client = AdkLLMClient(config=LLMConfig.from_env())
             except Exception as exc:
                 raise RuntimeError(
                     "LLM 客户端初始化失败，请在 .env 中配置 LLM_API_KEY / "

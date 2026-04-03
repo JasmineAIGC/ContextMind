@@ -51,7 +51,7 @@ from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
 from .discoverer import GenericDialogueDiscoverer
 from .normalizer import normalize_dialogues
-from .synthesizer import SchemaSynthesizer
+from .synthesizer import SchemaSynthesizer, _merge_service_list, _fill_schema_defaults
 
 logger = get_logger(__name__)
 
@@ -178,7 +178,6 @@ class KnowledgeBaseBuilder:
 
         将其包入列表 ``[schema_dict]`` 即可写入标准 ``schema.json``。
         """
-        # -- Step 0: 归一化 --
         logger.info(
             f"[KnowledgeBaseBuilder] 场景: {self.scene_name!r}，"
             f"输入对话: {len(dialogues)} 条"
@@ -189,29 +188,11 @@ class KnowledgeBaseBuilder:
             f"[KnowledgeBaseBuilder] 发现阶段使用前 {len(sample)} 条对话"
         )
 
-        # -- Step 1: 发现阶段 --
-        slot_counter, intent_counter, slot_samples, intent_samples = (
-            self._run_discovery(sample)
+        schema_dict, slot_counter, intent_counter = self._build_schema_from_dialogues(
+            sample
         )
         self.last_slot_counter = slot_counter
         self.last_intent_counter = intent_counter
-
-        logger.info(
-            f"[KnowledgeBaseBuilder] 发现阶段完成 — "
-            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个"
-        )
-
-        # -- Step 2: 合成阶段 --
-        synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
-        schema_dict = synthesizer.synthesize(
-            scene_name=self.scene_name,
-            scene_description=self.scene_description,
-            slot_counter=slot_counter,
-            intent_counter=intent_counter,
-            slot_sample_values=slot_samples,
-            intent_sample_descs=intent_samples,
-            n_dialogues=len(sample),
-        )
         return schema_dict
 
     def save(
@@ -269,48 +250,130 @@ class KnowledgeBaseBuilder:
             f"输入对话 {len(dialogues)} 条"
         )
         normalized = normalize_dialogues(dialogues)
-        # build_dataset() 使用全部归一化对话，确保知识提取不遗漏；
-        # 调用方通过传入的 dialogues 数量来控制处理范围。
 
-        # -- Step 1: 发现阶段（逐轮，保留每轮提取结果用于 SGD 标注） --
-        (
-            slot_counter,
-            intent_counter,
-            slot_samples,
-            intent_samples,
-            per_dlg_turns,
-            fact_counter,
-            fact_samples,
-        ) = self._run_discovery_per_turn(normalized)
-        self.last_slot_counter = slot_counter
-        self.last_intent_counter = intent_counter
-        self.last_fact_counter = fact_counter
-        self.last_discovery_turns = per_dlg_turns
+        # -- Step 1: 逐条对话发现 + 合成（每条对话独立处理，避免跨对话槽位累积） --
+        discoverer = GenericDialogueDiscoverer(
+            llm_client=self._get_llm(),
+            scene_name=self.scene_name,
+            context_window=self.context_window,
+        )
+        synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
+
+        per_dialogue_turns: List[List[Any]] = []
+        schema_parts: List[Dict[str, Any]] = []
+
+        # 统计计数器（仅用于汇总展示，不传给合成器）
+        global_slot_counter: Counter = Counter()
+        global_intent_counter: Counter = Counter()
+        global_fact_counter: Counter = Counter()
+
+        for i, dlg in enumerate(normalized):
+            dialogue_id = dlg.get("session_id", f"dlg_{i}")
+            logger.info(
+                f"[KnowledgeBaseBuilder] 处理对话 {i + 1}/{len(normalized)} "
+                f"({dialogue_id})"
+            )
+
+            # 1a. 逐轮提取（保留每轮结果供 SGD 标注使用）
+            try:
+                per_turn = discoverer.extract_per_turn(dlg)
+            except Exception as exc:
+                logger.warning(
+                    f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
+                )
+                per_dialogue_turns.append([])
+                continue
+
+            per_dialogue_turns.append(per_turn)
+
+            # 1b. 从本对话提取结果构建局部计数器（不与其他对话混合）
+            local_slot_counter: Counter = Counter()
+            local_intent_counter: Counter = Counter()
+            local_fact_counter: Counter = Counter()
+            local_slot_samples: Dict[str, List[str]] = {}
+            local_intent_samples: Dict[str, List[str]] = {}
+            local_fact_samples: Dict[str, List[str]] = {}
+
+            for _, _, _, items in per_turn:
+                for item in items:
+                    if item.extraction_class == "slot_value" and item.label:
+                        local_slot_counter[item.label] += 1
+                        samples = local_slot_samples.setdefault(item.label, [])
+                        if item.value and len(samples) < 5 and item.value not in samples:
+                            samples.append(item.value)
+                    elif item.extraction_class == "intent" and item.label:
+                        local_intent_counter[item.label] += 1
+                        descs = local_intent_samples.setdefault(item.label, [])
+                        if item.value and len(descs) < 3 and item.value not in descs:
+                            descs.append(item.value)
+                    elif item.extraction_class == "fact" and item.label:
+                        local_fact_counter[item.label] += 1
+                        descs = local_fact_samples.setdefault(item.label, [])
+                        if item.value and len(descs) < 3 and item.value not in descs:
+                            descs.append(item.value)
+
+            # 更新全局统计（仅供展示）
+            global_slot_counter.update(local_slot_counter)
+            global_intent_counter.update(local_intent_counter)
+            global_fact_counter.update(local_fact_counter)
+
+            # 1c. 仅当本对话有有效提取结果时，才对其单独做 schema 合成
+            if local_slot_counter or local_intent_counter:
+                try:
+                    schema_part = synthesizer.synthesize(
+                        scene_name=self.scene_name,
+                        scene_description=self.scene_description,
+                        slot_counter=local_slot_counter,
+                        intent_counter=local_intent_counter,
+                        slot_sample_values=local_slot_samples,
+                        intent_sample_descs=local_intent_samples,
+                        n_dialogues=1,
+                        fact_counter=local_fact_counter,
+                        fact_sample_descs=local_fact_samples,
+                    )
+                    schema_parts.append(schema_part)
+                except Exception as exc:
+                    logger.warning(
+                        f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"
+                    )
+
+        # 更新统计属性（供调用方展示）
+        self.last_slot_counter = global_slot_counter
+        self.last_intent_counter = global_intent_counter
+        self.last_fact_counter = global_fact_counter
+        self.last_discovery_turns = per_dialogue_turns
 
         logger.info(
             f"[KnowledgeBaseBuilder] 发现阶段完成 — "
-            f"槽位类型 {len(slot_counter)} 个，意图类型 {len(intent_counter)} 个，"
-            f"事实类型 {len(fact_counter)} 个"
+            f"槽位类型 {len(global_slot_counter)} 个，意图类型 {len(global_intent_counter)} 个，"
+            f"事实类型 {len(global_fact_counter)} 个"
         )
 
-        # -- Step 2: 合成阶段 --
-        synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
-        schema_dict = synthesizer.synthesize(
-            scene_name=self.scene_name,
-            scene_description=self.scene_description,
-            slot_counter=slot_counter,
-            intent_counter=intent_counter,
-            slot_sample_values=slot_samples,
-            intent_sample_descs=intent_samples,
-            n_dialogues=len(normalized),
-            fact_counter=fact_counter,
-            fact_sample_descs=fact_samples,
+        # -- Step 2: 合并所有对话的 schema 部件 --
+        if not schema_parts:
+            schema_dict = _fill_schema_defaults(
+                {"service_name": re.sub(r"\s+", "_", self.scene_name)},
+                scene_name=self.scene_name,
+            )
+        elif len(schema_parts) == 1:
+            schema_dict = schema_parts[0]
+        else:
+            logger.info(
+                f"[KnowledgeBaseBuilder] 合并 {len(schema_parts)} 条对话的 schema …"
+            )
+            merged = _merge_service_list(schema_parts)
+            schema_dict = merged if merged is not None else schema_parts[0]
+
+        logger.info(
+            f"[KnowledgeBaseBuilder] ✓ schema 合并完成 — "
+            f"{len(schema_dict.get('slots', []))} 个槽位，"
+            f"{len(schema_dict.get('intents', []))} 个意图"
         )
 
         # -- Step 3: 转换为 SGD 对话格式 --
         service_name = schema_dict.get("service_name", self.scene_name)
         sgd_dialogues = []
-        for dlg_idx, (dlg, per_turn) in enumerate(zip(normalized, per_dlg_turns)):
+        for dlg_idx, (dlg, per_turn) in enumerate(zip(normalized, per_dialogue_turns)):
             sgd_dlg = self._convert_to_sgd_dialogue(
                 dlg, per_turn, service_name, dlg_idx
             )
@@ -586,42 +649,43 @@ class KnowledgeBaseBuilder:
                 ) from exc
         return self._llm_client
 
-    def _run_discovery(
+    def _build_schema_from_dialogues(
         self,
         normalized_dialogues: List[Dict[str, Any]],
-    ) -> tuple[Counter, Counter, Dict[str, List[str]], Dict[str, List[str]]]:
+    ) -> Tuple[Dict[str, Any], Counter, Counter]:
         """
-        发现阶段：对每条对话运行开放式 LLM + langextract 提取，汇总槽位和意图。
+        逐条对话执行发现 + 合成，最终合并所有对话的 schema。
 
-        使用 :class:`~contextmind.knowledge.discoverer.GenericDialogueDiscoverer`
-        逐轮提取，通过 langextract 附加溯源信息。
+        每条对话独立处理（不跨对话累积槽位），避免因汇总数据过多导致
+        LLM 输出被截断。各对话的槽位/意图计数仅在该对话范围内有效，
+        合成后通过名称去重合并为统一 schema。
 
         返回
         ----
-        (slot_counter, intent_counter, slot_sample_values, intent_sample_descs)
+        (schema_dict, global_slot_counter, global_intent_counter)
 
-        - slot_counter: ``Counter({slot_name: 出现次数})``
-        - intent_counter: ``Counter({intent_name: 出现次数})``
-        - slot_sample_values: ``{slot_name: [value, ...]}``（最多 5 个）
-        - intent_sample_descs: ``{intent_name: [description, ...]}``（最多 3 个）
+        - schema_dict: 合并后的 SGD schema
+        - global_slot_counter: 全局槽位统计（供展示/调试）
+        - global_intent_counter: 全局意图统计（供展示/调试）
         """
         discoverer = GenericDialogueDiscoverer(
             llm_client=self._get_llm(),
             scene_name=self.scene_name,
             context_window=self.context_window,
         )
+        synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
 
-        slot_counter: Counter = Counter()
-        intent_counter: Counter = Counter()
-        slot_sample_values: Dict[str, List[str]] = {}
-        intent_sample_descs: Dict[str, List[str]] = {}
+        schema_parts: List[Dict[str, Any]] = []
+        global_slot_counter: Counter = Counter()
+        global_intent_counter: Counter = Counter()
 
         for i, dlg in enumerate(normalized_dialogues):
             dialogue_id = dlg.get("session_id", f"dlg_{i}")
             logger.info(
-                f"[KnowledgeBaseBuilder] 发现对话 {i+1}/{len(normalized_dialogues)} "
+                f"[KnowledgeBaseBuilder] 发现对话 {i + 1}/{len(normalized_dialogues)} "
                 f"({dialogue_id})"
             )
+
             try:
                 items = discoverer.extract(dlg)
             except Exception as exc:
@@ -630,110 +694,69 @@ class KnowledgeBaseBuilder:
                 )
                 continue
 
+            # 构建本对话的局部计数器（不与其他对话混合）
+            local_slot_counter: Counter = Counter()
+            local_intent_counter: Counter = Counter()
+            local_slot_samples: Dict[str, List[str]] = {}
+            local_intent_samples: Dict[str, List[str]] = {}
+
             for item in items:
                 if item.extraction_class == "slot_value" and item.label:
-                    slot_counter[item.label] += 1
-                    samples = slot_sample_values.setdefault(item.label, [])
-                    if item.value and len(samples) < 5:
-                        if item.value not in samples:
-                            samples.append(item.value)
-
+                    local_slot_counter[item.label] += 1
+                    samples = local_slot_samples.setdefault(item.label, [])
+                    if item.value and len(samples) < 5 and item.value not in samples:
+                        samples.append(item.value)
                 elif item.extraction_class == "intent" and item.label:
-                    intent_counter[item.label] += 1
-                    descs = intent_sample_descs.setdefault(item.label, [])
-                    if item.value and len(descs) < 3:
-                        if item.value not in descs:
-                            descs.append(item.value)
+                    local_intent_counter[item.label] += 1
+                    descs = local_intent_samples.setdefault(item.label, [])
+                    if item.value and len(descs) < 3 and item.value not in descs:
+                        descs.append(item.value)
 
-        return slot_counter, intent_counter, slot_sample_values, intent_sample_descs
+            global_slot_counter.update(local_slot_counter)
+            global_intent_counter.update(local_intent_counter)
 
-    def _run_discovery_per_turn(
-        self,
-        normalized_dialogues: List[Dict[str, Any]],
-    ) -> tuple[
-        Counter,
-        Counter,
-        Dict[str, List[str]],
-        Dict[str, List[str]],
-        List[List[Any]],
-        Counter,
-        Dict[str, List[str]],
-    ]:
-        """
-        发现阶段（逐轮版），汇总统计的同时保留每条对话的逐轮提取结果。
+            if local_slot_counter or local_intent_counter:
+                try:
+                    schema_part = synthesizer.synthesize(
+                        scene_name=self.scene_name,
+                        scene_description=self.scene_description,
+                        slot_counter=local_slot_counter,
+                        intent_counter=local_intent_counter,
+                        slot_sample_values=local_slot_samples,
+                        intent_sample_descs=local_intent_samples,
+                        n_dialogues=1,
+                    )
+                    schema_parts.append(schema_part)
+                except Exception as exc:
+                    logger.warning(
+                        f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"
+                    )
 
-        返回
-        ----
-        (slot_counter, intent_counter, slot_sample_values,
-         intent_sample_descs, per_dialogue_turns,
-         fact_counter, fact_sample_descs)
-
-        ``per_dialogue_turns`` 是一个列表，每项对应一条对话，内容为
-        ``[(turn_idx, speaker, utterance, [DiscoveryItem, ...]), ...]``。
-        """
-        from .discoverer import DiscoveryItem
-
-        discoverer = GenericDialogueDiscoverer(
-            llm_client=self._get_llm(),
-            scene_name=self.scene_name,
-            context_window=self.context_window,
+        logger.info(
+            f"[KnowledgeBaseBuilder] 发现阶段完成 — "
+            f"槽位类型 {len(global_slot_counter)} 个，意图类型 {len(global_intent_counter)} 个"
         )
 
-        slot_counter: Counter = Counter()
-        intent_counter: Counter = Counter()
-        fact_counter: Counter = Counter()
-        slot_sample_values: Dict[str, List[str]] = {}
-        intent_sample_descs: Dict[str, List[str]] = {}
-        fact_sample_descs: Dict[str, List[str]] = {}
-        per_dialogue_turns: List[List[Any]] = []
-
-        for i, dlg in enumerate(normalized_dialogues):
-            dialogue_id = dlg.get("session_id", f"dlg_{i}")
-            logger.info(
-                f"[KnowledgeBaseBuilder] 发现对话 {i+1}/{len(normalized_dialogues)} "
-                f"({dialogue_id})"
+        if not schema_parts:
+            schema_dict: Dict[str, Any] = _fill_schema_defaults(
+                {"service_name": re.sub(r"\s+", "_", self.scene_name)},
+                scene_name=self.scene_name,
             )
-            try:
-                per_turn = discoverer.extract_per_turn(dlg)
-            except Exception as exc:
-                logger.warning(
-                    f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
-                )
-                per_dialogue_turns.append([])
-                continue
+        elif len(schema_parts) == 1:
+            schema_dict = schema_parts[0]
+        else:
+            logger.info(
+                f"[KnowledgeBaseBuilder] 合并 {len(schema_parts)} 条对话的 schema …"
+            )
+            merged = _merge_service_list(schema_parts)
+            schema_dict = merged if merged is not None else schema_parts[0]
 
-            per_dialogue_turns.append(per_turn)
-
-            for _, _, _, items in per_turn:
-                for item in items:
-                    if item.extraction_class == "slot_value" and item.label:
-                        slot_counter[item.label] += 1
-                        samples = slot_sample_values.setdefault(item.label, [])
-                        if item.value and len(samples) < 5:
-                            if item.value not in samples:
-                                samples.append(item.value)
-                    elif item.extraction_class == "intent" and item.label:
-                        intent_counter[item.label] += 1
-                        descs = intent_sample_descs.setdefault(item.label, [])
-                        if item.value and len(descs) < 3:
-                            if item.value not in descs:
-                                descs.append(item.value)
-                    elif item.extraction_class == "fact" and item.label:
-                        fact_counter[item.label] += 1
-                        descs = fact_sample_descs.setdefault(item.label, [])
-                        if item.value and len(descs) < 3:
-                            if item.value not in descs:
-                                descs.append(item.value)
-
-        return (
-            slot_counter,
-            intent_counter,
-            slot_sample_values,
-            intent_sample_descs,
-            per_dialogue_turns,
-            fact_counter,
-            fact_sample_descs,
+        logger.info(
+            f"[KnowledgeBaseBuilder] ✓ schema 完成 — "
+            f"{len(schema_dict.get('slots', []))} 个槽位，"
+            f"{len(schema_dict.get('intents', []))} 个意图"
         )
+        return schema_dict, global_slot_counter, global_intent_counter
 
     def _convert_to_sgd_dialogue(
         self,
