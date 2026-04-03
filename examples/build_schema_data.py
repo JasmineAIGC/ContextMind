@@ -133,11 +133,11 @@ def _print_llm_mode_summary(
     max_iterations: int,
     pass_rate_threshold: float,
     max_test_cases: int,
-    generator: str = "pytod",
+    generator: str = "loop",
 ) -> None:
     """以结构化多行格式打印 LLM 模式状态摘要，便于用户快速确认数据来源和参数。"""
     gen_label = {
-        "pytod": "pytod（原始 5 阶段流水线）",
+        "loop": "loop（迭代修复流水线）",
         "alpha": "alpha（ACIA：反思 + 骨架约束 + 失败分析 + 收敛重启）",
         "sstar": "sstar（S*：并行草稿 + 执行追踪修复 + 区分性测试选择，arXiv:2502.14382）",
         "ctree": "ctree（CodeTree：UCB 树搜索 + 逐失败用例扩展，arXiv:2411.04329）",
@@ -263,12 +263,12 @@ def main() -> None:
     llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
     llm_group.add_argument(
         "--generator",
-        choices=["pytod", "alpha", "sstar", "ctree"],
-        default="pytod",
+        choices=["loop", "alpha", "sstar", "ctree"],
+        default="loop",
         metavar="NAME",
         help=(
-            "PyTOD API 代码生成算法选择（默认: pytod）。\n"
-            "  pytod — 原始 5 阶段流水线（Phase 2 测试用例 → Phase 3 LLM 生成 → Phase 4 迭代修复）\n"
+            "PyTOD API 代码生成算法选择（默认: loop）。\n"
+            "  loop  — 迭代修复流水线（Phase 2 测试用例 → Phase 3 LLM 生成 → Phase 4 迭代修复）\n"
             "  alpha — ACIA 算法（AlphaCodium 风格）：\n"
             "           · Phase R 反思：生成前分析业务语义，提供更准确的上下文\n"
             "           · Phase G 骨架约束生成：预指定 result_slots 返回骨架，消除键缺失失败\n"
@@ -365,7 +365,7 @@ def main() -> None:
              f"--pass-rate-threshold {args.pass_rate_threshold}"),
             (args.max_test_cases != _DEFAULT_MAX_TEST_CASES,
              f"--max-test-cases {args.max_test_cases}"),
-            (args.generator != "pytod", f"--generator {args.generator}"),
+            (args.generator != "loop", f"--generator {args.generator}"),
         ]
         active_llm_flags = [name for active, name in _llm_only_flags if active]
         if active_llm_flags:

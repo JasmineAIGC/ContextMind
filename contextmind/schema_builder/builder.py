@@ -61,7 +61,7 @@ class SchemaDataBuilder:
         generate_report:           是否写入验证报告（默认 False）。
         verbose:                   是否输出详细进度信息，默认 False。
         generator:                 PyTOD 生成算法选择：
-                                   ``"pytod"``（默认）— 原始 5 阶段 LLM 流水线；
+                                   ``"loop"``（默认）— 迭代修复流水线；
                                    ``"alpha"`` — AlphaCodium 风格 ACIA 合成器
                                    （反思 + 骨架约束生成 + 失败分析 + 收敛重启）；
                                    ``"sstar"`` — S*（Test Time Scaling，arXiv:2502.14382，2025）
@@ -82,7 +82,7 @@ class SchemaDataBuilder:
         max_test_cases_per_intent: int = 5,
         generate_report: bool = False,
         verbose: bool = False,
-        generator: str = "pytod",
+        generator: str = "loop",
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
@@ -194,8 +194,9 @@ class SchemaDataBuilder:
             elif self.generator == "ctree":
                 from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
-            else:
+            else:  # "loop" 或未知值均回退到迭代修复流水线
                 from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
+                logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
             return _build(
                 schema_path,
                 schema=schema,
