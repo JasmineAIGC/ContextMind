@@ -139,6 +139,7 @@ def _print_llm_mode_summary(
     gen_label = {
         "pytod": "pytod（原始 5 阶段流水线）",
         "alpha": "alpha（ACIA：反思 + 骨架约束 + 失败分析 + 收敛重启）",
+        "sstar": "sstar（S*：并行草稿 + 执行追踪修复 + 区分性测试选择，arXiv:2502.14382）",
     }.get(generator, generator)
     print(f"🤖 LLM 模式已启用  生成器: {gen_label}")
     print("   数据来源:")
@@ -261,7 +262,7 @@ def main() -> None:
     llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
     llm_group.add_argument(
         "--generator",
-        choices=["pytod", "alpha"],
+        choices=["pytod", "alpha", "sstar"],
         default="pytod",
         metavar="NAME",
         help=(
@@ -272,7 +273,12 @@ def main() -> None:
             "           · Phase G 骨架约束生成：预指定 result_slots 返回骨架，消除键缺失失败\n"
             "           · Phase A 失败分析：按类型分类失败原因，为定向修复提供依据\n"
             "           · Phase F 定向修复 + 收敛重启：无改善时全新重启，避免 docstring 累积\n"
-            "示例: --with-llm --generator alpha"
+            "  sstar — S* 算法（Test Time Scaling，arXiv:2502.14382，2025）：\n"
+            "           · Phase P 并行草稿：以 3 种思维模式并行生成候选实现，扩大解空间覆盖\n"
+            "           · Phase D 执行追踪修复：基于 execution traces 精准定位 bug（LDB 风格）\n"
+            "           · Phase S 区分性测试选择：LLM 生成区分性输入，通过执行行为选最优候选\n"
+            "           · Phase R 精炼：对最优候选继续修复直至达到通过率阈值\n"
+            "示例: --with-llm --generator sstar"
         ),
     )
     llm_group.add_argument(

@@ -63,7 +63,9 @@ class SchemaDataBuilder:
         generator:                 PyTOD 生成算法选择：
                                    ``"pytod"``（默认）— 原始 5 阶段 LLM 流水线；
                                    ``"alpha"`` — AlphaCodium 风格 ACIA 合成器
-                                   （反思 + 骨架约束生成 + 失败分析 + 收敛重启）。
+                                   （反思 + 骨架约束生成 + 失败分析 + 收敛重启）；
+                                   ``"sstar"`` — S*（Test Time Scaling，arXiv:2502.14382，2025）
+                                   （并行草稿 + 执行追踪修复 + 区分性测试选择 + 精炼）。
     """
 
     def __init__(
@@ -184,6 +186,9 @@ class SchemaDataBuilder:
             if self.generator == "alpha":
                 from contextmind.schema_builder.alpha.builder import build_pytod_apis_alpha as _build
                 logger.info("[SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）")
+            elif self.generator == "sstar":
+                from contextmind.schema_builder.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
+                logger.info("[SchemaDataBuilder] 使用 S* 生成器（--generator sstar，arXiv:2502.14382）")
             else:
                 from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build  # type: ignore[assignment]
             return _build(
