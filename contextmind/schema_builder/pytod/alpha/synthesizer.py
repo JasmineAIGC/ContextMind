@@ -489,6 +489,7 @@ class AlphaSynthesizer:
             {"role": "user", "content": user_content},
         ]
 
+        raw = None
         try:
             raw = self._chat_sync(messages)
             cleaned = re.sub(r"```(?:json)?\s*\n?", "", raw)

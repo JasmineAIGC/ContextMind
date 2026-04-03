@@ -421,7 +421,7 @@ class CodeTreeSynthesizer:
         logger.info(
             f"[CodeTree]   树搜索完成：{intent.name} — "
             f"最优通过率 {best_node.validation.pass_rate:.1%} "
-            f"({best_node.passed}/{best_node.total})，"
+            f"({best_node.validation.passed}/{best_node.validation.total})，"
             f"共扩展 {total_iterations} 轮"
         )
 
