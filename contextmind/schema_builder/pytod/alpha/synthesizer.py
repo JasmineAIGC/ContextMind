@@ -579,4 +579,21 @@ class AlphaSynthesizer:
                 return loop.run_until_complete(self._llm.chat(messages))
             finally:
                 loop.close()
+        if hasattr(self._llm, "chat_async"):
+            import asyncio
+            import concurrent.futures
+
+            async def _call() -> str:
+                return await self._llm.chat_async(messages)
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None and loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    return pool.submit(asyncio.run, _call()).result()
+            else:
+                return asyncio.run(_call())
         raise RuntimeError("LLM client 不支持 chat_sync 或 chat 方法")
