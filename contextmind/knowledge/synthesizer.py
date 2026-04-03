@@ -95,6 +95,56 @@ _SYNTHESIS_USER_TEMPLATE = """\
 请合成标准 ServiceSchema（只输出 JSON）："""
 
 
+_REFINE_SYSTEM = """\
+你是一名任务型对话系统设计专家。你收到的是一份由多条对话分别提取、合并而成的 SGD 格式 ServiceSchema。
+由于不同对话可能对同一概念使用不同命名，该 schema 中可能存在重复、相似或高度相近的槽位（slots）和意图（intents）。
+
+你的任务是对该 schema 进行整合、精炼，输出一份干净、无冗余的最终 schema。
+
+## 整合规则
+
+### 槽位（slots）整合
+- 若两个槽位描述的是**同一业务字段**（名称不同但含义相同，如 `customer_name` / `user_name` / `客户姓名`），合并为一个，保留语义最清晰的英文下划线名称
+- 若两个槽位仅是**拼写变体或英文/中文对应**同一概念，合并为一个
+- 若两个槽位描述**不同但相关的字段**（如 `loan_amount` 和 `repayment_amount`），保留为独立槽位
+- 合并时，`description` 取两者中更完整的一个；`possible_values` 取两者并集；`is_categorical` 只要有一个为 true 则设为 true
+
+### 意图（intents）整合
+- 若两个意图描述的是**相同用户操作**（如 `verify_identity` / `confirm_identity` / `check_identity`），合并为一个，保留最常用/最清晰的名称
+- 若两个意图描述**不同阶段或不同目的**（如 `query_loan_status` 和 `apply_for_loan`），保留为独立意图
+- 合并时，`required_slots` / `optional_slots` / `result_slots` 取并集，但只保留 `slots[]` 中定义的槽位名
+- `is_transactional`：只要有一个为 true 则设为 true
+
+## 注意事项
+- **保守合并**：如不确定是否同义，宁可保留两个独立条目，不要强行合并
+- **不得无故删减**：只能合并，不能直接删除任何有意义的槽位或意图
+- 整合后的槽位 name 和意图 name 须保持英文小写下划线风格，与 `required_slots` 等字段引用一致
+- 只输出 JSON，不加任何说明或 markdown 代码块
+
+## 输出格式（与输入格式相同）
+
+{
+  "service_name": "...",
+  "description": "...",
+  "slots": [...],
+  "intents": [...]
+}"""
+
+_REFINE_USER_TEMPLATE = """\
+## 业务场景
+
+名称：{scene_name}
+描述：{scene_description}
+
+## 待整合的 schema（共 {n_slots} 个槽位、{n_intents} 个意图，来自 {n_dialogues} 条对话的合并结果）
+
+```json
+{schema_json}
+```
+
+请对上述 schema 进行整合精炼，输出最终干净的 ServiceSchema（只输出 JSON）："""
+
+
 # ------------------------------------------------------------------
 # 辅助函数
 # ------------------------------------------------------------------
@@ -541,3 +591,98 @@ class SchemaSynthesizer:
             f"{len(merged.get('intents', []))} 个意图"
         )
         return merged
+
+    def refine(
+        self,
+        schema_dict: Dict[str, Any],
+        scene_name: str,
+        scene_description: str,
+        n_dialogues: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        对合并后的 schema 进行整合精炼，消除跨对话产生的相似/重复槽位和意图。
+
+        在多条对话各自合成 mini-schema、再通过名称去重合并之后调用本方法。
+        此时 schema 中可能存在语义相近但命名不同的槽位（如 ``customer_name`` /
+        ``user_name``）或意图（如 ``verify_identity`` / ``confirm_identity``）。
+        本方法通过额外一次 LLM 调用，让模型识别并合并这类冗余，输出最终干净的
+        schema。
+
+        若 schema 本身已很精简（槽位 + 意图 ≤ 5 个），则跳过 LLM 调用直接返回。
+
+        参数
+        ----
+        schema_dict:
+            合并后的 schema dict（由 :func:`_merge_service_list` 或
+            :meth:`synthesize` 返回）。
+        scene_name:
+            业务场景名称（中文）。
+        scene_description:
+            场景描述（一句话）。
+        n_dialogues:
+            参与本次处理的对话总条数（仅用于 prompt 说明）。
+
+        返回
+        ----
+        整合精炼后的 schema dict。若 LLM 调用失败，原样返回输入 schema。
+        """
+        n_slots = len(schema_dict.get("slots", []))
+        n_intents = len(schema_dict.get("intents", []))
+
+        # 槽位 + 意图总数过少时，跳过精炼（无意义，且可能引入幻觉）
+        if n_slots + n_intents <= 5:
+            logger.info(
+                f"[SchemaSynthesizer] schema 条目较少（{n_slots} 槽位 + {n_intents} 意图），跳过精炼"
+            )
+            return schema_dict
+
+        logger.info(
+            f"[SchemaSynthesizer] 开始整合精炼：{n_slots} 个槽位，{n_intents} 个意图 …"
+        )
+
+        schema_json = json.dumps(schema_dict, ensure_ascii=False, indent=2)
+        user_msg = _REFINE_USER_TEMPLATE.format(
+            scene_name=scene_name,
+            scene_description=scene_description or scene_name,
+            n_slots=n_slots,
+            n_intents=n_intents,
+            n_dialogues=n_dialogues,
+            schema_json=schema_json,
+        )
+        messages = [
+            {"role": "system", "content": _REFINE_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+
+        try:
+            response = self._chat_sync(messages)
+        except Exception as exc:
+            logger.warning(
+                f"[SchemaSynthesizer] 精炼调用失败，跳过精炼步骤，返回原始 schema。原始错误: {exc}"
+            )
+            return schema_dict
+
+        logger.debug(f"[SchemaSynthesizer] 精炼 LLM 原始响应（前 500 字）: {response[:500]}")
+
+        refined = _try_parse_json(response)
+        if refined is None:
+            logger.warning(
+                "[SchemaSynthesizer] 精炼结果无法解析为 JSON，返回原始 schema。"
+                f"原始响应:\n{response[:400]}"
+            )
+            return schema_dict
+
+        # 保留 service_name（LLM 可能改动）
+        if not refined.get("service_name"):
+            refined["service_name"] = schema_dict.get("service_name", re.sub(r"\s+", "_", scene_name))
+
+        refined = _fill_schema_defaults(refined, scene_name=scene_name)
+
+        n_slots_after = len(refined.get("slots", []))
+        n_intents_after = len(refined.get("intents", []))
+        logger.info(
+            f"[SchemaSynthesizer] ✓ 精炼完成 — "
+            f"{n_slots} → {n_slots_after} 个槽位，"
+            f"{n_intents} → {n_intents_after} 个意图"
+        )
+        return refined

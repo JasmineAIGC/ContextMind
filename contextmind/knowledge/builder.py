@@ -364,6 +364,14 @@ class KnowledgeBaseBuilder:
             merged = _merge_service_list(schema_parts)
             schema_dict = merged if merged is not None else schema_parts[0]
 
+            # 精炼：消除跨对话产生的相似/重复槽位和意图
+            schema_dict = synthesizer.refine(
+                schema_dict=schema_dict,
+                scene_name=self.scene_name,
+                scene_description=self.scene_description,
+                n_dialogues=len(normalized),
+            )
+
         logger.info(
             f"[KnowledgeBaseBuilder] ✓ schema 合并完成 — "
             f"{len(schema_dict.get('slots', []))} 个槽位，"
@@ -750,6 +758,14 @@ class KnowledgeBaseBuilder:
             )
             merged = _merge_service_list(schema_parts)
             schema_dict = merged if merged is not None else schema_parts[0]
+
+            # 精炼：消除跨对话产生的相似/重复槽位和意图
+            schema_dict = synthesizer.refine(
+                schema_dict=schema_dict,
+                scene_name=self.scene_name,
+                scene_description=self.scene_description,
+                n_dialogues=len(normalized_dialogues),
+            )
 
         logger.info(
             f"[KnowledgeBaseBuilder] ✓ schema 完成 — "
