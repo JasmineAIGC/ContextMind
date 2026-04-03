@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import re
+import textwrap
 from typing import Any, Dict, List, Optional, Tuple
 
 from contextmind.infra.logger import get_logger
@@ -61,11 +62,12 @@ def _extract_function_body(raw: str, intent_name: str) -> Optional[str]:
     """从 LLM 输出中提取并规范化函数体（4空格缩进，不含 def 行和 docstring）。
 
     处理步骤：
-    1. 去除 markdown 代码块标记
-    2. 去除意外输出的 def 行
-    3. 去除意外输出的 docstring
-    4. 统一 4 空格缩进
-    5. 验证包含 return 语句
+    1. 优先从 markdown 代码块中提取（避免把 LLM 的解释性文字混入函数体）
+    2. 无代码块时回退到全文提取并去除 markdown 标记
+    3. 去除意外输出的 def 行
+    4. 去除意外输出的 docstring
+    5. 统一 4 空格缩进
+    6. 用正则验证含 return 关键字（兼容 return{...} 和 return(...) 等无空格写法）
 
     Args:
         raw:         LLM 原始输出文本。
@@ -77,10 +79,15 @@ def _extract_function_body(raw: str, intent_name: str) -> Optional[str]:
     if not raw or not raw.strip():
         return None
 
-    # 去除 markdown 代码块标记
-    text = re.sub(r"```(?:python)?\s*\n?", "", raw)
-    text = re.sub(r"\n?```", "", text)
-    text = text.strip()
+    # 1. 优先从 markdown 代码块中提取（更可靠）
+    code_block_match = re.search(r"```(?:\w+)?[ \t]*\n(.*?)\n?```", raw, re.DOTALL)
+    if code_block_match:
+        text = textwrap.dedent(code_block_match.group(1)).strip()
+    else:
+        # 回退：去除所有 markdown 标记后取全文
+        text = re.sub(r"```(?:python)?\s*\n?", "", raw)
+        text = re.sub(r"\n?```", "", text)
+        text = text.strip()
 
     lines = text.splitlines()
     filtered: List[str] = []
@@ -129,7 +136,8 @@ def _extract_function_body(raw: str, intent_name: str) -> Optional[str]:
 
     body = "\n".join(normalized).rstrip()
 
-    if "return " not in body:
+    # 用正则检测 return 关键字（兼容 return{...}、return(...) 等无空格写法）
+    if not re.search(r"\breturn\b", body):
         logger.warning(f"[S*] {intent_name}: 提取的函数体不含 return 语句")
         return None
 

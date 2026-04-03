@@ -11,7 +11,7 @@ PyTOD 算法的 schema 数据构建子包。
 - ``builder.py``       — ``build_pytod_apis()`` 5 阶段生成流程的具体实现
 """
 
-from contextmind.schema_builder.pytod.base.builder import build_pytod_apis
+from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis
 from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
 

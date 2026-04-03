@@ -53,11 +53,12 @@ def _extract_function_body(raw: str, intent_name: str) -> Optional[str]:
 
     LLM 有时会意外输出 def 行、docstring、markdown 标记等，
     本函数做宽松清洗：
-    1. 去除 markdown 代码块标记（```python … ```）
-    2. 去除意外输出的 def 行
-    3. 去除意外输出的 docstring（triple-quote 块）
-    4. 统一调整为 4 空格缩进
-    5. 保证以 return 语句结尾（否则视为无效）
+    1. 优先从 markdown 代码块中提取（避免把 LLM 的解释性文字混入函数体）
+    2. 无代码块时回退到全文提取并去除 markdown 标记
+    3. 去除意外输出的 def 行
+    4. 去除意外输出的 docstring（triple-quote 块）
+    5. 统一调整为 4 空格缩进
+    6. 用正则验证含 return 关键字（兼容 return{...} 和 return(...) 等无空格写法）
 
     Args:
         raw: LLM 原始输出文本。
@@ -69,10 +70,15 @@ def _extract_function_body(raw: str, intent_name: str) -> Optional[str]:
     if not raw or not raw.strip():
         return None
 
-    # 1. 去除 markdown 代码块标记
-    text = re.sub(r"```(?:python)?\s*\n?", "", raw)
-    text = re.sub(r"\n?```", "", text)
-    text = text.strip()
+    # 1. 优先从 markdown 代码块中提取（更可靠）
+    code_block_match = re.search(r"```(?:\w+)?[ \t]*\n(.*?)\n?```", raw, re.DOTALL)
+    if code_block_match:
+        text = textwrap.dedent(code_block_match.group(1)).strip()
+    else:
+        # 回退：去除所有 markdown 标记后取全文
+        text = re.sub(r"```(?:python)?\s*\n?", "", raw)
+        text = re.sub(r"\n?```", "", text)
+        text = text.strip()
 
     lines = text.splitlines()
 
@@ -128,8 +134,8 @@ def _extract_function_body(raw: str, intent_name: str) -> Optional[str]:
 
     body = "\n".join(normalized).rstrip()
 
-    # 4. 验证包含 return 语句
-    if "return " not in body:
+    # 4. 用正则检测 return 关键字（兼容 return{...}、return(...) 等无空格写法）
+    if not re.search(r"\breturn\b", body):
         logger.warning(
             f"[AlphaSynthesizer] {intent_name}: 提取的函数体不含 return 语句"
         )

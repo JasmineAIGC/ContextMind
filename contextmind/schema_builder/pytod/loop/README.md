@@ -1,8 +1,8 @@
-# 基础五阶段流水线（Base Generator）
+# 循环修复五阶段流水线（Loop Generator）
 
 ## 方法名称
 
-**基础五阶段流水线**（Basic 5-Phase Pipeline）
+**循环修复五阶段流水线**（Loop Repair Pipeline）
 
 ## 使用方式
 

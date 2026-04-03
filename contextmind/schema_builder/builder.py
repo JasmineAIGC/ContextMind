@@ -168,7 +168,7 @@ class SchemaDataBuilder:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
         当实例携带 ``llm_client`` 时，委托给
-        :func:`contextmind.schema_builder.pytod.base.builder.build_pytod_apis`
+        :func:`contextmind.schema_builder.pytod.loop.builder.build_pytod_apis`
         执行完整的 5 阶段 LLM 生成流程（plan.md）；
         否则使用内置规则引擎生成 mock stub 函数。
 
@@ -195,7 +195,7 @@ class SchemaDataBuilder:
                 from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
             else:
-                from contextmind.schema_builder.pytod.base.builder import build_pytod_apis as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
             return _build(
                 schema_path,
                 schema=schema,
