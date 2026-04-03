@@ -168,7 +168,7 @@ class SchemaDataBuilder:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
         当实例携带 ``llm_client`` 时，委托给
-        :func:`contextmind.schema_builder.pytod.builder.build_pytod_apis`
+        :func:`contextmind.schema_builder.pytod.base.builder.build_pytod_apis`
         执行完整的 5 阶段 LLM 生成流程（plan.md）；
         否则使用内置规则引擎生成 mock stub 函数。
 
