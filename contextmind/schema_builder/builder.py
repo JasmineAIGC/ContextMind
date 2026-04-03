@@ -195,7 +195,7 @@ class SchemaDataBuilder:
                 from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
             else:
-                from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.base.builder import build_pytod_apis as _build  # type: ignore[assignment]
             return _build(
                 schema_path,
                 schema=schema,

@@ -24,10 +24,10 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 from contextmind.schema_builder.utils import companion_path
 
-from .generator import PyTODApiCodeGenerator
-from .helpers import SHARED_HELPERS
-from .models import FuncValidation, TestCaseItem
-from .validator import validate_function, write_validation_report
+from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
+from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.validator import validate_function, write_validation_report
 
 logger = get_logger(__name__)
 

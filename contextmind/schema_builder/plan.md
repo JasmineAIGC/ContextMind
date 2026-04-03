@@ -19,12 +19,16 @@ contextmind/schema_builder/
 ├── fnctod/              # FnCTOD companion 生成（stub）
 └── pytod/               # PyTOD 所有代码生成策略
     ├── README.md        # 四种策略总览及使用说明
-    ├── builder.py       # 基础五阶段流水线入口
     ├── generator.py     # PyTODApiCodeGenerator（测试用例生成、LLM 调用）
     ├── helpers.py       # SHARED_HELPERS 工具函数库
     ├── models.py        # FuncValidation / TestCaseItem 数据模型
-    ├── prompts.py       # 基础流水线 LLM 提示词
+    ├── prompts.py       # 基础流水线 LLM 提示词（共享，供 generator.py 使用）
     ├── validator.py     # validate_function / write_validation_report
+    ├── base/            # 基础五阶段流水线生成器
+    │   ├── README.md    # 基础流水线算法说明
+    │   ├── __init__.py  # 导出 build_pytod_apis
+    │   ├── builder.py   # build_pytod_apis 入口
+    │   └── prompts.py   # 基础流水线各阶段提示词
     ├── alpha/           # ACIA 生成器（AlphaCodium 风格）
     │   ├── README.md    # ACIA 算法说明
     │   ├── builder.py   # build_pytod_apis_alpha 入口

@@ -6,12 +6,12 @@
 
 ```
 pytod/
-├── builder.py       # 基础生成器入口（五阶段流水线）
-├── generator.py     # PyTODApiCodeGenerator 主类
+├── generator.py     # PyTODApiCodeGenerator 主类（共享）
 ├── helpers.py       # 共享辅助函数（SHARED_HELPERS）
 ├── models.py        # 数据模型（FuncValidation、TestCaseItem）
-├── prompts.py       # 基础提示模板
-├── validator.py     # 函数验证与报告
+├── prompts.py       # 基础提示模板（共享，供 generator.py 使用）
+├── validator.py     # 函数验证与报告（共享）
+├── base/            # 基础五阶段流水线生成器
 ├── alpha/           # AlphaCodium 风格的 ACIA 生成器
 ├── sstar/           # S* 生成器（arXiv:2502.14382）
 └── ctree/           # CodeTree 生成器（arXiv:2411.04329）
@@ -21,7 +21,7 @@ pytod/
 
 | 策略 | 目录 | `--generator` 参数值 | 说明 |
 |------|------|----------------------|------|
-| 基础五阶段 | `pytod/` | `pytod`（默认） | 顺序执行的五阶段流水线，适合一般场景 |
+| 基础五阶段 | `base/` | `pytod`（默认） | 顺序执行的五阶段流水线，适合一般场景 |
 | ACIA | `alpha/` | `alpha` | AlphaCodium 风格的迭代修复，鲁棒性强 |
 | S\* | `sstar/` | `sstar` | 并行采样 + 区分性选择，适合高质量要求场景 |
 | CodeTree | `ctree/` | `ctree` | UCB 引导的树搜索，适合复杂函数生成 |
