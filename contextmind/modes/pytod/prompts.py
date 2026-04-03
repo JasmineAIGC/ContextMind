@@ -137,9 +137,12 @@ class PyTODPromptBuilder:
         max_history_turns: int = 10,
         response_language: str = "中文",
         compact_schema: bool = False,
+        intent_sig_map: Optional[Dict[str, str]] = None,
     ) -> None:
         self.schema = schema
         self._api_signatures = api_signatures
+        # {intent_name: "func_name(param=...)"} — 用于 per-turn top-K 过滤时按名称快速构建签名列表
+        self._intent_sig_map: Dict[str, str] = intent_sig_map or {}
         self.max_history_turns = max_history_turns
         self.response_language = response_language
         self.compact_schema = compact_schema
@@ -157,7 +160,7 @@ class PyTODPromptBuilder:
             lines.append(f"{prefix}{turn.content}")
         return "\n".join(lines) if lines else "（无历史）"
 
-    def _build_api_signatures(self) -> str:
+    def _build_api_signatures(self, relevant_names: Optional[List[str]] = None) -> str:
         """构建函数签名部分（不含业务意图描述）。
 
         用于静态系统指令 — AP 选函数时的权威来源。
@@ -165,16 +168,31 @@ class PyTODPromptBuilder:
         因此此方法无需特殊处理，直接输出 ``api_signatures`` 即可。
 
         当 ``api_signatures`` 为空（未传入 engine）时，回退到展示 schema 意图名称。
+
+        参数:
+            relevant_names: 若提供，则仅展示这些名称对应的函数签名（per-turn top-K 过滤模式）。
+                            为 None 时展示全部（原有行为）。
         """
         lines: List[str] = []
-        if self._api_signatures:
+        if relevant_names is not None and self._intent_sig_map:
+            # 过滤模式：仅展示 top-K 相关函数的完整签名（用于 per-turn 动态注入用户消息）
+            lines.append("## 可调用 API 函数（程序中的函数名必须与此处完全一致）")
+            for name in relevant_names:
+                sig = self._intent_sig_map.get(name)
+                if sig:
+                    lines.append(f"  - {sig}")
+        elif self._api_signatures:
             lines.append("## 可调用 API 函数（程序中的函数名必须与此处完全一致）")
             lines.append(self._api_signatures)
         else:
             # 回退：以 schema 意图名作为函数名（准确性较低，仅作兜底）
             if self.schema.intents:
                 lines.append("## 可调用 API 函数")
-                for intent in self.schema.intents:
+                intents_to_show = self.schema.intents
+                if relevant_names is not None:
+                    names_set = set(relevant_names)
+                    intents_to_show = [i for i in self.schema.intents if i.name in names_set]
+                for intent in intents_to_show:
                     params = intent.required_slots + intent.optional_slots
                     lines.append(
                         f"  - {intent.name}({', '.join(params)})"
@@ -182,21 +200,31 @@ class PyTODPromptBuilder:
                     )
         return "\n".join(lines)
 
-    def _build_intent_context(self) -> str:
+    def _build_intent_context(self, relevant_names: Optional[List[str]] = None) -> str:
         """构建业务意图描述部分，用于每轮动态注入用户消息。
 
         将意图描述从静态系统消息移至动态用户消息，实现「动态加载」：
         - 系统消息保持轻量（仅规则 + 函数名称），可被 ADK 高效缓存。
-        - 用户消息每轮包含完整意图描述，未来可按对话状态筛选相关意图。
+        - 用户消息每轮包含完整意图描述，支持按对话状态筛选相关意图。
 
         ``compact_schema=True`` 时返回空字符串（省略意图描述，最小化 token）。
+
+        参数:
+            relevant_names: 若提供，则仅展示这些名称对应的意图描述（per-turn top-K 过滤模式）。
+                            为 None 时展示全部（原有行为）。
         """
         if not self.schema.intents or self.compact_schema:
+            return ""
+        intents_to_show = self.schema.intents
+        if relevant_names is not None:
+            names_set = set(relevant_names)
+            intents_to_show = [i for i in self.schema.intents if i.name in names_set]
+        if not intents_to_show:
             return ""
         lines = [f"## 业务场景说明（服务：{self.schema.service_name}）"]
         lines.append(f"服务描述：{self.schema.description}")
         lines.append("")
-        for intent in self.schema.intents:
+        for intent in intents_to_show:
             lines.append(f"- **{intent.name}**：{intent.description}")
         return "\n".join(lines)
 
@@ -220,6 +248,7 @@ class PyTODPromptBuilder:
         prior_dataflow: Optional[Dict[str, Any]] = None,
         next_var_index: int = 1,
         call_sources: Optional[Dict[str, str]] = None,
+        relevant_intent_names: Optional[List[str]] = None,
     ) -> List[Dict[str, str]]:
         """构建动作解析器（AP）的 LLM 消息列表。
 
@@ -228,30 +257,34 @@ class PyTODPromptBuilder:
         **系统消息（静态，跨轮不变）**：
         1. 语法规则（AP system）
         2. 业务背景（可选）
-        3. 函数签名（AP 必须使用的名称，``compact_schema=True`` 时仅函数名）
+        3. 函数签名（``relevant_intent_names=None`` 时展示全部；否则省略，改由用户消息动态注入）
         4. 语言设置
 
         **用户消息（动态，每轮更新）**：
         5. 对话历史
-        6. 业务意图描述（从系统消息移至此处 — 动态加载；``compact_schema=True`` 时省略）
-        7. 已计算变量（官方 PyTOD dataflow context，含调用来源行）
-        8. 当前用户话语
+        6. 相关 API 函数签名（仅 ``relevant_intent_names`` 不为 None 时注入 — top-K 过滤模式）
+        7. 业务意图描述（从系统消息移至此处 — 动态加载；``compact_schema=True`` 时省略）
+        8. 已计算变量（官方 PyTOD dataflow context，含调用来源行）
+        9. 当前用户话语
 
         分离设计的优势：
         - 系统消息更短，有利于 LLM 缓存（KV-cache）复用。
-        - 意图描述位于用户消息，天然支持按对话状态动态筛选（未来扩展点）。
+        - 意图描述和函数签名位于用户消息，支持按对话状态动态筛选（top-K 过滤）。
 
         Args:
-            history:          当前对话历史（不含本轮用户话语）。
-            user_utterance:   本轮用户话语。
-            scenario_context: 业务场景描述（可选，嵌入系统指令）。
-            prior_dataflow:   先前轮次中已计算的变量绑定字典
-                              ``{var_name: result_value}``；为 None 或空时不注入。
-            next_var_index:   本轮程序中第一个新变量应使用的编号（全局递增）。
-            call_sources:     变量到产生它的程序调用行的映射
-                              ``{var_name: "func_name(arg='v')"}``；
-                              用于在 dataflow 节中显示调用来源，帮助 AP 识别已调用
-                              的函数，避免重复调用相同参数的 API。
+            history:               当前对话历史（不含本轮用户话语）。
+            user_utterance:        本轮用户话语。
+            scenario_context:      业务场景描述（可选，嵌入系统指令）。
+            prior_dataflow:        先前轮次中已计算的变量绑定字典
+                                   ``{var_name: result_value}``；为 None 或空时不注入。
+            next_var_index:        本轮程序中第一个新变量应使用的编号（全局递增）。
+            call_sources:          变量到产生它的程序调用行的映射
+                                   ``{var_name: "func_name(arg='v')"}``；
+                                   用于在 dataflow 节中显示调用来源，帮助 AP 识别已调用
+                                   的函数，避免重复调用相同参数的 API。
+            relevant_intent_names: 经过 top-K 检索后选出的相关意图名称列表。
+                                   若提供，函数签名和意图描述只展示这些意图；
+                                   为 None 时展示全部（原有行为）。
 
         Returns:
             可直接传给 ``llm_client.chat_async(messages=...)`` 的消息列表。
@@ -260,7 +293,10 @@ class PyTODPromptBuilder:
         system_parts = [self._AP_SYSTEM]
         if scenario_context:
             system_parts.append(f"## 业务背景\n{scenario_context}")
-        system_parts.append(self._build_api_signatures())   # 仅签名，不含意图描述
+        if relevant_intent_names is None:
+            # 全量模式（原有行为）：函数签名放入静态系统消息
+            system_parts.append(self._build_api_signatures())   # 仅签名，不含意图描述
+        # top-K 过滤模式：函数签名改为每轮动态注入用户消息（见下方用户消息构建）
         if self.response_language != "英文":
             system_parts.append(
                 f"\n注意：Hint 内容和 say() 字符串字面量请使用{self.response_language}。"
@@ -273,11 +309,16 @@ class PyTODPromptBuilder:
             prior_dataflow, next_var_index, call_sources=call_sources
         )
 
-        # 意图描述：动态注入用户消息（系统消息已不再包含），
-        # 未来可调用 _build_intent_context(user_utterance) 实现按轮筛选。
-        intent_ctx = self._build_intent_context()
-
         user_msg = f"## 对话历史\n{history_text}\n\n"
+
+        if relevant_intent_names is not None:
+            # top-K 过滤模式：将筛选后的函数签名注入用户消息（替代系统消息中的全量列表）
+            filtered_sigs = self._build_api_signatures(relevant_intent_names)
+            if filtered_sigs:
+                user_msg += filtered_sigs + "\n\n"
+
+        # 意图描述：动态注入用户消息（可按 relevant_intent_names 过滤）
+        intent_ctx = self._build_intent_context(relevant_intent_names)
         if intent_ctx:
             user_msg += intent_ctx + "\n\n"
         user_msg += dataflow_section

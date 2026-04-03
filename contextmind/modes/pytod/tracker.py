@@ -44,7 +44,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.infra.llm_client import create_local_adk_model
@@ -120,7 +120,52 @@ def _extract_var_call_sources(program_text: str) -> Dict[str, str]:
     return result
 
 
-def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+def _score_intents_for_query(
+    intents: List[IntentDefinition],
+    query_text: str,
+    top_k: int,
+) -> List[str]:
+    """使用词袋重叠对意图打分，返回与当前查询最相关的 top-K 意图名称列表。
+
+    核心思路：将用户话语（+ 近期历史）与每个意图的"文档"（函数名 + 描述 + 槽位名）
+    做字符/词级别交集统计，取分数最高的 top_k 个。
+    - 无需额外依赖、无额外 LLM 调用，纯 Python 实现。
+    - 支持中文（汉字逐字 tokenize）和英文（按非字母数字分割）。
+
+    Args:
+        intents:    所有注册意图列表。
+        query_text: 搜索查询文本（当前用户话语 + 近期历史拼接）。
+        top_k:      最多返回的意图数量。
+
+    Returns:
+        长度 ≤ top_k 的意图名称列表，按相关性降序排列。
+        若 top_k >= len(intents) 则直接返回全部意图名称（不过滤）。
+    """
+    if not intents or top_k <= 0 or top_k >= len(intents):
+        return [intent.name for intent in intents]
+
+    # 对查询做 token 化（汉字逐字 + 英文/数字词）
+    query_lower = query_text.lower()
+    query_tokens: set = set(re.findall(r"[\u4e00-\u9fff]|\w+", query_lower))
+
+    scores: List[Tuple[int, str]] = []
+    for intent in intents:
+        # 意图"文档"= 函数名（下划线→空格）+ 描述 + 所有槽位名
+        doc_parts = [
+            intent.name.replace("_", " "),
+            intent.description or "",
+        ] + list(intent.required_slots) + list(intent.optional_slots)
+        doc_lower = " ".join(doc_parts).lower()
+        doc_tokens: set = set(re.findall(r"[\u4e00-\u9fff]|\w+", doc_lower))
+
+        overlap = len(query_tokens & doc_tokens)
+        scores.append((overlap, intent.name))
+
+    scores.sort(key=lambda x: -x[0])
+    return [name for _, name in scores[:top_k]]
+
+
+
     """从 ``*_pytod_apis.py`` companion 文件加载 PyTOD API 函数。
 
     支持两种输入方式：
@@ -336,17 +381,35 @@ class AdkPyTODTracker:
         scenario_context: str = "",
         max_history_turns: int = 10,
         compact_schema: bool = False,
+        top_k_intents: int = 0,
     ) -> None:
         self.llm_client = llm_client
         self.engine = engine
         self.schema = schema or ServiceSchema(service_name="default", description="")
         self.scenario_context = scenario_context
+        # top_k_intents > 0: 每轮只把最相关的 top_k_intents 个 API 函数放入 AP prompt
+        # top_k_intents == 0: 原有行为，展示全部 API（向后兼容）
+        self.top_k_intents: int = top_k_intents
+
+        # 构建 {intent_name: signature_line} 映射，供 per-turn 过滤时快速查询函数签名
+        intent_sig_map: Dict[str, str] = {}
+        for name in engine.list_functions():
+            sig = engine.get_function_signature(name) or f"{name}(...)"
+            intent_sig_map[name] = sig
+
+        # top-K 过滤模式下，系统指令中省略函数签名（改为每轮动态注入用户消息），
+        # 以保持系统消息尽可能短（有利于 KV-cache 复用）。
+        # 全量模式下沿用原有行为（函数签名放入系统指令）。
+        api_signatures_for_system = (
+            "" if top_k_intents > 0 else engine.to_prompt_text(compact=compact_schema)
+        )
+
         self.prompt_builder = PyTODPromptBuilder(
             schema=self.schema,
-            # compact_schema=True → 仅传入函数名（无参数列表），大幅减少系统指令体积
-            api_signatures=engine.to_prompt_text(compact=compact_schema),
+            api_signatures=api_signatures_for_system,
             max_history_turns=max_history_turns,
             compact_schema=compact_schema,
+            intent_sig_map=intent_sig_map,
         )
         self._history: List[ConversationTurn] = []
         self.current_state: Dict[str, Any] = {}
@@ -377,13 +440,18 @@ class AdkPyTODTracker:
             adk_model = create_local_adk_model(
                 getattr(llm_client, "_config", None)
             )
-            # AP Agent：静态系统指令 = AP 语法规则 + 函数签名（不含意图描述）
-            # 意图描述已移至每轮用户消息动态注入，系统指令保持轻量以利 KV-cache 复用。
-            ap_instruction = (
-                self.prompt_builder._AP_SYSTEM
-                + "\n\n"
-                + self.prompt_builder._build_api_signatures()
-            )
+            # AP Agent 静态系统指令 = AP 语法规则 [+ 全量函数签名（仅全量模式）]
+            # top-K 过滤模式下，函数签名已从系统指令移除，改为每轮动态注入用户消息。
+            if top_k_intents > 0:
+                # 系统指令只保留语法规则，不含函数签名
+                ap_instruction = self.prompt_builder._AP_SYSTEM
+            else:
+                # 全量模式（原有行为）：系统指令含全量函数签名
+                ap_instruction = (
+                    self.prompt_builder._AP_SYSTEM
+                    + "\n\n"
+                    + self.prompt_builder._build_api_signatures()
+                )
             if scenario_context:
                 ap_instruction += f"\n\n## 业务场景背景\n{scenario_context}"
             ap_agent = LlmAgent(
@@ -559,6 +627,28 @@ class AdkPyTODTracker:
             k: v for k, v in self.current_state.items()
             if not k.startswith("_anon")
         }
+
+        # top-K 意图检索：当 top_k_intents > 0 时，将用户话语与最近一轮用户历史
+        # 拼成查询文本，对所有意图做词袋打分，只把最相关的 top_k_intents 个 API
+        # 放入本轮 AP prompt。top_k_intents == 0 时保持原有全量行为。
+        relevant_intent_names: Optional[List[str]] = None
+        if self.top_k_intents > 0 and self.schema.intents:
+            # 构建查询文本：当前话语 + 最近一轮用户消息（若有）
+            query_parts = [user_utterance]
+            for turn in reversed(self._history[-4:]):   # 最近 2 轮 = 4 条历史记录
+                if turn.role == "user":
+                    query_parts.append(turn.content)
+                    break  # 只取最近 1 条用户历史
+            query_text = " ".join(query_parts)
+            relevant_intent_names = _score_intents_for_query(
+                self.schema.intents, query_text, self.top_k_intents
+            )
+            logger.debug(
+                f"[AP top-K] 查询={query_text[:60]!r} → "
+                f"相关意图({len(relevant_intent_names)}/{len(self.schema.intents)}): "
+                f"{relevant_intent_names}"
+            )
+
         ap_messages = self.prompt_builder.build_action_parser_prompt(
             self._history,
             user_utterance,
@@ -566,6 +656,7 @@ class AdkPyTODTracker:
             prior_dataflow=prior_dataflow or None,
             next_var_index=self._next_var_index,
             call_sources=self.var_call_sources,
+            relevant_intent_names=relevant_intent_names,
         )
         self.last_ap_messages = ap_messages        # 记录完整 AP 输入（供 trace_demo 保存）
 
@@ -574,16 +665,21 @@ class AdkPyTODTracker:
             # ADK 路径：AP LlmAgent 通过 InMemoryRunner 生成程序文本
             # ADK session 积累 (用户输入 → 程序) 历史，AP 自然感知变量上下文
             # ---------------------------------------------------------- #
-            # 构建 AP 的用户消息：动态部分（history + 意图描述 + 当前话语 + 约束）
-            # 静态指令（AP语法规则 + API签名）已在 LlmAgent.instruction 中；
-            # 意图描述在此动态注入，未来可按对话状态筛选相关意图（动态加载）。
+            # 构建 AP 的用户消息：动态部分（history + API签名/意图描述 + 当前话语 + 约束）
+            # 全量模式下，API签名在 LlmAgent.instruction 中（静态）；意图描述在此动态注入。
+            # top-K 过滤模式下，筛选后的 API 签名也在此动态注入（系统指令不含函数列表）。
             from contextmind.modes.pytod.prompts import _format_prior_dataflow as _fmt_df
             ap_user_parts = []
             if self._history:
                 history_str = self.prompt_builder._format_history(self._history)
                 ap_user_parts.append(f"## 对话历史\n{history_str}")
-            # 意图描述：每轮动态注入（compact_schema=True 时为空）
-            intent_ctx = self.prompt_builder._build_intent_context()
+            # top-K 过滤模式：将筛选后的 API 签名注入用户消息（替代系统指令中的全量列表）
+            if relevant_intent_names is not None:
+                filtered_sigs = self.prompt_builder._build_api_signatures(relevant_intent_names)
+                if filtered_sigs:
+                    ap_user_parts.append(filtered_sigs)
+            # 意图描述：每轮动态注入（compact_schema=True 时为空；top-K 模式下按相关意图过滤）
+            intent_ctx = self.prompt_builder._build_intent_context(relevant_intent_names)
             if intent_ctx:
                 ap_user_parts.append(intent_ctx)
             # 已计算变量：含调用来源行，帮助 AP 识别重复调用
