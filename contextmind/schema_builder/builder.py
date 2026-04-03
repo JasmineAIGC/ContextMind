@@ -65,7 +65,9 @@ class SchemaDataBuilder:
                                    ``"alpha"`` — AlphaCodium 风格 ACIA 合成器
                                    （反思 + 骨架约束生成 + 失败分析 + 收敛重启）；
                                    ``"sstar"`` — S*（Test Time Scaling，arXiv:2502.14382，2025）
-                                   （并行草稿 + 执行追踪修复 + 区分性测试选择 + 精炼）。
+                                   （并行草稿 + 执行追踪修复 + 区分性测试选择 + 精炼）；
+                                   ``"ctree"`` — CodeTree（树形搜索，arXiv:2411.04329，2024/2025）
+                                   （UCB 引导树搜索：根节点生成 + 逐失败用例扩展 + 最优路径选择）。
     """
 
     def __init__(
@@ -189,6 +191,9 @@ class SchemaDataBuilder:
             elif self.generator == "sstar":
                 from contextmind.schema_builder.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 S* 生成器（--generator sstar，arXiv:2502.14382）")
+            elif self.generator == "ctree":
+                from contextmind.schema_builder.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
+                logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
             else:
                 from contextmind.schema_builder.pytod.builder import build_pytod_apis as _build  # type: ignore[assignment]
             return _build(

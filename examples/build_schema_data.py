@@ -140,6 +140,7 @@ def _print_llm_mode_summary(
         "pytod": "pytod（原始 5 阶段流水线）",
         "alpha": "alpha（ACIA：反思 + 骨架约束 + 失败分析 + 收敛重启）",
         "sstar": "sstar（S*：并行草稿 + 执行追踪修复 + 区分性测试选择，arXiv:2502.14382）",
+        "ctree": "ctree（CodeTree：UCB 树搜索 + 逐失败用例扩展，arXiv:2411.04329）",
     }.get(generator, generator)
     print(f"🤖 LLM 模式已启用  生成器: {gen_label}")
     print("   数据来源:")
@@ -262,7 +263,7 @@ def main() -> None:
     llm_group = parser.add_argument_group("LLM 选项（仅 --with-llm 时生效）")
     llm_group.add_argument(
         "--generator",
-        choices=["pytod", "alpha", "sstar"],
+        choices=["pytod", "alpha", "sstar", "ctree"],
         default="pytod",
         metavar="NAME",
         help=(
@@ -278,7 +279,12 @@ def main() -> None:
             "           · Phase D 执行追踪修复：基于 execution traces 精准定位 bug（LDB 风格）\n"
             "           · Phase S 区分性测试选择：LLM 生成区分性输入，通过执行行为选最优候选\n"
             "           · Phase R 精炼：对最优候选继续修复直至达到通过率阈值\n"
-            "示例: --with-llm --generator sstar"
+            "  ctree — CodeTree 算法（树形搜索，arXiv:2411.04329，2024/2025）：\n"
+            "           · Phase G 根节点生成：生成初始候选函数\n"
+            "           · Phase E 树扩展：对每个失败用例独立生成修复子节点，互不干扰\n"
+            "           · Phase S UCB 选择：UCB 评分平衡利用（高通过率）与探索（未访问节点）\n"
+            "           · 整棵树保留最优路径，避免线性修复中修好A破坏B的问题\n"
+            "示例: --with-llm --generator ctree"
         ),
     )
     llm_group.add_argument(

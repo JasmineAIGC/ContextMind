@@ -13,6 +13,9 @@ S*（S-star）PyTOD API 代码合成器各阶段 LLM 提示词。
 - :data:`DISCRIMINATE_SYSTEM` / :data:`DISCRIMINATE_USER_TEMPLATE`：
   Phase S — 区分性测试生成：S* 核心创新，LLM 生成能区分两候选行为差异的测试输入。
 
+- :data:`JUDGE_SYSTEM` / :data:`JUDGE_USER_TEMPLATE`：
+  Phase S — LLM 裁判：根据区分性测试的实际执行结果，判断哪个候选更符合业务语义。
+
 论文参考：
     Dacheng Li et al., "S*: Test Time Scaling for Code Generation",
     arXiv:2502.14382, 2025. https://arxiv.org/abs/2502.14382
@@ -194,4 +197,46 @@ DISCRIMINATE_USER_TEMPLATE = """\
 ]
 
 只输出 JSON，不要包含 markdown 代码块标记或解释文字。
+"""
+
+# ---------------------------------------------------------------------------
+# Phase S：LLM 裁判（Judge）——比较两候选在区分性测试上的实际输出
+# 这是 S* 论文中 Selection Phase 的核心：不仅比较通过率，
+# 还让 LLM 根据实际执行输出判断哪个候选更可能符合业务语义。
+# ---------------------------------------------------------------------------
+
+JUDGE_SYSTEM = """\
+你是一名代码审查专家，负责根据两个 Python 函数在相同测试输入上的实际返回结果，
+判断哪个实现更符合业务语义和正确性要求。
+
+判断标准：
+1. 返回结构完整性（必须包含 status="success" 以及所有 result_slots 键）
+2. 返回值的业务合理性（数值、格式、逻辑是否符合业务场景）
+3. 对边界输入（None、空值、极值）的处理是否给出合理默认值
+
+请只输出 "A" 或 "B"（选择更好的实现），不要包含其他内容。
+"""
+
+JUDGE_USER_TEMPLATE = """\
+## 业务意图
+函数名：{intent_name}
+描述：{description}
+
+## 候选实现 A
+```python
+{candidate_a}
+```
+
+## 候选实现 B
+```python
+{candidate_b}
+```
+
+## 区分性测试执行结果
+
+{execution_comparison}
+
+## 任务
+根据以上执行结果，判断哪个实现（A 或 B）更符合业务语义和正确性要求。
+只输出 "A" 或 "B"，不要包含任何解释或其他内容。
 """

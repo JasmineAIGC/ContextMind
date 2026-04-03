@@ -266,6 +266,7 @@ class AlphaSynthesizer:
         best_code = func_code
         best_validation = validation
         no_improve_streak = 0
+        total_iterations = 0
 
         # 迭代修复循环
         for iteration in range(1, max_iterations + 1):
@@ -290,6 +291,7 @@ class AlphaSynthesizer:
                 body = self._generate_body(
                     intent, schema, all_slot_descs, test_cases, reflection
                 )
+                total_iterations += 1
                 if body is not None:
                     func_code = header + "\n" + body
                     validation = validate_function(
@@ -310,6 +312,7 @@ class AlphaSynthesizer:
 
             # Phase F：定向修复
             body = self._repair_body(intent, schema, best_code, best_validation, failure_analysis)
+            total_iterations += 1
             if body is None:
                 logger.warning(f"[ACIA]   {intent.name}: 第 {iteration} 轮修复失败，跳过")
                 no_improve_streak += 1
@@ -327,11 +330,19 @@ class AlphaSynthesizer:
             if new_validation.pass_rate > best_validation.pass_rate:
                 best_code = repaired_code
                 best_validation = new_validation
-                new_validation.iterations = iteration
                 no_improve_streak = 0
             else:
                 no_improve_streak += 1
 
+        # 更新最终实际使用的迭代次数
+        best_validation = FuncValidation(
+            intent_name=best_validation.intent_name,
+            total=best_validation.total,
+            passed=best_validation.passed,
+            failures=best_validation.failures,
+            iterations=total_iterations,
+            error=best_validation.error,
+        )
         return best_code, best_validation
 
     # ------------------------------------------------------------------
@@ -508,17 +519,8 @@ class AlphaSynthesizer:
         ))
         param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
 
-        # 提取当前函数体（去掉 def 行）
-        code_lines = current_code.splitlines()
-        body_start = 0
-        for j, line in enumerate(code_lines):
-            stripped = line.strip()
-            if stripped.startswith("def ") or stripped.startswith('"""'):
-                body_start = j + 1
-            elif j > 0 and stripped:
-                body_start = j
-                break
-        current_body = "\n".join(code_lines[body_start:])
+        # 提取当前函数体（去掉 def 行和 docstring，包括多行 docstring）
+        current_body = _extract_function_body(current_code, intent.name) or current_code
 
         required_return_keys = _build_required_return_keys(intent)
         failures_str = _format_failures_for_prompt(validation.failures)

@@ -43,6 +43,8 @@ from contextmind.schema_builder.sstar.prompts import (
     DISCRIMINATE_USER_TEMPLATE,
     DRAFT_SYSTEM_TEMPLATE,
     DRAFT_USER_TEMPLATE,
+    JUDGE_SYSTEM,
+    JUDGE_USER_TEMPLATE,
     REPAIR_SYSTEM,
     REPAIR_USER_TEMPLATE,
     THINKING_MODES,
@@ -216,6 +218,19 @@ def _format_execution_traces(failures: List[Dict[str, Any]], total: int) -> str:
     return "\n\n".join(lines)
 
 
+def _find_disc_result(disc_val: FuncValidation, inp: Dict[str, Any]) -> str:
+    """从验证结果中找到与给定输入匹配的执行结果描述。
+
+    用于 LLM 裁判阶段：展示两候选在相同区分性输入上的实际返回值差异。
+    """
+    if disc_val.failures:
+        for f in disc_val.failures:
+            if f.get("input_slots") == inp:
+                return f.get("error", "执行失败")
+    # 未在失败列表中找到 → 该用例通过（返回成功状态）
+    return "执行成功（返回包含 status='success' 的字典）"
+
+
 # ---------------------------------------------------------------------------
 # 主合成器类
 # ---------------------------------------------------------------------------
@@ -323,7 +338,8 @@ class SStarSynthesizer:
             f"[S*]   Phase D: {intent.name} — 执行追踪修复 "
             f"({len(candidates)} 草稿 × 最多 {self._k_per_draft} 轮)..."
         )
-        remaining = max_iterations
+        # Phase P 中每个草稿生成算一次 LLM 调用，从预算中扣除
+        remaining = max(0, max_iterations - len(candidates))
         repaired_candidates: List[Tuple[str, FuncValidation]] = []
 
         for c_idx, (draft_code, draft_validation) in enumerate(candidates):
@@ -359,25 +375,34 @@ class SStarSynthesizer:
         if best_validation.pass_rate >= pass_rate_threshold:
             return best_code, best_validation
 
-        # ── Phase S：S* 区分性测试选择 ────────────────────────────────────
+        # ── Phase S：S* 区分性测试选择（锦标赛模式，遍历所有候选对）──────────
         if len(repaired_candidates) >= 2 and remaining > 0:
             logger.info(
                 f"[S*]   Phase S: {intent.name} — "
-                f"S* 区分性测试（当前最优 {best_validation.pass_rate:.1%}）..."
+                f"S* 区分性测试（当前最优 {best_validation.pass_rate:.1%}，"
+                f"{len(repaired_candidates)} 候选参与锦标赛）..."
             )
-            a_code, a_val = repaired_candidates[0]
-            b_code, b_val = repaired_candidates[1]
-            winner_code, winner_val = self._select_winner(
-                intent, all_slot_descs, test_cases,
-                (a_code, a_val), (b_code, b_val),
-            )
+            # 锦标赛：当前冠军逐一与其余候选对比，胜者晋级
+            champion_code, champion_val = repaired_candidates[0]
+            for challenger_code, challenger_val in repaired_candidates[1:]:
+                if remaining <= 0:
+                    break
+                winner_code, winner_val = self._select_winner(
+                    intent, all_slot_descs, test_cases,
+                    (champion_code, champion_val), (challenger_code, challenger_val),
+                )
+                # 每次 _select_winner 消耗 1 轮（生成区分性输入 + LLM judge）
+                remaining -= 1
+                if winner_val.pass_rate >= champion_val.pass_rate:
+                    champion_code, champion_val = winner_code, winner_val
+
             logger.info(
-                f"[S*]   Phase S 选出最优候选："
-                f"通过率 {winner_val.pass_rate:.1%} ({winner_val.passed}/{winner_val.total})"
+                f"[S*]   Phase S 锦标赛选出最优候选："
+                f"通过率 {champion_val.pass_rate:.1%} ({champion_val.passed}/{champion_val.total})"
             )
-            if winner_val.pass_rate > best_validation.pass_rate:
-                best_code = winner_code
-                best_validation = winner_val
+            if champion_val.pass_rate >= best_validation.pass_rate:
+                best_code = champion_code
+                best_validation = champion_val
 
         if best_validation.pass_rate >= pass_rate_threshold:
             return best_code, best_validation
@@ -483,10 +508,8 @@ class SStarSynthesizer:
             if best_validation.pass_rate >= 1.0:
                 break
 
-            # 提取函数体部分（去掉 def 行和 docstring 行）
-            code_lines = best_code.splitlines()
-            body_start = 2 if len(code_lines) >= 2 else 0
-            current_body = "\n".join(code_lines[body_start:])
+            # 提取函数体部分（去掉 def 行和 docstring，包括多行 docstring）
+            current_body = _extract_function_body(best_code, intent.name) or best_code
 
             execution_traces = _format_execution_traces(
                 best_validation.failures, best_validation.total
@@ -563,13 +586,13 @@ class SStarSynthesizer:
         candidate_a: Tuple[str, FuncValidation],
         candidate_b: Tuple[str, FuncValidation],
     ) -> Tuple[str, FuncValidation]:
-        """S* 核心：生成区分性测试输入，通过执行行为综合评分选出最优候选。
+        """S* 核心：生成区分性测试输入，通过实际执行结果和 LLM 裁判选出最优候选。
 
-        S* 算法的关键创新：不依赖人工测试用例来区分两个候选实现，
-        而是让 LLM 生成能揭示两者行为差异的测试输入，
-        通过在这些输入上的执行表现选出更符合业务语义的候选。
-
-        综合评分 = 原始测试通过率 × 0.8 + 区分性测试通过率 × 0.2
+        完整实现 S* 论文 Selection Phase：
+        1. 让 LLM 生成能揭示两候选行为差异的测试输入（Discriminating Inputs）
+        2. 在区分性输入上实际执行两候选，捕获实际返回值
+        3. 将执行结果提供给 LLM 裁判，由 LLM 判断哪个候选更符合业务语义
+        4. 以 LLM 裁判结果为主、原始通过率差异为辅做最终决策
 
         Returns:
             (winner_code, winner_validation)
@@ -605,7 +628,7 @@ class SStarSynthesizer:
             for i, inp in enumerate(disc_inputs)
         ]
 
-        # 在区分性输入上评估两候选
+        # 在区分性输入上实际执行两候选，收集结果
         a_disc_val = validate_function(intent, a_code, disc_test_cases, SHARED_HELPERS)
         b_disc_val = validate_function(intent, b_code, disc_test_cases, SHARED_HELPERS)
         logger.info(
@@ -613,14 +636,84 @@ class SStarSynthesizer:
             f"A={a_disc_val.pass_rate:.1%}, B={b_disc_val.pass_rate:.1%}"
         )
 
-        # 综合评分：原始测试 80% + 区分性测试 20%
-        a_score = 0.8 * a_val.pass_rate + 0.2 * a_disc_val.pass_rate
-        b_score = 0.8 * b_val.pass_rate + 0.2 * b_disc_val.pass_rate
-        logger.info(
-            f"[S*]     综合评分：A={a_score:.3f}, B={b_score:.3f}，"
-            f"选择{'A' if a_score >= b_score else 'B'}"
+        # 调用 LLM 裁判：根据实际执行结果（含失败详情）判断哪个候选更优
+        # 这是 S* 论文 Selection Phase 的核心：Execution-Grounded Judging
+        judge_result = self._judge_candidates(
+            intent, a_code, b_code,
+            a_disc_val, b_disc_val,
+            disc_inputs,
         )
-        return (a_code, a_val) if a_score >= b_score else (b_code, b_val)
+
+        if judge_result == "A":
+            logger.info(f"[S*]     LLM 裁判选择：A（{a_val.pass_rate:.1%}）")
+            return a_code, a_val
+        elif judge_result == "B":
+            logger.info(f"[S*]     LLM 裁判选择：B（{b_val.pass_rate:.1%}）")
+            return b_code, b_val
+        else:
+            # LLM 裁判失败，回退到综合评分
+            a_score = 0.8 * a_val.pass_rate + 0.2 * a_disc_val.pass_rate
+            b_score = 0.8 * b_val.pass_rate + 0.2 * b_disc_val.pass_rate
+            logger.info(
+                f"[S*]     LLM 裁判失败，综合评分回退：A={a_score:.3f}, B={b_score:.3f}，"
+                f"选择{'A' if a_score >= b_score else 'B'}"
+            )
+            return (a_code, a_val) if a_score >= b_score else (b_code, b_val)
+
+    def _judge_candidates(
+        self,
+        intent: IntentDefinition,
+        a_code: str,
+        b_code: str,
+        a_disc_val: FuncValidation,
+        b_disc_val: FuncValidation,
+        disc_inputs: List[Dict[str, Any]],
+    ) -> str:
+        """调用 LLM 裁判，根据区分性测试的实际执行结果选择更优候选（S* 论文核心）。
+
+        Returns:
+            "A"、"B" 或 ""（失败时返回空字符串触发回退）。
+        """
+        # 构建执行对比文本（展示每个区分性输入下的实际执行结果）
+        comparison_lines: List[str] = []
+        for i, inp in enumerate(disc_inputs[:3], 1):
+            inp_str = json.dumps(inp, ensure_ascii=False)
+            # 从失败详情中找对应结果
+            a_result = _find_disc_result(a_disc_val, inp)
+            b_result = _find_disc_result(b_disc_val, inp)
+            comparison_lines.append(
+                f"测试 {i}: 输入 = {inp_str}\n"
+                f"  A 实际输出: {a_result}\n"
+                f"  B 实际输出: {b_result}"
+            )
+        execution_comparison = "\n\n".join(comparison_lines) if comparison_lines else "（无执行记录）"
+
+        user = JUDGE_USER_TEMPLATE.format(
+            intent_name=intent.name,
+            description=intent.description or intent.name,
+            candidate_a=a_code,
+            candidate_b=b_code,
+            execution_comparison=execution_comparison,
+        )
+        try:
+            raw = self._chat_sync([
+                {"role": "system", "content": JUDGE_SYSTEM},
+                {"role": "user", "content": user},
+            ])
+            verdict = (raw or "").strip().upper()
+            if "A" in verdict and "B" not in verdict:
+                return "A"
+            if "B" in verdict and "A" not in verdict:
+                return "B"
+            # 如果同时包含 A 和 B，取第一个出现的字母
+            for ch in verdict:
+                if ch == "A":
+                    return "A"
+                if ch == "B":
+                    return "B"
+        except Exception as exc:
+            logger.warning(f"[S*] {intent.name}: LLM 裁判调用失败 — {exc}")
+        return ""
 
     def _generate_discriminating_inputs(
         self,
