@@ -4,46 +4,7 @@ PyTOD 生成文件的共享工具函数模板。
 ``SHARED_HELPERS`` 常量会嵌入到每个生成的 ``*_pytod_apis.py`` 文件顶部附近。
 它提供了若干工具函数（``_parse_amount``、``_ticket_id``、``_calc_monthly_payment``、
 ``_next_work_day``），同一模块中的所有意图函数均可直接调用，无需重复编写样板代码。
-
-:func:`build_skeleton_stub`
-    构建包含所有 result_slots 键（值为 None 的占位）的最小合法 stub 返回语句，
-    供生成器在 LLM 失败兜底时使用。这比裸 ``return {"status": "success"}`` 更好，
-    因为 result_slots 键存在于返回值中，测试用例的 expected_keys 检查才能通过。
 """
-
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from contextmind.modes.pytod.schemas import IntentDefinition
-
-
-def build_skeleton_stub(intent: "IntentDefinition") -> str:
-    """LLM 生成失败时的兜底：构建包含全部 result_slots 键的最小 stub 返回语句。
-
-    生成形如::
-
-        return {"status": "success", "slot_a": None, "slot_b": None}
-
-    这比裸 ``return {"status": "success"}`` 优越：测试用例的 expected_keys 检查要求
-    result_slots 中每个键都在返回值里出现，加入占位 None 可让更多用例通过字段存在性检查，
-    从而给后续修复轮次提供更有信息量的失败反馈（"值错误"比"字段缺失"更容易修复）。
-
-    Args:
-        intent: 意图定义，提供 result_slots 列表。
-
-    Returns:
-        4 空格缩进的 ``return`` 语句字符串（可直接拼接到函数头部之后）。
-    """
-    keys: list = list(intent.result_slots) if intent.result_slots else []
-    if "status" not in keys:
-        keys = ["status"] + keys
-    pairs = ", ".join(
-        f'"{k}": "success"' if k == "status" else f'"{k}": None'
-        for k in keys
-    )
-    return f"    return {{{pairs}}}"
 
 # 嵌入到每个生成的 *_pytod_apis.py 文件顶部的工具函数模板字符串。
 # 规则生成和 LLM 生成的意图函数都可以调用这些工具，避免重复代码。

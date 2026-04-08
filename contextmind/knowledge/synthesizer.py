@@ -630,9 +630,9 @@ class SchemaSynthesizer:
         n_intents = len(schema_dict.get("intents", []))
 
         # 槽位 + 意图总数过少时，跳过精炼（无意义，且可能引入幻觉）
-        if n_slots + n_intents <= 1:
+        if n_slots + n_intents <= 5:
             logger.info(
-                f"[SchemaSynthesizer] schema 条目极少（{n_slots} 槽位 + {n_intents} 意图），跳过精炼"
+                f"[SchemaSynthesizer] schema 条目较少（{n_slots} 槽位 + {n_intents} 意图），跳过精炼"
             )
             return schema_dict
 

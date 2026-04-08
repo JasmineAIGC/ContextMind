@@ -494,11 +494,6 @@ class AdkPyTODTracker:
         AP/DM prompt 中保留的最近历史轮次数。
     """
 
-    # 意图数量超过此阈值时自动启用 top-K 过滤，避免全量 API 注入超出上下文窗口
-    _AUTO_TOP_K_THRESHOLD: int = 20
-    # 自动启用时使用的默认 K 值
-    _AUTO_TOP_K_DEFAULT: int = 15
-
     def __init__(
         self,
         llm_client: Any,
@@ -513,17 +508,6 @@ class AdkPyTODTracker:
         self.engine = engine
         self.schema = schema or ServiceSchema(service_name="default", description="")
         self.scenario_context = scenario_context
-
-        # 自动启用 top-K 过滤：当 top_k_intents == 0（默认/未指定）且意图数量超过阈值时，
-        # 自动设定 top_k_intents = _AUTO_TOP_K_DEFAULT，防止全量 API 列表撑爆上下文窗口。
-        n_intents = len(self.schema.intents) if self.schema.intents else 0
-        if top_k_intents == 0 and n_intents > self._AUTO_TOP_K_THRESHOLD:
-            top_k_intents = self._AUTO_TOP_K_DEFAULT
-            logger.info(
-                f"AdkPyTODTracker: schema 含 {n_intents} 个意图（> {self._AUTO_TOP_K_THRESHOLD}），"
-                f"自动启用 top_k_intents={top_k_intents} 以避免上下文溢出"
-            )
-
         # top_k_intents > 0: 每轮只把最相关的 top_k_intents 个 API 函数放入 AP prompt
         # top_k_intents == 0: 原有行为，展示全部 API（向后兼容）
         self.top_k_intents: int = top_k_intents

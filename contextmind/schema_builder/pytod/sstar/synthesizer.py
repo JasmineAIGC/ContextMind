@@ -300,11 +300,11 @@ class SStarSynthesizer:
             - func_code:   完整函数代码（含 def 行）
             - validation:  最终验证结果（含通过率、失败详情、迭代次数）
         """
-        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS, build_skeleton_stub
+        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
         from contextmind.schema_builder.pytod.validator import validate_function
 
         header = _build_header(intent)
-        stub_code = header + "\n" + build_skeleton_stub(intent)
+        stub_code = header + '\n    return {"status": "success"}'
 
         # 无测试用例时：生成一个草稿即返回
         if not test_cases:
