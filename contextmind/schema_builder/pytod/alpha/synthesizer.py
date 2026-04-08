@@ -277,6 +277,12 @@ class AlphaSynthesizer:
         no_improve_streak = 0
         total_iterations = 0
 
+        # probe_code/probe_validation 始终追踪最新一次修复尝试的结果（即使未改善也继续前进），
+        # 每轮修复从不同的失败状态出发，避免重复相同提示导致 LLM 输出不变。
+        # best_code/best_validation 保留历史最优结果用于最终输出。
+        probe_code = func_code
+        probe_validation = validation
+
         # 迭代修复循环
         for iteration in range(1, max_iterations + 1):
             if best_validation.pass_rate >= pass_rate_threshold:
@@ -284,7 +290,7 @@ class AlphaSynthesizer:
 
             logger.info(
                 f"[ACIA]   修复第 {iteration} 轮: {intent.name} "
-                f"(通过率 {best_validation.pass_rate:.1%} < 阈值 {pass_rate_threshold:.1%})"
+                f"(最优通过率 {best_validation.pass_rate:.1%} < 阈值 {pass_rate_threshold:.1%})"
             )
 
             # 收敛检测：连续 2 轮无提升 → 全新重启
@@ -313,14 +319,21 @@ class AlphaSynthesizer:
                     if validation.pass_rate > best_validation.pass_rate:
                         best_code = func_code
                         best_validation = validation
+                    # 将 probe 重置为重启结果，下一轮从新起点出发
+                    probe_code = func_code
+                    probe_validation = validation
+                else:
+                    # 重启生成失败，probe 回退到最优结果
+                    probe_code = best_code
+                    probe_validation = best_validation
                 no_improve_streak = 0
                 continue
 
-            # Phase A：失败模式分析
-            failure_analysis = self._analyze_failures(intent, best_code, best_validation)
+            # Phase A：失败模式分析（基于 probe 当前状态）
+            failure_analysis = self._analyze_failures(intent, probe_code, probe_validation)
 
-            # Phase F：定向修复
-            body = self._repair_body(intent, schema, best_code, best_validation, failure_analysis)
+            # Phase F：定向修复（基于 probe 当前状态）
+            body = self._repair_body(intent, schema, probe_code, probe_validation, failure_analysis)
             total_iterations += 1
             if body is None:
                 logger.warning(f"[ACIA]   {intent.name}: 第 {iteration} 轮修复失败，跳过")
@@ -342,6 +355,10 @@ class AlphaSynthesizer:
                 no_improve_streak = 0
             else:
                 no_improve_streak += 1
+
+            # 始终将 probe 推进到最新一次修复结果，确保下一轮从不同的失败状态出发
+            probe_code = repaired_code
+            probe_validation = new_validation
 
         # 更新最终实际使用的迭代次数
         best_validation = FuncValidation(

@@ -297,22 +297,28 @@ def build_pytod_apis(
                     f"({validation.passed}/{validation.total})"
                 )
 
+                # probe_code/probe_validation 始终追踪最新一次修复尝试的结果（即使未改善
+                # 也继续前进），给 LLM 提供不同的失败用例视角，避免重复相同修复提示而陷入循环。
+                # func_code/validation 则只在通过率提升或持平时更新，保留最优结果用于输出。
+                probe_code = func_code
+                probe_validation = validation
+
                 for iteration in range(1, max_iterations + 1):
                     if validation.pass_rate >= pass_rate_threshold:
                         break  # 已达到通过率阈值，停止迭代
 
                     logger.info(
                         f"[PyTOD]   Phase 4: {intent.name} — "
-                        f"第 {iteration} 轮修复（通过率 {validation.pass_rate:.1%} "
+                        f"第 {iteration} 轮修复（最优通过率 {validation.pass_rate:.1%} "
                         f"< 阈值 {pass_rate_threshold:.1%}）..."
                     )
                     repaired_code = llm_generator.repair_function(
                         intent, schema, all_slot_descs,
-                        current_code=func_code,
-                        failures=validation.failures,
+                        current_code=probe_code,
+                        failures=probe_validation.failures,
                         iteration=iteration,
-                        total=validation.total,
-                        passed=validation.passed,
+                        total=probe_validation.total,
+                        passed=probe_validation.passed,
                         dialogue_hint=dialogue_hint,
                     )
                     if repaired_code is None:
@@ -335,7 +341,10 @@ def build_pytod_apis(
                         )
                         print(repaired_code, flush=True)
                         print(flush=True)
-                    # 通过率提升或持平时接受修复结果（持平也接受，后续轮次可能继续改善）
+                    # 始终将 probe 推进到最新一次修复结果，确保下一轮从不同的失败状态出发
+                    probe_code = repaired_code
+                    probe_validation = new_validation
+                    # 通过率提升或持平时更新最优结果（持平也接受，后续轮次可能继续改善）
                     if new_validation.pass_rate >= validation.pass_rate:
                         func_code = repaired_code
                         validation = new_validation

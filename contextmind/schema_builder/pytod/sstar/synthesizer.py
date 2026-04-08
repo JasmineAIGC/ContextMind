@@ -514,24 +514,29 @@ class SStarSynthesizer:
         best_validation = validation
         total_iterations = 0
 
+        # probe_code/probe_validation 始终追踪最新一次修复尝试的结果（即使未改善也继续前进），
+        # 每轮修复从不同的失败状态出发，避免重复相同提示导致 LLM 输出不变。
+        probe_code = func_code
+        probe_validation = validation
+
         for round_i in range(1, max_repair_rounds + 1):
             if best_validation.pass_rate >= 1.0:
                 break
 
             # 提取函数体部分（去掉 def 行和 docstring，包括多行 docstring）
-            current_body = _extract_function_body(best_code, intent.name) or best_code
+            current_body = _extract_function_body(probe_code, intent.name) or probe_code
             param_str = _build_param_str(intent)
 
             execution_traces = _format_execution_traces(
-                best_validation.failures, best_validation.total
+                probe_validation.failures, probe_validation.total
             )
             user = REPAIR_USER_TEMPLATE.format(
                 intent_name=intent.name,
                 param_str=param_str,
                 description=intent.description or intent.name,
                 current_body=current_body,
-                fail_count=len(best_validation.failures),
-                total_count=best_validation.total,
+                fail_count=len(probe_validation.failures),
+                total_count=probe_validation.total,
                 execution_traces=execution_traces,
                 required_return_keys=_build_required_return_keys(intent),
             )
@@ -571,6 +576,10 @@ class SStarSynthesizer:
                     f"[S*]       Phase D 第 {round_i} 轮无改善："
                     f"通过率 {new_validation.pass_rate:.1%}"
                 )
+
+            # 始终将 probe 推进到最新一次修复结果，确保下一轮从不同的失败状态出发
+            probe_code = repaired_code
+            probe_validation = new_validation
 
             if best_validation.pass_rate >= 1.0:
                 break

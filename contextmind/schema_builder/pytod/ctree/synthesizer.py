@@ -94,6 +94,9 @@ class _TreeNode:
         self.target_case = target_case
         self.children: List["_TreeNode"] = []
         self.visits: int = 0
+        # 扩展失败标志：当对该节点的扩展尝试未产生任何子节点时置为 True，
+        # 防止 UCB 选择器反复选取同一节点重复发送相同提示给 LLM
+        self.exhausted: bool = False
 
     def ucb_score(self, parent_visits: int, c: float = _UCB_C) -> float:
         """计算 UCB 分数（Upper Confidence Bound）。
@@ -422,7 +425,10 @@ class CodeTreeSynthesizer:
                     break
 
             if new_children_added == 0:
-                logger.info(f"[CodeTree]   扩展失败（所有 LLM 调用均返回 None），继续选择")
+                # 扩展未产生任何子节点（LLM 调用全部失败），标记为已耗尽，
+                # 防止 UCB 选择器反复选取同一节点重复发送相同提示
+                selected.exhausted = True
+                logger.info(f"[CodeTree]   扩展失败（所有 LLM 调用均返回 None），节点标记为已耗尽")
 
             # 检查是否有节点达到阈值
             best_so_far = self._best_node(root)
@@ -562,13 +568,13 @@ class CodeTreeSynthesizer:
 
         UCB = pass_rate + C × sqrt(ln(parent_visits + 1) / (node_visits + 1))
 
-        只选择有失败用例的叶节点（有可扩展空间）。
+        只选择有失败用例的叶节点（有可扩展空间），跳过扩展失败的已耗尽节点。
         """
         all_nodes = root.all_descendants()
-        # 只考虑叶节点（未展开）且有失败用例的节点
+        # 只考虑叶节点（未展开）且有失败用例且未耗尽的节点
         expandable = [
             n for n in all_nodes
-            if n.is_leaf() and n.validation.failures
+            if n.is_leaf() and not n.exhausted and n.validation.failures
         ]
         if not expandable:
             return None
