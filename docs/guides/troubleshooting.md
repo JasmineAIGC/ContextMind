@@ -347,7 +347,7 @@ logging.getLogger('contextmind.modes.dst').setLevel(logging.DEBUG)
 
 **原因**: 导入路径错误或模块不存在
 
-**解决**: 检查导入路径是否正确，参考 [API 参考](api-reference.md)
+**解决**: 检查导入路径是否正确，参考 [API 参考](../reference/api-reference.md)
 
 ### `KeyError: 'scenario_name'`
 
@@ -400,4 +400,4 @@ result = asyncio.run(main())
 
 - [快速开始](quick-start.md)
 - [配置指南](configuration.md)
-- [API 参考](api-reference.md)
+- [API 参考](../reference/api-reference.md)

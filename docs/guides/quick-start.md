@@ -213,7 +213,7 @@ python my_first_app.py
 ### 学习路径
 
 1. **理解三步框架**
-   - 阅读 [文档中心](README.md) 了解三步框架概述
+   - 阅读 [文档中心](../README.md) 了解三步框架概述
    - 了解 DST、FnCTOD、PyTOD、Evolve 的区别和适用场景
 
 2. **查看更多示例**
@@ -221,7 +221,7 @@ python my_first_app.py
    - 学习不同场景的使用方法
 
 3. **深入 API**
-   - 查看 [API 参考文档](api-reference.md)
+   - 查看 [API 参考文档](../reference/api-reference.md)
    - 了解所有可用的类和方法
 
 4. **扩展场景**
@@ -349,8 +349,8 @@ print(result["response"])
 
 ## 相关资源
 
-- [完整文档](README.md)
-- [API 参考](api-reference.md)
+- [完整文档](../README.md)
+- [API 参考](../reference/api-reference.md)
 - [配置指南](configuration.md)
 - [GitHub 仓库](https://github.com/JasmineAIGC/ContextMind)
 - [问题反馈](https://github.com/JasmineAIGC/ContextMind/issues)

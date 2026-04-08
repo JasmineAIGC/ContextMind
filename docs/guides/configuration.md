@@ -568,7 +568,7 @@ result = await pipeline.process_turn("我最近头疼，该怎么办？")
 ## 相关文档
 
 - [快速开始](quick-start.md)
-- [API 参考](api-reference.md)
+- [API 参考](../reference/api-reference.md)
 - [故障排查](troubleshooting.md)
 
 ---
