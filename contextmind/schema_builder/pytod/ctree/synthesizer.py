@@ -48,6 +48,7 @@ from contextmind.schema_builder.pytod.ctree.prompts import (
     ROOT_SYSTEM,
     ROOT_USER_TEMPLATE,
 )
+from contextmind.schema_builder.pytod.generator import clean_llm_function_body
 
 logger = get_logger(__name__)
 
@@ -463,13 +464,14 @@ class CodeTreeSynthesizer:
         dialogue_hint: str,
     ) -> Optional[str]:
         """生成根节点函数体（初始候选）。"""
+        param_str = _build_param_str(intent)
         dialogue_hint_block = (
-            f"\n## 业务背景（对话摘录）\n{dialogue_hint[:800]}\n"
+            f"\n## 业务背景（对话摘录）\n{dialogue_hint}\n"
             if dialogue_hint else ""
         )
         user = ROOT_USER_TEMPLATE.format(
             intent_name=intent.name,
-            param_str=_build_param_str(intent),
+            param_str=param_str,
             description=intent.description or intent.name,
             input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
             required_return_keys=_build_required_return_keys(intent),
@@ -481,10 +483,10 @@ class CodeTreeSynthesizer:
                 {"role": "system", "content": ROOT_SYSTEM},
                 {"role": "user", "content": user},
             ])
-            body = _extract_function_body(raw or "", intent.name)
+            body = clean_llm_function_body(raw or "", intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[CodeTree] {intent.name}: 根节点函数体提取失败，"
+                    f"[CodeTree] {intent.name}: 根节点函数体提取失败（含语法错误或无效输出），"
                     f"响应片段: {(raw or '')[:200]!r}"
                 )
             return body
@@ -510,6 +512,7 @@ class CodeTreeSynthesizer:
         CodeTree 的核心扩展策略：每个扩展分支专注于修复一个失败用例，
         避免通用修复同时影响多个用例间的依赖关系。
         """
+        param_str = _build_param_str(intent)
         current_body = _extract_function_body(current_code, intent.name) or current_code
         target_input = json.dumps(target_failure.get("input_slots", {}), ensure_ascii=False)
         target_error = target_failure.get("error", "未知错误")
@@ -525,7 +528,7 @@ class CodeTreeSynthesizer:
 
         user = EXPAND_USER_TEMPLATE.format(
             intent_name=intent.name,
-            param_str=_build_param_str(intent),
+            param_str=param_str,
             description=intent.description or intent.name,
             current_body=current_body,
             target_input=target_input,
@@ -539,10 +542,10 @@ class CodeTreeSynthesizer:
                 {"role": "system", "content": EXPAND_SYSTEM},
                 {"role": "user", "content": user},
             ])
-            body = _extract_function_body(raw or "", intent.name)
+            body = clean_llm_function_body(raw or "", intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[CodeTree] {intent.name}: 扩展节点函数体提取失败，"
+                    f"[CodeTree] {intent.name}: 扩展节点函数体提取失败（含语法错误或无效输出），"
                     f"响应片段: {(raw or '')[:200]!r}"
                 )
             return body

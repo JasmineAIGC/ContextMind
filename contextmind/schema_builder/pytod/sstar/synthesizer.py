@@ -50,6 +50,7 @@ from contextmind.schema_builder.pytod.sstar.prompts import (
     REPAIR_USER_TEMPLATE,
     THINKING_MODES,
 )
+from contextmind.schema_builder.pytod.generator import clean_llm_function_body
 
 logger = get_logger(__name__)
 
@@ -455,13 +456,14 @@ class SStarSynthesizer:
             thinking_mode=mode["name"],
             thinking_mode_detail=mode["detail"],
         )
+        param_str = _build_param_str(intent)
         dialogue_hint_block = (
-            f"\n## 业务背景（真实对话样本）\n{dialogue_hint[:800]}\n"
+            f"\n## 业务背景（真实对话样本）\n{dialogue_hint}\n"
             if dialogue_hint else ""
         )
         user = DRAFT_USER_TEMPLATE.format(
             intent_name=intent.name,
-            param_str=_build_param_str(intent),
+            param_str=param_str,
             description=intent.description or intent.name,
             input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
             required_return_keys=_build_required_return_keys(intent),
@@ -473,10 +475,10 @@ class SStarSynthesizer:
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ])
-            body = _extract_function_body(raw or "", intent.name)
+            body = clean_llm_function_body(raw or "", intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[S*] {intent.name}: 草稿 {thinking_mode_idx + 1} 函数体提取失败，"
+                    f"[S*] {intent.name}: 草稿 {thinking_mode_idx + 1} 函数体提取失败（含语法错误或无效输出），"
                     f"响应片段: {(raw or '')[:200]!r}"
                 )
             return body
@@ -518,13 +520,14 @@ class SStarSynthesizer:
 
             # 提取函数体部分（去掉 def 行和 docstring，包括多行 docstring）
             current_body = _extract_function_body(best_code, intent.name) or best_code
+            param_str = _build_param_str(intent)
 
             execution_traces = _format_execution_traces(
                 best_validation.failures, best_validation.total
             )
             user = REPAIR_USER_TEMPLATE.format(
                 intent_name=intent.name,
-                param_str=_build_param_str(intent),
+                param_str=param_str,
                 description=intent.description or intent.name,
                 current_body=current_body,
                 fail_count=len(best_validation.failures),
@@ -544,10 +547,10 @@ class SStarSynthesizer:
                 )
                 break
 
-            body = _extract_function_body(raw or "", intent.name)
+            body = clean_llm_function_body(raw or "", intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[S*] {intent.name}: Phase D 第 {round_i} 轮函数体提取失败"
+                    f"[S*] {intent.name}: Phase D 第 {round_i} 轮函数体提取失败（含语法错误或无效输出）"
                 )
                 break
 

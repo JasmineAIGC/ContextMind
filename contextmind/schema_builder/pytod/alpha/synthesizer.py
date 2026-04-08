@@ -41,6 +41,7 @@ from contextmind.schema_builder.pytod.alpha.prompts import (
     REPAIR_SYSTEM,
     REPAIR_USER_TEMPLATE,
 )
+from contextmind.schema_builder.pytod.generator import clean_llm_function_body
 
 logger = get_logger(__name__)
 
@@ -268,6 +269,8 @@ class AlphaSynthesizer:
             f"[ACIA]   Phase G 后: {intent.name} — "
             f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})"
         )
+        if validation.error:
+            logger.warning(f"[ACIA]   Phase G 后: {intent.name} — 编译错误: {validation.error}")
 
         best_code = func_code
         best_validation = validation
@@ -443,7 +446,7 @@ class AlphaSynthesizer:
             reflection_display = "（跳过）"
 
         dialogue_hint_block = (
-            f"\n## 业务背景（真实对话样本）\n{dialogue_hint[:800]}\n"
+            f"\n## 业务背景（真实对话样本）\n{dialogue_hint}\n"
             if dialogue_hint else ""
         )
 
@@ -464,10 +467,10 @@ class AlphaSynthesizer:
 
         try:
             raw = self._chat_sync(messages)
-            body = _extract_function_body(raw, intent.name)
+            body = clean_llm_function_body(raw, intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[ACIA] {intent.name}: 生成的函数体无法解析\n"
+                    f"[ACIA] {intent.name}: 生成的函数体无法解析（含语法错误或无效输出）\n"
                     f"  原始响应片段: {raw[:300]!r}"
                 )
             return body
@@ -486,6 +489,14 @@ class AlphaSynthesizer:
         validation: FuncValidation,
     ) -> str:
         """分析失败的测试用例，返回结构化 JSON 分析（失败时返回原始文本）。"""
+        # 编译错误（SyntaxError 等）优先处理：failures 列表为空但 error 有内容
+        if validation.error:
+            return json.dumps({
+                "main_issue": "COMPILE_ERROR",
+                "details": validation.error,
+                "fix_hint": "函数体存在 Python 语法错误，需完整重写并确保语法正确",
+            }, ensure_ascii=False)
+
         if not validation.failures:
             return "（无失败用例）"
 
@@ -558,10 +569,10 @@ class AlphaSynthesizer:
 
         try:
             raw = self._chat_sync(messages)
-            body = _extract_function_body(raw, intent.name)
+            body = clean_llm_function_body(raw, intent.name, param_str)
             if body is None:
                 logger.warning(
-                    f"[ACIA] {intent.name}: 修复后函数体无法解析\n"
+                    f"[ACIA] {intent.name}: 修复后函数体无法解析（含语法错误或无效输出）\n"
                     f"  响应片段: {raw[:200]!r}"
                 )
             return body
