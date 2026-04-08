@@ -13,7 +13,7 @@ import inspect
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 _logger = logging.getLogger(__name__)
 
@@ -349,14 +349,16 @@ class ExecutionEngine:
         except (ValueError, TypeError):
             return f"{name}(...)"
 
-    def to_prompt_text(self, compact: bool = False) -> str:
+    def to_prompt_text(self, compact: bool = False, filter_names: Optional[Iterable[str]] = None) -> str:
         """
-        将所有已注册函数的签名列表生成为适合注入 prompt 的文本块。
+        将已注册函数的签名列表生成为适合注入 prompt 的文本块。
 
         参数:
             compact: 为 True 时只输出函数名（不含参数列表），大幅缩短 prompt 长度。
                      适合在函数数量多（如 20+ 个，每个有 30+ 参数）时使用。
                      AP 使用槽位赋值语法（``x1.slot = 'value'``）时不依赖参数列表。
+            filter_names: 若提供，则只输出名称在其中的函数（用于 per-turn top-K 过滤）。
+                          为 None 时输出所有已注册函数。
 
         返回:
             格式化的可用 API 函数说明，例如：
@@ -373,8 +375,12 @@ class ExecutionEngine:
         """
         if not self.registry:
             return "### 可用 API 函数\n  (无已注册函数)"
+        names = sorted(self.registry)
+        if filter_names is not None:
+            filter_set: Set[str] = set(filter_names)
+            names = [n for n in names if n in filter_set]
         lines = ["### 可用 API 函数"]
-        for name in sorted(self.registry):
+        for name in names:
             if compact:
                 lines.append(f"  - {name}")
             else:

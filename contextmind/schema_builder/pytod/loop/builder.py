@@ -24,10 +24,10 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 from contextmind.schema_builder.utils import companion_path
 
-from .generator import PyTODApiCodeGenerator
-from .helpers import SHARED_HELPERS
-from .models import FuncValidation, TestCaseItem
-from .validator import validate_function, write_validation_report
+from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
+from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.validator import validate_function, write_validation_report
 
 logger = get_logger(__name__)
 
@@ -86,6 +86,7 @@ def build_pytod_apis(
     max_test_cases_per_intent: int = 5,
     generate_report: bool = False,
     kb_dir: Optional[Union[str, Path]] = None,
+    output_dir: Optional[Union[str, Path]] = None,
     verbose: bool = False,
 ) -> Optional[Path]:
     """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
@@ -122,6 +123,7 @@ def build_pytod_apis(
                                   ``discovery_raw.json``、``conversion_summary.json``，
                                   为 LLM 生成函数提供更丰富的业务背景。
                                   ``dialogue_data_path`` 优先级高于 ``kb_dir``。
+        output_dir:               可选的输出目录。指定时输出到该目录，否则输出到 schema 文件同目录。
         verbose:                  是否输出详细进度信息（测试用例内容、每轮迭代后函数代码、
                                   通过率等）。默认 False。
 
@@ -129,7 +131,10 @@ def build_pytod_apis(
         写入成功时返回生成的文件路径，否则返回 None。
     """
     schema_path = Path(schema_path)
-    out_path = companion_path(schema_path, "pytod_apis", suffix=".py")
+    _output_dir = Path(output_dir) if output_dir is not None else None
+    if _output_dir is not None:
+        _output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = companion_path(schema_path, "pytod_apis", suffix=".py", output_dir=_output_dir)
 
     # 目标文件已存在且不覆盖时跳过
     if out_path.exists() and not overwrite:
@@ -203,6 +208,12 @@ def build_pytod_apis(
             discovery_data_path=_discovery_path,
             summary_data_path=_summary_path,
         )
+        if dialogue_hint:
+            logger.info(
+                f"[PyTOD] 对话提示已构建（{len(dialogue_hint)} 字符），将注入每个意图的测试用例生成 Prompt"
+            )
+        else:
+            logger.info("[PyTOD] 对话提示为空（未提供对话数据或加载失败），函数生成将仅依赖 schema 定义")
 
     if not schema.intents:
         # 无意图定义时生成通用函数
@@ -247,6 +258,8 @@ def build_pytod_apis(
                     print(f"      input_slots  : {tc.input_slots}", flush=True)
                     if tc.expected_keys:
                         print(f"      expected_keys: {tc.expected_keys}", flush=True)
+                    if tc.expected_values:
+                        print(f"      expected_vals: {tc.expected_values}", flush=True)
                 print(flush=True)
 
             # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例 + KB 业务背景）
@@ -450,6 +463,6 @@ def build_pytod_apis(
 
     # 可选：写入验证报告
     if generate_report and test_cases_by_intent:
-        write_validation_report(schema_path, validations, test_cases_by_intent)
+        write_validation_report(schema_path, validations, test_cases_by_intent, output_dir=_output_dir)
 
     return out_path

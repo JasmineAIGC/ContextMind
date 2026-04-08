@@ -50,15 +50,24 @@ class SchemaDataBuilder:
 
     Args:
         overwrite:                 目标文件已存在时是否覆盖（默认 True）。
-        llm_client:                可选的 AdkLLMClient 实例；提供时启用 LLM 5 阶段生成流程。
+        llm_client:                可选的 AdkLLMClient 实例；提供时启用 LLM 生成流程。
         dialogue_data_path:        可选的真实对话数据文件路径（LLM 模式业务背景）。
         kb_dir:                    可选，KB 输出目录路径。
-        max_iterations:            Phase 4 最大修复轮次（默认 3）。
-        pass_rate_threshold:       Phase 4 通过率阈值（默认 0.9）。
-        max_test_cases_per_intent: Phase 2 每意图最多测试用例数（默认 5）。
+        output_dir:                可选，输出目录。指定时所有 companion 文件写入该目录，
+                                   否则与 schema 文件同目录。
+        max_iterations:            最大修复轮次（默认 3）。
+        pass_rate_threshold:       通过率阈值（默认 0.9）。
+        max_test_cases_per_intent: 每意图最多测试用例数（默认 5）。
         generate_report:           是否写入验证报告（默认 False）。
-        verbose:                   是否输出详细进度信息（测试用例内容、每轮迭代后函数代码、
-                                   通过率等），默认 False。
+        verbose:                   是否输出详细进度信息，默认 False。
+        generator:                 PyTOD 生成算法选择：
+                                   ``"loop"``（默认）— 迭代修复流水线；
+                                   ``"alpha"`` — AlphaCodium 风格 ACIA 合成器
+                                   （反思 + 骨架约束生成 + 失败分析 + 收敛重启）；
+                                   ``"sstar"`` — S*（Test Time Scaling，arXiv:2502.14382，2025）
+                                   （并行草稿 + 执行追踪修复 + 区分性测试选择 + 精炼）；
+                                   ``"ctree"`` — CodeTree（树形搜索，arXiv:2411.04329，2024/2025）
+                                   （UCB 引导树搜索：根节点生成 + 逐失败用例扩展 + 最优路径选择）。
     """
 
     def __init__(
@@ -67,21 +76,27 @@ class SchemaDataBuilder:
         llm_client: Optional[Any] = None,
         dialogue_data_path: Optional[Union[str, Path]] = None,
         kb_dir: Optional[Union[str, Path]] = None,
+        output_dir: Optional[Union[str, Path]] = None,
         max_iterations: int = 3,
         pass_rate_threshold: float = 0.9,
         max_test_cases_per_intent: int = 5,
         generate_report: bool = False,
         verbose: bool = False,
+        generator: str = "loop",
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
         self.dialogue_data_path = dialogue_data_path
         self.kb_dir = kb_dir
+        self.output_dir = Path(output_dir) if output_dir is not None else None
+        if self.output_dir is not None:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
         self.max_iterations = max_iterations
         self.pass_rate_threshold = pass_rate_threshold
         self.max_test_cases_per_intent = max_test_cases_per_intent
         self.generate_report = generate_report
         self.verbose = verbose
+        self.generator = generator
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -153,7 +168,7 @@ class SchemaDataBuilder:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
         当实例携带 ``llm_client`` 时，委托给
-        :func:`contextmind.schema_builder.pytod.builder.build_pytod_apis`
+        :func:`contextmind.schema_builder.pytod.loop.builder.build_pytod_apis`
         执行完整的 5 阶段 LLM 生成流程（plan.md）；
         否则使用内置规则引擎生成 mock stub 函数。
 
@@ -168,16 +183,28 @@ class SchemaDataBuilder:
             写入成功时返回文件路径，否则返回 None。
         """
         # 如果初始化时提供了 llm_client（或其他 LLM 相关参数），
-        # 委托给具备完整 5 阶段逻辑的 pytod 子包构建器。
+        # 根据 generator 参数委托给对应的构建器。
         if self.llm_client is not None:
-            from contextmind.schema_builder.pytod.builder import build_pytod_apis as _pytod_build
-            return _pytod_build(
+            if self.generator == "alpha":
+                from contextmind.schema_builder.pytod.alpha.builder import build_pytod_apis_alpha as _build
+                logger.info("[SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）")
+            elif self.generator == "sstar":
+                from contextmind.schema_builder.pytod.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
+                logger.info("[SchemaDataBuilder] 使用 S* 生成器（--generator sstar，arXiv:2502.14382）")
+            elif self.generator == "ctree":
+                from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
+                logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
+            else:  # "loop" 或未知值均回退到迭代修复流水线
+                from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
+                logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
+            return _build(
                 schema_path,
                 schema=schema,
                 overwrite=self.overwrite,
                 llm_client=self.llm_client,
                 dialogue_data_path=self.dialogue_data_path,
                 kb_dir=self.kb_dir,
+                output_dir=self.output_dir,
                 max_iterations=self.max_iterations,
                 pass_rate_threshold=self.pass_rate_threshold,
                 max_test_cases_per_intent=self.max_test_cases_per_intent,
@@ -187,7 +214,7 @@ class SchemaDataBuilder:
 
         # ------- 规则模式（无 LLM）-------
         schema_path = Path(schema_path)
-        out_path = _companion_path(schema_path, "pytod_apis", suffix=".py")
+        out_path = _companion_path(schema_path, "pytod_apis", suffix=".py", output_dir=self.output_dir)
 
         if out_path.exists() and not self.overwrite:
             logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
@@ -282,7 +309,7 @@ class SchemaDataBuilder:
             写入成功时返回文件路径，否则返回 None。
         """
         schema_path = Path(schema_path)
-        out_path = _companion_path(schema_path, "fnctod_domain", suffix=".json")
+        out_path = _companion_path(schema_path, "fnctod_domain", suffix=".json", output_dir=self.output_dir)
 
         if out_path.exists() and not self.overwrite:
             logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
@@ -342,7 +369,7 @@ class SchemaDataBuilder:
 # 内部工具函数
 # ---------------------------------------------------------------------------
 
-def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path:
+def _companion_path(schema_path: Path, kind: str, suffix: str = ".json", *, output_dir: Optional[Path] = None) -> Path:
     """返回 companion 文件路径。
 
     ``data/foo_schema.json`` → ``data/foo_{kind}{suffix}``
@@ -350,7 +377,8 @@ def _companion_path(schema_path: Path, kind: str, suffix: str = ".json") -> Path
     """
     stem = schema_path.stem
     base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
-    return schema_path.parent / f"{base}_{kind}{suffix}"
+    parent = output_dir if output_dir is not None else schema_path.parent
+    return parent / f"{base}_{kind}{suffix}"
 
 
 def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str:

@@ -39,9 +39,12 @@ def _configure_litellm_for_local_model(model_name: str) -> None:
     禁用回调、注册零价格条目、阻止 LiteLLM logger 向根 logger 传播。
     仅在 litellm 可导入时生效；导入失败时静默跳过。
     """
-    # 阻止 LiteLLM logger 向根 logger 传播（解决双重日志问题）
+    # 阻止 LiteLLM logger 向根 logger 传播，并将其级别提升至 WARNING，
+    # 屏蔽 LiteLLM 在每次调用时输出的 "LiteLLM completion() model=..." INFO 日志。
     import logging as _logging
-    _logging.getLogger("LiteLLM").propagate = False
+    _litellm_logger = _logging.getLogger("LiteLLM")
+    _litellm_logger.propagate = False
+    _litellm_logger.setLevel(_logging.WARNING)
 
     try:
         import litellm  # type: ignore[import]

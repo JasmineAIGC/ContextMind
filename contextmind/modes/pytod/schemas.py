@@ -289,12 +289,13 @@ def load_schema_from_dict(data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> 
     """
     从字典加载 ServiceSchema（便捷函数）。
 
-    When passed a list (the standard PyTOD per-dialogue schema format, which
-    can contain multiple service entries), only the first service is used.
-    Multi-service dialogues should call ServiceSchema.from_dict per service.
+    当传入列表时（标准 SGD schema.json 格式，或 LLM 将 schema 拆分为多个服务对象的情况），
+    将所有服务条目合并为一个 ServiceSchema：
+    - service_name / description 取第一个条目
+    - slots / intents 跨所有条目合并，同名条目以后出现的定义为准
 
     Args:
-        data: service 定义字典，或包含多个 service 字典的列表
+        data: service 定义字典，或包含一个或多个 service 字典的列表
 
     Raises:
         ValueError: 传入列表为空时抛出
@@ -302,5 +303,8 @@ def load_schema_from_dict(data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> 
     if isinstance(data, list):
         if not data:
             raise ValueError("Schema 列表为空，至少需要一个 service 定义")
-        data = data[0]
+        schema = ServiceSchema.from_dict(data[0])
+        for item in data[1:]:
+            schema = schema.merge(ServiceSchema.from_dict(item))
+        return schema
     return ServiceSchema.from_dict(data)

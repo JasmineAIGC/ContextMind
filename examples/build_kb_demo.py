@@ -68,14 +68,30 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
     # 直接传入内嵌演示对话（无需外部文件）
     python examples/build_kb_demo.py --demo
 
+    # 开启详细输出（打印每个阶段的底层日志，便于调试）
+    python examples/build_kb_demo.py \\
+        --data resources/data/chat_test_100.json \\
+        --num 5 \\
+        --scene "安逸花外呼" \\
+        --verbose
+
+    # 调整历史上下文窗口大小（默认 3 轮，0 = 不传历史）
+    python examples/build_kb_demo.py \\
+        --data resources/data/chat_test_100.json \\
+        --num 10 \\
+        --scene "安逸花外呼" \\
+        --context-window 5
+
 参数说明
 --------
-    --data          输入对话 JSON 文件路径，可指定多个（空格分隔）；格式自动识别
-    --num           使用对话条数（0 = 全部，默认 10）
-    --scene         业务场景名称（默认 "对话场景"）
-    --scene-desc    场景描述（可选）
-    --output        SGD 数据集输出目录（默认 data/kb_output）
-    --demo          使用内嵌演示对话（无需 --data）
+    --data              输入对话 JSON 文件路径，可指定多个（空格分隔）；格式自动识别
+    --num               使用对话条数（0 = 全部，默认 10）
+    --scene             业务场景名称（默认 "对话场景"）
+    --scene-desc        场景描述（可选）
+    --output            SGD 数据集输出目录（默认 output/kb_output）
+    --context-window    langextract 逐轮提取时的历史轮次窗口大小（默认 3，0 = 不传历史上下文）
+    --demo              使用内嵌演示对话（无需 --data）
+    --verbose / -v      开启详细输出，将底层阶段日志实时打印到终端
 """
 
 from __future__ import annotations
@@ -189,12 +205,42 @@ def main() -> None:
         action="store_true",
         help="使用内嵌演示对话（无需 --data）",
     )
+    parser.add_argument(
+        "--context-window",
+        type=int,
+        default=3,
+        metavar="N",
+        help=(
+            "langextract 逐轮提取时的历史轮次窗口大小（默认 3，0 = 不传历史上下文）。"
+            "窗口越大，提取越精准，但 LLM 输入 token 也相应增加。"
+        ),
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help=(
+            "开启详细进度输出。启用后将把底层阶段日志（每条对话的发现进度、"
+            "LLM 调用结果、schema 合并过程等）实时打印到终端，方便调试和监控。"
+            "不指定时仅显示摘要信息。"
+        ),
+    )
     args = parser.parse_args()
 
     print("=" * 70)
     print("  ContextMind 知识库构建演示")
     print("  第一步：建立知识库 → 完整 SGD 数据集")
     print("=" * 70)
+
+    # ── 日志设置 ──
+    # 无论是否指定 --verbose，都初始化日志系统以显示 INFO 级别的进度信息。
+    # --verbose 在此基础上开启 DEBUG 级别，额外输出 LLM 原始响应等底层细节。
+    from contextmind.infra.logger import setup_logging, LogLevel
+    if args.verbose:
+        setup_logging(level=LogLevel.DEBUG, save_to_file=False)
+        print("🔍 详细输出模式已开启 — 底层阶段日志（含 LLM 响应等 DEBUG 信息）将实时打印到终端")
+        print()
+    else:
+        setup_logging(level=LogLevel.INFO, save_to_file=False)
 
     # ── 加载对话 ──
     if args.demo or args.data is None:
@@ -239,6 +285,7 @@ def main() -> None:
     print(f"场景名称: {scene}")
     print(f"场景描述: {scene_desc or '（未提供）'}")
     print(f"输出目录: {args.output}")
+    print(f"历史窗口: {args.context_window} 轮")
 
     # ── 构建知识库 ──
     print("\n" + "─" * 70)
@@ -246,6 +293,7 @@ def main() -> None:
     builder = KnowledgeBaseBuilder(
         scene_name=scene,
         scene_description=scene_desc,
+        context_window=args.context_window,
     )
 
     print("▶ 执行知识库构建（生成完整 SGD 数据集）…")

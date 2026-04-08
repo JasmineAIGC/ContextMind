@@ -6,6 +6,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [架构图](architecture.md) | 框架整体架构（Mermaid 图）、模块依赖、数据流、算法流程 |
 | [快速开始](quick-start.md) | 安装、配置与第一个程序 |
 | [配置指南](configuration.md) | 高级配置与扩展新场景 |
 | [API 参考](api-reference.md) | 完整 API 文档 |

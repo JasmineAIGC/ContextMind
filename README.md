@@ -308,7 +308,7 @@ ContextMind/
 │   └── pytod_trace_demo.py      #   第三步演示：schema.json + API → 对话
 ├── benchmark/                # 评测框架
 ├── resources/                # 静态资源与测试数据
-└── docs/                     # 文档
+└── docs/                     # 文档（[架构图](docs/architecture.md) | [算法说明](docs/algorithms/) | [API 参考](docs/api-reference.md)）
 ```
 
 ---

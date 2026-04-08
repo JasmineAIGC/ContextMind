@@ -17,13 +17,17 @@ class TestCaseItem:
     """单条意图函数测试用例。
 
     Attributes:
-        input_slots:   调用函数时传入的槽位值字典（slot_name → value）。
-        expected_keys: 返回字典中必须包含的键名列表（默认包含 result_slots + "status"）。
-        description:   测试场景的简短中文描述。
+        input_slots:     调用函数时传入的槽位值字典（slot_name → value）。
+        expected_keys:   返回字典中必须包含的键名列表（默认包含 result_slots + "status"）。
+        expected_values: 可选，返回字典中指定字段的预期计算值（field → value）。
+                         用于验证函数不只是透传输入，而是产生有意义的业务计算结果。
+                         仅对完整/边界用例（场景 3/5）填写，其余场景为空。
+        description:     测试场景的简短中文描述。
     """
 
     input_slots: Dict[str, Any]
     expected_keys: List[str] = field(default_factory=list)
+    expected_values: Dict[str, Any] = field(default_factory=dict)
     description: str = ""
 
 

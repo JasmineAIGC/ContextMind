@@ -27,6 +27,30 @@ from contextmind.schema_builder.utils import companion_path
 logger = get_logger(__name__)
 
 
+def _values_match(actual: Any, expected: Any) -> bool:
+    """判断实际值是否与预期值匹配。
+
+    支持以下比较策略：
+    - ``bool``：精确匹配
+    - ``int`` / ``float``：精确匹配（int 允许与 float 比较，如 5 == 5.0）
+    - ``str``：精确匹配（忽略首尾空白）
+    - 预期为 None：actual 为 None 或空字符串均算匹配
+    - 其他类型：转为字符串后比较
+    """
+    if expected is None:
+        return actual is None or actual == ""
+    if isinstance(expected, bool):
+        return actual == expected
+    if isinstance(expected, (int, float)):
+        try:
+            return float(actual) == float(expected)
+        except (TypeError, ValueError):
+            return str(actual) == str(expected)
+    if isinstance(expected, str):
+        return str(actual).strip() == expected.strip()
+    return actual == expected
+
+
 def validate_function(
     intent: IntentDefinition,
     func_code: str,
@@ -113,6 +137,24 @@ def validate_function(
                         f"返回值缺少字段: {missing}  "
                         f"（实际字段: {list(result.keys())}）"
                     )
+                elif tc.expected_values:
+                    # 验证预期计算值（仅当 expected_values 非空时，校验完整/边界场景的输出）
+                    value_errors: List[str] = []
+                    for field_name, expected in tc.expected_values.items():
+                        actual = result.get(field_name)
+                        if actual is None and field_name not in result:
+                            value_errors.append(
+                                f"字段 {field_name!r} 不存在于返回值中"
+                            )
+                        elif not _values_match(actual, expected):
+                            value_errors.append(
+                                f"字段 {field_name!r}: 期望 {expected!r}，实际 {actual!r}"
+                            )
+                    if value_errors:
+                        error_msg = (
+                            f"返回值业务计算结果不符: {'; '.join(value_errors)}  "
+                            f"（完整返回: {json.dumps(result, ensure_ascii=False, default=str)[:300]}）"
+                        )
 
         if error_msg is None:
             passed += 1
@@ -135,6 +177,8 @@ def write_validation_report(
     schema_path: Path,
     validations: Dict[str, FuncValidation],
     test_cases_by_intent: Dict[str, List[TestCaseItem]],
+    *,
+    output_dir: Optional[Path] = None,
 ) -> Optional[Path]:
     """Phase 5：将验证结果写入 ``xxx_validation_report.json`` 文件。
 
@@ -158,11 +202,12 @@ def write_validation_report(
         validations: intent_name → :class:`~contextmind.schema_builder.models.FuncValidation` 映射。
         test_cases_by_intent: intent_name → :class:`~contextmind.schema_builder.models.TestCaseItem`
             列表映射。
+        output_dir:  可选的输出目录。指定时报告文件写入该目录，否则与 schema 文件同目录。
 
     Returns:
         报告文件路径，写入失败时返回 None。
     """
-    report_path = companion_path(schema_path, "validation_report", suffix=".json")
+    report_path = companion_path(schema_path, "validation_report", suffix=".json", output_dir=output_dir)
 
     intent_report: Dict[str, Any] = {}
     for name, v in validations.items():
