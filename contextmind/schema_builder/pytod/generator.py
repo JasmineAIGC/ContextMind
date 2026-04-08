@@ -992,7 +992,20 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
 
         if func_def:
             lines = raw.splitlines()
-            body_start = func_def.body[0].lineno - 1
+            # 当 LLM 输出包含 def 行 + docstring 的完整函数时，
+            # body[0] 为 docstring Expr 节点。由于 _build_header 已负责添加 docstring，
+            # 提取时跳过 docstring 以避免最终函数代码出现重复 docstring。
+            # 若函数体只有 docstring 而无其他语句，则保留（避免生成空函数体）。
+            first_body_node = func_def.body[0]
+            is_docstring = (
+                isinstance(first_body_node, ast.Expr)
+                and isinstance(getattr(first_body_node, "value", None), ast.Constant)
+                and isinstance(first_body_node.value.value, str)
+            )
+            if is_docstring and len(func_def.body) > 1:
+                body_start = func_def.body[1].lineno - 1
+            else:
+                body_start = first_body_node.lineno - 1
             # 用 end_lineno（Python 3.8+）精确截止，避免把后续函数定义包进来
             body_end = (
                 func_def.end_lineno

@@ -31,7 +31,8 @@ def _values_match(actual: Any, expected: Any) -> bool:
     """判断实际值是否与预期值匹配。
 
     支持以下比较策略：
-    - ``bool``：精确匹配
+    - ``bool``：精确匹配，同时容忍字符串形式（``"true"/"True"/"1"`` 匹配 ``True``，
+      ``"false"/"False"/"0"`` 匹配 ``False``），因为 LLM 生成的函数有时返回字符串布尔值。
     - ``int`` / ``float``：精确匹配（int 允许与 float 比较，如 5 == 5.0）
     - ``str``：精确匹配（忽略首尾空白）
     - 预期为 None：actual 为 None 或空字符串均算匹配
@@ -40,7 +41,14 @@ def _values_match(actual: Any, expected: Any) -> bool:
     if expected is None:
         return actual is None or actual == ""
     if isinstance(expected, bool):
-        return actual == expected
+        # 精确匹配
+        if actual == expected:
+            return True
+        # 容忍字符串形式的布尔值（LLM 生成的函数可能返回 "True" 或 "False"）
+        actual_lower = str(actual).strip().lower()
+        if expected is True:
+            return actual_lower in ("true", "1", "yes")
+        return actual_lower in ("false", "0", "no")
     if isinstance(expected, (int, float)):
         try:
             return float(actual) == float(expected)
@@ -187,7 +195,14 @@ def write_validation_report(
         {
           "schema": "anyihua_schema.json",
           "generated_at": "...",
-          "summary": {"total_intents": 10, "validated": 8, "avg_pass_rate": 0.95},
+          "summary": {
+            "total_intents": 10,
+            "validated": 8,
+            "skipped": 2,
+            "avg_pass_rate": 0.95,
+            "total_test_cases_generated": 42,
+            "intents_with_test_cases": 8
+          },
           "intents": {
             "verify_identity": {
               "total_cases": 5, "passed": 5, "pass_rate": 1.0,
@@ -211,7 +226,9 @@ def write_validation_report(
 
     intent_report: Dict[str, Any] = {}
     for name, v in validations.items():
+        tc_count = len(test_cases_by_intent.get(name, []))
         intent_report[name] = {
+            "test_cases_generated": tc_count,
             "total_cases": v.total,
             "passed": v.passed,
             "pass_rate": round(v.pass_rate, 4),
@@ -226,6 +243,8 @@ def write_validation_report(
         sum(v.pass_rate for v in validations.values() if v.total > 0) / validated
         if validated > 0 else 0.0
     )
+    total_tc_generated = sum(len(tcs) for tcs in test_cases_by_intent.values())
+    intents_with_tc = sum(1 for tcs in test_cases_by_intent.values() if tcs)
 
     report: Dict[str, Any] = {
         "schema": schema_path.name,
@@ -235,6 +254,8 @@ def write_validation_report(
             "validated": validated,
             "skipped": total - validated,
             "avg_pass_rate": round(avg_rate, 4),
+            "total_test_cases_generated": total_tc_generated,
+            "intents_with_test_cases": intents_with_tc,
         },
         "intents": intent_report,
     }

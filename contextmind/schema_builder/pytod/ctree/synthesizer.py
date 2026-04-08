@@ -323,11 +323,11 @@ class CodeTreeSynthesizer:
         Returns:
             (func_code, validation) 元组。
         """
-        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
+        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS, build_skeleton_stub
         from contextmind.schema_builder.pytod.validator import validate_function
 
         header = _build_header(intent)
-        stub_code = header + '\n    return {"status": "success"}'
+        stub_code = header + "\n" + build_skeleton_stub(intent)
 
         # 无测试用例时：生成一个根节点即返回
         if not test_cases:
