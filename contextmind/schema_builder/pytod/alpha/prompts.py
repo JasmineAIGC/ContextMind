@@ -79,6 +79,108 @@ REFLECT_USER_TEMPLATE = """\
 GENERATE_SYSTEM = """\
 你是一名 Python 高级开发专家，专为任务型对话系统（ToD）中的业务意图编写 API 函数体。
 
+## 核心要求：透彻理解业务意图，写出本质逻辑
+
+**在编写任何代码之前，先深入理解这个意图在当前业务场景中的本质含义：**
+
+- 这个意图在对话中代表了什么动作/事件？用户或客服做了什么？
+- 执行这个函数意味着什么业务操作？对客户账户/记录/关系有什么影响？
+- 返回值应该反映什么真实的业务结果？什么信息对后续对话管理（DM）最有价值？
+
+**函数体必须体现对意图的深度理解，每类意图的实现示例如下：**
+
+### 1. 投诉/纠纷类（complain_/dispute_）
+- 用 `_ticket_id()` 生成工单号（受理投诉的核心动作）
+- 基于槽位值（金额大小、逾期天数）推断投诉严重程度
+- 返回工单号、严重级别、预计处理时长等对后续跟进有价值的字段
+
+```python
+# 示例：complain_interest_rate(total_interest=None, daily_interest=None)
+    ticket = _ticket_id("INTEREST")
+    total = _parse_amount(total_interest)
+    severity = "高" if total > 5000 else ("中" if total > 1000 else "低")
+    return {
+        "complaint_interest_rate": ticket,
+        "ticket_id": ticket,
+        "severity": severity,
+        "handling_days": 3 if severity == "高" else 5,
+        "total_interest": total_interest or "未提供",
+        "status": "success",
+    }
+```
+
+### 2. 询问/查询类（inquire_/query_）
+- 基于槽位值推断用户真正关心的问题，给出有意义的查询结果
+- 用 `_parse_amount()` 处理金额，必要时用 `_calc_monthly_payment()` 计算还款
+- 返回推断/计算后的业务结论，而非简单重复输入
+
+```python
+# 示例：inquire_concerns_quota_interest(current_credit_limit=None, total_interest=None)
+    limit = _parse_amount(current_credit_limit)
+    interest = _parse_amount(total_interest)
+    concern_focus = "利息较高" if interest > 0 and interest / max(limit, 1) > 0.15 else "额度使用"
+    return {
+        "inquired_concerns": concern_focus,
+        "current_credit_limit": current_credit_limit or "未提供",
+        "total_interest": total_interest or "未提供",
+        "interest_to_limit_ratio": f"{interest/max(limit,1)*100:.1f}%" if limit > 0 else "N/A",
+        "status": "success",
+    }
+```
+
+### 3. 确认/核实类（confirm_/verify_）
+- 根据槽位值（账户状态、申请日期）判断确认的实际含义
+- 必要时对比数值（申请额度 vs 可用额度、当前状态 vs 正常状态）
+- 返回确认结果及支撑该结论的业务数据
+
+```python
+# 示例：verify_identity(account_usage_status=None)
+    status = str(account_usage_status or "").strip()
+    is_verified = bool(status) and status not in ("注销", "冻结", "黑名单")
+    return {
+        "verified_identity": is_verified,
+        "account_usage_status": status or "未知",
+        "verification_basis": "账户状态核查",
+        "status": "success",
+    }
+```
+
+### 4. 拒绝/表态类（decline_/express_/suggest_）
+- 记录用户的决定及相关背景信息（为什么拒绝、什么建议）
+- 基于槽位值提取关键业务信号（如拒绝借款时的额度信息）
+- 返回记录状态和对后续流程有指导意义的标记
+
+```python
+# 示例：decline_usage(current_credit_limit=None)
+    limit = _parse_amount(current_credit_limit)
+    follow_up_priority = "高" if limit > 10000 else "中"
+    return {
+        "declined_usage": True,
+        "current_credit_limit": current_credit_limit or "未告知",
+        "follow_up_priority": follow_up_priority,
+        "decline_reason_category": "风险顾虑",
+        "status": "success",
+    }
+```
+
+### 5. 通知/告知类（inform_/offer_）
+- 利用槽位值执行实际计算（如临时额度 + 有效期 → 完整提额方案）
+- 推导出对用户有价值的衍生信息（如每日可用额度、月利息等）
+- 返回推导结果，而不仅仅是透传输入
+
+```python
+# 示例：inform_credit_limit_increase(temporary_credit_limit=None)
+    new_limit = _parse_amount(temporary_credit_limit)
+    valid_days = 30
+    return {
+        "informed_credit_limit_increase": True,
+        "temporary_credit_limit": temporary_credit_limit or "未知",
+        "valid_days": valid_days,
+        "daily_available": f"{new_limit/valid_days:.0f}元/天" if new_limit > 0 else "待确认",
+        "status": "success",
+    }
+```
+
 ## 核心约束（必须严格遵守）
 
 1. **仅输出函数体**：不要输出 def 行和 docstring 行，框架已自动添加。
@@ -95,22 +197,13 @@ GENERATE_SYSTEM = """\
 
 5. **只使用 Python 标准库**，不要 import 第三方库。
 
-6. **函数体不超过 20 行**（含 return）。
+6. **函数体不超过 30 行**（含 return）。
 
-## 输出格式示例
-```
-    # 解析金额
-    amount = _parse_amount(loan_amount)
-    
-    # 计算结果
-    monthly = _calc_monthly_payment(amount, 0.06, 12)
-    
-    return {
-        "status": "success",
-        "monthly_payment": round(monthly, 2),
-        "total_interest": round(monthly * 12 - amount, 2),
-    }
-```
+## 严格禁止的模式
+- ❌ 不要写 `return {"status": "success", **{k:v for k,v in locals().items()}}` 这样的万能返回
+- ❌ 不要只是把输入参数原样塞进返回字典
+- ❌ 不要为了通过测试而硬编码特定输入值的 if 判断
+
 直接输出代码，不要包含 markdown 代码块标记，不要添加解释文字。
 """
 
@@ -128,7 +221,7 @@ def {intent_name}({param_str}):
 
 ## 测试用例（作为行为参考，包含期望输出）
 {test_cases_str}
-
+{dialogue_hint_block}
 ## 任务
 1. 先在脑中逐条"模拟执行"上面的测试用例，确认你的实现会产生符合期望的输出。
 2. 然后输出函数体（4空格缩进，不含 def 行和 docstring 行）。
@@ -194,7 +287,7 @@ REPAIR_SYSTEM = """\
 
 5. **只使用 Python 标准库**，不要 import 第三方库。
 
-6. **函数体不超过 20 行**（含 return）。
+6. **函数体不超过 30 行**（含 return）。
 
 重要：这是完整重写（不是给现有代码打补丁），
 请根据失败分析报告找到根本原因，写出一个更正确的版本。

@@ -251,7 +251,7 @@ class AlphaSynthesizer:
 
         # Phase G：骨架约束生成
         logger.info(f"[ACIA]   Phase G: {intent.name} — 骨架约束生成...")
-        body = self._generate_body(intent, schema, all_slot_descs, test_cases, reflection)
+        body = self._generate_body(intent, schema, all_slot_descs, test_cases, reflection, dialogue_hint)
         if body is None:
             logger.warning(f"[ACIA]   Phase G: {intent.name} — 生成失败，回退到 stub")
             func_code = header + "\n    return {\"status\": \"success\"}"
@@ -295,7 +295,7 @@ class AlphaSynthesizer:
                     hint="请换一种完全不同的实现思路，上次的思路导致测试失败"
                 )
                 body = self._generate_body(
-                    intent, schema, all_slot_descs, test_cases, reflection
+                    intent, schema, all_slot_descs, test_cases, reflection, dialogue_hint
                 )
                 total_iterations += 1
                 if body is not None:
@@ -414,6 +414,7 @@ class AlphaSynthesizer:
         all_slot_descs: Dict[str, str],
         test_cases: List[TestCaseItem],
         reflection: str = "",
+        dialogue_hint: str = "",
     ) -> Optional[str]:
         """骨架约束生成：LLM 仅输出函数体，框架添加 def 行和 docstring。"""
         params = list(dict.fromkeys(
@@ -441,6 +442,11 @@ class AlphaSynthesizer:
         else:
             reflection_display = "（跳过）"
 
+        dialogue_hint_block = (
+            f"\n## 业务背景（真实对话样本）\n{dialogue_hint[:800]}\n"
+            if dialogue_hint else ""
+        )
+
         user_content = GENERATE_USER_TEMPLATE.format(
             reflection=reflection_display,
             intent_name=intent.name,
@@ -448,6 +454,7 @@ class AlphaSynthesizer:
             description=intent.description or intent.name,
             required_return_keys=required_return_keys,
             test_cases_str=test_cases_str,
+            dialogue_hint_block=dialogue_hint_block,
         )
 
         messages = [
