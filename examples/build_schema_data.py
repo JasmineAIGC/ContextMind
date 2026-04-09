@@ -531,7 +531,7 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
     if not args.fnctod_only:
         # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
         if args.with_llm:
-            from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+            from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
             tc_path = test_cases_path_for_schema(schema_path)
             if not tc_path.exists():
                 print()
@@ -630,7 +630,7 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
         if not args.fnctod_only:
             # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
             if args.with_llm:
-                from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+                from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
                 tc_path = test_cases_path_for_schema(schema_path)
                 if not tc_path.exists():
                     print(

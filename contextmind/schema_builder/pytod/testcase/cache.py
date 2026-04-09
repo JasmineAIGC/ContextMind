@@ -73,10 +73,10 @@ def save_test_cases(
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(serialized, fh, ensure_ascii=False, indent=2)
         logger.info(
-            f"[test_cache] 已保存 {len(cases_by_intent)} 个意图的测试用例 → {path}"
+            f"[testcase] 已保存 {len(cases_by_intent)} 个意图的测试用例 → {path}"
         )
     except Exception as exc:
-        logger.warning(f"[test_cache] 保存测试用例失败: {exc}")
+        logger.warning(f"[testcase] 保存测试用例失败: {exc}")
 
 
 def load_test_cases(path: Path) -> Optional[Dict[str, List[TestCaseItem]]]:
@@ -104,9 +104,9 @@ def load_test_cases(path: Path) -> Optional[Dict[str, List[TestCaseItem]]]:
             ]
         total = sum(len(v) for v in result.values())
         logger.info(
-            f"[test_cache] 已加载 {len(result)} 个意图共 {total} 条测试用例 ← {path}"
+            f"[testcase] 已加载 {len(result)} 个意图共 {total} 条测试用例 ← {path}"
         )
         return result
     except Exception as exc:
-        logger.warning(f"[test_cache] 加载测试用例失败: {path} — {exc}")
+        logger.warning(f"[testcase] 加载测试用例失败: {path} — {exc}")
         return None

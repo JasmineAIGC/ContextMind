@@ -230,7 +230,7 @@ def _process_single(
     """处理单个 schema 文件的测试用例预生成。"""
     import json
     from contextmind.modes.pytod.schemas import load_schema_from_dict
-    from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+    from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
 
     try:
         with open(schema_path, encoding="utf-8") as fh:
@@ -268,7 +268,7 @@ def _process_dir(
     """处理目录下所有 schema 文件的测试用例预生成。"""
     import json
     from contextmind.modes.pytod.schemas import load_schema_from_dict
-    from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+    from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
 
     schema_files = sorted(data_dir.glob("*_schema.json"))
     if not schema_files:
