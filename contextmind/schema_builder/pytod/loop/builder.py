@@ -24,26 +24,13 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 from contextmind.schema_builder.utils import companion_path
 
-from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator, _function_def_header
 from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.pytod.test_cache import load_test_cases, save_test_cases
 from contextmind.schema_builder.pytod.validator import validate_function, write_validation_report
 
 logger = get_logger(__name__)
-
-
-def _function_def_header(intent: IntentDefinition) -> List[str]:
-    """返回函数 def 行 + docstring 行（不含函数体）。"""
-    params = list(dict.fromkeys(
-        list(intent.required_slots) + list(intent.optional_slots)
-    ))
-    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
-    desc = intent.description.replace('"', '\\"') if intent.description else intent.name
-    return [
-        f"def {intent.name}({param_str}):",
-        f'    """{desc}"""',
-    ]
 
 
 def _generate_stub_function_lines(intent: IntentDefinition) -> List[str]:

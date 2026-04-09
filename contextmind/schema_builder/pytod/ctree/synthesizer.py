@@ -48,7 +48,7 @@ from contextmind.schema_builder.pytod.ctree.prompts import (
     ROOT_SYSTEM,
     ROOT_USER_TEMPLATE,
 )
-from contextmind.schema_builder.pytod.generator import clean_llm_function_body
+from contextmind.schema_builder.pytod.cleaner import clean_llm_function_body
 
 logger = get_logger(__name__)
 

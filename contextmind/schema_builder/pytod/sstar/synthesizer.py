@@ -50,7 +50,7 @@ from contextmind.schema_builder.pytod.sstar.prompts import (
     REPAIR_USER_TEMPLATE,
     THINKING_MODES,
 )
-from contextmind.schema_builder.pytod.generator import clean_llm_function_body
+from contextmind.schema_builder.pytod.cleaner import clean_llm_function_body
 
 logger = get_logger(__name__)
 
