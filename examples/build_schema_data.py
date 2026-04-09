@@ -495,7 +495,7 @@ def main() -> None:
         max_iterations=args.max_iterations,
         pass_rate_threshold=args.pass_rate_threshold,
         max_test_cases_per_intent=args.max_test_cases,
-        generate_report=args.generate_report,
+        generate_report=args.generate_report or bool(args.with_llm),
         verbose=args.verbose,
         generator=args.generator,
         test_cases_path=Path(args.test_cases_path) if args.test_cases_path else None,
@@ -513,6 +513,72 @@ def main() -> None:
             print(f"❌ 目录不存在: {data_dir}", file=sys.stderr)
             sys.exit(1)
         _process_dir(builder, data_dir, args)
+
+
+def _print_validation_summary(
+    schema_path: Path,
+    output_dir: Optional[Path],
+    pass_rate_threshold: float,
+) -> None:
+    """读取 *_validation_report.json 并以表格形式打印验证统计。"""
+    import json as _json
+    from contextmind.schema_builder.utils import companion_path
+
+    report_path = companion_path(schema_path, "validation_report", suffix=".json", output_dir=output_dir)
+    if not report_path.exists():
+        return
+
+    try:
+        with open(report_path, encoding="utf-8") as fh:
+            report = _json.load(fh)
+    except Exception:
+        return
+
+    summary = report.get("summary", {})
+    intents = report.get("intents", {})
+    if not intents:
+        return
+
+    avg_rate = summary.get("avg_pass_rate", 0.0)
+    validated = summary.get("validated", 0)
+    total_intents = summary.get("total_intents", 0)
+
+    print()
+    print("┌─────────────────────────────────────────────────────────────────────┐")
+    print("│  📊 验证统计摘要                                                     │")
+    print("├──────────────────────────┬────────────┬────────────┬───────────────┤")
+    print("│ 意图 (Intent)            │ 通过率     │ 通过/总数  │ 迭代轮次      │")
+    print("├──────────────────────────┼────────────┼────────────┼───────────────┤")
+    for name, v in intents.items():
+        total_c = v.get("total_cases", 0)
+        passed = v.get("passed", 0)
+        rate = v.get("pass_rate", 0.0)
+        iters = v.get("iterations", 0)
+        err = v.get("error")
+        if total_c == 0:
+            status = "—"
+            rate_str = "N/A"
+            case_str = "—"
+            iter_str = "—"
+        else:
+            status = "✅" if rate >= pass_rate_threshold else "⚠️ "
+            rate_str = f"{rate:.1%}"
+            case_str = f"{passed}/{total_c}"
+            iter_str = str(iters)
+        name_display = name[:24] if len(name) <= 24 else name[:21] + "..."
+        if err:
+            rate_str = "ERR"
+        print(f"│ {status} {name_display:<22s} │ {rate_str:<10s} │ {case_str:<10s} │ {iter_str:<13s} │")
+    print("├──────────────────────────┴────────────┴────────────┴───────────────┤")
+    overall_status = "✅" if avg_rate >= pass_rate_threshold else "⚠️ "
+    print(
+        f"│  {overall_status} 平均通过率: {avg_rate:.1%}"
+        f"  （{validated}/{total_intents} 个意图已验证）"
+        f"{' ' * max(0, 34 - len(f'{avg_rate:.1%}') - len(str(validated)) - len(str(total_intents)))}│"
+    )
+    print(f"│  📁 完整报告: {str(report_path):<56s}│")
+    print("└─────────────────────────────────────────────────────────────────────┘")
+    print()
 
 
 def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argparse.Namespace) -> None:
@@ -572,6 +638,8 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
             print(f"✅ PyTOD APIs → {p}")
         else:
             print(f"⚠️  PyTOD APIs 未写入（已存在且 --no-overwrite）")
+        if args.with_llm:
+            _print_validation_summary(schema_path, builder.output_dir, args.pass_rate_threshold)
 
     if not args.pytod_only:
         p = builder.build_fnctod_domain(schema_path, schema=schema)
@@ -663,6 +731,8 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
                 written_total += 1
             else:
                 print(f"   ⚠️  PyTOD APIs  跳过（已存在）")
+            if args.with_llm:
+                _print_validation_summary(schema_path, builder.output_dir, args.pass_rate_threshold)
 
         if not args.pytod_only:
             p = builder.build_fnctod_domain(schema_path, schema=schema)
