@@ -10,8 +10,8 @@
 - **Phase 4** (:meth:`~PyTODApiCodeGenerator.repair_function`)：
   迭代修复：根据失败详情重新生成函数体。
 
-LLM 输出清洗辅助函数已迁移至 :mod:`~contextmind.schema_builder.pytod.cleaner`。
-KB 上下文数据加载已迁移至 :mod:`~contextmind.schema_builder.pytod.kb_loader`。
+LLM 输出清洗辅助函数已迁移至 :mod:`~contextmind.schema_builder.pytod.shared.cleaner`。
+KB 上下文数据加载已迁移至 :mod:`~contextmind.schema_builder.pytod.shared.kb_loader`。
 本模块为向后兼容保留对 :func:`clean_llm_function_body` 和 :func:`clean_llm_module` 的再导出。
 """
 
@@ -25,19 +25,19 @@ from typing import Any, Dict, List, Optional, Union
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
 
-from contextmind.schema_builder.pytod.cleaner import (  # noqa: F401  (re-export for backward compat)
+from contextmind.schema_builder.pytod.shared.cleaner import (  # noqa: F401  (re-export for backward compat)
     clean_llm_function_body,
     clean_llm_module,
 )
-from contextmind.schema_builder.pytod.kb_loader import (
+from contextmind.schema_builder.pytod.shared.kb_loader import (
     load_conversion_summary_context,
     load_dialogue_samples,
     load_discovery_samples,
     load_kb_context as _load_kb_context,
     load_sgd_dialogue_samples,
 )
-from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
-from contextmind.schema_builder.pytod.prompts import (
+from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.shared.prompts import (
     DIALOGUE_CONTEXT_SECTION,
     FUNCTION_GEN_SYSTEM,
     FUNCTION_GEN_USER_TEMPLATE,
@@ -598,7 +598,7 @@ class PyTODApiCodeGenerator:
         """从 KB 输出目录加载 4 个数据文件的上下文信息。
 
         .. deprecated::
-            直接调用 :func:`contextmind.schema_builder.pytod.kb_loader.load_kb_context`。
+            直接调用 :func:`contextmind.schema_builder.pytod.shared.kb_loader.load_kb_context`。
             此静态方法保留仅为向后兼容。
 
         Returns:

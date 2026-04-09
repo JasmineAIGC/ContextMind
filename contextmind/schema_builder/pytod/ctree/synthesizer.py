@@ -38,7 +38,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
-from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
 
 from contextmind.schema_builder.pytod.ctree.prompts import (
     EXPAND_SYSTEM,
@@ -48,7 +48,7 @@ from contextmind.schema_builder.pytod.ctree.prompts import (
     ROOT_SYSTEM,
     ROOT_USER_TEMPLATE,
 )
-from contextmind.schema_builder.pytod.cleaner import clean_llm_function_body
+from contextmind.schema_builder.pytod.shared.cleaner import clean_llm_function_body
 
 logger = get_logger(__name__)
 
@@ -326,8 +326,8 @@ class CodeTreeSynthesizer:
         Returns:
             (func_code, validation) 元组。
         """
-        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
-        from contextmind.schema_builder.pytod.validator import validate_function
+        from contextmind.schema_builder.pytod.shared.helpers import SHARED_HELPERS
+        from contextmind.schema_builder.pytod.shared.validator import validate_function
 
         header = _build_header(intent)
         stub_code = header + '\n    return {"status": "success"}'

@@ -37,7 +37,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
-from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
 
 from contextmind.schema_builder.pytod.sstar.prompts import (
     DISCRIMINATE_SYSTEM,
@@ -50,7 +50,7 @@ from contextmind.schema_builder.pytod.sstar.prompts import (
     REPAIR_USER_TEMPLATE,
     THINKING_MODES,
 )
-from contextmind.schema_builder.pytod.cleaner import clean_llm_function_body
+from contextmind.schema_builder.pytod.shared.cleaner import clean_llm_function_body
 
 logger = get_logger(__name__)
 
@@ -300,8 +300,8 @@ class SStarSynthesizer:
             - func_code:   完整函数代码（含 def 行）
             - validation:  最终验证结果（含通过率、失败详情、迭代次数）
         """
-        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
-        from contextmind.schema_builder.pytod.validator import validate_function
+        from contextmind.schema_builder.pytod.shared.helpers import SHARED_HELPERS
+        from contextmind.schema_builder.pytod.shared.validator import validate_function
 
         header = _build_header(intent)
         stub_code = header + '\n    return {"status": "success"}'
@@ -507,8 +507,8 @@ class SStarSynthesizer:
         Returns:
             (best_code, best_validation) — 修复后的最优结果。
         """
-        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
-        from contextmind.schema_builder.pytod.validator import validate_function
+        from contextmind.schema_builder.pytod.shared.helpers import SHARED_HELPERS
+        from contextmind.schema_builder.pytod.shared.validator import validate_function
 
         best_code = func_code
         best_validation = validation
@@ -617,8 +617,8 @@ class SStarSynthesizer:
         Returns:
             (winner_code, winner_validation)
         """
-        from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
-        from contextmind.schema_builder.pytod.validator import validate_function
+        from contextmind.schema_builder.pytod.shared.helpers import SHARED_HELPERS
+        from contextmind.schema_builder.pytod.shared.validator import validate_function
 
         a_code, a_val = candidate_a
         b_code, b_val = candidate_b

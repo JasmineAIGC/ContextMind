@@ -7,7 +7,7 @@ ACIA PyTOD API 构建器入口。
 流水线结构
 ----------
 - **Phase 1**：解析 schema（与 pytod 相同）
-- **Phase 2**：测试用例生成（复用 :class:`~contextmind.schema_builder.pytod.generator.PyTODApiCodeGenerator`）
+- **Phase 2**：测试用例生成（复用 :class:`~contextmind.schema_builder.pytod.shared.generator.PyTODApiCodeGenerator`）
 - **Phase RGF**：AlphaSynthesizer 四阶段合成（Reflection → Generation → Analysis → Repair+Reset）
 - **Phase 5**：组装 Python 文件（与 pytod 相同格式，可被 load_pytod_api_module 直接加载）
 """
@@ -23,10 +23,10 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 from contextmind.schema_builder.utils import companion_path
 
-from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
-from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
-from contextmind.schema_builder.pytod.test_cache import load_test_cases, save_test_cases
-from contextmind.schema_builder.pytod.validator import validate_function, write_validation_report
+from contextmind.schema_builder.pytod.shared.helpers import SHARED_HELPERS
+from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.shared.test_cache import load_test_cases, save_test_cases
+from contextmind.schema_builder.pytod.shared.validator import validate_function, write_validation_report
 
 from contextmind.schema_builder.pytod.alpha.synthesizer import AlphaSynthesizer
 
@@ -162,7 +162,7 @@ def build_pytod_apis_alpha(
     _summary_path: Optional[Path] = None
     if kb_dir is not None:
         # 复用 pytod 的 kb_context loader
-        from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+        from contextmind.schema_builder.pytod.shared.generator import PyTODApiCodeGenerator
         kb_context = PyTODApiCodeGenerator.load_kb_context(kb_dir)
         if _dlg_path is None and kb_context.get("dialogues_path"):
             _sgd_dlg_path = kb_context["dialogues_path"]
@@ -190,7 +190,7 @@ def build_pytod_apis_alpha(
 
     elif synthesizer is not None:
         # ACIA LLM 模式
-        from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+        from contextmind.schema_builder.pytod.shared.generator import PyTODApiCodeGenerator
         phase2_gen = PyTODApiCodeGenerator(llm_client=llm_client)
 
         # 预构建对话提示（所有意图共用）

@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
-from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+from contextmind.schema_builder.pytod.shared.test_cache import test_cases_path_for_schema
 
 logger = get_logger(__name__)
 
@@ -186,8 +186,8 @@ class SchemaDataBuilder:
         Returns:
             写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
         """
-        from contextmind.schema_builder.pytod.test_cache import save_test_cases
-        from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+        from contextmind.schema_builder.pytod.shared.test_cache import save_test_cases
+        from contextmind.schema_builder.pytod.shared.generator import PyTODApiCodeGenerator
 
         schema_path = Path(schema_path)
         tc_path = test_cases_path_for_schema(schema_path)

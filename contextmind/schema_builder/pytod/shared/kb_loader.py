@@ -2,7 +2,7 @@
 KB（知识库）上下文数据加载器。
 
 本模块从 KnowledgeBaseBuilder 生成的 4 个 JSON 文件中读取业务背景数据，
-供 :class:`~contextmind.schema_builder.pytod.generator.PyTODApiCodeGenerator`
+供 :class:`~contextmind.schema_builder.pytod.shared.generator.PyTODApiCodeGenerator`
 在生成和修复代码时注入 LLM prompt：
 
 - :func:`load_dialogue_samples`            — 从 chat_test 格式对话文件加载对话样本。

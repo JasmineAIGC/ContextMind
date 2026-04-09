@@ -7,7 +7,7 @@ PyTOD 生成函数的 Phase 4/5 验证模块。
     使函数可调用 ``_ticket_id()``、``_next_work_day()`` 等工具。
 
 :func:`write_validation_report`
-    将 :class:`~contextmind.schema_builder.pytod.models.FuncValidation`
+    将 :class:`~contextmind.schema_builder.pytod.shared.models.FuncValidation`
     对象序列化为 ``*_validation_report.json`` 文件（与 schema 文件同目录）。
 """
 
@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition
 
-from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.utils import companion_path
 
 logger = get_logger(__name__)
