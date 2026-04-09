@@ -461,15 +461,19 @@ class SStarSynthesizer:
             f"\n## 业务背景（真实对话样本）\n{dialogue_hint}\n"
             if dialogue_hint else ""
         )
-        user = DRAFT_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            param_str=param_str,
-            description=intent.description or intent.name,
-            input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
-            required_return_keys=_build_required_return_keys(intent),
-            test_cases_str=_format_test_cases(test_cases),
-            dialogue_hint_block=dialogue_hint_block,
-        )
+        try:
+            user = DRAFT_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                param_str=param_str,
+                description=intent.description or intent.name,
+                input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
+                required_return_keys=_build_required_return_keys(intent),
+                test_cases_str=_format_test_cases(test_cases).replace("{", "{{").replace("}", "}}"),
+                dialogue_hint_block=dialogue_hint_block.replace("{", "{{").replace("}", "}}"),
+            )
+        except Exception as exc:
+            logger.warning(f"[S*] {intent.name}: 构建草稿 prompt 失败 — {exc}")
+            return None
         try:
             raw = self._chat_sync([
                 {"role": "system", "content": system},
@@ -530,16 +534,20 @@ class SStarSynthesizer:
             execution_traces = _format_execution_traces(
                 probe_validation.failures, probe_validation.total
             )
-            user = REPAIR_USER_TEMPLATE.format(
-                intent_name=intent.name,
-                param_str=param_str,
-                description=intent.description or intent.name,
-                current_body=current_body,
-                fail_count=len(probe_validation.failures),
-                total_count=probe_validation.total,
-                execution_traces=execution_traces,
-                required_return_keys=_build_required_return_keys(intent),
-            )
+            try:
+                user = REPAIR_USER_TEMPLATE.format(
+                    intent_name=intent.name,
+                    param_str=param_str,
+                    description=intent.description or intent.name,
+                    current_body=current_body.replace("{", "{{").replace("}", "}}"),
+                    fail_count=len(probe_validation.failures),
+                    total_count=probe_validation.total,
+                    execution_traces=execution_traces.replace("{", "{{").replace("}", "}}"),
+                    required_return_keys=_build_required_return_keys(intent),
+                )
+            except Exception as exc:
+                logger.warning(f"[S*] {intent.name}: Phase D 第 {round_i} 轮构建 prompt 失败 — {exc}")
+                break
 
             try:
                 raw = self._chat_sync([
@@ -708,13 +716,17 @@ class SStarSynthesizer:
             )
         execution_comparison = "\n\n".join(comparison_lines) if comparison_lines else "（无执行记录）"
 
-        user = JUDGE_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            description=intent.description or intent.name,
-            candidate_a=a_code,
-            candidate_b=b_code,
-            execution_comparison=execution_comparison,
-        )
+        try:
+            user = JUDGE_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                description=intent.description or intent.name,
+                candidate_a=a_code.replace("{", "{{").replace("}", "}}"),
+                candidate_b=b_code.replace("{", "{{").replace("}", "}}"),
+                execution_comparison=execution_comparison.replace("{", "{{").replace("}", "}}"),
+            )
+        except Exception as exc:
+            logger.warning(f"[S*] {intent.name}: 构建裁判 prompt 失败 — {exc}")
+            return ""
         try:
             raw = self._chat_sync([
                 {"role": "system", "content": JUDGE_SYSTEM},
@@ -747,13 +759,17 @@ class SStarSynthesizer:
         Returns:
             槽位值字典列表（每个元素是一个测试输入），失败时返回空列表。
         """
-        user = DISCRIMINATE_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            description=intent.description or intent.name,
-            input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
-            candidate_a=candidate_a,
-            candidate_b=candidate_b,
-        )
+        try:
+            user = DISCRIMINATE_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                description=intent.description or intent.name,
+                input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
+                candidate_a=candidate_a.replace("{", "{{").replace("}", "}}"),
+                candidate_b=candidate_b.replace("{", "{{").replace("}", "}}"),
+            )
+        except Exception as exc:
+            logger.warning(f"[S*] {intent.name}: 构建区分性输入 prompt 失败 — {exc}")
+            return []
         try:
             raw = self._chat_sync([
                 {"role": "system", "content": DISCRIMINATE_SYSTEM},

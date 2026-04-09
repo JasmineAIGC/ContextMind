@@ -399,13 +399,17 @@ class AlphaSynthesizer:
         test_cases_preview = _format_test_cases_for_prompt(test_cases, max_cases=3)
 
         hint_section = f"\n\n提示：{hint}" if hint else ""
-        user_content = REFLECT_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            description=intent.description or intent.name,
-            input_slots_desc=input_slots_desc,
-            result_slots_desc=result_slots_desc,
-            test_cases_preview=test_cases_preview,
-        ) + hint_section
+        try:
+            user_content = REFLECT_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                description=intent.description or intent.name,
+                input_slots_desc=input_slots_desc,
+                result_slots_desc=result_slots_desc,
+                test_cases_preview=test_cases_preview.replace("{", "{{").replace("}", "}}"),
+            ) + hint_section
+        except Exception as exc:
+            logger.debug(f"[ACIA] {intent.name}: 构建反思 prompt 失败 ({exc})")
+            return ""
 
         messages = [
             {"role": "system", "content": REFLECT_SYSTEM},
@@ -467,15 +471,19 @@ class AlphaSynthesizer:
             if dialogue_hint else ""
         )
 
-        user_content = GENERATE_USER_TEMPLATE.format(
-            reflection=reflection_display,
-            intent_name=intent.name,
-            param_str=param_str,
-            description=intent.description or intent.name,
-            required_return_keys=required_return_keys,
-            test_cases_str=test_cases_str,
-            dialogue_hint_block=dialogue_hint_block,
-        )
+        try:
+            user_content = GENERATE_USER_TEMPLATE.format(
+                reflection=reflection_display.replace("{", "{{").replace("}", "}}"),
+                intent_name=intent.name,
+                param_str=param_str,
+                description=intent.description or intent.name,
+                required_return_keys=required_return_keys,
+                test_cases_str=test_cases_str.replace("{", "{{").replace("}", "}}"),
+                dialogue_hint_block=dialogue_hint_block.replace("{", "{{").replace("}", "}}"),
+            )
+        except Exception as exc:
+            logger.warning(f"[ACIA] {intent.name}: 构建生成 prompt 失败 ({exc})")
+            return None
 
         messages = [
             {"role": "system", "content": GENERATE_SYSTEM},
@@ -518,12 +526,16 @@ class AlphaSynthesizer:
             return "（无失败用例）"
 
         failures_str = _format_failures_for_prompt(validation.failures)
-        user_content = ANALYZE_USER_TEMPLATE.format(
-            func_code=func_code,
-            fail_count=validation.total - validation.passed,
-            total_count=validation.total,
-            failures_str=failures_str,
-        )
+        try:
+            user_content = ANALYZE_USER_TEMPLATE.format(
+                func_code=func_code.replace("{", "{{").replace("}", "}}"),
+                fail_count=validation.total - validation.passed,
+                total_count=validation.total,
+                failures_str=failures_str.replace("{", "{{").replace("}", "}}"),
+            )
+        except Exception as exc:
+            logger.debug(f"[ACIA] {intent.name}: 构建分析 prompt 失败 ({exc})")
+            return "（构建 prompt 失败）"
 
         messages = [
             {"role": "system", "content": ANALYZE_SYSTEM},
@@ -567,17 +579,21 @@ class AlphaSynthesizer:
         required_return_keys = _build_required_return_keys(intent)
         failures_str = _format_failures_for_prompt(validation.failures)
 
-        user_content = REPAIR_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            param_str=param_str,
-            description=intent.description or intent.name,
-            current_body=current_body,
-            failure_analysis=failure_analysis,
-            fail_count=validation.total - validation.passed,
-            total_count=validation.total,
-            failures_str=failures_str,
-            required_return_keys=required_return_keys,
-        )
+        try:
+            user_content = REPAIR_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                param_str=param_str,
+                description=intent.description or intent.name,
+                current_body=current_body.replace("{", "{{").replace("}", "}}"),
+                failure_analysis=failure_analysis.replace("{", "{{").replace("}", "}}"),
+                fail_count=validation.total - validation.passed,
+                total_count=validation.total,
+                failures_str=failures_str.replace("{", "{{").replace("}", "}}"),
+                required_return_keys=required_return_keys,
+            )
+        except Exception as exc:
+            logger.warning(f"[ACIA] {intent.name}: 构建修复 prompt 失败 ({exc})")
+            return None
 
         messages = [
             {"role": "system", "content": REPAIR_SYSTEM},

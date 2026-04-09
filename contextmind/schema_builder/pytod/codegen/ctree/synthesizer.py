@@ -475,15 +475,19 @@ class CodeTreeSynthesizer:
             f"\n## 业务背景（对话摘录）\n{dialogue_hint}\n"
             if dialogue_hint else ""
         )
-        user = ROOT_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            param_str=param_str,
-            description=intent.description or intent.name,
-            input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
-            required_return_keys=_build_required_return_keys(intent),
-            test_cases_str=_format_test_cases(test_cases),
-            dialogue_hint_block=dialogue_hint_block,
-        )
+        try:
+            user = ROOT_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                param_str=param_str,
+                description=intent.description or intent.name,
+                input_slots_desc=_build_input_slots_desc(intent, all_slot_descs),
+                required_return_keys=_build_required_return_keys(intent),
+                test_cases_str=_format_test_cases(test_cases).replace("{", "{{").replace("}", "}}"),
+                dialogue_hint_block=dialogue_hint_block.replace("{", "{{").replace("}", "}}"),
+            )
+        except Exception as exc:
+            logger.warning(f"[CodeTree] {intent.name}: 构建根节点 prompt 失败 — {exc}")
+            return None
         try:
             raw = self._chat_sync([
                 {"role": "system", "content": ROOT_SYSTEM},
@@ -532,17 +536,21 @@ class CodeTreeSynthesizer:
 
         execution_traces = _format_failures(validation.failures[:3])
 
-        user = EXPAND_USER_TEMPLATE.format(
-            intent_name=intent.name,
-            param_str=param_str,
-            description=intent.description or intent.name,
-            current_body=current_body,
-            target_input=target_input,
-            target_error=target_error,
-            other_cases_str=other_cases_str,
-            execution_traces=execution_traces,
-            required_return_keys=_build_required_return_keys(intent),
-        )
+        try:
+            user = EXPAND_USER_TEMPLATE.format(
+                intent_name=intent.name,
+                param_str=param_str,
+                description=intent.description or intent.name,
+                current_body=current_body.replace("{", "{{").replace("}", "}}"),
+                target_input=target_input.replace("{", "{{").replace("}", "}}"),
+                target_error=target_error.replace("{", "{{").replace("}", "}}"),
+                other_cases_str=other_cases_str.replace("{", "{{").replace("}", "}}"),
+                execution_traces=execution_traces.replace("{", "{{").replace("}", "}}"),
+                required_return_keys=_build_required_return_keys(intent),
+            )
+        except Exception as exc:
+            logger.warning(f"[CodeTree] {intent.name}: 构建扩展节点 prompt 失败 — {exc}")
+            return None
         try:
             raw = self._chat_sync([
                 {"role": "system", "content": EXPAND_SYSTEM},

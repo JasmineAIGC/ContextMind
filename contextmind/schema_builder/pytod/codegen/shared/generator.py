@@ -50,6 +50,18 @@ from contextmind.schema_builder.pytod.testcase.prompts import (
 logger = get_logger(__name__)
 
 
+def _escape_braces(text: str) -> str:
+    """Escape ``{`` and ``}`` in *text* so it can be safely used in :meth:`str.format` calls.
+
+    Dynamic content inserted into prompt templates (Python code, JSON data,
+    dialogue samples, etc.) may contain ``{key}`` patterns that Python's
+    ``str.format()`` would try to interpret as format placeholders, causing
+    ``KeyError`` or ``ValueError``.  This helper prevents that by doubling the
+    braces: ``{`` → ``{{`` and ``}`` → ``}}``.
+    """
+    return text.replace("{", "{{").replace("}", "}}")
+
+
 def _function_def_header(intent: IntentDefinition) -> List[str]:
     """返回函数 def 行 + docstring 行（不含函数体）。"""
     params = list(dict.fromkeys(
@@ -156,7 +168,7 @@ class PyTODApiCodeGenerator:
             if disc_summary:
                 formatted += f"\n\n{disc_summary}"
             dialogue_context_section = DIALOGUE_CONTEXT_SECTION.format(
-                dialogue_samples=formatted
+                dialogue_samples=_escape_braces(formatted)
             )
             logger.info(
                 f"[PyTODApiCodeGenerator] 已加载 {len(samples)} 条对话样本用于辅助生成"
@@ -166,17 +178,23 @@ class PyTODApiCodeGenerator:
             disc_summary = load_discovery_samples(discovery_data_path)
             if disc_summary:
                 dialogue_context_section = DIALOGUE_CONTEXT_SECTION.format(
-                    dialogue_samples=disc_summary
+                    dialogue_samples=_escape_braces(disc_summary)
                 )
 
-
-        user_msg = MODULE_GEN_USER_TEMPLATE.format(
-            service_name=schema.service_name,
-            service_description=schema.description or schema.service_name,
-            intents_summary=intents_summary,
-            slots_summary=slots_summary,
-            dialogue_context_section=dialogue_context_section,
-        )
+        try:
+            user_msg = MODULE_GEN_USER_TEMPLATE.format(
+                service_name=schema.service_name,
+                service_description=schema.description or schema.service_name,
+                intents_summary=intents_summary,
+                slots_summary=slots_summary,
+                dialogue_context_section=dialogue_context_section,
+            )
+        except (KeyError, ValueError) as exc:
+            logger.warning(
+                f"[PyTODApiCodeGenerator] generate_module: 构建 prompt 失败 ({exc})，"
+                "将回退到规则生成"
+            )
+            return None
 
         messages = [
             {"role": "system", "content": MODULE_GEN_SYSTEM},
@@ -246,7 +264,7 @@ class PyTODApiCodeGenerator:
         kb_context_section = ""
         if dialogue_hint:
             kb_context_section = FUNCTION_KB_CONTEXT_SECTION.format(
-                kb_context=dialogue_hint.rstrip()
+                kb_context=_escape_braces(dialogue_hint.rstrip())
             )
 
         # 从测试用例构建 few-shot 示例章节（含 expected_values 帮助 LLM 校准输出）
@@ -263,17 +281,23 @@ class PyTODApiCodeGenerator:
                 )
             few_shot_section = "\n".join(example_lines) + "\n\n"
 
-        user_msg = FUNCTION_GEN_USER_TEMPLATE.format(
-            service_name=schema.service_name,
-            service_description=schema.description or schema.service_name,
-            func_name=intent.name,
-            param_str=param_str,
-            description=intent.description or intent.name,
-            slot_descriptions=slot_desc_text,
-            result_slots=result_slots_text,
-            kb_context_section=kb_context_section,
-            few_shot_section=few_shot_section,
-        )
+        try:
+            user_msg = FUNCTION_GEN_USER_TEMPLATE.format(
+                service_name=schema.service_name,
+                service_description=schema.description or schema.service_name,
+                func_name=intent.name,
+                param_str=param_str,
+                description=intent.description or intent.name,
+                slot_descriptions=slot_desc_text,
+                result_slots=result_slots_text,
+                kb_context_section=kb_context_section,
+                few_shot_section=_escape_braces(few_shot_section),
+            )
+        except (KeyError, ValueError) as exc:
+            logger.warning(
+                f"[PyTODApiCodeGenerator] {intent.name}: 构建 prompt 失败，回退到规则生成 ({exc})"
+            )
+            return None
 
         messages = [
             {"role": "system", "content": FUNCTION_GEN_SYSTEM},
@@ -355,18 +379,24 @@ class PyTODApiCodeGenerator:
                 f"{service_description}\n\n## 真实对话业务背景参考\n{dialogue_hint.rstrip()}"
             )
 
-        user_msg = REPAIR_USER_TEMPLATE.format(
-            service_name=schema.service_name,
-            service_description=service_description,
-            intent_name=intent.name,
-            intent_description=intent.description or intent.name,
-            result_slots_desc=rs_desc,
-            current_code=current_code,
-            iteration=iteration,
-            fail_count=len(failures),
-            pass_rate=pass_rate_str,
-            failures_text="\n".join(fail_lines),
-        )
+        try:
+            user_msg = REPAIR_USER_TEMPLATE.format(
+                service_name=schema.service_name,
+                service_description=_escape_braces(service_description),
+                intent_name=intent.name,
+                intent_description=intent.description or intent.name,
+                result_slots_desc=rs_desc,
+                current_code=_escape_braces(current_code),
+                iteration=iteration,
+                fail_count=len(failures),
+                pass_rate=pass_rate_str,
+                failures_text=_escape_braces("\n".join(fail_lines)),
+            )
+        except (KeyError, ValueError) as exc:
+            logger.warning(
+                f"[PyTODApiCodeGenerator] {intent.name}: 构建修复 prompt 失败 ({exc})"
+            )
+            return None
 
         messages = [
             {"role": "system", "content": REPAIR_SYSTEM},

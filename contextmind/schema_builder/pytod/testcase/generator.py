@@ -201,19 +201,25 @@ class TestCaseGenerator:
             f"  - {rs}" for rs in intent.result_slots
         ) or "  （无 result_slots，返回输入参数即可）"
 
-        user_msg = TEST_CASE_GEN_USER_TEMPLATE.format(
-            service_name=schema.service_name,
-            service_description=schema.description or schema.service_name,
-            intent_name=intent.name,
-            intent_description=intent.description or intent.name,
-            func_name=intent.name,
-            param_str=param_str,
-            required_slots_desc=req_desc,
-            optional_slots_desc=opt_desc,
-            result_slots_desc=rs_desc,
-            dialogue_hint=dialogue_hint,
-            max_cases=max_cases,
-        )
+        try:
+            user_msg = TEST_CASE_GEN_USER_TEMPLATE.format(
+                service_name=schema.service_name,
+                service_description=schema.description or schema.service_name,
+                intent_name=intent.name,
+                intent_description=intent.description or intent.name,
+                func_name=intent.name,
+                param_str=param_str,
+                required_slots_desc=req_desc,
+                optional_slots_desc=opt_desc,
+                result_slots_desc=rs_desc,
+                dialogue_hint=dialogue_hint.replace("{", "{{").replace("}", "}}"),
+                max_cases=max_cases,
+            )
+        except (KeyError, ValueError) as exc:
+            logger.warning(
+                f"[TestCaseGenerator] {intent.name}: 构建 prompt 失败，跳过 ({exc})"
+            )
+            return []
 
         messages = [
             {"role": "system", "content": TEST_CASE_GEN_SYSTEM},
