@@ -51,21 +51,23 @@ Schema 数据预生成脚本
     # 开启详细输出（打印每个阶段的详细进度日志）
     python examples/build_schema_data.py --with-llm --verbose
 
-    # 【推荐评测流程】预先生成测试用例，确保 4 种生成器使用完全相同的测试集
-    # Step 1: 预生成测试用例（仅运行 Phase 2，保存到 *_test_cases.json）
-    python examples/build_schema_data.py --with-llm --prebuild-test-cases \\
-        --schema schema/anyihua_schema.json
+【推荐评测流程】跨生成器公平对比
+----------------------------------
+在运行本脚本之前，先用 ``prebuild_test_cases.py`` 预生成测试用例，
+确保 loop / alpha / sstar / ctree 4 种生成器使用完全相同的测试集::
 
-    # Step 2a: 用 loop 生成代码（Phase 2 自动加载缓存）
+    # Step 1: 用专用脚本预生成测试用例（只需运行一次）
+    python examples/prebuild_test_cases.py --schema schema/anyihua_schema.json
+
+    # Step 2a: 用 loop 生成代码（自动加载预生成的测试用例）
     python examples/build_schema_data.py --with-llm --generator loop \\
         --schema schema/anyihua_schema.json --output-dir output/loop
 
-    # Step 2b: 用 alpha 生成代码（Phase 2 自动加载同一份缓存）
-    python examples/build_schema_data.py --with-llm --generator alpha \\
-        --schema schema/anyihua_schema.json --output-dir output/alpha
+    # Step 2b-2d: 同理运行 alpha / sstar / ctree
+    # → 4 组 *_validation_report.json 在相同测试集上可直接对比通过率
 
-    # Step 2c / 2d: 同理运行 sstar 和 ctree，均使用相同测试用例
-    # → 4 组 *_validation_report.json 可直接对比各算法通过率
+若跳过 Step 1 直接运行本脚本，Phase 2 仍会自动生成并缓存测试用例，
+但运行第一个生成器时会看到提示，建议先完成预生成步骤。
 
 两种生成模式
 ------------
@@ -73,8 +75,9 @@ Schema 数据预生成脚本
    速度快，但函数体没有真实业务计算逻辑。
 
 2. **LLM 模式**（--with-llm）：完整运行 plan.md 定义的 5 阶段流程：
-   - Phase 2: 为每个意图生成多轮对话复杂度的测试用例（覆盖早期/中期/完整/上下文依赖/边界场景）
-             若同目录存在 *_test_cases.json，自动从文件加载（跳过 LLM 调用）
+   - Phase 2: 为每个意图加载预生成测试用例（优先）或实时生成；
+              若同目录存在 *_test_cases.json（由 prebuild_test_cases.py 生成），
+              自动从文件加载，跳过 LLM 调用
    - Phase 3: 逐意图调用 LLM 生成函数体（Prompt 包含 few-shot 测试用例）
    - Phase 4: 批量执行验证 + 迭代修复（通过率低于阈值时调用 LLM 修复）
    - Phase 5: 生成最终文件 + 可选 validation_report.json
@@ -526,6 +529,25 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
         return
 
     if not args.fnctod_only:
+        # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
+        if args.with_llm:
+            from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+            tc_path = test_cases_path_for_schema(schema_path)
+            if not tc_path.exists():
+                print()
+                print("┌─────────────────────────────────────────────────────────────────┐")
+                print("│  ⚠️  测试用例未预生成                                             │")
+                print("│                                                                 │")
+                print("│  为确保 loop / alpha / sstar / ctree 4 种生成器使用相同的测试    │")
+                print("│  用例进行公平对比评测，建议先运行：                               │")
+                print("│                                                                 │")
+                print(f"│    python examples/prebuild_test_cases.py \\                    │")
+                print(f"│        --schema {str(schema_path):<47s} │")
+                print("│                                                                 │")
+                print("│  本次将自动生成测试用例并缓存，但若并行运行多个生成器，           │")
+                print("│  请务必先运行上述命令以保证测试集一致。                           │")
+                print("└─────────────────────────────────────────────────────────────────┘")
+                print()
         p = builder.build_pytod_apis(schema_path, schema=schema)
         if p:
             print(f"✅ PyTOD APIs → {p}")
@@ -606,6 +628,15 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
             continue
 
         if not args.fnctod_only:
+            # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
+            if args.with_llm:
+                from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+                tc_path = test_cases_path_for_schema(schema_path)
+                if not tc_path.exists():
+                    print(
+                        f"   ⚠️  {schema_path.name} 的测试用例未预生成 "
+                        f"（建议先运行 prebuild_test_cases.py，本次将自动生成并缓存）"
+                    )
             p = builder.build_pytod_apis(schema_path, schema=schema)
             if p:
                 print(f"   ✅ PyTOD APIs  → {p.name}")

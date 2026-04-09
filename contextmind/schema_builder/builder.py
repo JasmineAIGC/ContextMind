@@ -41,6 +41,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
+from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
 
 logger = get_logger(__name__)
 
@@ -185,10 +186,7 @@ class SchemaDataBuilder:
         Returns:
             写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
         """
-        from contextmind.schema_builder.pytod.test_cache import (
-            test_cases_path_for_schema,
-            save_test_cases,
-        )
+        from contextmind.schema_builder.pytod.test_cache import save_test_cases
         from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
 
         schema_path = Path(schema_path)
@@ -297,7 +295,6 @@ class SchemaDataBuilder:
                 from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
             # 自动计算测试用例缓存路径（与 schema 同目录，独立于 output_dir）
-            from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
             tc_path = test_cases_path_for_schema(Path(schema_path))
             return _build(
                 schema_path,

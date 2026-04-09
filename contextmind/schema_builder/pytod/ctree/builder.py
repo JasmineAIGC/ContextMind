@@ -37,6 +37,7 @@ from contextmind.schema_builder.utils import companion_path
 
 from contextmind.schema_builder.pytod.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.test_cache import load_test_cases, save_test_cases
 from contextmind.schema_builder.pytod.validator import validate_function, write_validation_report
 
 from contextmind.schema_builder.pytod.ctree.synthesizer import CodeTreeSynthesizer
@@ -219,7 +220,6 @@ def build_pytod_apis_ctree(
         logger.info(f"[CodeTree] 开始逐函数 CodeTree 合成（共 {total_intents} 个意图）...")
 
         # 尝试从缓存文件加载测试用例
-        from contextmind.schema_builder.pytod.test_cache import load_test_cases, save_test_cases
         _tc_path = Path(test_cases_path) if test_cases_path is not None else None
         _cached_test_cases: Dict[str, List[TestCaseItem]] = {}
         _tc_existed = False
