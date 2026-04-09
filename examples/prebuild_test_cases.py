@@ -38,6 +38,9 @@
     # 强制重新生成（覆盖已存在的测试用例文件）
     python examples/prebuild_test_cases.py --schema schema/foo_schema.json --force
 
+    # 指定测试用例文件输出路径
+    python examples/prebuild_test_cases.py --schema schema/foo_schema.json --output output/my_test_cases.json
+
     # 指定每意图最多生成的测试用例数
     python examples/prebuild_test_cases.py --schema schema/foo_schema.json --max-test-cases 8
 
@@ -129,6 +132,20 @@ def main() -> None:
         ),
     )
 
+    # ── 输出参数 ──────────────────────────────────────────────────────────
+    output_group = parser.add_argument_group("输出参数")
+    output_group.add_argument(
+        "--output",
+        default=None,
+        metavar="FILE",
+        help=(
+            "可选：指定生成测试用例 JSON 文件的输出路径（仅 --schema 单文件模式有效）。"
+            "未指定时，文件自动保存在 schema 文件同目录下，"
+            "命名规则：foo_schema.json → foo_test_cases.json。"
+            "示例: --output output/my_service_test_cases.json"
+        ),
+    )
+
     # ── 生成参数 ──────────────────────────────────────────────────────────
     gen_group = parser.add_argument_group("生成参数")
     gen_group.add_argument(
@@ -157,6 +174,13 @@ def main() -> None:
     # 回退到默认目录
     if args.data_dir is None:
         args.data_dir = str(_DEFAULT_DATA_DIR)
+
+    # --output 仅支持单文件 --schema 模式
+    if args.output and not args.schema:
+        print(
+            "⚠️  --output 仅在 --schema 单文件模式下有效，目录批量模式（--data-dir）将忽略该参数。",
+            file=sys.stderr,
+        )
 
     # --verbose 模式
     if args.verbose:
@@ -239,7 +263,10 @@ def _process_single(
         print(f"❌ 加载 schema 失败: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    tc_path = test_cases_path_for_schema(schema_path)
+    # 若指定了 --output，使用自定义路径；否则自动推导
+    output_path: Optional[Path] = Path(args.output) if getattr(args, "output", None) else None
+    tc_path = output_path if output_path is not None else test_cases_path_for_schema(schema_path)
+
     print(
         f"📋 schema: {schema_path.name}"
         f"（服务: {schema.service_name}，{len(schema.intents)} 个意图）"
@@ -253,7 +280,7 @@ def _process_single(
         tc_path.unlink()
         print(f"🗑️  已删除旧文件: {tc_path}")
 
-    p = builder.prebuild_test_cases(schema_path, schema=schema)
+    p = builder.prebuild_test_cases(schema_path, schema=schema, output_path=output_path)
     if p:
         print(f"✅ 测试用例已生成 → {p}")
     else:

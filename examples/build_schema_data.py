@@ -51,6 +51,10 @@ Schema 数据预生成脚本
     # 开启详细输出（打印每个阶段的详细进度日志）
     python examples/build_schema_data.py --with-llm --verbose
 
+    # 指定预构建的测试用例文件路径（配合 prebuild_test_cases.py --output 使用）
+    python examples/build_schema_data.py --with-llm --schema schema/foo_schema.json \\
+        --test-cases-path output/my_test_cases.json
+
 【推荐评测流程】跨生成器公平对比
 ----------------------------------
 在运行本脚本之前，先用 ``prebuild_test_cases.py`` 预生成测试用例，
@@ -321,6 +325,17 @@ def main() -> None:
         ),
     )
     llm_group.add_argument(
+        "--test-cases-path",
+        default=None,
+        metavar="FILE",
+        help=(
+            "可选：预构建测试用例 JSON 文件路径（*_test_cases.json）。"
+            "指定后 Phase 2 直接从该文件加载测试用例，不再通过 schema 路径自动推导。"
+            "适用于通过 prebuild_test_cases.py --output 生成到非默认位置的测试用例文件。"
+            "示例: --test-cases-path output/my_test_cases.json"
+        ),
+    )
+    llm_group.add_argument(
         "--max-iterations",
         type=_positive_int,
         default=_DEFAULT_MAX_ITERATIONS,
@@ -398,6 +413,7 @@ def main() -> None:
              f"--max-test-cases {args.max_test_cases}"),
             (args.generator != "loop", f"--generator {args.generator}"),
             (args.prebuild_test_cases, "--prebuild-test-cases"),
+            (bool(args.test_cases_path), "--test-cases-path"),
         ]
         active_llm_flags = [name for active, name in _llm_only_flags if active]
         if active_llm_flags:
@@ -482,6 +498,7 @@ def main() -> None:
         generate_report=args.generate_report,
         verbose=args.verbose,
         generator=args.generator,
+        test_cases_path=Path(args.test_cases_path) if args.test_cases_path else None,
     )
 
     if args.schema:

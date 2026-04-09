@@ -69,6 +69,9 @@ class SchemaDataBuilder:
                                    （并行草稿 + 执行追踪修复 + 区分性测试选择 + 精炼）；
                                    ``"ctree"`` — CodeTree（树形搜索，arXiv:2411.04329，2024/2025）
                                    （UCB 引导树搜索：根节点生成 + 逐失败用例扩展 + 最优路径选择）。
+        test_cases_path:           可选，预构建测试用例 JSON 文件路径（``*_test_cases.json``）。
+                                   指定后 ``build_pytod_apis()`` 直接从该文件加载测试用例，
+                                   不再通过 ``test_cases_path_for_schema()`` 自动计算路径。
     """
 
     def __init__(
@@ -84,6 +87,7 @@ class SchemaDataBuilder:
         generate_report: bool = False,
         verbose: bool = False,
         generator: str = "loop",
+        test_cases_path: Optional[Union[str, Path]] = None,
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
@@ -98,6 +102,7 @@ class SchemaDataBuilder:
         self.generate_report = generate_report
         self.verbose = verbose
         self.generator = generator
+        self.test_cases_path = Path(test_cases_path) if test_cases_path is not None else None
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -165,13 +170,16 @@ class SchemaDataBuilder:
         self,
         schema_path: Union[str, Path],
         schema: Optional[ServiceSchema] = None,
+        output_path: Optional[Union[str, Path]] = None,
     ) -> Optional[Path]:
         """预生成测试用例并保存到 ``*_test_cases.json``，供所有生成器共享。
 
         只运行 Phase 2（LLM 驱动的测试用例生成），不进行代码生成。
-        生成的测试用例文件位于 schema 文件同目录，命名规则同其他 companion 文件：
+        生成的测试用例文件默认位于 schema 文件同目录，命名规则同其他 companion 文件：
 
             schema/foo_schema.json  →  schema/foo_test_cases.json
+
+        可通过 ``output_path`` 参数将文件写入任意自定义路径。
 
         调用多个生成器（loop / alpha / sstar / ctree）前先运行一次本方法，
         即可保证所有生成器在完全相同的测试集上进行评测，结果具有可比性。
@@ -182,6 +190,7 @@ class SchemaDataBuilder:
         Args:
             schema_path: ``*_schema.json`` 文件路径。
             schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
+            output_path: 可选，自定义测试用例输出路径；未指定时由 ``schema_path`` 自动推导。
 
         Returns:
             写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
@@ -190,7 +199,7 @@ class SchemaDataBuilder:
         from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
 
         schema_path = Path(schema_path)
-        tc_path = test_cases_path_for_schema(schema_path)
+        tc_path = Path(output_path) if output_path is not None else test_cases_path_for_schema(schema_path)
 
         if tc_path.exists():
             logger.info(f"[prebuild] 测试用例文件已存在，跳过重新生成: {tc_path}")
@@ -294,8 +303,9 @@ class SchemaDataBuilder:
             else:  # "loop" 或未知值均回退到迭代修复流水线
                 from contextmind.schema_builder.pytod.codegen.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
-            # 自动计算测试用例缓存路径（与 schema 同目录，独立于 output_dir）
-            tc_path = test_cases_path_for_schema(Path(schema_path))
+            # 自动计算测试用例缓存路径（与 schema 同目录，独立于 output_dir）；
+            # 若调用者通过 --test-cases-path 指定了自定义路径，则优先使用。
+            tc_path = self.test_cases_path if self.test_cases_path is not None else test_cases_path_for_schema(Path(schema_path))
             return _build(
                 schema_path,
                 schema=schema,
