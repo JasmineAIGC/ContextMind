@@ -199,7 +199,11 @@ class SchemaDataBuilder:
         from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
 
         schema_path = Path(schema_path)
-        tc_path = Path(output_path) if output_path is not None else test_cases_path_for_schema(schema_path)
+        tc_path = (
+            Path(output_path) if output_path is not None
+            else self.test_cases_path if self.test_cases_path is not None
+            else test_cases_path_for_schema(schema_path)
+        )
 
         if tc_path.exists():
             logger.info(f"[prebuild] 测试用例文件已存在，跳过重新生成: {tc_path}")

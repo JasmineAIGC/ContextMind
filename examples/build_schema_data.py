@@ -549,7 +549,9 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
         # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
         if args.with_llm:
             from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
-            tc_path = test_cases_path_for_schema(schema_path)
+            # 优先使用用户指定的路径，否则自动推导
+            _user_tc = getattr(args, "test_cases_path", None)
+            tc_path = Path(_user_tc) if _user_tc else test_cases_path_for_schema(schema_path)
             if not tc_path.exists():
                 print()
                 print("┌─────────────────────────────────────────────────────────────────┐")
@@ -648,7 +650,8 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
             # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
             if args.with_llm:
                 from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
-                tc_path = test_cases_path_for_schema(schema_path)
+                _user_tc = getattr(args, "test_cases_path", None)
+                tc_path = Path(_user_tc) if _user_tc else test_cases_path_for_schema(schema_path)
                 if not tc_path.exists():
                     print(
                         f"   ⚠️  {schema_path.name} 的测试用例未预生成 "
