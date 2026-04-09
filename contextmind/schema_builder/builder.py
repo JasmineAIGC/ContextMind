@@ -187,7 +187,7 @@ class SchemaDataBuilder:
             写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
         """
         from contextmind.schema_builder.pytod.testcase.cache import save_test_cases
-        from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
+        from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
 
         schema_path = Path(schema_path)
         tc_path = test_cases_path_for_schema(schema_path)
@@ -218,7 +218,7 @@ class SchemaDataBuilder:
         _discovery_path = None
         _summary_path = None
         if self.kb_dir is not None:
-            kb_context = PyTODApiCodeGenerator.load_kb_context(self.kb_dir)
+            kb_context = TestCaseGenerator.load_kb_context(self.kb_dir)
             if _dlg_path is None and kb_context.get("dialogues_path"):
                 _sgd_dlg_path = kb_context["dialogues_path"]
             if kb_context.get("discovery_path"):
@@ -226,7 +226,7 @@ class SchemaDataBuilder:
             if kb_context.get("summary_path"):
                 _summary_path = kb_context["summary_path"]
 
-        gen = PyTODApiCodeGenerator(llm_client=self.llm_client)
+        gen = TestCaseGenerator(llm_client=self.llm_client)
         dialogue_hint = gen._prepare_dialogue_hint(
             dialogue_data_path=_dlg_path,
             sgd_dialogue_data_path=_sgd_dlg_path,

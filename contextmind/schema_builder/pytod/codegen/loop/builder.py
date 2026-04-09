@@ -25,6 +25,7 @@ from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, loa
 from contextmind.schema_builder.utils import companion_path
 
 from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator, _function_def_header
+from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
 from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.pytod.testcase.cache import load_test_cases, save_test_cases
@@ -147,9 +148,11 @@ def build_pytod_apis(
 
     # 根据是否提供 llm_client 决定生成模式
     llm_generator: Optional[PyTODApiCodeGenerator] = None
+    tc_generator: Optional[TestCaseGenerator] = None
     if llm_client is not None:
         try:
             llm_generator = PyTODApiCodeGenerator(llm_client=llm_client)
+            tc_generator = TestCaseGenerator(llm_client=llm_client)
             logger.info(
                 f"[PyTOD] Phase 1 完成 — 服务: {schema.service_name}, "
                 f"意图数: {len(schema.intents)}, 模式: LLM"
@@ -170,7 +173,7 @@ def build_pytod_apis(
     _sgd_dlg_path: Optional[Path] = None
     _summary_path: Optional[Path] = None
     if kb_dir is not None:
-        kb_context = PyTODApiCodeGenerator.load_kb_context(kb_dir)
+        kb_context = TestCaseGenerator.load_kb_context(kb_dir)
         if _dlg_path is None and kb_context.get("dialogues_path"):
             _sgd_dlg_path = kb_context["dialogues_path"]
             logger.info(f"[PyTOD] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
@@ -195,7 +198,7 @@ def build_pytod_apis(
     # 预先构建对话提示（所有意图共用，避免重复 IO）
     dialogue_hint = ""
     if llm_generator is not None and schema.intents:
-        dialogue_hint = llm_generator._prepare_dialogue_hint(
+        dialogue_hint = tc_generator._prepare_dialogue_hint(
             dialogue_data_path=_dlg_path,
             sgd_dialogue_data_path=_sgd_dlg_path,
             discovery_data_path=_discovery_path,
@@ -251,7 +254,7 @@ def build_pytod_apis(
                 )
             else:
                 logger.info(f"[PyTOD]   Phase 2: {intent.name} — 生成测试用例 ...")
-                intent_test_cases = llm_generator.build_test_cases_for_intent(
+                intent_test_cases = tc_generator.build_test_cases_for_intent(
                     intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
                 )
                 if intent_test_cases:

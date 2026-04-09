@@ -162,8 +162,8 @@ def build_pytod_apis_alpha(
     _summary_path: Optional[Path] = None
     if kb_dir is not None:
         # 复用 pytod 的 kb_context loader
-        from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
-        kb_context = PyTODApiCodeGenerator.load_kb_context(kb_dir)
+        from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
+        kb_context = TestCaseGenerator.load_kb_context(kb_dir)
         if _dlg_path is None and kb_context.get("dialogues_path"):
             _sgd_dlg_path = kb_context["dialogues_path"]
             logger.info(f"[ACIA] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
@@ -191,10 +191,12 @@ def build_pytod_apis_alpha(
     elif synthesizer is not None:
         # ACIA LLM 模式
         from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
+        from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
         phase2_gen = PyTODApiCodeGenerator(llm_client=llm_client)
+        tc_generator = TestCaseGenerator(llm_client=llm_client)
 
         # 预构建对话提示（所有意图共用）
-        dialogue_hint = phase2_gen._prepare_dialogue_hint(
+        dialogue_hint = tc_generator._prepare_dialogue_hint(
             dialogue_data_path=_dlg_path,
             sgd_dialogue_data_path=_sgd_dlg_path,
             discovery_data_path=_discovery_path,
@@ -240,7 +242,7 @@ def build_pytod_apis_alpha(
                 )
             else:
                 logger.info(f"[ACIA]   Phase 2: {intent.name} — 生成测试用例...")
-                intent_test_cases = phase2_gen.build_test_cases_for_intent(
+                intent_test_cases = tc_generator.build_test_cases_for_intent(
                     intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
                 )
                 if intent_test_cases:

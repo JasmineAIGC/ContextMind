@@ -1,17 +1,19 @@
 """
-基于 LLM 的 PyTOD API 代码生成器。
+基于 LLM 的 PyTOD API 代码生成器（功能二：意图代码生成）。
 
-:class:`PyTODApiCodeGenerator` 驱动 plan.md 5 阶段流水线中需要 LLM 的各阶段：
+:class:`PyTODApiCodeGenerator` 负责功能二「意图代码生成」的 LLM 调用层，
+专注于代码的生成与修复：
 
-- **Phase 2** (:meth:`~PyTODApiCodeGenerator.build_test_cases`)：
-  使用结构化提示词为每个意图生成测试用例。
 - **Phase 3** (:meth:`~PyTODApiCodeGenerator.generate_function_body`)：
   可选带 few-shot 测试用例的单函数体生成。
 - **Phase 4** (:meth:`~PyTODApiCodeGenerator.repair_function`)：
   迭代修复：根据失败详情重新生成函数体。
 
+测试用例生成（Phase 2）已迁移至
+:class:`~contextmind.schema_builder.pytod.testcase.generator.TestCaseGenerator`。
 LLM 输出清洗辅助函数已迁移至 :mod:`~contextmind.schema_builder.pytod.codegen.shared.cleaner`。
-KB 上下文数据加载已迁移至 :mod:`~contextmind.schema_builder.pytod.codegen.shared.kb_loader`。
+KB 上下文数据加载（由 TestCaseGenerator 管理）位于
+:mod:`~contextmind.schema_builder.pytod.testcase.kb_loader`。
 本模块为向后兼容保留对 :func:`clean_llm_function_body` 和 :func:`clean_llm_module` 的再导出。
 """
 
@@ -29,11 +31,9 @@ from contextmind.schema_builder.pytod.codegen.shared.cleaner import (  # noqa: F
     clean_llm_function_body,
     clean_llm_module,
 )
-from contextmind.schema_builder.pytod.codegen.shared.kb_loader import (
-    load_conversion_summary_context,
+from contextmind.schema_builder.pytod.testcase.kb_loader import (
     load_dialogue_samples,
     load_discovery_samples,
-    load_kb_context as _load_kb_context,
     load_sgd_dialogue_samples,
 )
 from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
@@ -46,8 +46,6 @@ from contextmind.schema_builder.pytod.testcase.prompts import (
     MODULE_GEN_USER_TEMPLATE,
     REPAIR_SYSTEM,
     REPAIR_USER_TEMPLATE,
-    TEST_CASE_GEN_SYSTEM,
-    TEST_CASE_GEN_USER_TEMPLATE,
 )
 logger = get_logger(__name__)
 
@@ -299,200 +297,6 @@ class PyTODApiCodeGenerator:
             return None
 
     # ------------------------------------------------------------------
-    # Phase 2: Test case generation
-    # ------------------------------------------------------------------
-
-    def _prepare_dialogue_hint(
-        self,
-        dialogue_data_path: Optional[Union[str, Path]] = None,
-        sgd_dialogue_data_path: Optional[Union[str, Path]] = None,
-        discovery_data_path: Optional[Union[str, Path]] = None,
-        summary_data_path: Optional[Union[str, Path]] = None,
-    ) -> str:
-        """构建对话提示字符串（仅需计算一次，供各意图共用）。
-
-        综合利用 KB 输出的 4 个 JSON 文件：
-        - dialogues_001.json：真实对话样本（含槽位注解）
-        - discovery_raw.json：逐轮槽位提取示例
-        - conversion_summary.json：发现的意图/槽位统计摘要
-        - chat_test_100/500 格式对话（若提供 dialogue_data_path）
-
-        Args:
-            dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
-            sgd_dialogue_data_path: 可选，dialogues_001.json（SGD 格式）路径。
-            discovery_data_path: 可选，discovery_raw.json 路径，提供真实槽位示例。
-            summary_data_path: 可选，conversion_summary.json 路径，提供发现统计摘要。
-
-        Returns:
-            格式化好的对话提示字符串，无数据时返回空字符串。
-        """
-        hint_parts: List[str] = []
-
-        # 1. 对话样本（优先 chat_test 格式，次之 SGD 格式）
-        if dialogue_data_path:
-            samples = load_dialogue_samples(dialogue_data_path, max_samples=3)
-            if samples:
-                formatted = "\n\n".join(f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples))
-                hint_parts.append(f"## 真实对话样本（参考提炼多轮对话场景和槽位值）\n{formatted}")
-                logger.info(
-                    f"[PyTODApiCodeGenerator] 对话数据: 从 {Path(dialogue_data_path).name} 加载 {len(samples)} 条样本"
-                )
-            else:
-                logger.warning(
-                    f"[PyTODApiCodeGenerator] 对话数据文件无可用样本，已忽略: {dialogue_data_path}"
-                )
-        elif sgd_dialogue_data_path:
-            samples = load_sgd_dialogue_samples(sgd_dialogue_data_path, max_samples=3)
-            if samples:
-                formatted = "\n\n".join(f"【对话 {i+1}】\n{s}" for i, s in enumerate(samples))
-                hint_parts.append(f"## 真实对话样本（参考提炼多轮对话场景和槽位值）\n{formatted}")
-                logger.info(
-                    f"[PyTODApiCodeGenerator] 对话数据(SGD): 从 {Path(sgd_dialogue_data_path).name} 加载 {len(samples)} 条样本"
-                )
-            else:
-                logger.warning(
-                    f"[PyTODApiCodeGenerator] SGD 对话数据文件无可用样本，已忽略: {sgd_dialogue_data_path}"
-                )
-
-        # 2. 逐轮槽位提取示例（discovery_raw.json）
-        if discovery_data_path:
-            disc_summary = load_discovery_samples(discovery_data_path)
-            if disc_summary:
-                hint_parts.append(disc_summary)
-
-        # 3. 知识库构建统计摘要（conversion_summary.json）
-        if summary_data_path:
-            summary_ctx = load_conversion_summary_context(summary_data_path)
-            if summary_ctx:
-                hint_parts.append(summary_ctx)
-
-        return "\n\n".join(hint_parts) + "\n\n" if hint_parts else ""
-
-    def build_test_cases_for_intent(
-        self,
-        intent: IntentDefinition,
-        schema: ServiceSchema,
-        all_slot_descs: Dict[str, str],
-        dialogue_hint: str = "",
-        max_cases: int = 5,
-    ) -> List[TestCaseItem]:
-        """Phase 2：为单个意图生成测试用例（LLM 驱动）。
-
-        ``build_test_cases`` 的单意图版本。调用方（builder 逐函数循环）先通过
-        :meth:`_prepare_dialogue_hint` 准备好对话提示，再对每个意图单独调用本方法，
-        从而实现「一个函数完整处理完再进入下一个」的流式处理。
-
-        Args:
-            intent: 当前处理的意图定义。
-            schema: 完整服务 schema（用于 service_name、description 等字段）。
-            all_slot_descs: 槽位名到描述的映射字典。
-            dialogue_hint: 已准备好的对话提示字符串（由 :meth:`_prepare_dialogue_hint` 生成）。
-            max_cases: 最多生成的测试用例数。
-
-        Returns:
-            ``TestCaseItem`` 列表；生成或解析失败时返回空列表。
-        """
-        params_req = list(intent.required_slots)
-        params_opt = list(intent.optional_slots)
-        params_all = list(dict.fromkeys(params_req + params_opt))
-        param_str = ", ".join([f"{p}=None" for p in params_all]) if params_all else ""
-
-        req_desc = "\n".join(
-            f"  - {p}: {all_slot_descs.get(p, p)}" for p in params_req
-        ) or "  （无必填槽位）"
-        opt_desc = "\n".join(
-            f"  - {p}: {all_slot_descs.get(p, p)}" for p in params_opt
-        ) or "  （无可选槽位）"
-        rs_desc = "\n".join(
-            f"  - {rs}" for rs in intent.result_slots
-        ) or "  （无 result_slots，返回输入参数即可）"
-
-        user_msg = TEST_CASE_GEN_USER_TEMPLATE.format(
-            service_name=schema.service_name,
-            service_description=schema.description or schema.service_name,
-            intent_name=intent.name,
-            intent_description=intent.description or intent.name,
-            func_name=intent.name,
-            param_str=param_str,
-            required_slots_desc=req_desc,
-            optional_slots_desc=opt_desc,
-            result_slots_desc=rs_desc,
-            dialogue_hint=dialogue_hint,
-            max_cases=max_cases,
-        )
-
-        messages = [
-            {"role": "system", "content": TEST_CASE_GEN_SYSTEM},
-            {"role": "user", "content": user_msg},
-        ]
-
-        try:
-            raw = self._chat_sync(messages)
-            cases = self._parse_test_cases(raw, intent)
-            if cases:
-                logger.info(
-                    f"[PyTODApiCodeGenerator] {intent.name}: 生成 {len(cases)} 条测试用例"
-                )
-                return cases
-            else:
-                logger.warning(
-                    f"[PyTODApiCodeGenerator] {intent.name}: 测试用例解析失败，跳过"
-                )
-                return []
-        except Exception as exc:
-            logger.warning(
-                f"[PyTODApiCodeGenerator] {intent.name}: 测试用例生成失败 ({exc})"
-            )
-            return []
-
-    def build_test_cases(
-        self,
-        schema: ServiceSchema,
-        dialogue_data_path: Optional[Union[str, Path]] = None,
-        max_cases_per_intent: int = 5,
-        discovery_data_path: Optional[Union[str, Path]] = None,
-        sgd_dialogue_data_path: Optional[Union[str, Path]] = None,
-    ) -> Dict[str, List[TestCaseItem]]:
-        """Phase 2：为 schema 中的每个意图生成测试用例（LLM 驱动）。
-
-        每个意图独立调用 LLM，生成 ``max_cases_per_intent`` 条包含真实业务值的
-        测试用例。可选传入对话数据文件提供业务背景，使生成的槽位值更贴近真实对话。
-
-        内部调用 :meth:`_prepare_dialogue_hint` 和 :meth:`build_test_cases_for_intent`。
-        如需逐函数流式处理，请直接使用这两个方法。
-
-        Args:
-            schema: 服务 schema，包含意图和槽位定义。
-            dialogue_data_path: 可选，chat_test_100/500 格式对话数据文件路径。
-            max_cases_per_intent: 每个意图最多生成的测试用例数。
-            discovery_data_path: 可选，discovery_raw.json 路径，提供真实槽位示例。
-            sgd_dialogue_data_path: 可选，dialogues_001.json（SGD 格式）路径。
-
-        Returns:
-            字典，key 为 intent_name，value 为 ``TestCaseItem`` 列表。
-        """
-        dialogue_hint = self._prepare_dialogue_hint(
-            dialogue_data_path=dialogue_data_path,
-            sgd_dialogue_data_path=sgd_dialogue_data_path,
-            discovery_data_path=discovery_data_path,
-        )
-        all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
-        result: Dict[str, List[TestCaseItem]] = {}
-
-        for intent in schema.intents:
-            cases = self.build_test_cases_for_intent(
-                intent, schema, all_slot_descs, dialogue_hint, max_cases_per_intent
-            )
-            if cases:
-                result[intent.name] = cases
-
-        logger.info(
-            f"[PyTODApiCodeGenerator] 测试用例构建完成: "
-            f"{len(result)}/{len(schema.intents)} 个意图有测试用例"
-        )
-        return result
-
-    # ------------------------------------------------------------------
     # Phase 4: Function repair
     # ------------------------------------------------------------------
 
@@ -586,27 +390,6 @@ class PyTODApiCodeGenerator:
                 f"[PyTODApiCodeGenerator] {intent.name}: 修复 LLM 调用失败 ({exc})"
             )
             return None
-
-    # ------------------------------------------------------------------
-    # Dialogue data loading  (delegated to kb_loader module)
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def load_kb_context(
-        kb_dir: Union[str, Path],
-    ) -> Dict[str, Any]:
-        """从 KB 输出目录加载 4 个数据文件的上下文信息。
-
-        .. deprecated::
-            直接调用 :func:`contextmind.schema_builder.pytod.codegen.shared.kb_loader.load_kb_context`。
-            此静态方法保留仅为向后兼容。
-
-        Returns:
-            包含以下键的字典：
-            ``dialogues_path``、``discovery_path``、
-            ``summary_path``、``schema_path``。
-        """
-        return _load_kb_context(kb_dir)
 
     # ------------------------------------------------------------------
     # Internal LLM call
