@@ -600,7 +600,7 @@ class AdkPyTODTracker:
                 app_name="contextmind_pytod_dm",
             )
             logger.info(
-                "[PyTOD] ADK LlmAgent+Runner 已初始化 (AP runner + DM runner), "
+                "[loop] ADK LlmAgent+Runner 已初始化 (AP runner + DM runner), "
                 "使用 ADK 原生会话管理"
             )
 

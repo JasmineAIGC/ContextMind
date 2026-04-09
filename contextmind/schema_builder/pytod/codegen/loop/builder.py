@@ -132,7 +132,7 @@ def build_pytod_apis(
 
     # 目标文件已存在且不覆盖时跳过
     if out_path.exists() and not overwrite:
-        logger.debug(f"[PyTOD] 跳过已存在文件: {out_path}")
+        logger.debug(f"[loop] 跳过已存在文件: {out_path}")
         return None
 
     # ------------------------------------------------------------------
@@ -143,7 +143,7 @@ def build_pytod_apis(
             with open(schema_path, encoding="utf-8") as fh:
                 schema = load_schema_from_dict(json.load(fh))
         except Exception as exc:
-            logger.error(f"[PyTOD] 加载 schema 失败: {schema_path} — {exc}")
+            logger.error(f"[loop] 加载 schema 失败: {schema_path} — {exc}")
             return None
 
     # 根据是否提供 llm_client 决定生成模式
@@ -154,14 +154,14 @@ def build_pytod_apis(
             llm_generator = PyTODApiCodeGenerator(llm_client=llm_client)
             tc_generator = TestCaseGenerator(llm_client=llm_client)
             logger.info(
-                f"[PyTOD] Phase 1 完成 — 服务: {schema.service_name}, "
+                f"[loop] Phase 1 完成 — 服务: {schema.service_name}, "
                 f"意图数: {len(schema.intents)}, 模式: LLM"
             )
         except Exception as exc:
-            logger.warning(f"[PyTOD] LLM 初始化失败，回退到规则生成: {exc}")
+            logger.warning(f"[loop] LLM 初始化失败，回退到规则生成: {exc}")
     else:
         logger.info(
-            f"[PyTOD] Phase 1 完成 — 服务: {schema.service_name}, "
+            f"[loop] Phase 1 完成 — 服务: {schema.service_name}, "
             f"意图数: {len(schema.intents)}, 模式: 规则"
         )
 
@@ -176,13 +176,13 @@ def build_pytod_apis(
         kb_context = TestCaseGenerator.load_kb_context(kb_dir)
         if _dlg_path is None and kb_context.get("dialogues_path"):
             _sgd_dlg_path = kb_context["dialogues_path"]
-            logger.info(f"[PyTOD] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
+            logger.info(f"[loop] kb_dir: 使用 dialogues_001.json → {_sgd_dlg_path}")
         if kb_context.get("discovery_path"):
             _discovery_path = kb_context["discovery_path"]
-            logger.info(f"[PyTOD] kb_dir: 使用 discovery_raw.json → {_discovery_path}")
+            logger.info(f"[loop] kb_dir: 使用 discovery_raw.json → {_discovery_path}")
         if kb_context.get("summary_path"):
             _summary_path = kb_context["summary_path"]
-            logger.info(f"[PyTOD] kb_dir: 使用 conversion_summary.json → {_summary_path}")
+            logger.info(f"[loop] kb_dir: 使用 conversion_summary.json → {_summary_path}")
 
     # ------------------------------------------------------------------
     # Phase 2~4：逐函数流式处理
@@ -206,10 +206,10 @@ def build_pytod_apis(
         )
         if dialogue_hint:
             logger.info(
-                f"[PyTOD] 对话提示已构建（{len(dialogue_hint)} 字符），将注入每个意图的测试用例生成 Prompt"
+                f"[loop] 对话提示已构建（{len(dialogue_hint)} 字符），将注入每个意图的测试用例生成 Prompt"
             )
         else:
-            logger.info("[PyTOD] 对话提示为空（未提供对话数据或加载失败），函数生成将仅依赖 schema 定义")
+            logger.info("[loop] 对话提示为空（未提供对话数据或加载失败），函数生成将仅依赖 schema 定义")
 
     if not schema.intents:
         # 无意图定义时生成通用函数
@@ -222,7 +222,7 @@ def build_pytod_apis(
         llm_count = 0
         rule_count = 0
         total_intents = len(schema.intents)
-        logger.info(f"[PyTOD] 开始逐函数生成（共 {total_intents} 个意图）...")
+        logger.info(f"[loop] 开始逐函数生成（共 {total_intents} 个意图）...")
 
         # 尝试从缓存文件加载测试用例（供跨生成器公平对比评测）
         _tc_path = Path(test_cases_path) if test_cases_path is not None else None
@@ -234,13 +234,13 @@ def build_pytod_apis(
                 _cached_test_cases = _loaded
                 _tc_existed = True
                 logger.info(
-                    f"[PyTOD] Phase 2: 从缓存加载测试用例 "
+                    f"[loop] Phase 2: 从缓存加载测试用例 "
                     f"({len(_cached_test_cases)} 个意图) ← {_tc_path}"
                 )
 
         for idx, intent in enumerate(schema.intents, 1):
             logger.info(
-                f"[PyTOD] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────"
+                f"[loop] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────"
             )
             if verbose:
                 _print_section(f"函数 {idx}/{total_intents}: {intent.name}")
@@ -249,22 +249,22 @@ def build_pytod_apis(
             if intent.name in _cached_test_cases:
                 intent_test_cases = _cached_test_cases[intent.name]
                 logger.info(
-                    f"[PyTOD]   Phase 2: {intent.name} — "
+                    f"[loop]   Phase 2: {intent.name} — "
                     f"使用缓存测试用例（{len(intent_test_cases)} 条）"
                 )
             else:
-                logger.info(f"[PyTOD]   Phase 2: {intent.name} — 生成测试用例 ...")
+                logger.info(f"[loop]   Phase 2: {intent.name} — 生成测试用例 ...")
                 intent_test_cases = tc_generator.build_test_cases_for_intent(
                     intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
                 )
                 if intent_test_cases:
                     logger.info(
-                        f"[PyTOD]   Phase 2 完成: {intent.name} — "
+                        f"[loop]   Phase 2 完成: {intent.name} — "
                         f"{len(intent_test_cases)} 条测试用例"
                     )
                 else:
                     logger.warning(
-                        f"[PyTOD]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
+                        f"[loop]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
                     )
             if intent_test_cases:
                 test_cases_by_intent[intent.name] = intent_test_cases
@@ -281,7 +281,7 @@ def build_pytod_apis(
                 print(flush=True)
 
             # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例 + KB 业务背景）
-            logger.info(f"[PyTOD]   Phase 3: {intent.name} — LLM 生成函数体 ...")
+            logger.info(f"[loop]   Phase 3: {intent.name} — LLM 生成函数体 ...")
             llm_body = llm_generator.generate_function_body(
                 intent, schema, all_slot_descs,
                 test_cases=intent_test_cases,
@@ -296,7 +296,7 @@ def build_pytod_apis(
                 func_code = "\n".join(_generate_stub_function_lines(intent))
                 rule_count += 1
                 logger.warning(
-                    f"[PyTOD]   Phase 3: {intent.name} — LLM 失败，回退到 stub 生成"
+                    f"[loop]   Phase 3: {intent.name} — LLM 失败，回退到 stub 生成"
                 )
 
             if verbose:
@@ -310,7 +310,7 @@ def build_pytod_apis(
                     intent, func_code, intent_test_cases, SHARED_HELPERS
                 )
                 logger.info(
-                    f"[PyTOD]   Phase 4: {intent.name} — "
+                    f"[loop]   Phase 4: {intent.name} — "
                     f"初始通过率: {validation.pass_rate:.1%} "
                     f"({validation.passed}/{validation.total})"
                 )
@@ -326,7 +326,7 @@ def build_pytod_apis(
                         break  # 已达到通过率阈值，停止迭代
 
                     logger.info(
-                        f"[PyTOD]   Phase 4: {intent.name} — "
+                        f"[loop]   Phase 4: {intent.name} — "
                         f"第 {iteration} 轮修复（最优通过率 {validation.pass_rate:.1%} "
                         f"< 阈值 {pass_rate_threshold:.1%}）..."
                     )
@@ -340,14 +340,14 @@ def build_pytod_apis(
                         dialogue_hint=dialogue_hint,
                     )
                     if repaired_code is None:
-                        logger.warning(f"[PyTOD]   Phase 4: {intent.name} 修复失败，停止迭代")
+                        logger.warning(f"[loop]   Phase 4: {intent.name} 修复失败，停止迭代")
                         break
 
                     new_validation = validate_function(
                         intent, repaired_code, intent_test_cases, SHARED_HELPERS
                     )
                     logger.info(
-                        f"[PyTOD]   Phase 4: {intent.name} 第 {iteration} 轮后 "
+                        f"[loop]   Phase 4: {intent.name} 第 {iteration} 轮后 "
                         f"通过率: {new_validation.pass_rate:.1%} "
                         f"({new_validation.passed}/{new_validation.total})"
                     )
@@ -371,7 +371,7 @@ def build_pytod_apis(
                 validations[intent.name] = validation
                 status_sym = "✅" if validation.pass_rate >= pass_rate_threshold else "⚠️ "
                 logger.info(
-                    f"[PyTOD]   {status_sym} {intent.name} 完成 — "
+                    f"[loop]   {status_sym} {intent.name} 完成 — "
                     f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})，"
                     f"迭代 {validation.iterations} 轮"
                 )
@@ -380,7 +380,7 @@ def build_pytod_apis(
                 validations[intent.name] = FuncValidation(
                     intent_name=intent.name, total=0, passed=0
                 )
-                logger.info(f"[PyTOD]   {intent.name} 完成（无验证）")
+                logger.info(f"[loop]   {intent.name} 完成（无验证）")
 
             intent_lines.extend(func_code.splitlines())
             intent_lines.append('')
@@ -396,7 +396,7 @@ def build_pytod_apis(
         # 若 test_cases_path 指定且文件不存在，将本次生成的测试用例保存供后续复用
         if _tc_path is not None and not _tc_existed and test_cases_by_intent:
             save_test_cases(test_cases_by_intent, _tc_path)
-            logger.info(f"[PyTOD] 测试用例已缓存 → {_tc_path}（下次运行将自动复用）")
+            logger.info(f"[loop] 测试用例已缓存 → {_tc_path}（下次运行将自动复用）")
 
         if validations:
             validated = [v for v in validations.values() if v.total > 0]
@@ -486,11 +486,11 @@ def build_pytod_apis(
         with open(out_path, "w", encoding="utf-8") as fh:
             fh.write(source)
         logger.info(
-            f"[PyTOD] Phase 5 完成 — 已写入: {out_path} "
+            f"[loop] Phase 5 完成 — 已写入: {out_path} "
             f"({len(schema.intents)} 个意图，{mode_str})"
         )
     except Exception as exc:
-        logger.error(f"[PyTOD] 写入失败: {out_path} — {exc}")
+        logger.error(f"[loop] 写入失败: {out_path} — {exc}")
         return None
 
     # 可选：写入验证报告
