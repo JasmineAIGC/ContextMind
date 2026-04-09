@@ -51,6 +51,22 @@ Schema 数据预生成脚本
     # 开启详细输出（打印每个阶段的详细进度日志）
     python examples/build_schema_data.py --with-llm --verbose
 
+    # 【推荐评测流程】预先生成测试用例，确保 4 种生成器使用完全相同的测试集
+    # Step 1: 预生成测试用例（仅运行 Phase 2，保存到 *_test_cases.json）
+    python examples/build_schema_data.py --with-llm --prebuild-test-cases \\
+        --schema schema/anyihua_schema.json
+
+    # Step 2a: 用 loop 生成代码（Phase 2 自动加载缓存）
+    python examples/build_schema_data.py --with-llm --generator loop \\
+        --schema schema/anyihua_schema.json --output-dir output/loop
+
+    # Step 2b: 用 alpha 生成代码（Phase 2 自动加载同一份缓存）
+    python examples/build_schema_data.py --with-llm --generator alpha \\
+        --schema schema/anyihua_schema.json --output-dir output/alpha
+
+    # Step 2c / 2d: 同理运行 sstar 和 ctree，均使用相同测试用例
+    # → 4 组 *_validation_report.json 可直接对比各算法通过率
+
 两种生成模式
 ------------
 1. **规则模式**（默认）：不依赖 LLM，使用语义化规则生成 mock 返回值的 stub 函数。
@@ -58,6 +74,7 @@ Schema 数据预生成脚本
 
 2. **LLM 模式**（--with-llm）：完整运行 plan.md 定义的 5 阶段流程：
    - Phase 2: 为每个意图生成多轮对话复杂度的测试用例（覆盖早期/中期/完整/上下文依赖/边界场景）
+             若同目录存在 *_test_cases.json，自动从文件加载（跳过 LLM 调用）
    - Phase 3: 逐意图调用 LLM 生成函数体（Prompt 包含 few-shot 测试用例）
    - Phase 4: 批量执行验证 + 迭代修复（通过率低于阈值时调用 LLM 修复）
    - Phase 5: 生成最终文件 + 可选 validation_report.json
@@ -327,6 +344,17 @@ def main() -> None:
         metavar="N",
         help=f"Phase 2 每个意图最多生成的测试用例数（默认: {_DEFAULT_MAX_TEST_CASES}，必须 ≥ 1）。",
     )
+    llm_group.add_argument(
+        "--prebuild-test-cases",
+        action="store_true",
+        help=(
+            "仅运行 Phase 2（LLM 测试用例生成），将结果保存到 *_test_cases.json，"
+            "不执行代码生成。保存后多次运行不同生成器（loop/alpha/sstar/ctree）时，"
+            "Phase 2 自动从该文件加载，确保所有生成器在相同测试集上对比评测。\n"
+            "若目标文件已存在，跳过重新生成（删除文件后可重新生成）。\n"
+            "示例: --with-llm --prebuild-test-cases --schema schema/foo_schema.json"
+        ),
+    )
 
     # ── 其他 ──────────────────────────────────────────────────────────────
     parser.add_argument(
@@ -366,6 +394,7 @@ def main() -> None:
             (args.max_test_cases != _DEFAULT_MAX_TEST_CASES,
              f"--max-test-cases {args.max_test_cases}"),
             (args.generator != "loop", f"--generator {args.generator}"),
+            (args.prebuild_test_cases, "--prebuild-test-cases"),
         ]
         active_llm_flags = [name for active, name in _llm_only_flags if active]
         if active_llm_flags:
@@ -486,6 +515,16 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
     if args.kb_dir:
         _check_schema_vs_discovery(schema_path, Path(args.kb_dir), len(schema.intents))
 
+    # --prebuild-test-cases：仅生成测试用例，跳过代码生成
+    if getattr(args, "prebuild_test_cases", False) and args.with_llm:
+        p = builder.prebuild_test_cases(schema_path, schema=schema)
+        if p:
+            print(f"✅ 测试用例已预生成 → {p}")
+            print("   下次运行各生成器时将自动加载此文件，确保评测使用相同测试集。")
+        else:
+            print("⚠️  测试用例预生成失败（无 LLM 或 schema 无意图定义）")
+        return
+
     if not args.fnctod_only:
         p = builder.build_pytod_apis(schema_path, schema=schema)
         if p:
@@ -544,6 +583,8 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
     import json
     from contextmind.modes.pytod.schemas import load_schema_from_dict
 
+    prebuild_mode = getattr(args, "prebuild_test_cases", False) and args.with_llm
+
     written_total = 0
     for schema_path in schema_files:
         try:
@@ -554,6 +595,15 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
             continue
 
         print(f"📋 {schema_path.name} → service={schema.service_name}, intents={len(schema.intents)}")
+
+        if prebuild_mode:
+            p = builder.prebuild_test_cases(schema_path, schema=schema)
+            if p:
+                print(f"   ✅ 测试用例 → {p.name}")
+                written_total += 1
+            else:
+                print(f"   ⚠️  测试用例预生成失败或已存在")
+            continue
 
         if not args.fnctod_only:
             p = builder.build_pytod_apis(schema_path, schema=schema)
@@ -572,13 +622,21 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
                 print(f"   ⚠️  FnCTOD domain 跳过（已存在）")
 
     print()
-    print(f"🎉 完成！共写入 {written_total} 个文件")
-    print()
-    if args.output_dir:
-        print(f"💡 提示：输出目录: {args.output_dir}")
+    if prebuild_mode:
+        print(f"🎉 完成！共预生成 {written_total} 个测试用例文件")
+        print("💡 现在可对每个生成器运行代码生成，Phase 2 将自动加载此文件：")
+        print("   python examples/build_schema_data.py --with-llm --generator loop  ...")
+        print("   python examples/build_schema_data.py --with-llm --generator alpha ...")
+        print("   python examples/build_schema_data.py --with-llm --generator sstar ...")
+        print("   python examples/build_schema_data.py --with-llm --generator ctree ...")
     else:
-        print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.py schema/*_fnctod_domain.json）")
-    print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
+        print(f"🎉 完成！共写入 {written_total} 个文件")
+        print()
+        if args.output_dir:
+            print(f"💡 提示：输出目录: {args.output_dir}")
+        else:
+            print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.py schema/*_fnctod_domain.json）")
+        print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
 
 
 if __name__ == "__main__":

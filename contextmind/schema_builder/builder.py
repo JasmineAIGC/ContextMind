@@ -160,6 +160,105 @@ class SchemaDataBuilder:
 
         return written
 
+    def prebuild_test_cases(
+        self,
+        schema_path: Union[str, Path],
+        schema: Optional[ServiceSchema] = None,
+    ) -> Optional[Path]:
+        """预生成测试用例并保存到 ``*_test_cases.json``，供所有生成器共享。
+
+        只运行 Phase 2（LLM 驱动的测试用例生成），不进行代码生成。
+        生成的测试用例文件位于 schema 文件同目录，命名规则同其他 companion 文件：
+
+            schema/foo_schema.json  →  schema/foo_test_cases.json
+
+        调用多个生成器（loop / alpha / sstar / ctree）前先运行一次本方法，
+        即可保证所有生成器在完全相同的测试集上进行评测，结果具有可比性。
+
+        如果目标文件已存在，直接返回其路径（不重新生成）。
+        如需强制重新生成，请先手动删除文件，再调用本方法。
+
+        Args:
+            schema_path: ``*_schema.json`` 文件路径。
+            schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
+
+        Returns:
+            写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
+        """
+        from contextmind.schema_builder.pytod.test_cache import (
+            test_cases_path_for_schema,
+            save_test_cases,
+        )
+        from contextmind.schema_builder.pytod.generator import PyTODApiCodeGenerator
+
+        schema_path = Path(schema_path)
+        tc_path = test_cases_path_for_schema(schema_path)
+
+        if tc_path.exists():
+            logger.info(f"[prebuild] 测试用例文件已存在，跳过重新生成: {tc_path}")
+            return tc_path
+
+        if self.llm_client is None:
+            logger.warning("[prebuild] 未提供 llm_client，无法生成测试用例")
+            return None
+
+        if schema is None:
+            try:
+                with open(schema_path, encoding="utf-8") as fh:
+                    schema = load_schema_from_dict(json.load(fh))
+            except Exception as exc:
+                logger.error(f"[prebuild] 加载 schema 失败: {schema_path} — {exc}")
+                return None
+
+        if not schema.intents:
+            logger.info(f"[prebuild] schema 无意图定义，跳过测试用例生成: {schema_path}")
+            return None
+
+        # 解析 KB 目录上下文（与各生成器逻辑一致）
+        _dlg_path = Path(self.dialogue_data_path) if self.dialogue_data_path else None
+        _sgd_dlg_path = None
+        _discovery_path = None
+        _summary_path = None
+        if self.kb_dir is not None:
+            kb_context = PyTODApiCodeGenerator.load_kb_context(self.kb_dir)
+            if _dlg_path is None and kb_context.get("dialogues_path"):
+                _sgd_dlg_path = kb_context["dialogues_path"]
+            if kb_context.get("discovery_path"):
+                _discovery_path = kb_context["discovery_path"]
+            if kb_context.get("summary_path"):
+                _summary_path = kb_context["summary_path"]
+
+        gen = PyTODApiCodeGenerator(llm_client=self.llm_client)
+        dialogue_hint = gen._prepare_dialogue_hint(
+            dialogue_data_path=_dlg_path,
+            sgd_dialogue_data_path=_sgd_dlg_path,
+            discovery_data_path=_discovery_path,
+            summary_data_path=_summary_path,
+        )
+
+        all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
+        cases_by_intent: Dict[str, Any] = {}
+        total_intents = len(schema.intents)
+        logger.info(f"[prebuild] 开始生成测试用例（共 {total_intents} 个意图）: {schema_path.name}")
+
+        for idx, intent in enumerate(schema.intents, 1):
+            logger.info(f"[prebuild]   {idx}/{total_intents}: {intent.name}")
+            cases = gen.build_test_cases_for_intent(
+                intent, schema, all_slot_descs, dialogue_hint, self.max_test_cases_per_intent
+            )
+            if cases:
+                cases_by_intent[intent.name] = cases
+
+        if not cases_by_intent:
+            logger.warning("[prebuild] 未能生成任何测试用例")
+            return None
+
+        save_test_cases(cases_by_intent, tc_path)
+        logger.info(
+            f"[prebuild] 测试用例已保存（{len(cases_by_intent)}/{total_intents} 个意图）→ {tc_path}"
+        )
+        return tc_path
+
     def build_pytod_apis(
         self,
         schema_path: Union[str, Path],
@@ -197,6 +296,9 @@ class SchemaDataBuilder:
             else:  # "loop" 或未知值均回退到迭代修复流水线
                 from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
+            # 自动计算测试用例缓存路径（与 schema 同目录，独立于 output_dir）
+            from contextmind.schema_builder.pytod.test_cache import test_cases_path_for_schema
+            tc_path = test_cases_path_for_schema(Path(schema_path))
             return _build(
                 schema_path,
                 schema=schema,
@@ -210,6 +312,7 @@ class SchemaDataBuilder:
                 max_test_cases_per_intent=self.max_test_cases_per_intent,
                 generate_report=self.generate_report,
                 verbose=self.verbose,
+                test_cases_path=tc_path,
             )
 
         # ------- 规则模式（无 LLM）-------

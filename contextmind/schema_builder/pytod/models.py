@@ -30,6 +30,25 @@ class TestCaseItem:
     expected_values: Dict[str, Any] = field(default_factory=dict)
     description: str = ""
 
+    def to_dict(self) -> Dict[str, Any]:
+        """序列化为可 JSON 存储的字典。"""
+        return {
+            "input_slots": self.input_slots,
+            "expected_keys": self.expected_keys,
+            "expected_values": self.expected_values,
+            "description": self.description,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TestCaseItem":
+        """从字典反序列化（to_dict 的逆操作）。"""
+        return cls(
+            input_slots=data.get("input_slots", {}),
+            expected_keys=data.get("expected_keys", []),
+            expected_values=data.get("expected_values", {}),
+            description=data.get("description", ""),
+        )
+
 
 @dataclass
 class FuncValidation:

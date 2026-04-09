@@ -88,6 +88,7 @@ def build_pytod_apis(
     kb_dir: Optional[Union[str, Path]] = None,
     output_dir: Optional[Union[str, Path]] = None,
     verbose: bool = False,
+    test_cases_path: Optional[Union[str, Path]] = None,
 ) -> Optional[Path]:
     """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
@@ -126,6 +127,10 @@ def build_pytod_apis(
         output_dir:               可选的输出目录。指定时输出到该目录，否则输出到 schema 文件同目录。
         verbose:                  是否输出详细进度信息（测试用例内容、每轮迭代后函数代码、
                                   通过率等）。默认 False。
+        test_cases_path:          可选，预生成的测试用例缓存文件路径（``*_test_cases.json``）。
+                                  若文件已存在，Phase 2 直接从该文件加载，跳过 LLM 测试用例生成；
+                                  若文件不存在，Phase 2 正常生成后自动保存到该路径，供后续生成器复用。
+                                  通常由 SchemaDataBuilder 自动计算传入，无需手动指定。
 
     Returns:
         写入成功时返回生成的文件路径，否则返回 None。
@@ -228,6 +233,21 @@ def build_pytod_apis(
         total_intents = len(schema.intents)
         logger.info(f"[PyTOD] 开始逐函数生成（共 {total_intents} 个意图）...")
 
+        # 尝试从缓存文件加载测试用例（供跨生成器公平对比评测）
+        from contextmind.schema_builder.pytod.test_cache import load_test_cases, save_test_cases
+        _tc_path = Path(test_cases_path) if test_cases_path is not None else None
+        _cached_test_cases: Dict[str, List[TestCaseItem]] = {}
+        _tc_existed = False
+        if _tc_path is not None and _tc_path.exists():
+            _loaded = load_test_cases(_tc_path)
+            if _loaded:
+                _cached_test_cases = _loaded
+                _tc_existed = True
+                logger.info(
+                    f"[PyTOD] Phase 2: 从缓存加载测试用例 "
+                    f"({len(_cached_test_cases)} 个意图) ← {_tc_path}"
+                )
+
         for idx, intent in enumerate(schema.intents, 1):
             logger.info(
                 f"[PyTOD] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────"
@@ -235,21 +255,26 @@ def build_pytod_apis(
             if verbose:
                 _print_section(f"函数 {idx}/{total_intents}: {intent.name}")
 
-            # Phase 2：为本函数生成测试用例
-            logger.info(f"[PyTOD]   Phase 2: {intent.name} — 生成测试用例 ...")
-            intent_test_cases = llm_generator.build_test_cases_for_intent(
-                intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
-            )
-            if intent_test_cases:
-                test_cases_by_intent[intent.name] = intent_test_cases
+            # Phase 2：加载或生成测试用例
+            if intent.name in _cached_test_cases:
+                intent_test_cases = _cached_test_cases[intent.name]
+                logger.info(
+                    f"[PyTOD]   Phase 2: {intent.name} — "
+                    f"使用缓存测试用例（{len(intent_test_cases)} 条）"
+                )
+            else:
+                logger.info(f"[PyTOD]   Phase 2: {intent.name} — 生成测试用例 ...")
+                intent_test_cases = llm_generator.build_test_cases_for_intent(
+                    intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
+                )
                 logger.info(
                     f"[PyTOD]   Phase 2 完成: {intent.name} — "
                     f"{len(intent_test_cases)} 条测试用例"
-                )
-            else:
-                logger.warning(
+                ) if intent_test_cases else logger.warning(
                     f"[PyTOD]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
                 )
+            if intent_test_cases:
+                test_cases_by_intent[intent.name] = intent_test_cases
             if verbose and intent_test_cases:
                 print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
                 for i, tc in enumerate(intent_test_cases, 1):
@@ -374,6 +399,11 @@ def build_pytod_apis(
             mode_str = f"LLM 逐函数生成 {llm_count} 个意图"
         else:
             mode_str = f"规则生成 {rule_count} 个意图函数"
+
+        # 若 test_cases_path 指定且文件不存在，将本次生成的测试用例保存供后续复用
+        if _tc_path is not None and not _tc_existed and test_cases_by_intent:
+            save_test_cases(test_cases_by_intent, _tc_path)
+            logger.info(f"[PyTOD] 测试用例已缓存 → {_tc_path}（下次运行将自动复用）")
 
         if validations:
             validated = [v for v in validations.values() if v.total > 0]

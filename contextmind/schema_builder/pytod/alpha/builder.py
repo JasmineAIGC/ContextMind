@@ -82,6 +82,7 @@ def build_pytod_apis_alpha(
     kb_dir: Optional[Union[str, Path]] = None,
     output_dir: Optional[Union[str, Path]] = None,
     verbose: bool = False,
+    test_cases_path: Optional[Union[str, Path]] = None,
 ) -> Optional[Path]:
     """从 schema.json 用 ACIA 算法生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
@@ -106,6 +107,8 @@ def build_pytod_apis_alpha(
         kb_dir:                   可选，KB 输出目录路径。
         output_dir:               可选的输出目录。
         verbose:                  是否输出详细进度信息（默认 False）。
+        test_cases_path:          可选，预生成的测试用例缓存文件路径（``*_test_cases.json``）。
+                                  若文件存在，Phase 2 直接加载跳过 LLM 生成；否则生成后自动保存。
 
     Returns:
         写入成功时返回生成的文件路径，否则返回 None。
@@ -206,6 +209,21 @@ def build_pytod_apis_alpha(
         total_intents = len(schema.intents)
         logger.info(f"[ACIA] 开始逐函数 ACIA 合成（共 {total_intents} 个意图）...")
 
+        # 尝试从缓存文件加载测试用例
+        from contextmind.schema_builder.pytod.test_cache import load_test_cases, save_test_cases
+        _tc_path = Path(test_cases_path) if test_cases_path is not None else None
+        _cached_test_cases: Dict[str, List[TestCaseItem]] = {}
+        _tc_existed = False
+        if _tc_path is not None and _tc_path.exists():
+            _loaded = load_test_cases(_tc_path)
+            if _loaded:
+                _cached_test_cases = _loaded
+                _tc_existed = True
+                logger.info(
+                    f"[ACIA] Phase 2: 从缓存加载测试用例 "
+                    f"({len(_cached_test_cases)} 个意图) ← {_tc_path}"
+                )
+
         for idx, intent in enumerate(schema.intents, 1):
             logger.info(
                 f"[ACIA] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────"
@@ -213,18 +231,25 @@ def build_pytod_apis_alpha(
             if verbose:
                 _print_section(f"[ACIA] 函数 {idx}/{total_intents}: {intent.name}")
 
-            # Phase 2：测试用例（复用现有实现）
-            logger.info(f"[ACIA]   Phase 2: {intent.name} — 生成测试用例...")
-            intent_test_cases = phase2_gen.build_test_cases_for_intent(
-                intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
-            )
-            if intent_test_cases:
-                test_cases_by_intent[intent.name] = intent_test_cases
+            # Phase 2：加载或生成测试用例
+            if intent.name in _cached_test_cases:
+                intent_test_cases = _cached_test_cases[intent.name]
                 logger.info(
-                    f"[ACIA]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
+                    f"[ACIA]   Phase 2: {intent.name} — "
+                    f"使用缓存测试用例（{len(intent_test_cases)} 条）"
                 )
             else:
-                logger.warning(f"[ACIA]   Phase 2: {intent.name} — 未获得测试用例")
+                logger.info(f"[ACIA]   Phase 2: {intent.name} — 生成测试用例...")
+                intent_test_cases = phase2_gen.build_test_cases_for_intent(
+                    intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
+                )
+                logger.info(
+                    f"[ACIA]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
+                ) if intent_test_cases else logger.warning(
+                    f"[ACIA]   Phase 2: {intent.name} — 未获得测试用例"
+                )
+            if intent_test_cases:
+                test_cases_by_intent[intent.name] = intent_test_cases
             if verbose and intent_test_cases:
                 print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
                 for i, tc in enumerate(intent_test_cases, 1):
@@ -282,6 +307,11 @@ def build_pytod_apis_alpha(
                 total_p = sum(v.passed for v in validated)
                 total_t = sum(v.total for v in validated)
                 mode_str += f"，测试验证 {total_p}/{total_t} ({avg_rate:.1%})"
+
+        # 若 test_cases_path 指定且文件不存在，保存本次生成的测试用例供后续复用
+        if _tc_path is not None and not _tc_existed and test_cases_by_intent:
+            save_test_cases(test_cases_by_intent, _tc_path)
+            logger.info(f"[ACIA] 测试用例已缓存 → {_tc_path}（下次运行将自动复用）")
 
         if verbose and validations:
             _print_section("[ACIA] 验证汇总")
