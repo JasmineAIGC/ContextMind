@@ -30,6 +30,6 @@ AlphaCodium 风格 PyTOD API 代码合成器（ACIA）。
         --kb-dir output/kb_output --max-iterations 5 --verbose
 """
 
-from contextmind.schema_builder.pytod.alpha.builder import build_pytod_apis_alpha
+from contextmind.schema_builder.pytod.codegen.alpha.builder import build_pytod_apis_alpha
 
 __all__ = ["build_pytod_apis_alpha"]

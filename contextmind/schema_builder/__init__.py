@@ -54,8 +54,8 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
 
 # 顶层公开 API：保持与调用方兼容
 from contextmind.schema_builder.builder import SchemaDataBuilder
-from contextmind.schema_builder.pytod.shared.generator import PyTODApiCodeGenerator
-from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
+from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
 
 __all__ = [
     "SchemaDataBuilder",

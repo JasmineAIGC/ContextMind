@@ -29,9 +29,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
-from contextmind.schema_builder.pytod.shared.models import FuncValidation, TestCaseItem
+from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
 
-from contextmind.schema_builder.pytod.alpha.prompts import (
+from contextmind.schema_builder.pytod.codegen.alpha.prompts import (
     ANALYZE_SYSTEM,
     ANALYZE_USER_TEMPLATE,
     GENERATE_SYSTEM,
@@ -41,7 +41,7 @@ from contextmind.schema_builder.pytod.alpha.prompts import (
     REPAIR_SYSTEM,
     REPAIR_USER_TEMPLATE,
 )
-from contextmind.schema_builder.pytod.shared.cleaner import clean_llm_function_body
+from contextmind.schema_builder.pytod.codegen.shared.cleaner import clean_llm_function_body
 
 logger = get_logger(__name__)
 
@@ -237,8 +237,8 @@ class AlphaSynthesizer:
             - func_code: 完整的函数代码字符串（含 def 行）
             - validation: 最终验证结果
         """
-        from contextmind.schema_builder.pytod.shared.helpers import SHARED_HELPERS
-        from contextmind.schema_builder.pytod.shared.validator import validate_function
+        from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
+        from contextmind.schema_builder.pytod.testcase.validator import validate_function
 
         header = self._build_header(intent)
 

@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
-from contextmind.schema_builder.pytod.shared.test_cache import test_cases_path_for_schema
+from contextmind.schema_builder.pytod.testcase.cache import test_cases_path_for_schema
 
 logger = get_logger(__name__)
 
@@ -186,8 +186,8 @@ class SchemaDataBuilder:
         Returns:
             写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
         """
-        from contextmind.schema_builder.pytod.shared.test_cache import save_test_cases
-        from contextmind.schema_builder.pytod.shared.generator import PyTODApiCodeGenerator
+        from contextmind.schema_builder.pytod.testcase.cache import save_test_cases
+        from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
 
         schema_path = Path(schema_path)
         tc_path = test_cases_path_for_schema(schema_path)
@@ -265,7 +265,7 @@ class SchemaDataBuilder:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
         当实例携带 ``llm_client`` 时，委托给
-        :func:`contextmind.schema_builder.pytod.loop.builder.build_pytod_apis`
+        :func:`contextmind.schema_builder.pytod.codegen.loop.builder.build_pytod_apis`
         执行完整的 5 阶段 LLM 生成流程（plan.md）；
         否则使用内置规则引擎生成 mock stub 函数。
 
@@ -283,16 +283,16 @@ class SchemaDataBuilder:
         # 根据 generator 参数委托给对应的构建器。
         if self.llm_client is not None:
             if self.generator == "alpha":
-                from contextmind.schema_builder.pytod.alpha.builder import build_pytod_apis_alpha as _build
+                from contextmind.schema_builder.pytod.codegen.alpha.builder import build_pytod_apis_alpha as _build
                 logger.info("[SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）")
             elif self.generator == "sstar":
-                from contextmind.schema_builder.pytod.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.codegen.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 S* 生成器（--generator sstar，arXiv:2502.14382）")
             elif self.generator == "ctree":
-                from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.codegen.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
             else:  # "loop" 或未知值均回退到迭代修复流水线
-                from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.codegen.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
             # 自动计算测试用例缓存路径（与 schema 同目录，独立于 output_dir）
             tc_path = test_cases_path_for_schema(Path(schema_path))

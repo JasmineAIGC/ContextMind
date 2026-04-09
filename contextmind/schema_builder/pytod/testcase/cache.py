@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from contextmind.infra.logger import get_logger
-from contextmind.schema_builder.pytod.shared.models import TestCaseItem
+from contextmind.schema_builder.pytod.testcase.models import TestCaseItem
 
 logger = get_logger(__name__)
 
