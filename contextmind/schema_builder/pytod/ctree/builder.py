@@ -250,11 +250,12 @@ def build_pytod_apis_ctree(
                 intent_test_cases = phase2_gen.build_test_cases_for_intent(
                     intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
                 )
-                logger.info(
-                    f"[CodeTree]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
-                ) if intent_test_cases else logger.warning(
-                    f"[CodeTree]   Phase 2: {intent.name} — 未获得测试用例"
-                )
+                if intent_test_cases:
+                    logger.info(
+                        f"[CodeTree]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
+                    )
+                else:
+                    logger.warning(f"[CodeTree]   Phase 2: {intent.name} — 未获得测试用例")
             if intent_test_cases:
                 test_cases_by_intent[intent.name] = intent_test_cases
             if verbose and intent_test_cases:

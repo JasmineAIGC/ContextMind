@@ -267,12 +267,15 @@ def build_pytod_apis(
                 intent_test_cases = llm_generator.build_test_cases_for_intent(
                     intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
                 )
-                logger.info(
-                    f"[PyTOD]   Phase 2 完成: {intent.name} — "
-                    f"{len(intent_test_cases)} 条测试用例"
-                ) if intent_test_cases else logger.warning(
-                    f"[PyTOD]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
-                )
+                if intent_test_cases:
+                    logger.info(
+                        f"[PyTOD]   Phase 2 完成: {intent.name} — "
+                        f"{len(intent_test_cases)} 条测试用例"
+                    )
+                else:
+                    logger.warning(
+                        f"[PyTOD]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
+                    )
             if intent_test_cases:
                 test_cases_by_intent[intent.name] = intent_test_cases
             if verbose and intent_test_cases:
