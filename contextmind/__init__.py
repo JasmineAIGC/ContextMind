@@ -5,7 +5,7 @@ ContextMind — 通用上下文工程框架
 ----------
 1. **建立知识库**（Phase 1）：针对任意对话数据集，通过 LLM 自动发现槽位和意图，
    合成标准 SGD 格式 ``schema.json``。
-   统一使用 ``examples/build_kb_demo.py``，输出：
+   统一使用 ``examples/build_kb.py``，输出：
 
    - ``schema.json``          — 服务 schema（槽位 + 意图）
    - ``dialogues_001.json``   — SGD 格式标注对话

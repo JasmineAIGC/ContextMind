@@ -14,7 +14,7 @@
 - **第一步→第三步桥接方法**: `KnowledgeBaseBuilder.to_service_schema()` / `load_schema()` 直接将第一步输出连接到第三步追踪器
 - **vLLM Qwen3 支持**: `AdkLLMClient` 自动识别思维模型并通过 `chat_template_kwargs.enable_thinking=False` 关闭思维模式，避免 3–10× 延迟
 - **context_pipeline_demo.py**: 端到端 ContextPipeline 演示脚本
-- **build_kb_demo.py**: 通用知识库构建演示，支持多文件合并、多种输入格式
+- **build_kb.py**: 通用知识库构建演示，支持多文件合并、多种输入格式
 
 ### 变更
 - **包名调整**: 知识库构建模块由 `contextmind.kb` 正式更名为 `contextmind.knowledge`
