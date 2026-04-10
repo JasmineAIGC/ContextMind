@@ -38,7 +38,7 @@ from contextmind.schema_builder.utils import companion_path
 from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.pytod.testcase.cache import load_test_cases, save_test_cases
-from contextmind.schema_builder.pytod.testcase.validator import validate_function, write_validation_report
+from contextmind.schema_builder.pytod.testcase.validator import validate_function, write_validation_report, check_zero_arg_robustness
 
 from contextmind.schema_builder.pytod.codegen.ctree.synthesizer import CodeTreeSynthesizer
 
@@ -303,6 +303,46 @@ def build_pytod_apis_ctree(
                     if validation.total > 0 else "无测试用例（跳过验证）"
                 )
             )
+
+            # 零参数健壮性修复（Phase S 补充）
+            # 确保函数在所有参数为 None 时也能正常运行，与 tracker.py
+            # load_pytod_api_module() 的运行时检查一致，避免函数加载时被替换为存根。
+            _zero_arg_err = check_zero_arg_robustness(intent.name, func_code, SHARED_HELPERS)
+            if _zero_arg_err is not None:
+                logger.warning(
+                    f"[CodeTree]   {intent.name} 零参数调用失败（{_zero_arg_err}），"
+                    f"触发健壮性修复..."
+                )
+                _zero_arg_repair = phase2_gen.repair_function(
+                    intent, schema, all_slot_descs,
+                    current_code=func_code,
+                    failures=[{
+                        "description": "零参数调用（所有参数为 None，健壮性检查）",
+                        "input_slots": {},
+                        "error": (
+                            f"调用 {intent.name}()（所有参数均为 None）时出错: "
+                            f"{_zero_arg_err}. "
+                            "函数必须在所有参数均为 None 时正常返回含 status 的 dict，"
+                            "不能抛出 NameError 或 UnboundLocalError。"
+                        ),
+                    }],
+                    iteration=0,
+                    total=1,
+                    passed=0,
+                    dialogue_hint=dialogue_hint,
+                )
+                if _zero_arg_repair is not None:
+                    _repaired_err = check_zero_arg_robustness(
+                        intent.name, _zero_arg_repair, SHARED_HELPERS
+                    )
+                    if _repaired_err is None:
+                        func_code = _zero_arg_repair
+                        logger.info(f"[CodeTree]   {intent.name} 零参数健壮性修复成功")
+                    else:
+                        logger.warning(
+                            f"[CodeTree]   {intent.name} 修复后仍不健壮: {_repaired_err}，"
+                            f"保留原代码"
+                        )
 
             intent_lines.extend(func_code.splitlines())
             intent_lines.append("")

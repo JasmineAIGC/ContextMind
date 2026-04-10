@@ -173,6 +173,43 @@ def validate_function(
     )
 
 
+def check_zero_arg_robustness(
+    func_name: str,
+    func_code: str,
+    shared_helpers: str,
+) -> Optional[str]:
+    """零参数调用检查：验证函数在所有参数为 None 时能正常运行。
+
+    与 ``tracker.py`` 中 ``load_pytod_api_module()`` 的运行时健壮性检查等价。
+    在代码生成阶段提前捕获两类常见 LLM 生成缺陷：
+
+    - **NameError**：函数体引用了未在签名中声明的变量（如裸用 ``kwargs``）。
+    - **UnboundLocalError**：条件赋值模式（如 ``if x: x = float(x)``）在 None 输入时
+      导致局部变量在赋值前被读取。
+
+    Args:
+        func_name:      意图函数名称（与签名中 ``def func_name(...)`` 一致）。
+        func_code:      完整函数定义代码字符串（含 ``def`` 行）。
+        shared_helpers: 共享工具函数代码（``SHARED_HELPERS``）。
+
+    Returns:
+        函数调用抛出 :exc:`NameError` 或 :exc:`UnboundLocalError` 时返回错误描述字符串；
+        调用成功或抛出其他异常时均返回 ``None``（其他异常不属于零参数健壮性问题）。
+    """
+    try:
+        exec_source = "from __future__ import annotations\n" + shared_helpers + "\n" + func_code
+        namespace: Dict[str, Any] = {}
+        exec(compile(exec_source, "<zero_arg_check>", "exec"), namespace)  # noqa: S102
+        func_obj = namespace.get(func_name)
+        if func_obj is not None:
+            func_obj()
+        return None
+    except (NameError, UnboundLocalError) as exc:
+        return f"{type(exc).__name__}: {exc}"
+    except Exception:
+        return None  # 其他异常（如 TypeError）不属于零参数健壮性问题
+
+
 def write_validation_report(
     schema_path: Path,
     validations: Dict[str, FuncValidation],
