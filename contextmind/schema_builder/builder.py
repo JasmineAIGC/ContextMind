@@ -171,6 +171,7 @@ class SchemaDataBuilder:
         schema_path: Union[str, Path],
         schema: Optional[ServiceSchema] = None,
         output_path: Optional[Union[str, Path]] = None,
+        workers: int = 4,
     ) -> Optional[Path]:
         """预生成测试用例并保存到 ``*_test_cases.json``，供所有生成器共享。
 
@@ -191,10 +192,13 @@ class SchemaDataBuilder:
             schema_path: ``*_schema.json`` 文件路径。
             schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
             output_path: 可选，自定义测试用例输出路径；未指定时由 ``schema_path`` 自动推导。
+            workers:     并行工作线程数（默认 4）；每个意图各占一个线程并发调用 LLM。
 
         Returns:
             写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
         """
+        import concurrent.futures
+
         from contextmind.schema_builder.pytod.testcase.cache import save_test_cases
         from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
 
@@ -247,18 +251,22 @@ class SchemaDataBuilder:
             summary_data_path=_summary_path,
         )
 
-        all_slot_descs: Dict[str, str] = {s.name: s.description for s in schema.slots}
+        all_slot_descs: Dict[str, Any] = {s.name: s.description for s in schema.slots}
         cases_by_intent: Dict[str, Any] = {}
         total_intents = len(schema.intents)
-        logger.info(f"[prebuild] 开始生成测试用例（共 {total_intents} 个意图）: {schema_path.name}")
+        logger.info(f"[prebuild] 开始生成测试用例（共 {total_intents} 个意图，并行度 {workers}）: {schema_path.name}")
 
-        for idx, intent in enumerate(schema.intents, 1):
+        def _gen_one(idx_intent):
+            idx, intent = idx_intent
             logger.info(f"[prebuild]   {idx}/{total_intents}: {intent.name}")
-            cases = gen.build_test_cases_for_intent(
+            return intent.name, gen.build_test_cases_for_intent(
                 intent, schema, all_slot_descs, dialogue_hint, self.max_test_cases_per_intent
             )
-            if cases:
-                cases_by_intent[intent.name] = cases
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            for intent_name, cases in pool.map(_gen_one, enumerate(schema.intents, 1)):
+                if cases:
+                    cases_by_intent[intent_name] = cases
 
         if not cases_by_intent:
             logger.warning("[prebuild] 未能生成任何测试用例")

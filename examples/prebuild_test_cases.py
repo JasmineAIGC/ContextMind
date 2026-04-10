@@ -66,6 +66,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
+import concurrent.futures
 
 # 添加项目根目录到 Python 路径，无需安装即可直接运行
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -154,6 +155,18 @@ def main() -> None:
         default=_DEFAULT_MAX_TEST_CASES,
         metavar="N",
         help=f"每个意图最多生成的测试用例数（默认: {_DEFAULT_MAX_TEST_CASES}，必须 ≥ 1）",
+    )
+    gen_group.add_argument(
+        "--workers",
+        type=_positive_int,
+        default=4,
+        metavar="N",
+        help=(
+            "并行工作线程数（默认: 4）。"
+            "控制同时调用 LLM 的并发数：每个意图各占一个线程，"
+            "多个 schema 文件（--data-dir 模式）也会并发处理。"
+            "增大此值可显著缩短生成时间，但受限于 LLM API 的并发速率限制。"
+        ),
     )
     gen_group.add_argument(
         "--force",
@@ -280,7 +293,7 @@ def _process_single(
         tc_path.unlink()
         print(f"🗑️  已删除旧文件: {tc_path}")
 
-    p = builder.prebuild_test_cases(schema_path, schema=schema, output_path=output_path)
+    p = builder.prebuild_test_cases(schema_path, schema=schema, output_path=output_path, workers=args.workers)
     if p:
         print(f"✅ 测试用例已生成 → {p}")
     else:
@@ -292,7 +305,7 @@ def _process_dir(
     data_dir: Path,
     args: argparse.Namespace,
 ) -> None:
-    """处理目录下所有 schema 文件的测试用例预生成。"""
+    """处理目录下所有 schema 文件的测试用例预生成（跨 schema 并行）。"""
     import json
     from contextmind.modes.pytod.schemas import load_schema_from_dict
     from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
@@ -308,7 +321,8 @@ def _process_dir(
         print(f"   - {f.name}")
     print()
 
-    written_total = 0
+    # ── 预处理：加载 schema、判断是否跳过 ────────────────────────────────
+    tasks = []   # (schema_path, schema_obj) 待生成列表
     skipped_total = 0
     for schema_path in schema_files:
         tc_path = test_cases_path_for_schema(schema_path)
@@ -332,12 +346,31 @@ def _process_dir(
         if tc_path.exists() and args.force:
             tc_path.unlink()
 
-        p = builder.prebuild_test_cases(schema_path, schema=schema)
-        if p:
-            print(f"   ✅ 测试用例 → {p.name}")
-            written_total += 1
-        else:
-            print(f"   ⚠️  生成失败（无意图定义或 LLM 返回空）")
+        tasks.append((schema_path, schema))
+
+    if not tasks:
+        print()
+        print(f"🎉 完成！新生成 0 个，跳过 {skipped_total} 个（已存在）")
+        return
+
+    print()
+    print(f"⚡ 并行生成 {len(tasks)} 个 schema 的测试用例（--workers {args.workers}）...")
+    print()
+
+    # ── 并发执行：每个 schema 独占 workers 个意图线程 ────────────────────
+    # 跨 schema 使用 workers 个线程，每个线程内再使用同等并发处理意图。
+    def _gen_schema(task):
+        sp, sc = task
+        return sp, builder.prebuild_test_cases(sp, schema=sc, workers=args.workers)
+
+    written_total = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
+        for schema_path, p in pool.map(_gen_schema, tasks):
+            if p:
+                print(f"   ✅ {schema_path.name} → {p.name}")
+                written_total += 1
+            else:
+                print(f"   ⚠️  {schema_path.name}: 生成失败（无意图定义或 LLM 返回空）")
 
     print()
     print(f"🎉 完成！新生成 {written_total} 个，跳过 {skipped_total} 个（已存在）")
