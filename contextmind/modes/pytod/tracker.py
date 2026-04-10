@@ -346,27 +346,46 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
             and getattr(obj, "__module__", None) == mod_name
         }
         # Validate each function with a no-arg test call to detect LLM-generated bugs
-        # (e.g. a function body that calls a string variable raises
-        # "TypeError: 'str' object is not callable").  All generated API functions
+        # (e.g. a function missing parameters whose body references them raises
+        # NameError/UnboundLocalError; a body that calls a string variable raises
+        # TypeError: 'str' object is not callable).  All generated API functions
         # accept only keyword arguments with default=None, so a zero-arg call is safe
-        # and representative.  Functions that raise any exception are excluded so the
-        # engine falls back to a stub instead of propagating a runtime error later.
+        # and representative.
+        #
+        # Functions that fail the test are replaced with a safe-stub wrapper that
+        # accepts any kwargs and returns a sensible default dict.  This ensures every
+        # function name from the file is registered in the ExecutionEngine, preventing
+        # "function not registered" errors at runtime.  _is_stub_only_result() will
+        # filter these stub results from the AP's prior-dataflow context.
+        def _make_safe_stub(func_name: str, doc: str) -> Any:
+            """Safe wrapper returning a default result for LLM-generated buggy functions."""
+            def _stub(**kwargs: Any) -> Dict[str, Any]:
+                non_null = {k: v for k, v in kwargs.items() if v is not None}
+                if non_null:
+                    return {"status": "success", **non_null}
+                return {"status": "success", "intent": func_name}
+            _stub.__name__ = func_name
+            _stub.__doc__ = doc
+            return _stub
+
         funcs: dict = {}
+        _safe_stub_count = 0
         for name, obj in raw_funcs.items():
             try:
                 obj()
                 funcs[name] = obj
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
-                    f"[api_module] 函数 '{name}' 测试调用失败（将使用存根替代）: "
+                    f"[api_module] 函数 '{name}' 测试调用失败（已替换为安全存根）: "
                     f"{type(exc).__name__}: {exc}"
                 )
-        if len(funcs) < len(raw_funcs):
-            skipped = len(raw_funcs) - len(funcs)
+                funcs[name] = _make_safe_stub(name, getattr(obj, "__doc__", "") or "")
+                _safe_stub_count += 1
+        if _safe_stub_count:
             logger.warning(
-                f"[api_module] {skipped} 个函数因测试调用失败而跳过，将使用存根替代"
+                f"[api_module] {_safe_stub_count} 个函数因测试调用失败，已替换为安全存根"
             )
-        logger.info(f"[api_module] 已加载 PyTOD API 函数: {apis_path} ({len(funcs)} 个函数)")
+        logger.info(f"[api_module] 已加载 PyTOD API 函数: {apis_path} ({len(funcs)} 个函数，其中 {_safe_stub_count} 个为安全存根)")
         return funcs
     except Exception as exc:
         logger.warning(f"[api_module] 加载 APIs 模块失败: {apis_path} — {exc}")
