@@ -95,9 +95,16 @@ DRAFT_SYSTEM_TEMPLATE = """\
    _parse_amount(val→float), _ticket_id(prefix→str),
    _calc_monthly_payment(p,r,m→float), _next_work_day(→str)
 
-5. **只使用 Python 标准库**，不要 import 第三方库。
+5. **只使用 Python 标准库**；**不要在函数体内使用 import 语句**（`re` 已以 `_re` 导入）。
 
 6. **函数体不超过 30 行**（含 return）。
+
+7. **注释极简**：每个逻辑块最多 1 行注释；禁止多行注释块和冗余注释。
+
+8. **零参数健壮性（必须通过）**：函数在所有参数均为 None 时必须能正常执行并返回含 `status="success"` 的 dict。
+   - `_parse_amount(None)` 返回 `0.0`，**绝不能将其用作除数**——用 `max(v, 1)` 或 `if v > 0` 保护
+   - 避免 `if x: x = float(x)` 等条件赋值——改为 `x = float(x) if x else 0.0`
+   - 字符串操作前先用 `str(param or "")` 处理 None
 
 ## 严格禁止的模式
 - ❌ 不要写 `return {{"status": "success", **{{k:v for k,v in locals().items()}}}}` 这样的万能返回
@@ -180,9 +187,14 @@ REPAIR_SYSTEM = """\
 4. **不要重复定义工具函数**：直接调用
    _parse_amount, _ticket_id, _calc_monthly_payment, _next_work_day。
 
-5. **只使用 Python 标准库**，不要 import 第三方库。
+5. **只使用 Python 标准库**；**不要在函数体内使用 import 语句**（`re` 已以 `_re` 导入）。
 
 6. **函数体不超过 30 行**（含 return）。
+
+7. **注释极简**：每个逻辑块最多 1 行注释；禁止多行注释块。
+
+8. **零参数健壮性（必须通过）**：函数在所有参数均为 None 时必须能正常执行。
+   `_parse_amount(None)` 返回 `0.0`，不能将其用作除数；字符串操作前用 `str(param or "")` 处理 None。
 
 根据执行追踪精确定位问题所在，完整重写函数体（不是打补丁）。
 """

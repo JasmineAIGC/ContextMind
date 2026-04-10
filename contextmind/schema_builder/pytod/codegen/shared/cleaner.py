@@ -89,7 +89,26 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
 
         if func_def:
             lines = raw.splitlines()
-            body_start = func_def.body[0].lineno - 1
+            # Skip leading docstring(s): _function_def_header already adds a docstring,
+            # so any string-expression at the start of the LLM body is redundant.
+            # Find the first non-docstring statement to use as body_start.
+            first_code_stmt = next(
+                (
+                    s for s in func_def.body
+                    if not (
+                        isinstance(s, ast.Expr)
+                        and isinstance(s.value, ast.Constant)
+                        and isinstance(s.value.value, str)
+                    )
+                ),
+                None,
+            )
+            if first_code_stmt is not None:
+                body_start = first_code_stmt.lineno - 1
+            else:
+                # Body consists only of docstrings (no real code) — fall back so the
+                # caller receives an empty body and can issue a warning / fallback.
+                body_start = func_def.body[0].lineno - 1
             # 用 end_lineno（Python 3.8+）精确截止，避免把后续函数定义包进来
             body_end = (
                 func_def.end_lineno

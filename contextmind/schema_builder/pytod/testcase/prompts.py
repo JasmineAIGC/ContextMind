@@ -65,14 +65,22 @@ MODULE_GEN_SYSTEM = """\
 
 ### 代码质量
 - 每个函数体不超过 25 行
-- 只使用 Python 标准库（不要 import 第三方库）
-- 模块顶部已有 `from __future__ import annotations`
+- 只使用 Python 标准库（不要 import 第三方库，也**不要在函数体内使用 import 语句**）
+- 模块顶部已有 `from __future__ import annotations`；`re` 模块已以 `_re` 导入，直接用 `_re` 即可
 - **不要重复定义** `_parse_amount`、`_ticket_id`、`_calc_monthly_payment`、`_next_work_day`（已在文件头部定义）
 - **不要添加 `INTENT_REGISTRY`**（由生成器自动追加）
+- **注释极简**：函数体内每个逻辑块最多 1 行注释，禁止多行注释块，禁止重复代码已表达内容的冗余注释
+
+### 零参数健壮性（必须通过，否则运行时会被替换为安全存根）
+每个函数在**所有参数均为 None** 时必须能正常执行并返回含 `"status": "success"` 的 dict：
+- `_parse_amount(None)` 返回 `0.0`，**绝不能将其直接用作除数**——用 `max(v, 1)` 或 `if v > 0` 保护
+- 避免 `if x: x = float(x)` 等条件赋值——改为 `x = float(x) if x else 0.0`
+- 字符串操作前先用 `str(param or "")` 处理 None，避免 `AttributeError`
 
 ## 输出格式
 直接输出 Python 代码，不要包含 markdown 代码块标记，不要包含解释文字。
 输出从第一个 `def` 函数定义开始，不包含 import 语句和工具函数定义。
+每个函数的 docstring 只用意图描述原文（单行），**函数体内不要重复添加 docstring**。
 """
 
 MODULE_GEN_USER_TEMPLATE = """\
@@ -324,11 +332,17 @@ FUNCTION_GEN_SYSTEM = """\
 - 可以直接调用：`_parse_amount()`、`_ticket_id()`、`_calc_monthly_payment()`、`_next_work_day()`
 - 返回值必须包含所有 result_slots 字段 + "status": "success"
 - 输入槽位中有意义的字段也应适当回传（供 AP 通过 say(xN.field) 引用）
-- 只使用 Python 标准库，函数体不超过 30 行
-- 包含简短注释说明核心计算逻辑
+- 只使用 Python 标准库，函数体不超过 30 行；**不要在函数体内使用 import 语句**（`re` 已以 `_re` 导入）
+- 注释极简：每逻辑块最多 1 行，禁止多行注释块和重复代码含义的冗余注释
+
+## 零参数健壮性（必须通过，否则运行时会被替换为安全存根）
+函数在**所有参数均为 None** 时必须能正常执行并返回含 `"status": "success"` 的 dict：
+- `_parse_amount(None)` 返回 `0.0`，**绝不能将其直接用作除数**——用 `max(v, 1)` 或 `if v > 0` 保护
+- 避免 `if x: x = float(x)` 等条件赋值——改为 `x = float(x) if x else 0.0`
+- 字符串操作前先用 `str(param or "")` 处理 None
 
 ## 输出格式
-只输出函数体代码（4空格缩进），从函数体第一行开始，不包含 def 行。
+只输出函数体代码（4空格缩进），从函数体**第一个计算语句**开始，**不包含 def 行和 docstring 行**。
 """
 
 FUNCTION_GEN_USER_TEMPLATE = """\
@@ -415,10 +429,13 @@ return {
 - 保持函数签名不变（参数名和默认值 None）
 - 可以调用：`_parse_amount()`、`_ticket_id()`、`_calc_monthly_payment()`、`_next_work_day()`
 - 返回值必须包含所有 result_slots 字段 + "status": "success"
-- 只使用 Python 标准库，函数体不超过 30 行
+- 只使用 Python 标准库，函数体不超过 30 行；**不要在函数体内使用 import 语句**（`re` 已以 `_re` 导入）
+- 注释极简：每逻辑块最多 1 行，禁止多行注释块
+- **零参数健壮性**：修复后函数在所有参数均为 None 时必须能正常运行——`_parse_amount(None)` 返回 `0.0`，不能将其用作除数；字符串操作前用 `str(param or "")` 处理 None
 
 ## 输出格式
 输出完整的函数定义（包含 def 行和函数体），不包含 import 语句，不要 markdown 代码块。
+函数中只保留一个 docstring（在 def 行下方），函数体内不要添加额外的 docstring 或字符串注释。
 """
 
 REPAIR_USER_TEMPLATE = """\

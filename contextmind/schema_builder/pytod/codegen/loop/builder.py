@@ -401,8 +401,10 @@ def build_pytod_apis(
                             "error": (
                                 f"调用 {intent.name}()（所有参数均为 None）时出错: "
                                 f"{_zero_arg_err}. "
-                                "函数必须在所有参数均为 None 时正常返回含 status 的 dict，"
-                                "不能抛出 NameError 或 UnboundLocalError。"
+                                "函数必须在所有参数均为 None 时正常返回含 status='success' 的 dict，"
+                                "不能抛出任何异常（包括 ZeroDivisionError、AttributeError、NameError 等）。"
+                                "常见原因：_parse_amount(None) 返回 0.0 被用作除数；"
+                                "对 None 参数调用字符串方法；条件赋值后引用未初始化变量。"
                             ),
                         }],
                         iteration=0,
