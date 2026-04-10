@@ -12,10 +12,14 @@ PyTOD 对话追踪脚本
     python examples/pytod_trace_demo.py --index 5
     python examples/pytod_trace_demo.py --output /tmp/trace.md --verbose
     python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/pytod_trace_demo.py \\
+        --pytod-apis output/step2_schema_output/loop/schema_pytod_apis.py \\
+        --schema output/step1_kb_output/schema.json
 
 Schema 说明:
     PyTOD 使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）。
-    对应的 JSON schema（xxx_schema.json）会从同目录自动推导以加载 ServiceSchema。
+    可通过 --schema 直接指定 JSON schema 文件路径（推荐）；若不指定，则从
+    *_pytod_apis.py 文件名自动推导同目录下的 xxx_schema.json。
 """
 
 from __future__ import annotations
@@ -57,6 +61,22 @@ _SCENARIO_CONTEXT = (
 )
 
 
+def _load_service_schema_from_json(schema_json_path: Path) -> Optional[ServiceSchema]:
+    """从指定的 schema.json 文件加载 ServiceSchema。
+
+    Args:
+        schema_json_path: schema.json 文件路径。
+
+    Returns:
+        解析后的 ServiceSchema；若文件不存在则返回 None。
+    """
+    if not schema_json_path.exists():
+        return None
+    with open(schema_json_path, encoding="utf-8") as f:
+        data = json.load(f)
+    return load_schema_from_dict(data)
+
+
 def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
     """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
 
@@ -71,11 +91,7 @@ def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
     stem = apis_path.stem  # e.g. "anyihua_pytod_apis"
     base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
     json_path = apis_path.parent / f"{base}_schema.json"
-    if not json_path.exists():
-        return None
-    with open(json_path, encoding="utf-8") as f:
-        data = json.load(f)
-    return load_schema_from_dict(data)
+    return _load_service_schema_from_json(json_path)
 
 
 def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
@@ -494,6 +510,10 @@ def main() -> None:
   python examples/pytod_trace_demo.py
   python examples/pytod_trace_demo.py --seed 42 --verbose
   python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/pytod_trace_demo.py \\
+      --pytod-apis output/step2_schema_output-0409/loop/schema_pytod_apis.py \\
+      --schema output/step1_kb_output/schema.json \\
+      --index 0 --compact-schema --top-k 10
   python examples/pytod_trace_demo.py --top-k 3       # AP 每轮只展示最相关的 3 个 API
   python examples/pytod_trace_demo.py --top-k 0       # 展示全部 API（关闭 top-K 过滤）
         """,
@@ -515,21 +535,51 @@ def main() -> None:
         "--pytod-apis", dest="pytod_apis", type=str, default=None,
         help="*_pytod_apis.py 路径（预生成 API 函数文件）；若不提供则默认使用 schema/anyihua_pytod_apis.py",
     )
+    parser.add_argument(
+        "--schema", dest="schema_json", type=str, default=None,
+        help=(
+            "schema.json 文件路径，直接指定 ServiceSchema（包含完整的 intent/slot 定义）。"
+            "推荐与 --pytod-apis 配合使用，例如 --schema output/step1_kb_output/schema.json。"
+            "若不指定，则从 *_pytod_apis.py 文件名自动推导同目录下的 xxx_schema.json。"
+        ),
+    )
     args = parser.parse_args()
 
     if not _DATA_PATH.exists():
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
-    # 加载 PyTOD APIs 文件（*.py）并推导对应 schema.json 加载 ServiceSchema
+    # 加载 PyTOD APIs 文件（*.py）并加载 ServiceSchema
+    # 优先使用 --schema 显式指定的 JSON 路径；若未指定则从 *_pytod_apis.py 文件名自动推导
     external_schema: Optional[ServiceSchema] = None
     apis_path = Path(args.pytod_apis) if args.pytod_apis else _DEFAULT_PYTOD_APIS_PATH
     if apis_path.exists():
-        external_schema = _load_service_schema_from_apis(apis_path)
-        if external_schema is not None:
-            print(f"✓ 已加载 PyTOD APIs: {apis_path} (service={external_schema.service_name})")
+        if args.schema_json:
+            schema_json_path = Path(args.schema_json)
+            if not schema_json_path.exists():
+                print(f"❌ schema.json 文件不存在: {schema_json_path}", file=sys.stderr)
+                sys.exit(1)
+            external_schema = _load_service_schema_from_json(schema_json_path)
+            if external_schema is not None:
+                print(
+                    f"✓ 已加载 PyTOD APIs: {apis_path}\n"
+                    f"✓ 已加载 schema.json:  {schema_json_path} (service={external_schema.service_name})"
+                )
+            else:
+                print(
+                    f"✓ 已加载 PyTOD APIs: {apis_path}\n"
+                    f"⚠️  schema.json 解析为空: {schema_json_path}（无 ServiceSchema）"
+                )
         else:
-            print(f"✓ 已加载 PyTOD APIs: {apis_path}（未找到对应 schema.json，无 ServiceSchema）")
+            external_schema = _load_service_schema_from_apis(apis_path)
+            if external_schema is not None:
+                print(f"✓ 已加载 PyTOD APIs: {apis_path} (service={external_schema.service_name})")
+            else:
+                print(
+                    f"✓ 已加载 PyTOD APIs: {apis_path}\n"
+                    "⚠️  未找到对应 schema.json，无 ServiceSchema。\n"
+                    "   建议通过 --schema <path/to/schema.json> 显式指定 schema 文件路径。"
+                )
     elif args.pytod_apis:
         print(f"❌ PyTOD APIs 文件不存在: {apis_path}", file=sys.stderr)
         sys.exit(1)
