@@ -521,14 +521,14 @@ class AdkPyTODTracker:
         scenario_context: str = "",
         max_history_turns: int = 10,
         compact_schema: bool = False,
-        top_k_intents: int = 0,
+        top_k_intents: int = 5,
     ) -> None:
         self.llm_client = llm_client
         self.engine = engine
         self.schema = schema or ServiceSchema(service_name="default", description="")
         self.scenario_context = scenario_context
         # top_k_intents > 0: 每轮只把最相关的 top_k_intents 个 API 函数放入 AP prompt
-        # top_k_intents == 0: 原有行为，展示全部 API（向后兼容）
+        # top_k_intents == 0: 展示全部 API（适用于意图数量极少的场景）
         self.top_k_intents: int = top_k_intents
 
         # 构建 {intent_name: signature_line} 映射，供 per-turn 过滤时快速查询函数签名

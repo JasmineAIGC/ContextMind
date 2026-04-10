@@ -137,7 +137,8 @@ def _serialize_execution(execution_result: Any) -> Dict[str, Any]:
 async def run_trace(session: Dict[str, Any], verbose: bool = False,
                     external_schema: Optional[ServiceSchema] = None,
                     schema_path: Optional[Path] = None,
-                    compact_schema: bool = False) -> Dict[str, Any]:
+                    compact_schema: bool = False,
+                    top_k_intents: int = 5) -> Dict[str, Any]:
     """运行单条会话的 PyTOD 追踪，返回结构化结果（含每步完整 I/O）。
 
     Args:
@@ -148,6 +149,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         schema_path:     ``*_pytod_apis.py`` 或 ``schema.json`` 文件路径，用于加载 API 函数。
                          直接传入 ``*_pytod_apis.py`` 时无需对应 schema.json。
         compact_schema:  为 True 时，AP prompt 中省略详细业务意图说明（减少 token 用量）。
+        top_k_intents:   每轮 AP prompt 中展示的最相关 API 数量（0 = 全部展示）。
     """
     try:
         config = LLMConfig.from_env()
@@ -189,6 +191,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         from_kwargs: Dict[str, Any] = {
             "scenario_context": scenario_context,
             "compact_schema": compact_schema,
+            "top_k_intents": top_k_intents,
         }
         if external_schema is not None:
             from_kwargs["schema"] = external_schema
@@ -491,6 +494,8 @@ def main() -> None:
   python examples/pytod_trace_demo.py
   python examples/pytod_trace_demo.py --seed 42 --verbose
   python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/pytod_trace_demo.py --top-k 3       # AP 每轮只展示最相关的 3 个 API
+  python examples/pytod_trace_demo.py --top-k 0       # 展示全部 API（关闭 top-K 过滤）
         """,
     )
     parser.add_argument("--seed", type=int, default=None)
@@ -501,6 +506,10 @@ def main() -> None:
     parser.add_argument(
         "--compact-schema", dest="compact_schema", action="store_true",
         help="省略 AP prompt 中的详细业务意图说明（减少 token 用量；适合 token 敏感部署）",
+    )
+    parser.add_argument(
+        "--top-k", dest="top_k_intents", type=int, default=5,
+        help="每轮 AP prompt 中展示的最相关 API 数量（默认 5；设为 0 展示全部 API）",
     )
     parser.add_argument(
         "--pytod-apis", dest="pytod_apis", type=str, default=None,
@@ -540,7 +549,8 @@ def main() -> None:
     trace = asyncio.run(run_trace(session, verbose=args.verbose,
                                    external_schema=external_schema,
                                    schema_path=apis_path if apis_path.exists() else None,
-                                   compact_schema=args.compact_schema))
+                                   compact_schema=args.compact_schema,
+                                   top_k_intents=args.top_k_intents))
 
     # 输出路径
     if args.output:
