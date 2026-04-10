@@ -9,11 +9,19 @@ PyTOD 生成函数的 Phase 4/5 验证模块。
 :func:`write_validation_report`
     将 :class:`~contextmind.schema_builder.pytod.testcase.models.FuncValidation`
     对象序列化为 ``*_validation_report.json`` 文件（与 schema 文件同目录）。
+
+:func:`validate_pytod_apis_source`
+    对组装完成的完整 .py 源码做最终模块级健壮性检查：编译执行整个模块，
+    对每个意图函数执行零参数调用，返回 ``{func_name: error_or_None}`` 映射。
+
+:func:`replace_function_in_source`
+    在源码字符串中将指定名称的函数定义替换为新代码（用于将失败函数替换为安全存根）。
 """
 
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -291,3 +299,104 @@ def write_validation_report(
     except Exception as exc:
         logger.warning(f"[SchemaDataBuilder] 写入验证报告失败: {exc}")
         return None
+
+
+def validate_pytod_apis_source(
+    source: str,
+    intent_names: List[str],
+    *,
+    tag: str = "",
+) -> Dict[str, Optional[str]]:
+    """对组装完成的完整 .py 源码做最终模块级健壮性检查。
+
+    编译并执行整个模块（含 SHARED_HELPERS + 所有意图函数），然后对每个意图函数
+    执行零参数调用（与 ``tracker.py`` 中 ``load_pytod_api_module()`` 的运行时检查等价）。
+
+    此函数在 Phase 5 写入磁盘后调用，可捕获在逐函数生成阶段漏过的缺陷，包括：
+
+    - 模块编译失败（语法错误、名称引用错误等模块级问题）
+    - 函数体在完整模块上下文中的运行时错误（NameError、UnboundLocalError、
+      TypeError、ZeroDivisionError、AttributeError 等）
+
+    Args:
+        source:        组装完成的完整 Python 源码字符串（含 SHARED_HELPERS + 所有意图函数）。
+        intent_names:  所有意图函数名称列表（与 ``schema.intents[*].name`` 对应）。
+        tag:           日志前缀标签（如 ``"[loop]"``、``"[ACIA]"``），用于区分调用方。
+
+    Returns:
+        ``{func_name: None}`` 表示通过，``{func_name: error_msg}`` 表示失败。
+        若模块本身编译失败，则所有函数均以同一编译错误标记为失败。
+    """
+    prefix = f"{tag} " if tag else ""
+    results: Dict[str, Optional[str]] = {name: None for name in intent_names}
+
+    # 1. 编译并执行整个模块源码
+    namespace: Dict[str, Any] = {}
+    try:
+        exec(compile(source, "<final_validate>", "exec"), namespace)  # noqa: S102
+    except Exception as exc:
+        compile_err = f"{type(exc).__name__}: {exc}"
+        logger.warning(f"{prefix}最终校验：模块编译失败 — {compile_err}")
+        for name in intent_names:
+            results[name] = f"模块编译失败: {compile_err}"
+        return results
+
+    # 2. 对每个意图函数执行零参数调用
+    for name in intent_names:
+        func_obj = namespace.get(name)
+        if func_obj is None:
+            results[name] = f"函数 '{name}' 在模块命名空间中未找到"
+            continue
+        try:
+            func_obj()
+        except Exception as exc:
+            results[name] = f"{type(exc).__name__}: {exc}"
+
+    return results
+
+
+def replace_function_in_source(source: str, func_name: str, replacement_code: str) -> str:
+    """在源码字符串中将指定名称的函数定义替换为新代码。
+
+    用于将最终校验中仍失败的函数替换为安全存根，保证生成的 .py 文件中每个意图函数
+    都能在零参数调用时正常返回，与 ``load_pytod_api_module()`` 的运行时行为一致。
+
+    替换策略：
+    - 在源码中定位 ``def func_name(`` 所在行
+    - 向后查找下一个顶级 ``def ``、``class `` 定义或文件末尾作为函数结束边界
+    - 用 ``replacement_code`` 完整替换该范围的代码
+
+    Args:
+        source:           待修改的完整 Python 源码字符串。
+        func_name:        要替换的函数名称。
+        replacement_code: 替换后的完整函数定义代码字符串（含 ``def`` 行）。
+
+    Returns:
+        替换后的源码字符串。若未找到目标函数则原样返回。
+    """
+    lines = source.splitlines(keepends=True)
+    start_idx: Optional[int] = None
+    end_idx = len(lines)
+
+    func_def_re = re.compile(rf'^def {re.escape(func_name)}\s*\(')
+    top_level_re = re.compile(r'^(def |class )')
+
+    for i, line in enumerate(lines):
+        if start_idx is None:
+            if func_def_re.match(line):
+                start_idx = i
+        else:
+            # 下一个顶级定义（不是当前函数自身的第一行）标志着当前函数结束
+            if top_level_re.match(line) and i > start_idx:
+                end_idx = i
+                break
+
+    if start_idx is None:
+        logger.debug(f"replace_function_in_source: 未找到函数 '{func_name}'，跳过替换")
+        return source
+
+    prefix_str = ''.join(lines[:start_idx])
+    suffix_str = ''.join(lines[end_idx:])
+    # 确保替换代码以换行符结尾，并在函数间保留一个空行
+    new_code = replacement_code.rstrip('\n') + '\n\n'
+    return prefix_str + new_code + suffix_str

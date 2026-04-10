@@ -29,7 +29,7 @@ from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerato
 from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.pytod.testcase.cache import load_test_cases, save_test_cases
-from contextmind.schema_builder.pytod.testcase.validator import validate_function, write_validation_report, check_zero_arg_robustness
+from contextmind.schema_builder.pytod.testcase.validator import validate_function, write_validation_report, check_zero_arg_robustness, validate_pytod_apis_source, replace_function_in_source
 
 logger = get_logger(__name__)
 
@@ -535,6 +535,37 @@ def build_pytod_apis(
     except Exception as exc:
         logger.error(f"[loop] 写入失败: {out_path} — {exc}")
         return None
+
+    # ------------------------------------------------------------------
+    # Phase 5 后续：最终模块级健壮性校验
+    # 对整个组装后的模块执行编译 + 每个意图函数的零参数调用检查，
+    # 确保生成文件中没有在逐函数阶段漏过的运行时缺陷。
+    # 若仍有函数失败，则替换为安全存根并重写文件，保证文件完全可用。
+    # ------------------------------------------------------------------
+    _intent_names = [i.name for i in schema.intents] if schema.intents else [schema.service_name]
+    _final_results = validate_pytod_apis_source(source, _intent_names, tag="[loop]")
+    _final_failures = {n: e for n, e in _final_results.items() if e is not None}
+    if _final_failures:
+        logger.warning(
+            f"[loop] 最终校验: {len(_final_failures)}/{len(_intent_names)} 个函数仍不健壮，"
+            f"替换为安全存根 → {list(_final_failures.keys())}"
+        )
+        fixed_source = source
+        intent_map = {i.name: i for i in schema.intents}
+        for func_name, err in _final_failures.items():
+            logger.warning(f"[loop]   ✗ {func_name}: {err}")
+            intent = intent_map.get(func_name)
+            if intent is not None:
+                stub_lines = _generate_stub_function_lines(intent)
+                fixed_source = replace_function_in_source(fixed_source, func_name, '\n'.join(stub_lines))
+        try:
+            with open(out_path, "w", encoding="utf-8") as fh:
+                fh.write(fixed_source)
+            logger.info(f"[loop] 已用安全存根重写 {len(_final_failures)} 个失败函数 → {out_path}")
+        except Exception as exc:
+            logger.warning(f"[loop] 重写失败函数时出错: {exc}")
+    else:
+        logger.info(f"[loop] 最终校验通过：所有 {len(_intent_names)} 个函数均可正常运行")
 
     # 可选：写入验证报告
     if generate_report and test_cases_by_intent:
