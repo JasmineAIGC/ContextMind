@@ -12,10 +12,11 @@ KB 上下文数据加载（对话样本、发现数据）现在位于
 :mod:`contextmind.schema_builder.pytod.testcase.kb_loader`。
 """
 
-from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
+from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator, enrich_intent_from_test_cases
 from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
 
 __all__ = [
     "PyTODApiCodeGenerator",
     "SHARED_HELPERS",
+    "enrich_intent_from_test_cases",
 ]

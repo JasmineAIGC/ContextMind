@@ -19,6 +19,7 @@ KB 上下文数据加载（由 TestCaseGenerator 管理）位于
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -73,6 +74,64 @@ def _function_def_header(intent: IntentDefinition) -> List[str]:
         f"def {intent.name}({param_str}):",
         f'    """{desc}"""',
     ]
+
+
+def enrich_intent_from_test_cases(
+    intent: IntentDefinition,
+    test_cases: List[TestCaseItem],
+) -> IntentDefinition:
+    """Return a copy of *intent* with ``required_slots`` / ``result_slots`` inferred from *test_cases*.
+
+    When the schema has empty or incomplete slot definitions, the generated function will have
+    the wrong (or no) parameters, causing ``TypeError: unexpected keyword argument`` failures
+    at test time.  This function derives the correct signature and return keys from the test
+    cases themselves so that code generation uses the right information.
+
+    The enrichment only fills in **empty** fields – existing non-empty schema definitions are
+    always preserved because they carry explicit intent from the schema author.
+
+    Args:
+        intent:     The original :class:`IntentDefinition` from the schema.
+        test_cases: Pre-built test cases for this intent (Phase 2 output).
+
+    Returns:
+        A shallow copy of *intent* with updated ``required_slots`` and / or ``result_slots``
+        if those were previously empty.  Returns *intent* unchanged when *test_cases* is empty.
+    """
+    if not test_cases:
+        return intent
+
+    current_params = list(intent.required_slots) + list(intent.optional_slots)
+    current_result = list(intent.result_slots)
+
+    # Derive parameters from the union of all input_slots keys (preserving first-seen order).
+    tc_params: List[str] = []
+    seen_p: set = set()
+    for tc in test_cases:
+        for k in tc.input_slots:
+            if k not in seen_p:
+                seen_p.add(k)
+                tc_params.append(k)
+
+    # Derive result keys from the union of all expected_keys (excluding "status").
+    tc_result: List[str] = []
+    seen_r: set = set()
+    for tc in test_cases:
+        for k in tc.expected_keys:
+            if k != "status" and k not in seen_r:
+                seen_r.add(k)
+                tc_result.append(k)
+
+    needs_update = (not current_params and tc_params) or (not current_result and tc_result)
+    if not needs_update:
+        return intent
+
+    return dataclasses.replace(
+        intent,
+        required_slots=tc_params if (not current_params and tc_params) else list(intent.required_slots),
+        optional_slots=[] if (not current_params and tc_params) else list(intent.optional_slots),
+        result_slots=tc_result if (not current_result and tc_result) else list(intent.result_slots),
+    )
 
 
 class PyTODApiCodeGenerator:

@@ -355,10 +355,15 @@ class TestCaseGenerator:
             ev = entry.get("expected_values", {})
             if not isinstance(ev, dict):
                 ev = {}
+            # Augment expected_keys with any extra keys the LLM provided in expected_values.
+            # This surfaces the LLM's intent about what the function should return even when
+            # result_slots is empty in the schema, making the test more meaningful.
+            extra_keys = [k for k in ev if k not in expected_keys]
+            tc_expected_keys = expected_keys + extra_keys if extra_keys else expected_keys
             items.append(
                 TestCaseItem(
                     input_slots=slots,
-                    expected_keys=expected_keys,
+                    expected_keys=tc_expected_keys,
                     expected_values=ev,
                     description=desc,
                 )

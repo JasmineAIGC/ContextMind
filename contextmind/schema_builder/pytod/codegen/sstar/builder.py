@@ -31,6 +31,7 @@ from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, loa
 from contextmind.schema_builder.utils import companion_path
 
 from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
+from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator, enrich_intent_from_test_cases
 from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
 from contextmind.schema_builder.pytod.testcase.cache import load_test_cases, save_test_cases
 from contextmind.schema_builder.pytod.testcase.validator import validate_function, write_validation_report, check_zero_arg_robustness, validate_pytod_apis_source, replace_function_in_source
@@ -262,9 +263,12 @@ def build_pytod_apis_sstar(
                     print(f"    用例 #{i}{desc}: {tc.input_slots}", flush=True)
                 print(flush=True)
 
+            # 用测试用例补全 schema 中缺失的槽位定义，确保函数签名和返回键与测试一致
+            effective_intent = enrich_intent_from_test_cases(intent, intent_test_cases)
+
             # Phase P→D→S→R：S* 合成
             func_code, validation = synthesizer.synthesize(
-                intent=intent,
+                intent=effective_intent,
                 schema=schema,
                 all_slot_descs=all_slot_descs,
                 test_cases=intent_test_cases,
@@ -309,7 +313,7 @@ def build_pytod_apis_sstar(
                     f"触发健壮性修复..."
                 )
                 _zero_arg_repair = phase2_gen.repair_function(
-                    intent, schema, all_slot_descs,
+                    effective_intent, schema, all_slot_descs,
                     current_code=func_code,
                     failures=[{
                         "description": "零参数调用（所有参数为 None，健壮性检查）",

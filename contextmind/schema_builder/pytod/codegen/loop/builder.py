@@ -24,7 +24,7 @@ from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
 from contextmind.schema_builder.utils import companion_path
 
-from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator, _function_def_header
+from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator, _function_def_header, enrich_intent_from_test_cases
 from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
 from contextmind.schema_builder.pytod.codegen.shared.helpers import SHARED_HELPERS
 from contextmind.schema_builder.pytod.testcase.models import FuncValidation, TestCaseItem
@@ -193,6 +193,7 @@ def build_pytod_apis(
     intent_lines: List[str] = []
     validations: Dict[str, FuncValidation] = {}
     test_cases_by_intent: Dict[str, List[TestCaseItem]] = {}
+    effective_intent_map: Dict[str, "IntentDefinition"] = {}
     mode_str = ""
 
     # 预先构建对话提示（所有意图共用，避免重复 IO）
@@ -280,20 +281,24 @@ def build_pytod_apis(
                         print(f"      expected_vals: {tc.expected_values}", flush=True)
                 print(flush=True)
 
+            # 用测试用例补全 schema 中缺失的槽位定义，确保函数签名和返回键与测试一致
+            effective_intent = enrich_intent_from_test_cases(intent, intent_test_cases)
+            effective_intent_map[intent.name] = effective_intent
+
             # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例 + KB 业务背景）
             logger.info(f"[loop]   Phase 3: {intent.name} — LLM 生成函数体 ...")
             llm_body = llm_generator.generate_function_body(
-                intent, schema, all_slot_descs,
+                effective_intent, schema, all_slot_descs,
                 test_cases=intent_test_cases,
                 dialogue_hint=dialogue_hint,
             )
 
             if llm_body is not None:
-                func_code = "\n".join(_function_def_header(intent)) + "\n" + llm_body
+                func_code = "\n".join(_function_def_header(effective_intent)) + "\n" + llm_body
                 llm_count += 1
             else:
                 # LLM 失败时回退到 stub 生成
-                func_code = "\n".join(_generate_stub_function_lines(intent))
+                func_code = "\n".join(_generate_stub_function_lines(effective_intent))
                 rule_count += 1
                 logger.warning(
                     f"[loop]   Phase 3: {intent.name} — LLM 失败，回退到 stub 生成"
@@ -307,7 +312,7 @@ def build_pytod_apis(
             # Phase 4：执行测试验证 + 迭代修复（仅当有测试用例且 LLM 生成成功）
             if intent_test_cases and llm_body is not None:
                 validation = validate_function(
-                    intent, func_code, intent_test_cases, SHARED_HELPERS
+                    effective_intent, func_code, intent_test_cases, SHARED_HELPERS
                 )
                 logger.info(
                     f"[loop]   Phase 4: {intent.name} — "
@@ -331,7 +336,7 @@ def build_pytod_apis(
                         f"< 阈值 {pass_rate_threshold:.1%}）..."
                     )
                     repaired_code = llm_generator.repair_function(
-                        intent, schema, all_slot_descs,
+                        effective_intent, schema, all_slot_descs,
                         current_code=probe_code,
                         failures=probe_validation.failures,
                         iteration=iteration,
@@ -344,7 +349,7 @@ def build_pytod_apis(
                         break
 
                     new_validation = validate_function(
-                        intent, repaired_code, intent_test_cases, SHARED_HELPERS
+                        effective_intent, repaired_code, intent_test_cases, SHARED_HELPERS
                     )
                     logger.info(
                         f"[loop]   Phase 4: {intent.name} 第 {iteration} 轮后 "
@@ -393,7 +398,7 @@ def build_pytod_apis(
                         f"触发健壮性修复..."
                     )
                     _zero_arg_repair = llm_generator.repair_function(
-                        intent, schema, all_slot_descs,
+                        effective_intent, schema, all_slot_descs,
                         current_code=func_code,
                         failures=[{
                             "description": "零参数调用（所有参数为 None，健壮性检查）",
@@ -554,9 +559,10 @@ def build_pytod_apis(
         intent_map = {i.name: i for i in schema.intents}
         for func_name, err in _final_failures.items():
             logger.warning(f"[loop]   ✗ {func_name}: {err}")
-            intent = intent_map.get(func_name)
-            if intent is not None:
-                stub_lines = _generate_stub_function_lines(intent)
+            # Prefer enriched intent (has test-case-derived slots) for stub signature
+            eff_intent = effective_intent_map.get(func_name) or intent_map.get(func_name)
+            if eff_intent is not None:
+                stub_lines = _generate_stub_function_lines(eff_intent)
                 fixed_source = replace_function_in_source(fixed_source, func_name, '\n'.join(stub_lines))
         try:
             with open(out_path, "w", encoding="utf-8") as fh:
