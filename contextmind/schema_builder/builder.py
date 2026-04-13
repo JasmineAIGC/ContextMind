@@ -88,6 +88,7 @@ class SchemaDataBuilder:
         verbose: bool = False,
         generator: str = "loop",
         test_cases_path: Optional[Union[str, Path]] = None,
+        workers: int = 1,
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
@@ -103,6 +104,7 @@ class SchemaDataBuilder:
         self.verbose = verbose
         self.generator = generator
         self.test_cases_path = Path(test_cases_path) if test_cases_path is not None else None
+        self.workers = workers
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -332,6 +334,7 @@ class SchemaDataBuilder:
                 generate_report=self.generate_report,
                 verbose=self.verbose,
                 test_cases_path=tc_path,
+                workers=self.workers,
             )
 
         # ------- 规则模式（无 LLM）-------
@@ -363,6 +366,7 @@ class SchemaDataBuilder:
             '"""',
             '',
             'from __future__ import annotations',
+            'from typing import Optional',
             '',
         ]
 
@@ -601,14 +605,14 @@ def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str
 
 def _generate_function_lines(intent: IntentDefinition) -> List[str]:
     """为单个 intent 生成 Python 函数定义行列表。"""
-    # Build parameter list: required + optional, all with default None
+    # Build parameter list: required + optional, all with type hints and default None
     params = list(dict.fromkeys(
         list(intent.required_slots) + list(intent.optional_slots)
     ))
-    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in params]) if params else ""
 
     lines: List[str] = []
-    lines.append(f"def {intent.name}({param_str}):")
+    lines.append(f"def {intent.name}({param_str}) -> dict:")
     # Docstring
     desc = intent.description.replace('"', '\\"') if intent.description else intent.name
     lines.append(f'    """{desc}"""')
@@ -629,9 +633,9 @@ def _generate_function_lines(intent: IntentDefinition) -> List[str]:
 def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
     """无意图定义时生成一个以 service_name 命名的通用函数。"""
     slot_names = [s.name for s in schema.slots]
-    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in slot_names]) if slot_names else ""
     lines: List[str] = []
-    lines.append(f"def {schema.service_name}({param_str}):")
+    lines.append(f"def {schema.service_name}({param_str}) -> dict:")
     desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
     lines.append(f'    """{desc}"""')
     lines.append(f'    args = {{k: v for k, v in locals().items() if v is not None}}')

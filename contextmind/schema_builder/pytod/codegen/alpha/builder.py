@@ -14,10 +14,11 @@ ACIA PyTOD API 构建器入口。
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -39,9 +40,9 @@ def _function_def_header(intent: IntentDefinition) -> str:
     params = list(dict.fromkeys(
         list(intent.required_slots) + list(intent.optional_slots)
     ))
-    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in params]) if params else ""
     desc = intent.description.replace('"', '\\"') if intent.description else intent.name
-    return f'def {intent.name}({param_str}):\n    """{desc}"""'
+    return f'def {intent.name}({param_str}) -> dict:\n    """{desc}"""'
 
 
 def _generate_stub_function(intent: IntentDefinition) -> str:
@@ -52,10 +53,10 @@ def _generate_stub_function(intent: IntentDefinition) -> str:
 def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
     """schema 无意图定义时，生成一个以 service_name 命名的通用函数。"""
     slot_names = [s.name for s in schema.slots]
-    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in slot_names]) if slot_names else ""
     desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
     return [
-        f"def {schema.service_name}({param_str}):",
+        f"def {schema.service_name}({param_str}) -> dict:",
         f'    """{desc}"""',
         f'    args = {{k: v for k, v in locals().items() if v is not None}}',
         f'    return {{"status": "success", **args}}',
@@ -68,6 +69,134 @@ def _print_section(title: str, width: int = 70) -> None:
     print(line, flush=True)
     print(f"  {title}", flush=True)
     print(line, flush=True)
+
+
+def _process_one_intent(
+    idx: int,
+    total_intents: int,
+    intent: "IntentDefinition",
+    schema: "ServiceSchema",
+    all_slot_descs: Dict[str, str],
+    dialogue_hint: str,
+    synthesizer: Any,
+    phase2_gen: Any,
+    tc_generator: Any,
+    cached_test_cases: Dict[str, List[Any]],
+    max_test_cases_per_intent: int,
+    max_iterations: int,
+    pass_rate_threshold: float,
+    verbose: bool,
+) -> Tuple[int, str, "IntentDefinition", Any, List[Any]]:
+    """单个意图的完整 ACIA 处理流程（Phase 2 → RGF → 零参数修复）。
+
+    Returns:
+        ``(idx, func_code, effective_intent, validation, test_cases)``
+    """
+    logger.info(f"[ACIA] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────")
+    if verbose:
+        _print_section(f"[ACIA] 函数 {idx}/{total_intents}: {intent.name}")
+
+    # Phase 2：加载或生成测试用例
+    if intent.name in cached_test_cases:
+        intent_test_cases = cached_test_cases[intent.name]
+        logger.info(
+            f"[ACIA]   Phase 2: {intent.name} — "
+            f"使用缓存测试用例（{len(intent_test_cases)} 条）"
+        )
+    else:
+        logger.info(f"[ACIA]   Phase 2: {intent.name} — 生成测试用例...")
+        intent_test_cases = tc_generator.build_test_cases_for_intent(
+            intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
+        )
+        if intent_test_cases:
+            logger.info(
+                f"[ACIA]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
+            )
+        else:
+            logger.warning(f"[ACIA]   Phase 2: {intent.name} — 未获得测试用例")
+
+    if verbose and intent_test_cases:
+        print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
+        for i, tc in enumerate(intent_test_cases, 1):
+            desc = f" [{tc.description}]" if tc.description else ""
+            print(f"    用例 #{i}{desc}: {tc.input_slots}", flush=True)
+        print(flush=True)
+
+    # 用测试用例补全 schema 中缺失的槽位定义
+    effective_intent = enrich_intent_from_test_cases(intent, intent_test_cases)
+
+    # Phase RGF：AlphaSynthesizer 合成
+    func_code, validation = synthesizer.synthesize(
+        intent=effective_intent,
+        schema=schema,
+        all_slot_descs=all_slot_descs,
+        test_cases=intent_test_cases,
+        max_iterations=max_iterations,
+        pass_rate_threshold=pass_rate_threshold,
+        dialogue_hint=dialogue_hint,
+    )
+
+    if verbose:
+        _print_section(
+            f"[ACIA] {intent.name} 最终代码"
+            + (
+                f"（通过率: {validation.pass_rate:.1%} {validation.passed}/{validation.total}）"
+                if validation.total > 0 else ""
+            )
+        )
+        print(func_code, flush=True)
+        print(flush=True)
+
+    status_sym = "✅" if (validation.total == 0 or validation.pass_rate >= pass_rate_threshold) else "⚠️ "
+    logger.info(
+        f"[ACIA]   {status_sym} {intent.name} 完成 — "
+        + (
+            f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})，"
+            f"迭代 {validation.iterations} 轮"
+            if validation.total > 0 else "无测试用例（跳过验证）"
+        )
+    )
+
+    # 零参数健壮性修复
+    _zero_arg_err = check_zero_arg_robustness(intent.name, func_code, SHARED_HELPERS)
+    if _zero_arg_err is not None:
+        logger.warning(
+            f"[ACIA]   {intent.name} 零参数调用失败（{_zero_arg_err}），"
+            f"触发健壮性修复..."
+        )
+        _zero_arg_repair = phase2_gen.repair_function(
+            effective_intent, schema, all_slot_descs,
+            current_code=func_code,
+            failures=[{
+                "description": "零参数调用（所有参数为 None，健壮性检查）",
+                "input_slots": {},
+                "error": (
+                    f"调用 {intent.name}()（所有参数均为 None）时出错: "
+                    f"{_zero_arg_err}. "
+                    "函数必须在所有参数均为 None 时正常返回含 status='success' 的 dict，"
+                    "不能抛出任何异常（包括 ZeroDivisionError、AttributeError、NameError 等）。"
+                    "常见原因：_parse_amount(None) 返回 0.0 被用作除数；"
+                    "对 None 参数调用字符串方法；条件赋值后引用未初始化变量。"
+                ),
+            }],
+            iteration=0,
+            total=1,
+            passed=0,
+            dialogue_hint=dialogue_hint,
+        )
+        if _zero_arg_repair is not None:
+            _repaired_err = check_zero_arg_robustness(
+                intent.name, _zero_arg_repair, SHARED_HELPERS
+            )
+            if _repaired_err is None:
+                func_code = _zero_arg_repair
+                logger.info(f"[ACIA]   {intent.name} 零参数健壮性修复成功")
+            else:
+                logger.warning(
+                    f"[ACIA]   {intent.name} 修复后仍不健壮: {_repaired_err}，保留原代码"
+                )
+
+    return idx, func_code, effective_intent, validation, intent_test_cases
 
 
 def build_pytod_apis_alpha(
@@ -85,6 +214,7 @@ def build_pytod_apis_alpha(
     output_dir: Optional[Union[str, Path]] = None,
     verbose: bool = False,
     test_cases_path: Optional[Union[str, Path]] = None,
+    workers: int = 1,
 ) -> Optional[Path]:
     """从 schema.json 用 ACIA 算法生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
@@ -190,7 +320,7 @@ def build_pytod_apis_alpha(
         mode_str = "通用函数（无意图定义）"
 
     elif synthesizer is not None:
-        # ACIA LLM 模式
+        # ACIA LLM 模式：workers > 1 时并行处理多个意图；workers = 1 时顺序处理。
         from contextmind.schema_builder.pytod.codegen.shared.generator import PyTODApiCodeGenerator
         from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
         phase2_gen = PyTODApiCodeGenerator(llm_client=llm_client)
@@ -208,10 +338,12 @@ def build_pytod_apis_alpha(
                 f"[ACIA] 对话提示已构建（{len(dialogue_hint)} 字符），注入 Phase 2 测试用例生成"
             )
 
-        llm_count = 0
-        rule_count = 0
         total_intents = len(schema.intents)
-        logger.info(f"[ACIA] 开始逐函数 ACIA 合成（共 {total_intents} 个意图）...")
+        logger.info(
+            f"[ACIA] 开始{'并行' if workers > 1 else '逐函数'} ACIA 合成"
+            f"（共 {total_intents} 个意图"
+            f"{f'，并行度 {workers}' if workers > 1 else ''}）..."
+        )
 
         # 尝试从缓存文件加载测试用例
         _tc_path = Path(test_cases_path) if test_cases_path is not None else None
@@ -227,123 +359,25 @@ def build_pytod_apis_alpha(
                     f"({len(_cached_test_cases)} 个意图) ← {_tc_path}"
                 )
 
-        for idx, intent in enumerate(schema.intents, 1):
-            logger.info(
-                f"[ACIA] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────"
-            )
-            if verbose:
-                _print_section(f"[ACIA] 函数 {idx}/{total_intents}: {intent.name}")
+        task_args = [
+            (idx, total_intents, intent, schema, all_slot_descs, dialogue_hint,
+             synthesizer, phase2_gen, tc_generator, _cached_test_cases,
+             max_test_cases_per_intent, max_iterations, pass_rate_threshold, verbose)
+            for idx, intent in enumerate(schema.intents, 1)
+        ]
 
-            # Phase 2：加载或生成测试用例
-            if intent.name in _cached_test_cases:
-                intent_test_cases = _cached_test_cases[intent.name]
-                logger.info(
-                    f"[ACIA]   Phase 2: {intent.name} — "
-                    f"使用缓存测试用例（{len(intent_test_cases)} 条）"
-                )
-            else:
-                logger.info(f"[ACIA]   Phase 2: {intent.name} — 生成测试用例...")
-                intent_test_cases = tc_generator.build_test_cases_for_intent(
-                    intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
-                )
-                if intent_test_cases:
-                    logger.info(
-                        f"[ACIA]   Phase 2 完成: {intent.name} — {len(intent_test_cases)} 条测试用例"
-                    )
-                else:
-                    logger.warning(f"[ACIA]   Phase 2: {intent.name} — 未获得测试用例")
+        if workers > 1:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+                results = list(pool.map(lambda a: _process_one_intent(*a), task_args))
+        else:
+            results = [_process_one_intent(*args) for args in task_args]
+
+        llm_count = 0
+        for _idx, func_code, effective_intent, validation, intent_test_cases in results:
             if intent_test_cases:
-                test_cases_by_intent[intent.name] = intent_test_cases
-            if verbose and intent_test_cases:
-                print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
-                for i, tc in enumerate(intent_test_cases, 1):
-                    desc = f" [{tc.description}]" if tc.description else ""
-                    print(f"    用例 #{i}{desc}: {tc.input_slots}", flush=True)
-                print(flush=True)
-
-            # 用测试用例补全 schema 中缺失的槽位定义，确保函数签名和返回键与测试一致
-            effective_intent = enrich_intent_from_test_cases(intent, intent_test_cases)
-
-            # Phase RGF：AlphaSynthesizer 合成
-            func_code, validation = synthesizer.synthesize(
-                intent=effective_intent,
-                schema=schema,
-                all_slot_descs=all_slot_descs,
-                test_cases=intent_test_cases,
-                max_iterations=max_iterations,
-                pass_rate_threshold=pass_rate_threshold,
-                dialogue_hint=dialogue_hint,
-            )
-
-            if validation.total > 0:
-                llm_count += 1
-            else:
-                llm_count += 1  # 无测试用例时也算 LLM 生成
-
-            if verbose:
-                _print_section(
-                    f"[ACIA] {intent.name} 最终代码"
-                    + (
-                        f"（通过率: {validation.pass_rate:.1%} {validation.passed}/{validation.total}）"
-                        if validation.total > 0 else ""
-                    )
-                )
-                print(func_code, flush=True)
-                print(flush=True)
-
-            validations[intent.name] = validation
-            status_sym = "✅" if (validation.total == 0 or validation.pass_rate >= pass_rate_threshold) else "⚠️ "
-            logger.info(
-                f"[ACIA]   {status_sym} {intent.name} 完成 — "
-                + (
-                    f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})，"
-                    f"迭代 {validation.iterations} 轮"
-                    if validation.total > 0 else "无测试用例（跳过验证）"
-                )
-            )
-
-            # 零参数健壮性修复（Phase RGF 补充）
-            # 确保函数在所有参数为 None 时也能正常运行，与 tracker.py
-            # load_pytod_api_module() 的运行时检查一致，避免函数加载时被替换为存根。
-            _zero_arg_err = check_zero_arg_robustness(intent.name, func_code, SHARED_HELPERS)
-            if _zero_arg_err is not None:
-                logger.warning(
-                    f"[ACIA]   {intent.name} 零参数调用失败（{_zero_arg_err}），"
-                    f"触发健壮性修复..."
-                )
-                _zero_arg_repair = phase2_gen.repair_function(
-                    effective_intent, schema, all_slot_descs,
-                    current_code=func_code,
-                    failures=[{
-                        "description": "零参数调用（所有参数为 None，健壮性检查）",
-                        "input_slots": {},
-                        "error": (
-                            f"调用 {intent.name}()（所有参数均为 None）时出错: "
-                            f"{_zero_arg_err}. "
-                            "函数必须在所有参数均为 None 时正常返回含 status='success' 的 dict，"
-                            "不能抛出任何异常（包括 ZeroDivisionError、AttributeError、NameError 等）。"
-                            "常见原因：_parse_amount(None) 返回 0.0 被用作除数；"
-                            "对 None 参数调用字符串方法；条件赋值后引用未初始化变量。"
-                        ),
-                    }],
-                    iteration=0,
-                    total=1,
-                    passed=0,
-                    dialogue_hint=dialogue_hint,
-                )
-                if _zero_arg_repair is not None:
-                    _repaired_err = check_zero_arg_robustness(
-                        intent.name, _zero_arg_repair, SHARED_HELPERS
-                    )
-                    if _repaired_err is None:
-                        func_code = _zero_arg_repair
-                        logger.info(f"[ACIA]   {intent.name} 零参数健壮性修复成功")
-                    else:
-                        logger.warning(
-                            f"[ACIA]   {intent.name} 修复后仍不健壮: {_repaired_err}，"
-                            f"保留原代码"
-                        )
-
+                test_cases_by_intent[effective_intent.name] = intent_test_cases
+            validations[effective_intent.name] = validation
+            llm_count += 1
             intent_lines.extend(func_code.splitlines())
             intent_lines.append('')
 
@@ -411,6 +445,7 @@ def build_pytod_apis_alpha(
         '"""',
         '',
         'from __future__ import annotations',
+        'from typing import Optional',
         '',
         SHARED_HELPERS,
     ]

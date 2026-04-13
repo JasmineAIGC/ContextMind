@@ -15,10 +15,11 @@ PyTOD companion 文件构建器。
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
@@ -45,10 +46,10 @@ def _generate_stub_function_lines(intent: IntentDefinition) -> List[str]:
 def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
     """schema 无意图定义时，生成一个以 service_name 命名的通用函数。"""
     slot_names = [s.name for s in schema.slots]
-    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in slot_names]) if slot_names else ""
     desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
     return [
-        f"def {schema.service_name}({param_str}):",
+        f"def {schema.service_name}({param_str}) -> dict:",
         f'    """{desc}"""',
         f'    args = {{k: v for k, v in locals().items() if v is not None}}',
         f'    return {{"status": "success", **args}}',
@@ -61,6 +62,203 @@ def _print_section(title: str, width: int = 70) -> None:
     print(line, flush=True)
     print(f"  {title}", flush=True)
     print(line, flush=True)
+
+
+def _process_one_intent(
+    idx: int,
+    total_intents: int,
+    intent: "IntentDefinition",
+    schema: "ServiceSchema",
+    all_slot_descs: Dict[str, str],
+    dialogue_hint: str,
+    llm_generator: "PyTODApiCodeGenerator",
+    tc_generator: "TestCaseGenerator",
+    cached_test_cases: Dict[str, List["TestCaseItem"]],
+    max_test_cases_per_intent: int,
+    max_iterations: int,
+    pass_rate_threshold: float,
+    verbose: bool,
+) -> Tuple[int, str, "IntentDefinition", "FuncValidation", List["TestCaseItem"], bool]:
+    """单个意图的完整处理流程（Phase 2 → 3 → 4 → 零参数修复）。
+
+    Returns:
+        ``(idx, func_code, effective_intent, validation, test_cases, llm_generated)``
+        其中 ``llm_generated`` 为 True 表示 LLM 生成成功，False 表示规则 fallback。
+    """
+    logger.info(f"[loop] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────")
+    if verbose:
+        _print_section(f"函数 {idx}/{total_intents}: {intent.name}")
+
+    # Phase 2：加载或生成测试用例
+    if intent.name in cached_test_cases:
+        intent_test_cases = cached_test_cases[intent.name]
+        logger.info(
+            f"[loop]   Phase 2: {intent.name} — "
+            f"使用缓存测试用例（{len(intent_test_cases)} 条）"
+        )
+    else:
+        logger.info(f"[loop]   Phase 2: {intent.name} — 生成测试用例 ...")
+        intent_test_cases = tc_generator.build_test_cases_for_intent(
+            intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
+        )
+        if intent_test_cases:
+            logger.info(
+                f"[loop]   Phase 2 完成: {intent.name} — "
+                f"{len(intent_test_cases)} 条测试用例"
+            )
+        else:
+            logger.warning(
+                f"[loop]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
+            )
+
+    if verbose and intent_test_cases:
+        print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
+        for i, tc in enumerate(intent_test_cases, 1):
+            desc = f" [{tc.description}]" if tc.description else ""
+            print(f"    用例 #{i}{desc}", flush=True)
+            print(f"      input_slots  : {tc.input_slots}", flush=True)
+            if tc.expected_keys:
+                print(f"      expected_keys: {tc.expected_keys}", flush=True)
+            if tc.expected_values:
+                print(f"      expected_vals: {tc.expected_values}", flush=True)
+        print(flush=True)
+
+    # 用测试用例补全 schema 中缺失的槽位定义
+    effective_intent = enrich_intent_from_test_cases(intent, intent_test_cases)
+
+    # Phase 3：LLM 生成初始函数体
+    logger.info(f"[loop]   Phase 3: {intent.name} — LLM 生成函数体 ...")
+    llm_body = llm_generator.generate_function_body(
+        effective_intent, schema, all_slot_descs,
+        test_cases=intent_test_cases,
+        dialogue_hint=dialogue_hint,
+    )
+
+    if llm_body is not None:
+        func_code = "\n".join(_function_def_header(effective_intent)) + "\n" + llm_body
+        llm_generated = True
+    else:
+        func_code = "\n".join(_generate_stub_function_lines(effective_intent))
+        llm_generated = False
+        logger.warning(f"[loop]   Phase 3: {intent.name} — LLM 失败，回退到 stub 生成")
+
+    if verbose:
+        _print_section(f"Phase 3 — {intent.name} 初始函数代码")
+        print(func_code, flush=True)
+        print(flush=True)
+
+    # Phase 4：执行测试验证 + 迭代修复
+    validation = FuncValidation(intent_name=intent.name, total=0, passed=0)
+    if intent_test_cases and llm_body is not None:
+        validation = validate_function(
+            effective_intent, func_code, intent_test_cases, SHARED_HELPERS
+        )
+        logger.info(
+            f"[loop]   Phase 4: {intent.name} — "
+            f"初始通过率: {validation.pass_rate:.1%} "
+            f"({validation.passed}/{validation.total})"
+        )
+
+        probe_code = func_code
+        probe_validation = validation
+
+        for iteration in range(1, max_iterations + 1):
+            if validation.pass_rate >= pass_rate_threshold:
+                break
+
+            logger.info(
+                f"[loop]   Phase 4: {intent.name} — "
+                f"第 {iteration} 轮修复（最优通过率 {validation.pass_rate:.1%} "
+                f"< 阈值 {pass_rate_threshold:.1%}）..."
+            )
+            repaired_code = llm_generator.repair_function(
+                effective_intent, schema, all_slot_descs,
+                current_code=probe_code,
+                failures=probe_validation.failures,
+                iteration=iteration,
+                total=probe_validation.total,
+                passed=probe_validation.passed,
+                dialogue_hint=dialogue_hint,
+            )
+            if repaired_code is None:
+                logger.warning(f"[loop]   Phase 4: {intent.name} 修复失败，停止迭代")
+                break
+
+            new_validation = validate_function(
+                effective_intent, repaired_code, intent_test_cases, SHARED_HELPERS
+            )
+            logger.info(
+                f"[loop]   Phase 4: {intent.name} 第 {iteration} 轮后 "
+                f"通过率: {new_validation.pass_rate:.1%} "
+                f"({new_validation.passed}/{new_validation.total})"
+            )
+            if verbose:
+                _print_section(
+                    f"Phase 4 — {intent.name} 第 {iteration} 轮修复后代码"
+                    f"（通过率: {new_validation.pass_rate:.1%}"
+                    f" {new_validation.passed}/{new_validation.total}）"
+                )
+                print(repaired_code, flush=True)
+                print(flush=True)
+            probe_code = repaired_code
+            probe_validation = new_validation
+            if new_validation.pass_rate >= validation.pass_rate:
+                func_code = repaired_code
+                validation = new_validation
+                validation.iterations = iteration
+
+    status_sym = "✅" if validation.pass_rate >= pass_rate_threshold else "⚠️ "
+    if validation.total > 0:
+        logger.info(
+            f"[loop]   {status_sym} {intent.name} 完成 — "
+            f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})，"
+            f"迭代 {validation.iterations} 轮"
+        )
+    else:
+        logger.info(f"[loop]   {intent.name} 完成（无验证）")
+
+    # 零参数健壮性修复
+    if llm_generated:
+        _zero_arg_err = check_zero_arg_robustness(intent.name, func_code, SHARED_HELPERS)
+        if _zero_arg_err is not None:
+            logger.warning(
+                f"[loop]   {intent.name} 零参数调用失败（{_zero_arg_err}），"
+                f"触发健壮性修复..."
+            )
+            _zero_arg_repair = llm_generator.repair_function(
+                effective_intent, schema, all_slot_descs,
+                current_code=func_code,
+                failures=[{
+                    "description": "零参数调用（所有参数为 None，健壮性检查）",
+                    "input_slots": {},
+                    "error": (
+                        f"调用 {intent.name}()（所有参数均为 None）时出错: "
+                        f"{_zero_arg_err}. "
+                        "函数必须在所有参数均为 None 时正常返回含 status='success' 的 dict，"
+                        "不能抛出任何异常（包括 ZeroDivisionError、AttributeError、NameError 等）。"
+                        "常见原因：_parse_amount(None) 返回 0.0 被用作除数；"
+                        "对 None 参数调用字符串方法；条件赋值后引用未初始化变量。"
+                    ),
+                }],
+                iteration=0,
+                total=1,
+                passed=0,
+                dialogue_hint=dialogue_hint,
+            )
+            if _zero_arg_repair is not None:
+                _repaired_err = check_zero_arg_robustness(
+                    intent.name, _zero_arg_repair, SHARED_HELPERS
+                )
+                if _repaired_err is None:
+                    func_code = _zero_arg_repair
+                    logger.info(f"[loop]   {intent.name} 零参数健壮性修复成功")
+                else:
+                    logger.warning(
+                        f"[loop]   {intent.name} 修复后仍不健壮: {_repaired_err}，"
+                        f"保留原代码"
+                    )
+
+    return idx, func_code, effective_intent, validation, intent_test_cases, llm_generated
 
 
 def build_pytod_apis(
@@ -78,6 +276,7 @@ def build_pytod_apis(
     output_dir: Optional[Union[str, Path]] = None,
     verbose: bool = False,
     test_cases_path: Optional[Union[str, Path]] = None,
+    workers: int = 1,
 ) -> Optional[Path]:
     """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
@@ -219,11 +418,16 @@ def build_pytod_apis(
         mode_str = "通用函数（无意图定义）"
 
     elif llm_generator is not None:
-        # LLM 模式：每个函数独立经历 Phase 2 → Phase 3 → Phase 4，完成后再处理下一个
+        # LLM 模式：每个函数独立经历 Phase 2 → Phase 3 → Phase 4
+        # workers > 1 时并行处理多个函数；workers = 1 时保持顺序处理（兼容旧行为）。
         llm_count = 0
         rule_count = 0
         total_intents = len(schema.intents)
-        logger.info(f"[loop] 开始逐函数生成（共 {total_intents} 个意图）...")
+        logger.info(
+            f"[loop] 开始{'并行' if workers > 1 else '逐函数'}生成"
+            f"（共 {total_intents} 个意图"
+            f"{f'，并行度 {workers}' if workers > 1 else ''}）..."
+        )
 
         # 尝试从缓存文件加载测试用例（供跨生成器公平对比评测）
         _tc_path = Path(test_cases_path) if test_cases_path is not None else None
@@ -239,197 +443,31 @@ def build_pytod_apis(
                     f"({len(_cached_test_cases)} 个意图) ← {_tc_path}"
                 )
 
-        for idx, intent in enumerate(schema.intents, 1):
-            logger.info(
-                f"[loop] ── 函数 {idx}/{total_intents}: {intent.name} ──────────────"
-            )
-            if verbose:
-                _print_section(f"函数 {idx}/{total_intents}: {intent.name}")
+        # 构建每个意图的参数列表（共享只读上下文，线程安全）
+        task_args = [
+            (idx, total_intents, intent, schema, all_slot_descs, dialogue_hint,
+             llm_generator, tc_generator, _cached_test_cases,
+             max_test_cases_per_intent, max_iterations, pass_rate_threshold, verbose)
+            for idx, intent in enumerate(schema.intents, 1)
+        ]
 
-            # Phase 2：加载或生成测试用例
-            if intent.name in _cached_test_cases:
-                intent_test_cases = _cached_test_cases[intent.name]
-                logger.info(
-                    f"[loop]   Phase 2: {intent.name} — "
-                    f"使用缓存测试用例（{len(intent_test_cases)} 条）"
-                )
-            else:
-                logger.info(f"[loop]   Phase 2: {intent.name} — 生成测试用例 ...")
-                intent_test_cases = tc_generator.build_test_cases_for_intent(
-                    intent, schema, all_slot_descs, dialogue_hint, max_test_cases_per_intent
-                )
-                if intent_test_cases:
-                    logger.info(
-                        f"[loop]   Phase 2 完成: {intent.name} — "
-                        f"{len(intent_test_cases)} 条测试用例"
-                    )
-                else:
-                    logger.warning(
-                        f"[loop]   Phase 2: {intent.name} — 未获得测试用例，跳过验证"
-                    )
+        if workers > 1:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+                # map() 保序：结果顺序与输入顺序一致
+                results = list(pool.map(lambda a: _process_one_intent(*a), task_args))
+        else:
+            results = [_process_one_intent(*args) for args in task_args]
+
+        # 按原始顺序组装结果
+        for _idx, func_code, effective_intent, validation, intent_test_cases, llm_generated in results:
+            effective_intent_map[effective_intent.name] = effective_intent
             if intent_test_cases:
-                test_cases_by_intent[intent.name] = intent_test_cases
-            if verbose and intent_test_cases:
-                print(f"  📌 测试用例（{len(intent_test_cases)} 条）:", flush=True)
-                for i, tc in enumerate(intent_test_cases, 1):
-                    desc = f" [{tc.description}]" if tc.description else ""
-                    print(f"    用例 #{i}{desc}", flush=True)
-                    print(f"      input_slots  : {tc.input_slots}", flush=True)
-                    if tc.expected_keys:
-                        print(f"      expected_keys: {tc.expected_keys}", flush=True)
-                    if tc.expected_values:
-                        print(f"      expected_vals: {tc.expected_values}", flush=True)
-                print(flush=True)
-
-            # 用测试用例补全 schema 中缺失的槽位定义，确保函数签名和返回键与测试一致
-            effective_intent = enrich_intent_from_test_cases(intent, intent_test_cases)
-            effective_intent_map[intent.name] = effective_intent
-
-            # Phase 3：LLM 生成初始函数体（带 few-shot 测试用例 + KB 业务背景）
-            logger.info(f"[loop]   Phase 3: {intent.name} — LLM 生成函数体 ...")
-            llm_body = llm_generator.generate_function_body(
-                effective_intent, schema, all_slot_descs,
-                test_cases=intent_test_cases,
-                dialogue_hint=dialogue_hint,
-            )
-
-            if llm_body is not None:
-                func_code = "\n".join(_function_def_header(effective_intent)) + "\n" + llm_body
+                test_cases_by_intent[effective_intent.name] = intent_test_cases
+            validations[effective_intent.name] = validation
+            if llm_generated:
                 llm_count += 1
             else:
-                # LLM 失败时回退到 stub 生成
-                func_code = "\n".join(_generate_stub_function_lines(effective_intent))
                 rule_count += 1
-                logger.warning(
-                    f"[loop]   Phase 3: {intent.name} — LLM 失败，回退到 stub 生成"
-                )
-
-            if verbose:
-                _print_section(f"Phase 3 — {intent.name} 初始函数代码")
-                print(func_code, flush=True)
-                print(flush=True)
-
-            # Phase 4：执行测试验证 + 迭代修复（仅当有测试用例且 LLM 生成成功）
-            if intent_test_cases and llm_body is not None:
-                validation = validate_function(
-                    effective_intent, func_code, intent_test_cases, SHARED_HELPERS
-                )
-                logger.info(
-                    f"[loop]   Phase 4: {intent.name} — "
-                    f"初始通过率: {validation.pass_rate:.1%} "
-                    f"({validation.passed}/{validation.total})"
-                )
-
-                # probe_code/probe_validation 始终追踪最新一次修复尝试的结果（即使未改善
-                # 也继续前进），给 LLM 提供不同的失败用例视角，避免重复相同修复提示而陷入循环。
-                # func_code/validation 则只在通过率提升或持平时更新，保留最优结果用于输出。
-                probe_code = func_code
-                probe_validation = validation
-
-                for iteration in range(1, max_iterations + 1):
-                    if validation.pass_rate >= pass_rate_threshold:
-                        break  # 已达到通过率阈值，停止迭代
-
-                    logger.info(
-                        f"[loop]   Phase 4: {intent.name} — "
-                        f"第 {iteration} 轮修复（最优通过率 {validation.pass_rate:.1%} "
-                        f"< 阈值 {pass_rate_threshold:.1%}）..."
-                    )
-                    repaired_code = llm_generator.repair_function(
-                        effective_intent, schema, all_slot_descs,
-                        current_code=probe_code,
-                        failures=probe_validation.failures,
-                        iteration=iteration,
-                        total=probe_validation.total,
-                        passed=probe_validation.passed,
-                        dialogue_hint=dialogue_hint,
-                    )
-                    if repaired_code is None:
-                        logger.warning(f"[loop]   Phase 4: {intent.name} 修复失败，停止迭代")
-                        break
-
-                    new_validation = validate_function(
-                        effective_intent, repaired_code, intent_test_cases, SHARED_HELPERS
-                    )
-                    logger.info(
-                        f"[loop]   Phase 4: {intent.name} 第 {iteration} 轮后 "
-                        f"通过率: {new_validation.pass_rate:.1%} "
-                        f"({new_validation.passed}/{new_validation.total})"
-                    )
-                    if verbose:
-                        _print_section(
-                            f"Phase 4 — {intent.name} 第 {iteration} 轮修复后代码"
-                            f"（通过率: {new_validation.pass_rate:.1%}"
-                            f" {new_validation.passed}/{new_validation.total}）"
-                        )
-                        print(repaired_code, flush=True)
-                        print(flush=True)
-                    # 始终将 probe 推进到最新一次修复结果，确保下一轮从不同的失败状态出发
-                    probe_code = repaired_code
-                    probe_validation = new_validation
-                    # 通过率提升或持平时更新最优结果（持平也接受，后续轮次可能继续改善）
-                    if new_validation.pass_rate >= validation.pass_rate:
-                        func_code = repaired_code
-                        validation = new_validation
-                        validation.iterations = iteration
-
-                validations[intent.name] = validation
-                status_sym = "✅" if validation.pass_rate >= pass_rate_threshold else "⚠️ "
-                logger.info(
-                    f"[loop]   {status_sym} {intent.name} 完成 — "
-                    f"通过率 {validation.pass_rate:.1%} ({validation.passed}/{validation.total})，"
-                    f"迭代 {validation.iterations} 轮"
-                )
-            else:
-                # 无测试用例或规则兜底：记录空验证结果
-                validations[intent.name] = FuncValidation(
-                    intent_name=intent.name, total=0, passed=0
-                )
-                logger.info(f"[loop]   {intent.name} 完成（无验证）")
-
-            # 零参数健壮性修复（Phase 4 补充）
-            # 确保函数在所有参数为 None 时也能正常运行，与 tracker.py
-            # load_pytod_api_module() 的运行时检查一致，避免函数加载时被替换为存根。
-            if llm_body is not None:
-                _zero_arg_err = check_zero_arg_robustness(intent.name, func_code, SHARED_HELPERS)
-                if _zero_arg_err is not None and llm_generator is not None:
-                    logger.warning(
-                        f"[loop]   {intent.name} 零参数调用失败（{_zero_arg_err}），"
-                        f"触发健壮性修复..."
-                    )
-                    _zero_arg_repair = llm_generator.repair_function(
-                        effective_intent, schema, all_slot_descs,
-                        current_code=func_code,
-                        failures=[{
-                            "description": "零参数调用（所有参数为 None，健壮性检查）",
-                            "input_slots": {},
-                            "error": (
-                                f"调用 {intent.name}()（所有参数均为 None）时出错: "
-                                f"{_zero_arg_err}. "
-                                "函数必须在所有参数均为 None 时正常返回含 status='success' 的 dict，"
-                                "不能抛出任何异常（包括 ZeroDivisionError、AttributeError、NameError 等）。"
-                                "常见原因：_parse_amount(None) 返回 0.0 被用作除数；"
-                                "对 None 参数调用字符串方法；条件赋值后引用未初始化变量。"
-                            ),
-                        }],
-                        iteration=0,
-                        total=1,
-                        passed=0,
-                        dialogue_hint=dialogue_hint,
-                    )
-                    if _zero_arg_repair is not None:
-                        _repaired_err = check_zero_arg_robustness(
-                            intent.name, _zero_arg_repair, SHARED_HELPERS
-                        )
-                        if _repaired_err is None:
-                            func_code = _zero_arg_repair
-                            logger.info(f"[loop]   {intent.name} 零参数健壮性修复成功")
-                        else:
-                            logger.warning(
-                                f"[loop]   {intent.name} 修复后仍不健壮: {_repaired_err}，"
-                                f"保留原代码"
-                            )
-
             intent_lines.extend(func_code.splitlines())
             intent_lines.append('')
 
@@ -508,6 +546,7 @@ def build_pytod_apis(
         '"""',
         '',
         'from __future__ import annotations',
+        'from typing import Optional',
         '',
         SHARED_HELPERS,
     ]

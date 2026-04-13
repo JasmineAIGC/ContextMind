@@ -68,10 +68,10 @@ def _function_def_header(intent: IntentDefinition) -> List[str]:
     params = list(dict.fromkeys(
         list(intent.required_slots) + list(intent.optional_slots)
     ))
-    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in params]) if params else ""
     desc = intent.description.replace('"', '\\"') if intent.description else intent.name
     return [
-        f"def {intent.name}({param_str}):",
+        f"def {intent.name}({param_str}) -> dict:",
         f'    """{desc}"""',
     ]
 

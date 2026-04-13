@@ -363,6 +363,18 @@ def main() -> None:
         help=f"Phase 2 每个意图最多生成的测试用例数（默认: {_DEFAULT_MAX_TEST_CASES}，必须 ≥ 1）。",
     )
     llm_group.add_argument(
+        "--workers", "-j",
+        type=_positive_int,
+        default=1,
+        metavar="N",
+        help=(
+            "意图函数并行生成的工作线程数（默认: 1，即顺序处理）。"
+            "设置 > 1 时，多个意图的 Phase 2→3→4 同时并发执行，"
+            "可显著缩短含多个意图的 schema 的总生成时间。"
+            "示例: --with-llm --workers 4"
+        ),
+    )
+    llm_group.add_argument(
         "--prebuild-test-cases",
         action="store_true",
         help=(
@@ -414,6 +426,7 @@ def main() -> None:
             (args.generator != "loop", f"--generator {args.generator}"),
             (args.prebuild_test_cases, "--prebuild-test-cases"),
             (bool(args.test_cases_path), "--test-cases-path"),
+            (args.workers != 1, f"--workers {args.workers}"),
         ]
         active_llm_flags = [name for active, name in _llm_only_flags if active]
         if active_llm_flags:
@@ -499,6 +512,7 @@ def main() -> None:
         verbose=args.verbose,
         generator=args.generator,
         test_cases_path=Path(args.test_cases_path) if args.test_cases_path else None,
+        workers=args.workers,
     )
 
     if args.schema:
