@@ -80,29 +80,45 @@ def enrich_intent_from_test_cases(
     intent: IntentDefinition,
     test_cases: List[TestCaseItem],
 ) -> IntentDefinition:
-    """Return a copy of *intent* with ``required_slots`` / ``result_slots`` inferred from *test_cases*.
+    """Return a copy of *intent* with ``required_slots`` / ``result_slots`` merged from *test_cases*.
 
-    When the schema has empty or incomplete slot definitions, the generated function will have
-    the wrong (or no) parameters, causing ``TypeError: unexpected keyword argument`` failures
-    at test time.  This function derives the correct signature and return keys from the test
-    cases themselves so that code generation uses the right information.
+    Ensures the generated function signature and return dict cover every parameter / key used
+    by the test cases, preventing two of the most common pass-rate killers:
 
-    The enrichment only fills in **empty** fields – existing non-empty schema definitions are
-    always preserved because they carry explicit intent from the schema author.
+    1. **TypeError: unexpected keyword argument** — a test case passes a slot that is not in
+       the function signature because the schema only defined a subset of the slots actually
+       used in practice.
+    2. **Missing return keys** — the function omits a ``result_slot`` that appears in
+       ``expected_keys``, failing the key-presence check in :func:`validate_function`.
+
+    The enrichment **always merges** test-case-derived params / result keys with the schema
+    definition (union semantics), so existing schema information is preserved while gaps are
+    filled automatically.  Specifically:
+
+    - When the schema has *no* ``required_slots`` / ``optional_slots`` at all, all test-case
+      params become ``required_slots`` (previous behaviour).
+    - When the schema *has* some params, any test-case slots not already present are appended
+      as ``optional_slots`` (new behaviour — previously these were silently dropped).
+    - ``result_slots`` are always merged: test-case keys not already in the schema list are
+      appended, regardless of whether the schema was empty or partially populated.
 
     Args:
         intent:     The original :class:`IntentDefinition` from the schema.
         test_cases: Pre-built test cases for this intent (Phase 2 output).
 
     Returns:
-        A shallow copy of *intent* with updated ``required_slots`` and / or ``result_slots``
-        if those were previously empty.  Returns *intent* unchanged when *test_cases* is empty.
+        A (possibly new) :class:`IntentDefinition` with ``required_slots``,
+        ``optional_slots``, and ``result_slots`` that are supersets of what the test cases
+        require.  Returns *intent* unchanged when *test_cases* is empty or when no gap is
+        found.
     """
     if not test_cases:
         return intent
 
     current_params = list(intent.required_slots) + list(intent.optional_slots)
     current_result = list(intent.result_slots)
+    current_param_set = set(current_params)
+    current_result_set = set(current_result)
 
     # Derive parameters from the union of all input_slots keys (preserving first-seen order).
     tc_params: List[str] = []
@@ -122,15 +138,33 @@ def enrich_intent_from_test_cases(
                 seen_r.add(k)
                 tc_result.append(k)
 
-    needs_update = (not current_params and tc_params) or (not current_result and tc_result)
-    if not needs_update:
+    # Compute what the merged signature and result list should look like.
+    if not current_params and tc_params:
+        # Schema has no params at all: promote all test-case params to required_slots.
+        new_required: List[str] = tc_params
+        new_optional: List[str] = []
+    else:
+        # Schema already has params: keep required/optional split and append any extras
+        # from test cases as optional_slots (they are legitimate but schema-underdeclared).
+        extra_params = [p for p in tc_params if p not in current_param_set]
+        new_required = list(intent.required_slots)
+        new_optional = list(intent.optional_slots) + extra_params
+
+    # Always merge result_slots: append test-case keys not already declared in the schema.
+    extra_results = [r for r in tc_result if r not in current_result_set]
+    new_result = current_result + extra_results
+
+    # Only rebuild the dataclass when something actually changed.
+    new_all_params = set(new_required + new_optional)
+    new_result_set = set(new_result)
+    if new_all_params == current_param_set and new_result_set == current_result_set:
         return intent
 
     return dataclasses.replace(
         intent,
-        required_slots=tc_params if (not current_params and tc_params) else list(intent.required_slots),
-        optional_slots=[] if (not current_params and tc_params) else list(intent.optional_slots),
-        result_slots=tc_result if (not current_result and tc_result) else list(intent.result_slots),
+        required_slots=new_required,
+        optional_slots=new_optional,
+        result_slots=new_result,
     )
 
 

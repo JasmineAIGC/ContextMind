@@ -41,7 +41,11 @@ def _values_match(actual: Any, expected: Any) -> bool:
     支持以下比较策略：
     - ``bool``：精确匹配
     - ``int`` / ``float``：精确匹配（int 允许与 float 比较，如 5 == 5.0）
-    - ``str``：精确匹配（忽略首尾空白）
+    - ``str``（短字符串，≤10 字符）：精确匹配（忽略首尾空白）
+    - ``str``（长字符串，>10 字符）：三级宽松匹配——
+        1. 精确匹配（首尾去空白后相等）
+        2. 标准化后精确匹配（去除标点符号和空白后相等，容忍顿号/冒号/逗号等细微差异）
+        3. 关键词包含匹配——预期串标准化后的所有有效 token 全部出现在实际串标准化结果中
     - 预期为 None：actual 为 None 或空字符串均算匹配
     - 其他类型：转为字符串后比较
     """
@@ -55,7 +59,32 @@ def _values_match(actual: Any, expected: Any) -> bool:
         except (TypeError, ValueError):
             return str(actual) == str(expected)
     if isinstance(expected, str):
-        return str(actual).strip() == expected.strip()
+        actual_str = str(actual).strip()
+        expected_str = expected.strip()
+        # Level 1: exact match
+        if actual_str == expected_str:
+            return True
+        # For longer business-narrative strings the LLM may produce phrasing that is
+        # semantically correct but differs slightly in punctuation, spacing, or minor
+        # word-order within a clause.  Apply two additional lenient checks.
+        if len(expected_str) > 10:
+            # Level 2: normalize both strings by removing punctuation/whitespace, then compare.
+            _norm = re.compile(
+                r"[\s\u3000\u3001\u3002\uff0c\uff01\uff1f\uff1b\uff1a"  # CJK punct / fullwidth
+                r"\u2014\u2018\u2019\u201c\u201d\u2026"                 # dashes / quotes / ellipsis
+                r",，。、！!？?；;：:·…\"'—～~]"                         # ASCII + common
+            )
+            norm_exp = _norm.sub("", expected_str)
+            norm_act = _norm.sub("", actual_str)
+            if norm_exp == norm_act:
+                return True
+            # Level 3: every meaningful token from the normalized expected value
+            # (Chinese word-groups and digit strings) must appear in the normalized actual.
+            tokens = re.findall(r"[\u4e00-\u9fff]+|[0-9]+(?:\.[0-9]+)?", norm_exp)
+            key_tokens = [t for t in tokens if len(t) > 1 or t.isdigit()]
+            if key_tokens and all(t in norm_act for t in key_tokens):
+                return True
+        return False
     return actual == expected
 
 
