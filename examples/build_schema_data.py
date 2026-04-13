@@ -102,6 +102,7 @@ KB 目录数据利用
 """
 
 import argparse
+import concurrent.futures
 import sys
 from pathlib import Path
 from typing import Optional
@@ -368,9 +369,10 @@ def main() -> None:
         default=1,
         metavar="N",
         help=(
-            "意图函数并行生成的工作线程数（默认: 1，即顺序处理）。"
-            "设置 > 1 时，多个意图的 Phase 2→3→4 同时并发执行，"
-            "可显著缩短含多个意图的 schema 的总生成时间。"
+            "并行工作线程数（默认: 1，即顺序处理）。"
+            "设置 > 1 时，多个意图的 Phase 2→3→4 同时并发执行；"
+            "在 --data-dir 批量模式下，多个 schema 也会同时并发处理，"
+            "可显著缩短含多个 schema / 意图的总生成时间。"
             "示例: --with-llm --workers 4"
         ),
     )
@@ -690,8 +692,93 @@ def _check_schema_vs_discovery(
         pass  # 读取失败时静默忽略，不影响主流程
 
 
+def _process_one_schema(
+    builder: SchemaDataBuilder,
+    schema_path: Path,
+    args: argparse.Namespace,
+) -> tuple[int, list[str]]:
+    """处理单个 schema 文件（供并行调用）。
+
+    Returns:
+        (written_count, log_lines) — 写入文件数 和 日志行列表（调用方统一打印）。
+    """
+    import json
+    from contextmind.modes.pytod.schemas import load_schema_from_dict
+
+    logs: list[str] = []
+    written = 0
+    prebuild_mode = getattr(args, "prebuild_test_cases", False) and args.with_llm
+
+    try:
+        with open(schema_path, encoding="utf-8") as fh:
+            schema = load_schema_from_dict(json.load(fh))
+    except Exception as exc:
+        logs.append(f"❌ 加载失败 {schema_path.name}: {exc}")
+        return written, logs
+
+    logs.append(f"📋 {schema_path.name} → service={schema.service_name}, intents={len(schema.intents)}")
+
+    if prebuild_mode:
+        p = builder.prebuild_test_cases(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ 测试用例 → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  测试用例预生成失败或已存在")
+        return written, logs
+
+    if not args.fnctod_only:
+        if args.with_llm:
+            from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
+            _user_tc = getattr(args, "test_cases_path", None)
+            tc_path = Path(_user_tc) if _user_tc else test_cases_path_for_schema(schema_path)
+            if not tc_path.exists():
+                logs.append(
+                    f"   ⚠️  {schema_path.name} 的测试用例未预生成 "
+                    f"（建议先运行 prebuild_test_cases.py，本次将自动生成并缓存）"
+                )
+        p = builder.build_pytod_apis(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ PyTOD APIs  → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  PyTOD APIs  跳过（已存在）")
+        if args.with_llm:
+            # 收集验证摘要行而非直接打印
+            import json as _json
+            from contextmind.schema_builder.utils import companion_path
+            report_path = companion_path(
+                schema_path, "validation_report", suffix=".json", output_dir=builder.output_dir
+            )
+            if report_path.exists():
+                try:
+                    with open(report_path, encoding="utf-8") as fh:
+                        report = _json.load(fh)
+                    summary = report.get("summary", {})
+                    avg_rate = summary.get("avg_pass_rate", 0.0)
+                    validated = summary.get("validated", 0)
+                    total_intents = summary.get("total_intents", 0)
+                    status = "✅" if avg_rate >= args.pass_rate_threshold else "⚠️ "
+                    logs.append(
+                        f"   {status} 平均通过率: {avg_rate:.1%}"
+                        f"（{validated}/{total_intents} 个意图已验证）"
+                    )
+                except Exception:
+                    pass
+
+    if not args.pytod_only:
+        p = builder.build_fnctod_domain(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ FnCTOD domain → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  FnCTOD domain 跳过（已存在）")
+
+    return written, logs
+
+
 def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Namespace) -> None:
-    """处理目录下所有 schema 文件。"""
+    """处理目录下所有 schema 文件（跨 schema 并行）。"""
     schema_files = sorted(data_dir.glob("*_schema.json"))
     if not schema_files:
         print(f"⚠️  {data_dir} 下未找到任何 *_schema.json 文件")
@@ -703,58 +790,32 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
         print(f"   - {f.name}")
     print()
 
-    import json
-    from contextmind.modes.pytod.schemas import load_schema_from_dict
-
     prebuild_mode = getattr(args, "prebuild_test_cases", False) and args.with_llm
+    workers = getattr(args, "workers", 1)
+
+    if workers > 1 and len(schema_files) > 1:
+        print(f"⚡ 并行处理 {len(schema_files)} 个 schema（--workers {workers}）...")
+        print()
 
     written_total = 0
-    for schema_path in schema_files:
-        try:
-            with open(schema_path, encoding="utf-8") as fh:
-                schema = load_schema_from_dict(json.load(fh))
-        except Exception as exc:
-            print(f"❌ 加载失败 {schema_path.name}: {exc}", file=sys.stderr)
-            continue
 
-        print(f"📋 {schema_path.name} → service={schema.service_name}, intents={len(schema.intents)}")
+    def _task(sp: Path) -> tuple[int, list[str]]:
+        return _process_one_schema(builder, sp, args)
 
-        if prebuild_mode:
-            p = builder.prebuild_test_cases(schema_path, schema=schema)
-            if p:
-                print(f"   ✅ 测试用例 → {p.name}")
-                written_total += 1
-            else:
-                print(f"   ⚠️  测试用例预生成失败或已存在")
-            continue
-
-        if not args.fnctod_only:
-            # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
-            if args.with_llm:
-                from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
-                _user_tc = getattr(args, "test_cases_path", None)
-                tc_path = Path(_user_tc) if _user_tc else test_cases_path_for_schema(schema_path)
-                if not tc_path.exists():
-                    print(
-                        f"   ⚠️  {schema_path.name} 的测试用例未预生成 "
-                        f"（建议先运行 prebuild_test_cases.py，本次将自动生成并缓存）"
-                    )
-            p = builder.build_pytod_apis(schema_path, schema=schema)
-            if p:
-                print(f"   ✅ PyTOD APIs  → {p.name}")
-                written_total += 1
-            else:
-                print(f"   ⚠️  PyTOD APIs  跳过（已存在）")
-            if args.with_llm:
+    if workers > 1 and len(schema_files) > 1:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            for written, logs in pool.map(_task, schema_files):
+                for line in logs:
+                    print(line)
+                written_total += written
+    else:
+        for schema_path in schema_files:
+            written, logs = _task(schema_path)
+            for line in logs:
+                print(line)
+            if args.with_llm and not prebuild_mode and not args.fnctod_only:
                 _print_validation_summary(schema_path, builder.output_dir, args.pass_rate_threshold)
-
-        if not args.pytod_only:
-            p = builder.build_fnctod_domain(schema_path, schema=schema)
-            if p:
-                print(f"   ✅ FnCTOD domain → {p.name}")
-                written_total += 1
-            else:
-                print(f"   ⚠️  FnCTOD domain 跳过（已存在）")
+            written_total += written
 
     print()
     if prebuild_mode:
