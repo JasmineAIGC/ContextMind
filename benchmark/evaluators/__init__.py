@@ -1,0 +1,45 @@
+"""
+Benchmark 评测器模块
+
+提供四种算法评测器，每种评测器均遵循相同结构：
+- Metrics 数据类（继承 BaseMetrics）：存储聚合指标
+- Evaluator 类（继承 BaseEvaluator）：通过 add_* / calculate_metrics / reset 接口收集并计算指标
+
+槽位类评测器（DST、FnCTOD）继承 SlotBasedEvaluator，共享槽位精度/召回/F1/JGA 计算逻辑。
+"""
+
+from .base import BaseMetrics, BaseEvaluator, SlotMetrics, SlotBasedEvaluator
+from .dst import DSTEvaluator
+from .fnctod import FnCTODEvaluator
+from .pytod import PyTODMetrics, PyTODEvaluator
+from .evolve import EvolveMetrics, EvolveEvaluator
+from .utils import IntentLabelLoader, IntentEvaluator, get_intent_label_loader
+
+# DSTMetrics and FnCTODMetrics are aliases for SlotMetrics
+DSTMetrics = SlotMetrics
+FnCTODMetrics = SlotMetrics
+
+__all__ = [
+    # 基类
+    "BaseMetrics",
+    "BaseEvaluator",
+    # 槽位类共用基础设施
+    "SlotMetrics",
+    "SlotBasedEvaluator",
+    # DST — 对话状态追踪
+    "DSTMetrics",
+    "DSTEvaluator",
+    # FnCTOD — 函数调用型 TOD
+    "FnCTODMetrics",
+    "FnCTODEvaluator",
+    # PyTOD — 程序执行型 TOD
+    "PyTODMetrics",
+    "PyTODEvaluator",
+    # Evolve — 进化式上下文优化
+    "EvolveMetrics",
+    "EvolveEvaluator",
+    # 意图评测工具
+    "IntentLabelLoader",
+    "IntentEvaluator",
+    "get_intent_label_loader",
+]
