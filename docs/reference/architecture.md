@@ -78,7 +78,7 @@ flowchart TD
 |------|--------|------|
 | `pipeline.py` | `ContextPipeline` | 统一三步框架入口，管理 Tracker 生命周期 |
 | `infra/llm_client.py` | `AdkLLMClient` | LLM 统一接入（OpenAI / Qwen / 本地 vLLM） |
-| `infra/embedding.py` | `EmbeddingUtils` | 文本向量化，支持 OpenAI / SentenceTransformer |
+| `infra/embedding.py` | `EmbeddingClient` | 文本向量化，支持 OpenAI / SentenceTransformer |
 | `knowledge/builder.py` | `KnowledgeBaseBuilder` | 两阶段（发现 + 合成）知识库构建入口 |
 | `knowledge/discoverer.py` | `GenericDialogueDiscoverer` | LLM + langextract 开放式槽位 / 意图发现 |
 | `knowledge/synthesizer.py` | `SchemaSynthesizer` | 将发现结果合成为 SGD ServiceSchema |

@@ -944,6 +944,13 @@ class AdkPyTODTracker:
         self._history.append(ConversationTurn(role="user", content=user_utterance))
         self._history.append(ConversationTurn(role="assistant", content=response))
 
+        # 统一结构化日志：scene / mode / dialogue_id / latency / token
+        _total_latency = round(sum(self.step_timings.values()), 3)
+        logger.info(
+            f"[turn_summary] scene={self.schema.service_name} mode=pytod "
+            f"dialogue_id={self.turn_count} latency={_total_latency}s token=n/a"
+        )
+
         return {
             "response": response,
             "program_text": program_text,

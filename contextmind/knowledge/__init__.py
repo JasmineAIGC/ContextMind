@@ -7,10 +7,12 @@ ContextMind 通用知识库构建模块（contextmind.knowledge）
 ``contextmind.modes.pytod``）。知识提取依赖 ``langextract`` 库实现字符级溯源，
 每条提取结果均携带指向原始话语的 ``provenance`` 字段。
 
-整体框架两步走：
-    1. **建立知识库**（本模块）：针对任意数据集，通过 LLM + langextract 发现
+三步框架中的第一步：
+    1. **建立知识库**（本模块，第一步）：针对任意数据集，通过 LLM + langextract 发现
        槽位和意图，为每条知识附加原文溯源，合成标准 SGD 格式数据集。
-    2. **执行**（如 :mod:`contextmind.modes.pytod`）：使用上述 schema.json
+    2. **Schema 数据生成**（:mod:`contextmind.schema_builder`，第二步，可选）：
+       将 schema.json 转换为算法专用数据（如 PyTOD API 代码文件）。
+    3. **算法执行**（如 :mod:`contextmind.modes.pytod`，第三步）：使用 schema.json
        驱动 PyTOD 等对话算法。
 
 核心公开接口::

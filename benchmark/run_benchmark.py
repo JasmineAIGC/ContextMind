@@ -84,19 +84,54 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def load_dataset(dataset_name: str, data_root: Path, split: str, limit: int | None):
-    """加载指定数据集，返回对话列表。"""
+    """加载指定数据集，返回对话实例列表。
+
+    使用各数据集适配器的原生 API（list_dialogue_ids / load_dialogue），
+    统一返回携带 ``dialogue_id``、``turns`` 等属性的对话实例列表。
+    """
     if dataset_name == "risawoz":
         from benchmark.datasets.risawoz import RiSAWOZAdapter
-        adapter = RiSAWOZAdapter(data_root=data_root)
-        return adapter.load(split=split, limit=limit)
+        adapter = RiSAWOZAdapter(data_root=str(data_root))
+        # RiSAWOZAdapter 通过 get_dialogues_by_domain(domain=None, split) 列举 ID
+        dialogue_ids: list = adapter.get_dialogues_by_domain(domain=None, split=split)
+        if limit is not None:
+            dialogue_ids = dialogue_ids[:limit]
+        dialogues = []
+        for did in dialogue_ids:
+            try:
+                dialogues.append(adapter.load_dialogue(did, split=split))
+            except Exception as exc:
+                logger.warning(f"[risawoz] 跳过对话 {did}: {exc}")
+        return dialogues
+
     elif dataset_name == "sgd":
         from benchmark.datasets.sgd import SGDAdapter
-        adapter = SGDAdapter(data_root=data_root)
-        return adapter.load(split=split, limit=limit)
+        adapter = SGDAdapter(data_root=str(data_root))
+        dialogue_ids = adapter.list_dialogue_ids(split=split)
+        if limit is not None:
+            dialogue_ids = dialogue_ids[:limit]
+        dialogues = []
+        for did in dialogue_ids:
+            try:
+                dialogues.append(adapter.load_dialogue(did, split=split))
+            except Exception as exc:
+                logger.warning(f"[sgd] 跳过对话 {did}: {exc}")
+        return dialogues
+
     elif dataset_name == "transfertod":
         from benchmark.datasets.transfertod import TransferTODAdapter
-        adapter = TransferTODAdapter(data_root=data_root)
-        return adapter.load(split=split, limit=limit)
+        adapter = TransferTODAdapter(data_root=str(data_root))
+        dialogue_ids = adapter.list_dialogues()
+        if limit is not None:
+            dialogue_ids = dialogue_ids[:limit]
+        dialogues = []
+        for did in dialogue_ids:
+            try:
+                dialogues.append(adapter.load_dialogue(did))
+            except Exception as exc:
+                logger.warning(f"[transfertod] 跳过对话 {did}: {exc}")
+        return dialogues
+
     else:
         raise ValueError(f"未知数据集: {dataset_name}")
 
@@ -119,6 +154,50 @@ def load_evaluator(algorithm: str):
         raise ValueError(f"未知算法: {algorithm}")
 
 
+def _add_turn_to_evaluator(
+    evaluator,
+    algorithm: str,
+    dialogue,
+    turn,
+    result: dict,
+) -> None:
+    """将单轮评测结果记录到对应算法的评测器。"""
+    scenario = getattr(dialogue, "domain", "unknown")
+
+    if algorithm in ("dst", "fnctod"):
+        predicted = result.get("state") or result.get("turn_updates") or {}
+        ground_truth = getattr(turn, "expected_slots", {})
+        # SGD 允许多值列表；展开为字符串以便统一比较
+        gt_flat = {
+            k: (v[0] if isinstance(v, list) and v else str(v))
+            for k, v in ground_truth.items()
+        }
+        evaluator.add_prediction(
+            predicted={str(k): str(v) for k, v in predicted.items()},
+            ground_truth=gt_flat,
+            domain=scenario,
+        )
+
+    elif algorithm == "pytod":
+        exec_result = result.get("execution")
+        exec_ok = bool(exec_result and getattr(exec_result, "success", False))
+        evaluator.add_turn(
+            program_text=result.get("program_text", ""),
+            exec_success=exec_ok,
+            response=result.get("response", ""),
+            scenario=scenario,
+        )
+
+    elif algorithm == "evolve":
+        state = result.get("state") or {}
+        evaluator.add_turn(
+            extracted_knowledge_count=state.get("session_history_count", 0),
+            context_items_used=state.get("context_items", 0),
+            response=result.get("response", ""),
+            scenario=scenario,
+        )
+
+
 async def run(args: argparse.Namespace) -> dict:
     data_root = Path(args.data_root) if args.data_root else DATASET_DEFAULT_ROOT[args.dataset]
     logger.info(f"算法: {args.algorithm} | 数据集: {args.dataset} | 分片: {args.split} | 数据根目录: {data_root}")
@@ -129,23 +208,25 @@ async def run(args: argparse.Namespace) -> dict:
     evaluator = load_evaluator(args.algorithm)
 
     from contextmind.modes import build_tracker
-    tracker_kwargs = {}
-    if args.model:
-        tracker_kwargs["model"] = args.model
-
-    tracker = build_tracker(args.algorithm, **tracker_kwargs)
+    tracker = build_tracker(args.algorithm, model=args.model if args.model else None)
 
     for i, dialogue in enumerate(dialogues):
-        logger.info(f"[{i + 1}/{len(dialogues)}] 评测对话: {getattr(dialogue, 'dialogue_id', i)}")
-        try:
-            result = await tracker.run_dialogue(dialogue)
-            evaluator.add(dialogue, result)
-        except Exception as exc:
-            logger.warning(f"对话评测失败: {exc}")
+        dialogue_id = getattr(dialogue, "dialogue_id", str(i))
+        logger.info(f"[{i + 1}/{len(dialogues)}] 评测对话: {dialogue_id}")
+        tracker.reset()
+        turns = getattr(dialogue, "turns", [])
+        for turn in turns:
+            user_utt = getattr(turn, "user_utterance", "")
+            if not user_utt:
+                continue
+            try:
+                result = await tracker.process_turn(user_utt)
+                _add_turn_to_evaluator(evaluator, args.algorithm, dialogue, turn, result)
+            except Exception as exc:
+                logger.warning(f"[{dialogue_id}] 轮次评测失败: {exc}")
 
     metrics = evaluator.calculate_metrics()
-    result_dict = evaluator.metrics_to_dict(metrics)
-    return result_dict
+    return metrics.to_dict()
 
 
 def main():

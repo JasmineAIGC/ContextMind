@@ -349,7 +349,14 @@ class DialogueStateTracker:
             f"处理轮次 #{len(self.dialogue_history)}: "
             f"更新={turn_updates}, 意图={intent_info}"
         )
-        
+
+        # 统一结构化日志：scene / mode / dialogue_id / latency / token
+        _total_latency = round(sum(self.step_timings.values()), 3)
+        logger.info(
+            f"[turn_summary] scene={self.prompt_manager.domain} mode=dst "
+            f"dialogue_id={len(self.dialogue_history)} latency={_total_latency:.3f}s token=n/a"
+        )
+
         return self.current_state.copy()
     
     def _prepare_history_for_prompt(self) -> str:

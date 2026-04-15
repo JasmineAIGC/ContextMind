@@ -1,20 +1,24 @@
 """
 ContextPipeline 演示脚本（context_pipeline_demo.py）
 
-展示 ContextMind 统一上下文工程流水线（ContextPipeline）的完整用法：
+展示 ContextMind 统一上下文工程流水线（ContextPipeline）的完整用法（三步框架）：
 
     第一步（Phase 1）：建立知识库 — 任意对话数据 → SGD schema.json
                        统一使用 examples/build_kb.py
-    第二步（Phase 2）：执行 — 基于 SGD 知识库，使用 4 种算法提取有效上下文
+    第二步（Phase 2）：Schema 数据生成 — schema.json → 算法专用数据（PyTOD 可选）
+    第三步（Phase 3）：算法执行 — 基于 SGD 知识库，使用 4 种算法提取有效上下文
 
-两步走框架
-----------
+三步框架
+--------
 Phase 1（build_kb.py）输出：
     schema.json         服务 schema（槽位 + 意图）
     dialogues_001.json  SGD 格式标注对话
     discovery_raw.json  逐轮原始提取结果
 
-Phase 2（本脚本）支持四种算法：
+Phase 2（build_schema_data.py，可选）：
+    xxx_pytod_apis.py   PyTOD API 代码文件（仅 PyTOD 需要）
+
+Phase 3（本脚本）支持四种算法：
 
     算法      schema.json    适用场景
     ------    -----------    ----------------------------------------
@@ -26,13 +30,13 @@ Phase 2（本脚本）支持四种算法：
 本脚本提供三种运行模式：
 
     1. --demo-kb    仅演示 Phase 1（知识库构建）
-    2. --demo-exec  仅演示 Phase 2（从已保存 schema 加载，运行对话）
-    3. 默认         两步全流程演示（Phase 1 + Phase 2）
+    2. --demo-exec  仅演示 Phase 3（从已保存 schema 加载，运行对话）
+    3. 默认         端到端演示（Phase 1 + Phase 3，跳过可选的 Phase 2）
 
 运行示例
 --------
 
-    # 端到端演示（Phase 1 + Phase 2，默认 pytod 模式）：
+    # 端到端演示（Phase 1 + Phase 3，默认 pytod 模式）：
     python examples/context_pipeline_demo.py
 
     # 仅测试知识库构建：
@@ -60,9 +64,10 @@ Phase 2（本脚本）支持四种算法：
 架构说明
 --------
 
-ContextPipeline 整合了：
+ContextPipeline 整合了三步框架：
     Phase 1 — contextmind.knowledge.KnowledgeBaseBuilder（知识发现 + 合成）
-    Phase 2 — 四种算法（均通过 ContextPipeline 统一调度）：
+    Phase 2 — contextmind.schema_builder.SchemaDataBuilder（Schema → 算法专用数据，可选）
+    Phase 3 — 四种算法（均通过 ContextPipeline 统一调度）：
                pytod   : contextmind.modes.pytod.AdkPyTODTracker
                fnctod  : contextmind.modes.fnctod.FnCTODTracker
                dst     : contextmind.modes.dst.DialogueStateTracker
