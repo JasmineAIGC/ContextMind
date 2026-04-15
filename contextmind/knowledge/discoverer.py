@@ -898,9 +898,10 @@ class GenericDialogueDiscoverer:
             running_loop = None
 
         if running_loop is not None and running_loop.is_running():
-            # 已有运行中的事件循环（如主线程 Jupyter 环境）：在独立线程执行
+            # 已有运行中的事件循环（如主线程 Jupyter 环境）：在独立线程以 asyncio.run()
+            # 执行，该线程拥有全新 loop，不与主线程的 aiohttp 连接池共享
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(_get_thread_local_loop().run_until_complete, _run())
+                future = pool.submit(asyncio.run, _run())
                 return future.result()
         else:
             # 普通线程（含 ThreadPoolExecutor worker）：使用线程本地持久 loop

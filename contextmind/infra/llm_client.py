@@ -302,7 +302,8 @@ class AdkLLMClient:
     def generate(self, prompt: str) -> tuple[str, str]:
         """同步 prompt 生成，返回 ``(reasoning, response_text)`` 元组。
 
-        若已有运行中的 event loop（如 Jupyter），在独立线程中执行以避免嵌套 loop 报错。
+        若已有运行中的 event loop（如 Jupyter），在独立线程中以 asyncio.run() 执行，
+        避免嵌套 loop 报错；每次新线程带来全新 loop，不涉及 aiohttp 资源复用问题。
         否则使用线程本地持久事件循环，避免 litellm 的 aiohttp 连接池在 loop 销毁时
         抛出 ``RuntimeError: Task attached to a different loop``。
         """
@@ -314,15 +315,14 @@ class AdkLLMClient:
             loop = None
 
         if loop is not None and loop.is_running():
-            # 已有运行中的 loop（如 Jupyter / async 上下文）：在独立线程执行
+            # 已有运行中的 loop（如 Jupyter / async 上下文）：在独立线程以 asyncio.run()
+            # 执行，该线程拥有全新 loop，不与主线程的 aiohttp 连接池共享
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    _get_thread_local_loop().run_until_complete,
-                    self.generate_async(prompt),
-                )
+                future = pool.submit(asyncio.run, self.generate_async(prompt))
                 return future.result()
         else:
-            # 普通线程（含 ThreadPoolExecutor worker）：使用线程本地持久 loop
+            # 普通线程（含 ThreadPoolExecutor worker）：使用线程本地持久 loop，
+            # 确保同一 worker 线程的 litellm/aiohttp session 始终绑定到同一 loop
             return _get_thread_local_loop().run_until_complete(
                 self.generate_async(prompt)
             )
