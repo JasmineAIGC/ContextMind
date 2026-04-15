@@ -681,22 +681,20 @@ class SchemaSynthesizer:
         n_slots_after = len(refined.get("slots", []))
         n_intents_after = len(refined.get("intents", []))
 
-        # 精炼不应减少槽位或意图数量：若 LLM 错误地删除了条目，将精炼结果与原始 schema
-        # 合并，把被丢弃的独立条目恢复回来（精炼合并的同义项仍保持合并后的名称）。
-        if n_slots_after < n_slots or n_intents_after < n_intents:
+        # 精炼的目标就是合并同义项（减少冗余），所以精炼后条目数减少是正常且期望的行为。
+        # 仅在精炼结果为空（LLM 返回了空列表）时才视为错误并回退到原始 schema。
+        if n_slots_after == 0 and n_slots > 0:
             logger.warning(
-                f"[SchemaSynthesizer] 精炼后条目数减少（槽位 {n_slots}→{n_slots_after}，"
-                f"意图 {n_intents}→{n_intents_after}），合并回原始 schema 以恢复丢失条目"
+                f"[SchemaSynthesizer] 精炼后槽位列表为空（原有 {n_slots} 个），"
+                f"回退到原始 schema"
             )
-            restored = _merge_service_list([refined, schema_dict])
-            if restored is not None:
-                refined = _fill_schema_defaults(restored, scene_name=scene_name)
-                n_slots_after = len(refined.get("slots", []))
-                n_intents_after = len(refined.get("intents", []))
-                logger.info(
-                    f"[SchemaSynthesizer] 恢复后 — {n_slots_after} 个槽位，"
-                    f"{n_intents_after} 个意图"
-                )
+            return schema_dict
+        if n_intents_after == 0 and n_intents > 0:
+            logger.warning(
+                f"[SchemaSynthesizer] 精炼后意图列表为空（原有 {n_intents} 个），"
+                f"回退到原始 schema"
+            )
+            return schema_dict
 
         logger.info(
             f"[SchemaSynthesizer] ✓ 精炼完成 — "

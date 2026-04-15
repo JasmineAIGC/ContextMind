@@ -42,7 +42,9 @@
 from __future__ import annotations
 
 import json
+import queue
 import re
+import threading
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -451,7 +453,8 @@ class KnowledgeBaseBuilder:
 
         else:
             # ── 并行路径（workers > 1）──
-            # 并行提取各对话；每条提取完成后立即在主线程中串行合并、融合。
+            # 多线程并行提取各对话；每条提取完成后，立即交给专用的合并线程串行执行
+            # 合成（LLM 调用）和融合，确保提取和合成互不阻塞。
             def _extract(
                 args: Tuple[int, Dict[str, Any]]
             ) -> Tuple[int, Optional[List[Any]]]:
@@ -491,34 +494,57 @@ class KnowledgeBaseBuilder:
             per_dialogue_turns_dict: Dict[int, List[Any]] = {}
             n_completed: int = 0
 
-            with ThreadPoolExecutor(max_workers=self.workers) as pool:
-                futures = {
-                    pool.submit(_extract, (idx, dlg)): idx
-                    for idx, dlg in enumerate(normalized)
-                }
-                # 每条提取完成后立即在主线程串行合并、融合
-                for future in as_completed(futures):
-                    idx, per_turn = future.result()
-                    n_completed += 1
-                    per_dialogue_turns_dict[idx] = per_turn if per_turn is not None else []
+            # 专用合并线程：接收提取结果，串行执行合成（LLM 调用）和 schema 融合。
+            # 使用 None 作为哨兵值通知线程退出。
+            merge_task_queue: queue.Queue = queue.Queue()
 
-                    if per_turn is None:
-                        continue
-
-                    _accumulate_items(per_turn)
-
-                    dialogue_id_p = normalized[idx].get("session_id", f"dlg_{idx}")
+            def _merge_worker() -> None:
+                """合并线程主循环：逐条处理提取结果，调用 LLM 合成并融合。"""
+                while True:
+                    task = merge_task_queue.get()
                     try:
-                        schema_part = _synthesize_per_turn(per_turn)
-                        if schema_part is not None:
-                            _merge_incremental(
-                                f"{n_completed}/{n_total} (dlg {dialogue_id_p})",
-                                schema_part,
+                        if task is None:
+                            return
+                        seq_label, per_turn_data, dlg_id = task
+                        try:
+                            schema_part = _synthesize_per_turn(per_turn_data)
+                            if schema_part is not None:
+                                _merge_incremental(seq_label, schema_part)
+                        except Exception as exc:
+                            logger.warning(
+                                f"[KnowledgeBaseBuilder] 对话 {dlg_id} schema 合成失败，跳过: {exc}"
                             )
-                    except Exception as exc:
-                        logger.warning(
-                            f"[KnowledgeBaseBuilder] 对话 {dialogue_id_p} schema 合成失败，跳过: {exc}"
+                    finally:
+                        merge_task_queue.task_done()
+
+            merge_thread = threading.Thread(target=_merge_worker, daemon=True)
+            merge_thread.start()
+
+            try:
+                with ThreadPoolExecutor(max_workers=self.workers) as pool:
+                    futures = {
+                        pool.submit(_extract, (idx, dlg)): idx
+                        for idx, dlg in enumerate(normalized)
+                    }
+                    # 每条提取完成后立即累积计数器，并投递到合并队列
+                    for future in as_completed(futures):
+                        idx, per_turn = future.result()
+                        n_completed += 1
+                        per_dialogue_turns_dict[idx] = per_turn if per_turn is not None else []
+
+                        if per_turn is None:
+                            continue
+
+                        _accumulate_items(per_turn)
+
+                        dialogue_id_p = normalized[idx].get("session_id", f"dlg_{idx}")
+                        merge_task_queue.put(
+                            (f"{n_completed}/{n_total} (dlg {dialogue_id_p})", per_turn, dialogue_id_p)
                         )
+            finally:
+                # 发送哨兵值，等待合并线程处理完所有剩余任务后退出
+                merge_task_queue.put(None)
+                merge_thread.join()
 
             # 按原始顺序重建 per_dialogue_turns
             per_dialogue_turns = [
