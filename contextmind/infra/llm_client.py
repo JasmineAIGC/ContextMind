@@ -18,6 +18,24 @@ _shared_loop_lock = threading.Lock()
 _shared_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
+def _shared_loop_exception_handler(
+    loop: asyncio.AbstractEventLoop,
+    context: dict,
+) -> None:
+    """共享事件循环的异常处理器。
+
+    抑制 litellm 内部异步回调任务（如 ``LoggingWorker.async_success_handler``）
+    被垃圾回收时产生的 ``Task was destroyed but it is pending!`` 噪音日志。
+    这类任务是 litellm 的 fire-and-forget 日志任务，被 GC 掉不影响正确性。
+    其余异常交由默认处理器处理。
+    """
+    msg = context.get("message", "")
+    if "Task was destroyed but it is pending" in msg:
+        # 抑制 litellm 异步日志任务 GC 噪音，不影响正确性
+        return
+    loop.default_exception_handler(context)
+
+
 def _get_shared_loop() -> asyncio.AbstractEventLoop:
     """返回全局唯一的共享事件循环。
 
@@ -29,13 +47,16 @@ def _get_shared_loop() -> asyncio.AbstractEventLoop:
        事件循环，彻底消除多线程并行调用时的
        ``RuntimeError: bound to a different event loop`` 错误；
     2. aiohttp 连接池与清理任务均在同一个不关闭的循环内调度，无"task
-       attached to a different loop"清理噪音。
+       attached to a different loop"清理噪音；
+    3. litellm 异步回调任务被 GC 时的 ``Task was destroyed but it is pending!``
+       警告通过自定义异常处理器静默处理，不再以 ERROR 级别污染日志。
     """
     global _shared_loop
     if _shared_loop is None or _shared_loop.is_closed():
         with _shared_loop_lock:
             if _shared_loop is None or _shared_loop.is_closed():
                 loop = asyncio.new_event_loop()
+                loop.set_exception_handler(_shared_loop_exception_handler)
                 t = threading.Thread(
                     target=loop.run_forever,
                     name="contextmind-llm-event-loop",

@@ -335,11 +335,20 @@ _DISCOVERY_USER_TEMPLATE = """\
 # ------------------------------------------------------------------
 
 _DISCOVERY_PERTURN_SYSTEM = """\
-你是一名任务型对话系统分析专家。给定一段编号的业务对话，请从**每一行**话语（坐席和用户）中提取：
+你是一名任务型对话系统分析专家。给定一段编号的业务对话，请从话语中提取三类信息：
 
-1. 槽位值（slot_value）：话语中涉及的具体业务字段和值（如金额、期数、意向、利率、姓名、状态等）
-2. 意图（intent）：说话人表达的业务动作、目标或态度（如询问月供、拒绝贷款、抱怨利率高等）
-3. 关键事实（fact）：不属于槽位值也不属于意图的重要业务陈述（如核实结果、额度说明等）
+1. 槽位值（slot_value）：话语中涉及的具体业务字段和值（如金额、期数、利率、姓名、状态等）
+   - 坐席和用户话语均需提取业务字段值，覆盖所有关键数据
+
+2. 意图（intent）：说话人表达的**核心业务动作或目标**
+   - **只提取有明确业务意义的动作**（如 verify_identity、offer_loan、decline_offer、inquire_payment）
+   - **跳过问候、确认、感谢、道别、客套等非业务性话语**（这些不构成业务意图）
+   - **相同类型的动作统一使用同一个 label**，同一条对话中不要为同类动作创建多个不同 label
+   - 坐席意图只提取对业务流程有明显推进意义的动作（如 verify_identity、inform_credit_limit、guide_to_borrow）
+   - 用户意图侧重其态度和决策（如 agree_to_verify、decline_loan、inquire_installment）
+   - 每条对话意图总数通常在 5–15 个，不要过度细化
+
+3. 关键事实（fact）：不属于槽位值也不属于意图的重要业务陈述（如核实结果、额度说明、政策解释等）
 
 ## 输出格式（严格 JSON 数组，只输出 JSON）
 
@@ -355,7 +364,7 @@ _DISCOVERY_PERTURN_SYSTEM = """\
 - turn_idx 必须是输入对话行号（0-based），对应输入格式中每行开头的数字
 - class 只能是 "slot_value"、"intent" 或 "fact"
 - label 使用英文小写下划线命名（如 inquire_monthly_payment、available_credit）
-- 坐席和用户话语均需提取，不遗漏任何业务相关的槽位、意图和事实
+- 意图 label 要精简一致：同类动作复用同一 label，不随措辞变化另起名称
 - 只输出 JSON 数组，不加任何说明或 markdown 代码块"""
 
 _DISCOVERY_PERTURN_USER_TEMPLATE = """\
