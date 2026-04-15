@@ -278,7 +278,25 @@ class KnowledgeBaseBuilder:
                 f"({dialogue_id})"
             )
             try:
-                return idx, discoverer.extract_per_turn(dlg)
+                per_turn = discoverer.extract_per_turn(dlg)
+                # 统计本条对话的提取结果并立即打印，方便用户实时监控每条对话的提取情况
+                n_slots = sum(
+                    1 for _, _, _, items in per_turn
+                    for item in items if item.extraction_class == "slot_value" and item.label
+                )
+                n_intents = sum(
+                    1 for _, _, _, items in per_turn
+                    for item in items if item.extraction_class == "intent" and item.label
+                )
+                n_facts = sum(
+                    1 for _, _, _, items in per_turn
+                    for item in items if item.extraction_class == "fact" and item.label
+                )
+                logger.info(
+                    f"[KnowledgeBaseBuilder] 对话 {idx + 1}/{len(normalized)} ({dialogue_id}) "
+                    f"提取完成 — 槽位 {n_slots} 个，意图 {n_intents} 个，事实 {n_facts} 个"
+                )
+                return idx, per_turn
             except Exception as exc:
                 logger.warning(
                     f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
