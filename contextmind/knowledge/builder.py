@@ -44,7 +44,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter, defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -274,17 +274,41 @@ class KnowledgeBaseBuilder:
         global_slot_counter: Counter = Counter()
         global_intent_counter: Counter = Counter()
         global_fact_counter: Counter = Counter()
+        global_slot_samples: Dict[str, List[str]] = {}
+        global_intent_samples: Dict[str, List[str]] = {}
+        global_fact_samples: Dict[str, List[str]] = {}
+
+        def _accumulate_items(per_turn: List[Any]) -> None:
+            """将单条对话的逐轮提取结果累积到全局计数器和样本表中。"""
+            for _, _, _, items in per_turn:
+                for item in items:
+                    if item.extraction_class == "slot_value" and item.label:
+                        global_slot_counter[item.label] += 1
+                        vals = global_slot_samples.setdefault(item.label, [])
+                        if item.value and len(vals) < 5 and item.value not in vals:
+                            vals.append(item.value)
+                    elif item.extraction_class == "intent" and item.label:
+                        global_intent_counter[item.label] += 1
+                        descs = global_intent_samples.setdefault(item.label, [])
+                        if item.value and len(descs) < 3 and item.value not in descs:
+                            descs.append(item.value)
+                    elif item.extraction_class == "fact" and item.label:
+                        global_fact_counter[item.label] += 1
+                        descs = global_fact_samples.setdefault(item.label, [])
+                        if item.value and len(descs) < 3 and item.value not in descs:
+                            descs.append(item.value)
 
         if self.workers == 1:
             # ── 串行路径：与原有顺序逻辑保持一致 ──
-            # 每条对话依次执行：提取 → 合成 → 增量合并，全部处理完毕后整体精炼。
+            # 每条对话依次提取并将结果累积到全局计数器；
+            # 全部提取完毕后统一合成一次 schema，最后整体精炼。
+            # 这与原始无并行版本的行为完全一致，不会引入额外的 per-dialogue LLM 调用。
             for i, dlg in enumerate(normalized):
                 dialogue_id = dlg.get("session_id", f"dlg_{i}")
                 logger.info(
                     f"[KnowledgeBaseBuilder] 处理对话 {i + 1}/{n_total} ({dialogue_id})"
                 )
 
-                # 1. 提取
                 try:
                     per_turn = discoverer.extract_per_turn(dlg)
                 except Exception as exc:
@@ -296,35 +320,20 @@ class KnowledgeBaseBuilder:
 
                 per_dialogue_turns.append(per_turn)
 
-                # 2. 统计本条对话的局部计数器
+                # 统计本条对话的局部计数（仅用于日志），同时累积到全局
                 local_slot_counter: Counter = Counter()
                 local_intent_counter: Counter = Counter()
                 local_fact_counter: Counter = Counter()
-                local_slot_samples: Dict[str, List[str]] = {}
-                local_intent_samples: Dict[str, List[str]] = {}
-                local_fact_samples: Dict[str, List[str]] = {}
-
                 for _, _, _, items in per_turn:
                     for item in items:
                         if item.extraction_class == "slot_value" and item.label:
                             local_slot_counter[item.label] += 1
-                            samples = local_slot_samples.setdefault(item.label, [])
-                            if item.value and len(samples) < 5 and item.value not in samples:
-                                samples.append(item.value)
                         elif item.extraction_class == "intent" and item.label:
                             local_intent_counter[item.label] += 1
-                            descs = local_intent_samples.setdefault(item.label, [])
-                            if item.value and len(descs) < 3 and item.value not in descs:
-                                descs.append(item.value)
                         elif item.extraction_class == "fact" and item.label:
                             local_fact_counter[item.label] += 1
-                            descs = local_fact_samples.setdefault(item.label, [])
-                            if item.value and len(descs) < 3 and item.value not in descs:
-                                descs.append(item.value)
 
-                global_slot_counter.update(local_slot_counter)
-                global_intent_counter.update(local_intent_counter)
-                global_fact_counter.update(local_fact_counter)
+                _accumulate_items(per_turn)
 
                 logger.info(
                     f"[KnowledgeBaseBuilder] 对话 {i + 1}/{n_total} ({dialogue_id}) "
@@ -333,65 +342,9 @@ class KnowledgeBaseBuilder:
                     f"事实 {len(local_fact_counter)} 个"
                 )
 
-                if not local_slot_counter and not local_intent_counter:
-                    continue
-
-                # 3. 合成本条对话的局部 schema
-                try:
-                    schema_part = synthesizer.synthesize(
-                        scene_name=self.scene_name,
-                        scene_description=self.scene_description,
-                        slot_counter=local_slot_counter,
-                        intent_counter=local_intent_counter,
-                        slot_sample_values=local_slot_samples,
-                        intent_sample_descs=local_intent_samples,
-                        n_dialogues=1,
-                        fact_counter=local_fact_counter,
-                        fact_sample_descs=local_fact_samples,
-                    )
-                    logger.info(
-                        f"[KnowledgeBaseBuilder] 对话 {i + 1}/{n_total} ({dialogue_id}) "
-                        f"合成完成 — 槽位 {len(schema_part.get('slots', []))} 个，"
-                        f"意图 {len(schema_part.get('intents', []))} 个"
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"
-                    )
-                    continue
-
-                # 4. 增量合并（含缩减回滚保护）
-                if accumulated_schema is None:
-                    accumulated_schema = schema_part
-                else:
-                    prev_n_slots = len(accumulated_schema.get("slots", []))
-                    prev_n_intents = len(accumulated_schema.get("intents", []))
-                    new_merged = _merge_service_list([accumulated_schema, schema_part])
-                    if new_merged is not None:
-                        new_merged = _fill_schema_defaults(new_merged, scene_name=self.scene_name)
-                        if (len(new_merged.get("slots", [])) < prev_n_slots or
-                                len(new_merged.get("intents", [])) < prev_n_intents):
-                            logger.warning(
-                                f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 融合后条目异常减少，"
-                                f"执行恢复合并"
-                            )
-                            restored = _merge_service_list([new_merged, accumulated_schema])
-                            if restored is not None:
-                                new_merged = _fill_schema_defaults(
-                                    restored, scene_name=self.scene_name
-                                )
-                        accumulated_schema = new_merged
-                n_merged += 1
-                logger.info(
-                    f"[KnowledgeBaseBuilder] 对话 {i + 1}/{n_total} ({dialogue_id}) "
-                    f"合并后累积 — 槽位 {len(accumulated_schema.get('slots', []))} 个，"
-                    f"意图 {len(accumulated_schema.get('intents', []))} 个"
-                    f"（已合并 {n_merged} 条对话）"
-                )
-
         else:
             # ── 并行路径（workers > 1）──
-            # Step 1a: 并行提取（extract_per_turn，IO 密集，可安全并发）
+            # Step 1: 并行提取（extract_per_turn，IO 密集，可安全并发）
             def _extract(
                 args: Tuple[int, Dict[str, Any]]
             ) -> Tuple[int, Optional[List[Any]]]:
@@ -436,116 +389,35 @@ class KnowledgeBaseBuilder:
                 for _, result in sorted(raw_results, key=lambda x: x[0])
             ]
 
-            # Step 1b: 并行合成（各对话独立，无顺序依赖）
-            def _synthesize_one(
-                args: Tuple[int, Dict[str, Any], List[Any]],
-            ) -> Tuple[int, Optional[Dict[str, Any]]]:
-                idx, dlg, per_turn = args
-                dialogue_id = dlg.get("session_id", f"dlg_{idx}")
-
-                if not per_turn:
-                    return idx, None
-
-                local_slot_counter: Counter = Counter()
-                local_intent_counter: Counter = Counter()
-                local_fact_counter: Counter = Counter()
-                local_slot_samples: Dict[str, List[str]] = {}
-                local_intent_samples: Dict[str, List[str]] = {}
-                local_fact_samples: Dict[str, List[str]] = {}
-
-                for _, _, _, items in per_turn:
-                    for item in items:
-                        if item.extraction_class == "slot_value" and item.label:
-                            local_slot_counter[item.label] += 1
-                            samples = local_slot_samples.setdefault(item.label, [])
-                            if item.value and len(samples) < 5 and item.value not in samples:
-                                samples.append(item.value)
-                        elif item.extraction_class == "intent" and item.label:
-                            local_intent_counter[item.label] += 1
-                            descs = local_intent_samples.setdefault(item.label, [])
-                            if item.value and len(descs) < 3 and item.value not in descs:
-                                descs.append(item.value)
-                        elif item.extraction_class == "fact" and item.label:
-                            local_fact_counter[item.label] += 1
-                            descs = local_fact_samples.setdefault(item.label, [])
-                            if item.value and len(descs) < 3 and item.value not in descs:
-                                descs.append(item.value)
-
-                if not local_slot_counter and not local_intent_counter:
-                    return idx, None
-
-                try:
-                    schema_part = synthesizer.synthesize(
-                        scene_name=self.scene_name,
-                        scene_description=self.scene_description,
-                        slot_counter=local_slot_counter,
-                        intent_counter=local_intent_counter,
-                        slot_sample_values=local_slot_samples,
-                        intent_sample_descs=local_intent_samples,
-                        n_dialogues=1,
-                        fact_counter=local_fact_counter,
-                        fact_sample_descs=local_fact_samples,
-                    )
-                    logger.info(
-                        f"[KnowledgeBaseBuilder] 对话 {idx + 1}/{n_total} ({dialogue_id}) "
-                        f"合成完成 — 槽位 {len(schema_part.get('slots', []))} 个，"
-                        f"意图 {len(schema_part.get('intents', []))} 个"
-                    )
-                    return idx, schema_part
-                except Exception as exc:
-                    logger.warning(
-                        f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"
-                    )
-                    return idx, None
-
-            synthesis_inputs = [
-                (i, dlg, per_turn)
-                for i, (dlg, per_turn) in enumerate(zip(normalized, per_dialogue_turns))
-            ]
-            with ThreadPoolExecutor(max_workers=self.workers) as pool:
-                synthesis_results = list(pool.map(_synthesize_one, synthesis_inputs))
-
-            # Step 1c: 串行增量合并（有序，按对话序号逐一合入，打印每步累积进度）
+            # Step 2: 按顺序累积所有提取结果到全局计数器
             for per_turn in per_dialogue_turns:
-                for _, _, _, items in per_turn:
-                    for item in items:
-                        if item.extraction_class == "slot_value" and item.label:
-                            global_slot_counter[item.label] += 1
-                        elif item.extraction_class == "intent" and item.label:
-                            global_intent_counter[item.label] += 1
-                        elif item.extraction_class == "fact" and item.label:
-                            global_fact_counter[item.label] += 1
+                _accumulate_items(per_turn)
 
-            for idx, schema_part in sorted(synthesis_results, key=lambda x: x[0]):
-                if schema_part is None:
-                    continue
-                dialogue_id = normalized[idx].get("session_id", f"dlg_{idx}")
-                if accumulated_schema is None:
-                    accumulated_schema = schema_part
-                else:
-                    prev_n_slots = len(accumulated_schema.get("slots", []))
-                    prev_n_intents = len(accumulated_schema.get("intents", []))
-                    new_merged = _merge_service_list([accumulated_schema, schema_part])
-                    if new_merged is not None:
-                        new_merged = _fill_schema_defaults(new_merged, scene_name=self.scene_name)
-                        if (len(new_merged.get("slots", [])) < prev_n_slots or
-                                len(new_merged.get("intents", [])) < prev_n_intents):
-                            logger.warning(
-                                f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 融合后条目异常减少，"
-                                f"执行恢复合并"
-                            )
-                            restored = _merge_service_list([new_merged, accumulated_schema])
-                            if restored is not None:
-                                new_merged = _fill_schema_defaults(
-                                    restored, scene_name=self.scene_name
-                                )
-                        accumulated_schema = new_merged
-                n_merged += 1
+        # ── 统一合成（两种路径共用）──
+        # 所有对话提取完毕后，对全局累积计数器执行一次 LLM 合成，
+        # 避免 per-dialogue 合成带来的大量额外 LLM 调用。
+        if global_slot_counter or global_intent_counter:
+            try:
+                accumulated_schema = synthesizer.synthesize(
+                    scene_name=self.scene_name,
+                    scene_description=self.scene_description,
+                    slot_counter=global_slot_counter,
+                    intent_counter=global_intent_counter,
+                    slot_sample_values=global_slot_samples,
+                    intent_sample_descs=global_intent_samples,
+                    n_dialogues=n_total,
+                    fact_counter=global_fact_counter,
+                    fact_sample_descs=global_fact_samples,
+                )
+                n_merged = n_total
                 logger.info(
-                    f"[KnowledgeBaseBuilder] 对话 {idx + 1}/{n_total} ({dialogue_id}) "
-                    f"合并后累积 — 槽位 {len(accumulated_schema.get('slots', []))} 个，"
+                    f"[KnowledgeBaseBuilder] 合成完成 — "
+                    f"槽位 {len(accumulated_schema.get('slots', []))} 个，"
                     f"意图 {len(accumulated_schema.get('intents', []))} 个"
-                    f"（已合并 {n_merged} 条对话）"
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"[KnowledgeBaseBuilder] schema 合成失败，将返回空 schema: {exc}"
                 )
 
         # ── 更新统计属性（供调用方展示）──
