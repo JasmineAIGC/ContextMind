@@ -329,9 +329,19 @@ class SchemaSynthesizer:
     # ------------------------------------------------------------------
 
     def _chat_sync(self, messages: List[Dict[str, Any]]) -> str:
-        """以同步方式调用 LLM 的 chat_async（复用 generate 的 asyncio 模式）。"""
+        """以同步方式调用 LLM 的 chat_async（复用 generate 的 asyncio 模式）。
+
+        与 ``AdkLLMClient.generate()`` 保持一致：
+        - 若调用方已有运行中的 event loop（如 Jupyter / async 上下文），
+          在独立线程中以 ``asyncio.run()`` 执行，避免嵌套 loop 报错。
+        - 否则，通过全局共享事件循环（``_get_shared_loop()``）执行，
+          确保 litellm 内部的 LoggingWorker 等后台任务始终在同一个不关闭的
+          loop 中运行，彻底消除 ``asyncio.run()`` 关闭 loop 时产生的
+          ``Task was destroyed but it is pending!`` 错误。
+        """
         import asyncio
         import concurrent.futures
+        from contextmind.infra.llm_client import _get_shared_loop
 
         async def _run() -> str:
             return await self._llm.chat_async(messages)
@@ -342,11 +352,16 @@ class SchemaSynthesizer:
             loop = None
 
         if loop is not None and loop.is_running():
+            # 已有运行中的 loop（如 Jupyter / async 上下文）：在独立线程以 asyncio.run()
+            # 执行，避免嵌套 loop 报错
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, _run())
                 return future.result()
         else:
-            return asyncio.run(_run())
+            # 普通线程：提交到全局共享 loop，所有 litellm 后台任务在同一个不关闭的
+            # loop 中运行，避免 "Task was destroyed but it is pending!" 错误
+            fut = asyncio.run_coroutine_threadsafe(_run(), _get_shared_loop())
+            return fut.result()
 
     def _synthesize_one_pass(
         self,

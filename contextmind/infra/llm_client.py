@@ -88,6 +88,8 @@ def _configure_litellm_for_local_model(model_name: str) -> None:
         litellm.success_callback = []
         litellm.failure_callback = []
         litellm.callbacks = []
+        # 抑制 litellm 在 stdout 输出 "Provider List:" 等调试信息
+        litellm.suppress_debug_info = True
 
         # 注册零价格条目（问题2），覆盖 `openai/<model>` 和裸 model 两种键。
         # 使用 litellm.register_model()（官方 API）而非直接操作 model_cost dict，
