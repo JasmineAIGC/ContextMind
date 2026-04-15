@@ -240,7 +240,8 @@ def main() -> None:
         action="store_true",
         help=(
             "开启详细进度输出。启用后将把底层阶段日志（每条对话的发现进度、"
-            "LLM 调用结果、schema 合并过程等）实时打印到终端，方便调试和监控。"
+            "LLM 调用结果、schema 合并过程等）实时打印到终端，同时逐步打印"
+            "每条对话的合并（合成）和融合（累积）中间结果，方便调试和监控。"
             "不指定时仅显示摘要信息。"
         ),
     )
@@ -258,6 +259,7 @@ def main() -> None:
     if args.verbose:
         setup_logging(level=LogLevel.DEBUG, save_to_file=False)
         print("🔍 详细输出模式已开启 — 底层阶段日志（含 LLM 响应等 DEBUG 信息）将实时打印到终端")
+        print("   同时将逐步打印每条对话的提取→合并→融合中间结果")
         print()
     else:
         setup_logging(level=LogLevel.INFO, save_to_file=False)
@@ -316,12 +318,17 @@ def main() -> None:
         scene_description=scene_desc,
         context_window=args.context_window,
         workers=args.workers,
+        verbose=args.verbose,
     )
 
     print("▶ 执行知识库构建（生成完整 SGD 数据集）…")
-    print("  Phase 1 — 发现阶段：LLM + langextract 逐轮提取槽位和意图（含溯源）")
-    print("  Phase 2 — 合成阶段：LLM 将发现结果合成为规范 SGD Schema")
-    print("  Phase 3 — 转换阶段：将对话转换为 SGD 格式对话文件")
+    print("  流程：提取 → 合并 → 融合（增量方式）")
+    print("  Phase 1 — 提取阶段：LLM + langextract 逐轮提取槽位和意图（含溯源）")
+    print("  Phase 2 — 合并阶段：LLM 将发现结果合成为规范 SGD Schema")
+    print("  Phase 3 — 融合阶段：精炼去重，消除跨对话产生的相似/重复条目")
+    print("  Phase 4 — 转换阶段：将对话转换为 SGD 格式对话文件")
+    if args.verbose:
+        print("  （--verbose 模式：将逐步打印每条对话的合并和融合中间结果）")
     print()
 
     try:

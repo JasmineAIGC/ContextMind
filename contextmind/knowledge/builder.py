@@ -60,6 +60,27 @@ logger = get_logger(__name__)
 _DISCOVERY_CLASS_ORDER: Dict[str, int] = {"intent": 0, "slot_value": 1, "fact": 2}
 
 
+def _print_schema_brief(prefix: str, schema_dict: Dict[str, Any]) -> None:
+    """将 schema 的槽位和意图名称以简洁格式打印到终端。
+
+    用于在提取→合并→融合的增量流程中，在每个关键阶段打印中间结果，
+    让用户能够实时看到 schema 内容的变化。
+    """
+    slots = schema_dict.get("slots", [])
+    intents = schema_dict.get("intents", [])
+    slot_names = [s.get("name", "?") for s in slots]
+    intent_names = [it.get("name", "?") for it in intents]
+    print(f"  {prefix}")
+    if slot_names:
+        print(f"    槽位（{len(slot_names)} 个）: {', '.join(slot_names)}")
+    else:
+        print("    槽位: （无）")
+    if intent_names:
+        print(f"    意图（{len(intent_names)} 个）: {', '.join(intent_names)}")
+    else:
+        print("    意图: （无）")
+
+
 def _extract_slot_char_positions(
     item: Any,
     utterance: str,
@@ -134,12 +155,14 @@ class KnowledgeBaseBuilder:
         discovery_sample: int = 20,
         context_window: int = 3,
         workers: int = 1,
+        verbose: bool = False,
     ) -> None:
         self.scene_name = scene_name
         self.scene_description = scene_description or scene_name
         self.discovery_sample = discovery_sample
         self.context_window = context_window
         self.workers = max(1, workers)
+        self.verbose = verbose
 
         # 延迟初始化：避免在无 LLM 环境下导入时崩溃
         self._llm_client: Optional[AdkLLMClient] = llm_client
@@ -415,6 +438,8 @@ class KnowledgeBaseBuilder:
                     f"槽位 {len(accumulated_schema.get('slots', []))} 个，"
                     f"意图 {len(accumulated_schema.get('intents', []))} 个"
                 )
+                if self.verbose:
+                    _print_schema_brief("合并结果（发现项 → LLM 合成）:", accumulated_schema)
             except Exception as exc:
                 logger.warning(
                     f"[KnowledgeBaseBuilder] schema 合成失败，将返回空 schema: {exc}"
@@ -445,6 +470,8 @@ class KnowledgeBaseBuilder:
                 scene_description=self.scene_description,
                 n_dialogues=len(normalized),
             )
+            if self.verbose:
+                _print_schema_brief("融合/整理后结果（精炼去重后）:", schema_dict)
         else:
             schema_dict = accumulated_schema
 
@@ -822,7 +849,17 @@ class KnowledgeBaseBuilder:
                     # 增量融合：将本次合成结果并入历史累积 schema
                     if accumulated_schema is None:
                         accumulated_schema = schema_part
+                        if self.verbose:
+                            _print_schema_brief(
+                                f"对话 {i + 1}/{len(normalized_dialogues)} ({dialogue_id}) 合并结果:",
+                                schema_part,
+                            )
                     else:
+                        if self.verbose:
+                            _print_schema_brief(
+                                f"对话 {i + 1}/{len(normalized_dialogues)} ({dialogue_id}) 合并结果:",
+                                schema_part,
+                            )
                         prev_n_slots = len(accumulated_schema.get("slots", []))
                         prev_n_intents = len(accumulated_schema.get("intents", []))
                         new_merged = _merge_service_list([accumulated_schema, schema_part])
@@ -849,6 +886,11 @@ class KnowledgeBaseBuilder:
                         f"融合后累积 — 槽位 {acc_n_slots} 个，意图 {acc_n_intents} 个"
                         f"（已融合 {n_merged} 条对话）"
                     )
+                    if self.verbose:
+                        _print_schema_brief(
+                            f"对话 {i + 1}/{len(normalized_dialogues)} ({dialogue_id}) 融合后累积:",
+                            accumulated_schema,
+                        )
                 except Exception as exc:
                     logger.warning(
                         f"[KnowledgeBaseBuilder] 对话 {dialogue_id} schema 合成失败，跳过: {exc}"
@@ -872,6 +914,8 @@ class KnowledgeBaseBuilder:
                 scene_description=self.scene_description,
                 n_dialogues=len(normalized_dialogues),
             )
+            if self.verbose:
+                _print_schema_brief("整理后最终结果（精炼去重后）:", schema_dict)
         else:
             schema_dict = accumulated_schema
 
