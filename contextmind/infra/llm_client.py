@@ -11,25 +11,39 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
 # ---------------------------------------------------------------------------
-# 线程本地持久事件循环
+# 全局共享事件循环（运行在独立后台守护线程中）
 # ---------------------------------------------------------------------------
 
-_thread_local = threading.local()
+_shared_loop_lock = threading.Lock()
+_shared_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
-def _get_thread_local_loop() -> asyncio.AbstractEventLoop:
-    """返回当前线程专属的持久事件循环。
+def _get_shared_loop() -> asyncio.AbstractEventLoop:
+    """返回全局唯一的共享事件循环。
 
-    使用持久 loop（而非每次调用 asyncio.run() 创建/销毁新 loop）可防止
-    litellm 内部 aiohttp 连接池的清理任务在 loop 已关闭后被调度，从而
-    消除 ``RuntimeError: Task <...> attached to a different loop`` 错误。
+    该循环永久运行在一个后台守护线程中。所有线程（包括 ThreadPoolExecutor
+    worker 线程）通过 ``asyncio.run_coroutine_threadsafe()`` 将协程提交到
+    这个唯一的循环中执行，从而确保：
+
+    1. litellm 内部 ``LoggingWorker`` 的 ``asyncio.Queue`` 始终绑定到同一个
+       事件循环，彻底消除多线程并行调用时的
+       ``RuntimeError: bound to a different event loop`` 错误；
+    2. aiohttp 连接池与清理任务均在同一个不关闭的循环内调度，无"task
+       attached to a different loop"清理噪音。
     """
-    loop: Optional[asyncio.AbstractEventLoop] = getattr(_thread_local, "loop", None)
-    if loop is None or loop.is_closed():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        _thread_local.loop = loop
-    return loop
+    global _shared_loop
+    if _shared_loop is None or _shared_loop.is_closed():
+        with _shared_loop_lock:
+            if _shared_loop is None or _shared_loop.is_closed():
+                loop = asyncio.new_event_loop()
+                t = threading.Thread(
+                    target=loop.run_forever,
+                    name="contextmind-llm-event-loop",
+                    daemon=True,
+                )
+                t.start()
+                _shared_loop = loop
+    return _shared_loop
 
 try:
     from dotenv import load_dotenv
@@ -303,9 +317,10 @@ class AdkLLMClient:
         """同步 prompt 生成，返回 ``(reasoning, response_text)`` 元组。
 
         若已有运行中的 event loop（如 Jupyter），在独立线程中以 asyncio.run() 执行，
-        避免嵌套 loop 报错；每次新线程带来全新 loop，不涉及 aiohttp 资源复用问题。
-        否则使用线程本地持久事件循环，避免 litellm 的 aiohttp 连接池在 loop 销毁时
-        抛出 ``RuntimeError: Task attached to a different loop``。
+        避免嵌套 loop 报错。
+        否则通过全局共享事件循环（``_get_shared_loop()``）执行，确保所有线程
+        （含 ThreadPoolExecutor worker）的 litellm 调用均在同一个 loop 中运行，
+        消除并行时的 ``RuntimeError: bound to a different event loop`` 错误。
         """
         import concurrent.futures
 
@@ -316,14 +331,16 @@ class AdkLLMClient:
 
         if loop is not None and loop.is_running():
             # 已有运行中的 loop（如 Jupyter / async 上下文）：在独立线程以 asyncio.run()
-            # 执行，该线程拥有全新 loop，不与主线程的 aiohttp 连接池共享
+            # 执行，避免嵌套 loop 报错
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, self.generate_async(prompt))
                 return future.result()
         else:
-            # 普通线程（含 ThreadPoolExecutor worker）：使用线程本地持久 loop，
-            # 确保同一 worker 线程的 litellm/aiohttp session 始终绑定到同一 loop
-            return _get_thread_local_loop().run_until_complete(
-                self.generate_async(prompt)
+            # 普通线程（含 ThreadPoolExecutor worker）：提交到全局共享 loop，
+            # 所有线程共享同一 loop，litellm 的 LoggingWorker asyncio.Queue
+            # 始终绑定到同一 loop，避免多线程并行时的 "bound to a different event loop" 错误
+            fut = asyncio.run_coroutine_threadsafe(
+                self.generate_async(prompt), _get_shared_loop()
             )
+            return fut.result()
 
