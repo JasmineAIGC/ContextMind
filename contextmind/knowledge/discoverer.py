@@ -341,12 +341,13 @@ _DISCOVERY_PERTURN_SYSTEM = """\
    - 坐席和用户话语均需提取业务字段值，覆盖所有关键数据
 
 2. 意图（intent）：说话人表达的**核心业务动作或目标**
+   - **每轮话语至多提取 1 个意图**（该轮最核心的业务动作）；大多数轮次（如简短回应、过渡语、问候）应返回 0 个意图
    - **只提取有明确业务意义的动作**（如 verify_identity、offer_loan、decline_offer、inquire_payment）
    - **跳过问候、确认、感谢、道别、客套等非业务性话语**（这些不构成业务意图）
    - **相同类型的动作统一使用同一个 label**，同一条对话中不要为同类动作创建多个不同 label
    - 坐席意图只提取对业务流程有明显推进意义的动作（如 verify_identity、inform_credit_limit、guide_to_borrow）
    - 用户意图侧重其态度和决策（如 agree_to_verify、decline_loan、inquire_installment）
-   - 每条对话意图总数通常在 5–15 个，不要过度细化
+   - 整条对话的意图种类通常不超过 10 个，不要过度细化
 
 3. 关键事实（fact）：不属于槽位值也不属于意图的重要业务陈述（如核实结果、额度说明、政策解释等）
 

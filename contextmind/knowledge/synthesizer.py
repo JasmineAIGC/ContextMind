@@ -68,7 +68,7 @@ _SYNTHESIS_SYSTEM = """\
 - is_transactional：只有当该意图会触发不可逆操作时为 true（如转账、提交工单）
 - required_slots / optional_slots / result_slots 中引用的 slot 名必须与 slots[] 中定义的 name 完全一致
 - **主动合并语义相近或描述相同业务动作的意图**（如 verify_identity / confirm_identity / check_user_identity → verify_identity），
-  目标是输出 **5–25 个核心业务意图**；宁可适度粗粒度合并，不要保留大量功能高度相似的条目
+  目标是输出 **3–12 个核心业务意图**；宁可适度粗粒度合并，不要保留大量功能高度相似的条目
 - 同义或近义意图必须合并，保留语义最清晰、出现频次最高的名称
 - 只有功能/阶段明显不同的意图才保留为独立条目
 - 槽位（slots）保留所有发现项，仅合并确实描述同一业务字段的槽位；合并后保留出现频次最高的名称作为标准名
@@ -92,7 +92,7 @@ _SYNTHESIS_USER_TEMPLATE = """\
 
 {facts_text}
 
-**重要：上方发现了 {n_slots} 个槽位、{n_intents} 个意图。槽位请尽量保留（仅合并同义字段）；意图请主动合并语义相近的条目，最终输出 5–25 个核心业务意图。**
+**重要：上方发现了 {n_slots} 个槽位、{n_intents} 个意图。槽位请尽量保留（仅合并同义字段）；意图请主动合并语义相近的条目，最终输出 3–12 个核心业务意图。**
 
 请合成标准 ServiceSchema（只输出 JSON）："""
 

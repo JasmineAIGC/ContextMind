@@ -423,19 +423,19 @@ class KnowledgeBaseBuilder:
                 per_dialogue_turns.append(per_turn)
                 _accumulate_items(per_turn)
 
-                # 统计局部计数（用于日志）
-                n_s = sum(
-                    1 for _, _, _, items in per_turn for item in items
+                # 统计局部计数（用于日志）：使用唯一 label 数量，避免重复计次带来的误导
+                n_s = len(set(
+                    item.label for _, _, _, items in per_turn for item in items
                     if item.extraction_class == "slot_value" and item.label
-                )
-                n_i = sum(
-                    1 for _, _, _, items in per_turn for item in items
+                ))
+                n_i = len(set(
+                    item.label for _, _, _, items in per_turn for item in items
                     if item.extraction_class == "intent" and item.label
-                )
-                n_f = sum(
-                    1 for _, _, _, items in per_turn for item in items
+                ))
+                n_f = len(set(
+                    item.label for _, _, _, items in per_turn for item in items
                     if item.extraction_class == "fact" and item.label
-                )
+                ))
                 logger.info(
                     f"[KnowledgeBaseBuilder] 对话 {i + 1}/{n_total} ({dialogue_id}) "
                     f"提取结果 — 槽位 {n_s} 个，意图 {n_i} 个，事实 {n_f} 个"
@@ -465,21 +465,21 @@ class KnowledgeBaseBuilder:
                 )
                 try:
                     per_turn = discoverer.extract_per_turn(dlg)
-                    n_slots = sum(
-                        1 for _, _, _, items in per_turn
+                    n_slots = len(set(
+                        item.label for _, _, _, items in per_turn
                         for item in items
                         if item.extraction_class == "slot_value" and item.label
-                    )
-                    n_intents = sum(
-                        1 for _, _, _, items in per_turn
+                    ))
+                    n_intents = len(set(
+                        item.label for _, _, _, items in per_turn
                         for item in items
                         if item.extraction_class == "intent" and item.label
-                    )
-                    n_facts = sum(
-                        1 for _, _, _, items in per_turn
+                    ))
+                    n_facts = len(set(
+                        item.label for _, _, _, items in per_turn
                         for item in items
                         if item.extraction_class == "fact" and item.label
-                    )
+                    ))
                     logger.info(
                         f"[KnowledgeBaseBuilder] 对话 {idx + 1}/{n_total} ({dialogue_id}) "
                         f"提取完成 — 槽位 {n_slots} 个，意图 {n_intents} 个，事实 {n_facts} 个"
