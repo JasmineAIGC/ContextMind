@@ -775,6 +775,8 @@ class KnowledgeBaseBuilder:
             )
 
         # 写入 conversion_summary.json
+        final_schema_slots = [s["name"] for s in schema_dict.get("slots", [])]
+        final_schema_intents = [i["name"] for i in schema_dict.get("intents", [])]
         summary = {
             "output_dir": str(output_dir),
             "dialogues": len(sgd_dialogues),
@@ -783,19 +785,19 @@ class KnowledgeBaseBuilder:
             "dialogue_files": len(dialogue_files),
             "services": [service_name],
             "converted_at": datetime.datetime.now().isoformat(timespec="seconds"),
-            "discovered_schema_items": len(self.last_slot_counter)
-            + len(self.last_intent_counter)
-            + len(self.last_fact_counter),
+            # 最终 schema 中的槽位和意图数量（经过精炼/深度精炼后的结果，与 schema.json 一致）
+            "schema_slot_count": len(final_schema_slots),
+            "schema_intent_count": len(final_schema_intents),
+            # 发现阶段原始提取的不同标签数量（提取-合并前的 raw 数据，通常多于最终 schema 数量）
+            "raw_discovery_slot_count": len(self.last_slot_counter),
+            "raw_discovery_intent_count": len(self.last_intent_counter),
+            "raw_discovery_fact_count": len(self.last_fact_counter),
             "schema_coverage": {
+                "schema_slots": final_schema_slots,
+                "schema_intents": final_schema_intents,
                 "extracted_slots": list(self.last_slot_counter.keys()),
                 "extracted_intents": list(self.last_intent_counter.keys()),
                 "extracted_facts": list(self.last_fact_counter.keys()),
-                "schema_slots": [
-                    s["name"] for s in schema_dict.get("slots", [])
-                ],
-                "schema_intents": [
-                    i["name"] for i in schema_dict.get("intents", [])
-                ],
             },
         }
         summary_path = output_dir / "conversion_summary.json"
@@ -805,7 +807,8 @@ class KnowledgeBaseBuilder:
         )
         logger.info(
             f"[KnowledgeBaseBuilder] 数据集保存完成 → {output_dir} "
-            f"（{len(sgd_dialogues)} 条对话，{total_turns} 轮）"
+            f"（schema: {len(final_schema_slots)} 个槽位，{len(final_schema_intents)} 个意图；"
+            f"{len(sgd_dialogues)} 条对话，{total_turns} 轮）"
         )
 
     # ------------------------------------------------------------------
