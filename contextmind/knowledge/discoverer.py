@@ -41,8 +41,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
@@ -50,6 +52,29 @@ from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
+
+# ------------------------------------------------------------------
+# 线程本地事件循环：支持多线程并行 LLM 调用（--workers N）
+# ------------------------------------------------------------------
+
+_thread_local = threading.local()
+
+
+def _get_or_create_thread_loop() -> asyncio.AbstractEventLoop:
+    """返回当前线程专属的持久事件循环（不存在或已关闭时自动创建新循环）。
+
+    在 ThreadPoolExecutor 中并行调用 LLM 时，每个 worker 线程通过此函数
+    获取专属的持久事件循环，避免每次 asyncio.run() 创建/销毁循环导致
+    litellm 的 aiohttp session 的 Future 绑定到已关闭的事件循环而抛出
+    ``RuntimeError: Task ... attached to a different loop``。
+    """
+    loop: Optional[asyncio.AbstractEventLoop] = getattr(_thread_local, "loop", None)
+    if loop is None or loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _thread_local.loop = loop
+    return loop
+
 
 # ------------------------------------------------------------------
 # 可选依赖：langextract
@@ -878,21 +903,30 @@ class GenericDialogueDiscoverer:
         return items
 
     def _chat_sync(self, messages: List[Dict[str, Any]]) -> str:
-        """以同步方式调用 LLM 的 chat_async。"""
-        import asyncio
+        """以同步方式调用 LLM 的 chat_async。
+
+        在无运行事件循环的线程中（如 ThreadPoolExecutor worker），复用线程本地
+        持久事件循环（``_get_or_create_thread_loop()``）而非每次 ``asyncio.run()``
+        创建新循环。这可避免 litellm 的 aiohttp session 因 Future 绑定到已关闭
+        事件循环而抛出 ``RuntimeError: Task ... attached to a different loop``。
+        """
         import concurrent.futures
 
         async def _run() -> str:
             return await self._llm.chat_async(messages)
 
         try:
-            loop = asyncio.get_running_loop()
+            running_loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = None
+            running_loop = None
 
-        if loop is not None and loop.is_running():
+        if running_loop is not None and running_loop.is_running():
+            # 已有运行中的事件循环（如主线程 Jupyter 环境）：在独立线程执行
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, _run())
                 return future.result()
         else:
-            return asyncio.run(_run())
+            # 普通线程（含 ThreadPoolExecutor worker）：复用线程本地持久事件循环，
+            # 避免 asyncio.run() 反复创建/销毁循环造成 aiohttp 资源清理异常
+            loop = _get_or_create_thread_loop()
+            return loop.run_until_complete(_run())
