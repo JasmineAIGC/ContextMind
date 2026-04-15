@@ -147,6 +147,75 @@ _REFINE_USER_TEMPLATE = """\
 请对上述 schema 进行整合精炼，输出最终干净的 ServiceSchema（只输出 JSON）："""
 
 
+_POLISH_SYSTEM = """\
+你是一名任务型对话系统设计专家，擅长精炼和完善 SGD 格式的 ServiceSchema。
+
+你收到一份经过提取、合并、去重后的 ServiceSchema，以及从实际对话中观察到的槽位样本值和意图样本描述。
+你的任务是对这份 schema 进行深度精炼（polish），使其更准确、更全面、更符合实际对话数据。
+
+## 精炼任务
+
+### 1. 槽位（slots）精炼
+- **possible_values**：若 `is_categorical=true` 但 `possible_values` 为空，根据样本值和业务常识补充完整的枚举值列表
+- **is_categorical 修正**：若 `is_categorical=false`，但样本值明显是有限枚举集（如"是/否"、状态类、类型类），
+  则改为 `true` 并在 `possible_values` 中列出全部可能的枚举值
+- **补充缺失槽位**：若样本数据中存在高频出现的业务字段，但 schema 中没有对应槽位，可适量补充
+
+### 2. 意图（intents）精炼
+- **required_slots**：必须收集才能执行该意图的槽位；若该意图语义上确实不需要任何输入参数（如纯查询），可保留为空
+- **optional_slots**：有助于个性化或提升精度但非强制的槽位
+- **result_slots**：意图执行后系统会返回或确认的信息字段（如查询结果、审核状态、预约单号等）；
+  若该意图不产生返回值，可保留为空
+- **重点补全**：若某意图当前三个槽位列表均为空，请根据意图名称/描述和对话样本合理判断并补充
+- **补充缺失意图**：若对话样本中存在明显业务动作但 schema 中无对应意图，可适量补充
+
+### 3. 整体一致性
+- 意图中引用的槽位名称必须与 `slots[]` 中定义的 `name` 完全一致
+- 若因补充了新槽位而需要在意图中引用，确保名称保持一致
+- 不得无故删除现有槽位或意图（只增补，不删除）
+
+## 输出格式（严格 JSON，只输出 JSON，不加任何说明或 markdown 代码块）
+
+格式与输入完全相同：
+{
+  "service_name": "...",
+  "description": "...",
+  "slots": [...],
+  "intents": [...]
+}"""
+
+_POLISH_USER_TEMPLATE = """\
+## 业务场景
+
+名称：{scene_name}
+描述：{scene_description}
+
+## 当前 schema（共 {n_slots} 个槽位、{n_intents} 个意图）
+
+```json
+{schema_json}
+```
+
+## 从 {n_dialogues} 条对话中观察到的槽位样本值
+
+{slot_samples_text}
+
+## 从 {n_dialogues} 条对话中观察到的意图样本
+
+{intent_samples_text}
+
+## 对话文本片段（供参考，了解实际业务场景和对话流程）
+
+{dialogue_snippets}
+
+请对上述 schema 进行深度精炼，重点关注：
+1. 为 `is_categorical=true` 的槽位填写 `possible_values`（或修正 `is_categorical` 后填写）
+2. 为每个意图合理分配 `required_slots`、`optional_slots`、`result_slots`（特别是当前三者均为空时）
+3. 补充明显缺失的槽位或意图
+
+只输出精炼后的完整 ServiceSchema JSON："""
+
+
 # ------------------------------------------------------------------
 # 辅助函数
 # ------------------------------------------------------------------
@@ -719,3 +788,151 @@ class SchemaSynthesizer:
             f"{n_intents} → {n_intents_after} 个意图"
         )
         return refined
+
+    def polish(
+        self,
+        schema_dict: Dict[str, Any],
+        scene_name: str,
+        scene_description: str,
+        slot_sample_values: Optional[Dict[str, List[str]]] = None,
+        intent_sample_descs: Optional[Dict[str, List[str]]] = None,
+        n_dialogues: int = 0,
+        dialogue_snippets: str = "",
+    ) -> Dict[str, Any]:
+        """
+        对已完成去重/整合的 schema 进行深度精炼，补全缺失细节。
+
+        与 :meth:`refine` 不同，本方法面向**增补**而非减少：
+        - 为 ``is_categorical=true`` 的槽位填入 ``possible_values``
+        - 修正应为枚举型但被标记为非枚举的槽位
+        - 为意图填入合理的 ``required_slots`` / ``optional_slots`` / ``result_slots``
+        - 补充明显缺失的槽位或意图
+
+        本方法会充分利用发现阶段积累的真实样本值，以提高 ``possible_values`` 的准确性。
+
+        参数
+        ----
+        schema_dict:
+            已去重整合的 schema dict（由 :meth:`refine` 或 :meth:`synthesize` 返回）。
+        scene_name:
+            业务场景名称（中文）。
+        scene_description:
+            场景描述（一句话）。
+        slot_sample_values:
+            发现阶段收集的槽位样本值字典 ``{slot_label: [val1, val2, ...]}``;
+            用于推断 ``possible_values`` 和 ``is_categorical``。
+        intent_sample_descs:
+            发现阶段收集的意图样本描述字典 ``{intent_label: [desc1, ...]}``;
+            用于辅助判断意图所需槽位。
+        n_dialogues:
+            参与本次处理的对话总条数（仅用于 prompt 说明）。
+        dialogue_snippets:
+            少量对话原文片段（格式化字符串），帮助 LLM 理解业务场景。
+
+        返回
+        ----
+        深度精炼后的 schema dict。精炼后槽位/意图只增不减。
+        若 LLM 调用失败或解析异常，原样返回输入 schema。
+        """
+        n_slots = len(schema_dict.get("slots", []))
+        n_intents = len(schema_dict.get("intents", []))
+
+        if n_slots + n_intents == 0:
+            logger.info("[SchemaSynthesizer] schema 为空，跳过深度精炼")
+            return schema_dict
+
+        logger.info(
+            f"[SchemaSynthesizer] 开始深度精炼：{n_slots} 个槽位，{n_intents} 个意图 …"
+        )
+
+        # 格式化槽位样本值文本
+        slot_samples_text = _format_discovery_items(
+            Counter({k: len(v) for k, v in (slot_sample_values or {}).items()}),
+            slot_sample_values or {},
+        ) if slot_sample_values else "（无样本值）"
+
+        # 格式化意图样本文本
+        intent_samples_text = _format_discovery_items(
+            Counter({k: len(v) for k, v in (intent_sample_descs or {}).items()}),
+            intent_sample_descs or {},
+        ) if intent_sample_descs else "（无样本）"
+
+        schema_json = json.dumps(schema_dict, ensure_ascii=False, indent=2)
+        user_msg = _POLISH_USER_TEMPLATE.format(
+            scene_name=scene_name,
+            scene_description=scene_description or scene_name,
+            n_slots=n_slots,
+            n_intents=n_intents,
+            n_dialogues=n_dialogues,
+            schema_json=schema_json,
+            slot_samples_text=slot_samples_text,
+            intent_samples_text=intent_samples_text,
+            dialogue_snippets=dialogue_snippets or "（无对话片段）",
+        )
+        messages = [
+            {"role": "system", "content": _POLISH_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+
+        try:
+            response = self._chat_sync(messages)
+        except Exception as exc:
+            logger.warning(
+                f"[SchemaSynthesizer] 深度精炼调用失败，跳过，返回原始 schema。原始错误: {exc}"
+            )
+            return schema_dict
+
+        logger.debug(f"[SchemaSynthesizer] 深度精炼 LLM 原始响应（前 500 字）: {response[:500]}")
+
+        polished = _try_parse_json(response)
+        if polished is None:
+            logger.warning(
+                "[SchemaSynthesizer] 深度精炼结果无法解析为 JSON，返回原始 schema。"
+                f"原始响应:\n{response[:400]}"
+            )
+            return schema_dict
+
+        # 保留 service_name（LLM 可能改动）
+        if not polished.get("service_name"):
+            polished["service_name"] = schema_dict.get(
+                "service_name", re.sub(r"\s+", "_", scene_name)
+            )
+
+        polished = _fill_schema_defaults(polished, scene_name=scene_name)
+
+        n_slots_after = len(polished.get("slots", []))
+        n_intents_after = len(polished.get("intents", []))
+
+        # 安全保障：深度精炼只增补，不允许减少槽位或意图
+        # 若结果为空或数量异常减少，则将原始条目合并回结果
+        if n_slots_after == 0 and n_slots > 0:
+            logger.warning(
+                f"[SchemaSynthesizer] 深度精炼后槽位列表为空（原有 {n_slots} 个），"
+                "回退到原始 schema"
+            )
+            return schema_dict
+        if n_intents_after == 0 and n_intents > 0:
+            logger.warning(
+                f"[SchemaSynthesizer] 深度精炼后意图列表为空（原有 {n_intents} 个），"
+                "回退到原始 schema"
+            )
+            return schema_dict
+
+        # 若精炼后数量少于精炼前，执行保守合并（将缺失条目补回）
+        if n_slots_after < n_slots or n_intents_after < n_intents:
+            logger.info(
+                f"[SchemaSynthesizer] 深度精炼减少了条目数（槽位 {n_slots}→{n_slots_after}，"
+                f"意图 {n_intents}→{n_intents_after}），执行保守合并以保留原有条目"
+            )
+            merged = _merge_service_list([polished, schema_dict])
+            if merged is not None:
+                polished = _fill_schema_defaults(merged, scene_name=scene_name)
+
+        n_slots_final = len(polished.get("slots", []))
+        n_intents_final = len(polished.get("intents", []))
+        logger.info(
+            f"[SchemaSynthesizer] ✓ 深度精炼完成 — "
+            f"槽位 {n_slots} → {n_slots_final} 个，"
+            f"意图 {n_intents} → {n_intents_final} 个"
+        )
+        return polished

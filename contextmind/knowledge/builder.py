@@ -83,6 +83,42 @@ def _print_schema_brief(prefix: str, schema_dict: Dict[str, Any]) -> None:
         print("    意图: （无）")
 
 
+def _format_dialogue_snippets(
+    normalized_dialogues: List[Dict[str, Any]],
+    max_dialogues: int = 3,
+    max_chars_per_dlg: int = 500,
+) -> str:
+    """将少量归一化对话格式化为可读文本片段，供 polish prompt 使用。
+
+    参数
+    ----
+    normalized_dialogues:
+        normalize_dialogues() 返回的对话列表（内部标准格式）。
+    max_dialogues:
+        最多取用的对话条数。
+    max_chars_per_dlg:
+        每条对话的最大字符数（超出时截断）。
+
+    返回
+    ----
+    格式化的多条对话文本，每条以「【对话 N】」为标题。
+    """
+    snippets: List[str] = []
+    for i, dlg in enumerate(normalized_dialogues[:max_dialogues], 1):
+        lines: List[str] = []
+        for turn in dlg.get("对话历史", []):
+            if "机器人" in turn and turn["机器人"]:
+                lines.append(f"机器人：{turn['机器人']}")
+            if "用户" in turn and turn["用户"]:
+                lines.append(f"用户：{turn['用户']}")
+        text = "\n".join(lines)
+        if len(text) > max_chars_per_dlg:
+            text = text[:max_chars_per_dlg] + "…"
+        if text:
+            snippets.append(f"【对话 {i}】\n{text}")
+    return "\n\n".join(snippets) if snippets else "（无对话片段）"
+
+
 def _extract_slot_char_positions(
     item: Any,
     utterance: str,
@@ -588,6 +624,26 @@ class KnowledgeBaseBuilder:
         else:
             schema_dict = accumulated_schema
 
+        # 深度精炼：补全 possible_values、required_slots / optional_slots / result_slots
+        if schema_dict and (global_slot_samples or global_intent_samples):
+            pre_polish_slots = len(schema_dict.get("slots", []))
+            pre_polish_intents = len(schema_dict.get("intents", []))
+            print(f"  深度精炼前: {pre_polish_slots} 个槽位，{pre_polish_intents} 个意图")
+            schema_dict = synthesizer.polish(
+                schema_dict=schema_dict,
+                scene_name=self.scene_name,
+                scene_description=self.scene_description,
+                slot_sample_values=global_slot_samples,
+                intent_sample_descs=global_intent_samples,
+                n_dialogues=len(normalized),
+                dialogue_snippets=_format_dialogue_snippets(normalized),
+            )
+            post_polish_slots = len(schema_dict.get("slots", []))
+            post_polish_intents = len(schema_dict.get("intents", []))
+            print(f"  深度精炼后: {post_polish_slots} 个槽位，{post_polish_intents} 个意图")
+            if self.verbose:
+                _print_schema_brief("深度精炼后最终结果:", schema_dict)
+
         logger.info(
             f"[KnowledgeBaseBuilder] ✓ schema 合并完成 — "
             f"{len(schema_dict.get('slots', []))} 个槽位，"
@@ -904,6 +960,8 @@ class KnowledgeBaseBuilder:
         n_merged: int = 0  # 已融合进 accumulated_schema 的对话数
         global_slot_counter: Counter = Counter()
         global_intent_counter: Counter = Counter()
+        global_slot_samples: Dict[str, List[str]] = {}
+        global_intent_samples: Dict[str, List[str]] = {}
 
         for i, dlg in enumerate(normalized_dialogues):
             dialogue_id = dlg.get("session_id", f"dlg_{i}")
@@ -940,6 +998,17 @@ class KnowledgeBaseBuilder:
 
             global_slot_counter.update(local_slot_counter)
             global_intent_counter.update(local_intent_counter)
+            # 跨对话累积槽位/意图样本值，供后续深度精炼使用
+            for label, vals in local_slot_samples.items():
+                existing = global_slot_samples.setdefault(label, [])
+                for v in vals:
+                    if v not in existing and len(existing) < 8:
+                        existing.append(v)
+            for label, descs in local_intent_samples.items():
+                existing = global_intent_samples.setdefault(label, [])
+                for d in descs:
+                    if d not in existing and len(existing) < 5:
+                        existing.append(d)
 
             # 提取结果摘要（每通对话均输出，供监控进度使用）
             logger.info(
@@ -1042,6 +1111,26 @@ class KnowledgeBaseBuilder:
                 _print_schema_brief("整理后最终结果（精炼去重后）:", schema_dict)
         else:
             schema_dict = accumulated_schema
+
+        # 深度精炼：补全 possible_values、required_slots / optional_slots / result_slots
+        if schema_dict and (global_slot_samples or global_intent_samples):
+            pre_polish_slots = len(schema_dict.get("slots", []))
+            pre_polish_intents = len(schema_dict.get("intents", []))
+            print(f"  深度精炼前: {pre_polish_slots} 个槽位，{pre_polish_intents} 个意图")
+            schema_dict = synthesizer.polish(
+                schema_dict=schema_dict,
+                scene_name=self.scene_name,
+                scene_description=self.scene_description,
+                slot_sample_values=global_slot_samples,
+                intent_sample_descs=global_intent_samples,
+                n_dialogues=len(normalized_dialogues),
+                dialogue_snippets=_format_dialogue_snippets(normalized_dialogues),
+            )
+            post_polish_slots = len(schema_dict.get("slots", []))
+            post_polish_intents = len(schema_dict.get("intents", []))
+            print(f"  深度精炼后: {post_polish_slots} 个槽位，{post_polish_intents} 个意图")
+            if self.verbose:
+                _print_schema_brief("深度精炼后最终结果:", schema_dict)
 
         logger.info(
             f"[KnowledgeBaseBuilder] ✓ schema 完成 — "
