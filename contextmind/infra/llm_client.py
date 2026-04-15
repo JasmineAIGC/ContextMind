@@ -5,9 +5,31 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import threading
 import warnings
 from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
+
+# ---------------------------------------------------------------------------
+# 线程本地持久事件循环
+# ---------------------------------------------------------------------------
+
+_thread_local = threading.local()
+
+
+def _get_thread_local_loop() -> asyncio.AbstractEventLoop:
+    """返回当前线程专属的持久事件循环。
+
+    使用持久 loop（而非每次调用 asyncio.run() 创建/销毁新 loop）可防止
+    litellm 内部 aiohttp 连接池的清理任务在 loop 已关闭后被调度，从而
+    消除 ``RuntimeError: Task <...> attached to a different loop`` 错误。
+    """
+    loop: Optional[asyncio.AbstractEventLoop] = getattr(_thread_local, "loop", None)
+    if loop is None or loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _thread_local.loop = loop
+    return loop
 
 try:
     from dotenv import load_dotenv
@@ -281,8 +303,9 @@ class AdkLLMClient:
         """同步 prompt 生成，返回 ``(reasoning, response_text)`` 元组。
 
         若已有运行中的 event loop（如 Jupyter），在独立线程中执行以避免嵌套 loop 报错。
+        否则使用线程本地持久事件循环，避免 litellm 的 aiohttp 连接池在 loop 销毁时
+        抛出 ``RuntimeError: Task attached to a different loop``。
         """
-        import asyncio
         import concurrent.futures
 
         try:
@@ -291,9 +314,16 @@ class AdkLLMClient:
             loop = None
 
         if loop is not None and loop.is_running():
+            # 已有运行中的 loop（如 Jupyter / async 上下文）：在独立线程执行
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(asyncio.run, self.generate_async(prompt))
+                future = pool.submit(
+                    _get_thread_local_loop().run_until_complete,
+                    self.generate_async(prompt),
+                )
                 return future.result()
         else:
-            return asyncio.run(self.generate_async(prompt))
+            # 普通线程（含 ThreadPoolExecutor worker）：使用线程本地持久 loop
+            return _get_thread_local_loop().run_until_complete(
+                self.generate_async(prompt)
+            )
 
