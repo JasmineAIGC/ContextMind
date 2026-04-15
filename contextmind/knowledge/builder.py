@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -111,6 +112,11 @@ class KnowledgeBaseBuilder:
     context_window:
         langextract 逐轮提取时的历史轮次窗口大小（默认 3）。
         传入 ``additional_context`` 的历史轮次数；0 = 不传历史上下文。
+    workers:
+        发现阶段并行工作线程数（默认 1，即串行）。
+        ``build_dataset`` 会使用 ``ThreadPoolExecutor`` 并发执行各对话的
+        ``extract_per_turn`` LLM 调用，可显著缩短大批量对话的总耗时。
+        受限于 LLM API 的并发速率限制，建议不超过 8。
 
     属性
     ----
@@ -127,11 +133,13 @@ class KnowledgeBaseBuilder:
         llm_client: Optional[AdkLLMClient] = None,
         discovery_sample: int = 20,
         context_window: int = 3,
+        workers: int = 1,
     ) -> None:
         self.scene_name = scene_name
         self.scene_description = scene_description or scene_name
         self.discovery_sample = discovery_sample
         self.context_window = context_window
+        self.workers = max(1, workers)
 
         # 延迟初始化：避免在无 LLM 环境下导入时崩溃
         self._llm_client: Optional[AdkLLMClient] = llm_client
@@ -248,6 +256,7 @@ class KnowledgeBaseBuilder:
         logger.info(
             f"[KnowledgeBaseBuilder] 数据集构建：场景 {self.scene_name!r}，"
             f"输入对话 {len(dialogues)} 条"
+            + (f"，并行线程 {self.workers}" if self.workers > 1 else "")
         )
         normalized = normalize_dialogues(dialogues)
 
@@ -259,34 +268,51 @@ class KnowledgeBaseBuilder:
         )
         synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
 
-        per_dialogue_turns: List[List[Any]] = []
-        # 逐条对话增量融合（替代原先收集 schema_parts 后一次性批量合并的方式）
-        accumulated_schema: Optional[Dict[str, Any]] = None  # 历史累积 schema
-        n_merged: int = 0  # 已融合进 accumulated_schema 的对话数
+        # -- Step 1a: 并行/串行执行 extract_per_turn -------------------------
+        # 提取结果与原始下标绑定，以确保顺序稳定，同时安全地捕获每条对话的异常。
+        def _extract(args: Tuple[int, Dict[str, Any]]) -> Tuple[int, Optional[List[Any]]]:
+            idx, dlg = args
+            dialogue_id = dlg.get("session_id", f"dlg_{idx}")
+            logger.info(
+                f"[KnowledgeBaseBuilder] 处理对话 {idx + 1}/{len(normalized)} "
+                f"({dialogue_id})"
+            )
+            try:
+                return idx, discoverer.extract_per_turn(dlg)
+            except Exception as exc:
+                logger.warning(
+                    f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
+                )
+                return idx, None
+
+        indexed = list(enumerate(normalized))
+        if self.workers > 1:
+            with ThreadPoolExecutor(max_workers=self.workers) as pool:
+                raw_results = list(pool.map(_extract, indexed))
+        else:
+            raw_results = [_extract(item) for item in indexed]
+
+        # 按原始顺序整理提取结果（None 表示失败）
+        per_dialogue_turns: List[List[Any]] = [
+            result if result is not None else []
+            for _, result in sorted(raw_results, key=lambda x: x[0])
+        ]
 
         # 统计计数器（仅用于汇总展示，不传给合成器）
         global_slot_counter: Counter = Counter()
         global_intent_counter: Counter = Counter()
         global_fact_counter: Counter = Counter()
 
-        for i, dlg in enumerate(normalized):
+        # -- Step 1b/1c: 串行处理提取结果（合成 + 增量融合） -----------------
+        # 合成和融合依赖前一步的累积 schema，必须串行执行。
+        accumulated_schema: Optional[Dict[str, Any]] = None
+        n_merged: int = 0
+
+        for i, (dlg, per_turn) in enumerate(zip(normalized, per_dialogue_turns)):
             dialogue_id = dlg.get("session_id", f"dlg_{i}")
-            logger.info(
-                f"[KnowledgeBaseBuilder] 处理对话 {i + 1}/{len(normalized)} "
-                f"({dialogue_id})"
-            )
 
-            # 1a. 逐轮提取（保留每轮结果供 SGD 标注使用）
-            try:
-                per_turn = discoverer.extract_per_turn(dlg)
-            except Exception as exc:
-                logger.warning(
-                    f"[KnowledgeBaseBuilder] 对话 {dialogue_id} 提取失败，跳过: {exc}"
-                )
-                per_dialogue_turns.append([])
+            if not per_turn:
                 continue
-
-            per_dialogue_turns.append(per_turn)
 
             # 1b. 从本对话提取结果构建局部计数器（不与其他对话混合）
             local_slot_counter: Counter = Counter()

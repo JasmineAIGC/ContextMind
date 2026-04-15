@@ -82,6 +82,13 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
         --scene "安逸花外呼" \\
         --context-window 5
 
+    # 并行提取（4 线程并发调用 LLM，适合批量对话）
+    python examples/build_kb.py \\
+        --data resources/data/chat_test_100.json \\
+        --num 20 \\
+        --scene "安逸花外呼" \\
+        --workers 4
+
 参数说明
 --------
     --data              输入对话 JSON 文件路径，可指定多个（空格分隔）；格式自动识别
@@ -90,6 +97,7 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
     --scene-desc        场景描述（可选）
     --output            SGD 数据集输出目录（默认 output/kb_output）
     --context-window    langextract 逐轮提取时的历史轮次窗口大小（默认 3，0 = 不传历史上下文）
+    --workers           发现阶段并行线程数（默认 1，即串行；建议 2–8）
     --demo              使用内嵌演示对话（无需 --data）
     --verbose / -v      开启详细输出，将底层阶段日志实时打印到终端
 """
@@ -216,6 +224,18 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help=(
+            "发现阶段并行线程数（默认 1，即串行）。"
+            "使用 ThreadPoolExecutor 并发执行各对话的 LLM 提取调用，"
+            "可显著缩短大批量对话的总耗时。受限于 LLM API 并发速率，"
+            "建议设置为 2–8。"
+        ),
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help=(
@@ -286,6 +306,7 @@ def main() -> None:
     print(f"场景描述: {scene_desc or '（未提供）'}")
     print(f"输出目录: {args.output}")
     print(f"历史窗口: {args.context_window} 轮")
+    print(f"并行线程: {args.workers}")
 
     # ── 构建知识库 ──
     print("\n" + "─" * 70)
@@ -294,6 +315,7 @@ def main() -> None:
         scene_name=scene,
         scene_description=scene_desc,
         context_window=args.context_window,
+        workers=args.workers,
     )
 
     print("▶ 执行知识库构建（生成完整 SGD 数据集）…")
