@@ -324,11 +324,11 @@ def main() -> None:
     print("▶ 执行知识库构建（生成完整 SGD 数据集）…")
     print("  流程：提取 → 合并 → 融合（增量方式）")
     print("  Phase 1 — 提取阶段：LLM + langextract 逐轮提取槽位和意图（含溯源）")
-    print("  Phase 2 — 合并阶段：LLM 将发现结果合成为规范 SGD Schema")
-    print("  Phase 3 — 融合阶段：精炼去重，消除跨对话产生的相似/重复条目")
+    print("  Phase 2 — 合并阶段：LLM 将发现结果合成为规范 SGD Schema（自动输出数量信息）")
+    print("  Phase 3 — 融合阶段：精炼去重，消除跨对话产生的相似/重复条目（自动输出精炼前后数量）")
     print("  Phase 4 — 转换阶段：将对话转换为 SGD 格式对话文件")
     if args.verbose:
-        print("  （--verbose 模式：将逐步打印每条对话的合并和融合中间结果）")
+        print("  （--verbose 模式：将逐步打印每条对话的槽位/意图名称明细）")
     print()
 
     try:

@@ -438,6 +438,10 @@ class KnowledgeBaseBuilder:
                     f"槽位 {len(accumulated_schema.get('slots', []))} 个，"
                     f"意图 {len(accumulated_schema.get('intents', []))} 个"
                 )
+                print(
+                    f"  合并结果: {len(accumulated_schema.get('slots', []))} 个槽位，"
+                    f"{len(accumulated_schema.get('intents', []))} 个意图"
+                )
                 if self.verbose:
                     _print_schema_brief("合并结果（发现项 → LLM 合成）:", accumulated_schema)
             except Exception as exc:
@@ -464,12 +468,18 @@ class KnowledgeBaseBuilder:
                 scene_name=self.scene_name,
             )
         elif n_merged >= 2:
+            pre_slots = len(accumulated_schema.get("slots", []))
+            pre_intents = len(accumulated_schema.get("intents", []))
+            print(f"  精炼前: {pre_slots} 个槽位，{pre_intents} 个意图")
             schema_dict = synthesizer.refine(
                 schema_dict=accumulated_schema,
                 scene_name=self.scene_name,
                 scene_description=self.scene_description,
                 n_dialogues=len(normalized),
             )
+            post_slots = len(schema_dict.get("slots", []))
+            post_intents = len(schema_dict.get("intents", []))
+            print(f"  精炼后: {post_slots} 个槽位，{post_intents} 个意图")
             if self.verbose:
                 _print_schema_brief("融合/整理后结果（精炼去重后）:", schema_dict)
         else:
@@ -886,6 +896,11 @@ class KnowledgeBaseBuilder:
                         f"融合后累积 — 槽位 {acc_n_slots} 个，意图 {acc_n_intents} 个"
                         f"（已融合 {n_merged} 条对话）"
                     )
+                    print(
+                        f"  [{i + 1}/{len(normalized_dialogues)}] 合并累积: "
+                        f"{acc_n_slots} 个槽位，{acc_n_intents} 个意图"
+                        f"（已融合 {n_merged} 条对话）"
+                    )
                     if self.verbose:
                         _print_schema_brief(
                             f"对话 {i + 1}/{len(normalized_dialogues)} ({dialogue_id}) 融合后累积:",
@@ -908,12 +923,18 @@ class KnowledgeBaseBuilder:
             )
         elif n_merged >= 2:
             # 精炼：消除跨对话产生的相似/重复槽位和意图
+            pre_slots = len(accumulated_schema.get("slots", []))
+            pre_intents = len(accumulated_schema.get("intents", []))
+            print(f"  精炼前: {pre_slots} 个槽位，{pre_intents} 个意图")
             schema_dict = synthesizer.refine(
                 schema_dict=accumulated_schema,
                 scene_name=self.scene_name,
                 scene_description=self.scene_description,
                 n_dialogues=len(normalized_dialogues),
             )
+            post_slots = len(schema_dict.get("slots", []))
+            post_intents = len(schema_dict.get("intents", []))
+            print(f"  精炼后: {post_slots} 个槽位，{post_intents} 个意图")
             if self.verbose:
                 _print_schema_brief("整理后最终结果（精炼去重后）:", schema_dict)
         else:
