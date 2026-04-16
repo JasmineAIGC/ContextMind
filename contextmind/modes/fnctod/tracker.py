@@ -234,14 +234,18 @@ class FnCTODTracker:
         return self._session_id
 
     def reset(self) -> None:
-        """重置对话状态，开始新会话。"""
+        """重置对话状态，开始新会话。
+
+        注意：后端能力探测结果（``_use_native_tools``、``_fallback_system_prompt``）
+        不在此处重置——若本次运行已确认后端不支持原生函数调用，下一个会话将
+        直接使用 JSON 备用方案，避免在批量处理时每条会话首轮都触发
+        ``tool_choice`` 错误警告。
+        """
         self._current_state = {}
         self._dialogue_history = []
         self.turn_count = 0
         self._session_id = None
         self.last_turn_updates = {}
-        self._use_native_tools = True
-        self._fallback_system_prompt = None
 
     def _build_fallback_system_prompt(self) -> str:
         """构建无需原生函数调用的槽位提取系统提示词。
