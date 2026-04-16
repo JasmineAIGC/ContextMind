@@ -1,78 +1,85 @@
 #!/usr/bin/env python3
 """
-Benchmark 数据集下载与准备工具
+Benchmark 数据集解析与准备工具
 
 ContextMind benchmark 支持三个数据集：
 
-1. RiSAWOZ（内置，无需下载）
-   - 测试集 600 条对话已内置于 resources/data/risawoz_test.json
-   - 直接运行:
-       python benchmark/run_benchmark.py --algorithm dst --dataset risawoz
-   - 若需完整数据集（train 10000 条 / val 600 条），请从官方仓库下载（见下方说明）
+  risawoz    https://github.com/terryqj0107/RiSAWOZ
+  sgd        https://github.com/google-research-datasets/dstc8-schema-guided-dialogue
+  transfertod https://github.com/KongLongGeFDU/TransferTOD
 
-2. SGD（Google Schema-Guided Dialogue）
-   - 需要手动下载，下载后放置于 resources/dataset/SGD/
-   - 运行:
-       python benchmark/run_benchmark.py --algorithm dst --dataset sgd --split test
+典型工作流程：
+  1. 从上方 GitHub 链接下载（clone 或 ZIP 下载）到本地任意目录。
+  2. 运行本脚本的 --parse 模式进行解析，将数据整理到 benchmark 期望的标准路径。
+  3. 运行 benchmark/run_benchmark.py 直接使用。
 
-3. TransferTOD（中文多领域任务型对话）
-   - 需要手动下载，下载后放置于 resources/dataset/TransferTOD/
-   - 运行:
-       python benchmark/run_benchmark.py --algorithm dst --dataset transfertod
+用法示例：
+  # 解析 RiSAWOZ（--source 指向 clone 目录或 ZIP 文件）
+  python benchmark/prepare_datasets.py --dataset risawoz \\
+      --source /path/to/RiSAWOZ --parse
 
-用法:
-    python benchmark/prepare_datasets.py --dataset sgd --verify
-    python benchmark/prepare_datasets.py --dataset transfertod --verify
-    python benchmark/prepare_datasets.py --dataset risawoz --verify
+  # 解析 SGD
+  python benchmark/prepare_datasets.py --dataset sgd \\
+      --source /path/to/dstc8-schema-guided-dialogue --parse
+
+  # 解析 TransferTOD
+  python benchmark/prepare_datasets.py --dataset transfertod \\
+      --source /path/to/TransferTOD --parse
+
+  # 验证已解析结果
+  python benchmark/prepare_datasets.py --dataset all --verify
+
+  # 打印各数据集格式说明
+  python benchmark/prepare_datasets.py --dataset sgd --info
 """
 
 import argparse
 import json
+import logging
+import shutil
 import sys
+import tempfile
+import zipfile
 from pathlib import Path
+from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
-# 各数据集预期目录结构和下载说明
+# 数据集格式说明文档
 # ---------------------------------------------------------------------------
 
 SGD_README = """
-SGD (Schema-Guided Dialogue) 数据集准备说明
+SGD (Schema-Guided Dialogue) 数据集格式说明
 ============================================
 
 官方仓库: https://github.com/google-research-datasets/dstc8-schema-guided-dialogue
 
-下载步骤:
-  1. 克隆或下载 ZIP 包：
-       git clone https://github.com/google-research-datasets/dstc8-schema-guided-dialogue.git
-     或访问: https://github.com/google-research-datasets/dstc8-schema-guided-dialogue/archive/refs/heads/master.zip
+下载方式（二选一）:
+  git clone https://github.com/google-research-datasets/dstc8-schema-guided-dialogue.git
+  wget https://github.com/google-research-datasets/dstc8-schema-guided-dialogue/archive/refs/heads/master.zip
 
-  2. 将数据集目录（含 train/ dev/ test/ 子目录）移动到:
-       resources/dataset/SGD/
+解析命令（将原始 clone 目录解析到标准路径）:
+  python benchmark/prepare_datasets.py --dataset sgd \\
+      --source /path/to/dstc8-schema-guided-dialogue --parse
 
-  3. 最终目录结构应为:
-       resources/dataset/SGD/
-         train/
-           schema.json
-           dialogues_001.json
-           dialogues_002.json
-           ...
-         dev/
-           schema.json
-           dialogues_001.json
-           ...
-         test/
-           schema.json
-           dialogues_001.json
-           ...
+标准目标目录 (resources/dataset/SGD/):
+  train/
+    schema.json
+    dialogues_001.json  …  dialogues_NNN.json
+  dev/
+    schema.json
+    dialogues_001.json  …
+  test/
+    schema.json
+    dialogues_001.json  …
 
-  4. 验证:
-       python benchmark/prepare_datasets.py --dataset sgd --verify
-
-SGD 对话文件格式 (dialogues_*.json):
+对话文件格式 (dialogues_*.json):
   [
     {
       "dialogue_id": "1_00001",
@@ -101,50 +108,50 @@ SGD 对话文件格式 (dialogues_*.json):
     }
   ]
 
-SGD schema.json 格式:
+schema.json 格式:
   [
     {
       "service_name": "Flights_4",
       "description": "Book domestic flights.",
-      "slots": [...],
-      "intents": [...]
+      "slots": [{"name": "origin_city", "description": "...", "is_categorical": false}],
+      "intents": [{"name": "SearchOneWayFlight", "description": "...", ...}]
     }
   ]
 """
 
 TRANSFERTOD_README = """
-TransferTOD 数据集准备说明
+TransferTOD 数据集格式说明
 ===========================
 
-TransferTOD 是中文多领域任务型对话数据集，覆盖 24 个领域。
+官方仓库: https://github.com/KongLongGeFDU/TransferTOD
 
-请联系数据集作者或查阅对应论文获取数据访问权限。
+下载方式:
+  git clone https://github.com/KongLongGeFDU/TransferTOD.git
+  # 或从 Releases / ZIP 下载
 
-下载完成后，将数据目录放置到:
-  resources/dataset/TransferTOD/
+解析命令:
+  python benchmark/prepare_datasets.py --dataset transfertod \\
+      --source /path/to/TransferTOD --parse
 
-数据集目录结构应为:
-  resources/dataset/TransferTOD/
-    data/
-      raw_data/
-        clean/
-          1-hotel/
-            hotel_clean_1.json
-            hotel_clean_2.json
-            ...
-          2-restaurant/
-            ...
-          ...（共 24 个领域子目录）
-        noise/
-          1-hotel/
-            hotel_noise_1.json
-            ...
+标准目标目录 (resources/dataset/TransferTOD/):
+  data/
+    raw_data/
+      clean/
+        1-hotel/
+          hotel_clean_1.json
+          hotel_clean_2.json
           ...
+        2-restaurant/
+          restaurant_clean_1.json
+          ...
+        ...（共 24 个领域子目录）
+      noise/
+        1-hotel/
+          hotel_noise_1.json
+          ...
+        ...
 
-验证:
-  python benchmark/prepare_datasets.py --dataset transfertod --verify
-
-TransferTOD 对话文件格式（每个 JSON 文件包含一个列表）:
+对话文件格式（每个 JSON 包含一个列表）:
   [
     {
       "id": 1,
@@ -162,11 +169,11 @@ TransferTOD 对话文件格式（每个 JSON 文件包含一个列表）:
         },
         {
           "Turn": 1,
-          "origin_slots": {"姓名": null, "入住日期": null, "退房日期": null, "房型": null},
-          "new_slots":    {"姓名": "张三", "入住日期": null, "退房日期": null, "房型": null},
+          "origin_slots": {"姓名": null, ...},
+          "new_slots":    {"姓名": "张三", ...},
           "conversations": [
             {"from": "user",      "value": "我叫张三"},
-            {"from": "assistant", "value": "好的张三，请问您计划哪天入住？"}
+            {"from": "assistant", "value": "好的，请问入住日期？"}
           ]
         }
       ]
@@ -174,63 +181,232 @@ TransferTOD 对话文件格式（每个 JSON 文件包含一个列表）:
   ]
 
 槽位变化提取规则:
-  每轮 expected_slots = new_slots 中比 origin_slots 新增或更改的非空槽位。
+  每轮 expected_slots = new_slots 中比 origin_slots 新增或变化的非 null 槽位。
 """
 
 RISAWOZ_README = """
-RiSAWOZ 数据集说明
-==================
+RiSAWOZ 数据集格式说明
+=======================
 
-测试集（600 条）已内置于:
-  resources/data/risawoz_test.json
+官方仓库: https://github.com/terryqj0107/RiSAWOZ
 
-内置文件格式:
-  [
+内置测试集（600 条）已在:
+  resources/data/risawoz_test.json    ← 开箱即用，无需下载
+
+下载完整数据集（训练集 10000 / 验证集 600 条）:
+  git clone https://github.com/terryqj0107/RiSAWOZ.git
+  # 或下载 source-data.zip / task2-data-DST.zip
+
+解析命令:
+  python benchmark/prepare_datasets.py --dataset risawoz \\
+      --source /path/to/RiSAWOZ --parse
+
+解析后目标文件:
+  resources/data/
+    risawoz_train.json   （10000 条，source-data/ 格式）
+    risawoz_val.json     （600 条）
+    risawoz_test.json    （600 条，已内置）
+
+RiSAWOZ 源数据支持两种格式，解析器自动识别：
+
+格式 A (source-data/，推荐):
+  单条对话结构:
     {
-      "dialogue_idx": "attraction_goal_1-13_v2###8382",
-      "domains": ["旅游景点"],
+      "dialogue_idx": "hotel_0001",     // 或 "dialogue_id"
+      "domains": ["酒店"],
       "dialogue": [
         {
-          "turn_idx": 0,
-          "domain": "旅游景点",
-          "transcript": "你好 ! 我 是从 外地 来 苏州旅游 的 ，...",
-          "system_transcript": "",
-          "user_acts": [["Greeting", "旅游景点", "", ""], ...],
+          "turn_idx": 0,                // 或 "turn_id"
+          "domain": "酒店",
+          "transcript": "用户话语...",  // 用户话语（空格分词）
+          "system_transcript": "...",   // 系统话语
           "belief_state": [
-            {"slots": [["旅游景点-区域", "昆山"]], "act": "inform"},
-            ...
+            {"slots": [["酒店-位置", "西城区"]], "act": "inform"}
           ],
-          "turn_label": [["旅游景点-区域", "昆山"], ...]
+          "turn_label": [["酒店-位置", "西城区"]],
+          "user_acts": [["Inform", "酒店", "位置", "西城区"]]
         },
         ...
       ]
     }
-  ]
 
-字段说明:
-  - dialogue_idx:    对话唯一标识符
-  - domains:         对话涉及的领域列表
-  - transcript:      用户话语（空格分词）
-  - system_transcript: 系统话语
-  - belief_state:    累积对话状态（每个元素含 slots 列表和 act 类型）
-                     slots 格式: [["领域-槽位名", "槽位值"], ...]
-  - turn_label:      本轮新增/更新的槽位标注（格式同上）
+格式 B (source-data/ 旧版 role 格式):
+  轮次以独立 usr/sys dict 表示:
+    {
+      "dialogue_id": "hotel_0001",
+      "dialogue": [
+        {"role": "usr", "utterance": "...", "belief_state": [...], "dialogue_act": [...]},
+        {"role": "sys", "utterance": "...", "belief_state": [...], "dialogue_act": [...]},
+        ...
+      ]
+    }
 
-完整数据集（含 train/val）下载:
-  官方仓库: https://github.com/terryqj0107/RiSAWOZ
-  - 下载 source-data.zip 后解压到指定目录
-  - 使用 --data-root 参数指定到 source-data/ 子目录
-  - 同时通过 RISAWOZ_FILE_MAPPING 或适配器 file_mapping 参数指定文件名映射：
-      {"train": "all_train10000.json", "val": "all_dev600.json", "test": "all_test600_new.json"}
+适配器 (RiSAWOZAdapter) 自动处理两种格式，无需手动转换。
 """
 
 
 # ---------------------------------------------------------------------------
-# 验证函数
+# 工具函数
 # ---------------------------------------------------------------------------
 
+def _extract_zip_if_needed(source: Path, work_dir: Path) -> Path:
+    """如果 source 是 ZIP 文件，解压到 work_dir 并返回解压后的根目录；否则直接返回 source。"""
+    if source.suffix.lower() != ".zip":
+        return source
+    logger.info(f"解压 ZIP 文件: {source} → {work_dir}")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    # Guard against zip slip: validate all member paths stay within work_dir
+    with zipfile.ZipFile(source, "r") as zf:
+        for member in zf.infolist():
+            member_path = (work_dir / member.filename).resolve()
+            if not str(member_path).startswith(str(work_dir.resolve())):
+                raise ValueError(f"ZIP 包含不安全路径: {member.filename}")
+        zf.extractall(work_dir)
+    # GitHub 下载的 ZIP 通常有一个顶层包装目录，如 repo-master/
+    children = [c for c in work_dir.iterdir() if not c.name.startswith(".")]
+    if len(children) == 1 and children[0].is_dir():
+        return children[0]
+    return work_dir
+
+
+def _copy_tree(src: Path, dst: Path) -> None:
+    """将 src 目录树拷贝到 dst（若 dst 已存在则覆盖）。"""
+    if dst.exists():
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+
+
+def _copy_file(src: Path, dst: Path) -> None:
+    """拷贝单个文件，自动创建目标目录。"""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    logger.info(f"  {src.name} → {dst}")
+
+
+# ---------------------------------------------------------------------------
+# RiSAWOZ：解析与验证
+# ---------------------------------------------------------------------------
+
+# 已知的 source-data 子目录名及其 split → 文件名映射
+_RISAWOZ_SUBDIR_MAPPINGS = [
+    # (subdir_name, split_to_filename_dict)
+    ("source-data", {
+        "train": "all_train10000.json",
+        "val":   "all_dev600.json",
+        "test":  "all_test600_new.json",
+    }),
+    ("task2-data-DST", {
+        "train": "dst_all_train10000.json",
+        "val":   "dst_all_dev600.json",
+        "test":  "dst_all_test600_new.json",
+    }),
+    ("task3-data-E2E-Context-to-text", {
+        "train": "train.json",
+        "val":   "val.json",
+        "test":  "test.json",
+    }),
+    ("task5-data-Unified-generative-ellipsis-and-coreference-resolution", {
+        "train": "all_train10000.json",
+        "val":   "all_dev600.json",
+        "test":  "all_test600_new.json",
+    }),
+]
+
+# 输出文件命名约定
+_RISAWOZ_OUTPUT_NAMES = {
+    "train": "risawoz_train.json",
+    "val":   "risawoz_val.json",
+    "test":  "risawoz_test.json",
+}
+
+
+def _find_risawoz_data_dir(root: Path):
+    """
+    在 root 下自动检测 RiSAWOZ 数据子目录。
+
+    返回 (subdir_path, split_mapping) 或 (None, None)。
+    优先选择包含 train/val/test 三个文件的子目录；
+    其次选择只有部分文件的子目录；
+    最后把 root 本身当作数据目录（文件直接在 root 下）。
+    """
+    # 先检查已知子目录
+    for subdir_name, mapping in _RISAWOZ_SUBDIR_MAPPINGS:
+        cand = root / subdir_name
+        if cand.is_dir():
+            found = {sp: fn for sp, fn in mapping.items() if (cand / fn).exists()}
+            if found:
+                logger.info(f"  检测到子目录: {subdir_name}  (含 {list(found.keys())})")
+                return cand, mapping
+
+    # 未找到已知子目录时，检查 root 本身是否包含 JSON 文件
+    json_files = list(root.glob("*.json"))
+    if json_files:
+        # 尝试识别已知文件名
+        for _, mapping in _RISAWOZ_SUBDIR_MAPPINGS:
+            found = {sp: fn for sp, fn in mapping.items() if (root / fn).exists()}
+            if found:
+                logger.info(f"  在根目录检测到 RiSAWOZ 文件 (含 {list(found.keys())})")
+                return root, mapping
+
+    return None, None
+
+
+def parse_risawoz(source: Path, target_dir: Path) -> bool:
+    """
+    解析 RiSAWOZ 数据集，将 train/val/test 文件整理到 target_dir。
+
+    source 可以是：
+      - git clone 产生的目录（包含 source-data/ 或 task2-data-DST/ 等子目录）
+      - 直接是数据子目录（包含 all_train10000.json 等文件）
+      - ZIP 文件
+
+    目标文件（写入 target_dir）:
+      risawoz_train.json
+      risawoz_val.json
+      risawoz_test.json
+    """
+    with tempfile.TemporaryDirectory(prefix="risawoz_extract_") as tmp_str:
+        tmp_dir = Path(tmp_str)
+        source = _extract_zip_if_needed(source, tmp_dir)
+        if not source.exists():
+            logger.error(f"源路径不存在: {source}")
+            return False
+
+        data_dir, mapping = _find_risawoz_data_dir(source)
+        if data_dir is None:
+            logger.error(
+                f"在 {source} 下未找到 RiSAWOZ 数据文件。\n"
+                f"请确认 source 目录为 RiSAWOZ repo 根目录，或其中某个数据子目录。\n"
+                f"支持的子目录: {[n for n, _ in _RISAWOZ_SUBDIR_MAPPINGS]}"
+            )
+            return False
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        copied = []
+        for split, src_name in mapping.items():
+            src_file = data_dir / src_name
+            if not src_file.exists():
+                logger.warning(f"  {split} 文件不存在，跳过: {src_file}")
+                continue
+            dst_file = target_dir / _RISAWOZ_OUTPUT_NAMES[split]
+            # 如果目标文件已存在且大小相同则跳过
+            if dst_file.exists() and dst_file.stat().st_size == src_file.stat().st_size:
+                logger.info(f"  {dst_file.name} 已存在，跳过")
+                copied.append(split)
+                continue
+            _copy_file(src_file, dst_file)
+            copied.append(split)
+
+    if copied:
+        logger.info(f"✅ RiSAWOZ 解析完成，已写入 {len(copied)} 个分片: {copied}")
+        logger.info(f"   目标目录: {target_dir}")
+        return True
+    logger.error("未找到任何可用的 RiSAWOZ 数据文件。")
+    return False
+
+
 def verify_risawoz(data_root: Path) -> bool:
-    """验证 RiSAWOZ 内置数据完整性。"""
+    """验证 RiSAWOZ 数据目录完整性。"""
     test_file = data_root / "risawoz_test.json"
     if not test_file.exists():
         print(f"❌ 内置测试文件不存在: {test_file}")
@@ -245,28 +421,103 @@ def verify_risawoz(data_root: Path) -> bool:
         required_keys = {"dialogue_idx", "domains", "dialogue"}
         missing = required_keys - set(first.keys())
         if missing:
-            print(f"❌ 对话条目缺少必需字段: {missing}")
-            return False
-        print(f"✅ RiSAWOZ 内置测试集验证通过，共 {len(data)} 条对话")
+            # 也接受 dialogue_id 代替 dialogue_idx
+            if "dialogue_id" in first:
+                missing.discard("dialogue_idx")
+            if missing:
+                print(f"❌ 对话条目缺少必需字段: {missing}")
+                return False
+        print(f"✅ risawoz_test.json: {len(data)} 条对话，格式验证通过")
         print(f"   文件: {test_file}")
-        # 打印样本
-        first_dialogue = first["dialogue"][0]
-        print(f"   样本: dialogue_idx={first['dialogue_idx']!r}, "
-              f"domains={first['domains']}, "
-              f"turns={len(first['dialogue'])}")
-        print(f"   第 1 轮字段: {list(first_dialogue.keys())}")
+        print(f"   样本: id={first.get('dialogue_idx', first.get('dialogue_id', '?'))!r}, "
+              f"domains={first.get('domains', [])}, turns={len(first['dialogue'])}")
+
+        # 检查 train/val（可选）
+        for split, fname in [("train", "risawoz_train.json"), ("val", "risawoz_val.json")]:
+            fp = data_root / fname
+            if fp.exists():
+                with open(fp, encoding="utf-8") as f:
+                    d = json.load(f)
+                print(f"✅ {fname}: {len(d)} 条对话")
+            else:
+                print(f"ℹ️  {fname} 不存在（可选；需要时运行 --parse 生成）")
         return True
     except json.JSONDecodeError as e:
         print(f"❌ JSON 解析错误: {e}")
         return False
 
 
+# ---------------------------------------------------------------------------
+# SGD：解析与验证
+# ---------------------------------------------------------------------------
+
+def _find_sgd_data_dir(root: Path) -> Optional[Path]:
+    """
+    在 root 下找到包含 train/dev/test 子目录的 SGD 数据根目录。
+
+    处理以下情况：
+      - root 本身就是数据根（直接有 train/ dev/ test/）
+      - root/dstc8-schema-guided-dialogue/ 或 root/dstc8-schema-guided-dialogue-master/ 等
+    """
+    # 直接检查 root
+    if (root / "train").is_dir() and (root / "test").is_dir():
+        return root
+    # 检查一层子目录
+    for child in sorted(root.iterdir()):
+        if child.is_dir() and (child / "train").is_dir() and (child / "test").is_dir():
+            return child
+    return None
+
+
+def parse_sgd(source: Path, target_dir: Path) -> bool:
+    """
+    解析 SGD 数据集，将 train/dev/test 目录整理到 target_dir。
+
+    source 可以是：
+      - git clone 目录（dstc8-schema-guided-dialogue/，包含 train/dev/test 子目录）
+      - ZIP 文件
+    """
+    with tempfile.TemporaryDirectory(prefix="sgd_extract_") as tmp_str:
+        tmp_dir = Path(tmp_str)
+        source = _extract_zip_if_needed(source, tmp_dir)
+        if not source.exists():
+            logger.error(f"源路径不存在: {source}")
+            return False
+
+        data_dir = _find_sgd_data_dir(source)
+        if data_dir is None:
+            logger.error(
+                f"在 {source} 下未找到 SGD train/dev/test 目录。\n"
+                f"请确认 source 指向 dstc8-schema-guided-dialogue 目录。"
+            )
+            return False
+
+        logger.info(f"  SGD 数据根目录: {data_dir}")
+
+        # 复制 train/dev/test 子目录
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for split_dir_name in ("train", "dev", "test"):
+            src_split = data_dir / split_dir_name
+            if not src_split.exists():
+                logger.warning(f"  {split_dir_name}/ 不存在，跳过")
+                continue
+            dst_split = target_dir / split_dir_name
+            logger.info(f"  复制 {split_dir_name}/ ...")
+            _copy_tree(src_split, dst_split)
+            schema_ok = (dst_split / "schema.json").exists()
+            dialogue_files = list(dst_split.glob("dialogues_*.json"))
+            logger.info(f"    schema.json: {'✓' if schema_ok else '✗'}, "
+                        f"dialogue files: {len(dialogue_files)}")
+
+    logger.info(f"✅ SGD 解析完成，目标目录: {target_dir}")
+    return True
+
+
 def verify_sgd(data_root: Path) -> bool:
     """验证 SGD 数据集目录结构。"""
     if not data_root.exists():
         print(f"❌ SGD 数据目录不存在: {data_root}")
-        print(f"   请参考下方说明下载数据集:")
-        print(SGD_README)
+        print("   请先运行: python benchmark/prepare_datasets.py --dataset sgd --source <path> --parse")
         return False
 
     ok = True
@@ -285,7 +536,6 @@ def verify_sgd(data_root: Path) -> bool:
             print(f"❌ {split}/ 下没有 dialogues_*.json 文件")
             ok = False
         else:
-            # 验证第一个对话文件的格式
             with open(dialogue_files[0], encoding="utf-8") as f:
                 sample = json.load(f)
             if not isinstance(sample, list) or not sample:
@@ -299,7 +549,90 @@ def verify_sgd(data_root: Path) -> bool:
                 else:
                     print(f"✅ {split}/: schema.json + {len(dialogue_files)} 个对话文件，"
                           f"样本 dialogue_id={first['dialogue_id']!r}")
+    return ok
 
+
+# ---------------------------------------------------------------------------
+# TransferTOD：解析与验证
+# ---------------------------------------------------------------------------
+
+def _find_transfertod_raw_data(root: Path) -> Optional[Path]:
+    """
+    在 root 下找到 TransferTOD 的 raw_data 目录。
+
+    处理以下情况：
+      - root/data/raw_data/
+      - root/raw_data/
+      - root 本身就是 raw_data（包含 clean/ noise/ 子目录）
+    """
+    # root 本身包含 clean 或 noise
+    if (root / "clean").is_dir() or (root / "noise").is_dir():
+        return root
+    # root/data/raw_data/
+    cand = root / "data" / "raw_data"
+    if cand.is_dir():
+        return cand
+    # root/raw_data/
+    cand = root / "raw_data"
+    if cand.is_dir():
+        return cand
+    # 在子目录中递归查找
+    for child in sorted(root.iterdir()):
+        if child.is_dir() and not child.name.startswith("."):
+            cand = child / "data" / "raw_data"
+            if cand.is_dir():
+                return cand
+            if (child / "clean").is_dir():
+                return child
+    return None
+
+
+def parse_transfertod(source: Path, target_dir: Path) -> bool:
+    """
+    解析 TransferTOD 数据集，将 raw_data/clean|noise 整理到 target_dir。
+
+    source 可以是：
+      - git clone 目录（TransferTOD/，包含 data/raw_data/clean 等）
+      - ZIP 文件
+    """
+    with tempfile.TemporaryDirectory(prefix="transfertod_extract_") as tmp_str:
+        tmp_dir = Path(tmp_str)
+        source = _extract_zip_if_needed(source, tmp_dir)
+        if not source.exists():
+            logger.error(f"源路径不存在: {source}")
+            return False
+
+        raw_data_dir = _find_transfertod_raw_data(source)
+        if raw_data_dir is None:
+            logger.error(
+                f"在 {source} 下未找到 TransferTOD raw_data 目录。\n"
+                f"请确认 source 指向 TransferTOD repo 根目录，或其 data/ 子目录。"
+            )
+            return False
+
+        logger.info(f"  TransferTOD raw_data 目录: {raw_data_dir}")
+
+        target_raw_data = target_dir / "data" / "raw_data"
+        target_raw_data.mkdir(parents=True, exist_ok=True)
+
+        ok = False
+        for data_type in ("clean", "noise"):
+            src_type_dir = raw_data_dir / data_type
+            if not src_type_dir.exists():
+                logger.warning(f"  {data_type}/ 不存在，跳过")
+                continue
+            dst_type_dir = target_raw_data / data_type
+            logger.info(f"  复制 {data_type}/ ...")
+            _copy_tree(src_type_dir, dst_type_dir)
+            domain_dirs = [d for d in dst_type_dir.iterdir() if d.is_dir()]
+            json_files = list(dst_type_dir.rglob("*.json"))
+            logger.info(f"    域目录数: {len(domain_dirs)}, JSON 文件数: {len(json_files)}")
+            ok = True
+
+    if ok:
+        logger.info(f"✅ TransferTOD 解析完成，目标目录: {target_dir}")
+    else:
+        logger.error("未找到任何 clean/noise 子目录。")
     return ok
 
 
@@ -308,9 +641,7 @@ def verify_transfertod(data_root: Path) -> bool:
     raw_data_path = data_root / "data" / "raw_data"
     if not raw_data_path.exists():
         print(f"❌ TransferTOD 数据目录不存在: {raw_data_path}")
-        print(f"   期望结构: {data_root}/data/raw_data/clean/<domain>/*.json")
-        print(f"   请参考下方说明下载数据集:")
-        print(TRANSFERTOD_README)
+        print("   请先运行: python benchmark/prepare_datasets.py --dataset transfertod --source <path> --parse")
         return False
 
     ok = True
@@ -325,7 +656,6 @@ def verify_transfertod(data_root: Path) -> bool:
             ok = False
             continue
 
-        # 验证第一个文件格式
         with open(json_files[0], encoding="utf-8") as f:
             sample = json.load(f)
         if isinstance(sample, list) and sample:
@@ -336,6 +666,13 @@ def verify_transfertod(data_root: Path) -> bool:
                 print(f"❌ {json_files[0]}: 条目缺少字段 {missing}")
                 ok = False
             else:
+                # 验证 content 中的轮次格式
+                first_turn = first["content"][0] if first.get("content") else {}
+                turn_keys = set(first_turn.keys())
+                expected_turn_keys = {"Turn", "origin_slots", "new_slots", "conversations"}
+                missing_turn = expected_turn_keys - turn_keys
+                if missing_turn:
+                    print(f"⚠️  {json_files[0]}: 轮次条目缺少字段 {missing_turn}")
                 print(f"✅ {data_type}/: {len(json_files)} 个文件，"
                       f"样本 id={first['id']}, task={first['task']!r}")
         else:
@@ -351,7 +688,7 @@ def verify_transfertod(data_root: Path) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="ContextMind Benchmark 数据集下载与验证工具",
+        description="ContextMind Benchmark 数据集解析与验证工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -362,29 +699,63 @@ def main():
         help="要操作的数据集（默认: all）",
     )
     parser.add_argument(
+        "--parse",
+        action="store_true",
+        help=(
+            "解析模式：读取 --source 指定的原始下载目录，"
+            "自动检测结构并整理到标准目标路径。"
+        ),
+    )
+    parser.add_argument(
+        "--source", "-s",
+        default=None,
+        help=(
+            "原始数据源路径（--parse 时必须提供）。"
+            "可以是 git clone 目录或 ZIP 文件路径。"
+        ),
+    )
+    parser.add_argument(
         "--verify",
         action="store_true",
-        default=True,
-        help="验证数据集目录结构和文件格式（默认开启）",
+        help="验证已整理的数据集目录结构和文件格式。",
     )
     parser.add_argument(
         "--info",
         action="store_true",
-        help="打印数据集下载说明",
+        help="打印数据集格式说明。",
     )
     parser.add_argument(
-        "--data-root",
+        "--output", "--data-root",
         default=None,
-        help="数据集根目录（不指定则使用 resources/dataset/<DatasetName> 默认路径）",
+        dest="output",
+        help=(
+            "目标输出目录（不指定则使用默认路径）。"
+            "risawoz 默认: resources/data/，"
+            "sgd/transfertod 默认: resources/dataset/<DatasetName>/。"
+        ),
     )
     args = parser.parse_args()
 
+    # 默认目标路径
+    default_targets = {
+        "risawoz":     PROJECT_ROOT / "resources" / "data",
+        "sgd":         PROJECT_ROOT / "resources" / "dataset" / "SGD",
+        "transfertod": PROJECT_ROOT / "resources" / "dataset" / "TransferTOD",
+    }
+
+    # 如果既没有 --parse 也没有 --verify 也没有 --info，则默认执行 --verify
+    if not args.parse and not args.verify and not args.info:
+        args.verify = True
+
     datasets = ["risawoz", "sgd", "transfertod"] if args.dataset == "all" else [args.dataset]
 
+    all_ok = True
     for ds in datasets:
         print(f"\n{'=' * 60}")
         print(f"  数据集: {ds.upper()}")
         print(f"{'=' * 60}")
+
+        target = Path(args.output) if args.output else default_targets[ds]
 
         if args.info:
             if ds == "risawoz":
@@ -395,15 +766,39 @@ def main():
                 print(TRANSFERTOD_README)
             continue
 
-        if ds == "risawoz":
-            data_root = Path(args.data_root) if args.data_root else PROJECT_ROOT / "resources" / "data"
-            verify_risawoz(data_root)
-        elif ds == "sgd":
-            data_root = Path(args.data_root) if args.data_root else PROJECT_ROOT / "resources" / "dataset" / "SGD"
-            verify_sgd(data_root)
-        elif ds == "transfertod":
-            data_root = Path(args.data_root) if args.data_root else PROJECT_ROOT / "resources" / "dataset" / "TransferTOD"
-            verify_transfertod(data_root)
+        if args.parse:
+            if not args.source:
+                print("❌ --parse 模式必须通过 --source 指定原始数据路径。")
+                all_ok = False
+                continue
+            source = Path(args.source)
+            print(f"解析模式  source={source}  →  target={target}")
+            if ds == "risawoz":
+                ok = parse_risawoz(source, target)
+            elif ds == "sgd":
+                ok = parse_sgd(source, target)
+            elif ds == "transfertod":
+                ok = parse_transfertod(source, target)
+            else:
+                ok = False
+            if not ok:
+                all_ok = False
+            # 解析完后自动验证
+            print("\n--- 验证解析结果 ---")
+
+        if args.verify or args.parse:
+            if ds == "risawoz":
+                ok = verify_risawoz(target)
+            elif ds == "sgd":
+                ok = verify_sgd(target)
+            elif ds == "transfertod":
+                ok = verify_transfertod(target)
+            else:
+                ok = False
+            if not ok:
+                all_ok = False
+
+    sys.exit(0 if all_ok else 1)
 
 
 if __name__ == "__main__":

@@ -53,9 +53,12 @@ DATASET_DEFAULT_ROOT = {
 }
 
 # RiSAWOZ 内置文件的 split → 文件名映射
-# 仅 "test" 分片内置；train/val 需从 RiSAWOZ 官方仓库下载
+# test 分片内置于 resources/data/risawoz_test.json
+# train/val 需通过 prepare_datasets.py --parse 生成
 RISAWOZ_FILE_MAPPING = {
-    "test": "risawoz_test.json",
+    "train": "risawoz_train.json",
+    "val":   "risawoz_val.json",
+    "test":  "risawoz_test.json",
 }
 
 
@@ -185,9 +188,10 @@ def load_dataset(dataset_name: str, data_root: Path, split: str, limit: int | No
         if not dialogue_ids:
             logger.error(
                 f"RiSAWOZ split='{split}' 未找到任何对话。\n"
-                f"内置数据仅包含 split='test'（对应 risawoz_test.json）。\n"
-                f"如需 train/val，请从 https://github.com/terryqj0107/RiSAWOZ 下载完整数据集，"
-                f"并通过 --data-root 和 --file-mapping 参数指定。"
+                f"  - 内置数据仅包含 split='test'（对应 risawoz_test.json）。\n"
+                f"  - 如需 train/val，请先运行:\n"
+                f"      python benchmark/prepare_datasets.py --dataset risawoz \\\n"
+                f"          --source /path/to/RiSAWOZ --parse"
             )
             return []
         if limit is not None:
