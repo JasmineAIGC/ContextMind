@@ -125,6 +125,7 @@ class FnCTODTracker:
         system_instruction: Optional[str] = None,
         scenario_context: str = "",
         config: Optional[LLMConfig] = None,
+        use_native_tools: bool = True,
     ) -> None:
         self._llm_config = config if isinstance(config, LLMConfig) else LLMConfig.from_env()
         adk_model = create_local_adk_model(self._llm_config)
@@ -164,8 +165,9 @@ class FnCTODTracker:
         # (e.g. vLLM started without --enable-auto-tool-choice).
         self._llm_client = AdkLLMClient(config=self._llm_config)
         # True  → try ADK native function calling first
-        # False → permanently use JSON-prompt fallback (set after first tool_choice error)
-        self._use_native_tools: bool = True
+        # False → permanently use JSON-prompt fallback (set after first tool_choice error,
+        #          or when caller explicitly passes use_native_tools=False)
+        self._use_native_tools: bool = use_native_tools
         # Cached fallback system prompt (built lazily on first use)
         self._fallback_system_prompt: Optional[str] = None
 
@@ -196,6 +198,8 @@ class FnCTODTracker:
         # 过滤掉本类构造函数不认识的参数，保持接口宽容
         kwargs.pop("use_two_stage", None)
         kwargs.pop("max_history_turns", None)
+        # use_native_tools: 允许调用方显式禁用原生函数调用（适用于 vLLM 未启用 --enable-auto-tool-choice）
+        use_native_tools: bool = kwargs.pop("use_native_tools", True)
         # 业务场景背景（可选，注入到系统指令中让 LLM 了解对话场景）
         scenario_context = kwargs.pop("scenario_context", "")
         # 若调用方未显式传入 scenario_context，且也未传入 system_instruction，
@@ -223,6 +227,7 @@ class FnCTODTracker:
             kwargs["config"] = config
         if scenario_context:
             kwargs["scenario_context"] = scenario_context
+        kwargs["use_native_tools"] = use_native_tools
         return cls(function_manager=fm, **kwargs)
 
     async def _get_or_create_session(self) -> str:
@@ -246,6 +251,20 @@ class FnCTODTracker:
         self.turn_count = 0
         self._session_id = None
         self.last_turn_updates = {}
+
+    @property
+    def current_system_prompt(self) -> str:
+        """返回当前实际使用的系统提示词。
+
+        原生函数调用模式下返回 :attr:`system_instruction`（ADK 指令）；
+        JSON 备用模式下返回 ``_fallback_system_prompt``（``<SLOTS>`` 格式）。
+        用于在 trace 报告中记录真实的 LLM 输入上下文。
+        """
+        if not self._use_native_tools:
+            if self._fallback_system_prompt is None:
+                self._fallback_system_prompt = self._build_fallback_system_prompt()
+            return self._fallback_system_prompt
+        return self.system_instruction
 
     def _build_fallback_system_prompt(self) -> str:
         """构建无需原生函数调用的槽位提取系统提示词。

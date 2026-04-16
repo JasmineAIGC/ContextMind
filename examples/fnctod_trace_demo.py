@@ -105,7 +105,8 @@ def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
 
 
 async def run_trace(session: Dict[str, Any], verbose: bool = False,
-                    domain_spec: Optional[DomainSpec] = None) -> Dict[str, Any]:
+                    domain_spec: Optional[DomainSpec] = None,
+                    use_native_tools: bool = True) -> Dict[str, Any]:
     """运行单条会话的 FnCTOD 追踪，返回结构化结果（含每步完整 I/O）。
 
     追踪格式与 pytod_trace_demo.py 对齐：每轮包含原始对话（坐席先说，用户后说）、
@@ -157,21 +158,17 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
     if llm_available:
         agent = FnCTODTracker(function_manager=fm, config=config,
-                              scenario_context=scenario_context)
+                              scenario_context=scenario_context,
+                              use_native_tools=use_native_tools)
         prev_state: Dict[str, Any] = {}
         n_turns = len(paired_turns)
         for idx, (utt, preceding_agent, following_agent) in enumerate(paired_turns):
             print(f"  → 处理第 {idx + 1}/{n_turns} 轮...", flush=True)
-            # 捕获本轮 LLM 输入上下文（system + 历史对话 + 当前用户发言）
+            # 捕获本轮历史（process_turn 之前）用于 llm_input_messages
             # effective_user_content 反映实际发送给 LLM 的完整对话对（坐席+用户）
             hist_before = list(getattr(agent, "_dialogue_history", []))
             effective_user_content = (
                 f"坐席: {preceding_agent}\n用户: {utt}" if preceding_agent else utt
-            )
-            llm_input_messages = (
-                [{"role": "system", "content": agent.system_instruction}]
-                + hist_before
-                + [{"role": "user", "content": effective_user_content}]
             )
             try:
                 result = await asyncio.wait_for(
@@ -192,6 +189,14 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                     "updates": {},
                 }
                 print(f"  ⚠️  第 {idx + 1} 轮 LLM 调用失败: {exc}", flush=True)
+
+            # 使用 process_turn 执行后的实际系统提示词（原生模式 or JSON 备用模式），
+            # 确保 llm_input_messages 与实际 LLM 调用一致（特别是 turn 1 fallback 时）。
+            llm_input_messages = (
+                [{"role": "system", "content": agent.current_system_prompt}]
+                + hist_before
+                + [{"role": "user", "content": effective_user_content}]
+            )
 
             response_text = result.get("response", "")
             new_state: Dict[str, Any] = result.get("state", {})
@@ -411,6 +416,11 @@ def main() -> None:
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--output", type=str, default=None,
                         help="Markdown 输出路径（默认 output/fnctod_trace_output.md）")
+    parser.add_argument(
+        "--json-mode", action="store_true",
+        help="跳过原生函数调用，直接使用 JSON 提示词备用模式（适用于 vLLM 未启用 "
+             "--enable-auto-tool-choice 的场景，避免第 1 轮 tool_choice 报错）",
+    )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--schema", type=str, default=None,
@@ -453,7 +463,8 @@ def main() -> None:
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
     print("正在执行 FnCTOD 追踪（每轮 LLM 调用超时 120s）...", flush=True)
 
-    trace = asyncio.run(run_trace(session, verbose=args.verbose, domain_spec=domain_spec))
+    trace = asyncio.run(run_trace(session, verbose=args.verbose, domain_spec=domain_spec,
+                                  use_native_tools=not args.json_mode))
     print("✓ 追踪完成", flush=True)
 
     # 输出路径
