@@ -206,28 +206,39 @@ def _score_intents_for_query(
     query_text: str,
     top_k: int,
     already_called_names: Optional[Set[str]] = None,
+    call_history: Optional[List[str]] = None,
 ) -> List[str]:
-    """多信号 TF-IDF 风格意图评分，返回最相关的 top-K 意图名称。
+    """多信号 BM25 + 对话流感知意图评分，返回最相关的 top-K 意图名称。
 
-    相比简单词袋方案的核心改进：
+    评分体系由四类信号融合而成：
 
-    1. **停用词过滤**：剔除中英文功能词（"我"、"的"、"is"、"a" 等），仅保留
-       有语义内容的词，大幅降低噪音。
-    2. **标识符分解**：将 snake_case / camelCase API 名拆分为语义子词（如
-       "query_balance" → {"query", "balance"}），解决中文查询无法直接匹配
-       英文 API 名的跨语言匹配问题。
-    3. **分字段加权**：函数名命中（×3.0）> 描述命中（×2.0）> 槽位名命中（×1.5），
-       反映了各字段的语义密度差异。
-    4. **IDF 权重**：对所有意图文档统计词频，计算 IDF（log((N+1)/(df+1))+1），
-       使稀有词（高区分度）得分更高，普遍词（低区分度）得分更低，与 BM25 原理一致。
-    5. **已调用意图惩罚**：已成功调用的 API 得分乘以惩罚系数（默认 0.2），避免
-       在 prior_dataflow 中已有结果的 API 占用 prompt 空间，但不完全排除（允许重试）。
+    1. **BM25 词汇分**（主信号）：替代原 TF-IDF，引入词频饱和（k1）与
+       文档长度归一化（b）。由于 field_tokens 使用 Set 存储（TF=0/1），
+       BM25 公式简化为：
+       ``tf_weight = (k1+1) / (k1*(1-b+b*|D|/avg_dl) + 1)``
+       相比原 TF-IDF，对描述长度差异大的 API 集合评分更公平。
+
+    2. **依赖就绪加成**（乘法因子）：基于 schema 中 intent 的 ``result_slots``
+       字段，推断 API 调用依赖链。若某 intent 的所有 ``required_slots`` 都已
+       被先前调用的 API 输出覆盖（``result_slots`` 包含），则该 intent 获得
+       2× 加成（部分覆盖 1.3×）。这捕获了对话中「API A 的输出是 API B 的
+       输入」这类链式依赖，是纯词汇匹配无法感知的对话流信号。
+
+    3. **槽位提及加成**（乘法因子）：若当前查询文本中已明确提及某 intent 的
+       必填槽位名称（标识符分解后的 token），说明用户正在讨论与该 API 相关的
+       信息，给予最高 1.5× 的平滑加成（按覆盖比例线性插值）。
+
+    4. **已调用惩罚**：已成功调用的 API 得分乘以 0.2，避免占用 prompt 空间，
+       但不完全排除（保留重试能力）。
 
     Args:
         intents:              所有注册意图列表（来自 ServiceSchema.intents）。
         query_text:           搜索查询文本（当前话语 + 近期历史拼接）。
         top_k:                最多返回的意图数量。
-        already_called_names: 本对话中已成功调用过的 API 函数名集合，用于降权。
+        already_called_names: 本对话中已成功调用过的 API 函数名集合，用于降权
+                              和依赖就绪分析。
+        call_history:         有序的 API 调用历史列表（按调用顺序排列），
+                              保留供未来扩展（如马尔可夫转移概率）；当前未使用。
 
     Returns:
         长度 ≤ top_k 的意图名称列表，按相关性降序排列。
@@ -249,7 +260,7 @@ def _score_intents_for_query(
         intent.name: _build_intent_tokens(intent) for intent in intents
     }
 
-    # ── 3. 计算 IDF（基于所有意图文档的词频统计）────────────────────────
+    # ── 3. IDF 计算（基于所有意图文档的词频统计）────────────────────────
     term_doc_freq: Dict[str, int] = {}
     for fields in intent_fields.values():
         all_tokens = fields["name"] | fields["desc"] | fields["slots"]
@@ -262,24 +273,83 @@ def _score_intents_for_query(
         for t, df in term_doc_freq.items()
     }
 
-    # ── 4. 计算每个意图的综合得分 ─────────────────────────────────────────
-    # 字段权重：函数名 > 描述 > 槽位名
+    # ── 4. BM25 参数与字段平均长度（用于长度归一化）────────────────────
+    # 标准 BM25 参数：k1 控制词频饱和，b 控制文档长度归一化强度
+    _BM25_K1 = 1.5
+    _BM25_B = 0.75
+    # 字段权重：函数名 > 描述 > 槽位名（反映语义密度差异）
     _FIELD_WEIGHTS = {"name": 3.0, "desc": 2.0, "slots": 1.5}
-    # 已调用意图的得分惩罚系数（保留召回但降低优先级）
-    _CALLED_PENALTY = 0.2
+    # 计算每个字段的平均 token 数（BM25 长度归一化分母）
+    avg_field_lens: Dict[str, float] = {}
+    for field_name in _FIELD_WEIGHTS:
+        total_len = sum(len(intent_fields[i.name][field_name]) for i in intents)
+        avg_field_lens[field_name] = max(total_len / n, 1.0)
 
+    # ── 5. 依赖就绪分析：收集已调用 API 的输出字段集合 ──────────────────
+    # 若 intent_B 的 required_slots 已被已调用 API 的 result_slots 覆盖，
+    # 则 intent_B 的所需输入已就绪，给予加成。
+    intent_map: Dict[str, "IntentDefinition"] = {i.name: i for i in intents}
+    available_result_slots: Set[str] = set()
+    for called_name in already_called:
+        called_intent = intent_map.get(called_name)
+        if called_intent:
+            available_result_slots.update(called_intent.result_slots)
+
+    # ── 6. 评分常量 ──────────────────────────────────────────────────────
+    _CALLED_PENALTY = 0.2       # 已调用意图的得分惩罚（保留重试能力）
+    _DEP_FULL_BOOST = 2.0       # 所有 required_slots 已由先前 API 输出覆盖
+    _DEP_PARTIAL_BOOST = 1.3    # 部分 required_slots 已覆盖
+    _READINESS_MAX_BOOST = 0.5  # 槽位提及加成最大幅度（最终因子 = 1.0 + 0~0.5）
+
+    # ── 7. 综合评分 ───────────────────────────────────────────────────────
     scores: List[Tuple[float, str]] = []
     for intent in intents:
         fields = intent_fields[intent.name]
-        score = 0.0
+
+        # 7a. BM25 词汇分（替代原 TF-IDF）
+        bm25_score = 0.0
         for field, weight in _FIELD_WEIGHTS.items():
-            matched_tokens = query_tokens & fields[field]
-            # 分字段 IDF 加权求和
-            field_score = sum(idf.get(t, 1.0) for t in matched_tokens) * weight
-            score += field_score
-        # 已调用意图降权
+            field_tokens = fields[field]
+            field_len = len(field_tokens)
+            avg_dl = avg_field_lens[field]
+            # BM25 with binary TF（field_tokens 为 Set，TF=0/1）:
+            # tf_weight = (k1+1) / (k1*(1-b+b*|D|/avg_dl) + 1)
+            norm = _BM25_K1 * (1.0 - _BM25_B + _BM25_B * field_len / avg_dl)
+            tf_weight = (_BM25_K1 + 1.0) / (norm + 1.0)
+            matched_tokens = query_tokens & field_tokens
+            field_score = sum(idf.get(t, 1.0) * tf_weight for t in matched_tokens) * weight
+            bm25_score += field_score
+
+        # 7b. 依赖就绪加成：required_slots 已被先前 API 输出覆盖
+        required = set(intent.required_slots)
+        if required:
+            covered = required & available_result_slots
+            if covered == required:
+                dep_factor = _DEP_FULL_BOOST
+            elif covered:
+                dep_factor = _DEP_PARTIAL_BOOST
+            else:
+                dep_factor = 1.0
+        else:
+            dep_factor = 1.0
+
+        # 7c. 槽位提及加成：query 中出现了此 intent 的 required_slot 名称 token
+        required_slot_tokens: Set[str] = set()
+        for slot in intent.required_slots:
+            required_slot_tokens.update(_split_identifier(slot))
+        if required_slot_tokens:
+            mentioned = len(query_tokens & required_slot_tokens)
+            readiness_factor = 1.0 + _READINESS_MAX_BOOST * mentioned / len(required_slot_tokens)
+        else:
+            readiness_factor = 1.0
+
+        # 7d. 融合得分
+        score = bm25_score * dep_factor * readiness_factor
+
+        # 7e. 已调用惩罚（最后施加，保证惩罚后仍可召回）
         if intent.name in already_called:
             score *= _CALLED_PENALTY
+
         scores.append((score, intent.name))
 
     scores.sort(key=lambda x: -x[0])
@@ -768,7 +838,7 @@ class AdkPyTODTracker:
             if not k.startswith("_anon")
         }
 
-        # top-K 意图检索：当 top_k_intents > 0 时，对所有意图做多信号 TF-IDF 打分，
+        # top-K 意图检索：当 top_k_intents > 0 时，对所有意图做多信号 BM25 打分，
         # 只把最相关的 top_k_intents 个 API 放入本轮 AP prompt。
         # top_k_intents == 0 时保持原有全量行为。
         relevant_intent_names: Optional[List[str]] = None
@@ -786,17 +856,25 @@ class AdkPyTODTracker:
                         break
             query_text = " ".join(query_parts)
 
-            # ── 提取已调用 API 名称（用于已调用意图降权）──────────────────
+            # ── 提取已调用 API 名称（用于已调用意图降权 + 依赖就绪分析）────
             # var_call_sources: {"x1": "query_balance(account='123')", ...}
             already_called: Set[str] = set()
-            for call_str in self.var_call_sources.values():
-                m = re.match(r"^([A-Za-z_]\w*)\s*\(", call_str)
+            call_history_ordered: List[str] = []
+            for var_name in sorted(
+                self.var_call_sources.keys(),
+                key=lambda v: int(v[1:]) if len(v) > 1 and v[1:].isdigit() else 0,
+            ):
+                m = re.match(r"^([A-Za-z_]\w*)\s*\(", self.var_call_sources[var_name])
                 if m:
-                    already_called.add(m.group(1))
+                    func = m.group(1)
+                    already_called.add(func)
+                    if func not in call_history_ordered:
+                        call_history_ordered.append(func)
 
             relevant_intent_names = _score_intents_for_query(
                 self.schema.intents, query_text, self.top_k_intents,
                 already_called_names=already_called,
+                call_history=call_history_ordered,
             )
             logger.debug(
                 f"[AP top-K] 查询={query_text[:80]!r} | "
