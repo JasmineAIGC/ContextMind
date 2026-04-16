@@ -452,5 +452,5 @@ Evolve模式是基于AlphaEvolve和ThetaEvolve算法的先进对话系统，通�
 ## 参考资料
 
 - [ThetaEvolve 论文：ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473)
-- [评测指标说明](../benchmark.md)
-- [API 参考](../api-reference.md)
+- [评测指标说明](../reference/benchmark.md)
+- [API 参考](../reference/api-reference.md)

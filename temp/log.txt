@@ -1,992 +1,411 @@
 
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
+python examples/build_schema_data.py --with-llm --kb-dir output/step1_kb_output/ --verbose --generate-report --generator alpha
+🔍 详细输出模式已开启 — 底层阶段日志将实时打印到终端
 
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
 
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
+Provider List: https://docs.litellm.ai/docs/providers
 
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
 
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 10000:
-        handling_priority = "中"
+Provider List: https://docs.litellm.ai/docs/providers
 
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
+[2026-04-08 16:24:09] INFO - [contextmind.infra.llm_client] [AdkLLMClient] 初始化完成，model=Qwen3-32B
+🤖 LLM 模式已启用  生成器: alpha（ACIA：反思 + 骨架约束 + 失败分析 + 收敛重启）
+   数据来源:
+     ● 对话样本: 未指定（可用 --dialogue-data 提供）
+     ● KB 目录 (step1_kb_output): discovery_raw.json, conversion_summary.json
+     ● KB 对话: output/step1_kb_output/dialogues_001.json
+   生成参数: 最大迭代 10 轮 | 通过率阈值 90% | 每意图 10 条测试用例
 
-[2026-04-03 11:51:54] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 4 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:52:06] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 4 轮后 通过率: 80.0% (8/10)
+💡 自动从 --kb-dir 检测到 schema: output/step1_kb_output/schema.json
+📋 处理 schema: output/step1_kb_output/schema.json（服务: AnYiHua_OutboundCall，253 个意图，193 个槽位）
+💡 提示：KB 共发现 254 个意图，但 schema.json 中仅有 253 个。如需完整覆盖，请重新运行 KB 构建步骤（build_kb.py）以生成包含全部意图的 schema.json。
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.builder] [SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] Phase 1 完成 — 服务: AnYiHua_OutboundCall, 意图数: 253, 模式: ACIA (LLM)
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] kb_dir: 使用 dialogues_001.json → output/step1_kb_output/dialogues_001.json
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] kb_dir: 使用 discovery_raw.json → output/step1_kb_output/discovery_raw.json
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] kb_dir: 使用 conversion_summary.json → output/step1_kb_output/conversion_summary.json
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] 对话数据(SGD): 从 dialogues_001.json 加载 3 条样本
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] 对话提示已构建（2176 字符），注入 Phase 2 测试用例生成
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] 开始逐函数 ACIA 合成（共 253 个意图）...
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 1/253: confirm_account_details ──────────────
 ──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 4 轮修复后代码（通过率: 80.0% 8/10）
+  [ACIA] 函数 1/253: confirm_account_details
 ──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 10000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "低"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:52:06] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 5 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:52:17] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 5 轮后 通过率: 80.0% (8/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 5 轮修复后代码（通过率: 80.0% 8/10）
-──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 10000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "低"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:52:17] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 6 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:52:29] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 6 轮后 通过率: 80.0% (8/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 6 轮修复后代码（通过率: 80.0% 8/10）
-──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 10000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "低"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:52:29] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 7 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:52:41] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 7 轮后 通过率: 80.0% (8/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 7 轮修复后代码（通过率: 80.0% 8/10）
-──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 10000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "低"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:52:41] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 8 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:52:52] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 8 轮后 通过率: 80.0% (8/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 8 轮修复后代码（通过率: 80.0% 8/10）
-──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "中"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:52:52] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 9 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:53:03] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 9 轮后 通过率: 80.0% (8/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 9 轮修复后代码（通过率: 80.0% 8/10）
-──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit)
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "中"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:53:03] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details — 第 10 轮修复（通过率 80.0% < 阈值 90.0%）...
-[2026-04-03 11:53:14] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: confirm_account_details 第 10 轮后 通过率: 80.0% (8/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — confirm_account_details 第 10 轮修复后代码（通过率: 80.0% 8/10）
-──────────────────────────────────────────────────────────────────────
-def confirm_account_details(credit_limit=None, credit_limit_status=None):
-    """工作人员意图确认账户额度和利息信息"""
-    """工作人员意图确认账户额度和利息信息"""
-    # 业务语义理解：确认账户详情 = 解析额度信息并评估账户状态
-    # 核心逻辑：根据信用额度金额和状态，计算风险等级和处理优先级
-    # 风险等级：基于账户状态判断（正常/低/中/高）
-    # 处理优先级：基于额度金额判断（低/中/高）
-
-    # 解析信用额度
-    parsed_limit = _parse_amount(credit_limit) if credit_limit else 0.0
-
-    # 风险等级计算
-    status = str(credit_limit_status or "").strip()
-    risk_level = "正常"
-
-    # 识别逾期状态
-    if any(x in status for x in ["逾期", "拖欠", "未还", "欠款"]):
-        overdue_days = int(''.join(filter(str.isdigit, status))) if any(c.isdigit() for c in status) else 0
-        if overdue_days >= 90:
-            risk_level = "高"
-        elif overdue_days >= 30:
-            risk_level = "中"
-        else:
-            risk_level = "低"
-    elif "正常还款" in status:
-        risk_level = "低"
-    elif "冻结" in status or "异常" in status:
-        risk_level = "高"
-    elif "待还款" in status:
-        risk_level = "中"
-
-    # 处理优先级计算
-    handling_priority = "低"
-    if parsed_limit >= 200000:
-        handling_priority = "高"
-    elif parsed_limit >= 100000:
-        handling_priority = "中"
-    elif parsed_limit >= 5000:
-        handling_priority = "中"
-
-    return {
-        "credit_limit": credit_limit or "未提供",
-        "credit_limit_status": credit_limit_status or "未知",
-        "confirmed_limit": parsed_limit,
-        "is_temporary": bool(credit_limit_status and "临时" in credit_limit_status),
-        "risk_level": risk_level,
-        "handling_priority": handling_priority,
-        "status": "success",
-    }
-
-[2026-04-03 11:53:14] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   ⚠️  confirm_account_details 完成 — 通过率 80.0% (8/10)，迭代 10 轮
-[2026-04-03 11:53:14] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD] ── 函数 2/253: deny_borrowing ──────────────
-──────────────────────────────────────────────────────────────────────
-  函数 2/253: deny_borrowing
-──────────────────────────────────────────────────────────────────────
-[2026-04-03 11:53:14] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 2: deny_borrowing — 生成测试用例 ...
-[2026-04-03 11:53:41] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] deny_borrowing: 生成 10 条测试用例
-[2026-04-03 11:53:41] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 2 完成: deny_borrowing — 10 条测试用例
+[2026-04-08 16:24:10] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: confirm_account_details — 生成测试用例...
+[2026-04-08 16:24:33] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] confirm_account_details: 生成 10 条测试用例
+[2026-04-08 16:24:33] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: confirm_account_details — 10 条测试用例
   📌 测试用例（10 条）:
-    用例 #1 [对话早期，接通后第3轮触发。用户刚否认借款行为，此前已确认身份，用户表示‘我有借款我有借款但是都还掉了呀’，当前意图是deny_borrowing。仅提供loan_date槽位，用户尚未提及具体金额。]
-      input_slots  : {'loan_date': '二五年五月份'}
-      expected_keys: ['status']
-    用例 #2 [对话中期，接通后第5轮触发。此前调用verify_identity确认身份，inquire_credit返回额度21900元，用户当前否认借款行为。loan_date和loan_amount来自用户自述，表示‘您当时借款了六百块钱，然后您这边就是还款的时候嘛，就是逾期了几天的样子’。]
-      input_slots  : {'loan_date': '2025年5月', 'loan_amount': '600元'}
-      expected_keys: ['status']
-    用例 #3 [对话完整，接通后第6轮触发。用户已完整提供loan_date和loan_amount，此前已确认身份并告知额度。用户明确否认借款行为，表示‘我有借款我有借款但是都还掉了呀’，系统需记录并标记为否认借款。]
-      input_slots  : {'loan_date': '2025年5月', 'loan_amount': '600元'}
-      expected_keys: ['status']
-      expected_vals: {'handling_status': '已确认否认借款行为', 'next_step': '记录用户否认借款并建议后续跟进'}
-    用例 #4 [跨意图上下文依赖，接通后第5轮触发。loan_amount来自前序inquire_credit API返回的借款记录，用户当前否认该笔借款。系统需将该金额作为上下文输入当前意图函数。]
-      input_slots  : {'loan_amount': '600元'}
-      expected_keys: ['status']
-    用例 #5 [边界/高价值业务场景，用户否认一笔高额贷款（10000元），贷款时间为2024年3月。高额贷款可能涉及欺诈或账户异常，需标记为高风险并加快处理。]
-      input_slots  : {'loan_date': '2024年3月', 'loan_amount': '10000元'}
-      expected_keys: ['status']
-      expected_vals: {'severity': '高', 'handling_days': 3}
-    用例 #6 [对话早期，接通后第2轮触发。用户刚否认借款行为，仅提供loan_date，未提及金额。此前已确认身份，用户表示‘我最近没贷过款’。]
-      input_slots  : {'loan_date': '2024年12月'}
-      expected_keys: ['status']
-    用例 #7 [对话中期，接通后第4轮触发。此前调用inquire_loan返回一笔2000元贷款记录，用户当前否认该笔借款。系统需将loan_date和loan_amount作为输入。]
-      input_slots  : {'loan_date': '2024年12月', 'loan_amount': '2000元'}
-      expected_keys: ['status']
-    用例 #8 [对话完整，接通后第6轮触发。用户否认一笔2000元贷款，贷款时间为2024年12月。系统需记录用户否认行为并建议人工介入。]
-      input_slots  : {'loan_date': '2024年12月', 'loan_amount': '2000元'}
-      expected_keys: ['status']
-      expected_vals: {'handling_status': '用户否认借款，需进一步核实', 'next_step': '建议人工介入核实借款记录'}
-    用例 #9 [跨意图上下文依赖，接通后第4轮触发。loan_amount来自前序inquire_loan API返回的借款记录，用户当前否认该笔借款。系统需将该金额作为上下文输入当前意图函数。]
-      input_slots  : {'loan_amount': '2000元'}
-      expected_keys: ['status']
-    用例 #10 [边界/高价值业务场景，用户否认一笔50000元贷款，贷款时间为2023年9月。高额贷款可能涉及账户异常或欺诈行为，需标记为高风险并优先处理。]
-      input_slots  : {'loan_date': '2023年9月', 'loan_amount': '50000元'}
-      expected_keys: ['status']
-      expected_vals: {'severity': '高', 'handling_days': 2}
+    用例 #1 [对话早期（第3轮），来电刚完成身份确认，用户表示对贷款有疑问，工作人员询问当前额度，用户回应额度为两万一千九百元。当前仅提供 credit_limit，credit_limit_status 未知。]: {'credit_limit': '两万一千九百块钱'}
+    用例 #2 [对话中期（第5轮），前序调用 verify_identity（身份确认）和 inquire_credit（额度查询），返回额度为三万一千两百元且为临时提高状态。用户当前对还款流程表示不满，工作人员确认账户详情。]: {'credit_limit': '三万一千两百元', 'credit_limit_status': '临时提高'}
+    用例 #3 [对话完整（第7轮），用户已确认身份、了解当前额度、并讨论了贷款申请。所有关键信息已收集完毕，工作人员确认账户详情，当前额度为四万九千五百元，且为临时提高状态。]: {'credit_limit': '四万九千五百元', 'credit_limit_status': '临时提高'}
+    用例 #4 [跨意图上下文依赖（第6轮），前序调用 apply_loan 返回最大可申请额度为二十万元，工作人员在确认账户详情时引用此值。credit_limit_status 为正常，表示当前额度无异常。]: {'credit_limit': '二十万元', 'credit_limit_status': '正常'}
+    用例 #5 [边界/高价值业务场景（高额贷款），用户当前信用额度为二十万元，且为临时提高状态，属于高价值客户。工作人员需确认其账户详情，以引导其申请高额贷款。]: {'credit_limit': '二十万元', 'credit_limit_status': '临时提高'}
+    用例 #6 [对话早期（第3轮），用户刚表明对贷款有疑问，工作人员询问当前额度，用户回应为六百块钱。当前仅提供 credit_limit，credit_limit_status 未知。]: {'credit_limit': '六百块钱'}
+    用例 #7 [对话中期（第5轮），前序调用 verify_identity（身份确认）和 inquire_unauthorized_loan（异常贷款查询），发现用户存在异常贷款记录，工作人员确认账户详情时发现当前额度为一万三千多，状态异常。]: {'credit_limit': '一万三千多块钱', 'credit_limit_status': '异常'}
+    用例 #8 [对话完整（第7轮），用户已确认身份、了解当前额度、并讨论了贷款申请。所有关键信息已收集完毕，工作人员确认账户详情，当前额度为九百多块钱，状态正常。]: {'credit_limit': '九百多块钱', 'credit_limit_status': '正常'}
+    用例 #9 [跨意图上下文依赖（第6轮），前序调用 apply_loan 返回最大可申请额度为二十万元，但 credit_limit_status 为冻结，工作人员在确认账户详情时引用此值，需提醒用户账户状态异常。]: {'credit_limit': '二十万元', 'credit_limit_status': '冻结'}
+    用例 #10 [边界/高价值业务场景（账户冻结），用户当前信用额度为二十万元，但状态为冻结，属于高价值但异常账户。工作人员需确认其账户详情，并提示账户状态异常。]: {'credit_limit': '二十万元', 'credit_limit_status': '冻结'}
 
-[2026-04-03 11:53:41] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 3: deny_borrowing — LLM 生成函数体 ...
+[2026-04-08 16:24:33] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: confirm_account_details — 业务反思...
+[2026-04-08 16:24:37] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: confirm_account_details — 反思完成
+[2026-04-08 16:24:37] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: confirm_account_details — 骨架约束生成...
+[2026-04-08 16:24:39] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: confirm_account_details — 通过率 100.0% (10/10)
 ──────────────────────────────────────────────────────────────────────
-  Phase 3 — deny_borrowing 初始函数代码
+  [ACIA] confirm_account_details 最终代码（通过率: 100.0% 10/10）
 ──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    # 用户否认有借款行为或当前有借款记录——记录否认行为及背景信息，便于后续跟进
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-    # 推断用户否认借款的可能原因：是否涉及金额不符、时间不符或完全否认
-    denial_type = "金额不符" if amount > 0 else "时间不符" if date else "完全否认"
+def confirm_account_details(credit_limit=None, credit_limit_status=None):
+    """工作人员意图确认账户额度和利息信息"""
+    credit_limit_parsed = _parse_amount(credit_limit)
+    credit_status = credit_limit_status or "未知"
     return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "handling_status": "已确认否认借款行为",
-        "next_step": "记录用户否认借款并建议后续跟进",
+        "confirmed_credit_limit": f"{credit_limit}" if credit_limit else "未知",
+        "credit_status": credit_status,
         "status": "success",
     }
 
-[2026-04-03 11:53:45] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 初始通过率: 70.0% (7/10)
-[2026-04-03 11:53:45] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 1 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:53:54] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 1 轮后 通过率: 70.0% (7/10)
+[2026-04-08 16:24:39] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   ✅ confirm_account_details 完成 — 通过率 100.0% (10/10)，迭代 0 轮
+[2026-04-08 16:24:39] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 2/253: deny_borrowing ──────────────
 ──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 1 轮修复后代码（通过率: 70.0% 7/10）
+  [ACIA] 函数 2/253: deny_borrowing
+──────────────────────────────────────────────────────────────────────
+[2026-04-08 16:24:39] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: deny_borrowing — 生成测试用例...
+[2026-04-08 16:25:01] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] deny_borrowing: 生成 10 条测试用例
+[2026-04-08 16:25:01] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: deny_borrowing — 10 条测试用例
+  📌 测试用例（10 条）:
+    用例 #1 [对话早期，接通后第3轮触发。用户刚否认有借款行为，此前已确认身份，机器人询问贷款情况，用户提到“我有借款我有借款但是都还掉了”，但未提及金额。]: {'loan_date': '二五年五月份'}
+    用例 #2 [对话中期，接通后第5轮触发。此前已调用 verify_identity（返回身份确认）、inquire_credit（返回额度 21900 元），用户当前否认有借款行为，但承认曾借过 600 元并已还清。]: {'loan_date': '二五年五月份', 'loan_amount': '600'}
+    用例 #3 [对话完整，接通后第7轮触发。用户否认当前借款行为，但承认曾在二五年五月份借过 600 元并已还清，所有关键信息已收集完毕。]: {'loan_date': '二五年五月份', 'loan_amount': '600'}
+    用例 #4 [跨意图上下文依赖。loan_date 槽位值来自前序调用 inquire_loan_history 返回的“二五年五月份”。用户当前否认有借款行为，但系统已知其有借款记录。]: {'loan_date': '二五年五月份'}
+    用例 #5 [边界场景，用户否认当前借款行为，但承认曾借过一笔小额贷款并已还清。验证系统是否能正确识别历史借款并标记为非当前借款。]: {'loan_date': '二五年五月份', 'loan_amount': '600'}
+    用例 #6 [边界/高价值业务场景，用户否认当前借款行为，但承认曾在二五年五月份借过 20 万元并已还清。验证系统是否能正确识别高额历史借款并标记为非当前借款。]: {'loan_date': '二五年五月份', 'loan_amount': '200000'}
+    用例 #7 [对话中期，接通后第6轮触发。此前已调用 verify_identity（返回身份确认）、inquire_credit（返回额度 21900 元）、inquire_loan_history（返回贷款记录：二五年五月份借款 600 元）。用户当前否认有借款行为。]: {'loan_date': '二五年五月份', 'loan_amount': '600'}
+    用例 #8 [对话完整，接通后第8轮触发。用户否认当前借款行为，但承认曾在二五年五月份借过 600 元并已还清，所有关键信息已收集完毕。]: {'loan_date': '二五年五月份', 'loan_amount': '600'}
+    用例 #9 [跨意图上下文依赖。loan_date 槽位值来自前序调用 inquire_loan_history 返回的“二五年五月份”。用户当前否认有借款行为，但系统已知其有借款记录。]: {'loan_date': '二五年五月份'}
+    用例 #10 [边界/高价值业务场景，用户否认当前借款行为，但承认曾在二五年五月份借过 20 万元并已还清。验证系统是否能正确识别高额历史借款并标记为非当前借款。]: {'loan_date': '二五年五月份', 'loan_amount': '200000'}
+
+[2026-04-08 16:25:01] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: deny_borrowing — 业务反思...
+[2026-04-08 16:25:06] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: deny_borrowing — 反思完成
+[2026-04-08 16:25:06] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: deny_borrowing — 骨架约束生成...
+[2026-04-08 16:25:09] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: deny_borrowing — 通过率 0.0% (0/10)
+[2026-04-08 16:25:09] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 1 轮: deny_borrowing (通过率 0.0% < 阈值 90.0%)
+[2026-04-08 16:25:15] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 1 轮后: deny_borrowing — 通过率 100.0% (10/10)
+──────────────────────────────────────────────────────────────────────
+  [ACIA] deny_borrowing 最终代码（通过率: 100.0% 10/10）
 ──────────────────────────────────────────────────────────────────────
 def deny_borrowing(loan_date=None, loan_amount=None):
     """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    # 业务语义理解：用户否认借款行为是风险信号，需根据金额和时间判断风险等级
-    # 核心逻辑：1. 计算风险等级 2. 确定处理流程 3. 生成后续动作建议
-
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 风险等级判定（基于金额和时间合理性）
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    severity = "高风险" if is_high_risk else "常规"
-
-    # 处理时效判定
-    handling_days = 1 if is_high_risk else 3
-
-    # 否认类型判定（基于输入信息完整性）
-    denial_type = "金额不符" if amount > 0 else "时间不符" if date else "完全否认"
-
-    # 处理状态和后续动作
-    handling_status = "用户否认借款，需进一步核实"
-    next_step = "建议人工介入核实借款记录" if is_high_risk else "记录用户否认借款并建议后续跟进"
-
+    loan_date_parsed = loan_date if loan_date else "未知"
+    loan_amount_parsed = 0.0 if loan_amount is None else float(loan_amount)
+    loan_status = "已还清"
+    user_borrowing_confirmation = False
     return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
+        "loan_status": loan_status,
+        "user_borrowing_confirmation": user_borrowing_confirmation,
         "status": "success",
     }
 
-[2026-04-03 11:53:54] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 2 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:54:04] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 2 轮后 通过率: 70.0% (7/10)
+[2026-04-08 16:25:15] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   ✅ deny_borrowing 完成 — 通过率 100.0% (10/10)，迭代 1 轮
+[2026-04-08 16:25:15] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 3/253: dispute_loan ──────────────
 ──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 2 轮修复后代码（通过率: 70.0% 7/10）
+  [ACIA] 函数 3/253: dispute_loan
 ──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    # 业务语义理解：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断
-    # 核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案
+[2026-04-08 16:25:15] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: dispute_loan — 生成测试用例...
+[2026-04-08 16:25:43] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] dispute_loan: 生成 10 条测试用例
+[2026-04-08 16:25:43] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: dispute_loan — 10 条测试用例
+  📌 测试用例（10 条）:
+    用例 #1 [对话早期（第2轮），用户刚否认贷款，仅提供了贷款时间。背景：来电已接通并确认用户身份，用户表示对一笔贷款有疑问。]: {'loan_date': '2025年5月份'}
+    用例 #2 [对话早期（第3轮），用户否认贷款，仅提供了贷款金额。背景：用户刚确认身份，表示对一笔600元贷款有疑问。]: {'loan_amount': '600元'}
+    用例 #3 [对话中期（第5轮），用户否认贷款，已提供贷款时间与金额。背景：前序调用 verify_identity 返回身份确认，inquire_credit 返回额度 21900 元，用户现在否认一笔贷款。]: {'loan_date': '2025年5月份', 'loan_amount': '600元'}
+    用例 #4 [跨意图上下文依赖，loan_date 和 loan_amount 来自前序 inquire_loan API 返回的贷款记录。背景：用户否认某笔贷款，槽位值由系统自动填充。]: {'loan_date': '2025年5月份', 'loan_amount': '600元'}
+    用例 #5 [对话完整，用户否认一笔 2025年5月份的 600 元贷款。背景：用户身份已确认，额度已告知，用户否认贷款并提供完整信息。]: {'loan_date': '2025年5月份', 'loan_amount': '600元'}
+    用例 #6 [边界/高价值业务场景，用户否认一笔 13000 元的贷款，金额较高，需特殊处理。背景：用户否认一笔大额贷款，可能涉及欺诈或系统错误。]: {'loan_date': '2024年7月23日', 'loan_amount': '13000元'}
+    用例 #7 [对话中期（第6轮），用户否认一笔 2024年3月的 10000 元贷款。背景：前序调用 verify_identity 返回身份确认，inquire_loan 返回贷款记录，用户现在否认该笔贷款。]: {'loan_date': '2024年3月', 'loan_amount': '10000元'}
+    用例 #8 [对话中期（第4轮），用户否认一笔 2024年8月的 8000 元贷款。背景：前序调用 inquire_loan 返回贷款记录，用户现在否认该笔贷款。]: {'loan_date': '2024年8月', 'loan_amount': '8000元'}
+    用例 #9 [对话完整，用户否认一笔 2025年5月份的 600 元贷款。背景：用户身份已确认，额度已告知，用户否认贷款并提供完整信息。]: {'loan_date': '2025年5月份', 'loan_amount': '600元'}
+    用例 #10 [边界/高价值业务场景，用户否认一笔 13000 元的贷款，金额较高，需特殊处理。背景：用户否认一笔大额贷款，可能涉及欺诈或系统错误。]: {'loan_date': '2024年7月23日', 'loan_amount': '13000元'}
 
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
+[2026-04-08 16:25:43] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: dispute_loan — 业务反思...
+[2026-04-08 16:25:48] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: dispute_loan — 反思完成
+[2026-04-08 16:25:48] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: dispute_loan — 骨架约束生成...
+[2026-04-08 16:25:49] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: dispute_loan — 通过率 0.0% (0/10)
+[2026-04-08 16:25:49] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 1 轮: dispute_loan (通过率 0.0% < 阈值 90.0%)
+[2026-04-08 16:25:55] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 1 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:25:55] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 2 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:01] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 2 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:26:01] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 3 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:07] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 3 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:26:07] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 4 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:07] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ dispute_loan: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:26:14] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: dispute_loan — 通过率 0.0% (0/10)
+[2026-04-08 16:26:14] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 5 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:20] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 5 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:26:20] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 6 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:26] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 6 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:26:26] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 7 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:26] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ dispute_loan: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:26:33] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: dispute_loan — 通过率 0.0% (0/10)
+[2026-04-08 16:26:33] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 8 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:40] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 8 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:26:40] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 9 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:46] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 9 轮后: dispute_loan — 通过率 40.0% (4/10)
+[2026-04-08 16:26:46] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 10 轮: dispute_loan (通过率 40.0% < 阈值 90.0%)
+[2026-04-08 16:26:46] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ dispute_loan: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:26:54] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: dispute_loan — 通过率 60.0% (6/10)
+──────────────────────────────────────────────────────────────────────
+  [ACIA] dispute_loan 最终代码（通过率: 60.0% 6/10）
+──────────────────────────────────────────────────────────────────────
+def dispute_loan(loan_date=None, loan_amount=None):
+    """用户否认进行了某笔贷款"""
+    # 检查用户是否提供了贷款时间或金额
+    has_date = bool(loan_date and str(loan_date).strip())
+    has_amount = bool(loan_amount and str(loan_amount).strip())
 
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
+    # 生成初步处理状态
+    if has_date and has_amount:
+        dispute_status = "已记录"
+        next_step = "人工复核"
+    elif has_date or has_amount:
+        dispute_status = "信息不全"
+        next_step = "补充信息"
     else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    severity = "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = 1 if is_high_risk else 3
-
-    # 处理状态和后续动作
-    handling_status = "已确认否认借款行为"
-    next_step = "建议人工介入核实借款记录" if is_high_risk else "记录用户否认借款并建议后续跟进"
+        dispute_status = "待核实"
+        next_step = "询问贷款详情"
 
     return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
+        "status": "success",
+        "dispute_status": dispute_status,
         "next_step": next_step,
+    }
+
+[2026-04-08 16:26:54] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   ⚠️  dispute_loan 完成 — 通过率 60.0% (6/10)，迭代 10 轮
+[2026-04-08 16:26:54] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 4/253: deny_loan ──────────────
+──────────────────────────────────────────────────────────────────────
+  [ACIA] 函数 4/253: deny_loan
+──────────────────────────────────────────────────────────────────────
+[2026-04-08 16:26:54] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: deny_loan — 生成测试用例...
+[2026-04-08 16:27:14] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] deny_loan: 生成 10 条测试用例
+[2026-04-08 16:27:14] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: deny_loan — 10 条测试用例
+  📌 测试用例（10 条）:
+    用例 #1 [对话早期，接通后第2轮触发。已确认用户身份，用户刚否认借款，仅提供借款时间。]: {'loan_date': '2025年5月份'}
+    用例 #2 [对话中期，第4轮触发。前序已调用 verify_identity（身份确认）和 inquire_credit（额度确认），用户进一步说明借款金额，当前否认该笔贷款。]: {'loan_date': '2025年5月份', 'loan_amount': '600元'}
+    用例 #3 [对话完整，第6轮触发。用户已完整否认一笔贷款，提供贷款时间和金额，系统确认该笔贷款被否认。]: {'loan_date': '2025年5月份', 'loan_amount': '600元'}
+    用例 #4 [跨意图上下文依赖，第3轮触发。loan_date 槽位值来自前序 inquire_unauthorized_loan API 返回的 '2025年5月份'，用户当前否认该笔贷款。]: {'loan_date': '2025年5月份'}
+    用例 #5 [边界/高价值业务场景，用户否认一笔高额贷款（5万元），触发高风险处理流程。]: {'loan_date': '2024年11月份', 'loan_amount': '50000元'}
+    用例 #6 [对话早期，第2轮触发。用户刚否认借款，仅提供借款时间，未提及金额。]: {'loan_date': '2024年10月份'}
+    用例 #7 [对话中期，第5轮触发。前序已调用 verify_identity（身份确认）和 inquire_loan_history（贷款历史确认），用户进一步说明借款金额，当前否认该笔贷款。]: {'loan_date': '2024年10月份', 'loan_amount': '8000元'}
+    用例 #8 [对话完整，第7轮触发。用户已完整否认一笔贷款，提供贷款时间和金额，系统确认该笔贷款被否认。]: {'loan_date': '2024年10月份', 'loan_amount': '8000元'}
+    用例 #9 [跨意图上下文依赖，第4轮触发。loan_date 槽位值来自前序 inquire_loan_status API 返回的 '2024年10月份'，用户当前否认该笔贷款。]: {'loan_date': '2024年10月份'}
+    用例 #10 [边界/高价值业务场景，用户否认一笔高额贷款（10万元），触发高风险处理流程。]: {'loan_date': '2024年9月份', 'loan_amount': '100000元'}
+
+[2026-04-08 16:27:14] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: deny_loan — 业务反思...
+[2026-04-08 16:27:20] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: deny_loan — 反思完成
+[2026-04-08 16:27:20] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: deny_loan — 骨架约束生成...
+[2026-04-08 16:27:25] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: deny_loan — 通过率 80.0% (8/10)
+[2026-04-08 16:27:25] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 1 轮: deny_loan (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:27:34] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 1 轮后: deny_loan — 通过率 60.0% (6/10)
+[2026-04-08 16:27:34] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 2 轮: deny_loan (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:27:44] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 2 轮后: deny_loan — 通过率 60.0% (6/10)
+[2026-04-08 16:27:44] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 3 轮: deny_loan (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:27:44] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ deny_loan: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:27:54] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: deny_loan — 通过率 90.0% (9/10)
+──────────────────────────────────────────────────────────────────────
+  [ACIA] deny_loan 最终代码（通过率: 90.0% 9/10）
+──────────────────────────────────────────────────────────────────────
+def deny_loan(loan_date=None, loan_amount=None):
+    """用户否认在特定日期借款"""
+    loan_denied = bool(loan_date or loan_amount)
+    loan_amount_denied = loan_amount or "未知"
+    loan_date_denied = loan_date or "未知"
+    severity = "高" if _parse_amount(loan_amount) > 50000 else "低" if _parse_amount(loan_amount) > 1000 else "中" if _parse_amount(loan_amount) > 0 else "未知"
+    return {
+        "loan_denied": loan_denied,
+        "loan_amount_denied": loan_amount_denied,
+        "loan_date_denied": loan_date_denied,
+        "severity": severity,
         "status": "success",
     }
 
-[2026-04-03 11:54:04] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 3 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:54:15] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 3 轮后 通过率: 70.0% (7/10)
+[2026-04-08 16:27:54] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   ✅ deny_loan 完成 — 通过率 90.0% (9/10)，迭代 3 轮
+[2026-04-08 16:27:54] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 5/253: inquire_unauthorized_loan ──────────────
 ──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 3 轮修复后代码（通过率: 70.0% 7/10）
+  [ACIA] 函数 5/253: inquire_unauthorized_loan
 ──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    # 业务语义理解：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断
-    # 核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案
+[2026-04-08 16:27:54] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: inquire_unauthorized_loan — 生成测试用例...
+[2026-04-08 16:28:22] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] inquire_unauthorized_loan: 生成 10 条测试用例
+[2026-04-08 16:28:22] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: inquire_unauthorized_loan — 10 条测试用例
+  📌 测试用例（10 条）:
+    用例 #1 [对话早期（第2轮），用户刚质疑存在未经授权的借款记录。已确认用户身份，用户表示对一笔贷款不知情，仅提供了借款时间。当前意图是初步收集贷款时间信息。]: {'loan_date': '二五年五月份'}
+    用例 #2 [对话中期（第5轮），用户已提供贷款时间与金额。前序已调用 verify_identity（身份确认）和 inquire_credit（告知额度），用户现在质疑这笔贷款未经授权。当前意图是确认用户是否认可该笔借款。]: {'loan_date': '2025年5月', 'loan_amount': '600元'}
+    用例 #3 [对话完整（第7轮），用户已完整提供贷款时间与金额。前序已确认身份、告知额度、并引导用户确认贷款记录，用户明确表示该笔贷款未经授权。当前意图是判断该笔贷款是否为用户授权。]: {'loan_date': '2025年5月', 'loan_amount': '600元'}
+    用例 #4 [跨意图上下文依赖，loan_amount 和 loan_date 槽位值来自前序调用的 inquire_credit API 返回的贷款记录数据。当前意图是核实用户是否授权该笔贷款。]: {'loan_date': '2025年5月', 'loan_amount': '600元'}
+    用例 #5 [边界/高价值业务场景，用户质疑一笔金额为13000元的贷款未经授权。此金额远高于普通借款，可能涉及欺诈或异常行为，需标记为高风险并触发进一步处理流程。]: {'loan_date': '2024年7月23日', 'loan_amount': '13000元'}
+    用例 #6 [对话中期（第4轮），用户已提供两笔贷款的时间和金额。前序已调用 verify_identity（身份确认）和 inquire_credit（告知额度），用户现在质疑这两笔贷款未经授权。当前意图是确认用户是否认可这些贷款。]: {'loan_date': '2024年8月', 'loan_amount': '8000元'}
+    用例 #7 [对话完整（第6轮），用户已完整提供贷款时间与金额。前序已确认身份、告知额度、并引导用户确认贷款记录，用户明确表示该笔贷款未经授权。当前意图是判断该笔贷款是否为用户授权。]: {'loan_date': '2024年8月', 'loan_amount': '8000元'}
+    用例 #8 [跨意图上下文依赖，loan_amount 和 loan_date 槽位值来自前序调用的 inquire_credit API 返回的贷款记录数据。当前意图是核实用户是否授权该笔贷款。]: {'loan_date': '2024年7月23日', 'loan_amount': '13000元'}
+    用例 #9 [边界/高价值业务场景，用户质疑一笔金额为13000元的贷款未经授权。此金额远高于普通借款，可能涉及欺诈或异常行为，需标记为高风险并触发进一步处理流程。]: {'loan_date': '2024年7月23日', 'loan_amount': '13000元'}
+    用例 #10 [对话完整（第7轮），用户已完整提供贷款时间与金额。前序已确认身份、告知额度、并引导用户确认贷款记录，用户明确表示该笔贷款未经授权。当前意图是判断该笔贷款是否为用户授权。]: {'loan_date': '2025年5月', 'loan_amount': '600元'}
 
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
+[2026-04-08 16:28:22] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: inquire_unauthorized_loan — 业务反思...
+[2026-04-08 16:28:28] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: inquire_unauthorized_loan — 反思完成
+[2026-04-08 16:28:28] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: inquire_unauthorized_loan — 骨架约束生成...
+[2026-04-08 16:28:32] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: inquire_unauthorized_loan — 通过率 0.0% (0/10)
+[2026-04-08 16:28:32] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 1 轮: inquire_unauthorized_loan (通过率 0.0% < 阈值 90.0%)
+[2026-04-08 16:28:44] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 1 轮后: inquire_unauthorized_loan — 通过率 100.0% (10/10)
+──────────────────────────────────────────────────────────────────────
+  [ACIA] inquire_unauthorized_loan 最终代码（通过率: 100.0% 10/10）
+──────────────────────────────────────────────────────────────────────
+def inquire_unauthorized_loan(loan_date=None, loan_amount=None):
+    """用户质疑存在未经授权的借款记录"""
+    # 使用标准库函数替代未定义的辅助函数
+    loan_date_parsed = None
+    if loan_date:
+        if isinstance(loan_date, str):
+            # 尝试解析日期字符串（仅支持部分格式）
+            for fmt in ["%Y年%m月%d日", "%Y年%m月"]:
+                try:
+                    from datetime import datetime
+                    loan_date_parsed = datetime.strptime(loan_date, fmt).date()
+                    break
+                except ValueError:
+                    continue
 
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
+    loan_amount_parsed = None
+    if loan_amount:
+        if isinstance(loan_amount, str):
+            # 提取金额数字部分
+            import re
+            amount_match = re.search(r"[\d\.]+", loan_amount)
+            if amount_match:
+                try:
+                    loan_amount_parsed = float(amount_match.group())
+                except ValueError:
+                    pass
 
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (date and "2024" in date and amount >= 1000)
+    unauthorized = False
+    severity = "低"
 
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "用户否认借款，需进一步核实"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
+    if loan_date_parsed and loan_amount_parsed:
+        # 模拟调用系统接口验证是否为用户授权
+        # 这里简化为根据金额判断是否为高风险未经授权贷款
+        if loan_amount_parsed > 10000:
+            unauthorized = True
+            severity = "高"
+        elif loan_amount_parsed > 500:
+            unauthorized = True
+            severity = "中"
+        else:
+            unauthorized = False
 
     return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
         "status": "success",
+        "unauthorized": unauthorized,
+        "severity": severity if unauthorized else "无",
     }
 
-[2026-04-03 11:54:15] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 4 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:54:28] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 4 轮后 通过率: 70.0% (7/10)
+[2026-04-08 16:28:44] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   ✅ inquire_unauthorized_loan 完成 — 通过率 100.0% (10/10)，迭代 1 轮
+[2026-04-08 16:28:44] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 6/253: refuse_to_use_service ──────────────
 ──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 4 轮修复后代码（通过率: 70.0% 7/10）
+  [ACIA] 函数 6/253: refuse_to_use_service
 ──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    # 业务语义理解：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断
-    # 核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案
+[2026-04-08 16:28:44] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: refuse_to_use_service — 生成测试用例...
+[2026-04-08 16:29:06] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] refuse_to_use_service: 生成 10 条测试用例
+[2026-04-08 16:29:06] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: refuse_to_use_service — 10 条测试用例
+  📌 测试用例（10 条）:
+    用例 #1 [对话早期（第2轮），用户刚表明对系统显示的额度变化有疑虑。此前已确认用户身份，用户表示看到额度临时提高但不敢使用服务。]: {'credit_limit_status': '临时提高'}
+    用例 #2 [对话中期（第5轮），前序已调用 verify_identity（返回身份确认）、inquire_credit（返回额度未变化），用户现在表示系统显示问题导致不敢使用服务。]: {'credit_limit_status': '未变化'}
+    用例 #3 [对话完整（第7轮），用户身份已确认，额度状态为临时提高，用户因系统显示问题不敢使用服务。已收集全部关键信息，预期应标记为中等优先级处理。]: {'credit_limit_status': '临时提高'}
+    用例 #4 [跨意图上下文依赖，credit_limit_status 槽位值来源于前序调用 inquire_credit 返回的额度状态，用户当前表示因系统显示问题不敢使用服务。]: {'credit_limit_status': "来自前序 API inquire_credit 返回的 '临时提高'"}
+    用例 #5 [边界/高价值场景，用户因系统显示问题不敢使用服务，且信用额度状态为临时提高，可能涉及高价值客户或临时额度异常，预期应标记为高优先级处理。]: {'credit_limit_status': '临时提高'}
+    用例 #6 [对话早期（第3轮），用户刚表示因系统显示问题不敢使用服务，此前已确认身份，但未提供其他信息。]: {'credit_limit_status': '未变化'}
+    用例 #7 [对话中期（第5轮），前序已调用 verify_identity（返回身份确认）、inquire_credit（返回额度临时提高），用户现在表示系统显示问题导致不敢使用服务。]: {'credit_limit_status': '临时提高'}
+    用例 #8 [对话完整（第8轮），用户身份已确认，额度状态为临时提高，用户因系统显示问题不敢使用服务。已收集全部关键信息，预期应标记为中等优先级处理。]: {'credit_limit_status': '临时提高'}
+    用例 #9 [跨意图上下文依赖，credit_limit_status 槽位值来源于前序调用 inquire_credit 返回的额度状态，用户当前表示因系统显示问题不敢使用服务。]: {'credit_limit_status': "来自前序 API inquire_credit 返回的 '临时提高'"}
+    用例 #10 [边界/高价值场景，用户因系统显示问题不敢使用服务，且信用额度状态为临时提高，可能涉及高价值客户或临时额度异常，预期应标记为高优先级处理。]: {'credit_limit_status': '临时提高'}
 
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    # 极高风险标准：金额≥50000元 或 (金额≥10000元 且 时间在2024年)
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (amount >= 10000 and date and "2024" in date)
-
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "已确认否认借款行为"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
-
+[2026-04-08 16:29:06] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: refuse_to_use_service — 业务反思...
+[2026-04-08 16:29:10] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: refuse_to_use_service — 反思完成
+[2026-04-08 16:29:10] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: refuse_to_use_service — 骨架约束生成...
+[2026-04-08 16:29:12] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:12] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 1 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:29:20] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 1 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:20] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 2 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:29:27] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 2 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:27] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 3 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:29:27] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ refuse_to_use_service: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:29:33] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:33] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 4 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:29:41] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 4 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:41] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 5 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:29:48] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 5 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:48] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 6 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:29:48] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ refuse_to_use_service: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:29:53] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:29:53] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 7 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:30:01] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 7 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:30:01] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 8 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:30:08] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 8 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+[2026-04-08 16:30:08] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 9 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:30:08] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ refuse_to_use_service: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:30:16] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: refuse_to_use_service — 通过率 0.0% (0/10)
+[2026-04-08 16:30:16] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 10 轮: refuse_to_use_service (通过率 80.0% < 阈值 90.0%)
+[2026-04-08 16:30:24] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 10 轮后: refuse_to_use_service — 通过率 80.0% (8/10)
+──────────────────────────────────────────────────────────────────────
+  [ACIA] refuse_to_use_service 最终代码（通过率: 80.0% 8/10）
+──────────────────────────────────────────────────────────────────────
+def refuse_to_use_service(credit_limit_status=None):
+    """用户因系统显示问题不敢使用服务"""
+    status = "success"
+    handling_priority = "低"
+    if credit_limit_status and "临时提高" in str(credit_limit_status):
+        handling_priority = "中"
+        if "高价值" in str(credit_limit_status) or "异常" in str(credit_limit_status):
+            handling_priority = "高"
     return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
-        "status": "success",
+        "status": status,
+        "handling_priority": handling_priority
     }
 
-[2026-04-03 11:54:28] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 5 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:54:41] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 5 轮后 通过率: 70.0% (7/10)
+[2026-04-08 16:30:24] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   ⚠️  refuse_to_use_service 完成 — 通过率 80.0% (8/10)，迭代 10 轮
+[2026-04-08 16:30:24] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA] ── 函数 7/253: complain_repayment_process ──────────────
 ──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 5 轮修复后代码（通过率: 70.0% 7/10）
+  [ACIA] 函数 7/253: complain_repayment_process
 ──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    """业务语义：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断"""
-    """核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案"""
+[2026-04-08 16:30:24] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2: complain_repayment_process — 生成测试用例...
+[2026-04-08 16:30:50] INFO - [contextmind.schema_builder.pytod.generator] [PyTODApiCodeGenerator] complain_repayment_process: 生成 10 条测试用例
+[2026-04-08 16:30:50] INFO - [contextmind.schema_builder.pytod.alpha.builder] [ACIA]   Phase 2 完成: complain_repayment_process — 10 条测试用例
+  📌 测试用例（10 条）:
+    用例 #1 [对话早期，接通后第3轮触发。已确认用户身份，用户刚表明对还款流程有疑问，尚未提供任何具体信息。]: {}
+    用例 #2 [对话中期，第5轮触发。此前已调用 verify_identity（返回身份确认）、inquire_credit（返回额度31200元），用户现在抱怨还款流程麻烦。]: {'repayment_record': '比较好', 'remaining_quota': '31200元'}
+    用例 #3 [对话完整，第7轮触发。用户已说明贷款600元发生在2025年5月，逾期几天，当前额度21900元，抱怨还款流程繁琐。预期应触发中等严重级别，处理周期3天。]: {'loan_amount': '600元', 'loan_date': '2025年5月', 'overdue_days': '几天', 'credit_limit': '21900元'}
+    用例 #4 [跨意图上下文依赖。loan_amount 和 loan_date 槽位值来自前序 inquire_loan API 的返回结果，用户现在抱怨还款流程麻烦。]: {'loan_amount': '10000元', 'loan_date': '2024年7月23日', 'credit_limit': '21900元'}
+    用例 #5 [边界/高价值业务场景。用户申请了10万元贷款，逾期90天，当前额度20万元，抱怨还款流程复杂。预期应触发高严重级别，处理周期1天。]: {'loan_amount': '100000元', 'overdue_days': '90天', 'credit_limit': '200000元'}
+    用例 #6 [边界/高价值业务场景。用户申请了5000元贷款，当前额度2万元，抱怨还款流程复杂。预期应触发低严重级别，处理周期7天。]: {'loan_amount': '5000元', 'loan_date': '2024年3月', 'credit_limit': '20000元'}
+    用例 #7 [对话中期，第6轮触发。此前已调用 verify_identity（返回身份确认）、inquire_loan（返回贷款600元，逾期几天），用户现在抱怨还款流程麻烦。]: {'loan_amount': '600元', 'loan_date': '2025年5月', 'overdue_days': '几天', 'credit_limit': '21900元'}
+    用例 #8 [跨意图上下文依赖。loan_amount 和 loan_date 槽位值来自前序 inquire_loan API 的返回结果，用户现在抱怨还款流程麻烦。]: {'loan_amount': '10000元', 'loan_date': '2024年7月23日', 'credit_limit': '21900元'}
+    用例 #9 [边界/高价值业务场景。用户申请了10万元贷款，逾期90天，当前额度20万元，抱怨还款流程复杂。预期应触发高严重级别，处理周期1天。]: {'loan_amount': '100000元', 'overdue_days': '90天', 'credit_limit': '200000元'}
+    用例 #10 [边界/高价值业务场景。用户申请了5000元贷款，当前额度2万元，抱怨还款流程复杂。预期应触发低严重级别，处理周期7天。]: {'loan_amount': '5000元', 'loan_date': '2024年3月', 'credit_limit': '20000元'}
 
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    # 极高风险标准：金额≥50000元 或 (金额≥10000元 且 时间在2024年)
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (amount >= 10000 and date and "2024" in date)
-
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "用户否认借款，需进一步核实" if severity in ["高", "极高"] else "记录用户否认借款并建议后续跟进"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
-
-    return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
-        "status": "success",
-    }
-
-[2026-04-03 11:54:41] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 6 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:54:54] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 6 轮后 通过率: 60.0% (6/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 6 轮修复后代码（通过率: 60.0% 6/10）
-──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    """业务语义：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断"""
-    """核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案"""
-
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    # 极高风险标准：金额≥50000元 或 (金额≥10000元 且 时间在2024年)
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (amount >= 10000 and date and "2024" in date)
-
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "已确认否认借款行为" if severity in ["高", "极高"] else "记录用户否认借款并建议后续跟进"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
-
-    return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
-        "status": "success",
-    }
-
-[2026-04-03 11:54:54] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 7 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:55:07] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 7 轮后 通过率: 60.0% (6/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 7 轮修复后代码（通过率: 60.0% 6/10）
-──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    """业务语义：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断"""
-    """核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案"""
-
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    # 极高风险标准：金额≥50000元 或 (金额≥10000元 且 时间在2024年)
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (amount >= 10000 and date and "2024" in date)
-
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "已确认否认借款行为" if severity in ["高", "极高"] else "记录用户否认借款并建议后续跟进"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
-
-    return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
-        "status": "success",
-    }
-
-[2026-04-03 11:55:07] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 8 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:55:21] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 8 轮后 通过率: 60.0% (6/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 8 轮修复后代码（通过率: 60.0% 6/10）
-──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    """业务语义：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断"""
-    """核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案"""
-
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    # 极高风险标准：金额≥50000元 或 (金额≥10000元 且 时间在2024年)
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (amount >= 10000 and date and "2024" in date)
-
-    # 修正风险等级判定逻辑，确保时间在2024年的判断只适用于金额≥10000的情况
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "已确认否认借款行为" if severity in ["高", "极高"] else "记录用户否认借款并建议后续跟进"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
-
-    return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
-        "status": "success",
-    }
-
-[2026-04-03 11:55:21] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 9 轮修复（通过率 70.0% < 阈值 90.0%）...
-[2026-04-03 11:55:34] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing 第 9 轮后 通过率: 60.0% (6/10)
-──────────────────────────────────────────────────────────────────────
-  Phase 4 — deny_borrowing 第 9 轮修复后代码（通过率: 60.0% 6/10）
-──────────────────────────────────────────────────────────────────────
-def deny_borrowing(loan_date=None, loan_amount=None):
-    """用户否认有借款行为或当前有借款记录"""
-    """用户否认有借款行为或当前有借款记录"""
-    """业务语义：用户否认借款是关键风险信号，需根据金额、时间、否认类型综合判断"""
-    """核心逻辑：1. 解析输入信息 2. 判断否认类型 3. 评估风险等级 4. 确定处理方案"""
-
-    # 参数处理
-    date = str(loan_date or "").strip()
-    amount = _parse_amount(loan_amount)
-
-    # 否认类型判定（基于输入信息完整性）
-    if amount > 0 and date:
-        denial_type = "金额与时间不符"
-    elif amount > 0:
-        denial_type = "金额不符"
-    elif date:
-        denial_type = "时间不符"
-    else:
-        denial_type = "完全否认"
-
-    # 风险等级判定（基于金额和时间合理性）
-    # 高风险标准：金额≥10000元 或 时间在2024年
-    # 极高风险标准：金额≥50000元 或 (金额≥10000元 且 时间在2024年)
-    is_high_risk = amount >= 10000 or (date and "2024" in date)
-    is_extreme_risk = amount >= 50000 or (amount >= 10000 and date and "2024" in date)
-
-    severity = "极高" if is_extreme_risk else "高" if is_high_risk else "常规"
-
-    # 处理时效判定（高风险案件优先处理）
-    handling_days = {
-        "极高": 1,
-        "高": 2,
-        "常规": 3
-    }[severity]
-
-    # 处理状态和后续动作
-    handling_status = "已确认否认借款行为" if severity in ["高", "极高"] else "记录用户否认借款并建议后续跟进"
-    next_step = "建议人工介入核实借款记录" if severity in ["极高", "高"] else "记录用户否认借款并建议后续跟进"
-
-    return {
-        "deny_borrowing": True,
-        "loan_date": date or "未提供",
-        "loan_amount": loan_amount or "未提供",
-        "denial_type": denial_type,
-        "severity": severity,
-        "handling_days": handling_days,
-        "handling_status": handling_status,
-        "next_step": next_step,
-        "status": "success",
-    }
-
-[2026-04-03 11:55:34] INFO - [contextmind.schema_builder.pytod.builder] [PyTOD]   Phase 4: deny_borrowing — 第 10 轮修复（通过率 70.0% < 阈值 90.0%）...
+[2026-04-08 16:30:50] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: complain_repayment_process — 业务反思...
+[2026-04-08 16:30:53] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase R: complain_repayment_process — 反思完成
+[2026-04-08 16:30:53] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G: complain_repayment_process — 骨架约束生成...
+[2026-04-08 16:30:57] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   Phase G 后: complain_repayment_process — 通过率 10.0% (1/10)
+[2026-04-08 16:30:57] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 1 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:31:09] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 1 轮后: complain_repayment_process — 通过率 10.0% (1/10)
+[2026-04-08 16:31:09] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 2 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:31:19] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 2 轮后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:31:19] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 3 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:31:19] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ complain_repayment_process: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:31:29] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:31:29] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 4 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:31:40] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 4 轮后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:31:40] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 5 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:31:49] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 5 轮后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:31:49] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 6 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:31:49] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ complain_repayment_process: 连续 2 轮无提升，全新重启...
+[2026-04-08 16:32:00] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   重启后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:32:00] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 7 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:32:11] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 7 轮后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:32:11] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 8 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:32:22] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   第 8 轮后: complain_repayment_process — 通过率 0.0% (0/10)
+[2026-04-08 16:32:22] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   修复第 9 轮: complain_repayment_process (通过率 10.0% < 阈值 90.0%)
+[2026-04-08 16:32:22] INFO - [contextmind.schema_builder.pytod.alpha.synthesizer] [ACIA]   ↻ complain_repayment_process: 连续 2 轮无提升，全新重启...

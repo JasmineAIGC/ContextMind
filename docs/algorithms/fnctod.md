@@ -93,7 +93,7 @@ FnCTOD 输入：
 
 ## 评测指标
 
-FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.md`](../benchmark.md)）：
+FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.md`](../reference/benchmark.md)）：
 
 | 指标 | 粒度 | 说明 |
 |------|------|------|
@@ -270,7 +270,7 @@ python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 10 --verbose
 
 ## 参考资料
 
-- [评测指标说明](../benchmark.md)
+- [评测指标说明](../reference/benchmark.md)
 - [TransferTOD 数据集](../datasets/datasets.md)
-- [API 参考](../api-reference.md)
+- [API 参考](../reference/api-reference.md)
 - [FnCTOD 论文：Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）

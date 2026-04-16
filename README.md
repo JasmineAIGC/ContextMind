@@ -116,9 +116,9 @@ builder.save(schema_dict, "output/schema.json")
 命令行方式：
 
 ```bash
-python examples/build_kb_demo.py --demo
+python examples/build_kb.py --demo
 # 或使用真实数据
-python examples/build_kb_demo.py \
+python examples/build_kb.py \
     --data resources/data/chat_test_100.json \
     --num 10 \
     --scene "安逸花外呼" \
@@ -302,13 +302,19 @@ ContextMind/
 │   ├── scenarios/            # 场景配置与注册
 │   └── ui/                  # UI 组件（Gradio）
 ├── data/                     # 运行时输出
-├── examples/                 # 示例程序
-│   ├── context_pipeline_demo.py  # 🚀 ContextPipeline 端到端演示
-│   ├── build_kb_demo.py         #   第一步演示：任意数据 → schema.json
-│   └── pytod_trace_demo.py      #   第三步演示：schema.json + API → 对话
+├── examples/                 # 示例程序（按三步框架组织）
+│   ├── context_pipeline_demo.py  # 🚀 统一入口：ContextPipeline 端到端演示
+│   ├── build_kb.py              # 【第一步】知识库构建：任意数据 → schema.json
+│   ├── prebuild_test_cases.py   # 【第二步·前置】预生成测试用例（供 build_schema_data.py 使用）
+│   ├── build_schema_data.py     # 【第二步】Schema 数据生成：schema.json → API 代码/域定义
+│   ├── web_demo.py              # 【第三步】Web 界面演示（DST / FnCTOD / Evolve / PyTOD）
+│   ├── cli_demo.py              # 【第三步】命令行交互演示
+│   ├── batch_demo.py            # 【第三步】批量对话测试
+│   ├── fnctod_trace_demo.py     # 【第三步】FnCTOD 算法全链路追踪
+│   └── pytod_trace_demo.py      # 【第三步】PyTOD 算法全链路追踪
 ├── benchmark/                # 评测框架
 ├── resources/                # 静态资源与测试数据
-└── docs/                     # 文档（[架构图](docs/architecture.md) | [算法说明](docs/algorithms/) | [API 参考](docs/api-reference.md)）
+└── docs/                     # 文档（[架构图](docs/reference/architecture.md) | [算法说明](docs/algorithms/) | [API 参考](docs/reference/api-reference.md)）
 ```
 
 ---

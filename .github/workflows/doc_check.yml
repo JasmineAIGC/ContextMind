@@ -1,0 +1,24 @@
+name: Doc Path Check
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check-docs:
+    name: Verify doc paths & symbols exist in codebase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run doc path check
+        run: python scripts/check_docs.py --verbose

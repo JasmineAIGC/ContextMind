@@ -51,13 +51,37 @@ Schema 数据预生成脚本
     # 开启详细输出（打印每个阶段的详细进度日志）
     python examples/build_schema_data.py --with-llm --verbose
 
+    # 指定预构建的测试用例文件路径（配合 prebuild_test_cases.py --output 使用）
+    python examples/build_schema_data.py --with-llm --schema schema/foo_schema.json \\
+        --test-cases-path output/my_test_cases.json
+
+【推荐评测流程】跨生成器公平对比
+----------------------------------
+在运行本脚本之前，先用 ``prebuild_test_cases.py`` 预生成测试用例，
+确保 loop / alpha / sstar / ctree 4 种生成器使用完全相同的测试集::
+
+    # Step 1: 用专用脚本预生成测试用例（只需运行一次）
+    python examples/prebuild_test_cases.py --schema schema/anyihua_schema.json
+
+    # Step 2a: 用 loop 生成代码（自动加载预生成的测试用例）
+    python examples/build_schema_data.py --with-llm --generator loop \\
+        --schema schema/anyihua_schema.json --output-dir output/loop
+
+    # Step 2b-2d: 同理运行 alpha / sstar / ctree
+    # → 4 组 *_validation_report.json 在相同测试集上可直接对比通过率
+
+若跳过 Step 1 直接运行本脚本，Phase 2 仍会自动生成并缓存测试用例，
+但运行第一个生成器时会看到提示，建议先完成预生成步骤。
+
 两种生成模式
 ------------
 1. **规则模式**（默认）：不依赖 LLM，使用语义化规则生成 mock 返回值的 stub 函数。
    速度快，但函数体没有真实业务计算逻辑。
 
 2. **LLM 模式**（--with-llm）：完整运行 plan.md 定义的 5 阶段流程：
-   - Phase 2: 为每个意图生成多轮对话复杂度的测试用例（覆盖早期/中期/完整/上下文依赖/边界场景）
+   - Phase 2: 为每个意图加载预生成测试用例（优先）或实时生成；
+              若同目录存在 *_test_cases.json（由 prebuild_test_cases.py 生成），
+              自动从文件加载，跳过 LLM 调用
    - Phase 3: 逐意图调用 LLM 生成函数体（Prompt 包含 few-shot 测试用例）
    - Phase 4: 批量执行验证 + 迭代修复（通过率低于阈值时调用 LLM 修复）
    - Phase 5: 生成最终文件 + 可选 validation_report.json
@@ -78,6 +102,7 @@ KB 目录数据利用
 """
 
 import argparse
+import concurrent.futures
 import sys
 from pathlib import Path
 from typing import Optional
@@ -301,6 +326,17 @@ def main() -> None:
         ),
     )
     llm_group.add_argument(
+        "--test-cases-path",
+        default=None,
+        metavar="FILE",
+        help=(
+            "可选：预构建测试用例 JSON 文件路径（*_test_cases.json）。"
+            "指定后 Phase 2 直接从该文件加载测试用例，不再通过 schema 路径自动推导。"
+            "适用于通过 prebuild_test_cases.py --output 生成到非默认位置的测试用例文件。"
+            "示例: --test-cases-path output/my_test_cases.json"
+        ),
+    )
+    llm_group.add_argument(
         "--max-iterations",
         type=_positive_int,
         default=_DEFAULT_MAX_ITERATIONS,
@@ -326,6 +362,30 @@ def main() -> None:
         default=_DEFAULT_MAX_TEST_CASES,
         metavar="N",
         help=f"Phase 2 每个意图最多生成的测试用例数（默认: {_DEFAULT_MAX_TEST_CASES}，必须 ≥ 1）。",
+    )
+    llm_group.add_argument(
+        "--workers", "-j",
+        type=_positive_int,
+        default=1,
+        metavar="N",
+        help=(
+            "并行工作线程数（默认: 1，即顺序处理）。"
+            "设置 > 1 时，多个意图的 Phase 2→3→4 同时并发执行；"
+            "在 --data-dir 批量模式下，多个 schema 也会同时并发处理，"
+            "可显著缩短含多个 schema / 意图的总生成时间。"
+            "示例: --with-llm --workers 4"
+        ),
+    )
+    llm_group.add_argument(
+        "--prebuild-test-cases",
+        action="store_true",
+        help=(
+            "仅运行 Phase 2（LLM 测试用例生成），将结果保存到 *_test_cases.json，"
+            "不执行代码生成。保存后多次运行不同生成器（loop/alpha/sstar/ctree）时，"
+            "Phase 2 自动从该文件加载，确保所有生成器在相同测试集上对比评测。\n"
+            "若目标文件已存在，跳过重新生成（删除文件后可重新生成）。\n"
+            "示例: --with-llm --prebuild-test-cases --schema schema/foo_schema.json"
+        ),
     )
 
     # ── 其他 ──────────────────────────────────────────────────────────────
@@ -366,6 +426,9 @@ def main() -> None:
             (args.max_test_cases != _DEFAULT_MAX_TEST_CASES,
              f"--max-test-cases {args.max_test_cases}"),
             (args.generator != "loop", f"--generator {args.generator}"),
+            (args.prebuild_test_cases, "--prebuild-test-cases"),
+            (bool(args.test_cases_path), "--test-cases-path"),
+            (args.workers != 1, f"--workers {args.workers}"),
         ]
         active_llm_flags = [name for active, name in _llm_only_flags if active]
         if active_llm_flags:
@@ -447,9 +510,11 @@ def main() -> None:
         max_iterations=args.max_iterations,
         pass_rate_threshold=args.pass_rate_threshold,
         max_test_cases_per_intent=args.max_test_cases,
-        generate_report=args.generate_report,
+        generate_report=args.generate_report or bool(args.with_llm),
         verbose=args.verbose,
         generator=args.generator,
+        test_cases_path=Path(args.test_cases_path) if args.test_cases_path else None,
+        workers=args.workers,
     )
 
     if args.schema:
@@ -464,6 +529,72 @@ def main() -> None:
             print(f"❌ 目录不存在: {data_dir}", file=sys.stderr)
             sys.exit(1)
         _process_dir(builder, data_dir, args)
+
+
+def _print_validation_summary(
+    schema_path: Path,
+    output_dir: Optional[Path],
+    pass_rate_threshold: float,
+) -> None:
+    """读取 *_validation_report.json 并以表格形式打印验证统计。"""
+    import json as _json
+    from contextmind.schema_builder.utils import companion_path
+
+    report_path = companion_path(schema_path, "validation_report", suffix=".json", output_dir=output_dir)
+    if not report_path.exists():
+        return
+
+    try:
+        with open(report_path, encoding="utf-8") as fh:
+            report = _json.load(fh)
+    except Exception:
+        return
+
+    summary = report.get("summary", {})
+    intents = report.get("intents", {})
+    if not intents:
+        return
+
+    avg_rate = summary.get("avg_pass_rate", 0.0)
+    validated = summary.get("validated", 0)
+    total_intents = summary.get("total_intents", 0)
+
+    print()
+    print("┌─────────────────────────────────────────────────────────────────────┐")
+    print("│  📊 验证统计摘要                                                     │")
+    print("├──────────────────────────┬────────────┬────────────┬───────────────┤")
+    print("│ 意图 (Intent)            │ 通过率     │ 通过/总数  │ 迭代轮次      │")
+    print("├──────────────────────────┼────────────┼────────────┼───────────────┤")
+    for name, v in intents.items():
+        total_c = v.get("total_cases", 0)
+        passed = v.get("passed", 0)
+        rate = v.get("pass_rate", 0.0)
+        iters = v.get("iterations", 0)
+        err = v.get("error")
+        if total_c == 0:
+            status = "—"
+            rate_str = "N/A"
+            case_str = "—"
+            iter_str = "—"
+        else:
+            status = "✅" if rate >= pass_rate_threshold else "⚠️ "
+            rate_str = f"{rate:.1%}"
+            case_str = f"{passed}/{total_c}"
+            iter_str = str(iters)
+        name_display = name[:24] if len(name) <= 24 else name[:21] + "..."
+        if err:
+            rate_str = "ERR"
+        print(f"│ {status} {name_display:<22s} │ {rate_str:<10s} │ {case_str:<10s} │ {iter_str:<13s} │")
+    print("├──────────────────────────┴────────────┴────────────┴───────────────┤")
+    overall_status = "✅" if avg_rate >= pass_rate_threshold else "⚠️ "
+    print(
+        f"│  {overall_status} 平均通过率: {avg_rate:.1%}"
+        f"  （{validated}/{total_intents} 个意图已验证）"
+        f"{' ' * max(0, 34 - len(f'{avg_rate:.1%}') - len(str(validated)) - len(str(total_intents)))}│"
+    )
+    print(f"│  📁 完整报告: {str(report_path):<56s}│")
+    print("└─────────────────────────────────────────────────────────────────────┘")
+    print()
 
 
 def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argparse.Namespace) -> None:
@@ -486,12 +617,45 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
     if args.kb_dir:
         _check_schema_vs_discovery(schema_path, Path(args.kb_dir), len(schema.intents))
 
+    # --prebuild-test-cases：仅生成测试用例，跳过代码生成
+    if getattr(args, "prebuild_test_cases", False) and args.with_llm:
+        p = builder.prebuild_test_cases(schema_path, schema=schema)
+        if p:
+            print(f"✅ 测试用例已预生成 → {p}")
+            print("   下次运行各生成器时将自动加载此文件，确保评测使用相同测试集。")
+        else:
+            print("⚠️  测试用例预生成失败（无 LLM 或 schema 无意图定义）")
+        return
+
     if not args.fnctod_only:
+        # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
+        if args.with_llm:
+            from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
+            # 优先使用用户指定的路径，否则自动推导
+            _user_tc = getattr(args, "test_cases_path", None)
+            tc_path = Path(_user_tc) if _user_tc else test_cases_path_for_schema(schema_path)
+            if not tc_path.exists():
+                print()
+                print("┌─────────────────────────────────────────────────────────────────┐")
+                print("│  ⚠️  测试用例未预生成                                             │")
+                print("│                                                                 │")
+                print("│  为确保 loop / alpha / sstar / ctree 4 种生成器使用相同的测试    │")
+                print("│  用例进行公平对比评测，建议先运行：                               │")
+                print("│                                                                 │")
+                print(f"│    python examples/prebuild_test_cases.py \\                    │")
+                print(f"│        --schema {str(schema_path):<47s} │")
+                print("│                                                                 │")
+                print("│  本次将自动生成测试用例并缓存，但若并行运行多个生成器，           │")
+                print("│  请务必先运行上述命令以保证测试集一致。                           │")
+                print("└─────────────────────────────────────────────────────────────────┘")
+                print()
         p = builder.build_pytod_apis(schema_path, schema=schema)
         if p:
             print(f"✅ PyTOD APIs → {p}")
         else:
             print(f"⚠️  PyTOD APIs 未写入（已存在且 --no-overwrite）")
+        if args.with_llm:
+            _print_validation_summary(schema_path, builder.output_dir, args.pass_rate_threshold)
 
     if not args.pytod_only:
         p = builder.build_fnctod_domain(schema_path, schema=schema)
@@ -528,8 +692,93 @@ def _check_schema_vs_discovery(
         pass  # 读取失败时静默忽略，不影响主流程
 
 
+def _process_one_schema(
+    builder: SchemaDataBuilder,
+    schema_path: Path,
+    args: argparse.Namespace,
+) -> tuple[int, list[str]]:
+    """处理单个 schema 文件（供并行调用）。
+
+    Returns:
+        (written_count, log_lines) — 写入文件数 和 日志行列表（调用方统一打印）。
+    """
+    import json
+    from contextmind.modes.pytod.schemas import load_schema_from_dict
+
+    logs: list[str] = []
+    written = 0
+    prebuild_mode = getattr(args, "prebuild_test_cases", False) and args.with_llm
+
+    try:
+        with open(schema_path, encoding="utf-8") as fh:
+            schema = load_schema_from_dict(json.load(fh))
+    except Exception as exc:
+        logs.append(f"❌ 加载失败 {schema_path.name}: {exc}")
+        return written, logs
+
+    logs.append(f"📋 {schema_path.name} → service={schema.service_name}, intents={len(schema.intents)}")
+
+    if prebuild_mode:
+        p = builder.prebuild_test_cases(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ 测试用例 → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  测试用例预生成失败或已存在")
+        return written, logs
+
+    if not args.fnctod_only:
+        if args.with_llm:
+            from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
+            _user_tc = getattr(args, "test_cases_path", None)
+            tc_path = Path(_user_tc) if _user_tc else test_cases_path_for_schema(schema_path)
+            if not tc_path.exists():
+                logs.append(
+                    f"   ⚠️  {schema_path.name} 的测试用例未预生成 "
+                    f"（建议先运行 prebuild_test_cases.py，本次将自动生成并缓存）"
+                )
+        p = builder.build_pytod_apis(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ PyTOD APIs  → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  PyTOD APIs  跳过（已存在）")
+        if args.with_llm:
+            # 收集验证摘要行而非直接打印
+            import json as _json
+            from contextmind.schema_builder.utils import companion_path
+            report_path = companion_path(
+                schema_path, "validation_report", suffix=".json", output_dir=builder.output_dir
+            )
+            if report_path.exists():
+                try:
+                    with open(report_path, encoding="utf-8") as fh:
+                        report = _json.load(fh)
+                    summary = report.get("summary", {})
+                    avg_rate = summary.get("avg_pass_rate", 0.0)
+                    validated = summary.get("validated", 0)
+                    total_intents = summary.get("total_intents", 0)
+                    status = "✅" if avg_rate >= args.pass_rate_threshold else "⚠️ "
+                    logs.append(
+                        f"   {status} 平均通过率: {avg_rate:.1%}"
+                        f"（{validated}/{total_intents} 个意图已验证）"
+                    )
+                except Exception:
+                    pass
+
+    if not args.pytod_only:
+        p = builder.build_fnctod_domain(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ FnCTOD domain → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  FnCTOD domain 跳过（已存在）")
+
+    return written, logs
+
+
 def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Namespace) -> None:
-    """处理目录下所有 schema 文件。"""
+    """处理目录下所有 schema 文件（跨 schema 并行）。"""
     schema_files = sorted(data_dir.glob("*_schema.json"))
     if not schema_files:
         print(f"⚠️  {data_dir} 下未找到任何 *_schema.json 文件")
@@ -541,44 +790,49 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
         print(f"   - {f.name}")
     print()
 
-    import json
-    from contextmind.modes.pytod.schemas import load_schema_from_dict
+    prebuild_mode = getattr(args, "prebuild_test_cases", False) and args.with_llm
+    workers = getattr(args, "workers", 1)
+
+    if workers > 1 and len(schema_files) > 1:
+        print(f"⚡ 并行处理 {len(schema_files)} 个 schema（--workers {workers}）...")
+        print()
 
     written_total = 0
-    for schema_path in schema_files:
-        try:
-            with open(schema_path, encoding="utf-8") as fh:
-                schema = load_schema_from_dict(json.load(fh))
-        except Exception as exc:
-            print(f"❌ 加载失败 {schema_path.name}: {exc}", file=sys.stderr)
-            continue
 
-        print(f"📋 {schema_path.name} → service={schema.service_name}, intents={len(schema.intents)}")
+    def _task(sp: Path) -> tuple[int, list[str]]:
+        return _process_one_schema(builder, sp, args)
 
-        if not args.fnctod_only:
-            p = builder.build_pytod_apis(schema_path, schema=schema)
-            if p:
-                print(f"   ✅ PyTOD APIs  → {p.name}")
-                written_total += 1
-            else:
-                print(f"   ⚠️  PyTOD APIs  跳过（已存在）")
-
-        if not args.pytod_only:
-            p = builder.build_fnctod_domain(schema_path, schema=schema)
-            if p:
-                print(f"   ✅ FnCTOD domain → {p.name}")
-                written_total += 1
-            else:
-                print(f"   ⚠️  FnCTOD domain 跳过（已存在）")
-
-    print()
-    print(f"🎉 完成！共写入 {written_total} 个文件")
-    print()
-    if args.output_dir:
-        print(f"💡 提示：输出目录: {args.output_dir}")
+    if workers > 1 and len(schema_files) > 1:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            for written, logs in pool.map(_task, schema_files):
+                for line in logs:
+                    print(line)
+                written_total += written
     else:
-        print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.py schema/*_fnctod_domain.json）")
-    print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
+        for schema_path in schema_files:
+            written, logs = _task(schema_path)
+            for line in logs:
+                print(line)
+            if args.with_llm and not prebuild_mode and not args.fnctod_only:
+                _print_validation_summary(schema_path, builder.output_dir, args.pass_rate_threshold)
+            written_total += written
+
+    print()
+    if prebuild_mode:
+        print(f"🎉 完成！共预生成 {written_total} 个测试用例文件")
+        print("💡 现在可对每个生成器运行代码生成，Phase 2 将自动加载此文件：")
+        print("   python examples/build_schema_data.py --with-llm --generator loop  ...")
+        print("   python examples/build_schema_data.py --with-llm --generator alpha ...")
+        print("   python examples/build_schema_data.py --with-llm --generator sstar ...")
+        print("   python examples/build_schema_data.py --with-llm --generator ctree ...")
+    else:
+        print(f"🎉 完成！共写入 {written_total} 个文件")
+        print()
+        if args.output_dir:
+            print(f"💡 提示：输出目录: {args.output_dir}")
+        else:
+            print("💡 提示：请将生成的文件加入版本控制（git add schema/*_pytod_apis.py schema/*_fnctod_domain.json）")
+        print("💡 当 schema.json 更新后，重新运行本脚本以同步 companion 文件")
 
 
 if __name__ == "__main__":

@@ -71,7 +71,7 @@ DST 算法的本质是**零样本提示词槽位提取**（Zero-shot Prompt-base
 
 ## 评测指标
 
-DST 算法使用以下指标评估性能（详见 [`metrics-explanation.md`](../benchmark.md)）：
+DST 算法使用以下指标评估性能（详见 [`metrics-explanation.md`](../reference/benchmark.md)）：
 
 | 指标 | 粒度 | 说明 |
 |------|------|------|
@@ -196,7 +196,7 @@ python benchmark/run_dst_risawoz.py --domain 酒店 --verbose
 
 ## 参考资料
 
-- [评测指标说明](../benchmark.md)
+- [评测指标说明](../reference/benchmark.md)
 - [TransferTOD 数据集](../datasets/datasets.md)
 - [RiSAWOZ 数据集](../datasets/datasets.md)
-- [API 参考](../api-reference.md)
+- [API 参考](../reference/api-reference.md)

@@ -41,6 +41,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
 from contextmind.infra.logger import get_logger
 
 logger = get_logger(__name__)
+
 
 # ------------------------------------------------------------------
 # 可选依赖：langextract
@@ -328,6 +330,52 @@ _DISCOVERY_USER_TEMPLATE = """\
 
 请从上述对话的**用户**发言中提取槽位值、意图和关键事实（只输出 JSON 数组）："""
 
+# ------------------------------------------------------------------
+# 逐轮批量提取 prompt（单次 LLM 调用完成全对话所有轮次的提取）
+# ------------------------------------------------------------------
+
+_DISCOVERY_PERTURN_SYSTEM = """\
+你是一名任务型对话系统分析专家。给定一段编号的业务对话，请从话语中提取三类信息：
+
+1. 槽位值（slot_value）：话语中涉及的具体业务字段和值（如金额、期数、利率、姓名、状态等）
+   - 坐席和用户话语均需提取业务字段值，覆盖所有关键数据
+
+2. 意图（intent）：说话人表达的**核心业务动作或目标**
+   - **每轮话语至多提取 1 个意图**（该轮最核心的业务动作）；大多数轮次（如简短回应、过渡语、问候）应返回 0 个意图
+   - **只提取有明确业务意义的动作**（如 verify_identity、offer_loan、decline_offer、inquire_payment）
+   - **跳过问候、确认、感谢、道别、客套等非业务性话语**（这些不构成业务意图）
+   - **相同类型的动作统一使用同一个 label**，同一条对话中不要为同类动作创建多个不同 label
+   - 坐席意图只提取对业务流程有明显推进意义的动作（如 verify_identity、inform_credit_limit、guide_to_borrow）
+   - 用户意图侧重其态度和决策（如 agree_to_verify、decline_loan、inquire_installment）
+   - 整条对话的意图种类通常不超过 10 个，不要过度细化
+
+3. 关键事实（fact）：不属于槽位值也不属于意图的重要业务陈述（如核实结果、额度说明、政策解释等）
+
+## 输出格式（严格 JSON 数组，只输出 JSON）
+
+[
+  {"turn_idx": 0, "class": "slot_value", "label": "槽位名称（英文下划线）", "value": "提取的值"},
+  {"turn_idx": 1, "class": "intent", "label": "意图名称（英文动词短语）", "value": "意图的中文描述"},
+  {"turn_idx": 2, "class": "fact", "label": "事实标签（英文下划线）", "value": "事实的中文描述"},
+  ...
+]
+
+## 规范说明
+
+- turn_idx 必须是输入对话行号（0-based），对应输入格式中每行开头的数字
+- class 只能是 "slot_value"、"intent" 或 "fact"
+- label 使用英文小写下划线命名（如 inquire_monthly_payment、available_credit）
+- 意图 label 要精简一致：同类动作复用同一 label，不随措辞变化另起名称
+- 只输出 JSON 数组，不加任何说明或 markdown 代码块"""
+
+_DISCOVERY_PERTURN_USER_TEMPLATE = """\
+## 业务场景：{scene_name}
+
+## 对话内容（格式：行号 说话人：话语内容）：
+{turns_text}
+
+请从上述对话的每一行话语中提取槽位值、意图和关键事实，并标注对应的 turn_idx 行号（只输出 JSON 数组）："""
+
 
 # ------------------------------------------------------------------
 # langextract 逐轮提取辅助
@@ -558,9 +606,6 @@ class GenericDialogueDiscoverer:
     def extract(self, normalized_dlg: Dict[str, Any]) -> List[DiscoveryItem]:
         """从单条归一化对话中开放式提取槽位值、意图和关键事实。
 
-        当 ``langextract`` 可用时，采用逐轮提取模式，每条结果均附带溯源信息。
-        当 ``langextract`` 不可用时，采用纯 LLM 整体提取，结果无溯源信息。
-
         参数
         ----
         normalized_dlg:
@@ -571,9 +616,8 @@ class GenericDialogueDiscoverer:
         ----
         :class:`DiscoveryItem` 列表（可能为空）。
         """
-        if _LANGEXTRACT_AVAILABLE:
-            return self._extract_with_langextract(normalized_dlg)
-        return self._extract_with_llm(normalized_dlg)
+        per_turn = self.extract_per_turn(normalized_dlg)
+        return [item for _, _, _, items in per_turn for item in items]
 
     def extract_per_turn(
         self,
@@ -583,6 +627,10 @@ class GenericDialogueDiscoverer:
 
         与 :meth:`extract` 相比，此方法保留每条提取结果对应的轮次信息，
         供生成 SGD 格式对话文件时按轮注释使用。
+
+        使用**单次 LLM 调用**完成全对话提取（按 turn_idx 归位），
+        相比原先逐轮 langextract 调用（每轮 1-2 次 LLM）可将调用次数
+        从 N 次降至 1 次，大幅提升 build_kb 速度。
 
         参数
         ----
@@ -597,13 +645,118 @@ class GenericDialogueDiscoverer:
         turns = _parse_turns(normalized_dlg)
         if not turns:
             return []
-
-        if _LANGEXTRACT_AVAILABLE:
-            return self._extract_per_turn_with_langextract(turns)
-        return self._extract_per_turn_with_llm(normalized_dlg, turns)
+        return self._extract_per_turn_with_llm_batch(normalized_dlg, turns)
 
     # ------------------------------------------------------------------
-    # langextract 逐轮提取（推荐路径）
+    # 单批次 LLM 逐轮提取（默认路径，性能最优）
+    # ------------------------------------------------------------------
+
+    def _extract_per_turn_with_llm_batch(
+        self,
+        normalized_dlg: Dict[str, Any],
+        turns: List[Tuple[int, str, str]],
+    ) -> List[Tuple[int, str, str, List[DiscoveryItem]]]:
+        """单次 LLM 调用完成全对话逐轮提取（主路径）。
+
+        将整条对话格式化为带行号的文本，通过**一次** LLM 调用提取所有轮次的
+        槽位/意图/事实，并按 ``turn_idx`` 分配到对应轮次。
+
+        相比逐轮 langextract 调用（每条对话 N-2N 次 LLM 调用），此方法将
+        调用次数降至 **1 次**，是 build_kb 的关键性能优化。
+
+        参数
+        ----
+        normalized_dlg:
+            归一化后的对话 dict（已解析，此处仅用于格式化文本）。
+        turns:
+            由 :func:`_parse_turns` 生成的逐轮列表。
+
+        返回
+        ----
+        ``[(turn_idx, speaker, utterance, items), ...]``，结构与
+        :meth:`_extract_per_turn_with_langextract` 完全兼容。
+        """
+        if not turns:
+            return []
+
+        # 格式化带行号的对话文本（行号对应 turn_idx）
+        lines = [
+            f"{i} {speaker}：{utterance}"
+            for i, (turn_idx, speaker, utterance) in enumerate(turns)
+        ]
+        turns_text = "\n".join(lines)
+
+        user_msg = _DISCOVERY_PERTURN_USER_TEMPLATE.format(
+            scene_name=self.scene_name,
+            turns_text=turns_text,
+        )
+        messages = [
+            {"role": "system", "content": _DISCOVERY_PERTURN_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+
+        try:
+            response = self._chat_sync(messages)
+        except Exception as exc:
+            logger.warning(
+                f"[GenericDialogueDiscoverer] 单批次 LLM 调用失败，此对话跳过: {exc}"
+            )
+            return [(t[0], t[1], t[2], []) for t in turns]
+
+        # 解析 per-turn JSON 响应
+        n_turns = len(turns)
+        turn_items: Dict[int, List[DiscoveryItem]] = {i: [] for i in range(n_turns)}
+
+        raw: Any = None
+        try:
+            raw = json.loads(response.strip())
+        except json.JSONDecodeError:
+            content = _strip_code_fences(response)
+            try:
+                raw = json.loads(content)
+            except json.JSONDecodeError:
+                m = re.search(r"\[[\s\S]+\]", response)
+                if m:
+                    try:
+                        raw = json.loads(m.group(0))
+                    except json.JSONDecodeError:
+                        pass
+
+        if isinstance(raw, list):
+            for entry in raw:
+                if not isinstance(entry, dict):
+                    continue
+                turn_i = entry.get("turn_idx")
+                cls = str(entry.get("class", "")).strip()
+                label = str(entry.get("label", "")).strip()
+                value = str(entry.get("value", "")).strip()
+
+                if not isinstance(turn_i, int) or turn_i < 0 or turn_i >= n_turns:
+                    logger.debug(
+                        f"[GenericDialogueDiscoverer] 跳过无效 turn_idx={turn_i!r}: "
+                        f"{entry!r}"
+                    )
+                    continue
+                if cls not in ("slot_value", "intent", "fact") or not label:
+                    continue
+
+                turn_items[turn_i].append(
+                    DiscoveryItem(extraction_class=cls, label=label, value=value)
+                )
+
+        total_items = sum(len(v) for v in turn_items.values())
+        logger.debug(
+            f"[GenericDialogueDiscoverer] 单批次提取结果: "
+            f"{total_items} 条（{n_turns} 轮）"
+        )
+
+        return [
+            (turn_idx, speaker, utterance, turn_items[i])
+            for i, (turn_idx, speaker, utterance) in enumerate(turns)
+        ]
+
+    # ------------------------------------------------------------------
+    # langextract 逐轮提取（保留供特殊用途；默认不再使用）
     # ------------------------------------------------------------------
 
     def _extract_with_langextract(
@@ -878,21 +1031,32 @@ class GenericDialogueDiscoverer:
         return items
 
     def _chat_sync(self, messages: List[Dict[str, Any]]) -> str:
-        """以同步方式调用 LLM 的 chat_async。"""
-        import asyncio
+        """以同步方式调用 LLM 的 chat_async。
+
+        委托给 ``AdkLLMClient.generate()`` 使用的同一套全局共享事件循环机制，
+        避免 litellm 的 aiohttp session 因绑定到已关闭的事件循环而抛出
+        ``RuntimeError: Task attached to a different loop``。
+        """
         import concurrent.futures
+        from contextmind.infra.llm_client import _get_shared_loop
 
         async def _run() -> str:
             return await self._llm.chat_async(messages)
 
         try:
-            loop = asyncio.get_running_loop()
+            running_loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = None
+            running_loop = None
 
-        if loop is not None and loop.is_running():
+        if running_loop is not None and running_loop.is_running():
+            # 已有运行中的事件循环（如主线程 Jupyter 环境）：在独立线程以 asyncio.run()
+            # 执行，该线程拥有全新 loop，不与主线程的 aiohttp 连接池共享
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, _run())
                 return future.result()
         else:
-            return asyncio.run(_run())
+            # 普通线程（含 ThreadPoolExecutor worker）：使用全局共享持久 loop，
+            # 确保所有线程的 litellm 调用均在同一 loop 中执行，消除并发时的
+            # "bound to a different event loop" 错误
+            fut = asyncio.run_coroutine_threadsafe(_run(), _get_shared_loop())
+            return fut.result()

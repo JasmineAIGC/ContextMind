@@ -2,6 +2,8 @@
 
 本目录包含 ContextMind 的 PyTOD 函数代码生成系统，共提供四种生成策略。
 
+详细算法原理请参阅：**[ALGORITHMS.md](ALGORITHMS.md)**
+
 ## 目录结构
 
 ```
@@ -11,7 +13,7 @@ pytod/
 ├── models.py        # 数据模型（FuncValidation、TestCaseItem）
 ├── prompts.py       # 基础提示模板（共享，供 generator.py 使用）
 ├── validator.py     # 函数验证与报告（共享）
-├── base/            # 基础五阶段流水线生成器
+├── loop/            # 基础五阶段流水线生成器
 ├── alpha/           # AlphaCodium 风格的 ACIA 生成器
 ├── sstar/           # S* 生成器（arXiv:2502.14382）
 └── ctree/           # CodeTree 生成器（arXiv:2411.04329）
@@ -21,7 +23,7 @@ pytod/
 
 | 策略 | 目录 | `--generator` 参数值 | 说明 |
 |------|------|----------------------|------|
-| 基础五阶段 | `base/` | `pytod`（默认） | 顺序执行的五阶段流水线，适合一般场景 |
+| 基础五阶段 | `loop/` | `loop`（默认） | 顺序执行的五阶段流水线，适合一般场景 |
 | ACIA | `alpha/` | `alpha` | AlphaCodium 风格的迭代修复，鲁棒性强 |
 | S\* | `sstar/` | `sstar` | 并行采样 + 区分性选择，适合高质量要求场景 |
 | CodeTree | `ctree/` | `ctree` | UCB 引导的树搜索，适合复杂函数生成 |
@@ -32,7 +34,7 @@ pytod/
 
 ```bash
 # 使用默认基础生成器
-python -m contextmind ... --generator pytod
+python -m contextmind ... --generator loop
 
 # 使用 ACIA 生成器
 python -m contextmind ... --generator alpha

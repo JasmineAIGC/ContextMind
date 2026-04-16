@@ -41,6 +41,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from contextmind.infra.logger import get_logger
 from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema, load_schema_from_dict
+from contextmind.schema_builder.pytod.testcase.cache import test_cases_path_for_schema
 
 logger = get_logger(__name__)
 
@@ -68,6 +69,9 @@ class SchemaDataBuilder:
                                    （并行草稿 + 执行追踪修复 + 区分性测试选择 + 精炼）；
                                    ``"ctree"`` — CodeTree（树形搜索，arXiv:2411.04329，2024/2025）
                                    （UCB 引导树搜索：根节点生成 + 逐失败用例扩展 + 最优路径选择）。
+        test_cases_path:           可选，预构建测试用例 JSON 文件路径（``*_test_cases.json``）。
+                                   指定后 ``build_pytod_apis()`` 直接从该文件加载测试用例，
+                                   不再通过 ``test_cases_path_for_schema()`` 自动计算路径。
     """
 
     def __init__(
@@ -83,6 +87,8 @@ class SchemaDataBuilder:
         generate_report: bool = False,
         verbose: bool = False,
         generator: str = "loop",
+        test_cases_path: Optional[Union[str, Path]] = None,
+        workers: int = 1,
     ) -> None:
         self.overwrite = overwrite
         self.llm_client = llm_client
@@ -97,6 +103,8 @@ class SchemaDataBuilder:
         self.generate_report = generate_report
         self.verbose = verbose
         self.generator = generator
+        self.test_cases_path = Path(test_cases_path) if test_cases_path is not None else None
+        self.workers = workers
 
     # ------------------------------------------------------------------
     # 公开 API
@@ -160,6 +168,118 @@ class SchemaDataBuilder:
 
         return written
 
+    def prebuild_test_cases(
+        self,
+        schema_path: Union[str, Path],
+        schema: Optional[ServiceSchema] = None,
+        output_path: Optional[Union[str, Path]] = None,
+        workers: int = 4,
+    ) -> Optional[Path]:
+        """预生成测试用例并保存到 ``*_test_cases.json``，供所有生成器共享。
+
+        只运行 Phase 2（LLM 驱动的测试用例生成），不进行代码生成。
+        生成的测试用例文件默认位于 schema 文件同目录，命名规则同其他 companion 文件：
+
+            schema/foo_schema.json  →  schema/foo_test_cases.json
+
+        可通过 ``output_path`` 参数将文件写入任意自定义路径。
+
+        调用多个生成器（loop / alpha / sstar / ctree）前先运行一次本方法，
+        即可保证所有生成器在完全相同的测试集上进行评测，结果具有可比性。
+
+        如果目标文件已存在，直接返回其路径（不重新生成）。
+        如需强制重新生成，请先手动删除文件，再调用本方法。
+
+        Args:
+            schema_path: ``*_schema.json`` 文件路径。
+            schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
+            output_path: 可选，自定义测试用例输出路径；未指定时由 ``schema_path`` 自动推导。
+            workers:     并行工作线程数（默认 4）；每个意图各占一个线程并发调用 LLM。
+
+        Returns:
+            写入成功时返回测试用例文件路径，否则返回 None（无 LLM 或生成失败时）。
+        """
+        import concurrent.futures
+
+        from contextmind.schema_builder.pytod.testcase.cache import save_test_cases
+        from contextmind.schema_builder.pytod.testcase.generator import TestCaseGenerator
+
+        schema_path = Path(schema_path)
+        tc_path = (
+            Path(output_path) if output_path is not None
+            else self.test_cases_path if self.test_cases_path is not None
+            else test_cases_path_for_schema(schema_path)
+        )
+
+        if tc_path.exists():
+            logger.info(f"[prebuild] 测试用例文件已存在，跳过重新生成: {tc_path}")
+            return tc_path
+
+        if self.llm_client is None:
+            logger.warning("[prebuild] 未提供 llm_client，无法生成测试用例")
+            return None
+
+        if schema is None:
+            try:
+                with open(schema_path, encoding="utf-8") as fh:
+                    schema = load_schema_from_dict(json.load(fh))
+            except Exception as exc:
+                logger.error(f"[prebuild] 加载 schema 失败: {schema_path} — {exc}")
+                return None
+
+        if not schema.intents:
+            logger.info(f"[prebuild] schema 无意图定义，跳过测试用例生成: {schema_path}")
+            return None
+
+        # 解析 KB 目录上下文（与各生成器逻辑一致）
+        _dlg_path = Path(self.dialogue_data_path) if self.dialogue_data_path else None
+        _sgd_dlg_path = None
+        _discovery_path = None
+        _summary_path = None
+        if self.kb_dir is not None:
+            kb_context = TestCaseGenerator.load_kb_context(self.kb_dir)
+            if _dlg_path is None and kb_context.get("dialogues_path"):
+                _sgd_dlg_path = kb_context["dialogues_path"]
+            if kb_context.get("discovery_path"):
+                _discovery_path = kb_context["discovery_path"]
+            if kb_context.get("summary_path"):
+                _summary_path = kb_context["summary_path"]
+
+        gen = TestCaseGenerator(llm_client=self.llm_client)
+        dialogue_hint = gen._prepare_dialogue_hint(
+            dialogue_data_path=_dlg_path,
+            sgd_dialogue_data_path=_sgd_dlg_path,
+            discovery_data_path=_discovery_path,
+            summary_data_path=_summary_path,
+        )
+
+        all_slot_descs: Dict[str, Any] = {s.name: s.description for s in schema.slots}
+        cases_by_intent: Dict[str, Any] = {}
+        total_intents = len(schema.intents)
+        logger.info(f"[prebuild] 开始生成测试用例（共 {total_intents} 个意图，并行度 {workers}）: {schema_path.name}")
+
+        def _gen_one(idx_intent):
+            idx, intent = idx_intent
+            logger.info(f"[prebuild]   {idx}/{total_intents}: {intent.name}")
+            return intent.name, gen.build_test_cases_for_intent(
+                intent, schema, all_slot_descs, dialogue_hint, self.max_test_cases_per_intent
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            for intent_name, cases in pool.map(_gen_one, enumerate(schema.intents, 1)):
+                if cases:
+                    cases_by_intent[intent_name] = cases
+
+        if not cases_by_intent:
+            logger.warning("[prebuild] 未能生成任何测试用例")
+            return None
+
+        save_test_cases(cases_by_intent, tc_path)
+        logger.info(
+            f"[prebuild] 测试用例已保存（{len(cases_by_intent)}/{total_intents} 个意图）→ {tc_path}"
+        )
+        return tc_path
+
     def build_pytod_apis(
         self,
         schema_path: Union[str, Path],
@@ -168,7 +288,7 @@ class SchemaDataBuilder:
         """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
         当实例携带 ``llm_client`` 时，委托给
-        :func:`contextmind.schema_builder.pytod.loop.builder.build_pytod_apis`
+        :func:`contextmind.schema_builder.pytod.codegen.loop.builder.build_pytod_apis`
         执行完整的 5 阶段 LLM 生成流程（plan.md）；
         否则使用内置规则引擎生成 mock stub 函数。
 
@@ -186,17 +306,20 @@ class SchemaDataBuilder:
         # 根据 generator 参数委托给对应的构建器。
         if self.llm_client is not None:
             if self.generator == "alpha":
-                from contextmind.schema_builder.pytod.alpha.builder import build_pytod_apis_alpha as _build
+                from contextmind.schema_builder.pytod.codegen.alpha.builder import build_pytod_apis_alpha as _build
                 logger.info("[SchemaDataBuilder] 使用 ACIA 生成器（--generator alpha）")
             elif self.generator == "sstar":
-                from contextmind.schema_builder.pytod.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.codegen.sstar.builder import build_pytod_apis_sstar as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 S* 生成器（--generator sstar，arXiv:2502.14382）")
             elif self.generator == "ctree":
-                from contextmind.schema_builder.pytod.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.codegen.ctree.builder import build_pytod_apis_ctree as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用 CodeTree 生成器（--generator ctree，arXiv:2411.04329）")
             else:  # "loop" 或未知值均回退到迭代修复流水线
-                from contextmind.schema_builder.pytod.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
+                from contextmind.schema_builder.pytod.codegen.loop.builder import build_pytod_apis as _build  # type: ignore[assignment]
                 logger.info("[SchemaDataBuilder] 使用迭代修复流水线（--generator loop）")
+            # 自动计算测试用例缓存路径（与 schema 同目录，独立于 output_dir）；
+            # 若调用者通过 --test-cases-path 指定了自定义路径，则优先使用。
+            tc_path = self.test_cases_path if self.test_cases_path is not None else test_cases_path_for_schema(Path(schema_path))
             return _build(
                 schema_path,
                 schema=schema,
@@ -210,6 +333,8 @@ class SchemaDataBuilder:
                 max_test_cases_per_intent=self.max_test_cases_per_intent,
                 generate_report=self.generate_report,
                 verbose=self.verbose,
+                test_cases_path=tc_path,
+                workers=self.workers,
             )
 
         # ------- 规则模式（无 LLM）-------
@@ -241,6 +366,7 @@ class SchemaDataBuilder:
             '"""',
             '',
             'from __future__ import annotations',
+            'from typing import Optional',
             '',
         ]
 
@@ -479,14 +605,14 @@ def _mock_value_for_result_slot(slot_name: str, intent: IntentDefinition) -> str
 
 def _generate_function_lines(intent: IntentDefinition) -> List[str]:
     """为单个 intent 生成 Python 函数定义行列表。"""
-    # Build parameter list: required + optional, all with default None
+    # Build parameter list: required + optional, all with type hints and default None
     params = list(dict.fromkeys(
         list(intent.required_slots) + list(intent.optional_slots)
     ))
-    param_str = ", ".join([f"{p}=None" for p in params]) if params else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in params]) if params else ""
 
     lines: List[str] = []
-    lines.append(f"def {intent.name}({param_str}):")
+    lines.append(f"def {intent.name}({param_str}) -> dict:")
     # Docstring
     desc = intent.description.replace('"', '\\"') if intent.description else intent.name
     lines.append(f'    """{desc}"""')
@@ -507,9 +633,9 @@ def _generate_function_lines(intent: IntentDefinition) -> List[str]:
 def _generate_generic_function_lines(schema: ServiceSchema) -> List[str]:
     """无意图定义时生成一个以 service_name 命名的通用函数。"""
     slot_names = [s.name for s in schema.slots]
-    param_str = ", ".join([f"{p}=None" for p in slot_names]) if slot_names else ""
+    param_str = ", ".join([f"{p}: Optional[str] = None" for p in slot_names]) if slot_names else ""
     lines: List[str] = []
-    lines.append(f"def {schema.service_name}({param_str}):")
+    lines.append(f"def {schema.service_name}({param_str}) -> dict:")
     desc = schema.description.replace('"', '\\"') if schema.description else schema.service_name
     lines.append(f'    """{desc}"""')
     lines.append(f'    args = {{k: v for k, v in locals().items() if v is not None}}')

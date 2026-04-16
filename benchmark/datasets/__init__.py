@@ -7,8 +7,8 @@ Benchmark 数据集适配器
 """
 
 from .base import BaseDatasetAdapter
-from .transfertod.adapter import TransferTODAdapter
-from .risawoz.adapter import RiSAWOZAdapter
+from .transfertod import TransferTODAdapter
+from .risawoz import RiSAWOZAdapter
 
 __all__ = [
     "BaseDatasetAdapter",

@@ -1,13 +1,15 @@
 """
 ContextPipeline — 通用上下文工程流水线
 
-将知识库构建（Phase 1）和上下文提取执行（Phase 2）统一为一个高层接口。
+将三步框架（知识库构建 → Schema 数据生成 → 算法执行）统一为一个高层接口。
 
-上下文工程两步框架
-------------------
+三步框架
+--------
 1. **建立知识库**（Phase 1）：针对任意对话数据集，通过 LLM 自动发现槽位和意图，
-   合成标准 SGD 格式 ``schema.json``。统一使用 ``examples/build_kb_demo.py``。
-2. **执行**（Phase 2）：基于 SGD 知识库，在对话中提取有效的上下文，提升对话质量。
+   合成标准 SGD 格式 ``schema.json``。统一使用 ``examples/build_kb.py``。
+2. **Schema 数据生成**（Phase 2，可选）：将 schema.json 转换为算法专用数据
+   （如 PyTOD 的 API 代码文件）。DST / FnCTOD / Evolve 不需要此步骤。
+3. **算法执行**（Phase 3）：基于 SGD 知识库，在对话中提取有效的上下文，提升对话质量。
    支持四种算法：DST、FnCTOD、PyTOD、Evolve。
 
 算法与 schema.json 的关系
@@ -17,7 +19,7 @@ ContextPipeline — 通用上下文工程流水线
 - ``"dst"``：**可选** schema.json。对话状态追踪，纯槽位提取，无 API 调用。
 - ``"evolve"``：**不需要** schema.json。演化式上下文优化（会话历史 + 长期记忆检索）。
 
-``ContextPipeline`` 将两步整合为一个简洁 API，用户无需了解底层算法细节。
+``ContextPipeline`` 灵活整合三步流程，用户无需了解底层算法细节。
 
 典型用法
 --------
