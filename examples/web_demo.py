@@ -11,11 +11,13 @@ ContextMind Web界面Demo
     python examples/web_demo.py --max-history-turns 20 --share
     python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
     python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/web_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
            也接受原始 schema（schema/xxx_schema.json），自动寻找 companion 文件
     PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
+           可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
 """
 
 import sys
@@ -124,23 +126,39 @@ def _load_fnctod_schema(json_path: str):
         return None, None
 
 
-def _load_pytod_service_schema(apis_py_path: str):
+def _load_pytod_service_schema(apis_py_path: str, schema_json_path: Optional[str] = None):
     """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
 
-    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
-    若对应 JSON 不存在则返回 None，PyTOD 将退化为无结构 prompt 模式。
+    若 schema_json_path 已显式指定，则直接加载该文件。
+    否则按以下优先级自动推导（均与 apis_py_path 同目录）：
+
+    1. ``{base}_schema.json``（标准命名，如 ``anyihua_pytod_apis.py`` → ``anyihua_schema.json``）
+    2. ``{base}.json``（兜底，如 ``schema_pytod_apis.py`` → ``schema.json``）
+
+    若均不存在则返回 None，PyTOD 将退化为无结构 prompt 模式。
     """
     import json as _json
     from pathlib import Path as _Path
+
+    def _load_json(path: "_Path"):
+        if not path.exists():
+            return None
+        with open(path, encoding="utf-8") as f:
+            return load_schema_from_dict(_json.load(f))
+
+    if schema_json_path:
+        return _load_json(_Path(schema_json_path))
+
     p = _Path(apis_py_path)
     stem = p.stem  # e.g. "anyihua_pytod_apis"
     base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
-    json_path = p.parent / f"{base}_schema.json"
-    if not json_path.exists():
-        return None
-    with open(json_path, encoding="utf-8") as f:
-        data = _json.load(f)
-    return load_schema_from_dict(data)
+    # 优先尝试标准命名
+    schema = _load_json(p.parent / f"{base}_schema.json")
+    if schema is not None:
+        return schema
+    # 兜底：base 本身不含 "_schema" 后缀时（如 schema_pytod_apis.py → base="schema"），
+    # {base}_schema.json 会变成 schema_schema.json（不存在），回退到 {base}.json
+    return _load_json(p.parent / f"{base}.json")
 
 
 def _build_fnctod_domain_inline(fm: any, svc: any) -> None:
@@ -165,6 +183,7 @@ class UnifiedGradioDemo:
         max_history_turns: int = 10,
         fnctod_schema_path: Optional[str] = None,
         pytod_apis_path: Optional[str] = None,
+        schema_json_path: Optional[str] = None,
     ):
         """
         初始化Demo
@@ -173,6 +192,7 @@ class UnifiedGradioDemo:
             max_history_turns:   DST 模式的最大历史轮数
             fnctod_schema_path:  FnCTOD 模式的 schema.json 路径
             pytod_apis_path:     PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件）
+            schema_json_path:    PyTOD 模式的 schema.json 路径（显式指定；优先于自动推导）
         """
         self.current_scenario = None
         self.current_mode = None
@@ -191,11 +211,11 @@ class UnifiedGradioDemo:
         self._fnctod_domain_spec = None
         if fnctod_schema_path:
             _, self._fnctod_domain_spec = _load_fnctod_schema(fnctod_schema_path)
-        # PyTOD：从 *_pytod_apis.py 加载 ServiceSchema（推导对应 JSON）
+        # PyTOD：从 *_pytod_apis.py 加载 ServiceSchema（推导对应 JSON；显式 --schema 优先）
         self._pytod_schema = None
         self._pytod_apis_path: Optional[str] = pytod_apis_path
         if pytod_apis_path:
-            self._pytod_schema = _load_pytod_service_schema(pytod_apis_path)
+            self._pytod_schema = _load_pytod_service_schema(pytod_apis_path, schema_json_path)
         logger.info("Demo实例创建完成（延迟初始化）")
     
     def initialize_scenario(self, scenario: str, mode: str):
@@ -872,6 +892,18 @@ def parse_args():
         metavar='PATH',
         help='PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件，schema/ 目录下）。例如: --pytod-apis schema/anyihua_pytod_apis.py',
     )
+
+    parser.add_argument(
+        '--schema',
+        type=str,
+        default=None,
+        dest='schema_json',
+        metavar='PATH',
+        help=(
+            'PyTOD 模式的 schema.json 文件路径，显式指定 ServiceSchema（推荐与 --pytod-apis 配合使用）。'
+            '若不指定，则从 *_pytod_apis.py 文件名自动推导同目录下的 xxx_schema.json 或 xxx.json。'
+        ),
+    )
     
     return parser.parse_args()
 
@@ -891,6 +923,8 @@ def main():
         logger.info(f"FnCTOD Schema: {args.fnctod_schema}")
     if args.pytod_apis:
         logger.info(f"PyTOD APIs: {args.pytod_apis}")
+    if args.schema_json:
+        logger.info(f"PyTOD Schema JSON: {args.schema_json}")
     
     # 创建Demo实例
     try:
@@ -898,6 +932,7 @@ def main():
             max_history_turns=args.max_history_turns,
             fnctod_schema_path=args.fnctod_schema,
             pytod_apis_path=args.pytod_apis,
+            schema_json_path=args.schema_json,
         )
         logger.info("✅ Demo实例创建成功")
     except Exception as e:
