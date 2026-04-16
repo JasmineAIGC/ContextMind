@@ -80,18 +80,28 @@ def _load_service_schema_from_json(schema_json_path: Path) -> Optional[ServiceSc
 def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
     """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
 
-    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
+    推导规则（按优先级依次尝试）：
+
+    1. ``{base}_schema.json``（标准命名约定：``anyihua_pytod_apis.py`` → ``anyihua_schema.json``）
+    2. ``{base}.json``（兜底：当 schema 文件本身以 ``schema`` 或其他无后缀名命名时，
+       如 ``schema_pytod_apis.py`` 对应 ``schema.json``）
+
+    两个候选路径均与 apis_path 同目录。
 
     Args:
         apis_path: *_pytod_apis.py 文件路径。
 
     Returns:
-        解析后的 ServiceSchema；若对应 JSON 不存在则返回 None。
+        解析后的 ServiceSchema；若两个候选路径均不存在则返回 None。
     """
-    stem = apis_path.stem  # e.g. "anyihua_pytod_apis"
+    stem = apis_path.stem  # e.g. "anyihua_pytod_apis" or "schema_pytod_apis"
     base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
-    json_path = apis_path.parent / f"{base}_schema.json"
-    return _load_service_schema_from_json(json_path)
+    # 优先尝试标准命名：foo_schema.json
+    schema = _load_service_schema_from_json(apis_path.parent / f"{base}_schema.json")
+    if schema is not None:
+        return schema
+    # 兜底：当 schema 文件本身无 "_schema" 后缀时（如 schema.json、myservice.json）
+    return _load_service_schema_from_json(apis_path.parent / f"{base}.json")
 
 
 def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:

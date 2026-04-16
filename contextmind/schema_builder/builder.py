@@ -34,6 +34,7 @@ FnCTOD companion (``*_fnctod_domain.json``)
 from __future__ import annotations
 
 import json
+import shutil
 import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
@@ -165,6 +166,15 @@ class SchemaDataBuilder:
         p = self.build_fnctod_domain(schema_path, schema=schema)
         if p:
             written.append(p)
+
+        # 当 output_dir 与 schema 所在目录不同时，将 schema.json 复制到 output_dir。
+        # 这样 pytod_trace_demo.py 等工具在无 --schema 参数时也能自动发现 schema 文件，
+        # 无需用户额外指定路径。
+        if self.output_dir is not None and self.output_dir.resolve() != schema_path.parent.resolve():
+            dest = self.output_dir / schema_path.name
+            if not dest.exists() or self.overwrite:
+                shutil.copy2(schema_path, dest)
+                logger.debug(f"[SchemaDataBuilder] 已将 schema 复制到输出目录: {dest}")
 
         return written
 
