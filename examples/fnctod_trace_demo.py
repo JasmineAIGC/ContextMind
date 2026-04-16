@@ -22,6 +22,7 @@ FnCTOD 对话状态追踪脚本
     python examples/fnctod_trace_demo.py --output /tmp/trace.md --verbose
     python examples/fnctod_trace_demo.py --schema schema/anyihua_fnctod_domain.json
     python examples/fnctod_trace_demo.py --schema schema/anyihua_schema.json
+    python examples/fnctod_trace_demo.py --json-mode  # vLLM 等未启用原生函数调用时使用
 """
 
 from __future__ import annotations
