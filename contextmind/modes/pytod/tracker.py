@@ -244,8 +244,9 @@ def _score_intents_for_query(
         长度 ≤ top_k 的意图名称列表，按相关性降序排列。
         若 top_k >= len(intents) 则直接返回全部意图名称（不过滤）。
     """
-    # Early-exit guard: n >= 1 is guaranteed below (empty list handled by `not intents`),
-    # so subsequent divisions by n and avg_field_len (clamped to ≥1.0) are always safe.
+    # Early-exit guard: len(intents) >= 1 is guaranteed below (empty list handled by
+    # `not intents`), so subsequent divisions by len(intents) (assigned to `n`) and
+    # avg_field_len (clamped to ≥1.0) are always safe.
     if not intents or top_k <= 0 or top_k >= len(intents):
         return [intent.name for intent in intents]
 

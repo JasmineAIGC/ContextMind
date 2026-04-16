@@ -100,7 +100,8 @@ def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
     schema = _load_service_schema_from_json(apis_path.parent / f"{base}_schema.json")
     if schema is not None:
         return schema
-    # 兜底：当 schema 文件本身无 "_schema" 后缀时（如 schema.json、myservice.json）
+    # 兜底：当 base 本身不含 "_schema" 后缀时（如 schema_pytod_apis.py → base="schema"），
+    # {base}_schema.json 会变成 schema_schema.json（不存在）；此处回退到 {base}.json（即 schema.json）
     return _load_service_schema_from_json(apis_path.parent / f"{base}.json")
 
 
