@@ -150,11 +150,60 @@ def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[s
 _THINKING_MODELS = ("qwen3", "qwen-3", "deepseek-r1", "deepseek_r1")
 """模型名称片段列表（小写），对应需要禁用思考模式的推理模型。"""
 
+_LITELLM_PROVIDER_PREFIXES = (
+    "openai/", "anthropic/", "azure/", "gemini/", "google/",
+    "mistral/", "cohere/", "huggingface/", "deepseek/", "ollama/",
+    "bedrock/", "vertex_ai/", "groq/", "together_ai/", "replicate/",
+    "aleph_alpha/", "baseten/", "palm/", "nlp_cloud/", "petals/",
+    "voyage/", "cloudflare/", "xinference/", "fireworks_ai/",
+)
+"""LiteLlm 已知的提供商前缀列表，用于判断模型名是否已含提供商信息。"""
+
 
 def _is_thinking_model(model: str) -> bool:
     """如果模型名称表明它是推理型模型，返回 True。"""
     lower = model.lower()
     return any(fragment in lower for fragment in _THINKING_MODELS)
+
+
+def _needs_openai_prefix(model: str) -> bool:
+    """判断模型名是否需要添加 ``openai/`` 前缀。
+
+    LiteLlm 使用 ``provider/model`` 格式路由请求。若模型名称已包含已知提供商前缀
+    （如 ``anthropic/``、``gemini/`` 等），则无需追加 ``openai/`` 前缀；否则默认
+    将其视为 OpenAI 兼容端点，添加 ``openai/`` 前缀以正确路由。
+    """
+    return not any(model.startswith(p) for p in _LITELLM_PROVIDER_PREFIXES)
+
+
+def _build_thinking_extra_body(
+    resolved_thinking: Optional[bool],
+    base_url: Optional[str],
+) -> dict:
+    """构建思考模式控制参数的 ``extra_body`` 字典。
+
+    不同后端对 ``enable_thinking`` 参数的格式要求不同：
+
+    - **vLLM 托管**（有自定义 ``base_url``）：需嵌套在 ``chat_template_kwargs`` 下，
+      即 ``{"chat_template_kwargs": {"enable_thinking": False}}``。
+    - **云端 API**（无 ``base_url``，如 DashScope/Qwen Cloud）：直接放在
+      ``extra_body`` 顶层，即 ``{"enable_thinking": False}``。
+
+    Args:
+        resolved_thinking: 思考模式开关（``None`` 表示不传此参数）。
+        base_url:          LLM API 的 base URL；``None`` 或空字符串表示云端默认端点。
+
+    Returns:
+        含 ``extra_body`` 键的字典，或空字典（``resolved_thinking`` 为 ``None`` 时）。
+    """
+    if resolved_thinking is None:
+        return {}
+    if base_url:
+        # vLLM / 自托管部署：enable_thinking 须嵌套在 chat_template_kwargs 下
+        return {"extra_body": {"chat_template_kwargs": {"enable_thinking": resolved_thinking}}}
+    else:
+        # 云端 API（DashScope / 标准 OpenAI 兼容接口）：直接放在 extra_body 顶层
+        return {"extra_body": {"enable_thinking": resolved_thinking}}
 
 
 @dataclass
@@ -241,14 +290,16 @@ def create_local_adk_model(config: Optional[LLMConfig] = None) -> Any:
     if resolved_thinking is None and _is_thinking_model(config.model):
         resolved_thinking = False
 
-    # vLLM Qwen3 要求 enable_thinking 嵌套在 chat_template_kwargs 下；
-    # 直接传 extra_body={"enable_thinking": False} 会被忽略。
-    extra_kwargs: dict = {}
-    if resolved_thinking is not None:
-        extra_kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": resolved_thinking}}
+    # 根据部署方式选择正确的 enable_thinking 参数格式：
+    # - vLLM（有自定义 base_url）：嵌套在 chat_template_kwargs 下
+    # - 云端 API（无 base_url）：直接放在 extra_body 顶层
+    extra_kwargs = _build_thinking_extra_body(resolved_thinking, config.base_url)
+
+    # 若模型名称已含提供商前缀（如 anthropic/claude-3），则不再追加 openai/ 前缀
+    model_str = f"openai/{config.model}" if _needs_openai_prefix(config.model) else config.model
 
     return LiteLlm(
-        model=f"openai/{config.model}",
+        model=model_str,
         api_base=config.base_url,
         api_key=config.api_key,
         **extra_kwargs,
@@ -314,12 +365,14 @@ class AdkLLMClient:
         _litellm = self._litellm
         temp = temperature if temperature is not None else self._config.temperature
 
-        extra_kwargs: dict = {}
-        if self._resolved_thinking is not None:
-            extra_kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": self._resolved_thinking}}
+        # 根据部署方式选择正确的 enable_thinking 参数格式（与 create_local_adk_model 保持一致）
+        extra_kwargs = _build_thinking_extra_body(self._resolved_thinking, self._config.base_url)
+
+        # 若模型名称已含提供商前缀，则不再追加 openai/ 前缀
+        model_str = f"openai/{self._config.model}" if _needs_openai_prefix(self._config.model) else self._config.model
 
         response = await _litellm.acompletion(
-            model=f"openai/{self._config.model}",
+            model=model_str,
             messages=messages,
             api_base=self._config.base_url,
             api_key=self._config.api_key,
