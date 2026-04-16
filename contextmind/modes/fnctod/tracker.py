@@ -23,10 +23,12 @@ FnCTOD 不在算法代码内部硬编码场景 Schema 数据。所有 Schema 均
 from __future__ import annotations
 
 import inspect
+import json
+import re
 import types
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from contextmind.infra.llm_client import LLMConfig, create_local_adk_model
+from contextmind.infra.llm_client import AdkLLMClient, LLMConfig, create_local_adk_model
 from contextmind.infra.logger import get_logger
 from contextmind.modes.fnctod.function_manager import FunctionManager
 
@@ -158,6 +160,15 @@ class FnCTODTracker:
         self._session_id: Optional[str] = None
         self.last_turn_updates: Dict[str, Any] = {}
 
+        # Fallback client used when the backend does not support tool_choice="auto"
+        # (e.g. vLLM started without --enable-auto-tool-choice).
+        self._llm_client = AdkLLMClient(config=self._llm_config)
+        # True  → try ADK native function calling first
+        # False → permanently use JSON-prompt fallback (set after first tool_choice error)
+        self._use_native_tools: bool = True
+        # Cached fallback system prompt (built lazily on first use)
+        self._fallback_system_prompt: Optional[str] = None
+
         logger.info(
             f"FnCTODTracker 初始化完成 (model={self._llm_config.model}, "
             f"domains={function_manager.get_domain_names()})"
@@ -229,6 +240,87 @@ class FnCTODTracker:
         self.turn_count = 0
         self._session_id = None
         self.last_turn_updates = {}
+        self._use_native_tools = True
+        self._fallback_system_prompt = None
+
+    def _build_fallback_system_prompt(self) -> str:
+        """构建无需原生函数调用的槽位提取系统提示词。
+
+        当后端不支持 ``tool_choice="auto"``（如 vLLM 未启用 ``--enable-auto-tool-choice``）
+        时使用。模型被要求以 ``<SLOTS>…</SLOTS>`` 标签输出 JSON 槽位，随后输出自然语言回复。
+        """
+        lines = [
+            "你是一个任务型对话助手。分析对话内容，提取槽位信息并给出回复。",
+            "",
+            "# 业务域和参数定义",
+        ]
+        for domain in self.function_manager.get_all_domains():
+            lines.append(f"\n## 域: {domain.name}")
+            if domain.description:
+                lines.append(domain.description)
+            lines.append("参数:")
+            for p in domain.parameters:
+                mark = "（必填）" if p.required else "（可选）"
+                enum_info = f"，可选值: {p.enum_values}" if p.enum_values else ""
+                lines.append(f"  - {p.name}: {p.description}{mark}{enum_info}")
+        lines += [
+            "",
+            "# 输出格式（严格遵守）",
+            "先输出 <SLOTS> 标签包裹的 JSON（仅填入本轮对话中明确提及的槽位，未提及的省略）：",
+            "<SLOTS>",
+            '{"槽位名": "槽位值"}',
+            "</SLOTS>",
+            "然后立即输出自然语言回复，不要输出任何其他内容。",
+            "若本轮无槽位更新，输出 <SLOTS>{}</SLOTS> 后直接给出回复。",
+        ]
+        if self.scenario_context:
+            lines += ["", "# 业务场景背景", self.scenario_context]
+        return "\n".join(lines)
+
+    async def _process_turn_fallback(
+        self, effective_user_text: str
+    ) -> Tuple[str, Dict[str, Any]]:
+        """用结构化 JSON 提示词提取槽位并生成回复（不依赖原生函数调用）。
+
+        当后端不支持 ``tool_choice="auto"`` 时由 :meth:`process_turn` 调用。
+        模型输出格式为 ``<SLOTS>{...}</SLOTS>`` + 自然语言回复。
+
+        Returns:
+            ``(response_text, turn_updates)`` 元组。
+        """
+        if self._fallback_system_prompt is None:
+            self._fallback_system_prompt = self._build_fallback_system_prompt()
+
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": self._fallback_system_prompt}
+        ]
+        messages.extend(self._dialogue_history)
+        messages.append({"role": "user", "content": effective_user_text})
+
+        raw = await self._llm_client.chat_async(messages)
+
+        # 解析 <SLOTS>…</SLOTS> 块中的 JSON
+        turn_updates: Dict[str, Any] = {}
+        slots_match = re.search(r"<SLOTS>\s*(.*?)\s*</SLOTS>", raw, re.DOTALL)
+        response_text = raw
+        if slots_match:
+            try:
+                slots = json.loads(slots_match.group(1))
+                if isinstance(slots, dict):
+                    turn_updates = {k: v for k, v in slots.items() if v not in (None, "", [])}
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"[turn {self.turn_count}] fallback 模式 JSON 解析失败: "
+                    f"{slots_match.group(1)!r}"
+                )
+            # 去掉 <SLOTS>…</SLOTS> 块，剩余部分为自然语言回复
+            response_text = raw[slots_match.end():].strip()
+
+        logger.debug(
+            f"[turn {self.turn_count}] fallback 模式 槽位: {turn_updates}, "
+            f"回复: {response_text[:80]}"
+        )
+        return response_text, turn_updates
 
     async def process_turn(
         self,
@@ -236,7 +328,12 @@ class FnCTODTracker:
         agent_utterance: str = "",
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """处理单轮用户输入，通过 ADK 原生 Function Calling 提取槽位并生成回复。
+        """处理单轮用户输入，提取槽位并生成回复。
+
+        优先使用 ADK 原生 Function Calling；若后端返回
+        ``tool_choice="auto"`` 不支持的错误（如 vLLM 未启用
+        ``--enable-auto-tool-choice``），则自动切换为基于结构化 JSON
+        提示词的备用方案，并对后续所有轮次保持该模式。
 
         Args:
             user_utterance:  本轮用户话语。
@@ -251,7 +348,6 @@ class FnCTODTracker:
                 - ``state``     : 当前累积的对话状态（所有轮次槽位合并）
                 - ``updates``   : 本轮新增或更新的槽位条目
         """
-        session_id = await self._get_or_create_session()
         self.turn_count += 1
 
         # 若本轮有坐席先说的内容，将其与用户话语合并为完整对话对，
@@ -261,34 +357,66 @@ class FnCTODTracker:
         else:
             effective_user_text = user_utterance
 
-        content = genai_types.Content(
-            role="user",
-            parts=[genai_types.Part(text=effective_user_text)],
-        )
-
         turn_updates: Dict[str, Any] = {}
-        final_text = ""
+        response_text = ""
 
-        async for event in self._runner.run_async(
-            user_id="default_user",
-            session_id=session_id,
-            new_message=content,
-        ):
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, "function_call") and part.function_call:
-                        fc = part.function_call
-                        filtered = {k: v for k, v in (fc.args or {}).items() if v not in (None, "", [])}
-                        turn_updates.update(filtered)
-                        logger.debug(f"[turn {self.turn_count}] function call '{fc.name}': {filtered}")
-                    if event.is_final_response() and hasattr(part, "text") and part.text:
-                        if not getattr(part, "thought", False):
-                            final_text += part.text
+        if self._use_native_tools:
+            session_id = await self._get_or_create_session()
+            content = genai_types.Content(
+                role="user",
+                parts=[genai_types.Part(text=effective_user_text)],
+            )
+            final_text = ""
+            try:
+                async for event in self._runner.run_async(
+                    user_id="default_user",
+                    session_id=session_id,
+                    new_message=content,
+                ):
+                    if event.content and event.content.parts:
+                        for part in event.content.parts:
+                            if hasattr(part, "function_call") and part.function_call:
+                                fc = part.function_call
+                                filtered = {
+                                    k: v
+                                    for k, v in (fc.args or {}).items()
+                                    if v not in (None, "", [])
+                                }
+                                turn_updates.update(filtered)
+                                logger.debug(
+                                    f"[turn {self.turn_count}] function call "
+                                    f"'{fc.name}': {filtered}"
+                                )
+                            if (
+                                event.is_final_response()
+                                and hasattr(part, "text")
+                                and part.text
+                            ):
+                                if not getattr(part, "thought", False):
+                                    final_text += part.text
+                response_text = final_text.strip()
+            except Exception as exc:
+                exc_str = str(exc)
+                if "tool choice" in exc_str.lower() or "tool_choice" in exc_str.lower():
+                    # 后端不支持 tool_choice="auto"，永久切换到 JSON 提示词备用方案
+                    logger.warning(
+                        f"[turn {self.turn_count}] 原生函数调用不支持 "
+                        f"(tool_choice error)，切换到 JSON 提示词备用模式: {exc}"
+                    )
+                    self._use_native_tools = False
+                    response_text, turn_updates = await self._process_turn_fallback(
+                        effective_user_text
+                    )
+                else:
+                    raise
+        else:
+            response_text, turn_updates = await self._process_turn_fallback(
+                effective_user_text
+            )
 
         self._current_state.update(turn_updates)
         self.last_turn_updates = turn_updates
         self._dialogue_history.append({"role": "user", "content": effective_user_text})
-        response_text = final_text.strip()
         if response_text:
             self._dialogue_history.append({"role": "assistant", "content": response_text})
 
