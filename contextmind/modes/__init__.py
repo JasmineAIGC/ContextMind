@@ -57,11 +57,13 @@ def build_tracker(algorithm: str, model: Optional[str] = None, **kwargs: Any) ->
         return AdkPyTODTracker(llm_client=llm_client, engine=engine, **kwargs)
 
     if algorithm == "evolve":
-        return EvolveEngine(
+        from contextmind.modes.evolve import EvolveApplication, EvolveEngine
+        engine = EvolveEngine(
             app_name="benchmark_evolve",
             user_id="benchmark_user",
             llm_client=llm_client,
         )
+        return EvolveApplication(evolve_engine=engine, llm_client=llm_client)
 
     raise ValueError(
         f"未知算法: {algorithm!r}，可选: {' | '.join(_SUPPORTED_ALGORITHMS)}"
