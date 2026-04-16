@@ -244,6 +244,8 @@ def _score_intents_for_query(
         长度 ≤ top_k 的意图名称列表，按相关性降序排列。
         若 top_k >= len(intents) 则直接返回全部意图名称（不过滤）。
     """
+    # Early-exit guard: n >= 1 is guaranteed below (empty list handled by `not intents`),
+    # so subsequent divisions by n and avg_field_len (clamped to ≥1.0) are always safe.
     if not intents or top_k <= 0 or top_k >= len(intents):
         return [intent.name for intent in intents]
 
@@ -858,12 +860,15 @@ class AdkPyTODTracker:
 
             # ── 提取已调用 API 名称（用于已调用意图降权 + 依赖就绪分析）────
             # var_call_sources: {"x1": "query_balance(account='123')", ...}
+            # 按变量编号升序排列，确保 call_history 反映真实调用顺序。
+            # 变量名格式通常为 xN（N 为整数），用正则提取尾部数字兼容边缘情况。
+            def _var_sort_key(v: str) -> int:
+                m_num = re.search(r"(\d+)$", v)
+                return int(m_num.group(1)) if m_num else 0
+
             already_called: Set[str] = set()
             call_history_ordered: List[str] = []
-            for var_name in sorted(
-                self.var_call_sources.keys(),
-                key=lambda v: int(v[1:]) if len(v) > 1 and v[1:].isdigit() else 0,
-            ):
+            for var_name in sorted(self.var_call_sources.keys(), key=_var_sort_key):
                 m = re.match(r"^([A-Za-z_]\w*)\s*\(", self.var_call_sources[var_name])
                 if m:
                     func = m.group(1)
