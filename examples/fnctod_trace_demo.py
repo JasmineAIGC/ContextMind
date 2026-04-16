@@ -159,7 +159,9 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
         agent = FnCTODTracker(function_manager=fm, config=config,
                               scenario_context=scenario_context)
         prev_state: Dict[str, Any] = {}
+        n_turns = len(paired_turns)
         for idx, (utt, preceding_agent, following_agent) in enumerate(paired_turns):
+            print(f"  → 处理第 {idx + 1}/{n_turns} 轮...", flush=True)
             # 捕获本轮 LLM 输入上下文（system + 历史对话 + 当前用户发言）
             # effective_user_content 反映实际发送给 LLM 的完整对话对（坐席+用户）
             hist_before = list(getattr(agent, "_dialogue_history", []))
@@ -172,9 +174,24 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                 + [{"role": "user", "content": effective_user_content}]
             )
             try:
-                result = await agent.process_turn(utt, agent_utterance=preceding_agent)
+                result = await asyncio.wait_for(
+                    agent.process_turn(utt, agent_utterance=preceding_agent),
+                    timeout=120.0,
+                )
+            except asyncio.TimeoutError:
+                result = {
+                    "response": "(超时: LLM 调用超时，请检查 API 连接是否正常)",
+                    "state": dict(getattr(agent, "_current_state", {})),
+                    "updates": {},
+                }
+                print(f"  ⚠️  第 {idx + 1} 轮 LLM 调用超时", flush=True)
             except Exception as exc:
-                result = {"response": f"(error: {exc})", "state": {}, "updates": {}}
+                result = {
+                    "response": f"(error: {exc})",
+                    "state": dict(getattr(agent, "_current_state", {})),
+                    "updates": {},
+                }
+                print(f"  ⚠️  第 {idx + 1} 轮 LLM 调用失败: {exc}", flush=True)
 
             response_text = result.get("response", "")
             new_state: Dict[str, Any] = result.get("state", {})
@@ -434,8 +451,10 @@ def main() -> None:
 
     session = _load_session(args.index, args.seed)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
+    print("正在执行 FnCTOD 追踪（每轮 LLM 调用超时 120s）...", flush=True)
 
     trace = asyncio.run(run_trace(session, verbose=args.verbose, domain_spec=domain_spec))
+    print("✓ 追踪完成", flush=True)
 
     # 输出路径
     if args.output:
