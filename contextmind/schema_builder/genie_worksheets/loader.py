@@ -1,8 +1,8 @@
 """
-WorksheetLoader — Genie Worksheets ↔ ContextMind ServiceSchema 格式转换器
+WorksheetLoader — Genie Worksheets CSV / JSON 格式导入/导出工具
 
-将 Genie Worksheets 格式（CSV / JSON）的业务策略定义导入 ContextMind 的
-``ServiceSchema``，并支持反向导出（``ServiceSchema`` → Worksheet CSV）。
+将 Genie Worksheets 格式的业务策略定义导入为 ``GenieSchema``，并支持反向导出。
+本模块**不依赖** ``contextmind.modes.pytod`` 的任何代码。
 
 Genie Worksheet 的每行（Field）对应一个槽位的策略注解，字段如下：
 
@@ -59,7 +59,7 @@ JSON 示例::
     # 从 JSON 加载（完整 Worksheet JSON）
     schema = WorksheetLoader.from_json("worksheets/restaurant_worksheet.json")
 
-    # 从已有 ServiceSchema 反向导出为 Worksheet CSV（方便人工编辑策略）
+    # 从已有 GenieSchema 反向导出为 Worksheet CSV（方便人工编辑策略）
     csv_text = WorksheetLoader.to_csv(schema)
     with open("export.csv", "w") as f:
         f.write(csv_text)
@@ -74,12 +74,12 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from contextmind.modes.pytod.schemas import (
-    IntentDefinition,
-    ServiceSchema,
-    SlotDefinition,
-)
 from contextmind.schema_builder.genie_worksheets.models import PolicyField
+from contextmind.schema_builder.genie_worksheets.schema_types import (
+    GenieIntent,
+    GenieSchema,
+    GenieSlot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +101,11 @@ class WorksheetLoader:
     """Genie Worksheets 格式导入/导出工具。
 
     所有方法均为类方法，无需实例化。
+    返回值为 :class:`GenieSchema`，与 PyTOD 完全独立。
     """
 
     # ------------------------------------------------------------------
-    # 导入：Worksheet → ServiceSchema
+    # 导入：Worksheet → GenieSchema
     # ------------------------------------------------------------------
 
     @classmethod
@@ -114,8 +115,8 @@ class WorksheetLoader:
         service_name: str = "",
         service_description: str = "",
         encoding: str = "utf-8",
-    ) -> ServiceSchema:
-        """从 CSV 文件加载 Worksheet，返回 ``ServiceSchema``。
+    ) -> GenieSchema:
+        """从 CSV 文件加载 Worksheet，返回 ``GenieSchema``。
 
         CSV 文件格式说明：
         - 以 ``# intent_name`` 开头的行表示新 Intent 节的开始
@@ -129,7 +130,7 @@ class WorksheetLoader:
             encoding:           文件编码（默认 utf-8）。
 
         Returns:
-            包含 policy_fields 的 ``ServiceSchema``。
+            包含 policy_fields 的 ``GenieSchema``。
         """
         text = Path(path).read_text(encoding=encoding)
         return cls.from_csv_string(
@@ -144,10 +145,10 @@ class WorksheetLoader:
         text: str,
         service_name: str = "",
         service_description: str = "",
-    ) -> ServiceSchema:
-        """从 CSV 文本字符串加载 Worksheet，返回 ``ServiceSchema``。"""
-        intents: List[IntentDefinition] = []
-        all_slots: Dict[str, SlotDefinition] = {}  # 全局槽位去重
+    ) -> GenieSchema:
+        """从 CSV 文本字符串加载 Worksheet，返回 ``GenieSchema``。"""
+        intents: List[GenieIntent] = []
+        all_slots: Dict[str, GenieSlot] = {}  # 全局槽位去重
 
         current_intent_name: Optional[str] = None
         current_intent_desc: str = ""
@@ -165,7 +166,7 @@ class WorksheetLoader:
             # 从 policy_fields 推导 required_slots / optional_slots
             required = [pf.name for pf in current_fields if pf.required]
             optional = [pf.name for pf in current_fields if not pf.required]
-            intents.append(IntentDefinition(
+            intents.append(GenieIntent(
                 name=current_intent_name,
                 description=current_intent_desc,
                 required_slots=required,
@@ -234,10 +235,10 @@ class WorksheetLoader:
             pf = PolicyField.from_dict(row_dict)
             current_fields.append(pf)
 
-            # 同步更新全局槽位表（供 ServiceSchema.slots 使用）
+            # 同步更新全局槽位表（供 GenieSchema.slots 使用）
             slot_name = pf.name
             if slot_name not in all_slots:
-                all_slots[slot_name] = SlotDefinition(
+                all_slots[slot_name] = GenieSlot(
                     name=slot_name,
                     description=pf.description,
                     is_categorical=(pf.field_type == "enum"),
@@ -247,7 +248,7 @@ class WorksheetLoader:
 
         _flush_intent()
 
-        schema = ServiceSchema(
+        schema = GenieSchema(
             service_name=_svc_name or "WorksheetService",
             description=_svc_desc,
             slots=list(all_slots.values()),
@@ -264,8 +265,8 @@ class WorksheetLoader:
         cls,
         path: Union[str, Path],
         encoding: str = "utf-8",
-    ) -> ServiceSchema:
-        """从 Worksheet JSON 文件加载，返回 ``ServiceSchema``。
+    ) -> GenieSchema:
+        """从 Worksheet JSON 文件加载，返回 ``GenieSchema``。
 
         支持两种 JSON 格式：
         1. 完整 Worksheet JSON（含 service_name、description、intents）
@@ -276,20 +277,20 @@ class WorksheetLoader:
             encoding: 文件编码。
 
         Returns:
-            ``ServiceSchema``。
+            ``GenieSchema``。
         """
         data = json.loads(Path(path).read_text(encoding=encoding))
         return cls.from_dict(data)
 
     @classmethod
-    def from_dict(cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> ServiceSchema:
-        """从字典或字段列表加载 Worksheet，返回 ``ServiceSchema``。
+    def from_dict(cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> GenieSchema:
+        """从字典或字段列表加载 Worksheet，返回 ``GenieSchema``。
 
         Args:
             data: Worksheet 字典（含 service_name / intents），或 PolicyField 字典列表。
 
         Returns:
-            ``ServiceSchema``。
+            ``GenieSchema``。
         """
         if isinstance(data, list):
             # 单 Intent：字段列表格式
@@ -300,8 +301,8 @@ class WorksheetLoader:
         service_name = data.get("service_name", data.get("name", "WorksheetService"))
         service_description = data.get("description", "")
 
-        intents: List[IntentDefinition] = []
-        all_slots: Dict[str, SlotDefinition] = {}
+        intents: List[GenieIntent] = []
+        all_slots: Dict[str, GenieSlot] = {}
 
         raw_intents = data.get("intents", [])
         if not raw_intents and "policy_fields" in data:
@@ -313,7 +314,7 @@ class WorksheetLoader:
             fields = [PolicyField.from_dict(pf) for pf in raw_pf]
             required = [f.name for f in fields if f.required]
             optional = [f.name for f in fields if not f.required]
-            intents.append(IntentDefinition(
+            intents.append(GenieIntent(
                 name=raw_intent.get("name", "default_intent"),
                 description=raw_intent.get("description", ""),
                 required_slots=required,
@@ -324,7 +325,7 @@ class WorksheetLoader:
             ))
             for pf in fields:
                 if pf.name not in all_slots:
-                    all_slots[pf.name] = SlotDefinition(
+                    all_slots[pf.name] = GenieSlot(
                         name=pf.name,
                         description=pf.description,
                         is_categorical=(pf.field_type == "enum"),
@@ -334,11 +335,11 @@ class WorksheetLoader:
 
         # 若 JSON 中还有顶层 slots 定义，与 policy_fields 推导的槽位合并
         for raw_slot in data.get("slots", []):
-            slot = SlotDefinition.from_dict(raw_slot)
+            slot = GenieSlot.from_dict(raw_slot)
             if slot.name not in all_slots:
                 all_slots[slot.name] = slot
 
-        schema = ServiceSchema(
+        schema = GenieSchema(
             service_name=service_name,
             description=service_description,
             slots=list(all_slots.values()),
@@ -351,18 +352,18 @@ class WorksheetLoader:
         return schema
 
     # ------------------------------------------------------------------
-    # 导出：ServiceSchema → Worksheet CSV
+    # 导出：GenieSchema → Worksheet CSV
     # ------------------------------------------------------------------
 
     @classmethod
-    def to_csv(cls, schema: ServiceSchema, encoding: str = "utf-8") -> str:
-        """将 ``ServiceSchema`` 导出为 Worksheet CSV 文本。
+    def to_csv(cls, schema: GenieSchema, encoding: str = "utf-8") -> str:
+        """将 ``GenieSchema`` 导出为 Worksheet CSV 文本。
 
         每个意图生成一个 ``# intent_name`` 节，包含该意图的所有策略字段。
         若意图无 policy_fields，则从 required_slots / optional_slots 自动推导。
 
         Args:
-            schema:   要导出的 ServiceSchema。
+            schema:   要导出的 GenieSchema。
             encoding: 目标编码（仅影响注释，CSV 本身为 unicode）。
 
         Returns:
@@ -380,15 +381,10 @@ class WorksheetLoader:
             # 列标题
             lines.append(",".join(_WORKSHEET_COLUMNS))
 
-            pf_list = intent.policy_fields
+            pf_list: List[PolicyField] = list(intent.policy_fields)
             if not pf_list:
                 # 从 required_slots / optional_slots 自动推导 PolicyField
                 pf_list = cls._infer_policy_fields(intent, schema)
-            # 兼容 dict 格式（IntentDefinition.from_dict() 路径）
-            pf_list = [
-                PolicyField.from_dict(pf) if isinstance(pf, dict) else pf
-                for pf in pf_list
-            ]
 
             for pf in pf_list:
                 row = [
@@ -415,11 +411,11 @@ class WorksheetLoader:
     @classmethod
     def save_csv(
         cls,
-        schema: ServiceSchema,
+        schema: GenieSchema,
         path: Union[str, Path],
         encoding: str = "utf-8",
     ) -> None:
-        """将 ``ServiceSchema`` 导出并写入 CSV 文件。"""
+        """将 ``GenieSchema`` 导出并写入 CSV 文件。"""
         csv_text = cls.to_csv(schema)
         Path(path).write_text(csv_text, encoding=encoding)
         logger.info(f"[WorksheetLoader] Worksheet CSV 已写入: {path}")
@@ -427,23 +423,18 @@ class WorksheetLoader:
     @classmethod
     def to_worksheet_json(
         cls,
-        schema: ServiceSchema,
+        schema: GenieSchema,
         indent: int = 2,
     ) -> str:
-        """将 ``ServiceSchema`` 导出为完整 Worksheet JSON 字符串。
+        """将 ``GenieSchema`` 导出为完整 Worksheet JSON 字符串。
 
         输出格式兼容 :meth:`from_json` 导入。
         """
         intents_out: List[Dict[str, Any]] = []
         for intent in schema.intents:
-            pf_list = intent.policy_fields
+            pf_list: List[PolicyField] = list(intent.policy_fields)
             if not pf_list:
                 pf_list = cls._infer_policy_fields(intent, schema)
-            # 兼容 dict 格式（IntentDefinition.from_dict() 路径）
-            pf_list = [
-                PolicyField.from_dict(pf) if isinstance(pf, dict) else pf
-                for pf in pf_list
-            ]
             intents_out.append({
                 "name": intent.name,
                 "description": intent.description,
@@ -467,11 +458,11 @@ class WorksheetLoader:
         cls,
         fields: List[PolicyField],
         service_name: str = "WorksheetService",
-    ) -> ServiceSchema:
-        """将 PolicyField 列表转换为含单意图的 ServiceSchema。"""
+    ) -> GenieSchema:
+        """将 PolicyField 列表转换为含单意图的 GenieSchema。"""
         required = [f.name for f in fields if f.required]
         optional = [f.name for f in fields if not f.required]
-        intent = IntentDefinition(
+        intent = GenieIntent(
             name="default_intent",
             description="",
             required_slots=required,
@@ -479,7 +470,7 @@ class WorksheetLoader:
             policy_fields=fields,
         )
         slots = [
-            SlotDefinition(
+            GenieSlot(
                 name=f.name,
                 description=f.description,
                 is_categorical=(f.field_type == "enum"),
@@ -488,7 +479,7 @@ class WorksheetLoader:
             )
             for f in fields
         ]
-        return ServiceSchema(
+        return GenieSchema(
             service_name=service_name,
             description="",
             slots=slots,
@@ -498,13 +489,13 @@ class WorksheetLoader:
     @classmethod
     def _infer_policy_fields(
         cls,
-        intent: IntentDefinition,
-        schema: ServiceSchema,
+        intent: GenieIntent,
+        schema: GenieSchema,
     ) -> List[PolicyField]:
         """从 intent 的 required_slots / optional_slots 推导 PolicyField 列表。
 
-        用于当 intent.policy_fields 为空时（如从标准 SGD schema.json 加载的意图），
-        以最小信息构建 PolicyField，使导出的 CSV/JSON 仍包含基本策略注解。
+        用于当 intent.policy_fields 为空时，以最小信息构建 PolicyField，
+        使导出的 CSV/JSON 仍包含基本策略注解。
         """
         result: List[PolicyField] = []
         for slot_name in intent.required_slots:
@@ -529,3 +520,4 @@ class WorksheetLoader:
 
 
 __all__ = ["WorksheetLoader"]
+

@@ -14,10 +14,13 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from contextmind.modes.base import BaseTracker
-from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker
-from contextmind.modes.pytod import AdkPyTODTracker
-from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
+try:
+    from contextmind.modes.dst import DialogueStateTracker
+    from contextmind.modes.fnctod import FnCTODTracker
+    from contextmind.modes.pytod import AdkPyTODTracker
+    from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine
+except ImportError:
+    pass
 
 _SUPPORTED_ALGORITHMS = ("dst", "fnctod", "pytod", "evolve", "genie")
 

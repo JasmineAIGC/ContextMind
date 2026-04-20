@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
+from contextmind.schema_builder.genie_worksheets.schema_types import GenieIntent, GenieSchema
 from contextmind.schema_builder.genie_worksheets.models import PolicyField
 
 logger = logging.getLogger(__name__)
@@ -96,11 +96,11 @@ class PolicyExecutor:
 
     def __init__(
         self,
-        schema: ServiceSchema,
+        schema: GenieSchema,
         intent_name: Optional[str] = None,
     ) -> None:
         self._schema = schema
-        self._intent: Optional[IntentDefinition] = self._resolve_intent(intent_name)
+        self._intent: Optional[GenieIntent] = self._resolve_intent(intent_name)
         self._policy_fields: List[PolicyField] = (
             self._intent.policy_fields if self._intent else []
         )
@@ -120,7 +120,7 @@ class PolicyExecutor:
         return self._state
 
     @property
-    def intent(self) -> Optional[IntentDefinition]:
+    def intent(self) -> Optional[GenieIntent]:
         """当前执行的意图定义。"""
         return self._intent
 
@@ -241,7 +241,7 @@ class PolicyExecutor:
     # 内部工具
     # ------------------------------------------------------------------
 
-    def _resolve_intent(self, intent_name: Optional[str]) -> Optional[IntentDefinition]:
+    def _resolve_intent(self, intent_name: Optional[str]) -> Optional[GenieIntent]:
         """解析目标意图：按名称查找，或取第一个含 policy_fields 的意图。"""
         if intent_name:
             return self._schema.get_intent(intent_name)

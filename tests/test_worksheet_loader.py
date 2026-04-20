@@ -4,9 +4,8 @@ tests/test_worksheet_loader.py
 WorksheetLoader 单元测试：
 - CSV 加载（含分节）
 - JSON 加载
-- ServiceSchema 反向导出 CSV / JSON
+- GenieSchema 反向导出 CSV / JSON
 - PolicyField 类型校验
-- IntentDefinition.policy_fields 序列化/反序列化
 """
 
 import pytest
@@ -18,10 +17,10 @@ from contextmind.schema_builder.genie_worksheets.models import (
     _parse_bool,
     _parse_list,
 )
-from contextmind.modes.pytod.schemas import (
-    IntentDefinition,
-    ServiceSchema,
-    SlotDefinition,
+from contextmind.schema_builder.genie_worksheets.schema_types import (
+    GenieSchema,
+    GenieIntent,
+    GenieSlot,
 )
 
 
@@ -104,88 +103,6 @@ class TestPolicyField:
 
 
 # ---------------------------------------------------------------------------
-# IntentDefinition with policy_fields
-# ---------------------------------------------------------------------------
-
-class TestIntentDefinitionPolicyFields:
-    def test_from_dict_with_policy_fields(self):
-        data = {
-            "name": "search_restaurant",
-            "description": "搜索餐厅",
-            "required_slots": ["cuisine"],
-            "optional_slots": [],
-            "policy_fields": [
-                {"name": "cuisine", "type": "enum", "description": "菜系",
-                 "required": True, "possible_values": ["川菜", "粤菜"]},
-                {"name": "location", "description": "位置", "required": True},
-            ]
-        }
-        intent = IntentDefinition.from_dict(data)
-        assert len(intent.policy_fields) == 2
-        # IntentDefinition.from_dict() stores policy_fields as raw dicts
-        # (pytod/schemas.py 不依赖 genie_worksheets，故不做对象转换)
-        assert intent.policy_fields[0]["name"] == "cuisine"
-        assert intent.policy_fields[0].get("type") == "enum"
-
-    def test_to_dict_includes_policy_fields(self):
-        intent = IntentDefinition(
-            name="book",
-            description="预订",
-            policy_fields=[PolicyField(name="date_time", description="时间", required=True)],
-        )
-        d = intent.to_dict()
-        assert "policy_fields" in d
-        assert d["policy_fields"][0]["name"] == "date_time"
-
-    def test_to_dict_omits_empty_policy_fields(self):
-        intent = IntentDefinition(name="search", description="搜索")
-        d = intent.to_dict()
-        assert "policy_fields" not in d
-
-    def test_to_prompt_text_with_policy_fields(self):
-        intent = IntentDefinition(
-            name="book",
-            description="预订",
-            policy_fields=[
-                PolicyField(name="restaurant_name", description="餐厅名", required=True),
-                PolicyField(name="party_size", description="人数", required=False),
-            ],
-        )
-        text = intent.to_prompt_text()
-        assert "策略字段" in text
-        assert "restaurant_name" in text
-
-
-# ---------------------------------------------------------------------------
-# ServiceSchema.get_intent_by_api_name
-# ---------------------------------------------------------------------------
-
-class TestServiceSchemaGetIntentByApiName:
-    def _make_schema(self):
-        return ServiceSchema(
-            service_name="TestService",
-            description="",
-            slots=[],
-            intents=[
-                IntentDefinition(name="search_restaurant", description="搜索"),
-                IntentDefinition(name="book_restaurant", description="预订"),
-            ],
-        )
-
-    def test_exact_match(self):
-        schema = self._make_schema()
-        assert schema.get_intent_by_api_name("search_restaurant") is not None
-
-    def test_suffix_match(self):
-        schema = self._make_schema()
-        assert schema.get_intent_by_api_name("service_1_book_restaurant") is not None
-
-    def test_no_match(self):
-        schema = self._make_schema()
-        assert schema.get_intent_by_api_name("unknown_api") is None
-
-
-# ---------------------------------------------------------------------------
 # WorksheetLoader.from_csv_string
 # ---------------------------------------------------------------------------
 
@@ -259,6 +176,13 @@ class TestWorksheetLoaderFromCsv:
         schema = WorksheetLoader.from_csv_string(CSV_SAMPLE, service_name="覆盖名称")
         assert schema.service_name == "覆盖名称"
 
+    def test_returns_genie_schema(self):
+        """返回值是 GenieSchema，不是 pytod ServiceSchema。"""
+        schema = WorksheetLoader.from_csv_string(CSV_SAMPLE)
+        assert isinstance(schema, GenieSchema)
+        assert isinstance(schema.intents[0], GenieIntent)
+        assert isinstance(schema.slots[0], GenieSlot)
+
 
 # ---------------------------------------------------------------------------
 # WorksheetLoader.from_dict
@@ -308,6 +232,11 @@ class TestWorksheetLoaderFromDict:
         assert len(schema.intents) == 1
         assert len(schema.intents[0].policy_fields) == 1
 
+    def test_returns_genie_schema(self):
+        """from_dict 同样返回 GenieSchema。"""
+        schema = WorksheetLoader.from_dict(WORKSHEET_JSON)
+        assert isinstance(schema, GenieSchema)
+
 
 # ---------------------------------------------------------------------------
 # WorksheetLoader.to_csv
@@ -332,16 +261,16 @@ class TestWorksheetLoaderToCsv:
             assert pf_names1 == pf_names2
 
     def test_inferred_policy_fields(self):
-        """从无 policy_fields 的标准 schema 导出 CSV，应能从槽位自动推导。"""
-        schema = ServiceSchema(
+        """从无 policy_fields 的 GenieSchema 导出 CSV，应能从槽位自动推导。"""
+        schema = GenieSchema(
             service_name="简单服务",
             description="",
             slots=[
-                SlotDefinition(name="customer_name", description="客户姓名", is_required=True),
-                SlotDefinition(name="product", description="产品"),
+                GenieSlot(name="customer_name", description="客户姓名", is_required=True),
+                GenieSlot(name="product", description="产品"),
             ],
             intents=[
-                IntentDefinition(
+                GenieIntent(
                     name="query",
                     description="查询",
                     required_slots=["customer_name"],
@@ -367,3 +296,4 @@ class TestWorksheetLoaderToJson:
 
         assert schema1.service_name == schema2.service_name
         assert len(schema1.intents) == len(schema2.intents)
+

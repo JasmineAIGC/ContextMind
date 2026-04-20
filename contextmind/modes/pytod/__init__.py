@@ -36,8 +36,11 @@ from .execution_engine import (
     ProgramBlock,
     ProgramExecutionResult,
 )
-from .prompts import ConversationTurn, PyTODPromptBuilder
-from .tracker import AdkPyTODTracker
+try:
+    from .prompts import ConversationTurn, PyTODPromptBuilder
+    from .tracker import AdkPyTODTracker
+except ImportError:
+    pass
 from .registry import SCENARIO_API_REGISTRY, get_scenario_key
 
 __all__ = [

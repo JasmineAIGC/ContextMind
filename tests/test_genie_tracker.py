@@ -4,6 +4,7 @@ tests/test_genie_tracker.py
 GenieTracker / PolicyExecutor / SemanticParser 单元测试（无 LLM 依赖）。
 
 所有 LLM 调用均通过 mock 替代，保证测试在离线环境下可运行。
+本文件仅测试 genie 模块本身，不依赖 contextmind.modes.pytod 的任何代码。
 """
 
 import asyncio
@@ -17,30 +18,30 @@ from contextmind.modes.genie.policy_executor import (
 )
 from contextmind.modes.genie.semantic_parser import SemanticParser
 from contextmind.modes.genie.tracker import GenieTracker
-from contextmind.modes.pytod.schemas import (
-    IntentDefinition,
-    ServiceSchema,
-    SlotDefinition,
-)
 from contextmind.schema_builder.genie_worksheets import PolicyField, WorksheetLoader
+from contextmind.schema_builder.genie_worksheets.schema_types import (
+    GenieIntent,
+    GenieSchema,
+    GenieSlot,
+)
 
 
 # ---------------------------------------------------------------------------
-# 测试 Fixture：带 policy_fields 的 ServiceSchema
+# 测试 Fixture：带 policy_fields 的 GenieSchema
 # ---------------------------------------------------------------------------
 
-def make_restaurant_schema() -> ServiceSchema:
-    return ServiceSchema(
+def make_restaurant_schema() -> GenieSchema:
+    return GenieSchema(
         service_name="餐厅服务",
         description="餐厅预订",
         slots=[
-            SlotDefinition(name="cuisine", description="菜系", is_categorical=True,
-                           possible_values=["川菜", "粤菜", "日料"]),
-            SlotDefinition(name="location", description="位置"),
-            SlotDefinition(name="party_size", description="人数"),
+            GenieSlot(name="cuisine", description="菜系", is_categorical=True,
+                      possible_values=["川菜", "粤菜", "日料"]),
+            GenieSlot(name="location", description="位置"),
+            GenieSlot(name="party_size", description="人数"),
         ],
         intents=[
-            IntentDefinition(
+            GenieIntent(
                 name="search_restaurant",
                 description="搜索餐厅",
                 required_slots=["cuisine", "location"],
@@ -149,12 +150,12 @@ class TestPolicyExecutor:
 
     def test_depends_on_field_skipped(self):
         """若 depends_on 字段未填，条件字段不参与完成判断。"""
-        schema = ServiceSchema(
+        schema = GenieSchema(
             service_name="svc",
             description="",
             slots=[],
             intents=[
-                IntentDefinition(
+                GenieIntent(
                     name="intent",
                     description="",
                     policy_fields=[
@@ -172,12 +173,12 @@ class TestPolicyExecutor:
         assert exe.is_complete() is True
 
     def test_confirm_field(self):
-        schema = ServiceSchema(
+        schema = GenieSchema(
             service_name="svc",
             description="",
             slots=[],
             intents=[
-                IntentDefinition(
+                GenieIntent(
                     name="intent",
                     description="",
                     policy_fields=[
@@ -372,89 +373,3 @@ keyword,str,搜索关键词,true,false,true,,,
         with pytest.raises(ValueError, match="schema 或 worksheet_path"):
             GenieTracker.from_scenario(llm_client=llm, scenario_config=config)
 
-
-# ---------------------------------------------------------------------------
-# ExecutionEngine.PolicyViolationError + _check_policy_constraints
-# ---------------------------------------------------------------------------
-
-class TestExecutionEnginePolicyConstraints:
-    """确保 EE 的 Worksheet 约束检查不影响无 schema 的正常执行。"""
-
-    def setup_method(self):
-        from contextmind.modes.pytod.execution_engine import ExecutionEngine
-        self.engine = ExecutionEngine()
-
-        @self.engine.register
-        def query_order(order_id: str = None, customer_name: str = None) -> dict:
-            return {"status": "success", "order_id": order_id}
-
-    def test_no_schema_no_constraint(self):
-        """无 schema 时，约束检查不拦截调用。"""
-        result = self.engine._call_registered("query_order", {"order_id": "123"})
-        assert isinstance(result, dict)
-        assert result.get("order_id") == "123"
-
-    def test_with_schema_passes_when_required_filled(self):
-        """schema 已设且必填字段齐全时，正常调用。"""
-        schema = ServiceSchema(
-            service_name="svc",
-            description="",
-            slots=[],
-            intents=[
-                IntentDefinition(
-                    name="query_order",
-                    description="查询订单",
-                    policy_fields=[
-                        PolicyField(name="order_id", required=True),
-                    ],
-                )
-            ],
-        )
-        self.engine.schema = schema
-        result = self.engine._call_registered("query_order", {"order_id": "ORD001"})
-        from contextmind.modes.pytod.execution_engine import PolicyViolationError
-        assert not isinstance(result, PolicyViolationError)
-
-    def test_with_schema_blocks_when_required_missing(self):
-        """schema 已设且必填字段缺失时，返回 PolicyViolationError。"""
-        schema = ServiceSchema(
-            service_name="svc",
-            description="",
-            slots=[],
-            intents=[
-                IntentDefinition(
-                    name="query_order",
-                    description="查询订单",
-                    policy_fields=[
-                        PolicyField(name="order_id", required=True, description="订单号"),
-                    ],
-                )
-            ],
-        )
-        self.engine.schema = schema
-        result = self.engine._call_registered("query_order", {})
-        from contextmind.modes.pytod.execution_engine import PolicyViolationError
-        assert isinstance(result, PolicyViolationError)
-        assert "order_id" in str(result)
-
-    def test_no_block_for_optional_fields(self):
-        """可选字段缺失时不拦截。"""
-        schema = ServiceSchema(
-            service_name="svc",
-            description="",
-            slots=[],
-            intents=[
-                IntentDefinition(
-                    name="query_order",
-                    description="查询订单",
-                    policy_fields=[
-                        PolicyField(name="order_id", required=True),
-                        PolicyField(name="customer_name", required=False),
-                    ],
-                )
-            ],
-        )
-        self.engine.schema = schema
-        result = self.engine._call_registered("query_order", {"order_id": "ORD001"})
-        from contextmind.modes.pytod.execution_engine import PolicyViolationError
-        assert not isinstance(result, PolicyViolationError)

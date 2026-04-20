@@ -91,6 +91,48 @@ from contextmind.knowledge.builder import KnowledgeBaseBuilder
 logger = get_logger(__name__)
 
 
+def _service_schema_to_genie_schema(service_schema: Any) -> Any:
+    """将 pytod ServiceSchema 转换为 GenieSchema（pipeline 层桥接函数）。
+
+    pipeline 是唯一被允许同时感知 pytod schema 和 genie schema 的位置，
+    此函数负责在两者之间做结构映射，保持 genie_worksheets 模块与 pytod 的完全隔离。
+    """
+    from contextmind.schema_builder.genie_worksheets.schema_types import (
+        GenieIntent,
+        GenieSchema,
+        GenieSlot,
+    )
+
+    slots = [
+        GenieSlot(
+            name=s.name,
+            description=s.description,
+            is_categorical=s.is_categorical,
+            possible_values=list(s.possible_values),
+            is_required=s.is_required,
+        )
+        for s in service_schema.slots
+    ]
+    intents = [
+        GenieIntent(
+            name=i.name,
+            description=i.description,
+            required_slots=list(i.required_slots),
+            optional_slots=list(i.optional_slots),
+            result_slots=list(i.result_slots),
+            is_transactional=i.is_transactional,
+            policy_fields=list(i.policy_fields),
+        )
+        for i in service_schema.intents
+    ]
+    return GenieSchema(
+        service_name=service_schema.service_name,
+        description=service_schema.description,
+        slots=slots,
+        intents=intents,
+    )
+
+
 class _EvolveTrackerAdapter:
     """将 EvolveEngine 适配为与 BaseTracker 兼容的 process_turn / get_current_state / reset 接口。
 
@@ -717,10 +759,11 @@ class ContextPipeline:
         elif self.mode == "genie":
             from contextmind.modes.genie.tracker import GenieTracker
             from contextmind.schema_builder.genie_worksheets import WorksheetLoader
+            from contextmind.schema_builder.genie_worksheets.schema_types import GenieSchema
 
-            # 优先使用 worksheet_path 加载含 policy_fields 的 schema；
-            # 若无 worksheet_path，则从已加载的 schema 推导（schema 必须存在）。
-            genie_schema = self.schema
+            # 优先使用 worksheet_path 加载含 policy_fields 的 schema（返回 GenieSchema）；
+            # 若无 worksheet_path，则从已加载的 ServiceSchema 转换；schema 必须存在。
+            genie_schema: Optional[GenieSchema] = None
             if self._worksheet_path is not None:
                 ws_path = self._worksheet_path
                 if ws_path.suffix.lower() == ".csv":
@@ -738,7 +781,10 @@ class ContextPipeline:
                 logger.info(
                     f"[ContextPipeline] Genie 模式：从 Worksheet 加载 schema: {ws_path.name}"
                 )
-            elif genie_schema is None:
+            elif self.schema is not None:
+                # 将 pytod ServiceSchema 转换为 GenieSchema（pipeline 层桥接，保持模块边界）
+                genie_schema = _service_schema_to_genie_schema(self.schema)
+            else:
                 raise RuntimeError(
                     "Genie 模式需要提供 schema 或 worksheet_path。\n"
                     "提示：先调用 load_kb() 或在构造时传入 worksheet_path=..."

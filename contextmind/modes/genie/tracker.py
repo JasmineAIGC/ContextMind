@@ -31,10 +31,10 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
 from contextmind.modes.genie.policy_executor import PolicyExecutor, WorksheetState
 from contextmind.modes.genie.semantic_parser import SemanticParser
+from contextmind.schema_builder.genie_worksheets.schema_types import GenieSchema
 
 if TYPE_CHECKING:
     from contextmind.infra.llm_client import AdkLLMClient
-    from contextmind.modes.pytod.schemas import ServiceSchema
     from contextmind.scenarios import ScenarioConfig
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class GenieTracker:
     def __init__(
         self,
         llm_client: "AdkLLMClient",
-        schema: "ServiceSchema",
+        schema: GenieSchema,
         scene_description: str = "",
         intent_name: Optional[str] = None,
         max_history_turns: int = 10,
@@ -127,7 +127,7 @@ class GenieTracker:
         cls,
         llm_client: "AdkLLMClient",
         scenario_config: Any,
-        schema: Optional["ServiceSchema"] = None,
+        schema: Optional[GenieSchema] = None,
         worksheet_path: Optional[Union[str, Path]] = None,
         intent_name: Optional[str] = None,
         **kwargs: Any,
@@ -137,7 +137,7 @@ class GenieTracker:
         Args:
             llm_client:     LLM 客户端。
             scenario_config: 场景配置（``ScenarioConfig``）。
-            schema:          ``ServiceSchema``（可选，优先于 worksheet_path）。
+            schema:          ``GenieSchema``（可选，优先于 worksheet_path）。
             worksheet_path:  Worksheet 文件路径（CSV 或 JSON）；若 schema 未提供，
                              则从此路径加载 schema。
             intent_name:     目标意图名称（可选）。
@@ -145,12 +145,10 @@ class GenieTracker:
         Returns:
             初始化完成的 ``GenieTracker``。
         """
-        from contextmind.modes.pytod.schemas import ServiceSchema as _SS
-
         scene_desc = getattr(scenario_config, "scene_description", "") or ""
         scene_name = getattr(scenario_config, "scene_name", "") or ""
 
-        loaded_schema: Optional["ServiceSchema"] = schema
+        loaded_schema: Optional[GenieSchema] = schema
 
         if loaded_schema is None and worksheet_path is not None:
             from contextmind.schema_builder.genie_worksheets import WorksheetLoader
@@ -272,7 +270,7 @@ class GenieTracker:
         """Worksheet 是否已完成所有必填字段。"""
         return self._executor.is_complete()
 
-    def update_schema(self, schema: "ServiceSchema", intent_name: Optional[str] = None) -> None:
+    def update_schema(self, schema: GenieSchema, intent_name: Optional[str] = None) -> None:
         """替换当前 schema 和意图，重置状态机（不清空对话历史）。"""
         self._schema = schema
         self._executor = PolicyExecutor(schema, intent_name=intent_name)
