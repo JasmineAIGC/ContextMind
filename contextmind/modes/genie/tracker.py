@@ -153,7 +153,7 @@ class GenieTracker:
         loaded_schema: Optional["ServiceSchema"] = schema
 
         if loaded_schema is None and worksheet_path is not None:
-            from contextmind.knowledge.worksheet_loader import WorksheetLoader
+            from contextmind.schema_builder.genie_worksheets import WorksheetLoader
             ws_path = Path(worksheet_path)
             if ws_path.suffix.lower() == ".csv":
                 loaded_schema = WorksheetLoader.from_csv(

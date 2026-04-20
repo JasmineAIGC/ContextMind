@@ -20,7 +20,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from contextmind.modes.pytod.schemas import IntentDefinition, PolicyField, ServiceSchema
+from contextmind.modes.pytod.schemas import IntentDefinition, ServiceSchema
+from contextmind.schema_builder.genie_worksheets.models import PolicyField
 
 logger = logging.getLogger(__name__)
 

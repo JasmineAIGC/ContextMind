@@ -19,11 +19,10 @@ from contextmind.modes.genie.semantic_parser import SemanticParser
 from contextmind.modes.genie.tracker import GenieTracker
 from contextmind.modes.pytod.schemas import (
     IntentDefinition,
-    PolicyField,
     ServiceSchema,
     SlotDefinition,
 )
-from contextmind.knowledge.worksheet_loader import WorksheetLoader
+from contextmind.schema_builder.genie_worksheets import PolicyField, WorksheetLoader
 
 
 # ---------------------------------------------------------------------------

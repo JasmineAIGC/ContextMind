@@ -716,7 +716,7 @@ class ContextPipeline:
 
         elif self.mode == "genie":
             from contextmind.modes.genie.tracker import GenieTracker
-            from contextmind.knowledge.worksheet_loader import WorksheetLoader
+            from contextmind.schema_builder.genie_worksheets import WorksheetLoader
 
             # 优先使用 worksheet_path 加载含 policy_fields 的 schema；
             # 若无 worksheet_path，则从已加载的 schema 推导（schema 必须存在）。

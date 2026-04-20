@@ -12,14 +12,16 @@ WorksheetLoader 单元测试：
 import pytest
 import json
 
-from contextmind.knowledge.worksheet_loader import WorksheetLoader
-from contextmind.modes.pytod.schemas import (
-    IntentDefinition,
+from contextmind.schema_builder.genie_worksheets import WorksheetLoader
+from contextmind.schema_builder.genie_worksheets.models import (
     PolicyField,
-    ServiceSchema,
-    SlotDefinition,
     _parse_bool,
     _parse_list,
+)
+from contextmind.modes.pytod.schemas import (
+    IntentDefinition,
+    ServiceSchema,
+    SlotDefinition,
 )
 
 
