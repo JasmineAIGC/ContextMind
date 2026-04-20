@@ -384,6 +384,11 @@ class WorksheetLoader:
             if not pf_list:
                 # 从 required_slots / optional_slots 自动推导 PolicyField
                 pf_list = cls._infer_policy_fields(intent, schema)
+            # 兼容 dict 格式（IntentDefinition.from_dict() 路径）
+            pf_list = [
+                PolicyField.from_dict(pf) if isinstance(pf, dict) else pf
+                for pf in pf_list
+            ]
 
             for pf in pf_list:
                 row = [
@@ -434,6 +439,11 @@ class WorksheetLoader:
             pf_list = intent.policy_fields
             if not pf_list:
                 pf_list = cls._infer_policy_fields(intent, schema)
+            # 兼容 dict 格式（IntentDefinition.from_dict() 路径）
+            pf_list = [
+                PolicyField.from_dict(pf) if isinstance(pf, dict) else pf
+                for pf in pf_list
+            ]
             intents_out.append({
                 "name": intent.name,
                 "description": intent.description,

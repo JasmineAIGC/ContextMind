@@ -122,8 +122,10 @@ class TestIntentDefinitionPolicyFields:
         }
         intent = IntentDefinition.from_dict(data)
         assert len(intent.policy_fields) == 2
-        assert intent.policy_fields[0].name == "cuisine"
-        assert intent.policy_fields[0].field_type == "enum"
+        # IntentDefinition.from_dict() stores policy_fields as raw dicts
+        # (pytod/schemas.py 不依赖 genie_worksheets，故不做对象转换)
+        assert intent.policy_fields[0]["name"] == "cuisine"
+        assert intent.policy_fields[0].get("type") == "enum"
 
     def test_to_dict_includes_policy_fields(self):
         intent = IntentDefinition(

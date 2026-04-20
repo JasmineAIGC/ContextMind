@@ -901,13 +901,25 @@ class ExecutionEngine:
             return None
         missing: List[str] = []
         for pf in intent.policy_fields:
-            if not pf.required:
+            # policy_fields 可能是 PolicyField 对象（WorksheetLoader 路径）
+            # 或原始 dict（IntentDefinition.from_dict() 路径），统一处理。
+            if isinstance(pf, dict):
+                required = pf.get("required", True)
+                depends_on = pf.get("depends_on") or None
+                name = pf.get("name", "")
+                description = pf.get("description", "")
+            else:
+                required = pf.required
+                depends_on = pf.depends_on
+                name = pf.name
+                description = pf.description
+            if not required:
                 continue
             # 检查条件依赖：若依赖字段未填，本字段暂不要求
-            if pf.depends_on and kwargs.get(pf.depends_on) is None:
+            if depends_on and kwargs.get(depends_on) is None:
                 continue
-            if kwargs.get(pf.name) is None:
-                desc = f"{pf.name}（{pf.description}）" if pf.description else pf.name
+            if kwargs.get(name) is None:
+                desc = f"{name}（{description}）" if description else name
                 missing.append(desc)
         if missing:
             return f"缺少必填字段：{', '.join(missing)}"
