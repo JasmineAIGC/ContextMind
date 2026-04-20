@@ -342,13 +342,19 @@ async def run(args: argparse.Namespace) -> dict:
         reset_result = tracker.reset()
         if asyncio.iscoroutine(reset_result):
             await reset_result
+        # 为支持领域感知的追踪器（如 DST）更新当前对话的领域，
+        # 确保 LLM 使用正确的槽位命名格式（如 RiSAWOZ 的 "领域-槽位名" 格式）。
+        domain = getattr(dialogue, "domain", None)
+        if domain and hasattr(tracker, "set_domain"):
+            tracker.set_domain(domain)
         turns = getattr(dialogue, "turns", [])
         for turn in turns:
             user_utt = getattr(turn, "user_utterance", "")
             if not user_utt:
                 continue
+            system_utt = getattr(turn, "system_utterance", "")
             try:
-                result = await tracker.process_turn(user_utt)
+                result = await tracker.process_turn(user_utt, system_utterance=system_utt)
                 _add_turn_to_evaluator(evaluator, args.algorithm, dialogue, turn, result)
             except Exception as exc:
                 logger.warning(f"[{dialogue_id}] 轮次评测失败: {exc}")
