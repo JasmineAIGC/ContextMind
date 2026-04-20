@@ -195,7 +195,6 @@ RiSAWOZ 数据集格式说明
 
 下载完整数据集（训练集 10000 / 验证集 600 条）:
   git clone https://github.com/terryqj0107/RiSAWOZ.git
-  # 或下载 source-data.zip / task2-data-DST.zip
 
 解析命令:
   python benchmark/prepare_datasets.py --dataset risawoz \\
@@ -203,40 +202,59 @@ RiSAWOZ 数据集格式说明
 
 解析后目标文件:
   resources/data/
-    risawoz_train.json   （10000 条，source-data/ 格式）
+    risawoz_train.json   （10000 条）
     risawoz_val.json     （600 条）
     risawoz_test.json    （600 条，已内置）
 
-RiSAWOZ 源数据支持两种格式，解析器自动识别：
+RiSAWOZ GitHub 仓库实际结构（git clone 后）:
+  RiSAWOZ/
+    RiSAWOZ-data/
+      source-data.zip          ← 完整原始标注数据（推荐）
+      task2-data-DST.zip       ← DST 专用格式
+      dataset_split_ids_dict.json
+      ...
 
-格式 A (source-data/，推荐):
+解析器会自动提取 RiSAWOZ-data/ 内的嵌套 ZIP，无需手动解压。
+
+RiSAWOZ 源数据支持两种格式，适配器自动识别：
+
+格式 A (source-data，推荐):
   单条对话结构:
     {
-      "dialogue_idx": "hotel_0001",     // 或 "dialogue_id"
-      "domains": ["酒店"],
+      "dialogue_id": "attraction_goal_1###123",
+      "domains": ["旅游景点"],
       "dialogue": [
         {
-          "turn_idx": 0,                // 或 "turn_id"
-          "domain": "酒店",
-          "transcript": "用户话语...",  // 用户话语（空格分词）
-          "system_transcript": "...",   // 系统话语
-          "belief_state": [
-            {"slots": [["酒店-位置", "西城区"]], "act": "inform"}
-          ],
-          "turn_label": [["酒店-位置", "西城区"]],
-          "user_acts": [["Inform", "酒店", "位置", "西城区"]]
+          "turn_id": 0,
+          "user_utterance": "用户话语...",
+          "system_utterance": "系统话语...",
+          "belief_state": {
+            "inform slot-values": {"旅游景点-景点类型": "水乡古镇"},
+            "turn_inform":        {"旅游景点-景点类型": "水乡古镇"},
+            "turn request":       []
+          },
+          "user_actions": [["Inform", "旅游景点", "景点类型", "水乡古镇"]]
         },
         ...
       ]
     }
 
-格式 B (source-data/ 旧版 role 格式):
-  轮次以独立 usr/sys dict 表示:
+格式 B (task2-data-DST):
+  单条对话结构:
     {
-      "dialogue_id": "hotel_0001",
+      "dialogue_idx": "attraction_goal_1###123",
+      "domains": ["旅游景点"],
       "dialogue": [
-        {"role": "usr", "utterance": "...", "belief_state": [...], "dialogue_act": [...]},
-        {"role": "sys", "utterance": "...", "belief_state": [...], "dialogue_act": [...]},
+        {
+          "turn_idx": 0,
+          "transcript": "用户话语（空格分词）...",
+          "system_transcript": "系统话语...",
+          "belief_state": [
+            {"slots": [["旅游景点-景点类型", "水乡 古镇"]], "act": "inform"}
+          ],
+          "turn_label": [["旅游景点-景点类型", "水乡 古镇"]],
+          "user_acts": [["Inform", "旅游景点", "景点类型", "水乡 古镇"]]
+        },
         ...
       ]
     }
@@ -320,6 +338,52 @@ _RISAWOZ_OUTPUT_NAMES = {
 }
 
 
+def _extract_risawoz_nested_zips(source: Path, tmp_dir: Path) -> Path:
+    """
+    RiSAWOZ GitHub 仓库将数据以 ZIP 形式存放在 RiSAWOZ-data/ 子目录中：
+      RiSAWOZ-data/source-data.zip
+      RiSAWOZ-data/task2-data-DST.zip
+      等
+
+    本函数检测 source/RiSAWOZ-data/ 是否存在嵌套 ZIP，若存在则提取到
+    tmp_dir/risawoz_nested/ 并返回该目录路径，否则返回原始 source。
+    """
+    risawoz_data = source / "RiSAWOZ-data"
+    if not risawoz_data.is_dir():
+        return source
+
+    # 按优先级提取已知 ZIP 文件（source-data 信息最完整，优先提取）
+    zip_candidates = [
+        "source-data.zip",
+        "task2-data-DST.zip",
+        "task3-data-E2E-Context-to-text.zip",
+        "task5-data-Unified-generative-ellipsis-and-coreference-resolution.zip",
+    ]
+
+    extract_parent = tmp_dir / "risawoz_nested"
+    extract_parent.mkdir(parents=True, exist_ok=True)
+
+    extracted_any = False
+    for zip_name in zip_candidates:
+        zip_path = risawoz_data / zip_name
+        if not zip_path.exists():
+            continue
+        logger.info(f"  发现嵌套 ZIP: {zip_name}，正在解压…")
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for member in zf.infolist():
+                    member_path = (extract_parent / member.filename).resolve()
+                    if not str(member_path).startswith(str(extract_parent.resolve())):
+                        raise ValueError(f"ZIP 包含不安全路径: {member.filename}")
+                    zf.extract(member, extract_parent)
+            logger.info(f"  已解压: {zip_name}")
+            extracted_any = True
+        except Exception as exc:
+            logger.warning(f"  解压 {zip_name} 失败: {exc}")
+
+    return extract_parent if extracted_any else source
+
+
 def _find_risawoz_data_dir(root: Path):
     """
     在 root 下自动检测 RiSAWOZ 数据子目录。
@@ -328,15 +392,24 @@ def _find_risawoz_data_dir(root: Path):
     优先选择包含 train/val/test 三个文件的子目录；
     其次选择只有部分文件的子目录；
     最后把 root 本身当作数据目录（文件直接在 root 下）。
+
+    同时检查 root/RiSAWOZ-data/ 内是否有已解压的已知子目录（适配 GitHub
+    仓库中嵌套 ZIP 已被手动解压的情形）。
     """
-    # 先检查已知子目录
-    for subdir_name, mapping in _RISAWOZ_SUBDIR_MAPPINGS:
-        cand = root / subdir_name
-        if cand.is_dir():
-            found = {sp: fn for sp, fn in mapping.items() if (cand / fn).exists()}
-            if found:
-                logger.info(f"  检测到子目录: {subdir_name}  (含 {list(found.keys())})")
-                return cand, mapping
+    # 搜索路径：先在 root 下，再在 root/RiSAWOZ-data/ 下（手动解压场景）
+    search_roots = [root]
+    if (root / "RiSAWOZ-data").is_dir():
+        search_roots.append(root / "RiSAWOZ-data")
+
+    for search_root in search_roots:
+        for subdir_name, mapping in _RISAWOZ_SUBDIR_MAPPINGS:
+            cand = search_root / subdir_name
+            if cand.is_dir():
+                found = {sp: fn for sp, fn in mapping.items() if (cand / fn).exists()}
+                if found:
+                    rel = cand.relative_to(root) if search_root != root else Path(subdir_name)
+                    logger.info(f"  检测到子目录: {rel}  (含 {list(found.keys())})")
+                    return cand, mapping
 
     # 未找到已知子目录时，检查 root 本身是否包含 JSON 文件
     json_files = list(root.glob("*.json"))
@@ -356,9 +429,9 @@ def parse_risawoz(source: Path, target_dir: Path) -> bool:
     解析 RiSAWOZ 数据集，将 train/val/test 文件整理到 target_dir。
 
     source 可以是：
-      - git clone 产生的目录（包含 source-data/ 或 task2-data-DST/ 等子目录）
+      - git clone 产生的目录（RiSAWOZ-data/ 下含嵌套 ZIP：source-data.zip 等）
       - 直接是数据子目录（包含 all_train10000.json 等文件）
-      - ZIP 文件
+      - ZIP 文件（外层 GitHub ZIP 或内层数据 ZIP）
 
     目标文件（写入 target_dir）:
       risawoz_train.json
@@ -371,6 +444,10 @@ def parse_risawoz(source: Path, target_dir: Path) -> bool:
         if not source.exists():
             logger.error(f"源路径不存在: {source}")
             return False
+
+        # RiSAWOZ GitHub 仓库将数据打包为 RiSAWOZ-data/ 内的嵌套 ZIP
+        # 先尝试提取这些嵌套 ZIP，再继续检索数据目录
+        source = _extract_risawoz_nested_zips(source, tmp_dir)
 
         data_dir, mapping = _find_risawoz_data_dir(source)
         if data_dir is None:

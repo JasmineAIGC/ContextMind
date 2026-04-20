@@ -780,25 +780,34 @@ class RiSAWOZAdapter:
                 logger.warning(f"跳过非字典类型的turn_data: {type(turn_data)}")
                 continue
             
-            turn_id = turn_data.get("turn_id", len(turns))
-            
+            # 支持 turn_id（source-data 格式）和 turn_idx（task2-DST 格式）
+            if "turn_id" in turn_data:
+                turn_id = turn_data["turn_id"]
+            elif "turn_idx" in turn_data:
+                turn_id = turn_data["turn_idx"]
+            else:
+                turn_id = len(turns)
+
             # 提取用户和系统话语
-            # 支持多种字段名：transcript/user_utterance, system_transcript/system_utterance
+            # 支持多种字段名：
+            #   transcript / user_utterance   （用户）
+            #   system_transcript / system_utterance  （系统）
             user_utterance = turn_data.get("transcript") or turn_data.get("user_utterance", "")
             system_utterance = turn_data.get("system_transcript") or turn_data.get("system_utterance", "")
-            
-            # 解析belief state - 支持两种格式
+
+            # 解析belief state - 支持三种格式
             turn_belief_state = {}
             if "belief_state" in turn_data:
                 belief_state_data = turn_data["belief_state"]
-                
+
                 if isinstance(belief_state_data, list) and len(belief_state_data) > 0:
                     # 检查第一个元素的格式
                     first_item = belief_state_data[0]
-                    
+
                     if isinstance(first_item, dict) and "slots" in first_item:
-                        # 格式1: [{'slots': [[slot-key, value], ...], 'act': 'act_type'}, ...]
-                        # 这是 risawoz_test.json 的格式
+                        # 格式1（task2-data-DST）:
+                        #   [{'slots': [['领域-槽位', 'value'], ...], 'act': '...'}, ...]
+                        # 这也是 risawoz_test.json 的格式
                         for belief_item in belief_state_data:
                             slots = belief_item.get("slots", [])
                             for slot_pair in slots:
@@ -808,19 +817,31 @@ class RiSAWOZAdapter:
                                     if slot_key and slot_value:
                                         turn_belief_state[slot_key] = slot_value
                     elif isinstance(first_item, dict) and "domain" in first_item:
-                        # 格式2: [{"domain": "景点", "slot": "名称", "value": "故宫"}, ...]
-                        # 这是旧的格式
+                        # 格式2（旧版）:
+                        #   [{"domain": "景点", "slot": "名称", "value": "故宫"}, ...]
                         for belief in belief_state_data:
                             slot_domain = belief.get("domain", "")
                             slot_name = belief.get("slot", "")
                             slot_value = belief.get("value", "")
-                            
                             if slot_name and slot_value:
-                                # 使用"领域-槽位"格式作为key
                                 slot_key = f"{slot_domain}-{slot_name}" if slot_domain else slot_name
                                 turn_belief_state[slot_key] = slot_value
-            
-            # 也可以从turn_label获取 (如果belief_state为空)
+
+                elif isinstance(belief_state_data, dict):
+                    # 格式3（source-data）:
+                    #   {
+                    #     "inform slot-values": {"领域-槽位": "value", ...},  ← 累积状态
+                    #     "turn_inform":        {"领域-槽位": "value", ...},  ← 本轮新增
+                    #     "turn request":       []
+                    #   }
+                    # 使用 "inform slot-values" 中的累积 belief state
+                    inform_slots = belief_state_data.get("inform slot-values", {})
+                    if isinstance(inform_slots, dict):
+                        for slot_key, slot_value in inform_slots.items():
+                            if slot_key and slot_value is not None:
+                                turn_belief_state[slot_key] = str(slot_value)
+
+            # 也可以从turn_label获取 (如果belief_state为空，task2-DST 格式备选)
             if not turn_belief_state and "turn_label" in turn_data:
                 turn_label = turn_data["turn_label"]
                 if isinstance(turn_label, list):
@@ -830,19 +851,18 @@ class RiSAWOZAdapter:
                             slot_value = label_pair[1]
                             if slot_key and slot_value:
                                 turn_belief_state[slot_key] = slot_value
-            
+
             # 更新累积状态
             cumulative_state.update(turn_belief_state)
-            
-            # 提取用户意图 (user_acts)
+
+            # 提取用户意图
+            # 支持 user_acts（task2-DST 格式）和 user_actions（source-data 格式）
             user_intents = []
-            if "user_acts" in turn_data:
-                user_acts_data = turn_data["user_acts"]
-                if isinstance(user_acts_data, list):
-                    for act in user_acts_data:
-                        if isinstance(act, list) and len(act) >= 2:
-                            # user_acts格式: [intent, domain, slot, value]
-                            user_intents.append(act)
+            acts_data = turn_data.get("user_acts") or turn_data.get("user_actions", [])
+            if isinstance(acts_data, list):
+                for act in acts_data:
+                    if isinstance(act, list) and len(act) >= 2:
+                        user_intents.append(act)
             
             # 创建对话轮次（使用累积状态作为expected_slots）
             turn = DialogueTurn(
