@@ -35,6 +35,47 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _find_first_json_object(text: str) -> Optional[str]:
+    """从文本中提取第一个完整的 JSON 对象字符串（支持嵌套大括号）。
+
+    通过逐字符扫描括号深度，正确处理嵌套 JSON，如::
+
+        '{"a": {"b": 1}, "c": 2}'   →  '{"a": {"b": 1}, "c": 2}'
+
+    Args:
+        text: 可能含 JSON 的原始文本。
+
+    Returns:
+        第一个完整 JSON 对象字符串，未找到时返回 None。
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
 # ---------------------------------------------------------------------------
 # 语义解析器提示词模板
 # ---------------------------------------------------------------------------
@@ -225,11 +266,11 @@ class SemanticParser:
         text = re.sub(r"\s*```$", "", text)
         text = text.strip()
 
-        # 提取第一个完整的 JSON 对象
-        match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
+        # 提取第一个完整的 JSON 对象（支持嵌套大括号）
+        match = _find_first_json_object(text)
         if match:
             try:
-                result = json.loads(match.group())
+                result = json.loads(match)
                 if isinstance(result, dict):
                     # 过滤掉 None 值
                     return {k: v for k, v in result.items() if v is not None}
