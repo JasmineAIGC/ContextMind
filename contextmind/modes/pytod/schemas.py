@@ -86,7 +86,10 @@ class IntentDefinition:
         if self.policy_fields:
             lines.append("    策略字段:")
             for pf in self.policy_fields:
-                lines.append(f"  {pf.to_prompt_text()}")
+                if hasattr(pf, "to_prompt_text"):
+                    lines.append(f"  {pf.to_prompt_text()}")
+                elif isinstance(pf, dict):
+                    lines.append(f"  - {pf.get('name', '?')}")
         return "\n".join(lines)
 
     @classmethod
@@ -103,7 +106,9 @@ class IntentDefinition:
         else:
             optional_slots = list(raw_optional)
         raw_pf = data.get("policy_fields", [])
-        policy_fields = [PolicyField.from_dict(pf) for pf in raw_pf] if raw_pf else []
+        # policy_fields 存储原始 dict；genie_worksheets 层负责将其转换为策略对象，
+        # 此处不依赖 genie_worksheets 子包。
+        policy_fields: List[Any] = list(raw_pf) if raw_pf else []
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -125,7 +130,10 @@ class IntentDefinition:
             "result_slots": self.result_slots,
         }
         if self.policy_fields:
-            d["policy_fields"] = [pf.to_dict() for pf in self.policy_fields]
+            d["policy_fields"] = [
+                pf if isinstance(pf, dict) else pf.to_dict()
+                for pf in self.policy_fields
+            ]
         return d
 
     def to_sgd_dict(self) -> Dict[str, Any]:
