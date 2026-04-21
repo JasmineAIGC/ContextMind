@@ -178,8 +178,18 @@ class GenieTracker:
         Returns:
             初始化完成的 ``GenieTracker``。
         """
-        scene_desc = getattr(scenario_config, "scene_description", "") or ""
-        scene_name = getattr(scenario_config, "scene_name", "") or ""
+        # ScenarioConfig 可能使用 scene_description 或 description 属性名，两者都尝试
+        scene_desc = (
+            getattr(scenario_config, "scene_description", "")
+            or getattr(scenario_config, "description", "")
+            or ""
+        )
+        # ScenarioConfig 可能使用 scene_name 或 name 属性名，两者都尝试
+        scene_name = (
+            getattr(scenario_config, "scene_name", "")
+            or getattr(scenario_config, "name", "")
+            or ""
+        )
 
         loaded_schema: Optional[GenieSchema] = schema
 
@@ -231,6 +241,36 @@ class GenieTracker:
         """
         self._api_registry[func_name] = func
         logger.debug(f"[GenieTracker] 注册 on_success API: {func_name!r}")
+
+    async def prefill_from_context(self) -> Dict[str, Any]:
+        """对话开始前，从 scene_description 中预提取所有已知字段值并填入 Worksheet。
+
+        这是解决"外呼/主动场景下系统已知信息无法自动填表"问题的核心方法。
+        适用于任意对话场景：若 scene_description 包含可映射到 Worksheet 字段的
+        业务数据（用户姓名、额度、手机尾号等），在第一轮对话前将其提前填入，
+        使 Worksheet 从正确的已知状态出发，避免系统询问已知信息。
+
+        对于 scene_description 为空的场景，此方法是幂等空操作。
+
+        Returns:
+            预填的字段赋值字典 ``{field_name: value}``；无已知字段时返回空字典。
+        """
+        if not self._scene_description:
+            return {}
+        try:
+            prefilled = await self._semantic_parser.prefill(
+                executor=self._executor,
+                scene_description=self._scene_description,
+            )
+        except Exception as exc:
+            logger.warning(f"[GenieTracker] 预填失败，跳过: {exc}")
+            return {}
+        if prefilled:
+            errors = self._executor.fill_batch(prefilled)
+            if errors:
+                logger.warning(f"[GenieTracker] 预填字段校验错误: {errors}")
+            logger.info(f"[GenieTracker] 预填完成: {list(prefilled.keys())}")
+        return prefilled
 
     async def process_turn(
         self,

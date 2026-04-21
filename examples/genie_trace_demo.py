@@ -144,6 +144,7 @@ async def run_trace(
     # Worksheet 字段信息（供 metadata 展示）
     worksheet_fields: List[str] = []
     intent_name: str = ""
+    prefilled_fields: Dict[str, Any] = {}
 
     if llm_available:
         llm_client = AdkLLMClient(config=config)
@@ -162,6 +163,24 @@ async def run_trace(
         if tracker._executor.intent:
             intent_name = tracker._executor.intent.name
             worksheet_fields = [pf.name for pf in tracker._executor._policy_fields]
+
+        # 对话开始前：从 scene_description（含 user_info）预填所有已知字段，
+        # 避免系统在对话中重复询问已知信息（如姓名、额度等）
+        print("  → 正在从背景信息预填已知字段...", flush=True)
+        prefilled_fields: Dict[str, Any] = {}
+        try:
+            prefilled_fields = await asyncio.wait_for(
+                tracker.prefill_from_context(),
+                timeout=60.0,
+            )
+            if prefilled_fields:
+                print(f"  ✅ 预填完成: {list(prefilled_fields.keys())}", flush=True)
+            else:
+                print("  ℹ️  背景信息中无可提取字段", flush=True)
+        except asyncio.TimeoutError:
+            print("  ⚠️  预填超时，将从空白状态开始对话", flush=True)
+        except Exception as exc:
+            print(f"  ⚠️  预填失败: {exc}，将从空白状态开始对话", flush=True)
 
         prev_worksheet_state: Dict[str, Any] = {}
         n_turns = len(paired_turns)
@@ -297,6 +316,7 @@ async def run_trace(
             "intent_name": intent_name,
             "worksheet_fields": worksheet_fields,
             "worksheet_path": str(worksheet_path or _DEFAULT_WORKSHEET_PATH),
+            "prefilled_fields": prefilled_fields if llm_available else {},
         },
         "session_id": session.get("session_id", ""),
         "用户信息": session.get("用户信息", ""),
@@ -369,6 +389,11 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
     user_info = trace.get("用户信息")
     if user_info:
         lines += [f"**用户信息**: {user_info}", ""]
+
+    prefilled = meta.get("prefilled_fields", {})
+    if prefilled:
+        prefilled_str = ", ".join(f"`{k}={v}`" for k, v in prefilled.items())
+        lines += [f"**预填字段（来自背景信息）**: {prefilled_str}", ""]
 
     if intent_name:
         lines.append(f"**意图**: `{intent_name}`")

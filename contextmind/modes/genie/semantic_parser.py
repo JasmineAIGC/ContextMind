@@ -123,6 +123,38 @@ _SEMANTIC_PARSING_USER_TEMPLATE = """\
 请分析并提取字段值："""
 
 
+# 预填专用提示词（对话开始前从 scene_description 批量提取已知字段）
+_PREFILL_SYSTEM = """你是一个信息提取器，负责在对话开始之前，从"业务背景信息"中提取所有已知的业务字段值，预先填写表单。
+
+## 输出格式（严格遵循两步结构）
+
+# 分析
+……（简短分析：背景信息中包含哪些字段的已知值）……
+
+# 提取结果
+若提取到一个或多个字段值，输出 JSON 对象：
+{"field_name_1": "value_1", "field_name_2": "value_2"}
+
+若背景信息中无任何可匹配字段值，仅输出：
+NONE
+
+## 工作规则
+1. 只提取背景信息中明确包含的字段值，不要推断或猜测
+2. 字段值必须与字段类型和可选枚举值匹配
+3. 枚举字段的值必须精确匹配给定的可选值列表之一
+4. # 提取结果 之后只输出 JSON 或 NONE，不要添加其他文字
+"""
+
+_PREFILL_USER_TEMPLATE = """\
+## 业务背景信息（包含已知的业务数据和用户信息）
+{scene_description}
+
+## 需要预填的字段说明（仅提取背景信息中已有的字段值）
+{field_descriptions}
+
+请从背景信息中提取已知字段值："""
+
+
 # ---------------------------------------------------------------------------
 # SemanticParser
 # ---------------------------------------------------------------------------
@@ -171,6 +203,36 @@ class SemanticParser:
 
         raw_output = await self._call_llm(
             system=_SEMANTIC_PARSING_SYSTEM,
+            user=prompt_user,
+        )
+        return self._parse_output(raw_output)
+
+    async def prefill(
+        self,
+        executor: "PolicyExecutor",
+        scene_description: str,
+    ) -> Dict[str, Any]:
+        """对话开始前，从 scene_description 批量提取所有已知字段值。
+
+        使用专用的预填提示词（不含用户话语、对话历史），让 LLM 专注于从
+        业务背景信息（用户信息、账户数据等）中提取表单中所有可知字段。
+
+        这是解决"外呼场景下已知字段无法自动填写"问题的核心方法：
+        系统在对话开始前，将 user_info 中的姓名、额度、手机尾号等信息
+        直接填入 Worksheet，使后续流程从正确状态出发。
+
+        Args:
+            executor:          当前 PolicyExecutor（提供字段定义）。
+            scene_description: 业务场景描述及用户预知信息（含 user_info）。
+
+        Returns:
+            字段赋值字典 ``{field_name: value}``；无已知字段时返回空字典。
+        """
+        if not scene_description:
+            return {}
+        prompt_user = self._build_prefill_prompt(executor, scene_description)
+        raw_output = await self._call_llm(
+            system=_PREFILL_SYSTEM,
             user=prompt_user,
         )
         return self._parse_output(raw_output)
@@ -231,6 +293,27 @@ class SemanticParser:
             history_turns=self.max_history_turns,
             history=hist_text,
             user_utterance=user_utterance,
+        )
+
+    def _build_prefill_prompt(
+        self,
+        executor: "PolicyExecutor",
+        scene_description: str,
+    ) -> str:
+        """构建预填专用提示词（不含用户话语和对话历史）。"""
+        desc_lines: List[str] = []
+        for pf in executor._policy_fields:
+            line = f"  - {pf.name}"
+            if pf.description:
+                line += f"（{pf.description}）"
+            if pf.field_type == "enum" and pf.possible_values:
+                line += f" [可选值: {', '.join(pf.possible_values)}]"
+            desc_lines.append(line)
+        field_descriptions = "\n".join(desc_lines) or "（无字段定义）"
+
+        return _PREFILL_USER_TEMPLATE.format(
+            scene_description=scene_description,
+            field_descriptions=field_descriptions,
         )
 
     async def _call_llm(self, system: str, user: str) -> str:
