@@ -228,21 +228,25 @@ class SemanticParser:
     async def _call_llm(self, system: str, user: str) -> str:
         """调用 AdkLLMClient 获取 LLM 响应文本。"""
         try:
-            # AdkLLMClient 统一接口：generate(messages) 或 chat(system, user)
+            # AdkLLMClient 统一接口：优先使用 chat_async（接受 messages 列表）
             if hasattr(self._llm, "chat"):
                 response = await self._llm.chat(system_prompt=system, user_message=user)
                 return str(response)
-            # 通用 messages 格式
+            # 通用 messages 格式（OpenAI 标准）
             messages = [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ]
-            if hasattr(self._llm, "generate_async"):
-                response = await self._llm.generate_async(messages)
+            if hasattr(self._llm, "chat_async"):
+                # AdkLLMClient.chat_async 接受 List[dict]，是正确的调用方式
+                response = await self._llm.chat_async(messages)
+            elif hasattr(self._llm, "generate_async"):
+                # generate_async 只接受字符串 prompt，不适用于含 system 的 messages
+                response = await self._llm.generate_async(user)
             elif hasattr(self._llm, "generate"):
                 import asyncio
                 response = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda: self._llm.generate(messages)
+                    None, lambda: self._llm.generate(user)
                 )
             else:
                 logger.error("[SemanticParser] LLM 客户端无可用的调用方法")

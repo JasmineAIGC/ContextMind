@@ -495,11 +495,14 @@ class GenieTracker:
                 {"role": "system", "content": _RESPONSE_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ]
+            if hasattr(self._llm, "chat_async"):
+                # AdkLLMClient.chat_async 接受 List[dict]，是正确的调用方式
+                return str(await self._llm.chat_async(messages))
             if hasattr(self._llm, "generate_async"):
-                return str(await self._llm.generate_async(messages))
+                return str(await self._llm.generate_async(user_prompt))
             import asyncio
             return str(await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self._llm.generate(messages)
+                None, lambda: self._llm.generate(user_prompt)
             ))
         except Exception as exc:
             logger.error(f"[GenieTracker] 回复生成失败: {exc}")
@@ -540,12 +543,15 @@ class GenieTracker:
                     {"role": "system", "content": _CONFIRM_SYSTEM},
                     {"role": "user", "content": user_prompt},
                 ]
-                if hasattr(self._llm, "generate_async"):
-                    raw = str(await self._llm.generate_async(messages))
+                if hasattr(self._llm, "chat_async"):
+                    # AdkLLMClient.chat_async 接受 List[dict]，是正确的调用方式
+                    raw = str(await self._llm.chat_async(messages))
+                elif hasattr(self._llm, "generate_async"):
+                    raw = str(await self._llm.generate_async(user_prompt))
                 else:
                     import asyncio
                     raw = str(await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: self._llm.generate(messages)
+                        None, lambda: self._llm.generate(user_prompt)
                     ))
             return raw.strip().upper().startswith("YES")
         except Exception as exc:
