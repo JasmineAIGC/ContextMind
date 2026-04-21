@@ -96,7 +96,13 @@ def _service_schema_to_genie_schema(service_schema: Any) -> Any:
 
     pipeline 是唯一被允许同时感知 pytod schema 和 genie schema 的位置，
     此函数负责在两者之间做结构映射，保持 genie_worksheets 模块与 pytod 的完全隔离。
+
+    注意：``IntentDefinition.policy_fields`` 可能包含原始 ``dict``（通过
+    ``from_dict`` 路径加载）或 ``PolicyField`` 对象（WorksheetLoader 路径）。
+    此处统一转换为 ``PolicyField`` 对象，避免 ``PolicyExecutor`` 访问
+    ``pf.required`` 时抛出 ``AttributeError``。
     """
+    from contextmind.schema_builder.genie_worksheets.models import PolicyField
     from contextmind.schema_builder.genie_worksheets.schema_types import (
         GenieIntent,
         GenieSchema,
@@ -121,7 +127,11 @@ def _service_schema_to_genie_schema(service_schema: Any) -> Any:
             optional_slots=list(i.optional_slots),
             result_slots=list(i.result_slots),
             is_transactional=i.is_transactional,
-            policy_fields=list(i.policy_fields),
+            # 统一转换为 PolicyField 对象（修复 raw dict AttributeError Bug）
+            policy_fields=[
+                pf if isinstance(pf, PolicyField) else PolicyField.from_dict(pf)
+                for pf in i.policy_fields
+            ],
         )
         for i in service_schema.intents
     ]

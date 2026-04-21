@@ -77,28 +77,30 @@ def _find_first_json_object(text: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# 语义解析器提示词模板
+# 语义解析器提示词模板（Plan + Extract 两步，对齐 Genie 论文）
 # ---------------------------------------------------------------------------
 
 _SEMANTIC_PARSING_SYSTEM = """你是一个任务型对话的字段提取器（Field Extractor）。
 你的唯一任务是从用户的最新话语中提取业务字段值，填入 Worksheet 表单。
 
-## 工作规则
-1. 仅提取用户明确提到的字段值，不要猜测或推断
-2. 字段值必须与该字段的类型和可选枚举值匹配
-3. 若用户话语中没有任何可提取的字段值，输出 NONE
-4. 不要生成与字段无关的内容
+## 输出格式（严格遵循两步结构）
+先输出简短的推理分析（不超过 2 句话），再输出提取结果：
 
-## 输出格式
-若成功提取到字段值，输出 JSON 对象（不加代码块标记）：
+# 分析
+……（简短分析：用户提供了哪些信息，与哪些字段匹配）……
+
+# 提取结果
+若成功提取到字段值，输出 JSON 对象：
 {"field_name_1": "value_1", "field_name_2": "value_2"}
 
 若无法提取任何字段值，仅输出：
 NONE
 
-## 重要
-- 直接输出 JSON 或 NONE，不要添加任何解释文字
-- 枚举字段的值必须精确匹配给定的可选值列表之一
+## 工作规则
+1. 仅提取用户明确提到的字段值，不要猜测或推断
+2. 字段值必须与该字段的类型和可选枚举值匹配
+3. 枚举字段的值必须精确匹配给定的可选值列表之一
+4. # 提取结果 之后只输出 JSON 或 NONE，不要添加其他文字
 """
 
 _SEMANTIC_PARSING_USER_TEMPLATE = """\
@@ -114,7 +116,7 @@ _SEMANTIC_PARSING_USER_TEMPLATE = """\
 ## 用户最新话语
 {user_utterance}
 
-请提取用户话语中的字段值："""
+请分析并提取字段值："""
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +127,7 @@ class SemanticParser:
     """Genie Worksheets 语义解析器（LLM-1）。
 
     将用户输入解析为 ``{field_name: value}`` 字典或空字典（NONE）。
+    采用 Plan+Extract 两步结构：先推理分析，再输出 JSON 提取结果。
 
     参数
     ----
@@ -252,13 +255,23 @@ class SemanticParser:
     def _parse_output(self, raw: str) -> Dict[str, Any]:
         """将 LLM 输出解析为字段赋值字典。
 
-        支持：
-        - 标准 JSON 对象
-        - NONE（无提取结果）
-        - 带 markdown 代码块的 JSON（```json ... ```）
+        支持两种输出格式：
+        1. Plan+Extract 两步格式（新）：
+           ``# 分析\\n...\\n# 提取结果\\n{...}``
+        2. 直接 JSON / NONE（旧格式兼容）
+
+        同时支持带 markdown 代码块的 JSON（```json ... ```）。
         """
         text = raw.strip()
-        if not text or text.upper() == "NONE":
+        if not text:
+            return {}
+
+        # 优先提取 "# 提取结果" 段落（Plan+Extract 格式）
+        extract_section = self._extract_result_section(text)
+        if extract_section is not None:
+            text = extract_section
+
+        if text.upper() == "NONE":
             return {}
 
         # 去除 markdown 代码块
@@ -287,3 +300,25 @@ class SemanticParser:
 
         logger.debug(f"[SemanticParser] 无法解析 LLM 输出为 JSON: {text[:200]!r}")
         return {}
+
+    @staticmethod
+    def _extract_result_section(text: str) -> Optional[str]:
+        """从 Plan+Extract 格式输出中提取 '# 提取结果' 段落内容。
+
+        例如::
+
+            # 分析
+            用户提供了菜系（川菜）和位置（北京）。
+
+            # 提取结果
+            {"cuisine": "川菜", "location": "北京"}
+
+        Returns:
+            ``# 提取结果`` 之后的文本（strip 后），未找到时返回 None。
+        """
+        markers = ["# 提取结果", "# 提取结果：", "## 提取结果", "## 提取结果："]
+        for marker in markers:
+            idx = text.find(marker)
+            if idx != -1:
+                return text[idx + len(marker):].strip()
+        return None

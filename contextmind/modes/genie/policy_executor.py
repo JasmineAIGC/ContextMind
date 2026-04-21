@@ -233,6 +233,52 @@ class PolicyExecutor:
             and not (pf.depends_on and not self._state.is_filled(pf.depends_on))
         ]
 
+    def get_pending_confirm_fields(self) -> List[PolicyField]:
+        """返回所有处于 PENDING_CONFIRM 状态（已填但等待用户确认）的字段列表。"""
+        return [
+            pf for pf in self._policy_fields
+            if self._state.field_statuses.get(pf.name) == FieldStatus.PENDING_CONFIRM
+        ]
+
+    def reject_field(self, name: str) -> bool:
+        """拒绝（清除）指定字段的值，通常在用户否认确认时调用。
+
+        Returns:
+            True（字段存在且已清除），False（字段不存在或未填写）。
+        """
+        if not self._state.is_filled(name):
+            return False
+        del self._state.field_values[name]
+        self._state.field_statuses.pop(name, None)
+        self._state.confirmed_fields.discard(name)
+        logger.debug(f"[PolicyExecutor] 字段 {name!r} 已被用户拒绝，值已清除")
+        return True
+
+    def get_on_success_actions(self) -> List[Tuple[str, str]]:
+        """返回所有已填字段中需要触发 on_success 回调的 (field_name, api_name) 对。
+
+        仅返回状态为 FILLED（即刚填写、尚未分发）的字段。
+        CONFIRMED 状态表示 on_success 已被触发（由 mark_on_success_dispatched 设置），
+        PENDING_CONFIRM 表示等待用户确认，这两种状态都不触发 on_success。
+        """
+        result: List[Tuple[str, str]] = []
+        for pf in self._policy_fields:
+            if not pf.on_success:
+                continue
+            status = self._state.field_statuses.get(pf.name)
+            if status == FieldStatus.FILLED:
+                result.append((pf.name, pf.on_success))
+        return result
+
+    def mark_on_success_dispatched(self, field_name: str) -> None:
+        """将字段标记为已触发 on_success（防止重复调用）。
+
+        通过将字段状态从 FILLED 升级为 CONFIRMED 来实现（借用 CONFIRMED 语义）。
+        """
+        if self._state.field_statuses.get(field_name) == FieldStatus.FILLED:
+            self._state.field_statuses[field_name] = FieldStatus.CONFIRMED
+            logger.debug(f"[PolicyExecutor] 字段 {field_name!r} on_success 已触发，标记为 CONFIRMED")
+
     def reset(self) -> None:
         """清空状态，开始新会话。"""
         self._state = WorksheetState()
