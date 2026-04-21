@@ -140,13 +140,13 @@ class SchemaDataBuilder:
         return written
 
     def build_single(self, schema_path: Union[str, Path]) -> List[Path]:
-        """处理单个 schema.json，生成 PyTOD + FnCTOD companion 文件。
+        """处理单个 schema.json，生成 PyTOD + FnCTOD + Genie Worksheet companion 文件。
 
         Args:
             schema_path: ``*_schema.json`` 文件路径。
 
         Returns:
-            成功写入的文件路径列表（最多 2 个）。
+            成功写入的文件路径列表（最多 3 个）。
         """
         schema_path = Path(schema_path)
         written: List[Path] = []
@@ -164,6 +164,10 @@ class SchemaDataBuilder:
             written.append(p)
 
         p = self.build_fnctod_domain(schema_path, schema=schema)
+        if p:
+            written.append(p)
+
+        p = self.build_genie_worksheet(schema_path, schema=schema)
         if p:
             written.append(p)
 
@@ -494,6 +498,141 @@ class SchemaDataBuilder:
                 json.dump(domain_data, fh, ensure_ascii=False, indent=2)
             logger.info(
                 f"[SchemaDataBuilder] 已写入 FnCTOD domain: {out_path} ({len(properties)} 个槽位)"
+            )
+            return out_path
+        except Exception as exc:
+            logger.error(f"[SchemaDataBuilder] 写入失败: {out_path} — {exc}")
+            return None
+
+    def build_genie_worksheet(
+        self,
+        schema_path: Union[str, Path],
+        schema: Optional[ServiceSchema] = None,
+    ) -> Optional[Path]:
+        """从 schema.json 生成 Genie Worksheets ``*_genie_worksheet.json`` companion 文件。
+
+        将 ``ServiceSchema``（PyTOD 格式）转换为 ``GenieSchema``，再序列化为 Worksheet JSON，
+        供 ``GenieTracker`` 在 genie 模式下直接加载使用，无需人工编写 Worksheet。
+
+        输出格式（标准 Worksheet JSON，可通过 ``WorksheetLoader.from_json()`` 重建）::
+
+            {
+              "service_name": "...",
+              "description": "...",
+              "intents": [
+                {
+                  "name": "intent_name",
+                  "description": "...",
+                  "is_transactional": false,
+                  "result_slots": [...],
+                  "policy_fields": [
+                    {
+                      "name": "slot_name",
+                      "description": "...",
+                      "required": true,
+                      "confirm": false,
+                      "ask_by_system": true,
+                      "depends_on": "",
+                      "type": "enum|str|...",
+                      "possible_values": [...],
+                      "on_success": ""
+                    }
+                  ]
+                }
+              ]
+            }
+
+        文件命名规则：``data/foo_schema.json`` → ``data/foo_genie_worksheet.json``
+
+        Args:
+            schema_path: ``*_schema.json`` 文件路径。
+            schema:      已加载的 ServiceSchema（传入可省略重复 IO）。
+
+        Returns:
+            写入成功时返回文件路径，否则返回 None。
+        """
+        schema_path = Path(schema_path)
+        out_path = _companion_path(schema_path, "genie_worksheet", suffix=".json", output_dir=self.output_dir)
+
+        if out_path.exists() and not self.overwrite:
+            logger.debug(f"[SchemaDataBuilder] 跳过已存在文件: {out_path}")
+            return None
+
+        if schema is None:
+            try:
+                with open(schema_path, encoding="utf-8") as fh:
+                    schema = load_schema_from_dict(json.load(fh))
+            except Exception as exc:
+                logger.error(f"[SchemaDataBuilder] 加载 schema 失败: {schema_path} — {exc}")
+                return None
+
+        # 将 ServiceSchema 转换为 GenieSchema，再序列化为 Worksheet JSON
+        try:
+            from contextmind.schema_builder.genie_worksheets.schema_types import (
+                GenieIntent,
+                GenieSchema,
+                GenieSlot,
+            )
+            from contextmind.schema_builder.genie_worksheets.models import PolicyField
+            from contextmind.schema_builder.genie_worksheets.loader import WorksheetLoader
+
+            genie_slots = [
+                GenieSlot(
+                    name=s.name,
+                    description=s.description,
+                    is_categorical=s.is_categorical,
+                    possible_values=list(s.possible_values),
+                    is_required=s.is_required,
+                )
+                for s in schema.slots
+            ]
+
+            # 槽位属性映射表（用于快速查找）
+            _slot_map = {s.name: s for s in schema.slots}
+
+            genie_intents = []
+            for intent in schema.intents:
+                policy_fields = []
+                for slot_name in list(intent.required_slots) + list(intent.optional_slots):
+                    sdef = _slot_map.get(slot_name)
+                    policy_fields.append(PolicyField(
+                        name=slot_name,
+                        description=sdef.description if sdef else "",
+                        required=(slot_name in intent.required_slots),
+                        confirm=False,
+                        ask_by_system=True,
+                        field_type="enum" if (sdef and sdef.is_categorical) else "str",
+                        possible_values=list(sdef.possible_values) if sdef else [],
+                    ))
+                genie_intents.append(GenieIntent(
+                    name=intent.name,
+                    description=intent.description,
+                    required_slots=list(intent.required_slots),
+                    optional_slots=list(intent.optional_slots),
+                    result_slots=list(intent.result_slots),
+                    is_transactional=intent.is_transactional,
+                    policy_fields=policy_fields,
+                ))
+
+            genie_schema = GenieSchema(
+                service_name=schema.service_name,
+                description=schema.description,
+                slots=genie_slots,
+                intents=genie_intents,
+            )
+
+            worksheet_json = WorksheetLoader.to_worksheet_json(genie_schema)
+        except Exception as exc:
+            logger.error(f"[SchemaDataBuilder] Genie Worksheet 构建失败: {schema_path} — {exc}")
+            return None
+
+        try:
+            with open(out_path, "w", encoding="utf-8") as fh:
+                fh.write(worksheet_json)
+                fh.write("\n")
+            logger.info(
+                f"[SchemaDataBuilder] 已写入 Genie Worksheet: {out_path} "
+                f"({len(genie_intents)} 个意图)"
             )
             return out_path
         except Exception as exc:

@@ -16,12 +16,16 @@ ContextMind 批量对话测试Demo
     python examples/batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
     python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
     python examples/batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
            也接受原始 schema（schema/xxx_schema.json），自动寻找 companion 文件
     PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
            可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
+    Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
+           也接受原始 schema（--schema schema/xxx_schema.json），自动在同目录寻找 Worksheet 文件
+           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -36,7 +40,7 @@ import argparse
 import asyncio
 import json
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import gradio as gr
 
@@ -56,6 +60,7 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 _BATCH_FNCTOD_SCHEMA_PATH: Optional[str] = None
 _BATCH_PYTOD_APIS_PATH: Optional[str] = None
 _BATCH_PYTOD_SCHEMA_PATH: Optional[str] = None
+_BATCH_GENIE_WORKSHEET_PATH: Optional[str] = None
 
 
 def _load_fnctod_schema(json_path: str):
@@ -128,6 +133,86 @@ def _load_pytod_service_schema(apis_py_path: str, schema_json_path: Optional[str
     return _load_json(p.parent / f"{base}.json")
 
 
+def _load_genie_schema(worksheet_path: Optional[str], schema_json_path: Optional[str] = None):
+    """加载 Genie GenieSchema（从 Worksheet JSON 或 schema.json）。
+
+    优先级：
+    1. 若提供 worksheet_path（``*_genie_worksheet.json``），直接加载。
+    2. 若提供 schema_json_path（``*_schema.json``），自动在同目录寻找 ``*_genie_worksheet.json``；
+       找不到时从 schema.json 在线转换（无需文件落盘）。
+    3. 两者均未提供时返回 None。
+
+    Returns:
+        ``GenieSchema`` 实例，或 None（无法加载时）。
+    """
+    from contextmind.schema_builder.genie_worksheets import WorksheetLoader
+    from contextmind.schema_builder.genie_worksheets.schema_types import (
+        GenieIntent, GenieSchema, GenieSlot,
+    )
+    from contextmind.schema_builder.genie_worksheets.models import PolicyField
+
+    # 优先使用 worksheet 文件
+    if worksheet_path:
+        ws_p = Path(worksheet_path)
+        if ws_p.suffix.lower() in (".json", ".jsonl"):
+            return WorksheetLoader.from_json(ws_p)
+        elif ws_p.suffix.lower() == ".csv":
+            return WorksheetLoader.from_csv(ws_p)
+        raise ValueError(f"--genie-worksheet 只支持 .json / .csv，得到: {ws_p.suffix}")
+
+    # 从 schema.json 推导
+    if schema_json_path:
+        sp = Path(schema_json_path)
+        # 自动检查同目录的 *_genie_worksheet.json
+        stem = sp.stem
+        base = stem[: -len("_schema")] if stem.endswith("_schema") else stem
+        companion = sp.parent / f"{base}_genie_worksheet.json"
+        if companion.exists():
+            return WorksheetLoader.from_json(companion)
+        # 在线转换
+        with open(sp, encoding="utf-8") as f:
+            from contextmind.modes.pytod.schemas import load_schema_from_dict as _lsd
+            svc_schema = _lsd(json.load(f))
+        slot_map = {s.name: s for s in svc_schema.slots}
+        genie_slots = [
+            GenieSlot(
+                name=s.name, description=s.description,
+                is_categorical=s.is_categorical,
+                possible_values=list(s.possible_values),
+                is_required=s.is_required,
+            )
+            for s in svc_schema.slots
+        ]
+        genie_intents = []
+        for intent in svc_schema.intents:
+            pf = []
+            for sn in list(intent.required_slots) + list(intent.optional_slots):
+                sd = slot_map.get(sn)
+                pf.append(PolicyField(
+                    name=sn,
+                    description=sd.description if sd else "",
+                    required=(sn in intent.required_slots),
+                    field_type="enum" if (sd and sd.is_categorical) else "str",
+                    possible_values=list(sd.possible_values) if sd else [],
+                ))
+            genie_intents.append(GenieIntent(
+                name=intent.name, description=intent.description,
+                required_slots=list(intent.required_slots),
+                optional_slots=list(intent.optional_slots),
+                result_slots=list(intent.result_slots),
+                is_transactional=intent.is_transactional,
+                policy_fields=pf,
+            ))
+        return GenieSchema(
+            service_name=svc_schema.service_name,
+            description=svc_schema.description,
+            slots=genie_slots,
+            intents=genie_intents,
+        )
+
+    return None
+
+
 class BatchDialogueTest:
     """批量对话测试类"""
     
@@ -137,20 +222,23 @@ class BatchDialogueTest:
         fnctod_schema_path: Optional[str] = None,
         pytod_apis_path: Optional[str] = None,
         schema_json_path: Optional[str] = None,
+        genie_worksheet_path: Optional[str] = None,
     ):
         """
         初始化测试类
 
         Args:
-            max_history_turns:   DST 模式的最大历史轮数
-            fnctod_schema_path:  FnCTOD 模式的 schema.json 路径
-            pytod_apis_path:     PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件）
-            schema_json_path:    PyTOD 模式的 schema.json 路径（显式指定；优先于自动推导）
+            max_history_turns:    DST 模式的最大历史轮数
+            fnctod_schema_path:   FnCTOD 模式的 schema.json 路径
+            pytod_apis_path:      PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件）
+            schema_json_path:     PyTOD / Genie 模式的 schema.json 路径（显式指定；优先于自动推导）
+            genie_worksheet_path: Genie 模式的 *_genie_worksheet.json 路径（预生成 Worksheet 文件）
         """
         self.max_history_turns = max_history_turns
         self.llm_client = None
         self.tracker = None  # DST mode
         self.fnctod_tracker = None  # FnCTOD mode
+        self.genie_tracker = None  # Genie mode
         self.config = None
         self.app = None
         self.current_mode = None
@@ -174,6 +262,17 @@ class BatchDialogueTest:
                 logger.info(f"已加载 PyTOD APIs: {pytod_apis_path}")
             except Exception as exc:
                 logger.warning(f"加载 PyTOD APIs 失败: {exc}")
+        # Genie：从 Worksheet JSON 或 schema.json 加载 GenieSchema
+        self._genie_schema = None
+        self._genie_worksheet_path: Optional[str] = genie_worksheet_path
+        self._schema_json_path: Optional[str] = schema_json_path
+        if genie_worksheet_path or schema_json_path:
+            try:
+                self._genie_schema = _load_genie_schema(genie_worksheet_path, schema_json_path)
+                if self._genie_schema is not None:
+                    logger.info(f"已加载 Genie Schema: {self._genie_schema.service_name}")
+            except Exception as exc:
+                logger.warning(f"加载 Genie Schema 失败: {exc}")
         logger.info("BatchDialogueTest 实例创建完成")
     
     def initialize(self, mode: str = "dst"):
@@ -181,7 +280,7 @@ class BatchDialogueTest:
         初始化模式
         
         Args:
-            mode: "dst", "evolve", 或 "fnctod"
+            mode: "dst", "evolve", "fnctod", "pytod", 或 "genie"
         """
         self.current_mode = mode
         
@@ -203,6 +302,8 @@ class BatchDialogueTest:
             self._setup_fnctod_tracker()
         elif mode == "pytod":
             self._setup_pytod_tracker()
+        elif mode == "genie":
+            self._setup_genie_tracker()
         else:
             self._setup_evolve_app()
         
@@ -263,6 +364,28 @@ class BatchDialogueTest:
 
         logger.info("PyTOD 模式初始化完成")
 
+    def _setup_genie_tracker(self):
+        """
+        初始化 Genie Worksheets 模式
+
+        从预生成的 Worksheet JSON 文件或 schema.json 加载 GenieSchema，
+        创建 GenieTracker 实例。
+        """
+        if self._genie_schema is None:
+            raise ValueError(
+                "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
+                "可通过以下命令预生成 Worksheet：\n"
+                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+            )
+        from contextmind.modes.genie.tracker import GenieTracker
+        self.genie_tracker = GenieTracker(
+            llm_client=self.llm_client,
+            schema=self._genie_schema,
+            scene_description=getattr(self.config, "scene_description", "") or self.config.name,
+            max_history_turns=self.max_history_turns,
+        )
+        logger.info("Genie 模式初始化完成")
+
     def _setup_evolve_app(self):
         """
         初始化 Evolve 模式
@@ -289,6 +412,8 @@ class BatchDialogueTest:
             self.fnctod_tracker.reset()
         elif self.current_mode == "pytod" and hasattr(self, "pytod_tracker"):
             self.pytod_tracker.reset()
+        elif self.current_mode == "genie" and self.genie_tracker:
+            self.genie_tracker.reset()
         elif self.current_mode == "evolve" and self.app:
             # 重新初始化
             self._setup_evolve_app()
@@ -626,6 +751,83 @@ class BatchDialogueTest:
 
         return result_text + summary, final_state
 
+    async def process_dialogue_genie(self, turns: List[Dict]) -> Tuple[str, Dict]:
+        """
+        使用 Genie Worksheets 模式处理对话
+
+        为每个对话创建独立的 GenieTracker 实例，确保测试结果独立。
+
+        Args:
+            turns: 对话轮次列表
+
+        Returns:
+            (处理结果文本, 最终状态)
+        """
+        if self._genie_schema is None:
+            return (
+                "❌ 未加载 Genie Schema。请通过 --genie-worksheet 或 --schema 参数提供 Worksheet 文件。\n"
+                "   可通过以下命令预生成：\n"
+                "   python examples/build_schema_data.py --genie-only --schema <schema.json>",
+                {},
+            )
+
+        from contextmind.modes.genie.tracker import GenieTracker
+        tracker = GenieTracker(
+            llm_client=self.llm_client,
+            schema=self._genie_schema,
+            scene_description=getattr(self.config, "scene_description", "") or self.config.name,
+            max_history_turns=self.max_history_turns,
+        )
+        logger.info("✅ 为新对话创建 Genie tracker")
+
+        results = []
+        result_text = ""
+
+        for i, turn in enumerate(turns):
+            user_utterance = turn.get("user_utterance", "")
+
+            result = await tracker.process_turn(user_utterance=user_utterance)
+
+            turn_result = {
+                "turn_id": i + 1,
+                "user_utterance": user_utterance,
+                "response": result.get("response", ""),
+                "state": result.get("state", {}),
+            }
+            results.append(turn_result)
+
+            result_text += f"\n{'='*50}\n"
+            result_text += f"轮次 {i + 1}\n"
+            result_text += f"{'='*50}\n"
+            result_text += f"客户: {user_utterance}\n"
+            result_text += f"\n助手: {result.get('response', '')}\n"
+            state = result.get("state", {})
+            if state:
+                result_text += "\n槽位状态:\n"
+                for key, value in state.items():
+                    if value:
+                        result_text += f"  {key}: {value}\n"
+
+        final_state = results[-1].get("state", {}) if results else {}
+
+        summary = f"\n{'='*50}\n"
+        summary += f"📊 测试总结 (Genie 模式)\n"
+        summary += f"{'='*50}\n"
+        summary += f"处理轮数: {len(turns)}\n"
+        summary += f"服务: {self._genie_schema.service_name}\n"
+        summary += f"\n累积状态:\n"
+        for key, value in final_state.items():
+            if value:
+                summary += f"  {key}: {value}\n"
+
+        self.results_history.append({
+            "mode": "genie",
+            "turns": len(turns),
+            "final_state": final_state,
+        })
+
+        return result_text + summary, final_state
+
     async def process_dialogue_evolve(self, turns: List[Dict]) -> Tuple[str, Dict]:
         """
         使用 Evolve 模式处理对话
@@ -744,6 +946,7 @@ def get_test_instance():
             fnctod_schema_path=_BATCH_FNCTOD_SCHEMA_PATH,
             pytod_apis_path=_BATCH_PYTOD_APIS_PATH,
             schema_json_path=_BATCH_PYTOD_SCHEMA_PATH,
+            genie_worksheet_path=_BATCH_GENIE_WORKSHEET_PATH,
         )
     return test_instance
 
@@ -779,6 +982,8 @@ async def process_dialogue_async(dialogue_text: str, mode: str) -> Tuple[str, st
             result_text, state = await instance.process_dialogue_fnctod(turns)
         elif mode == "pytod":
             result_text, state = await instance.process_dialogue_pytod(turns)
+        elif mode == "genie":
+            result_text, state = await instance.process_dialogue_genie(turns)
         else:
             result_text, state = await instance.process_dialogue_evolve(turns)
         
@@ -864,6 +1069,7 @@ def create_test_ui():
                         ("Evolve 模式 (记忆进化)", "evolve"),
                         ("FnCTOD 模式 (函数调用)", "fnctod"),
                         ("PyTOD 模式 (程序执行)", "pytod"),
+                        ("Genie 模式 (声明式策略)", "genie"),
                     ],
                     value="dst",
                     label="选择模式"
@@ -988,6 +1194,8 @@ def parse_args():
   python examples/batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
   python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
   python examples/batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+  python examples/batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+  python examples/batch_demo.py --schema schema/anyihua_schema.json
         """,
     )
     parser.add_argument('--port', type=int, default=7861, help='端口号')
@@ -1005,8 +1213,18 @@ def parse_args():
     parser.add_argument(
         '--schema', type=str, default=None, dest='schema_json', metavar='PATH',
         help=(
-            'PyTOD 模式的 schema.json 文件路径，显式指定 ServiceSchema（推荐与 --pytod-apis 配合使用）。'
-            '若不指定，则从 *_pytod_apis.py 文件名自动推导同目录下的 xxx_schema.json 或 xxx.json。'
+            'schema.json 文件路径（PyTOD / Genie 模式均可使用）。'
+            'PyTOD：与 --pytod-apis 配合显式指定 ServiceSchema。'
+            'Genie：若未提供 --genie-worksheet，则在同目录自动寻找 *_genie_worksheet.json，'
+            '找不到时直接从 schema.json 在线转换。'
+        ),
+    )
+    parser.add_argument(
+        '--genie-worksheet', type=str, default=None, metavar='PATH',
+        help=(
+            'Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。'
+            '由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
+            '若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。'
         ),
     )
     return parser.parse_args()
@@ -1014,7 +1232,7 @@ def parse_args():
 
 def main():
     """主函数"""
-    global _BATCH_FNCTOD_SCHEMA_PATH, _BATCH_PYTOD_APIS_PATH, _BATCH_PYTOD_SCHEMA_PATH
+    global _BATCH_FNCTOD_SCHEMA_PATH, _BATCH_PYTOD_APIS_PATH, _BATCH_PYTOD_SCHEMA_PATH, _BATCH_GENIE_WORKSHEET_PATH
     args = parse_args()
     
     # 设置日志
@@ -1029,7 +1247,10 @@ def main():
         logger.info(f"PyTOD APIs: {args.pytod_apis}")
     if args.schema_json:
         _BATCH_PYTOD_SCHEMA_PATH = args.schema_json
-        logger.info(f"PyTOD Schema JSON: {args.schema_json}")
+        logger.info(f"Schema JSON: {args.schema_json}")
+    if args.genie_worksheet:
+        _BATCH_GENIE_WORKSHEET_PATH = args.genie_worksheet
+        logger.info(f"Genie Worksheet: {args.genie_worksheet}")
     
     logger.info("启动 ContextMind 批量对话测试Demo")
     

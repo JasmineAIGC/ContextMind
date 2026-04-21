@@ -4,14 +4,16 @@ Schema 数据预生成脚本
 
 从 schema/ 目录下的 *_schema.json 文件生成各算法所需的 companion 数据文件：
 
-  - schema/*_pytod_apis.py   — PyTOD API 函数代码（每个意图一个 Python 函数定义）
-                               （含 result_slots 字段，供 AP 通过 say(xN.field) 引用）
-  - schema/*_fnctod_domain.json — FnCTOD 域定义数据
-                               （序列化的 DomainSpec，供 FunctionManager 直接加载）
+  - schema/*_pytod_apis.py        — PyTOD API 函数代码（每个意图一个 Python 函数定义）
+                                    （含 result_slots 字段，供 AP 通过 say(xN.field) 引用）
+  - schema/*_fnctod_domain.json   — FnCTOD 域定义数据
+                                    （序列化的 DomainSpec，供 FunctionManager 直接加载）
+  - schema/*_genie_worksheet.json — Genie Worksheets 策略声明文件
+                                    （由 schema.json 自动转换，供 GenieTracker 直接加载）
 
 使用方式::
 
-    # 处理 schema/ 下所有 schema（规则生成 stub 函数）
+    # 处理 schema/ 下所有 schema（规则生成 stub 函数 + Genie Worksheet）
     python examples/build_schema_data.py
 
     # 使用 LLM 生成真实业务逻辑函数体（需配置 .env 中的 LLM_API_KEY 等）
@@ -23,8 +25,11 @@ Schema 数据预生成脚本
     # 指定输出目录（默认与 schema 文件同目录）
     python examples/build_schema_data.py --output-dir output/schema_data
 
-    # 仅生成 PyTOD API 函数代码（跳过 FnCTOD）
+    # 仅生成 PyTOD API 函数代码（跳过 FnCTOD 和 Genie Worksheet）
     python examples/build_schema_data.py --pytod-only
+
+    # 仅生成 Genie Worksheet（跳过 PyTOD 和 FnCTOD，无需 LLM）
+    python examples/build_schema_data.py --genie-only
 
     # 不覆盖已存在的文件
     python examples/build_schema_data.py --no-overwrite
@@ -266,12 +271,17 @@ def main() -> None:
     output_mode_group.add_argument(
         "--pytod-only",
         action="store_true",
-        help="仅生成 PyTOD APIs .py 文件，跳过 FnCTOD domain 文件",
+        help="仅生成 PyTOD APIs .py 文件，跳过 FnCTOD domain 文件和 Genie Worksheet 文件",
     )
     output_mode_group.add_argument(
         "--fnctod-only",
         action="store_true",
-        help="仅生成 FnCTOD domain 文件，跳过 PyTOD mock 文件",
+        help="仅生成 FnCTOD domain 文件，跳过 PyTOD mock 文件和 Genie Worksheet 文件",
+    )
+    output_mode_group.add_argument(
+        "--genie-only",
+        action="store_true",
+        help="仅生成 Genie Worksheet JSON 文件（*_genie_worksheet.json），跳过 PyTOD 和 FnCTOD",
     )
     mode_group.add_argument(
         "--with-llm",
@@ -443,6 +453,13 @@ def main() -> None:
     if args.fnctod_only and args.with_llm:
         print(
             "⚠️  --fnctod-only 跳过 PyTOD 生成，--with-llm 的 LLM 流程将不会被执行。",
+            file=sys.stderr,
+        )
+
+    # 4. --genie-only 不使用 LLM，与 --with-llm 同时指定时提示用户。
+    if getattr(args, "genie_only", False) and args.with_llm:
+        print(
+            "⚠️  --genie-only 仅需从 schema 结构生成 Worksheet，不会调用 LLM。--with-llm 参数将被忽略。",
             file=sys.stderr,
         )
 
@@ -627,7 +644,9 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
             print("⚠️  测试用例预生成失败（无 LLM 或 schema 无意图定义）")
         return
 
-    if not args.fnctod_only:
+    genie_only = getattr(args, "genie_only", False)
+
+    if not args.fnctod_only and not genie_only:
         # LLM 模式：若测试用例缓存不存在，提示用户先运行预生成脚本
         if args.with_llm:
             from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
@@ -657,12 +676,19 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
         if args.with_llm:
             _print_validation_summary(schema_path, builder.output_dir, args.pass_rate_threshold)
 
-    if not args.pytod_only:
+    if not args.pytod_only and not genie_only:
         p = builder.build_fnctod_domain(schema_path, schema=schema)
         if p:
             print(f"✅ FnCTOD domain → {p}")
         else:
             print(f"⚠️  FnCTOD domain 未写入（已存在且 --no-overwrite）")
+
+    if not args.pytod_only and not args.fnctod_only:
+        p = builder.build_genie_worksheet(schema_path, schema=schema)
+        if p:
+            print(f"✅ Genie Worksheet → {p}")
+        else:
+            print(f"⚠️  Genie Worksheet 未写入（已存在且 --no-overwrite）")
 
 
 def _check_schema_vs_discovery(
@@ -727,7 +753,9 @@ def _process_one_schema(
             logs.append("   ⚠️  测试用例预生成失败或已存在")
         return written, logs
 
-    if not args.fnctod_only:
+    genie_only = getattr(args, "genie_only", False)
+
+    if not args.fnctod_only and not genie_only:
         if args.with_llm:
             from contextmind.schema_builder.pytod.testcase import test_cases_path_for_schema
             _user_tc = getattr(args, "test_cases_path", None)
@@ -766,13 +794,21 @@ def _process_one_schema(
                 except Exception:
                     pass
 
-    if not args.pytod_only:
+    if not args.pytod_only and not genie_only:
         p = builder.build_fnctod_domain(schema_path, schema=schema)
         if p:
             logs.append(f"   ✅ FnCTOD domain → {p.name}")
             written += 1
         else:
             logs.append("   ⚠️  FnCTOD domain 跳过（已存在）")
+
+    if not args.pytod_only and not args.fnctod_only:
+        p = builder.build_genie_worksheet(schema_path, schema=schema)
+        if p:
+            logs.append(f"   ✅ Genie Worksheet → {p.name}")
+            written += 1
+        else:
+            logs.append("   ⚠️  Genie Worksheet 跳过（已存在）")
 
     return written, logs
 
