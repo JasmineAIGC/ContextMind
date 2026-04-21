@@ -424,10 +424,11 @@ def main() -> None:
     )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
-        "--schema", type=str, default=None,
-        help="schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 build_schema_data.py 生成）；"
+        "--fnctod-schema", type=str, default=None,
+        dest="fnctod_schema",
+        help="FnCTOD schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 build_schema_data.py 生成）；"
              "也接受 *_schema.json（自动寻找同目录 companion 文件）；"
-             "若不提供则默认使用 schema/anyihua_schema.json",
+             "若不提供则默认使用 schema/anyihua_fnctod_domain.json",
     )
     args = parser.parse_args()
 
@@ -435,10 +436,10 @@ def main() -> None:
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
         sys.exit(1)
 
-    # 加载 schema（必须指定 --schema 或存在默认 companion / schema 文件）
+    # 加载 schema（必须指定 --fnctod-schema 或存在默认 companion / schema 文件）
     domain_spec: Optional[DomainSpec] = None
-    if args.schema:
-        schema_path = Path(args.schema)
+    if args.fnctod_schema:
+        schema_path = Path(args.fnctod_schema)
         if not schema_path.exists():
             print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
             sys.exit(1)
@@ -455,7 +456,7 @@ def main() -> None:
         print(
             f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
             "   请先运行: python examples/build_schema_data.py\n"
-            "   或通过 --schema 指定 schema 文件路径",
+            "   或通过 --fnctod-schema 指定 schema 文件路径",
             file=sys.stderr,
         )
         print("   继续运行（无 schema 模式，FnCTOD 将无法提取槽位）", file=sys.stderr)

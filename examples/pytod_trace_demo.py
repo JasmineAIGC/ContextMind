@@ -547,7 +547,7 @@ def main() -> None:
         help="*_pytod_apis.py 路径（预生成 API 函数文件）；若不提供则默认使用 schema/anyihua_pytod_apis.py",
     )
     parser.add_argument(
-        "--schema", dest="schema_json", type=str, default=None,
+        "--schema", dest="schema", type=str, default=None,
         help=(
             "schema.json 文件路径，直接指定 ServiceSchema（包含完整的 intent/slot 定义）。"
             "推荐与 --pytod-apis 配合使用，例如 --schema output/step1_kb_output/schema.json。"
@@ -565,8 +565,8 @@ def main() -> None:
     external_schema: Optional[ServiceSchema] = None
     apis_path = Path(args.pytod_apis) if args.pytod_apis else _DEFAULT_PYTOD_APIS_PATH
     if apis_path.exists():
-        if args.schema_json:
-            schema_json_path = Path(args.schema_json)
+        if args.schema:
+            schema_json_path = Path(args.schema)
             if not schema_json_path.exists():
                 print(f"❌ schema.json 文件不存在: {schema_json_path}", file=sys.stderr)
                 sys.exit(1)

@@ -1211,7 +1211,7 @@ def parse_args():
         help='PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件，schema/ 目录下）',
     )
     parser.add_argument(
-        '--schema', type=str, default=None, dest='schema_json', metavar='PATH',
+        '--schema', type=str, default=None, dest='schema', metavar='PATH',
         help=(
             'schema.json 文件路径（PyTOD / Genie 模式均可使用）。'
             'PyTOD：与 --pytod-apis 配合显式指定 ServiceSchema。'
@@ -1245,9 +1245,9 @@ def main():
     if args.pytod_apis:
         _BATCH_PYTOD_APIS_PATH = args.pytod_apis
         logger.info(f"PyTOD APIs: {args.pytod_apis}")
-    if args.schema_json:
-        _BATCH_PYTOD_SCHEMA_PATH = args.schema_json
-        logger.info(f"Schema JSON: {args.schema_json}")
+    if args.schema:
+        _BATCH_PYTOD_SCHEMA_PATH = args.schema
+        logger.info(f"Schema JSON: {args.schema}")
     if args.genie_worksheet:
         _BATCH_GENIE_WORKSHEET_PATH = args.genie_worksheet
         logger.info(f"Genie Worksheet: {args.genie_worksheet}")

@@ -55,9 +55,9 @@ Phase 3（本脚本）支持五种算法：
     # 使用 evolve 模式（不需要 schema）：
     python examples/context_pipeline_demo.py --demo-exec --mode evolve
 
-    # 使用 genie 模式（通过 Worksheet CSV 驱动，不需要 schema.json）：
+    # 使用 genie 模式（通过 Worksheet JSON 驱动，不需要 schema.json）：
     python examples/context_pipeline_demo.py --demo-exec --mode genie \\
-        --worksheet-path schema/my_service_worksheet.csv
+        --genie-worksheet schema/my_service_worksheet.json
 
     # 使用 genie 模式（通过已有 schema.json 驱动，自动转换为 GenieSchema）：
     python examples/context_pipeline_demo.py --demo-exec --mode genie \\
@@ -65,7 +65,7 @@ Phase 3（本脚本）支持五种算法：
 
     # 使用 genie 模式并指定目标意图名称：
     python examples/context_pipeline_demo.py --demo-exec --mode genie \\
-        --worksheet-path schema/my_service_worksheet.csv \\
+        --genie-worksheet schema/my_service_worksheet.json \\
         --genie-intent search_restaurant
 
     # 指定场景和数据文件：
@@ -242,7 +242,7 @@ async def demo_phase2(pipeline: ContextPipeline, turns: List[Any]) -> None:
         "fnctod": "ADK 原生函数调用（需要 schema）",
         "dst":    "对话状态追踪，纯槽位提取（schema 可选）",
         "evolve": "演化式上下文优化，会话记忆 + 长期记忆（不需要 schema）",
-        "genie":  "Genie Worksheets 声明式策略执行（需要 schema 或 worksheet_path）",
+        "genie":  "Genie Worksheets 声明式策略执行（需要 schema 或 --genie-worksheet）",
     }
     print(f"  说明: {_mode_desc.get(pipeline.mode, pipeline.mode)}")
     print("─" * 65)
@@ -334,19 +334,21 @@ def main() -> None:
                             "  fnctod  — ADK 原生函数调用，需要 schema\n"
                             "  dst     — 对话状态追踪，schema 可选\n"
                             "  evolve  — 演化式上下文优化，不需要 schema\n"
-                            "  genie   — Genie Worksheets 声明式策略，需要 schema 或 --worksheet-path"
+                            "  genie   — Genie Worksheets 声明式策略，需要 schema 或 --genie-worksheet"
                         ))
     parser.add_argument("--schema", type=str, default=None,
                         help="已有 schema.json 路径（跳过 Phase 1，直接运行 Phase 2）")
-    parser.add_argument("--worksheet-path", type=str, default=None,
+    parser.add_argument("--genie-worksheet", type=str, default=None,
+                        dest="genie_worksheet",
                         help="Genie 模式专用：Worksheet 文件路径（.csv 或 .json），"
                              "与 --mode genie 配合使用")
     parser.add_argument("--genie-intent", type=str, default=None,
                         help="Genie 模式专用：指定目标意图名称（默认使用第一个含 policy_fields 的意图）")
     parser.add_argument("--output", type=str, default="data/kb_output/schema.json",
-                        help="schema.json 输出路径（默认 data/kb_output/schema.json）")
-    parser.add_argument("--demo-kb", action="store_true", help="仅演示 Phase 1（知识库构建）")
-    parser.add_argument("--demo-exec", action="store_true", help="仅演示 Phase 2（对话执行）")
+                        help="Phase 1 schema.json 输出路径（默认 data/kb_output/schema.json）")
+    phase_group = parser.add_mutually_exclusive_group()
+    phase_group.add_argument("--demo-kb", action="store_true", help="仅演示 Phase 1（知识库构建），跳过 Phase 2")
+    phase_group.add_argument("--demo-exec", action="store_true", help="仅演示 Phase 2（对话执行），跳过 Phase 1")
     args = parser.parse_args()
 
     print("=" * 65)
@@ -391,7 +393,7 @@ def main() -> None:
         scene_name=args.scene,
         scene_description=args.scene_desc or "",
         discovery_sample=args.num,
-        worksheet_path=args.worksheet_path,
+        worksheet_path=args.genie_worksheet,
         genie_intent=args.genie_intent,
     )
 
@@ -416,14 +418,14 @@ def main() -> None:
             pipeline.load_kb(args.schema)
 
         # DST 和 Evolve 不需要 schema，可直接运行；PyTOD 和 FnCTOD 需要 schema；
-        # Genie 可通过 worksheet_path 替代 schema
+        # Genie 可通过 --genie-worksheet 替代 schema
         _schema_optional = args.mode in ("dst", "evolve")
-        _genie_ok = args.mode == "genie" and args.worksheet_path is not None
+        _genie_ok = args.mode == "genie" and args.genie_worksheet is not None
         if pipeline.schema is None and not _schema_optional and not _genie_ok:
             print("\n[提示] Phase 2 需要先完成 Phase 1 或通过 --schema 加载已有 schema。")
             print("       若 LLM 未配置，可使用 --schema data/kb_output/schema.json 运行演示。")
             if args.mode == "genie":
-                print("       Genie 模式也可通过 --worksheet-path 直接提供 Worksheet 文件。")
+                print("       Genie 模式也可通过 --genie-worksheet 直接提供 Worksheet 文件。")
             print(f"       提示：使用 --mode dst 或 --mode evolve 可无需 schema 直接运行。")
         else:
             asyncio.run(demo_phase2(pipeline, _DEMO_TURNS))

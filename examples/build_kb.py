@@ -63,7 +63,7 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
         --num 10 \\
         --scene "银行贷款外呼" \\
         --scene-desc "银行客服主动致电老客户推介个人贷款产品" \\
-        --output data/bank_loan_kb
+        --output-dir data/bank_loan_kb
 
     # 直接传入内嵌演示对话（无需外部文件）
     python examples/build_kb.py --demo
@@ -203,9 +203,10 @@ def main() -> None:
     parser.add_argument("--scene", type=str, default="对话场景", help="业务场景名称")
     parser.add_argument("--scene-desc", type=str, default="", help="场景描述（可选）")
     parser.add_argument(
-        "--output",
+        "--output-dir",
         type=str,
         default="output/kb_output",
+        dest="output_dir",
         help="SGD 数据集输出目录（默认 output/kb_output）",
     )
     parser.add_argument(
@@ -306,7 +307,7 @@ def main() -> None:
 
     print(f"场景名称: {scene}")
     print(f"场景描述: {scene_desc or '（未提供）'}")
-    print(f"输出目录: {args.output}")
+    print(f"输出目录: {args.output_dir}")
     print(f"历史窗口: {args.context_window} 轮")
     print(f"并行线程: {args.workers}")
 
@@ -341,7 +342,7 @@ def main() -> None:
     sgd_dialogues = dataset["dialogues"]
 
     # ── 保存数据集 ──
-    output_dir = Path(args.output)
+    output_dir = Path(args.output_dir)
     builder.save_dataset(dataset, output_dir)
 
     # ── 展示结果 ──

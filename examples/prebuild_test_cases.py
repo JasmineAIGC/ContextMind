@@ -22,7 +22,7 @@
 
     schema/foo_schema.json  →  schema/foo_test_cases.json
 
-若文件已存在，默认跳过（不重新生成）。使用 ``--force`` 可强制覆盖。
+若文件已存在，默认跳过（不重新生成）。使用 ``--overwrite`` 可强制覆盖。
 
 使用方式::
 
@@ -36,7 +36,7 @@
     python examples/prebuild_test_cases.py --kb-dir output/step1_kb_output
 
     # 强制重新生成（覆盖已存在的测试用例文件）
-    python examples/prebuild_test_cases.py --schema schema/foo_schema.json --force
+    python examples/prebuild_test_cases.py --schema schema/foo_schema.json --overwrite
 
     # 指定测试用例文件输出路径
     python examples/prebuild_test_cases.py --schema schema/foo_schema.json --output output/my_test_cases.json
@@ -169,7 +169,7 @@ def main() -> None:
         ),
     )
     gen_group.add_argument(
-        "--force",
+        "--overwrite",
         action="store_true",
         help=(
             "强制重新生成，覆盖已存在的 *_test_cases.json 文件。"
@@ -285,11 +285,11 @@ def _process_single(
         f"（服务: {schema.service_name}，{len(schema.intents)} 个意图）"
     )
 
-    if tc_path.exists() and not args.force:
-        print(f"⏭️  已存在，跳过（使用 --force 强制重新生成）: {tc_path}")
+    if tc_path.exists() and not args.overwrite:
+        print(f"⏭️  已存在，跳过（使用 --overwrite 强制重新生成）: {tc_path}")
         return
 
-    if tc_path.exists() and args.force:
+    if tc_path.exists() and args.overwrite:
         tc_path.unlink()
         print(f"🗑️  已删除旧文件: {tc_path}")
 
@@ -338,12 +338,12 @@ def _process_dir(
             f"service={schema.service_name}, intents={len(schema.intents)}"
         )
 
-        if tc_path.exists() and not args.force:
+        if tc_path.exists() and not args.overwrite:
             print(f"   ⏭️  已存在，跳过: {tc_path.name}")
             skipped_total += 1
             continue
 
-        if tc_path.exists() and args.force:
+        if tc_path.exists() and args.overwrite:
             tc_path.unlink()
 
         tasks.append((schema_path, schema))

@@ -461,7 +461,7 @@ def parse_args():
         help="PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件，schema/ 目录下）",
     )
     parser.add_argument(
-        "--schema", type=str, default=None, dest="schema_json", metavar="PATH",
+        "--schema", type=str, default=None, dest="schema", metavar="PATH",
         help=(
             "schema.json 文件路径（PyTOD / Genie 模式均可使用）。"
             "PyTOD：与 --pytod-apis 配合显式指定 ServiceSchema，若不指定则从文件名自动推导。"
@@ -491,7 +491,7 @@ async def main():
         max_history_turns=args.max_history_turns,
         fnctod_schema_path=args.fnctod_schema,
         pytod_apis_path=args.pytod_apis,
-        schema_json_path=args.schema_json,
+        schema_json_path=args.schema,
         genie_worksheet_path=args.genie_worksheet,
     )
     await demo.run()
