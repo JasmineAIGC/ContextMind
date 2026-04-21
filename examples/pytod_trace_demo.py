@@ -105,8 +105,9 @@ def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
     return _load_service_schema_from_json(apis_path.parent / f"{base}.json")
 
 
-def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
-    with open(_DATA_PATH, encoding="utf-8") as f:
+def _load_session(index: Optional[int], seed: Optional[int],
+                  data_path: Path = _DATA_PATH) -> Dict[str, Any]:
+    with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
     sessions = data if isinstance(data, list) else data.get("sessions", [])
     if index is not None:
@@ -527,10 +528,18 @@ def main() -> None:
       --index 0 --compact-schema --top-k 10
   python examples/pytod_trace_demo.py --top-k 3       # AP 每轮只展示最相关的 3 个 API
   python examples/pytod_trace_demo.py --top-k 0       # 展示全部 API（关闭 top-K 过滤）
+  python examples/pytod_trace_demo.py --data resources/data/chat_test_500.json --index 5
         """,
     )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
+    parser.add_argument(
+        "--data", dest="data", type=str, default=None,
+        help=(
+            "对话数据文件路径（JSON，默认 resources/data/chat_test_100.json）。"
+            "支持 chat_test_100.json / chat_test_500.json 或任意同格式文件。"
+        ),
+    )
     parser.add_argument("--output", type=str, default=None,
                         help="Markdown 输出路径（默认 output/pytod_trace_output.md）；父目录不存在时自动创建")
     parser.add_argument("--verbose", action="store_true")
@@ -569,9 +578,11 @@ def main() -> None:
     )
     setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="pytod_trace_demo")
 
-    if not _DATA_PATH.exists():
-        print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
+    data_path = Path(args.data) if args.data else _DATA_PATH
+    if not data_path.exists():
+        print(f"❌ 数据文件不存在: {data_path}", file=sys.stderr)
         sys.exit(1)
+    print(f"✓ 使用数据文件: {data_path}")
 
     # 加载 PyTOD APIs 文件（*.py）并加载 ServiceSchema
     # 优先使用 --schema 显式指定的 JSON 路径；若未指定则从 *_pytod_apis.py 文件名自动推导
@@ -616,7 +627,7 @@ def main() -> None:
         )
         print("   继续运行（无 schema 模式，AP 将无法调用业务 API）", file=sys.stderr)
 
-    session = _load_session(args.index, args.seed)
+    session = _load_session(args.index, args.seed, data_path)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
     # 将 apis_path 传给 run_trace()；load_pytod_api_module 支持直接接受 .py 路径
@@ -626,12 +637,12 @@ def main() -> None:
                                    compact_schema=args.compact_schema,
                                    top_k_intents=args.top_k_intents))
 
-    # 输出路径
+    # 输出路径（无论是否自定义，都确保父目录存在）
     if args.output:
         md_path = Path(args.output)
     else:
         md_path = _PROJECT_ROOT / "output" / "pytod_trace_output.md"
-        md_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 写 Markdown
     md = _render_markdown(trace)

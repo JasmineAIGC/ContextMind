@@ -78,8 +78,9 @@ _SCENARIO_CONTEXT = (
 )
 
 
-def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
-    with open(_DATA_PATH, encoding="utf-8") as f:
+def _load_session(index: Optional[int], seed: Optional[int],
+                  data_path: Path = _DATA_PATH) -> Dict[str, Any]:
+    with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
     sessions = data if isinstance(data, list) else data.get("sessions", [])
     if index is not None:
@@ -562,6 +563,7 @@ def main() -> None:
   python examples/genie_trace_demo.py --index 0
   python examples/genie_trace_demo.py --worksheet schema/anyihua_genie_worksheet.json
   python examples/genie_trace_demo.py --output /tmp/genie_trace.md --verbose
+  python examples/genie_trace_demo.py --data resources/data/chat_test_500.json --index 5
 
 Worksheet 文件生成:
   python examples/build_schema_data.py --genie-only
@@ -569,6 +571,13 @@ Worksheet 文件生成:
     )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
+    parser.add_argument(
+        "--data", dest="data", type=str, default=None,
+        help=(
+            "对话数据文件路径（JSON，默认 resources/data/chat_test_100.json）。"
+            "支持 chat_test_100.json / chat_test_500.json 或任意同格式文件。"
+        ),
+    )
     parser.add_argument(
         "--output", type=str, default=None,
         help="Markdown 输出路径（默认 output/genie_trace_output.md）；父目录不存在时自动创建",
@@ -597,9 +606,11 @@ Worksheet 文件生成:
     )
     setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="genie_trace_demo")
 
-    if not _DATA_PATH.exists():
-        print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
+    data_path = Path(args.data) if args.data else _DATA_PATH
+    if not data_path.exists():
+        print(f"❌ 数据文件不存在: {data_path}", file=sys.stderr)
         sys.exit(1)
+    print(f"✓ 使用数据文件: {data_path}")
 
     # 确定 Worksheet 路径
     if args.worksheet:
@@ -621,7 +632,7 @@ Worksheet 文件生成:
             )
             sys.exit(1)
 
-    session = _load_session(args.index, args.seed)
+    session = _load_session(args.index, args.seed, data_path)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
     print("正在执行 Genie Worksheets 追踪（每轮 LLM 调用超时 120s）...", flush=True)
 
