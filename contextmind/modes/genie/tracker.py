@@ -294,6 +294,7 @@ class GenieTracker:
                     user_utterance,
                     self._executor,
                     history=self._history,
+                    scene_description=self._scene_description,
                 )
             except Exception as exc:
                 logger.error(f"[GenieTracker] 语义解析失败: {exc}")

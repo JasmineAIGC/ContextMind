@@ -81,13 +81,13 @@ def _find_first_json_object(text: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 _SEMANTIC_PARSING_SYSTEM = """你是一个任务型对话的字段提取器（Field Extractor）。
-你的唯一任务是从用户的最新话语中提取业务字段值，填入 Worksheet 表单。
+你的任务是结合业务背景信息和对话内容，提取业务字段值，填入 Worksheet 表单。
 
 ## 输出格式（严格遵循两步结构）
 先输出简短的推理分析（不超过 2 句话），再输出提取结果：
 
 # 分析
-……（简短分析：用户提供了哪些信息，与哪些字段匹配）……
+……（简短分析：从背景信息或用户话语中识别到哪些字段值）……
 
 # 提取结果
 若成功提取到字段值，输出 JSON 对象：
@@ -97,13 +97,17 @@ _SEMANTIC_PARSING_SYSTEM = """你是一个任务型对话的字段提取器（Fi
 NONE
 
 ## 工作规则
-1. 仅提取用户明确提到的字段值，不要猜测或推断
-2. 字段值必须与该字段的类型和可选枚举值匹配
-3. 枚举字段的值必须精确匹配给定的可选值列表之一
-4. # 提取结果 之后只输出 JSON 或 NONE，不要添加其他文字
+1. 优先从"背景信息"（业务场景与用户预知信息）中提取已知字段值
+2. 对话历史或用户当前话语中明确提到的字段值也应提取
+3. 字段值必须与该字段的类型和可选枚举值匹配
+4. 枚举字段的值必须精确匹配给定的可选值列表之一
+5. # 提取结果 之后只输出 JSON 或 NONE，不要添加其他文字
 """
 
 _SEMANTIC_PARSING_USER_TEMPLATE = """\
+## 背景信息（业务场景与用户预知信息）
+{scene_description}
+
 ## 当前 Worksheet 状态
 {worksheet_status}
 
@@ -150,18 +154,20 @@ class SemanticParser:
         user_utterance: str,
         executor: "PolicyExecutor",
         history: Optional[List[Dict[str, str]]] = None,
+        scene_description: str = "",
     ) -> Dict[str, Any]:
         """解析用户话语，返回字段赋值字典。
 
         Args:
-            user_utterance: 用户本轮输入文本。
-            executor:       当前 PolicyExecutor（提供字段描述和状态）。
-            history:        对话历史列表 [{"role": "user"|"assistant", "content": "..."}]。
+            user_utterance:    用户本轮输入文本。
+            executor:          当前 PolicyExecutor（提供字段描述和状态）。
+            history:           对话历史列表 [{"role": "user"|"assistant", "content": "..."}]。
+            scene_description: 业务场景描述及用户预知信息（含 user_info），供 LLM 提取已知字段。
 
         Returns:
             字段赋值字典 ``{field_name: value}``；无法提取时返回空字典。
         """
-        prompt_user = self._build_user_prompt(user_utterance, executor, history or [])
+        prompt_user = self._build_user_prompt(user_utterance, executor, history or [], scene_description)
 
         raw_output = await self._call_llm(
             system=_SEMANTIC_PARSING_SYSTEM,
@@ -178,6 +184,7 @@ class SemanticParser:
         user_utterance: str,
         executor: "PolicyExecutor",
         history: List[Dict[str, str]],
+        scene_description: str = "",
     ) -> str:
         """构建语义解析的用户消息。"""
         # Worksheet 当前状态摘要
@@ -218,6 +225,7 @@ class SemanticParser:
         hist_text = "\n".join(hist_lines) or "（无历史）"
 
         return _SEMANTIC_PARSING_USER_TEMPLATE.format(
+            scene_description=scene_description or "（无背景信息）",
             worksheet_status=worksheet_status,
             field_descriptions=field_descriptions,
             history_turns=self.max_history_turns,

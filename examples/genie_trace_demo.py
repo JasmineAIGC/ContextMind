@@ -167,6 +167,10 @@ async def run_trace(
         n_turns = len(paired_turns)
         for idx, (utt, preceding_agent, following_agent) in enumerate(paired_turns):
             print(f"  → 处理第 {idx + 1}/{n_turns} 轮...", flush=True)
+            # 将本轮用户发言前坐席说的话注入追踪器历史，
+            # 使 SemanticParser 能看到完整的原始对话上下文（如"高先生您好"）
+            if preceding_agent:
+                tracker._history.append({"role": "assistant", "content": preceding_agent})
             try:
                 result = await asyncio.wait_for(
                     tracker.process_turn(utt),
