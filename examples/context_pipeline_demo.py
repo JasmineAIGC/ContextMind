@@ -106,7 +106,7 @@ if str(_ROOT) not in sys.path:
 
 from contextmind.pipeline import ContextPipeline
 from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
-from contextmind.infra.logger import get_logger
+from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
 logger = get_logger(__name__)
 
@@ -345,11 +345,21 @@ def main() -> None:
     parser.add_argument("--genie-intent", type=str, default=None,
                         help="Genie 模式专用：指定目标意图名称（默认使用第一个含 policy_fields 的意图）")
     parser.add_argument("--output", type=str, default="data/kb_output/schema.json",
-                        help="Phase 1 schema.json 输出路径（默认 data/kb_output/schema.json）")
+                        help="Phase 1 schema.json 输出路径（默认 data/kb_output/schema.json）；父目录不存在时自动创建")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO）",
+    )
     phase_group = parser.add_mutually_exclusive_group()
     phase_group.add_argument("--demo-kb", action="store_true", help="仅演示 Phase 1（知识库构建），跳过 Phase 2")
     phase_group.add_argument("--demo-exec", action="store_true", help="仅演示 Phase 2（对话执行），跳过 Phase 1")
     args = parser.parse_args()
+
+    # ── 日志设置 ──
+    log_level = LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="context_pipeline_demo")
 
     print("=" * 65)
     print("  ContextMind — 上下文工程流水线演示")

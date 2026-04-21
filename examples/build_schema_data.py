@@ -408,6 +408,12 @@ def main() -> None:
             "不指定时仅显示摘要信息。"
         ),
     )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO；--verbose 会自动提升为 INFO 并输出底层细节）",
+    )
     args = parser.parse_args()
 
     # ── 参数一致性检查（后置验证）──────────────────────────────────────
@@ -464,9 +470,13 @@ def main() -> None:
         )
 
     # --verbose 模式：路由底层 logger.info / logger.debug 到 stdout
+    # 日志始终保存到 log/build_schema_data_<timestamp>.log
+    from contextmind.infra.logger import setup_logging, LogLevel
+    log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else (
+        LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    )
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="build_schema_data")
     if args.verbose:
-        from contextmind.infra.logger import setup_logging, LogLevel
-        setup_logging(level=LogLevel.INFO, save_to_file=False)
         print("🔍 详细输出模式已开启 — 底层阶段日志将实时打印到终端")
         print()
 

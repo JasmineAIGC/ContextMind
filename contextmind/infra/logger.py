@@ -159,14 +159,15 @@ def get_logger(name: str, level: LogLevel = None) -> "Logger":
     return Logger(name, level)
 
 
-def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_to_file: bool = True, log_dir: str = "logs"):
+def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_to_file: bool = True, log_dir: str = "log", log_name: str = "contextmind"):
     """配置 ContextMind 日志系统。
 
     Args:
         level: 日志级别（DEBUG/INFO/WARNING/ERROR）
         python_log_level: Python 日志级别（默认基于 level 自动推导）
         save_to_file: 是否将日志保存到文件
-        log_dir: 日志文件目录
+        log_dir: 日志文件目录（默认 log/）
+        log_name: 日志文件名前缀，用于区分不同脚本（如 "batch_demo"、"build_kb" 等）
     """
     set_global_log_level(level)
 
@@ -205,7 +206,7 @@ def setup_logging(level: LogLevel = LogLevel.INFO, python_log_level=None, save_t
         log_path = Path(log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
 
-        log_filename = f"contextmind_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        log_filename = f"{log_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         log_filepath = log_path / log_filename
 
         file_handler = logging.FileHandler(log_filepath, encoding='utf-8')

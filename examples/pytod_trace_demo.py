@@ -532,8 +532,14 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--output", type=str, default=None,
-                        help="Markdown 输出路径（默认 output/pytod_trace_output.md）")
+                        help="Markdown 输出路径（默认 output/pytod_trace_output.md）；父目录不存在时自动创建")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO；--verbose 同时影响追踪详情输出）",
+    )
     parser.add_argument(
         "--compact-schema", dest="compact_schema", action="store_true",
         help="省略 AP prompt 中的详细业务意图说明（减少 token 用量；适合 token 敏感部署）",
@@ -555,6 +561,13 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+
+    # ── 日志设置 ──
+    from contextmind.infra.logger import setup_logging, LogLevel
+    log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
+        LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    )
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="pytod_trace_demo")
 
     if not _DATA_PATH.exists():
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)

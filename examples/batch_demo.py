@@ -1237,7 +1237,7 @@ def main():
     
     # 设置日志
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="output/logs")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="batch_demo")
 
     if args.fnctod_schema:
         _BATCH_FNCTOD_SCHEMA_PATH = args.fnctod_schema

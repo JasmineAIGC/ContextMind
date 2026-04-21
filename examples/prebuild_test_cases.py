@@ -196,9 +196,11 @@ def main() -> None:
         )
 
     # --verbose 模式
+    # 日志始终保存到 log/prebuild_test_cases_<timestamp>.log
+    from contextmind.infra.logger import setup_logging, LogLevel
+    log_level = LogLevel.DEBUG if args.verbose else LogLevel.INFO
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="prebuild_test_cases")
     if args.verbose:
-        from contextmind.infra.logger import setup_logging, LogLevel
-        setup_logging(level=LogLevel.INFO, save_to_file=False)
         print("🔍 详细输出模式已开启")
         print()
 
@@ -279,6 +281,9 @@ def _process_single(
     # 若指定了 --output，使用自定义路径；否则自动推导
     output_path: Optional[Path] = Path(args.output) if getattr(args, "output", None) else None
     tc_path = output_path if output_path is not None else test_cases_path_for_schema(schema_path)
+
+    # 确保输出目录存在
+    tc_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(
         f"📋 schema: {schema_path.name}"

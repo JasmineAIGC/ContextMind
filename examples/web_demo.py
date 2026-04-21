@@ -973,7 +973,7 @@ def main():
     
     # 使用setup_logging配置日志系统
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="output/logs")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="web_demo")
     
     logger.info("[__main__] 启动 ContextMind Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")

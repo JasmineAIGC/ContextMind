@@ -416,13 +416,19 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--output", type=str, default=None,
-                        help="Markdown 输出路径（默认 output/fnctod_trace_output.md）")
+                        help="Markdown 输出路径（默认 output/fnctod_trace_output.md）；父目录不存在时自动创建")
     parser.add_argument(
         "--json-mode", action="store_true",
         help="跳过原生函数调用，直接使用 JSON 提示词备用模式（适用于 vLLM 未启用 "
              "--enable-auto-tool-choice 的场景，避免第 1 轮 tool_choice 报错）",
     )
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO；--verbose 同时影响追踪详情输出）",
+    )
     parser.add_argument(
         "--fnctod-schema", type=str, default=None,
         dest="fnctod_schema",
@@ -431,6 +437,13 @@ def main() -> None:
              "若不提供则默认使用 schema/anyihua_fnctod_domain.json",
     )
     args = parser.parse_args()
+
+    # ── 日志设置 ──
+    from contextmind.infra.logger import setup_logging, LogLevel
+    log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
+        LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    )
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="fnctod_trace_demo")
 
     if not _DATA_PATH.exists():
         print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
