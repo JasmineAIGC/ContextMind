@@ -8,8 +8,10 @@ Schema 数据预生成脚本
                                     （含 result_slots 字段，供 AP 通过 say(xN.field) 引用）
   - schema/*_fnctod_domain.json   — FnCTOD 域定义数据
                                     （序列化的 DomainSpec，供 FunctionManager 直接加载）
-  - schema/*_genie_worksheet.json — Genie Worksheets 策略声明文件
+  - schema/*_genie_worksheet.json — Genie Worksheets 策略声明文件（JSON）
                                     （由 schema.json 自动转换，供 GenieTracker 直接加载）
+  - schema/*_genie_worksheet.csv  — Genie Worksheets 策略声明文件（CSV）
+                                    （人工可编辑格式，可在 Excel / Numbers 中修改策略字段）
 
 使用方式::
 
@@ -281,7 +283,7 @@ def main() -> None:
     output_mode_group.add_argument(
         "--genie-only",
         action="store_true",
-        help="仅生成 Genie Worksheet JSON 文件（*_genie_worksheet.json），跳过 PyTOD 和 FnCTOD",
+        help="仅生成 Genie Worksheet 文件（*_genie_worksheet.json 和 *_genie_worksheet.csv），跳过 PyTOD 和 FnCTOD",
     )
     mode_group.add_argument(
         "--with-llm",
@@ -696,7 +698,9 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
     if not args.pytod_only and not args.fnctod_only:
         p = builder.build_genie_worksheet(schema_path, schema=schema)
         if p:
-            print(f"✅ Genie Worksheet → {p}")
+            csv_p = p.with_suffix(".csv")
+            print(f"✅ Genie Worksheet JSON → {p}")
+            print(f"✅ Genie Worksheet CSV  → {csv_p}")
         else:
             print(f"⚠️  Genie Worksheet 未写入（已存在且 --no-overwrite）")
 
@@ -815,7 +819,9 @@ def _process_one_schema(
     if not args.pytod_only and not args.fnctod_only:
         p = builder.build_genie_worksheet(schema_path, schema=schema)
         if p:
-            logs.append(f"   ✅ Genie Worksheet → {p.name}")
+            csv_p = p.with_suffix(".csv")
+            logs.append(f"   ✅ Genie Worksheet JSON → {p.name}")
+            logs.append(f"   ✅ Genie Worksheet CSV  → {csv_p.name}")
             written += 1
         else:
             logs.append("   ⚠️  Genie Worksheet 跳过（已存在）")

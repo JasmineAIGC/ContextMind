@@ -631,13 +631,22 @@ class SchemaDataBuilder:
                 fh.write(worksheet_json)
                 fh.write("\n")
             logger.info(
-                f"[SchemaDataBuilder] 已写入 Genie Worksheet: {out_path} "
+                f"[SchemaDataBuilder] 已写入 Genie Worksheet JSON: {out_path} "
                 f"({len(genie_intents)} 个意图)"
             )
-            return out_path
         except Exception as exc:
-            logger.error(f"[SchemaDataBuilder] 写入失败: {out_path} — {exc}")
+            logger.error(f"[SchemaDataBuilder] 写入 JSON 失败: {out_path} — {exc}")
             return None
+
+        # 同时生成 CSV companion（方便人工编辑策略字段）
+        csv_path = _companion_path(schema_path, "genie_worksheet", suffix=".csv", output_dir=self.output_dir)
+        try:
+            WorksheetLoader.save_csv(genie_schema, csv_path)
+            logger.info(f"[SchemaDataBuilder] 已写入 Genie Worksheet CSV: {csv_path}")
+        except Exception as exc:
+            logger.warning(f"[SchemaDataBuilder] 写入 CSV 失败（不影响 JSON 结果）: {csv_path} — {exc}")
+
+        return out_path
 
 
 # ---------------------------------------------------------------------------

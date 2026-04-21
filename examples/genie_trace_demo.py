@@ -630,12 +630,12 @@ Worksheet 文件生成:
     )
     print("✓ 追踪完成", flush=True)
 
-    # 输出路径
+    # 输出路径（无论是否自定义，都确保父目录存在）
     if args.output:
         md_path = Path(args.output)
     else:
         md_path = _PROJECT_ROOT / "output" / "genie_trace_output.md"
-        md_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 写 Markdown
     md = _render_markdown(trace)
