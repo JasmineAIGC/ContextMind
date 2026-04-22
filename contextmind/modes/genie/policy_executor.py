@@ -309,7 +309,11 @@ class PolicyExecutor:
         for name, value in old_values.items():
             if name in self._field_map:
                 self._state.field_values[name] = value
-                self._state.field_statuses[name] = old_statuses.get(name, FieldStatus.FILLED)
+                old_status = old_statuses.get(name, FieldStatus.FILLED)
+                # PENDING_CONFIRM 状态不跨意图继承：确认上下文已失效，重置为 FILLED
+                if old_status == FieldStatus.PENDING_CONFIRM:
+                    old_status = FieldStatus.FILLED
+                self._state.field_statuses[name] = old_status
 
         logger.info(f"[PolicyExecutor] 意图已切换到: {intent_name!r}")
         return True

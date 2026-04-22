@@ -678,9 +678,13 @@ class GenieTracker:
                         None, lambda: self._llm.generate(user_prompt)
                     ))
 
-            routed = raw.strip().split()[0] if raw.strip() else ""
-            # 验证返回的意图名称在 schema 中存在
+            routed = raw.strip()
+            # 验证返回的意图名称在 schema 中存在；
+            # 先检查整个返回值，再尝试第一个词（兼容 LLM 多余输出）
             valid_names = {intent.name for intent in self._schema.intents}
+            if routed not in valid_names:
+                first_token = routed.split()[0] if routed else ""
+                routed = first_token if first_token in valid_names else ""
             if routed in valid_names:
                 logger.info(f"[GenieTracker] 意图路由: {current_intent_name!r} → {routed!r}")
                 return routed
