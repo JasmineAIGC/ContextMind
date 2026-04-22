@@ -4,11 +4,11 @@ GenieTracker — Genie Worksheets 驱动的对话追踪器
 实现 BaseTracker 协议，将 Genie 的 Worksheet 声明式策略执行嵌入
 ContextMind 框架，作为第五种执行模式（mode="genie"）。
 
-执行流程（每轮）
------------------
-1. PolicyExecutor 确认流检查                ← 检测 PENDING_CONFIRM 字段，处理 yes/no
-2. SemanticParser(LLM-1)                   ← 从用户话语提取字段赋值
-3. PolicyExecutor.fill_batch()             ← 更新 Worksheet 状态
+执行流程（每轮，对齐 Genie 论文 Figure 2）
+------------------------------------------
+1. 意图路由                                 ← 确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）
+2. SemanticParser(LLM-1)                   ← 从用户话语提取字段赋值（始终运行）
+3. Worksheet 状态更新                       ← 处理确认/拒绝 + fill_batch() 推进字段状态
 4. on_success dispatch                     ← 触发字段关联的 API 回调
 5. AgentActs 计算                          ← 确定性：Ask/Confirm/Report
 6. ResponseGenerator(LLM-2)               ← 根据 AgentActs + 状态生成自然语言回复
@@ -69,7 +69,9 @@ _RESPONSE_SYSTEM = """你是一个任务型对话的助手（对话管理器）�
 - AskField：自然地引导用户提供指定字段的值（枚举字段请列出可选值）
 - AskForFieldConfirmation：重述字段值，以 yes/no 方式请求用户确认
 - Report：报告 API 调用结果，如无数据则明确说明
-- 语气友好、专业，不要冗长解释
+- 回复简洁精准，通常 1-2 句话，不超过 80 字
+- 不要主动罗列账户详情或背景数据，除非动作指令明确要求
+- 语气友好、专业
 - 直接输出回复文本，不要任何前缀或格式标记
 """
 
@@ -279,10 +281,10 @@ class GenieTracker:
     ) -> Dict[str, Any]:
         """处理单轮用户输入，推进 Worksheet 填写状态。
 
-        完整步骤：
-        1. 确认流检查：检测 PENDING_CONFIRM 字段，解析用户的 yes/no 意图
-        2. SemanticParser(LLM-1) 提取字段赋值
-        3. PolicyExecutor.fill_batch() 更新 Worksheet 状态
+        完整步骤（对齐 Genie 论文 Figure 2）：
+        1. 意图路由：确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）
+        2. SemanticParser(LLM-1)：始终运行，提取字段赋值
+        3. Worksheet 状态更新：处理确认/拒绝 + fill_batch() 推进字段状态
         4. on_success dispatch：触发字段关联的 API 回调
         5. AgentActs 计算（确定性）
         6. ResponseGenerator(LLM-2) 生成自然语言回复
@@ -308,8 +310,37 @@ class GenieTracker:
         dispatched_apis: List[str] = []
 
         # ------------------------------------------------------------------
-        # Step 1: 确认流检查（PENDING_CONFIRM 字段的 yes/no 处理）
+        # Step 1: 意图路由（确定活跃 Worksheet / Intent）
+        # 对齐 Genie 论文 Figure 2 Step 1：Intent Routing。
+        # PolicyExecutor 在 __init__ 时已绑定意图，此处仅显式记录。
         # ------------------------------------------------------------------
+        intent_name = self._executor.intent.name if self._executor.intent else ""
+
+        # ------------------------------------------------------------------
+        # Step 2: 语义解析（LLM-1）— 始终运行，提取字段赋值
+        # 对齐 Genie 论文 Figure 2 Step 2：SUQLReActParser（此处无 DB，
+        # 直接输出 JSON 字段赋值，功能等同）。
+        # 无论是否有待确认字段，语义解析始终执行。
+        # ------------------------------------------------------------------
+        extracted: Dict[str, Any] = {}
+        parse_errors: List[str] = []
+        try:
+            extracted = await self._semantic_parser.parse(
+                user_utterance,
+                self._executor,
+                history=self._history,
+                scene_description=self._scene_description,
+            )
+        except Exception as exc:
+            logger.error(f"[GenieTracker] 语义解析失败: {exc}")
+
+        # ------------------------------------------------------------------
+        # Step 3: Worksheet 状态更新
+        # 对齐 Genie 论文 Figure 2 Step 3+4：SUQL Execution + Worksheet Update。
+        # 3a — 处理待确认字段（检测用户 yes/no 意图）
+        # 3b — 应用语义解析提取的字段值
+        # ------------------------------------------------------------------
+        # 3a: 若上一轮产生了待确认字段，检测本轮用户话语是确认还是拒绝
         pending_confirm = self._executor.get_pending_confirm_fields()
         if pending_confirm:
             pf_to_confirm = pending_confirm[0]  # 每轮处理一个确认
@@ -323,27 +354,9 @@ class GenieTracker:
                 rejected_fields.append(pf_to_confirm.name)
                 logger.debug(f"[GenieTracker] 用户拒绝字段: {pf_to_confirm.name!r}")
 
-        # ------------------------------------------------------------------
-        # Step 2: 语义解析（LLM-1）— 只在没有待确认字段时正常提取
-        # ------------------------------------------------------------------
-        extracted: Dict[str, Any] = {}
-        parse_errors: List[str] = []
-        if not pending_confirm:
-            try:
-                extracted = await self._semantic_parser.parse(
-                    user_utterance,
-                    self._executor,
-                    history=self._history,
-                    scene_description=self._scene_description,
-                )
-            except Exception as exc:
-                logger.error(f"[GenieTracker] 语义解析失败: {exc}")
-
-            # ------------------------------------------------------------------
-            # Step 3: 更新 Worksheet 状态
-            # ------------------------------------------------------------------
-            if extracted:
-                parse_errors = self._executor.fill_batch(extracted)
+        # 3b: 将语义解析结果写入 Worksheet
+        if extracted:
+            parse_errors = self._executor.fill_batch(extracted)
 
         # ------------------------------------------------------------------
         # Step 4: on_success dispatch（触发字段关联 API 回调）
@@ -377,9 +390,9 @@ class GenieTracker:
 
         # ------------------------------------------------------------------
         # Step 5: AgentActs 计算（确定性，无 LLM）
+        # 对齐 Genie 论文 Figure 2 Step 5：Agent Action Computation。
+        # intent_name 已在 Step 1 中设置。
         # ------------------------------------------------------------------
-        intent_name = self._executor.intent.name if self._executor.intent else ""
-
         # 检查新出现的 PENDING_CONFIRM 字段（本轮刚被填写 + confirm=True）
         new_pending = self._executor.get_pending_confirm_fields()
         for pf in new_pending:
@@ -497,7 +510,7 @@ class GenieTracker:
                 for i, line in enumerate(agent_acts.to_prompt_lines())
             )
         elif self._executor.is_complete():
-            agent_actions_text = "  Worksheet 已完成，总结并确认所有已填信息。"
+            agent_actions_text = "  Worksheet 已完成，根据用户最新话语给予简短自然的回复（不要重复罗列账户信息）。"
         else:
             agent_actions_text = "  （无明确动作，根据状态自然引导对话）"
 

@@ -4,11 +4,11 @@ Genie Worksheets 对话状态追踪脚本
 展示 Genie Worksheets 算法（stanford-oval/genie-worksheets，ACL 2024）在
 业务场景中的完整六步流水线运行过程，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
-六步流水线（每轮）
+六步流水线（每轮，对齐 Genie 论文 Figure 2）
 ------------------
-  Step 1: 确认流检查       — 检测 PENDING_CONFIRM 字段，处理 yes/no 用户意图
-  Step 2: 语义解析（LLM-1）— 从用户话语中提取字段赋值（SemanticParser）
-  Step 3: Worksheet 状态更新 — PolicyExecutor.fill_batch() 推进字段状态
+  Step 1: 意图路由         — 确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）
+  Step 2: 语义解析（LLM-1）— 从用户话语提取字段赋值（始终运行，含确认场景）
+  Step 3: Worksheet 状态更新 — 处理确认/拒绝 + fill_batch() 推进字段状态
   Step 4: on_success dispatch — 触发字段关联的 API 回调（ReportAgentAct）
   Step 5: AgentActs 计算   — 确定性：Ask / AskForConfirmation / Report
   Step 6: 回复生成（LLM-2）— ResponseGenerator 根据 AgentActs 生成自然语言回复
@@ -354,6 +354,11 @@ def _format_messages_collapsible(messages: List[Dict[str, str]], label: str) -> 
     return lines
 
 
+def _escape_table_cell(text: str) -> str:
+    """将文本中的竖线和换行转义，使其可以安全嵌入 Markdown 表格单元。"""
+    return text.replace("|", "\\|").replace("\n", "<br>")
+
+
 def _render_markdown(trace: Dict[str, Any]) -> str:
     """将 trace 字典渲染为 Markdown 报告（格式与 pytod_trace_demo / fnctod_trace_demo 对齐）。
 
@@ -409,9 +414,9 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         "",
         "| 步骤 | 组件 | 说明 |",
         "|---|---|---|",
-        "| Step 1 | 确认流检查 | 检测 PENDING_CONFIRM 字段，处理 yes/no |",
-        "| Step 2 | SemanticParser（LLM-1）| 从用户话语提取字段赋值 |",
-        "| Step 3 | PolicyExecutor | fill_batch() 推进字段状态 |",
+        "| Step 1 | 意图路由 | 确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）|",
+        "| Step 2 | SemanticParser（LLM-1）| 从用户话语提取字段赋值（始终运行，含确认场景）|",
+        "| Step 3 | Worksheet 状态更新 | 处理确认/拒绝 + fill_batch() 推进字段状态 |",
         "| Step 4 | on_success dispatch | 触发字段关联 API 回调 |",
         "| Step 5 | AgentActs 计算 | 确定性：Ask / AskForConfirmation / Report |",
         "| Step 6 | ResponseGenerator（LLM-2）| 根据 AgentActs 生成自然语言回复 |",
@@ -436,21 +441,8 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
 
-        # Step 1: 确认流
-        confirmed = t.get("confirmed_fields", [])
-        rejected = t.get("rejected_fields", [])
-        if confirmed or rejected:
-            confirm_parts = []
-            if confirmed:
-                confirm_parts.append(f"✅ 已确认: {', '.join(f'`{f}`' for f in confirmed)}")
-            if rejected:
-                confirm_parts.append(f"❌ 已拒绝: {', '.join(f'`{f}`' for f in rejected)}")
-            lines += [
-                f"**Step 1 — 确认流**: {' | '.join(confirm_parts)}",
-                "",
-            ]
-        else:
-            lines += ["**Step 1 — 确认流**: （无待确认字段）", ""]
+        # Step 1: 意图路由（来自 turn_record 的 intent_name，即 worksheet 选择结果）
+        lines += [f"**Step 1 — 意图路由**: `{intent_name}`" if intent_name else "**Step 1 — 意图路由**: （单意图，已绑定）", ""]
 
         # Step 2: 语义解析（LLM-1）
         extracted = t.get("extracted_fields", {})
@@ -468,25 +460,31 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         if parse_errors:
             lines += [f"⚠️ 校验错误: {'; '.join(parse_errors)}", ""]
 
-        # Step 3: PolicyExecutor 字段状态
+        # Step 3: Worksheet 状态更新（含确认/拒绝处理 + fill_batch）
+        confirmed = t.get("confirmed_fields", [])
+        rejected = t.get("rejected_fields", [])
         field_statuses = t.get("field_statuses", {})
+        _STATUS_LABELS = {
+            "empty": "空",
+            "filled": "已填",
+            "pending_confirm": "待确认",
+            "confirmed": "已确认",
+        }
+        step3_parts: List[str] = []
+        if confirmed:
+            step3_parts.append(f"✅ 已确认: {', '.join(f'`{f}`' for f in confirmed)}")
+        if rejected:
+            step3_parts.append(f"❌ 已拒绝: {', '.join(f'`{f}`' for f in rejected)}")
         if field_statuses:
-            _STATUS_LABELS = {
-                "empty": "空",
-                "filled": "已填",
-                "pending_confirm": "待确认",
-                "confirmed": "已确认",
-            }
             status_parts = [
                 f"`{k}`: {_STATUS_LABELS.get(v, v)}"
                 for k, v in field_statuses.items()
             ]
-            lines += [
-                f"**Step 3 — Worksheet 状态**: {' | '.join(status_parts)}",
-                "",
-            ]
+            step3_parts.append(" | ".join(status_parts))
+        if step3_parts:
+            lines += [f"**Step 3 — Worksheet 状态更新**: {' | '.join(step3_parts)}", ""]
         else:
-            lines += ["**Step 3 — Worksheet 状态**: （无状态变化）", ""]
+            lines += ["**Step 3 — Worksheet 状态更新**: （无状态变化）", ""]
 
         # Step 4: on_success dispatch
         dispatched = t.get("dispatched_apis", [])
@@ -519,11 +517,10 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
 
         # Step 6: DM 生成回复（LLM-2）
         new_response = t.get("response") or "(空)"
-        lines += [
-            "**Step 6 — DM 生成回复（LLM-2）**:",
-            f"> {new_response}",
-            "",
-        ]
+        lines.append("**Step 6 — DM 生成回复（LLM-2）**:")
+        for _resp_line in new_response.splitlines():
+            lines.append(f"> {_resp_line}" if _resp_line.strip() else ">")
+        lines.append("")
 
         # 回复对比（仅当存在原始机器人回复时）
         if orig_agent:
@@ -532,8 +529,8 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
                 "",
                 "| | 回复 |",
                 "|---|---|",
-                f"| {_AGENT_ICON} 原始机器人 | {orig_agent} |",
-                f"| {_AGENT_ICON} DM 生成 | {new_response} |",
+                f"| {_AGENT_ICON} 原始机器人 | {_escape_table_cell(orig_agent)} |",
+                f"| {_AGENT_ICON} DM 生成 | {_escape_table_cell(new_response)} |",
                 "",
             ]
 
