@@ -55,6 +55,9 @@ logger = get_logger(__name__)
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 
+# Genie 预填超时（秒）：首轮对话前从背景信息批量提取已知字段值
+_GENIE_PREFILL_TIMEOUT_SECONDS = 60.0
+
 
 def _load_fnctod_schema(json_path: str):
     """从 schema.json 文件加载 FnCTOD DomainSpec（及 ServiceSchema）。
@@ -501,7 +504,7 @@ class UnifiedGradioDemo:
                     try:
                         await asyncio.wait_for(
                             self.genie_tracker.prefill_from_context(),
-                            timeout=60.0,
+                            timeout=_GENIE_PREFILL_TIMEOUT_SECONDS,
                         )
                     except asyncio.TimeoutError:
                         logger.warning("[Genie] 预填超时，将从空白状态开始")
