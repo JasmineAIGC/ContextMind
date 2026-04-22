@@ -342,10 +342,12 @@ class GenieTracker:
         # 对齐 Genie 论文 Figure 2 Step 1：Intent Routing。
         # 使用 LLM 根据用户话语和对话历史，从 schema 中选择最合适的意图。
         # 当意图发生变化时，PolicyExecutor 切换到新意图（保留已有跨意图字段值）。
+        # 仅当 schema 中存在多个意图时才调用 LLM 路由（单意图时跳过以节省开销）。
         # ------------------------------------------------------------------
-        routed_intent = await self._route_intent(user_utterance)
-        if routed_intent and routed_intent != (self._executor.intent.name if self._executor.intent else ""):
-            self._executor.switch_intent(routed_intent)
+        if len(self._schema.intents) > 1:
+            routed_intent = await self._route_intent(user_utterance)
+            if routed_intent and routed_intent != (self._executor.intent.name if self._executor.intent else ""):
+                self._executor.switch_intent(routed_intent)
         intent_name = self._executor.intent.name if self._executor.intent else ""
 
         # ------------------------------------------------------------------
