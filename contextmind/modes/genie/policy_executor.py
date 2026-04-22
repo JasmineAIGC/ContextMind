@@ -279,6 +279,41 @@ class PolicyExecutor:
             self._state.field_statuses[field_name] = FieldStatus.CONFIRMED
             logger.debug(f"[PolicyExecutor] 字段 {field_name!r} on_success 已触发，标记为 CONFIRMED")
 
+    def switch_intent(self, intent_name: str) -> bool:
+        """切换到新意图，重置字段状态机但保留跨意图共享的字段值。
+
+        Args:
+            intent_name: 目标意图名称（必须在 schema 中存在）。
+
+        Returns:
+            True（切换成功），False（目标意图不存在，状态不变）。
+        """
+        new_intent = self._schema.get_intent(intent_name)
+        if new_intent is None:
+            logger.warning(f"[PolicyExecutor] switch_intent: 意图 {intent_name!r} 不存在，保持当前意图")
+            return False
+
+        if self._intent and new_intent.name == self._intent.name:
+            return True  # 已经是当前意图，无需切换
+
+        # 保存旧字段值，用于跨意图复用
+        old_values = dict(self._state.field_values)
+        old_statuses = dict(self._state.field_statuses)
+
+        self._intent = new_intent
+        self._policy_fields = new_intent.policy_fields if new_intent else []
+        self._field_map = {pf.name: pf for pf in self._policy_fields}
+        self._state = WorksheetState()
+
+        # 将旧字段值中与新意图字段重叠的部分移入新状态（跨意图复用）
+        for name, value in old_values.items():
+            if name in self._field_map:
+                self._state.field_values[name] = value
+                self._state.field_statuses[name] = old_statuses.get(name, FieldStatus.FILLED)
+
+        logger.info(f"[PolicyExecutor] 意图已切换到: {intent_name!r}")
+        return True
+
     def reset(self) -> None:
         """清空状态，开始新会话。"""
         self._state = WorksheetState()

@@ -81,6 +81,9 @@ _RESPONSE_USER_TEMPLATE = """\
 ## 业务场景
 {scene_description}
 
+## 当前活跃意图
+{current_intent}
+
 ## Worksheet 当前状态
 {worksheet_status}
 
@@ -97,6 +100,31 @@ _RESPONSE_USER_TEMPLATE = """\
 {extracted_fields}
 
 请生成回复："""
+
+# ---------------------------------------------------------------------------
+# 意图路由提示词（Step 1，每轮动态选择最合适意图）
+# ---------------------------------------------------------------------------
+
+_INTENT_ROUTING_SYSTEM = """你是一个意图路由器，负责根据用户话语和对话历史，从可用意图列表中选择当前最合适的意图。
+只输出所选意图的英文名称（与列表完全一致），不要任何其他内容。"""
+
+_INTENT_ROUTING_USER_TEMPLATE = """\
+## 业务场景
+{scene_description}
+
+## 可用意图列表
+{intent_list}
+
+## 当前活跃意图
+{current_intent}
+
+## 对话历史（最近 {history_turns} 轮）
+{history}
+
+## 用户最新话语
+{user_utterance}
+
+请选择最合适的意图名称："""
 
 # 确认意图识别提示词（用于 yes/no 检测）
 _CONFIRM_SYSTEM = """你是一个意图分类器。判断用户话语是否是对前一条问题的"确认（是）"或"拒绝（否）"回答。
@@ -312,10 +340,14 @@ class GenieTracker:
         dispatched_apis: List[str] = []
 
         # ------------------------------------------------------------------
-        # Step 1: 意图路由（确定活跃 Worksheet / Intent）
+        # Step 1: 意图路由（每轮动态，对齐 Genie 论文 Figure 2 Step 1）
         # 对齐 Genie 论文 Figure 2 Step 1：Intent Routing。
-        # PolicyExecutor 在 __init__ 时已绑定意图，此处仅显式记录。
+        # 使用 LLM 根据用户话语和对话历史，从 schema 中选择最合适的意图。
+        # 当意图发生变化时，PolicyExecutor 切换到新意图（保留已有跨意图字段值）。
         # ------------------------------------------------------------------
+        routed_intent = await self._route_intent(user_utterance)
+        if routed_intent and routed_intent != (self._executor.intent.name if self._executor.intent else ""):
+            self._executor.switch_intent(routed_intent)
         intent_name = self._executor.intent.name if self._executor.intent else ""
 
         # ------------------------------------------------------------------
@@ -416,7 +448,9 @@ class GenieTracker:
         # ------------------------------------------------------------------
         # Step 6: 回复生成（LLM-2）
         # ------------------------------------------------------------------
-        response = await self._generate_response(user_utterance, extracted, agent_acts)
+        response = await self._generate_response(
+            user_utterance, extracted, agent_acts, intent_name=intent_name
+        )
 
         # 更新历史
         self._history.append({"role": "user", "content": user_utterance})
@@ -439,6 +473,7 @@ class GenieTracker:
             "confirmed_fields": confirmed_fields,
             "rejected_fields": rejected_fields,
             "dispatched_apis": dispatched_apis,
+            "intent_name": intent_name,
             # 兼容 BaseTracker 通用字段
             "state": state.field_values,
             "turn_updates": extracted,
@@ -482,10 +517,21 @@ class GenieTracker:
         user_utterance: str,
         extracted: Dict[str, Any],
         agent_acts: Optional[AgentActs] = None,
+        intent_name: str = "",
     ) -> str:
         """调用 LLM-2 生成自然语言回复。"""
         state = self._executor.state
         next_field = self._executor.next_required_field()
+
+        # 当前意图描述
+        intent_obj = self._executor.intent
+        if intent_obj:
+            current_intent_text = (
+                f"{intent_obj.name}"
+                + (f"（{intent_obj.description}）" if intent_obj.description else "")
+            )
+        else:
+            current_intent_text = intent_name or "（未知）"
 
         # Worksheet 状态摘要
         status_lines: List[str] = []
@@ -538,6 +584,7 @@ class GenieTracker:
 
         user_prompt = _RESPONSE_USER_TEMPLATE.format(
             scene_description=self._scene_description or "通用任务型对话",
+            current_intent=current_intent_text,
             worksheet_status=worksheet_status,
             agent_actions=agent_actions_text,
             history_turns=self._max_history_turns,
@@ -570,6 +617,78 @@ class GenieTracker:
             if next_field:
                 return f"请问您能提供{next_field.description or next_field.name}吗？"
             return "好的，请问还有什么需要确认的信息吗？"
+
+    async def _route_intent(self, user_utterance: str) -> str:
+        """使用 LLM 为当前用户话语选择最合适的意图（Step 1 动态路由）。
+
+        从 schema 中所有意图里选择与当前话语最匹配的意图名称。
+        若 LLM 调用失败或返回无效意图名称，则保持当前意图不变。
+
+        Returns:
+            选中的意图名称（英文，与 schema 中一致）；失败时返回当前意图名称。
+        """
+        current_intent_name = self._executor.intent.name if self._executor.intent else ""
+        if not self._schema.intents:
+            return current_intent_name
+
+        # 构建意图列表文本
+        intent_lines: List[str] = []
+        for intent in self._schema.intents:
+            line = f"  - {intent.name}"
+            if intent.description:
+                line += f"：{intent.description}"
+            intent_lines.append(line)
+        intent_list_text = "\n".join(intent_lines)
+
+        # 对话历史（最近几轮）
+        recent = self._history[-self._max_history_turns * 2:]
+        hist_lines = []
+        for turn in recent:
+            role = "用户" if turn.get("role") == "user" else "助手"
+            hist_lines.append(f"{role}：{turn.get('content', '')}")
+        hist_text = "\n".join(hist_lines) or "（无历史）"
+
+        user_prompt = _INTENT_ROUTING_USER_TEMPLATE.format(
+            scene_description=self._scene_description or "通用任务型对话",
+            intent_list=intent_list_text,
+            current_intent=current_intent_name,
+            history_turns=self._max_history_turns,
+            history=hist_text,
+            user_utterance=user_utterance,
+        )
+
+        try:
+            if hasattr(self._llm, "chat"):
+                raw = str(await self._llm.chat(
+                    system_prompt=_INTENT_ROUTING_SYSTEM,
+                    user_message=user_prompt,
+                ))
+            else:
+                messages = [
+                    {"role": "system", "content": _INTENT_ROUTING_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ]
+                if hasattr(self._llm, "chat_async"):
+                    raw = str(await self._llm.chat_async(messages))
+                elif hasattr(self._llm, "generate_async"):
+                    raw = str(await self._llm.generate_async(user_prompt))
+                else:
+                    import asyncio
+                    raw = str(await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: self._llm.generate(user_prompt)
+                    ))
+
+            routed = raw.strip().split()[0] if raw.strip() else ""
+            # 验证返回的意图名称在 schema 中存在
+            valid_names = {intent.name for intent in self._schema.intents}
+            if routed in valid_names:
+                logger.info(f"[GenieTracker] 意图路由: {current_intent_name!r} → {routed!r}")
+                return routed
+            logger.warning(f"[GenieTracker] 意图路由返回未知意图 {routed!r}，保持当前意图")
+        except Exception as exc:
+            logger.error(f"[GenieTracker] 意图路由失败: {exc}")
+
+        return current_intent_name
 
     async def _detect_confirm_intent(self, user_utterance: str) -> bool:
         """判断用户话语是否表示确认（YES），否则为拒绝（NO）。

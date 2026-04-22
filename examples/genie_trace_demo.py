@@ -237,6 +237,8 @@ async def run_trace(
             next_field: Optional[str] = result.get("next_field")
             missing_required: List[str] = result.get("missing_required", [])
             errors: List[str] = result.get("errors", [])
+            # per-turn intent (dynamic routing may have changed it from previous turn)
+            turn_intent: str = result.get("intent_name", intent_name)
 
             # state_delta：本轮新填入的字段（与上轮累积状态对比）
             state_delta = {
@@ -253,7 +255,8 @@ async def run_trace(
                 "user": utt,
                 "preceding_agent": preceding_agent,   # 坐席在本轮用户发言前说的话
                 "original_agent": following_agent,    # 坐席对本轮用户的实际回应（对比基准）
-                # Step 1: 确认流
+                # Step 1: 意图路由 + 确认流
+                "intent_name": turn_intent,
                 "confirmed_fields": confirmed_fields,
                 "rejected_fields": rejected_fields,
                 # Step 2: 语义解析（LLM-1）
@@ -441,8 +444,9 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
 
-        # Step 1: 意图路由（来自 turn_record 的 intent_name，即 worksheet 选择结果）
-        lines += [f"**Step 1 — 意图路由**: `{intent_name}`" if intent_name else "**Step 1 — 意图路由**: （单意图，已绑定）", ""]
+        # Step 1: 意图路由（来自 turn_record 的 intent_name，即本轮路由结果）
+        turn_intent_name = t.get("intent_name", intent_name)
+        lines += [f"**Step 1 — 意图路由**: `{turn_intent_name}`" if turn_intent_name else "**Step 1 — 意图路由**: （未知）", ""]
 
         # Step 2: 语义解析（LLM-1）
         extracted = t.get("extracted_fields", {})

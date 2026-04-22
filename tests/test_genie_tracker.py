@@ -285,15 +285,21 @@ class TestGenieTracker:
         self.schema = make_restaurant_schema()
 
     def _make_tracker(self, parse_response="NONE", reply_text="好的，请问您想吃什么菜系？"):
-        # SemanticParser 返回 parse_response，ResponseGenerator 返回 reply_text
+        # 每轮 process_turn 有 3 次 LLM 调用：
+        #   call 1: 意图路由    → 返回合法意图名（schema 中的第一个意图）
+        #   call 2: 语义解析    → 返回 parse_response
+        #   call 3: 回复生成    → 返回 reply_text
         llm = MagicMock()
         call_count = [0]
+        # 取 schema 第一个意图名作为路由返回值（单意图 schema）
+        route_response = self.schema.intents[0].name if self.schema.intents else "unknown"
 
         async def side_effect(*args, **kwargs):
             call_count[0] += 1
-            # 第一次调用（语义解析）返回 parse_response
-            # 第二次调用（回复生成）返回 reply_text
-            if call_count[0] % 2 == 1:
+            pos = (call_count[0] - 1) % 3  # 0=路由, 1=解析, 2=回复
+            if pos == 0:
+                return route_response
+            if pos == 1:
                 return parse_response
             return reply_text
 
