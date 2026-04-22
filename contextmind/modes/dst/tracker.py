@@ -338,11 +338,7 @@ class DialogueStateTracker:
         
         step_start = time.time()
         if self._adk_runner is not None:
-            # ---------------------------------------------------------- #
-            # ADK 路径：通过 LlmAgent + InMemoryRunner 发起 LLM 调用
-            # - ADK 的 InMemorySessionService 自动维护多轮会话历史
-            # - 仅传入当前轮次的对话片段（无需手动构建完整消息列表）
-            # ---------------------------------------------------------- #
+            # ADK 路径（详见 __init__ 中的初始化说明）
             raw_response = await self._run_adk_turn(full_prompt)
             logger.debug(f"[DST ADK] LLM 响应: {raw_response[:200]}")
         elif self.llm_client:

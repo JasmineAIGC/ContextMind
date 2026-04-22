@@ -33,7 +33,7 @@ except ImportError:
 
 DEFAULT_EMBEDDING_MODEL = "bge-large-zh-v1.5"
 
-
+# _first_env 与 llm_client 中同名函数逻辑一致，独立定义以避免跨模块循环导入。
 def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[str]:
     """按顺序读取环境变量，返回首个非空值。"""
     for key in keys:
@@ -44,7 +44,7 @@ def _first_env(keys: Sequence[str], default: Optional[str] = None) -> Optional[s
 
 @dataclass
 class EmbeddingConfig:
-    """Embedding 配置 - 使用专门的 embedding 模型提取向量"""
+    """Embedding 模型配置，支持本地 sentence-transformers（use_local=True）和 OpenAI 兼容 API（use_local=False）两种工作模式。"""
     
     api_key: str
     model: str = DEFAULT_EMBEDDING_MODEL

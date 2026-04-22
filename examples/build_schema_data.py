@@ -85,7 +85,7 @@ Schema 数据预生成脚本
 1. **规则模式**（默认）：不依赖 LLM，使用语义化规则生成 mock 返回值的 stub 函数。
    速度快，但函数体没有真实业务计算逻辑。
 
-2. **LLM 模式**（--with-llm）：完整运行 plan.md 定义的 5 阶段流程：
+2. **LLM 模式**（--with-llm）：完整运行 5 阶段生成流程：
    - Phase 2: 为每个意图加载预生成测试用例（优先）或实时生成；
               若同目录存在 *_test_cases.json（由 prebuild_test_cases.py 生成），
               自动从文件加载，跳过 LLM 调用

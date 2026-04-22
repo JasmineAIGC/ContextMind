@@ -110,7 +110,7 @@ def validate_function(
             提供 ``_ticket_id`` 等工具给被测函数调用。
 
     Returns:
-        :class:`~contextmind.schema_builder.models.FuncValidation` 对象，
+        :class:`~contextmind.schema_builder.pytod.testcase.models.FuncValidation` 对象，
         包含通过率和失败用例详情。
     """
     if not test_cases:
@@ -280,8 +280,8 @@ def write_validation_report(
 
     Args:
         schema_path: schema 文件路径（用于命名报告文件和填充元数据）。
-        validations: intent_name → :class:`~contextmind.schema_builder.models.FuncValidation` 映射。
-        test_cases_by_intent: intent_name → :class:`~contextmind.schema_builder.models.TestCaseItem`
+        validations: intent_name → :class:`~contextmind.schema_builder.pytod.testcase.models.FuncValidation` 映射。
+        test_cases_by_intent: intent_name → :class:`~contextmind.schema_builder.pytod.testcase.models.TestCaseItem`
             列表映射。
         output_dir:  可选的输出目录。指定时报告文件写入该目录，否则与 schema 文件同目录。
 

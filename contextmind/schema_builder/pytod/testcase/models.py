@@ -52,7 +52,7 @@ class TestCaseItem:
 
 @dataclass
 class FuncValidation:
-    """单个意图函数的测试验证结果（plan.md Phase 4）。
+    """单个意图函数的测试验证结果（Phase 4：验证与迭代优化）。
 
     Attributes:
         intent_name: 意图名称。

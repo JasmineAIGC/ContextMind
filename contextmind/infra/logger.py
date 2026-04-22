@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 class LogLevel(PyEnum):
-    """Evolve 日志级别。"""
+    """日志级别。"""
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"

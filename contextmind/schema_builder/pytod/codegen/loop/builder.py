@@ -4,7 +4,7 @@ PyTOD companion 文件构建器。
 本模块提供 :func:`build_pytod_apis` 函数，实现将 ``*_schema.json`` 文件
 转换为 PyTOD ``*_pytod_apis.py`` companion 文件的完整 5 阶段流水线。
 
-5 阶段生成流程（plan.md）
+5 阶段生成流程
 -------------------------
 1. **Phase 1 — 解析 schema**：提取所有意图和槽位定义。
 2. **Phase 2 — 构建测试用例**（LLM 模式）：为每个意图生成真实业务值的测试用例。
@@ -280,7 +280,7 @@ def build_pytod_apis(
 ) -> Optional[Path]:
     """从 schema.json 生成 PyTOD ``*_pytod_apis.py`` companion 文件。
 
-    实现 plan.md 定义的完整 5 阶段生成流程：
+    实现完整的 5 阶段生成流程：
 
     - **Phase 1**：解析 schema，提取意图与槽位定义。
     - **Phase 2**（LLM 模式）：为每个意图生成真实业务值的测试用例（``TestCaseItem``）。

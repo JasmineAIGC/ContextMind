@@ -171,12 +171,7 @@ class FunctionManager:
         logger.info("FunctionManager 初始化完成")
     
     def add_domain(self, domain: DomainSpec):
-        """
-        添加domain函数
-        
-        Args:
-            domain: DomainSpec对象
-        """
+        """将 DomainSpec 注册到管理器，以 domain.name 为键存储，供 get_domain() / get_all_domains() 检索。"""
         self.domains[domain.name] = domain
         logger.debug(f"添加domain函数: {domain.name} ({len(domain.parameters)} 个参数)")
     
@@ -239,10 +234,10 @@ class FunctionManager:
             系统提示词
         """
         if include_all_specs:
-            # Stage 2: 包含完整规格
+            # 全参数规格（第二阶段，含完整 slots 描述）
             return self._generate_full_spec_prompt()
         else:
-            # Stage 1: 仅包含domain简要描述
+            # 仅 domain 简述（第一阶段，用于快速域选择）
             return self._generate_domain_selection_prompt()
     
     def _generate_domain_selection_prompt(self) -> str:
