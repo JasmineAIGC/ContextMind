@@ -789,7 +789,8 @@ class AdkPyTODTracker:
 
         scenario_context = kwargs.pop(
             "scenario_context",
-            getattr(scenario_config, "description", ""),
+            getattr(scenario_config, "system_prompt", "")
+            or getattr(scenario_config, "description", ""),
         )
         return cls(
             llm_client=llm_client,

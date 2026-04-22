@@ -301,7 +301,7 @@ class UnifiedGradioDemo:
         self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
-            max_history_turns=10,
+            max_history_turns=self.max_history_turns,
             enable_history_summary=True,
             use_llm_summary=False
         )
@@ -345,7 +345,12 @@ class UnifiedGradioDemo:
         self.genie_tracker = GenieTracker(
             llm_client=self.llm_client,
             schema=self._genie_schema,
-            scene_description=getattr(self.config, "scene_description", "") or self.config.name,
+            scene_description=(
+                getattr(self.config, "scene_description", "")
+                or self.config.system_prompt
+                or self.config.description
+                or self.config.name
+            ),
             max_history_turns=self.max_history_turns,
         )
         self._genie_prefill_done = False
