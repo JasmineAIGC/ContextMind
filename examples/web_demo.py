@@ -3,7 +3,7 @@
 ContextMind Web界面Demo
 
 支持四个场景：chat（闲聊）、callcenter（客服）、insurance（保险）、anyihua（安逸花外呼）
-支持三种模式：DST对话状态追踪模式、Evolve记忆进化模式、FnCTOD函数调用DST模式
+支持五种模式：DST对话状态追踪、Evolve记忆进化、FnCTOD函数调用、PyTOD程序执行、Genie声明式策略
 
 使用方式:
     python examples/web_demo.py
@@ -11,11 +11,18 @@ ContextMind Web界面Demo
     python examples/web_demo.py --max-history-turns 20 --share
     python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
     python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/web_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/web_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+    python examples/web_demo.py --schema schema/anyihua_schema.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
            也接受原始 schema（schema/xxx_schema.json），自动寻找 companion 文件
     PyTOD  使用预生成的 Python API 文件（--pytod-apis schema/xxx_pytod_apis.py）
+           可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
+    Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
+           也接受 --schema schema/xxx_schema.json（自动推导或在线转换）
+           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -124,23 +131,39 @@ def _load_fnctod_schema(json_path: str):
         return None, None
 
 
-def _load_pytod_service_schema(apis_py_path: str):
+def _load_pytod_service_schema(apis_py_path: str, schema_json_path: Optional[str] = None):
     """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
 
-    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
-    若对应 JSON 不存在则返回 None，PyTOD 将退化为无结构 prompt 模式。
+    若 schema_json_path 已显式指定，则直接加载该文件。
+    否则按以下优先级自动推导（均与 apis_py_path 同目录）：
+
+    1. ``{base}_schema.json``（标准命名，如 ``anyihua_pytod_apis.py`` → ``anyihua_schema.json``）
+    2. ``{base}.json``（兜底，如 ``schema_pytod_apis.py`` → ``schema.json``）
+
+    若均不存在则返回 None，PyTOD 将退化为无结构 prompt 模式。
     """
     import json as _json
     from pathlib import Path as _Path
+
+    def _load_json(path: "_Path"):
+        if not path.exists():
+            return None
+        with open(path, encoding="utf-8") as f:
+            return load_schema_from_dict(_json.load(f))
+
+    if schema_json_path:
+        return _load_json(_Path(schema_json_path))
+
     p = _Path(apis_py_path)
     stem = p.stem  # e.g. "anyihua_pytod_apis"
     base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
-    json_path = p.parent / f"{base}_schema.json"
-    if not json_path.exists():
-        return None
-    with open(json_path, encoding="utf-8") as f:
-        data = _json.load(f)
-    return load_schema_from_dict(data)
+    # 优先尝试标准命名
+    schema = _load_json(p.parent / f"{base}_schema.json")
+    if schema is not None:
+        return schema
+    # 兜底：base 本身不含 "_schema" 后缀时（如 schema_pytod_apis.py → base="schema"），
+    # {base}_schema.json 会变成 schema_schema.json（不存在），回退到 {base}.json
+    return _load_json(p.parent / f"{base}.json")
 
 
 def _build_fnctod_domain_inline(fm: any, svc: any) -> None:
@@ -165,14 +188,18 @@ class UnifiedGradioDemo:
         max_history_turns: int = 10,
         fnctod_schema_path: Optional[str] = None,
         pytod_apis_path: Optional[str] = None,
+        schema_json_path: Optional[str] = None,
+        genie_worksheet_path: Optional[str] = None,
     ):
         """
         初始化Demo
 
         Args:
-            max_history_turns:   DST 模式的最大历史轮数
-            fnctod_schema_path:  FnCTOD 模式的 schema.json 路径
-            pytod_apis_path:     PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件）
+            max_history_turns:    最大历史轮数（所有模式）
+            fnctod_schema_path:   FnCTOD 模式的 schema 文件路径
+            pytod_apis_path:      PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件）
+            schema_json_path:     PyTOD / Genie 模式的 schema.json 路径（显式指定；优先于自动推导）
+            genie_worksheet_path: Genie 模式的 *_genie_worksheet.json 路径（预生成 Worksheet 文件）
         """
         self.current_scenario = None
         self.current_mode = None
@@ -181,6 +208,7 @@ class UnifiedGradioDemo:
         self.tracker = None  # For DST mode
         self.fnctod_tracker = None  # For FnCTOD mode
         self.pytod_tracker = None  # For PyTOD mode
+        self.genie_tracker = None  # For Genie mode
         self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
@@ -191,11 +219,23 @@ class UnifiedGradioDemo:
         self._fnctod_domain_spec = None
         if fnctod_schema_path:
             _, self._fnctod_domain_spec = _load_fnctod_schema(fnctod_schema_path)
-        # PyTOD：从 *_pytod_apis.py 加载 ServiceSchema（推导对应 JSON）
+        # PyTOD：从 *_pytod_apis.py 加载 ServiceSchema（推导对应 JSON；显式 --schema 优先）
         self._pytod_schema = None
         self._pytod_apis_path: Optional[str] = pytod_apis_path
         if pytod_apis_path:
-            self._pytod_schema = _load_pytod_service_schema(pytod_apis_path)
+            self._pytod_schema = _load_pytod_service_schema(pytod_apis_path, schema_json_path)
+        # Genie：从 Worksheet JSON 或 schema.json 加载 GenieSchema
+        self._genie_schema = None
+        self._genie_worksheet_path: Optional[str] = genie_worksheet_path
+        self._schema_json_path: Optional[str] = schema_json_path
+        if genie_worksheet_path or schema_json_path:
+            try:
+                from examples.batch_demo import _load_genie_schema
+                self._genie_schema = _load_genie_schema(genie_worksheet_path, schema_json_path)
+                if self._genie_schema is not None:
+                    logger.info(f"已加载 Genie Schema: {self._genie_schema.service_name}")
+            except Exception as exc:
+                logger.warning(f"加载 Genie Schema 失败: {exc}")
         logger.info("Demo实例创建完成（延迟初始化）")
     
     def initialize_scenario(self, scenario: str, mode: str):
@@ -222,6 +262,8 @@ class UnifiedGradioDemo:
             self._setup_fnctod_tracker()
         elif mode == "pytod":
             self._setup_pytod_tracker()
+        elif mode == "genie":
+            self._setup_genie_tracker()
         else:
             self._setup_evolve_app()
         
@@ -284,6 +326,25 @@ class UnifiedGradioDemo:
             kwargs["schema_path"] = self._pytod_apis_path
         self.pytod_tracker = AdkPyTODTracker.from_scenario(self.llm_client, self.config, **kwargs)
         logger.info("PyTOD模式初始化完成 (三步流程: AP→EE→DM)")
+
+    def _setup_genie_tracker(self):
+        """初始化 Genie Worksheets 模式（声明式策略追踪）"""
+        if self._genie_schema is None:
+            raise ValueError(
+                "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
+                "可通过以下命令预生成 Worksheet：\n"
+                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+            )
+        if self.llm_client is None:
+            self.llm_client = AdkLLMClient()
+        from contextmind.modes.genie.tracker import GenieTracker
+        self.genie_tracker = GenieTracker(
+            llm_client=self.llm_client,
+            schema=self._genie_schema,
+            scene_description=getattr(self.config, "scene_description", "") or self.config.name,
+            max_history_turns=self.max_history_turns,
+        )
+        logger.info("Genie 模式初始化完成")
 
     def _setup_evolve_app(self):
         """初始化Evolve模式"""
@@ -755,6 +816,8 @@ class UnifiedGradioDemo:
             self.fnctod_tracker.reset()
         elif self.current_mode == "pytod" and self.pytod_tracker:
             self.pytod_tracker.reset()
+        elif self.current_mode == "genie" and self.genie_tracker:
+            self.genie_tracker.reset()
         elif self.current_mode == "evolve" and self.app:
             # 重新初始化app
             self.initialize_scenario(self.current_scenario, self.current_mode)
@@ -840,7 +903,7 @@ def parse_args():
         '--max-history-turns',
         type=int,
         default=10,
-        help='DST模式的最大历史轮数 (默认: 10)'
+        help='最大历史轮数（所有模式，默认: 10）'
     )
     
     parser.add_argument(
@@ -872,6 +935,33 @@ def parse_args():
         metavar='PATH',
         help='PyTOD 模式的 *_pytod_apis.py 路径（预生成 API 函数文件，schema/ 目录下）。例如: --pytod-apis schema/anyihua_pytod_apis.py',
     )
+
+    parser.add_argument(
+        '--schema',
+        type=str,
+        default=None,
+        dest='schema',
+        metavar='PATH',
+        help=(
+            'schema.json 文件路径（PyTOD / Genie 模式均可使用）。'
+            'PyTOD：与 --pytod-apis 配合显式指定 ServiceSchema（推荐）。'
+            '若不指定，则从 *_pytod_apis.py 文件名自动推导同目录下的 xxx_schema.json 或 xxx.json。'
+            'Genie：若未提供 --genie-worksheet，则在同目录自动寻找 *_genie_worksheet.json，'
+            '找不到时直接从 schema.json 在线转换。'
+        ),
+    )
+
+    parser.add_argument(
+        '--genie-worksheet',
+        type=str,
+        default=None,
+        metavar='PATH',
+        help=(
+            'Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。'
+            '由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
+            '若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。'
+        ),
+    )
     
     return parser.parse_args()
 
@@ -883,7 +973,7 @@ def main():
     
     # 使用setup_logging配置日志系统
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="output/logs")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="web_demo")
     
     logger.info("[__main__] 启动 ContextMind Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")
@@ -891,6 +981,10 @@ def main():
         logger.info(f"FnCTOD Schema: {args.fnctod_schema}")
     if args.pytod_apis:
         logger.info(f"PyTOD APIs: {args.pytod_apis}")
+    if args.schema:
+        logger.info(f"Schema JSON: {args.schema}")
+    if args.genie_worksheet:
+        logger.info(f"Genie Worksheet: {args.genie_worksheet}")
     
     # 创建Demo实例
     try:
@@ -898,6 +992,8 @@ def main():
             max_history_turns=args.max_history_turns,
             fnctod_schema_path=args.fnctod_schema,
             pytod_apis_path=args.pytod_apis,
+            schema_json_path=args.schema,
+            genie_worksheet_path=args.genie_worksheet,
         )
         logger.info("✅ Demo实例创建成功")
     except Exception as e:

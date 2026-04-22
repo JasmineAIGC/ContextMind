@@ -48,21 +48,26 @@ LLM 配置通过 ``.env`` 文件管理（LLM_API_KEY / LLM_BASE_URL / LLM_MODEL�
 
 __version__ = "0.3.0"
 
-from contextmind.pipeline import ContextPipeline
-from contextmind.knowledge import KnowledgeBaseBuilder
-from contextmind.scenarios.registry import scenario_registry
-from contextmind.modes.base import BaseTracker
-from contextmind.modes.dst import DialogueStateTracker
-from contextmind.modes.fnctod import FnCTODTracker, adk_tools_from_function_manager
-from contextmind.modes.pytod import AdkPyTODTracker
+# 纯数据模型，无外部依赖，始终可导入
 from contextmind.modes.pytod.schemas import ServiceSchema, load_schema_from_dict
-from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine, EvolveApplication
 
-from contextmind.infra.llm_client import (
-    LLMConfig,
-    AdkLLMClient,
-    create_local_adk_model,
-)
+# 依赖 google-adk 等可选包的组件，在缺少依赖时跳过（测试环境友好）
+try:
+    from contextmind.pipeline import ContextPipeline
+    from contextmind.knowledge import KnowledgeBaseBuilder
+    from contextmind.scenarios.registry import scenario_registry
+    from contextmind.modes.base import BaseTracker
+    from contextmind.modes.dst import DialogueStateTracker
+    from contextmind.modes.fnctod import FnCTODTracker, adk_tools_from_function_manager
+    from contextmind.modes.pytod import AdkPyTODTracker
+    from contextmind.modes.evolve import create_app_for_scenario, EvolveEngine, EvolveApplication
+    from contextmind.infra.llm_client import (
+        LLMConfig,
+        AdkLLMClient,
+        create_local_adk_model,
+    )
+except ImportError:
+    pass
 
 __all__ = [
     # 统一上下文工程流水线（推荐入口）

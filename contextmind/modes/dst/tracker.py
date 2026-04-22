@@ -205,6 +205,42 @@ class DialogueStateTracker:
         self._adk_session_id = None
         logger.info("对话状态已重置")
 
+    def set_domain(self, domain: str) -> None:
+        """更新对话领域，使用新的领域特定提示词重建 ADK Agent。
+
+        当批量评测多个领域对话时，每个对话开始前调用此方法，
+        确保 LLM 使用正确的槽位格式（如 RiSAWOZ 的 "领域-槽位名" 格式）。
+
+        应在 ``reset()`` 之后调用。
+
+        Args:
+            domain: 新的对话领域名称（如 "旅游景点"、"酒店"、"餐厅"）。
+        """
+        self.prompt_manager.domain = domain
+        new_instruction = self.prompt_manager.get_system_instruction()
+        # 更新 fallback 消息列表中的系统指令
+        self.messages[0] = {"role": "system", "content": new_instruction}
+        # 下次 process_turn 时需创建新 session（使其使用更新后的 agent）
+        self._adk_session_id = None
+
+        if self._adk_runner is not None:
+            # 重建 ADK LlmAgent + InMemoryRunner 以使用新的系统指令
+            # LlmAgent.instruction 在构造时固定，必须重新创建才能更新。
+            # 这两个对象均为轻量级内存对象，重建几乎无开销（无网络调用）。
+            adk_model = create_local_adk_model(
+                getattr(self.llm_client, "_config", None)
+            )
+            adk_agent = LlmAgent(
+                name="dst_agent",
+                model=adk_model,
+                instruction=new_instruction,
+            )
+            self._adk_runner = InMemoryRunner(
+                agent=adk_agent,
+                app_name="contextmind_dst",
+            )
+            logger.debug(f"[DST] 已将领域更新为 {domain!r}，重建 ADK Agent 完成")
+
     async def _get_or_create_adk_session(self) -> str:
         """获取或创建 ADK 会话 ID（懒加载，首次调用时创建）。"""
         if self._adk_session_id is None:

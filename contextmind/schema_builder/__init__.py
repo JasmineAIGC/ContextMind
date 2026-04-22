@@ -23,6 +23,10 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
       fnctod/            — FnCTOD 算法专用代码（待实现）
         __init__.py
         builder.py       — build_fnctod_domain() 占位符
+      genie_worksheets/  — Genie Worksheets 算法专用 schema（独立，与 PyTOD 无关）
+        __init__.py      — 导出 PolicyField、WorksheetLoader
+        models.py        — PolicyField 数据模型及辅助函数
+        loader.py        — WorksheetLoader（CSV / JSON 导入/导出）
 
 已实现的 companion 文件
 -----------------------
@@ -50,6 +54,10 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
     llm = AdkLLMClient(config=LLMConfig.from_env())
     builder = SchemaDataBuilder(llm_client=llm)
     builder.build_pytod_apis("schema/anyihua_schema.json")
+
+    # Genie Worksheets schema 加载（独立模块）
+    from contextmind.schema_builder.genie_worksheets import WorksheetLoader
+    schema = WorksheetLoader.from_csv("worksheets/restaurant.csv")
 """
 
 # 顶层公开 API：保持与调用方兼容

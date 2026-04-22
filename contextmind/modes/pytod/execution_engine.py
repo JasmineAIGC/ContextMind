@@ -18,6 +18,14 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Un
 _logger = logging.getLogger(__name__)
 
 
+class PolicyViolationError(Exception):
+    """Genie Worksheet 策略约束违反错误。
+
+    由 ``ExecutionEngine._check_policy_constraints`` 在检测到必填字段缺失时
+    返回（作为 Exception 实例，而非抛出），调用方可用其生成友好提示。
+    """
+
+
 @dataclass
 class ProgramStatement:
     """动作解析器生成的程序语句（解析后的结构化表示）。
@@ -267,6 +275,9 @@ class ExecutionEngine:
 
     def __init__(self) -> None:
         self.registry: Dict[str, Callable] = {}
+        # 可选：关联 ServiceSchema，供 Worksheet 策略约束检查使用
+        # 设置后，EE 在调用 API 前检查必填字段；不影响已有逻辑。
+        self.schema: Optional[Any] = None  # ServiceSchema | None
 
     # ------------------------------------------------------------------ #
     # 注册接口
@@ -816,6 +827,11 @@ class ExecutionEngine:
         当函数名未精确匹配时，自动尝试模糊匹配（difflib 相似度 ≥ 0.6），
         以容忍 AP 的轻微幻觉（如 ``confirm_identity`` → ``verify_identity``）。
 
+        若 ``self.schema`` 已设置（含 Worksheet 策略字段的 ServiceSchema），
+        则在调用前执行 Worksheet 约束检查：若有 ``required=True`` 的 PolicyField
+        缺失，返回一个包含阻断原因的 ``PolicyViolationError`` 异常实例
+        （而非直接抛出），使调用方可选择展示友好提示而非报错。
+
         返回:
             - 函数返回值（成功时）
             - Exception 实例（执行异常时）
@@ -842,6 +858,13 @@ class ExecutionEngine:
                 func_name = matched
             else:
                 return None
+
+        # Worksheet 策略约束检查（非侵入式：self.schema 为 None 时直接跳过）
+        constraint_err = self._check_policy_constraints(func_name, kwargs)
+        if constraint_err:
+            _logger.info(f"[EE] Worksheet 约束阻断调用 '{func_name}': {constraint_err}")
+            return PolicyViolationError(constraint_err)
+
         try:
             # 过滤函数不接受的 kwargs，优雅处理 LLM 传入
             # 多余或意外参数的情况。
@@ -855,6 +878,52 @@ class ExecutionEngine:
             return func(**kwargs)
         except Exception as exc:  # noqa: BLE001
             return exc
+
+    def _check_policy_constraints(
+        self, func_name: str, kwargs: Dict[str, Any]
+    ) -> Optional[str]:
+        """检查 Worksheet 策略约束。
+
+        当 ``self.schema`` 已设置且关联意图含 ``policy_fields`` 时，
+        检查所有 ``required=True`` 的字段是否已在 ``kwargs`` 中提供。
+
+        Args:
+            func_name: 即将调用的函数名称。
+            kwargs:    调用参数字典。
+
+        Returns:
+            ``None`` 表示约束通过；字符串表示阻断原因（缺少必填字段描述）。
+        """
+        if self.schema is None:
+            return None
+        intent = self.schema.get_intent_by_api_name(func_name)
+        if intent is None or not intent.policy_fields:
+            return None
+        missing: List[str] = []
+        for pf in intent.policy_fields:
+            # policy_fields 可能是 PolicyField 对象（WorksheetLoader 路径）
+            # 或原始 dict（IntentDefinition.from_dict() 路径），统一处理。
+            if isinstance(pf, dict):
+                required = pf.get("required", True)
+                depends_on = pf.get("depends_on") or None
+                name = pf.get("name", "")
+                description = pf.get("description", "")
+            else:
+                required = pf.required
+                depends_on = pf.depends_on
+                name = pf.name
+                description = pf.description
+            if not required:
+                continue
+            # 检查条件依赖：若依赖字段未填，本字段暂不要求
+            if depends_on and kwargs.get(depends_on) is None:
+                continue
+            if kwargs.get(name) is None:
+                desc = f"{name}（{description}）" if description else name
+                missing.append(desc)
+        if missing:
+            return f"缺少必填字段：{', '.join(missing)}"
+        return None
 
     @staticmethod
     def _split_say_args(args_str: str) -> List[str]:

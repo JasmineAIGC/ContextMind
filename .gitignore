@@ -54,3 +54,7 @@ benchmark_results/
 # Run `python examples/build_schema_data.py --schema schema/xxx_schema.json` to regenerate.
 schema/*_pytod_apis.py
 schema/*_validation_report.json
+
+# Generated Worksheet files (produced by build_schema_data.py --genie-only)
+# Run `python examples/build_schema_data.py --genie-only` to regenerate.
+resources/worksheets/

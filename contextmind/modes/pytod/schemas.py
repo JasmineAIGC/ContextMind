@@ -72,6 +72,9 @@ class IntentDefinition:
     optional_slots: List[str] = field(default_factory=list)
     result_slots: List[str] = field(default_factory=list)
     is_transactional: bool = False
+    # Genie Worksheets 策略字段（可选）；为空列表时不影响任何现有逻辑
+    # 类型声明为 List[Any]，避免对 genie_worksheets 子包产生依赖
+    policy_fields: List[Any] = field(default_factory=list)
 
     def to_prompt_text(self) -> str:
         """生成适合嵌入 prompt 的意图说明文本。"""
@@ -80,6 +83,13 @@ class IntentDefinition:
             lines.append(f"    必填槽位: {', '.join(self.required_slots)}")
         if self.optional_slots:
             lines.append(f"    可选槽位: {', '.join(self.optional_slots)}")
+        if self.policy_fields:
+            lines.append("    策略字段:")
+            for pf in self.policy_fields:
+                if hasattr(pf, "to_prompt_text"):
+                    lines.append(f"  {pf.to_prompt_text()}")
+                elif isinstance(pf, dict):
+                    lines.append(f"  - {pf.get('name', '?')}")
         return "\n".join(lines)
 
     @classmethod
@@ -95,6 +105,10 @@ class IntentDefinition:
             optional_slots: List[str] = list(raw_optional.keys())
         else:
             optional_slots = list(raw_optional)
+        raw_pf = data.get("policy_fields", [])
+        # policy_fields 存储原始 dict；genie_worksheets 层负责将其转换为策略对象，
+        # 此处不依赖 genie_worksheets 子包。
+        policy_fields: List[Any] = list(raw_pf) if raw_pf else []
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -102,11 +116,12 @@ class IntentDefinition:
             optional_slots=optional_slots,
             result_slots=data.get("result_slots", []),
             is_transactional=data.get("is_transactional", False),
+            policy_fields=policy_fields,
         )
 
     def to_dict(self) -> Dict[str, Any]:
         """导出为内部字典格式（可序列化为 JSON）。"""
-        return {
+        d: Dict[str, Any] = {
             "name": self.name,
             "description": self.description,
             "is_transactional": self.is_transactional,
@@ -114,6 +129,12 @@ class IntentDefinition:
             "optional_slots": self.optional_slots,
             "result_slots": self.result_slots,
         }
+        if self.policy_fields:
+            d["policy_fields"] = [
+                pf if isinstance(pf, dict) else pf.to_dict()
+                for pf in self.policy_fields
+            ]
+        return d
 
     def to_sgd_dict(self) -> Dict[str, Any]:
         """导出为标准 SGD 格式字典。
@@ -155,6 +176,22 @@ class ServiceSchema:
         """按名称查找意图定义。"""
         for intent in self.intents:
             if intent.name == name:
+                return intent
+        return None
+
+    def get_intent_by_api_name(self, api_name: str) -> Optional[IntentDefinition]:
+        """按 API 函数名查找意图定义（支持 intent.name 和下划线变体匹配）。
+
+        PyTOD 中 API 函数名通常与意图名相同，或以 ``service_intent`` 格式命名。
+        本方法先精确匹配，再做宽松的后缀匹配，供 EE 约束检查使用。
+        """
+        # 精确匹配
+        for intent in self.intents:
+            if intent.name == api_name:
+                return intent
+        # 宽松匹配：api_name 以意图名结尾（如 "hotel_1_query_room" 匹配 "query_room"）
+        for intent in self.intents:
+            if api_name.endswith(intent.name) or api_name.endswith(f"_{intent.name}"):
                 return intent
         return None
 

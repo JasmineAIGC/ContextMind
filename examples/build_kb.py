@@ -63,7 +63,7 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
         --num 10 \\
         --scene "银行贷款外呼" \\
         --scene-desc "银行客服主动致电老客户推介个人贷款产品" \\
-        --output data/bank_loan_kb
+        --output-dir data/bank_loan_kb
 
     # 直接传入内嵌演示对话（无需外部文件）
     python examples/build_kb.py --demo
@@ -203,10 +203,17 @@ def main() -> None:
     parser.add_argument("--scene", type=str, default="对话场景", help="业务场景名称")
     parser.add_argument("--scene-desc", type=str, default="", help="场景描述（可选）")
     parser.add_argument(
-        "--output",
+        "--output-dir",
         type=str,
         default="output/kb_output",
-        help="SGD 数据集输出目录（默认 output/kb_output）",
+        dest="output_dir",
+        help="SGD 数据集输出目录（默认 output/kb_output）；目录不存在时自动创建",
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO）",
     )
     parser.add_argument(
         "--demo",
@@ -255,14 +262,16 @@ def main() -> None:
     # ── 日志设置 ──
     # 无论是否指定 --verbose，都初始化日志系统以显示 INFO 级别的进度信息。
     # --verbose 在此基础上开启 DEBUG 级别，额外输出 LLM 原始响应等底层细节。
+    # 日志自动保存到 log/build_kb_<timestamp>.log，同时输出到终端。
     from contextmind.infra.logger import setup_logging, LogLevel
-    if args.verbose:
-        setup_logging(level=LogLevel.DEBUG, save_to_file=False)
+    log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
+        LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    )
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="build_kb")
+    if args.verbose or args.log_level == "DEBUG":
         print("🔍 详细输出模式已开启 — 底层阶段日志（含 LLM 响应等 DEBUG 信息）将实时打印到终端")
         print("   同时将逐步打印每条对话的提取→合并→融合中间结果")
         print()
-    else:
-        setup_logging(level=LogLevel.INFO, save_to_file=False)
 
     # ── 加载对话 ──
     if args.demo or args.data is None:
@@ -306,7 +315,7 @@ def main() -> None:
 
     print(f"场景名称: {scene}")
     print(f"场景描述: {scene_desc or '（未提供）'}")
-    print(f"输出目录: {args.output}")
+    print(f"输出目录: {args.output_dir}")
     print(f"历史窗口: {args.context_window} 轮")
     print(f"并行线程: {args.workers}")
 
@@ -341,7 +350,7 @@ def main() -> None:
     sgd_dialogues = dataset["dialogues"]
 
     # ── 保存数据集 ──
-    output_dir = Path(args.output)
+    output_dir = Path(args.output_dir)
     builder.save_dataset(dataset, output_dir)
 
     # ── 展示结果 ──

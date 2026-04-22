@@ -188,6 +188,7 @@ class EvolveApplication:
         self,
         user_input: str,
         debug: bool = False,
+        **kwargs: Any,
     ) -> Any:
         """处理单轮对话，返回助手回复文本。
 
@@ -196,6 +197,7 @@ class EvolveApplication:
         Args:
             user_input: 用户本轮输入。
             debug:      若为 True，同时返回调试信息字典。
+            **kwargs:   保留扩展参数（如 system_utterance），供 BaseTracker 协议兼容。
 
         Returns:
             ``str``（debug=False）或 ``(str, dict)``（debug=True）。

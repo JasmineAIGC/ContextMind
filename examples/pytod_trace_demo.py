@@ -80,22 +80,34 @@ def _load_service_schema_from_json(schema_json_path: Path) -> Optional[ServiceSc
 def _load_service_schema_from_apis(apis_path: Path) -> Optional[ServiceSchema]:
     """从 *_pytod_apis.py 路径推导 schema.json 并加载 ServiceSchema。
 
-    命名约定：``foo_pytod_apis.py`` → ``foo_schema.json``（同目录）。
+    推导规则（按优先级依次尝试）：
+
+    1. ``{base}_schema.json``（标准命名约定：``anyihua_pytod_apis.py`` → ``anyihua_schema.json``）
+    2. ``{base}.json``（兜底：当 schema 文件本身以 ``schema`` 或其他无后缀名命名时，
+       如 ``schema_pytod_apis.py`` 对应 ``schema.json``）
+
+    两个候选路径均与 apis_path 同目录。
 
     Args:
         apis_path: *_pytod_apis.py 文件路径。
 
     Returns:
-        解析后的 ServiceSchema；若对应 JSON 不存在则返回 None。
+        解析后的 ServiceSchema；若两个候选路径均不存在则返回 None。
     """
-    stem = apis_path.stem  # e.g. "anyihua_pytod_apis"
+    stem = apis_path.stem  # e.g. "anyihua_pytod_apis" or "schema_pytod_apis"
     base = stem[: -len("_pytod_apis")] if stem.endswith("_pytod_apis") else stem
-    json_path = apis_path.parent / f"{base}_schema.json"
-    return _load_service_schema_from_json(json_path)
+    # 优先尝试标准命名：foo_schema.json
+    schema = _load_service_schema_from_json(apis_path.parent / f"{base}_schema.json")
+    if schema is not None:
+        return schema
+    # 兜底：当 base 本身不含 "_schema" 后缀时（如 schema_pytod_apis.py → base="schema"），
+    # {base}_schema.json 会变成 schema_schema.json（不存在）；此处回退到 {base}.json（即 schema.json）
+    return _load_service_schema_from_json(apis_path.parent / f"{base}.json")
 
 
-def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
-    with open(_DATA_PATH, encoding="utf-8") as f:
+def _load_session(index: Optional[int], seed: Optional[int],
+                  data_path: Path = _DATA_PATH) -> Dict[str, Any]:
+    with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
     sessions = data if isinstance(data, list) else data.get("sessions", [])
     if index is not None:
@@ -516,13 +528,27 @@ def main() -> None:
       --index 0 --compact-schema --top-k 10
   python examples/pytod_trace_demo.py --top-k 3       # AP 每轮只展示最相关的 3 个 API
   python examples/pytod_trace_demo.py --top-k 0       # 展示全部 API（关闭 top-K 过滤）
+  python examples/pytod_trace_demo.py --data resources/data/chat_test_500.json --index 5
         """,
     )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
+    parser.add_argument(
+        "--data", dest="data", type=str, default=None,
+        help=(
+            "对话数据文件路径（JSON，默认 resources/data/chat_test_100.json）。"
+            "支持 chat_test_100.json / chat_test_500.json 或任意同格式文件。"
+        ),
+    )
     parser.add_argument("--output", type=str, default=None,
-                        help="Markdown 输出路径（默认 output/pytod_trace_output.md）")
+                        help="Markdown 输出路径（默认 output/pytod_trace_output.md）；父目录不存在时自动创建")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO；--verbose 同时影响追踪详情输出）",
+    )
     parser.add_argument(
         "--compact-schema", dest="compact_schema", action="store_true",
         help="省略 AP prompt 中的详细业务意图说明（减少 token 用量；适合 token 敏感部署）",
@@ -536,7 +562,7 @@ def main() -> None:
         help="*_pytod_apis.py 路径（预生成 API 函数文件）；若不提供则默认使用 schema/anyihua_pytod_apis.py",
     )
     parser.add_argument(
-        "--schema", dest="schema_json", type=str, default=None,
+        "--schema", dest="schema", type=str, default=None,
         help=(
             "schema.json 文件路径，直接指定 ServiceSchema（包含完整的 intent/slot 定义）。"
             "推荐与 --pytod-apis 配合使用，例如 --schema output/step1_kb_output/schema.json。"
@@ -545,17 +571,26 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not _DATA_PATH.exists():
-        print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
+    # ── 日志设置 ──
+    from contextmind.infra.logger import setup_logging, LogLevel
+    log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
+        LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    )
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="pytod_trace_demo")
+
+    data_path = Path(args.data) if args.data else _DATA_PATH
+    if not data_path.exists():
+        print(f"❌ 数据文件不存在: {data_path}", file=sys.stderr)
         sys.exit(1)
+    print(f"✓ 使用数据文件: {data_path}")
 
     # 加载 PyTOD APIs 文件（*.py）并加载 ServiceSchema
     # 优先使用 --schema 显式指定的 JSON 路径；若未指定则从 *_pytod_apis.py 文件名自动推导
     external_schema: Optional[ServiceSchema] = None
     apis_path = Path(args.pytod_apis) if args.pytod_apis else _DEFAULT_PYTOD_APIS_PATH
     if apis_path.exists():
-        if args.schema_json:
-            schema_json_path = Path(args.schema_json)
+        if args.schema:
+            schema_json_path = Path(args.schema)
             if not schema_json_path.exists():
                 print(f"❌ schema.json 文件不存在: {schema_json_path}", file=sys.stderr)
                 sys.exit(1)
@@ -592,7 +627,7 @@ def main() -> None:
         )
         print("   继续运行（无 schema 模式，AP 将无法调用业务 API）", file=sys.stderr)
 
-    session = _load_session(args.index, args.seed)
+    session = _load_session(args.index, args.seed, data_path)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
 
     # 将 apis_path 传给 run_trace()；load_pytod_api_module 支持直接接受 .py 路径
@@ -602,12 +637,12 @@ def main() -> None:
                                    compact_schema=args.compact_schema,
                                    top_k_intents=args.top_k_intents))
 
-    # 输出路径
+    # 输出路径（无论是否自定义，都确保父目录存在）
     if args.output:
         md_path = Path(args.output)
     else:
         md_path = _PROJECT_ROOT / "output" / "pytod_trace_output.md"
-        md_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 写 Markdown
     md = _render_markdown(trace)

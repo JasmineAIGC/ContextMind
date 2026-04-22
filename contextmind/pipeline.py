@@ -91,6 +91,58 @@ from contextmind.knowledge.builder import KnowledgeBaseBuilder
 logger = get_logger(__name__)
 
 
+def _service_schema_to_genie_schema(service_schema: Any) -> Any:
+    """将 pytod ServiceSchema 转换为 GenieSchema（pipeline 层桥接函数）。
+
+    pipeline 是唯一被允许同时感知 pytod schema 和 genie schema 的位置，
+    此函数负责在两者之间做结构映射，保持 genie_worksheets 模块与 pytod 的完全隔离。
+
+    注意：``IntentDefinition.policy_fields`` 可能包含原始 ``dict``（通过
+    ``from_dict`` 路径加载）或 ``PolicyField`` 对象（WorksheetLoader 路径）。
+    此处统一转换为 ``PolicyField`` 对象，避免 ``PolicyExecutor`` 访问
+    ``pf.required`` 时抛出 ``AttributeError``。
+    """
+    from contextmind.schema_builder.genie_worksheets.models import PolicyField
+    from contextmind.schema_builder.genie_worksheets.schema_types import (
+        GenieIntent,
+        GenieSchema,
+        GenieSlot,
+    )
+
+    slots = [
+        GenieSlot(
+            name=s.name,
+            description=s.description,
+            is_categorical=s.is_categorical,
+            possible_values=list(s.possible_values),
+            is_required=s.is_required,
+        )
+        for s in service_schema.slots
+    ]
+    intents = [
+        GenieIntent(
+            name=i.name,
+            description=i.description,
+            required_slots=list(i.required_slots),
+            optional_slots=list(i.optional_slots),
+            result_slots=list(i.result_slots),
+            is_transactional=i.is_transactional,
+            # 统一转换为 PolicyField 对象（修复 raw dict AttributeError Bug）
+            policy_fields=[
+                pf if isinstance(pf, PolicyField) else PolicyField.from_dict(pf)
+                for pf in i.policy_fields
+            ],
+        )
+        for i in service_schema.intents
+    ]
+    return GenieSchema(
+        service_name=service_schema.service_name,
+        description=service_schema.description,
+        slots=slots,
+        intents=intents,
+    )
+
+
 class _EvolveTrackerAdapter:
     """将 EvolveEngine 适配为与 BaseTracker 兼容的 process_turn / get_current_state / reset 接口。
 
@@ -189,6 +241,8 @@ class ContextPipeline:
         scene_description: str = "",
         discovery_sample: int = 20,
         max_history_turns: int = 10,
+        worksheet_path: Optional[Union[str, Path]] = None,
+        genie_intent: Optional[str] = None,
     ) -> None:
         self._llm_client = llm_client
         self.mode = mode
@@ -196,6 +250,9 @@ class ContextPipeline:
         self.scene_description = scene_description or scene_name
         self.discovery_sample = discovery_sample
         self.max_history_turns = max_history_turns
+        # Genie 模式专用：Worksheet 文件路径 + 目标意图名称
+        self._worksheet_path: Optional[Path] = Path(worksheet_path) if worksheet_path else None
+        self._genie_intent: Optional[str] = genie_intent
 
         self.schema: Optional[Any] = None
         self.tracker: Optional[Any] = None
@@ -305,7 +362,12 @@ class ContextPipeline:
             lambda: self.build_kb(dialogues, scene_name, scene_description, save_path),
         )
 
-    def load_kb(self, schema_path: Union[str, Path], merge: bool = False) -> None:
+    def load_kb(
+        self,
+        schema_path: Union[str, Path],
+        merge: bool = False,
+        worksheet_path: Optional[Union[str, Path]] = None,
+    ) -> None:
         """
         Phase 1 → Phase 2 桥接：从磁盘加载已保存的 ``schema.json``。
 
@@ -321,6 +383,9 @@ class ContextPipeline:
             若为 ``True`` 且已有 :attr:`schema`，则将文件中的 schema **合并**到
             现有 schema（同名槽位/意图以文件中的定义为准，新增项追加）；
             若为 ``False``（默认），则完全替换现有 schema。
+        worksheet_path:
+            （Genie 模式专用）Worksheet 文件路径（CSV 或 JSON）；
+            指定后将覆盖构造函数中的 ``worksheet_path``。
         """
         new_schema = KnowledgeBaseBuilder.load_schema(schema_path)
         if merge and self.schema is not None:
@@ -329,6 +394,8 @@ class ContextPipeline:
             self.schema = new_schema
         # 保存 schema 文件路径，供 _init_tracker() 加载 companion *_pytod_apis.py
         self._schema_path = Path(schema_path)
+        if worksheet_path is not None:
+            self._worksheet_path = Path(worksheet_path)
         self._init_tracker()
         logger.info(
             f"[ContextPipeline] 已加载 schema: {self.schema.service_name}，"
@@ -457,9 +524,11 @@ class ContextPipeline:
             若未通过 :meth:`build_kb` 或 :meth:`load_kb` 设置 schema，
             或 LLM 未配置。
         """
-        # DST 和 Evolve 不需要 schema；PyTOD 和 FnCTOD 需要 schema
+        # DST 和 Evolve 不需要 schema；PyTOD 和 FnCTOD 需要 schema；
+        # Genie 可用 worksheet_path 替代 schema，此处仅在两者均缺失时报错
         _schema_optional = self.mode in ("dst", "evolve")
-        if self.schema is None and not _schema_optional:
+        _genie_ok = self.mode == "genie" and self._worksheet_path is not None
+        if self.schema is None and not _schema_optional and not _genie_ok:
             raise RuntimeError(
                 "尚未设置 schema，请先调用 build_kb() 或 load_kb()。\n"
                 "提示：若使用 mode='dst' 或 mode='evolve'，可直接调用 process_turn() 无需 schema。"
@@ -566,12 +635,17 @@ class ContextPipeline:
 
         - PyTOD / FnCTOD 需要 schema，缺少时推迟到 schema 就绪后再调用。
         - DST / Evolve 不需要 schema，可立即初始化。
+        - Genie 需要 schema 或 worksheet_path，两者均缺失时推迟初始化。
         - 若 LLM 客户端尚未提供（``_llm_client is None``），则跳过初始化，
           等待 :meth:`process_turn` 时再延迟初始化。
         """
         # PyTOD / FnCTOD 必须有 schema 才能初始化
         _requires_schema = self.mode in ("pytod", "fnctod")
         if _requires_schema and self.schema is None:
+            return
+
+        # Genie 需要 schema 或 worksheet_path
+        if self.mode == "genie" and self.schema is None and self._worksheet_path is None:
             return
 
         # 若 LLM 客户端还未提供，延迟到 process_turn() 时初始化
@@ -692,6 +766,53 @@ class ContextPipeline:
                 f"app={self.scene_name}"
             )
 
+        elif self.mode == "genie":
+            from contextmind.modes.genie.tracker import GenieTracker
+            from contextmind.schema_builder.genie_worksheets import WorksheetLoader
+            from contextmind.schema_builder.genie_worksheets.schema_types import GenieSchema
+
+            # 优先使用 worksheet_path 加载含 policy_fields 的 schema（返回 GenieSchema）；
+            # 若无 worksheet_path，则从已加载的 ServiceSchema 转换；schema 必须存在。
+            genie_schema: Optional[GenieSchema] = None
+            if self._worksheet_path is not None:
+                ws_path = self._worksheet_path
+                if ws_path.suffix.lower() == ".csv":
+                    genie_schema = WorksheetLoader.from_csv(
+                        ws_path,
+                        service_name=self.scene_name,
+                        service_description=self.scene_description,
+                    )
+                elif ws_path.suffix.lower() in (".json", ".jsonl"):
+                    genie_schema = WorksheetLoader.from_json(ws_path)
+                else:
+                    raise ValueError(
+                        f"worksheet_path 只支持 .csv 或 .json，得到: {ws_path.suffix}"
+                    )
+                logger.info(
+                    f"[ContextPipeline] Genie 模式：从 Worksheet 加载 schema: {ws_path.name}"
+                )
+            elif self.schema is not None:
+                # 将 pytod ServiceSchema 转换为 GenieSchema（pipeline 层桥接，保持模块边界）
+                genie_schema = _service_schema_to_genie_schema(self.schema)
+            else:
+                raise RuntimeError(
+                    "Genie 模式需要提供 schema 或 worksheet_path。\n"
+                    "提示：先调用 load_kb() 或在构造时传入 worksheet_path=..."
+                )
+
+            self.tracker = GenieTracker(
+                llm_client=self._get_llm(),
+                schema=genie_schema,
+                scene_description=self.scene_description,
+                intent_name=self._genie_intent,
+                max_history_turns=self.max_history_turns,
+            )
+            logger.debug(
+                f"[ContextPipeline] Genie 追踪器已初始化: "
+                f"schema={genie_schema.service_name}, "
+                f"intent={self._genie_intent or '(auto)'}"
+            )
+
         else:
             raise ValueError(
                 f"不支持的执行模式: {self.mode!r}。\n"
@@ -699,7 +820,8 @@ class ContextPipeline:
                 "  'pytod'  — PyTOD 三步流程，需要 schema（默认）\n"
                 "  'fnctod' — ADK 原生函数调用，需要 schema\n"
                 "  'dst'    — 对话状态追踪，schema 可选\n"
-                "  'evolve' — 演化式上下文优化，不需要 schema"
+                "  'evolve' — 演化式上下文优化，不需要 schema\n"
+                "  'genie'  — Genie Worksheets 声明式策略，需要 schema 或 worksheet_path"
             )
 
     def _register_schema_stubs(self, engine: Any) -> None:

@@ -22,6 +22,7 @@ FnCTOD 对话状态追踪脚本
     python examples/fnctod_trace_demo.py --output /tmp/trace.md --verbose
     python examples/fnctod_trace_demo.py --schema schema/anyihua_fnctod_domain.json
     python examples/fnctod_trace_demo.py --schema schema/anyihua_schema.json
+    python examples/fnctod_trace_demo.py --json-mode  # vLLM 等未启用原生函数调用时使用
 """
 
 from __future__ import annotations
@@ -93,8 +94,9 @@ def _load_domain_spec_from_schema_file(path: Path) -> DomainSpec:
     return load_domain_spec_from_file(load_path)
 
 
-def _load_session(index: Optional[int], seed: Optional[int]) -> Dict[str, Any]:
-    with open(_DATA_PATH, encoding="utf-8") as f:
+def _load_session(index: Optional[int], seed: Optional[int],
+                  data_path: Path = _DATA_PATH) -> Dict[str, Any]:
+    with open(data_path, encoding="utf-8") as f:
         data = json.load(f)
     sessions = data if isinstance(data, list) else data.get("sessions", [])
     if index is not None:
@@ -414,8 +416,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="FnCTOD 全链路追踪脚本")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
+    parser.add_argument(
+        "--data", dest="data", type=str, default=None,
+        help=(
+            "对话数据文件路径（JSON，默认 resources/data/chat_test_100.json）。"
+            "支持 chat_test_100.json / chat_test_500.json 或任意同格式文件。"
+        ),
+    )
     parser.add_argument("--output", type=str, default=None,
-                        help="Markdown 输出路径（默认 output/fnctod_trace_output.md）")
+                        help="Markdown 输出路径（默认 output/fnctod_trace_output.md）；父目录不存在时自动创建")
     parser.add_argument(
         "--json-mode", action="store_true",
         help="跳过原生函数调用，直接使用 JSON 提示词备用模式（适用于 vLLM 未启用 "
@@ -423,21 +432,37 @@ def main() -> None:
     )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
-        "--schema", type=str, default=None,
-        help="schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 build_schema_data.py 生成）；"
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="日志级别（默认 INFO；--verbose 同时影响追踪详情输出）",
+    )
+    parser.add_argument(
+        "--fnctod-schema", type=str, default=None,
+        dest="fnctod_schema",
+        help="FnCTOD schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 build_schema_data.py 生成）；"
              "也接受 *_schema.json（自动寻找同目录 companion 文件）；"
-             "若不提供则默认使用 schema/anyihua_schema.json",
+             "若不提供则默认使用 schema/anyihua_fnctod_domain.json",
     )
     args = parser.parse_args()
 
-    if not _DATA_PATH.exists():
-        print(f"❌ 数据文件不存在: {_DATA_PATH}", file=sys.stderr)
-        sys.exit(1)
+    # ── 日志设置 ──
+    from contextmind.infra.logger import setup_logging, LogLevel
+    log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
+        LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
+    )
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="fnctod_trace_demo")
 
-    # 加载 schema（必须指定 --schema 或存在默认 companion / schema 文件）
+    data_path = Path(args.data) if args.data else _DATA_PATH
+    if not data_path.exists():
+        print(f"❌ 数据文件不存在: {data_path}", file=sys.stderr)
+        sys.exit(1)
+    print(f"✓ 使用数据文件: {data_path}")
+
+    # 加载 schema（必须指定 --fnctod-schema 或存在默认 companion / schema 文件）
     domain_spec: Optional[DomainSpec] = None
-    if args.schema:
-        schema_path = Path(args.schema)
+    if args.fnctod_schema:
+        schema_path = Path(args.fnctod_schema)
         if not schema_path.exists():
             print(f"❌ Schema 文件不存在: {schema_path}", file=sys.stderr)
             sys.exit(1)
@@ -454,12 +479,12 @@ def main() -> None:
         print(
             f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
             "   请先运行: python examples/build_schema_data.py\n"
-            "   或通过 --schema 指定 schema 文件路径",
+            "   或通过 --fnctod-schema 指定 schema 文件路径",
             file=sys.stderr,
         )
         print("   继续运行（无 schema 模式，FnCTOD 将无法提取槽位）", file=sys.stderr)
 
-    session = _load_session(args.index, args.seed)
+    session = _load_session(args.index, args.seed, data_path)
     print(f"✓ 已加载会话: {session.get('session_id', 'N/A')}")
     print("正在执行 FnCTOD 追踪（每轮 LLM 调用超时 120s）...", flush=True)
 
@@ -467,12 +492,12 @@ def main() -> None:
                                   use_native_tools=not args.json_mode))
     print("✓ 追踪完成", flush=True)
 
-    # 输出路径
+    # 输出路径（无论是否自定义，都确保父目录存在）
     if args.output:
         md_path = Path(args.output)
     else:
         md_path = _PROJECT_ROOT / "output" / "fnctod_trace_output.md"
-        md_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
 
     # 写 Markdown
     md = _render_markdown(trace)
