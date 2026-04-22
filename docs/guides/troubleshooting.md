@@ -378,8 +378,8 @@ result = asyncio.run(main())
 
 如果以上方法都无法解决您的问题：
 
-1. 查看 [FAQ](https://github.com/Jasmine66Bloom/ContextMind/wiki/FAQ)
-2. 搜索 [Issues](https://github.com/Jasmine66Bloom/ContextMind/issues)
+1. 查看 [FAQ](https://github.com/JasmineAIGC/ContextMind/wiki/FAQ)
+2. 搜索 [Issues](https://github.com/JasmineAIGC/ContextMind/issues)
 3. 创建新的 Issue，提供：
    - Python 版本
    - ContextMind 版本

@@ -18,6 +18,7 @@
 | FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024） | [算法说明](algorithms/fnctod.md) |
 | PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456) | [算法说明](algorithms/pytod.md) |
 | Evolve | ✅ 已实现 | 仅第三步 | [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) | [算法说明](algorithms/evolve.md) |
+| PyTOD 代码生成 | ✅ 已实现 | 第二步（可选） | Loop / ACIA / S\* / CodeTree | [生成策略说明](algorithms/pytod-codegen.md) |
 
 ### 技术参考（`reference/`）
 
@@ -34,6 +35,7 @@
 |------|------|
 | [贡献指南](development/CONTRIBUTING.md) | 如何参与贡献 |
 | [更新日志](development/changelog.md) | 版本变更历史 |
+| [Schema 数据生成器设计](development/schema_builder_design.md) | 第二步 SchemaDataBuilder 设计与五阶段流程说明 |
 
 ### 研究参考（`research/`）
 
@@ -106,4 +108,4 @@ ContextMind/
 
 ---
 
-**最后更新**: 2026-03-31 | **版本**: 0.3.0
+**最后更新**: 2026-04-22 | **版本**: 0.3.0

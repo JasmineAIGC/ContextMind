@@ -53,15 +53,20 @@ touch .env
 编辑 `.env` 文件，添加以下配置：
 
 ```bash
-# Qwen API 配置（示例）
-QWEN3_API_KEY=your_api_key_here
-QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN3_MODEL=qwen-plus
+# 通用配置（推荐，适用于任何 OpenAI 兼容端点）
+LLM_API_KEY=your_api_key_here
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+LLM_MODEL=qwen-plus
+
+# 或使用模型专用配置（与通用配置等效，优先级更高）
+# QWEN3_API_KEY=your_api_key_here
+# QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+# QWEN3_MODEL=qwen-plus
 
 # 或 OpenAI API 配置
 # OPENAI_API_KEY=your_api_key_here
 # OPENAI_BASE_URL=https://api.openai.com/v1
-# OPENAI_MODEL=gpt-3.5-turbo
+# OPENAI_MODEL=gpt-4o
 ```
 
 **获取 API Key：**
@@ -76,9 +81,12 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-print(f"API Key: {os.getenv('QWEN3_API_KEY')[:10]}...")  # 只显示前10个字符
-print(f"Base URL: {os.getenv('QWEN3_BASE_URL')}")
-print(f"Model: {os.getenv('QWEN3_MODEL')}")
+api_key = os.getenv("LLM_API_KEY") or os.getenv("QWEN3_API_KEY") or os.getenv("OPENAI_API_KEY")
+base_url = os.getenv("LLM_BASE_URL") or os.getenv("QWEN3_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+model = os.getenv("LLM_MODEL") or os.getenv("QWEN3_MODEL") or os.getenv("OPENAI_MODEL")
+print(f"API Key: {api_key[:10] if api_key else '未设置'}...")
+print(f"Base URL: {base_url}")
+print(f"Model: {model}")
 ```
 
 运行验证：
@@ -217,7 +225,7 @@ python my_first_app.py
    - 了解 DST、FnCTOD、PyTOD、Evolve 的区别和适用场景
 
 2. **查看更多示例**
-   - 浏览 [示例代码集合](quick-start.md)
+   - 浏览 [示例代码目录](../../examples/) 中的 `.py` 脚本
    - 学习不同场景的使用方法
 
 3. **深入 API**
@@ -321,7 +329,7 @@ from contextmind.knowledge.builder import KnowledgeBaseBuilder
 import json
 
 # 加载已存在的 schema
-schema = KnowledgeBaseBuilder.load_schema("data/output/schema.json")
+schema = KnowledgeBaseBuilder.load_schema("output/schema.json")
 
 pipeline = ContextPipeline(llm_client=AdkLLMClient())
 pipeline.set_schema(schema)
@@ -357,4 +365,4 @@ print(result["response"])
 
 ---
 
-**最后更新**: 2026-03-31 | **版本**: 0.3.0
+**最后更新**: 2026-04-22 | **版本**: 0.3.0

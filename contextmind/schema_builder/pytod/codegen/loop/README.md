@@ -7,7 +7,7 @@
 ## 使用方式
 
 ```bash
-python -m contextmind ... --generator pytod（默认）
+python -m contextmind ... --generator loop（默认）
 ```
 
 或在代码中：
@@ -15,7 +15,7 @@ python -m contextmind ... --generator pytod（默认）
 ```python
 from contextmind.schema_builder import SchemaDataBuilder
 
-builder = SchemaDataBuilder(generator="pytod")
+builder = SchemaDataBuilder(generator="loop")
 ```
 
 ## 五个阶段说明

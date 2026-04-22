@@ -36,7 +36,7 @@ cd ContextMind
 
 3. 添加上游仓库
 ```bash
-git remote add upstream https://github.com/Jasmine66Bloom/ContextMind.git
+git remote add upstream https://github.com/JasmineAIGC/ContextMind.git
 ```
 
 4. 创建开发分支

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/Jasmine66Bloom/ContextMind)
+[![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/JasmineAIGC/ContextMind)
 
 **ContextMind** 是一个通用的、高质量的**上下文工程（Context Engineering）**框架，整体设计围绕三个核心步骤：
 
@@ -35,7 +35,7 @@
 ### 安装
 
 ```bash
-git clone https://github.com/Jasmine66Bloom/ContextMind.git
+git clone https://github.com/JasmineAIGC/ContextMind.git
 cd ContextMind
 pip install -r requirements.txt
 ```
@@ -97,7 +97,7 @@ python examples/context_pipeline_demo.py
 `KnowledgeBaseBuilder` 接受任意格式的对话数据，经过两阶段 LLM 处理，生成标准 SGD `schema.json`：
 
 ```python
-from contextmind.kb import KnowledgeBaseBuilder
+from contextmind.knowledge import KnowledgeBaseBuilder
 
 # 支持 chat_test / SGD / 文本列表 / 平铺文本等多种输入格式
 dialogues = [
@@ -301,7 +301,7 @@ ContextMind/
 │   │       └── execution_engine.py  # ExecutionEngine
 │   ├── scenarios/            # 场景配置与注册
 │   └── ui/                  # UI 组件（Gradio）
-├── data/                     # 运行时输出
+├── output/                   # 运行时输出（默认，可通过 --output 参数修改）
 ├── examples/                 # 示例程序（按三步框架组织）
 │   ├── context_pipeline_demo.py  # 🚀 统一入口：ContextPipeline 端到端演示
 │   ├── build_kb.py              # 【第一步】知识库构建：任意数据 → schema.json
@@ -334,6 +334,6 @@ ContextMind/
 
 ---
 
-**开发者**: [Jasmine66Bloom](https://github.com/Jasmine66Bloom)  
-**项目主页**: https://github.com/Jasmine66Bloom/ContextMind
+**开发者**: [JasmineAIGC](https://github.com/JasmineAIGC)  
+**项目主页**: https://github.com/JasmineAIGC/ContextMind
 

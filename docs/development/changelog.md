@@ -43,19 +43,29 @@
 - **SchemaDataBuilder 配置文档**: `docs/configuration.md` 新增第二步 `SchemaDataBuilder` 的参数说明
 - **SlotBasedEvaluator**: 新增 `SlotBasedEvaluator` 基类和 `SlotMetrics` 数据类（`benchmark/algorithms/base.py`），
   消除 `DSTEvaluator` 与 `FnCTODEvaluator` 之间完全重复的槽位指标计算逻辑（~260 行）
+- **docs/development/schema_builder_design.md**: 新增 Schema 数据生成器设计文档（从源码目录移至 docs/）
+- **docs/algorithms/pytod-codegen.md**: 新增 PyTOD 代码生成器四种策略算法原理说明（从源码目录移至 docs/）
 
 ### 变更
 - **DSTEvaluator / FnCTODEvaluator**: 重构为继承 `SlotBasedEvaluator`，保持向后兼容接口
 - **docs/README.md**: 修正仓库 URL（Jasmine66Bloom → JasmineAIGC）；更新算法表格，添加「所需步骤」列；新增三步框架概述与依赖矩阵
-- **docs/quick-start.md**: 添加三步框架概述表格；更新「更多示例」章节，新增完整三步流程示例
+- **docs/quick-start.md**: 添加三步框架概述表格；更新「更多示例」章节，新增完整三步流程示例；统一 `.env` 配置示例为 `LLM_*` 通用变量名
 - **docs/algorithms/pytod.md**: 新增三步框架依赖说明；扩展「快速使用」章节，提供完整三步示例
 - **docs/algorithms/dst.md** / **fnctod.md** / **evolve.md**: 各自添加三步框架依赖说明（DST/FnCTOD 不需要第二步，Evolve 不需要前两步）
-- **contextmind/schema_builder/plan.md**: 明确标注为「第二步」，补充与第一步和第三步的衔接说明
+- **README.md**: 修正导入路径（`contextmind.kb` → `contextmind.knowledge`）；统一 GitHub URL（Jasmine66Bloom → JasmineAIGC）；修正项目结构中的输出目录（`data/` → `output/`）
+- **contextmind/schema_builder/pytod/README.md**: 更新目录结构描述，反映实际 `codegen/` 和 `testcase/` 子目录组织
+- **contextmind/schema_builder/pytod/codegen/loop/README.md**: 修正 generator 参数名（`"pytod"` → `"loop"`）
 
 ### 修复
 - 移除 `infra/llm_client.py` `_estimate_tokens()` 内重复的 `import re`（顶层已有）
 - 将 `evolution/updater.py`、`memory/retriever.py`、`scenarios/chat/app.py`、
   `modes/fnctod/tracker.py` 中的内联 `import` 移到模块顶层
+
+### 文件整理
+- `contextmind/schema_builder/plan.md` → 移至 `docs/development/schema_builder_design.md`，消除文档中的重复内容
+- `contextmind/schema_builder/pytod/ALGORITHMS.md` → 移至 `docs/algorithms/pytod-codegen.md`
+- 删除 `temp/tmp.md`（演示追踪输出，不应提交到版本库）
+- `.gitignore` 新增 `temp/` 目录
 
 ### 安全
 - 通过 CodeQL 安全扫描，0 个安全问题
