@@ -200,7 +200,7 @@ return {"response", "state", "updates"}
 FnCTOD 需要预先生成 `*_fnctod_domain.json` 文件：
 
 ```bash
-python examples/build_schema_data.py --schema schema/xxx_schema.json --fnctod-only
+python examples/step2b_build_schema_data.py --schema schema/xxx_schema.json --fnctod-only
 ```
 
 生成的文件格式：

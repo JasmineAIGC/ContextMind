@@ -562,15 +562,15 @@ ContextMind/
 │   └── ui/                         # Gradio UI 组件
 │
 ├── examples/                       # 示例程序
-│   ├── context_pipeline_demo.py    # 统一入口端到端演示
-│   ├── build_kb.py                 # 第一步：知识库构建
-│   ├── prebuild_test_cases.py      # 第二步前置：测试用例预生成（支持并行）
-│   ├── build_schema_data.py        # 第二步：API 代码生成（支持4种算法）
-│   ├── web_demo.py                 # 第三步 Web 界面
-│   ├── cli_demo.py                 # 第三步 命令行交互
-│   ├── batch_demo.py               # 批量对话测试
-│   ├── fnctod_trace_demo.py        # FnCTOD 链路追踪
-│   └── pytod_trace_demo.py         # PyTOD 链路追踪
+│   ├── step0_pipeline_demo.py    # 统一入口端到端演示
+│   ├── step1_build_kb.py                 # 第一步：知识库构建
+│   ├── step2a_prebuild_test_cases.py      # 第二步前置：测试用例预生成（支持并行）
+│   ├── step2b_build_schema_data.py        # 第二步：API 代码生成（支持4种算法）
+│   ├── step3_web_demo.py                 # 第三步 Web 界面
+│   ├── step3_cli_demo.py                 # 第三步 命令行交互
+│   ├── step3_batch_demo.py               # 批量对话测试
+│   ├── step3_fnctod_trace.py        # FnCTOD 链路追踪
+│   └── step3_pytod_trace.py         # PyTOD 链路追踪
 │
 ├── benchmark/                      # 评测框架
 │   ├── algorithms/                 # 各算法评测逻辑
@@ -728,7 +728,7 @@ LLM_MODEL=qwen-plus
 |------|---------|
 | 代码生成慢 | `--workers N` 并行（intent 级 + schema 级双层） |
 | LLM 结果 bug | Phase 5 `validate_pytod_apis_source()` + stub 自动降级 |
-| 多算法评测不公平 | `prebuild_test_cases.py` 预生成共享测试集 |
+| 多算法评测不公平 | `step2a_prebuild_test_cases.py` 预生成共享测试集 |
 | schema prompt 过长 | `top_k_intents` TF-IDF 动态筛选 |
 | API 函数加载失败 | `load_pytod_api_module()` 安全 wrap + `_is_stub_only_result` 过滤 |
 

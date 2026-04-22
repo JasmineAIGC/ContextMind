@@ -6,12 +6,12 @@ ContextMind 命令行交互 Demo
 支持五种模式：dst / evolve / fnctod / pytod / genie
 
 使用方式:
-    python examples/cli_demo.py --scenario chat --mode evolve
-    python examples/cli_demo.py --scenario callcenter --mode dst
-    python examples/cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_fnctod_domain.json
-    python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
-    python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-    python examples/cli_demo.py --scenario insurance --mode genie --genie-worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_cli_demo.py --scenario chat --mode evolve
+    python examples/step3_cli_demo.py --scenario callcenter --mode dst
+    python examples/step3_cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_fnctod_domain.json
+    python examples/step3_cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/step3_cli_demo.py --scenario insurance --mode pytod --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/step3_cli_demo.py --scenario insurance --mode genie --genie-worksheet schema/anyihua_genie_worksheet.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
@@ -20,7 +20,7 @@ Schema 说明:
            可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
     Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
            也接受原始 schema（--schema schema/xxx_schema.json），自动在同目录寻找 Worksheet 文件
-           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
+           Worksheet 由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -55,7 +55,7 @@ def _load_fnctod_schema(json_path: str):
     支持两种输入：
 
     1. ``*_fnctod_domain.json`` — 预生成的 companion 文件（推荐，由
-       ``python examples/build_schema_data.py`` 生成）。
+       ``python examples/step2b_build_schema_data.py`` 生成）。
     2. ``*_schema.json`` — 原始 schema 文件；若同目录存在对应的
        ``*_fnctod_domain.json`` 则自动优先使用它，否则在线构建。
 
@@ -238,7 +238,7 @@ class InteractiveDemo:
                 print(f"✓ 已加载 PyTOD APIs: {pytod_apis_path}")
             except Exception as exc:
                 print(f"❌ 加载 PyTOD APIs 失败: {exc}")
-                print(f"   请确认文件存在且格式正确，或运行: python examples/build_schema_data.py")
+                print(f"   请确认文件存在且格式正确，或运行: python examples/step2b_build_schema_data.py")
         # Genie：从 Worksheet JSON 或 schema.json 加载 GenieSchema
         self._genie_schema = None
         if mode == "genie":
@@ -250,7 +250,7 @@ class InteractiveDemo:
                     print(
                         "⚠️  未提供 Genie Worksheet，请通过 --genie-worksheet 或 --schema 指定。\n"
                         "   可通过以下命令预生成 Worksheet：\n"
-                        "   python examples/build_schema_data.py --genie-only --schema <schema.json>"
+                        "   python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>"
                     )
             except Exception as exc:
                 print(f"❌ 加载 Genie Schema 失败: {exc}")
@@ -321,7 +321,7 @@ class InteractiveDemo:
             raise ValueError(
                 "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
                 "可通过以下命令预生成 Worksheet：\n"
-                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+                "  python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>"
             )
         from contextmind.modes.genie.tracker import GenieTracker
         self.tracker = GenieTracker(
@@ -338,7 +338,7 @@ class InteractiveDemo:
             scenario_name=self.scenario,
             llm_client=self._get_llm_client(),
             scenario_config=self.config,
-            app_name_prefix="cli_demo",
+            app_name_prefix="step3_cli_demo",
         )
 
     def print_welcome(self):
@@ -433,13 +433,13 @@ def parse_args():
         description="ContextMind 命令行 Demo",
         epilog="""
 使用示例:
-  python examples/cli_demo.py --scenario chat --mode evolve
-  python examples/cli_demo.py --scenario callcenter --mode dst
-  python examples/cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_schema.json
-  python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
-  python examples/cli_demo.py --scenario insurance --mode pytod --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-  python examples/cli_demo.py --scenario insurance --mode genie --genie-worksheet schema/anyihua_genie_worksheet.json
-  python examples/cli_demo.py --scenario insurance --mode genie --schema schema/anyihua_schema.json
+  python examples/step3_cli_demo.py --scenario chat --mode evolve
+  python examples/step3_cli_demo.py --scenario callcenter --mode dst
+  python examples/step3_cli_demo.py --scenario insurance --mode fnctod --fnctod-schema schema/anyihua_schema.json
+  python examples/step3_cli_demo.py --scenario insurance --mode pytod --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/step3_cli_demo.py --scenario insurance --mode pytod --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+  python examples/step3_cli_demo.py --scenario insurance --mode genie --genie-worksheet schema/anyihua_genie_worksheet.json
+  python examples/step3_cli_demo.py --scenario insurance --mode genie --schema schema/anyihua_schema.json
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -454,7 +454,7 @@ def parse_args():
     parser.add_argument(
         "--fnctod-schema", type=str, default=None, metavar="PATH",
         help="FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json "
-             "（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）",
+             "（可通过 step2b_build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）",
     )
     parser.add_argument(
         "--pytod-apis", type=str, default=None, metavar="PATH",
@@ -473,7 +473,7 @@ def parse_args():
         "--genie-worksheet", type=str, default=None, metavar="PATH",
         help=(
             "Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。"
-            "由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。"
+            "由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写。"
             "也接受 *_worksheet.csv 格式。"
             "若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。"
         ),

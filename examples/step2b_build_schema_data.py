@@ -16,62 +16,62 @@ Schema 数据预生成脚本
 使用方式::
 
     # 处理 schema/ 下所有 schema（规则生成 stub 函数 + Genie Worksheet）
-    python examples/build_schema_data.py
+    python examples/step2b_build_schema_data.py
 
     # 使用 LLM 生成真实业务逻辑函数体（需配置 .env 中的 LLM_API_KEY 等）
-    python examples/build_schema_data.py --with-llm
+    python examples/step2b_build_schema_data.py --with-llm
 
     # 处理指定输入目录
-    python examples/build_schema_data.py --data-dir /path/to/schemas
+    python examples/step2b_build_schema_data.py --data-dir /path/to/schemas
 
     # 指定输出目录（默认与 schema 文件同目录）
-    python examples/build_schema_data.py --output-dir output/schema_data
+    python examples/step2b_build_schema_data.py --output-dir output/schema_data
 
     # 仅生成 PyTOD API 函数代码（跳过 FnCTOD 和 Genie Worksheet）
-    python examples/build_schema_data.py --pytod-only
+    python examples/step2b_build_schema_data.py --pytod-only
 
     # 仅生成 Genie Worksheet（跳过 PyTOD 和 FnCTOD，无需 LLM）
-    python examples/build_schema_data.py --genie-only
+    python examples/step2b_build_schema_data.py --genie-only
 
     # 不覆盖已存在的文件
-    python examples/build_schema_data.py --no-overwrite
+    python examples/step2b_build_schema_data.py --no-overwrite
 
     # 处理单个 schema 文件
-    python examples/build_schema_data.py --schema schema/anyihua_schema.json
+    python examples/step2b_build_schema_data.py --schema schema/anyihua_schema.json
 
     # 单个文件 + LLM 模式（完整 5 阶段流程）
-    python examples/build_schema_data.py --schema schema/anyihua_schema.json --with-llm
+    python examples/step2b_build_schema_data.py --schema schema/anyihua_schema.json --with-llm
 
     # LLM 模式 + 真实对话数据 + 生成验证报告
-    python examples/build_schema_data.py --with-llm \\
+    python examples/step2b_build_schema_data.py --with-llm \\
         --dialogue-data resources/data/chat_test_100.json --generate-report
 
     # LLM 模式 + KB 输出目录（自动利用全部 4 个 json，并自动检测 schema.json）
-    python examples/build_schema_data.py --with-llm --kb-dir output/kb_output
+    python examples/step2b_build_schema_data.py --with-llm --kb-dir output/kb_output
 
     # 仅使用第一步生成的 schema.json（不需要其他 KB 文件）
-    python examples/build_schema_data.py --with-llm --schema output/kb_output/schema.json
+    python examples/step2b_build_schema_data.py --with-llm --schema output/kb_output/schema.json
 
     # 自定义迭代参数
-    python examples/build_schema_data.py --with-llm --max-iterations 5 --pass-rate-threshold 0.8
+    python examples/step2b_build_schema_data.py --with-llm --max-iterations 5 --pass-rate-threshold 0.8
 
     # 开启详细输出（打印每个阶段的详细进度日志）
-    python examples/build_schema_data.py --with-llm --verbose
+    python examples/step2b_build_schema_data.py --with-llm --verbose
 
     # 指定预构建的测试用例文件路径（配合 prebuild_test_cases.py --output 使用）
-    python examples/build_schema_data.py --with-llm --schema schema/foo_schema.json \\
+    python examples/step2b_build_schema_data.py --with-llm --schema schema/foo_schema.json \\
         --test-cases-path output/my_test_cases.json
 
 【推荐评测流程】跨生成器公平对比
 ----------------------------------
-在运行本脚本之前，先用 ``prebuild_test_cases.py`` 预生成测试用例，
+在运行本脚本之前，先用 ``step2a_prebuild_test_cases.py`` 预生成测试用例，
 确保 loop / alpha / sstar / ctree 4 种生成器使用完全相同的测试集::
 
     # Step 1: 用专用脚本预生成测试用例（只需运行一次）
-    python examples/prebuild_test_cases.py --schema schema/anyihua_schema.json
+    python examples/step2a_prebuild_test_cases.py --schema schema/anyihua_schema.json
 
     # Step 2a: 用 loop 生成代码（自动加载预生成的测试用例）
-    python examples/build_schema_data.py --with-llm --generator loop \\
+    python examples/step2b_build_schema_data.py --with-llm --generator loop \\
         --schema schema/anyihua_schema.json --output-dir output/loop
 
     # Step 2b-2d: 同理运行 alpha / sstar / ctree
@@ -87,7 +87,7 @@ Schema 数据预生成脚本
 
 2. **LLM 模式**（--with-llm）：完整运行 5 阶段生成流程：
    - Phase 2: 为每个意图加载预生成测试用例（优先）或实时生成；
-              若同目录存在 *_test_cases.json（由 prebuild_test_cases.py 生成），
+              若同目录存在 *_test_cases.json（由 step2a_prebuild_test_cases.py 生成），
               自动从文件加载，跳过 LLM 调用
    - Phase 3: 逐意图调用 LLM 生成函数体（Prompt 包含 few-shot 测试用例）
    - Phase 4: 批量执行验证 + 迭代修复（通过率低于阈值时调用 LLM 修复）
@@ -673,7 +673,7 @@ def _process_single(builder: SchemaDataBuilder, schema_path: Path, args: argpars
                 print("│  为确保 loop / alpha / sstar / ctree 4 种生成器使用相同的测试    │")
                 print("│  用例进行公平对比评测，建议先运行：                               │")
                 print("│                                                                 │")
-                print(f"│    python examples/prebuild_test_cases.py \\                    │")
+                print(f"│    python examples/step2a_prebuild_test_cases.py \\                    │")
                 print(f"│        --schema {str(schema_path):<47s} │")
                 print("│                                                                 │")
                 print("│  本次将自动生成测试用例并缓存，但若并行运行多个生成器，           │")
@@ -873,10 +873,10 @@ def _process_dir(builder: SchemaDataBuilder, data_dir: Path, args: argparse.Name
     if prebuild_mode:
         print(f"🎉 完成！共预生成 {written_total} 个测试用例文件")
         print("💡 现在可对每个生成器运行代码生成，Phase 2 将自动加载此文件：")
-        print("   python examples/build_schema_data.py --with-llm --generator loop  ...")
-        print("   python examples/build_schema_data.py --with-llm --generator alpha ...")
-        print("   python examples/build_schema_data.py --with-llm --generator sstar ...")
-        print("   python examples/build_schema_data.py --with-llm --generator ctree ...")
+        print("   python examples/step2b_build_schema_data.py --with-llm --generator loop  ...")
+        print("   python examples/step2b_build_schema_data.py --with-llm --generator alpha ...")
+        print("   python examples/step2b_build_schema_data.py --with-llm --generator sstar ...")
+        print("   python examples/step2b_build_schema_data.py --with-llm --generator ctree ...")
     else:
         print(f"🎉 完成！共写入 {written_total} 个文件")
         print()

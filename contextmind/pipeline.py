@@ -6,7 +6,7 @@ ContextPipeline — 通用上下文工程流水线
 三步框架
 --------
 1. **建立知识库**（Phase 1）：针对任意对话数据集，通过 LLM 自动发现槽位和意图，
-   合成标准 SGD 格式 ``schema.json``。统一使用 ``examples/build_kb.py``。
+   合成标准 SGD 格式 ``schema.json``。统一使用 ``examples/step1_build_kb.py``。
 2. **Schema 数据生成**（Phase 2，可选）：将 schema.json 转换为算法专用数据
    （如 PyTOD 的 API 代码文件）。DST / FnCTOD / Evolve 不需要此步骤。
 3. **算法执行**（Phase 3）：基于 SGD 知识库，在对话中提取有效的上下文，提升对话质量。

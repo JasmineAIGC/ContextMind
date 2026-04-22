@@ -61,9 +61,9 @@ EXPECTED_PATHS: list[str] = [
     "benchmark/evaluators",
     "benchmark/datasets",
     # 示例
-    "examples/build_kb.py",
-    "examples/build_schema_data.py",
-    "examples/context_pipeline_demo.py",
+    "examples/step1_build_kb.py",
+    "examples/step2b_build_schema_data.py",
+    "examples/step0_pipeline_demo.py",
 ]
 
 # ---------------------------------------------------------------------------

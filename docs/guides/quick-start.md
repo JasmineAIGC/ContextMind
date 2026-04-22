@@ -138,23 +138,23 @@ asyncio.run(main())
 
 运行完整演示：
 ```bash
-python examples/context_pipeline_demo.py
+python examples/step0_pipeline_demo.py
 ```
 
 ### 选项 2：命令行界面
 
 ```bash
 # 运行 DST 模式的闲聊场景
-python examples/cli_demo.py --scenario chat --mode dst
+python examples/step3_cli_demo.py --scenario chat --mode dst
 
 # 运行 Evolve 模式的客服场景
-python examples/cli_demo.py --scenario callcenter --mode evolve
+python examples/step3_cli_demo.py --scenario callcenter --mode evolve
 
 # 运行 FnCTOD 模式的保险场景
-python examples/cli_demo.py --scenario insurance --mode fnctod
+python examples/step3_cli_demo.py --scenario insurance --mode fnctod
 
 # 运行 PyTOD 模式的保险场景
-python examples/cli_demo.py --scenario insurance --mode pytod
+python examples/step3_cli_demo.py --scenario insurance --mode pytod
 ```
 
 **交互示例：**
@@ -174,7 +174,7 @@ python examples/cli_demo.py --scenario insurance --mode pytod
 
 ```bash
 # 启动 Web 界面
-python examples/web_demo.py
+python examples/step3_web_demo.py
 ```
 
 浏览器自动打开 `http://localhost:7860`，您可以：
@@ -258,7 +258,7 @@ A: 检查：
 
 A: 启用详细日志：
 ```bash
-python examples/cli_demo.py --scenario chat --mode dst --verbose
+python examples/step3_cli_demo.py --scenario chat --mode dst --verbose
 ```
 
 **更多问题？** 查看 [故障排查指南](troubleshooting.md)

@@ -1,21 +1,21 @@
 """
-ContextPipeline 演示脚本（context_pipeline_demo.py）
+ContextPipeline 演示脚本（step0_pipeline_demo.py）
 
 展示 ContextMind 统一上下文工程流水线（ContextPipeline）的完整用法（三步框架）：
 
     第一步（Phase 1）：建立知识库 — 任意对话数据 → SGD schema.json
-                       统一使用 examples/build_kb.py
+                       统一使用 examples/step1_build_kb.py
     第二步（Phase 2）：Schema 数据生成 — schema.json → 算法专用数据（PyTOD 可选）
     第三步（Phase 3）：算法执行 — 基于 SGD 知识库，使用 5 种算法提取有效上下文
 
 三步框架
 --------
-Phase 1（build_kb.py）输出：
+Phase 1（step1_build_kb.py）输出：
     schema.json         服务 schema（槽位 + 意图）
     dialogues_001.json  SGD 格式标注对话
     discovery_raw.json  逐轮原始提取结果
 
-Phase 2（build_schema_data.py，可选）：
+Phase 2（step2b_build_schema_data.py，可选）：
     xxx_pytod_apis.py   PyTOD API 代码文件（仅 PyTOD 需要）
 
 Phase 3（本脚本）支持五种算法：
@@ -38,38 +38,38 @@ Phase 3（本脚本）支持五种算法：
 --------
 
     # 端到端演示（Phase 1 + Phase 3，默认 pytod 模式）：
-    python examples/context_pipeline_demo.py
+    python examples/step0_pipeline_demo.py
 
     # 仅测试知识库构建：
-    python examples/context_pipeline_demo.py --demo-kb
+    python examples/step0_pipeline_demo.py --demo-kb
 
     # 从已有 schema.json 加载并演示对话（pytod 模式）：
-    python examples/context_pipeline_demo.py --demo-exec --schema output/kb_output/schema.json
+    python examples/step0_pipeline_demo.py --demo-exec --schema output/kb_output/schema.json
 
     # 使用 fnctod 模式（需要 schema）：
-    python examples/context_pipeline_demo.py --demo-exec --schema output/kb_output/schema.json --mode fnctod
+    python examples/step0_pipeline_demo.py --demo-exec --schema output/kb_output/schema.json --mode fnctod
 
     # 使用 dst 模式（schema 可选，不指定 schema 也可直接运行）：
-    python examples/context_pipeline_demo.py --demo-exec --mode dst
+    python examples/step0_pipeline_demo.py --demo-exec --mode dst
 
     # 使用 evolve 模式（不需要 schema）：
-    python examples/context_pipeline_demo.py --demo-exec --mode evolve
+    python examples/step0_pipeline_demo.py --demo-exec --mode evolve
 
     # 使用 genie 模式（通过 Worksheet JSON 驱动，不需要 schema.json）：
-    python examples/context_pipeline_demo.py --demo-exec --mode genie \\
+    python examples/step0_pipeline_demo.py --demo-exec --mode genie \\
         --genie-worksheet schema/my_service_worksheet.json
 
     # 使用 genie 模式（通过已有 schema.json 驱动，自动转换为 GenieSchema）：
-    python examples/context_pipeline_demo.py --demo-exec --mode genie \\
+    python examples/step0_pipeline_demo.py --demo-exec --mode genie \\
         --schema output/kb_output/schema.json
 
     # 使用 genie 模式并指定目标意图名称：
-    python examples/context_pipeline_demo.py --demo-exec --mode genie \\
+    python examples/step0_pipeline_demo.py --demo-exec --mode genie \\
         --genie-worksheet schema/my_service_worksheet.json \\
         --genie-intent search_restaurant
 
     # 指定场景和数据文件：
-    python examples/context_pipeline_demo.py \\
+    python examples/step0_pipeline_demo.py \\
         --data resources/data/chat_test_100.json \\
         --num 5 \\
         --scene "安逸花外呼" \\
@@ -359,7 +359,7 @@ def main() -> None:
 
     # ── 日志设置 ──
     log_level = LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="context_pipeline_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step0_pipeline_demo")
 
     print("=" * 65)
     print("  ContextMind — 上下文工程流水线演示")

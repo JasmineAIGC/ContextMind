@@ -6,14 +6,14 @@ ContextMind Web界面Demo
 支持五种模式：DST对话状态追踪、Evolve记忆进化、FnCTOD函数调用、PyTOD程序执行、Genie声明式策略
 
 使用方式:
-    python examples/web_demo.py
-    python examples/web_demo.py --log-level DEBUG --port 8080
-    python examples/web_demo.py --max-history-turns 20 --share
-    python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-    python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-    python examples/web_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-    python examples/web_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
-    python examples/web_demo.py --schema schema/anyihua_schema.json
+    python examples/step3_web_demo.py
+    python examples/step3_web_demo.py --log-level DEBUG --port 8080
+    python examples/step3_web_demo.py --max-history-turns 20 --share
+    python examples/step3_web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+    python examples/step3_web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/step3_web_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/step3_web_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_web_demo.py --schema schema/anyihua_schema.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
@@ -22,7 +22,7 @@ Schema 说明:
            可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
     Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
            也接受 --schema schema/xxx_schema.json（自动推导或在线转换）
-           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
+           Worksheet 由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -234,7 +234,7 @@ class UnifiedGradioDemo:
         self._schema_json_path: Optional[str] = schema_json_path
         if genie_worksheet_path or schema_json_path:
             try:
-                from examples.batch_demo import _load_genie_schema
+                from examples.step3_batch_demo import _load_genie_schema
                 self._genie_schema = _load_genie_schema(genie_worksheet_path, schema_json_path)
                 if self._genie_schema is not None:
                     logger.info(f"已加载 Genie Schema: {self._genie_schema.service_name}")
@@ -337,7 +337,7 @@ class UnifiedGradioDemo:
             raise ValueError(
                 "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
                 "可通过以下命令预生成 Worksheet：\n"
-                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+                "  python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>"
             )
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
@@ -974,12 +974,12 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/web_demo.py
-  python examples/web_demo.py --log-level DEBUG
-  python examples/web_demo.py --port 8080 --share
-  python examples/web_demo.py --max-history-turns 20 --log-level INFO
-  python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-  python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/step3_web_demo.py
+  python examples/step3_web_demo.py --log-level DEBUG
+  python examples/step3_web_demo.py --port 8080 --share
+  python examples/step3_web_demo.py --max-history-turns 20 --log-level INFO
+  python examples/step3_web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+  python examples/step3_web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
         """
     )
     
@@ -1016,7 +1016,7 @@ def parse_args():
         default=None,
         metavar='PATH',
         help='FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json '
-             '（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
+             '（可通过 step2b_build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
     )
 
     parser.add_argument(
@@ -1049,7 +1049,7 @@ def parse_args():
         metavar='PATH',
         help=(
             'Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。'
-            '由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
+            '由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
             '若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。'
         ),
     )
@@ -1064,7 +1064,7 @@ def main():
     
     # 使用setup_logging配置日志系统
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="web_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_web_demo")
     
     logger.info("[__main__] 启动 ContextMind Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")

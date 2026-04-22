@@ -10,13 +10,13 @@ ContextMind 批量对话测试Demo
 - 支持一次性输入和分批多次输入
 
 使用方式:
-    python examples/batch_demo.py
-    python examples/batch_demo.py --port 7861
-    python examples/batch_demo.py --log-level DEBUG
-    python examples/batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-    python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-    python examples/batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-    python examples/batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_batch_demo.py
+    python examples/step3_batch_demo.py --port 7861
+    python examples/step3_batch_demo.py --log-level DEBUG
+    python examples/step3_batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+    python examples/step3_batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/step3_batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/step3_batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
@@ -25,7 +25,7 @@ Schema 说明:
            可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
     Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
            也接受原始 schema（--schema schema/xxx_schema.json），自动在同目录寻找 Worksheet 文件
-           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
+           Worksheet 由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -69,7 +69,7 @@ def _load_fnctod_schema(json_path: str):
     支持两种输入：
 
     1. ``*_fnctod_domain.json`` — 预生成的 companion 文件（推荐，由
-       ``python examples/build_schema_data.py`` 生成）。
+       ``python examples/step2b_build_schema_data.py`` 生成）。
     2. ``*_schema.json`` — 原始 schema 文件；若同目录存在对应的
        ``*_fnctod_domain.json`` 则自动优先使用它，否则在线构建。
 
@@ -375,7 +375,7 @@ class BatchDialogueTest:
             raise ValueError(
                 "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
                 "可通过以下命令预生成 Worksheet：\n"
-                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+                "  python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>"
             )
         from contextmind.modes.genie.tracker import GenieTracker
         self.genie_tracker = GenieTracker(
@@ -767,7 +767,7 @@ class BatchDialogueTest:
             return (
                 "❌ 未加载 Genie Schema。请通过 --genie-worksheet 或 --schema 参数提供 Worksheet 文件。\n"
                 "   可通过以下命令预生成：\n"
-                "   python examples/build_schema_data.py --genie-only --schema <schema.json>",
+                "   python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>",
                 {},
             )
 
@@ -1131,12 +1131,12 @@ def create_test_ui():
             gr.Markdown("""
 ### 功能说明
 
-这是一个批量对话测试界面，与 `web_demo.py` 的主要区别：
+这是一个批量对话测试界面，与 `step3_web_demo.py` 的主要区别：
 
 1. **直接输入对话内容**：不是实时交互，而是直接粘贴完整对话
 2. **支持单轮/多轮**：可以输入一轮或多轮对话
 3. **支持多次输入**：可以多次运行测试，状态会累积
-4. **复用计算流程**：完全复用 `web_demo.py` 中的 DST 和 Evolve 计算逻辑
+4. **复用计算流程**：完全复用 `step3_web_demo.py` 中的 DST 和 Evolve 计算逻辑
 
 ### 对话格式
 
@@ -1189,13 +1189,13 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/batch_demo.py
-  python examples/batch_demo.py --port 7861 --log-level DEBUG
-  python examples/batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-  python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-  python examples/batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-  python examples/batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
-  python examples/batch_demo.py --schema schema/anyihua_schema.json
+  python examples/step3_batch_demo.py
+  python examples/step3_batch_demo.py --port 7861 --log-level DEBUG
+  python examples/step3_batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+  python examples/step3_batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/step3_batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+  python examples/step3_batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+  python examples/step3_batch_demo.py --schema schema/anyihua_schema.json
         """,
     )
     parser.add_argument('--port', type=int, default=7861, help='端口号')
@@ -1204,7 +1204,7 @@ def parse_args():
     parser.add_argument(
         '--fnctod-schema', type=str, default=None, metavar='PATH',
         help='FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json '
-             '（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
+             '（可通过 step2b_build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
     )
     parser.add_argument(
         '--pytod-apis', type=str, default=None, metavar='PATH',
@@ -1223,7 +1223,7 @@ def parse_args():
         '--genie-worksheet', type=str, default=None, metavar='PATH',
         help=(
             'Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。'
-            '由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
+            '由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
             '若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。'
         ),
     )
@@ -1237,7 +1237,7 @@ def main():
     
     # 设置日志
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="batch_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_batch_demo")
 
     if args.fnctod_schema:
         _BATCH_FNCTOD_SCHEMA_PATH = args.fnctod_schema

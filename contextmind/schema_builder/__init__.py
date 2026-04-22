@@ -38,10 +38,10 @@ Schema Data Builder — 从 schema.json 预生成各算法所需的结构化数�
 使用方式::
 
     # 方式一：命令行
-    python examples/build_schema_data.py
+    python examples/step2b_build_schema_data.py
 
     # 方式二：带 LLM 生成真实业务逻辑
-    python examples/build_schema_data.py --with-llm
+    python examples/step2b_build_schema_data.py --with-llm
 
     # 方式三：Python API（基础规则模式）
     from contextmind.schema_builder import SchemaDataBuilder

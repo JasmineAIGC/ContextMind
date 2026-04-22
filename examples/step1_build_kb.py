@@ -1,5 +1,5 @@
 """
-通用知识库构建脚本（build_kb.py）
+通用知识库构建脚本（step1_build_kb.py）
 
 ContextMind 框架的**统一知识库提取入口**，支持任意对话数据集、对话数据
 或人工制定的示例对话，一键生成完整的 SGD 格式知识库。
@@ -33,32 +33,32 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
 两步走
 ------
     第一步（本 Demo）：建立知识库 → SGD 数据集（schema + 对话）
-    第二步（pytod_trace_demo.py）：执行 → 使用 schema.json 驱动对话
+    第二步（step3_pytod_trace.py）：执行 → 使用 schema.json 驱动对话
 
 运行示例
 --------
     # 使用安逸花外呼数据（快速测试，仅用前 5 条对话）
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data resources/data/chat_test_100.json \\
         --num 5 \\
         --scene "安逸花外呼" \\
         --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
 
     # 同时加载两个文件（chat_test_100.json + chat_test_500.json），合并后取前 20 条
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data resources/data/chat_test_100.json resources/data/chat_test_500.json \\
         --num 20 \\
         --scene "安逸花外呼" \\
         --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
 
     # 使用全部 100 条对话（完整提取，LLM 调用较多）
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data resources/data/chat_test_100.json \\
         --scene "安逸花外呼" \\
         --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
 
     # 使用任意 JSON 文件（SGD turns 格式）
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data my_dialogues.json \\
         --num 10 \\
         --scene "银行贷款外呼" \\
@@ -66,24 +66,24 @@ ContextMind 框架的**统一知识库提取入口**，支持任意对话数据�
         --output-dir data/bank_loan_kb
 
     # 直接传入内嵌演示对话（无需外部文件）
-    python examples/build_kb.py --demo
+    python examples/step1_build_kb.py --demo
 
     # 开启详细输出（打印每个阶段的底层日志，便于调试）
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data resources/data/chat_test_100.json \\
         --num 5 \\
         --scene "安逸花外呼" \\
         --verbose
 
     # 调整历史上下文窗口大小（默认 3 轮，0 = 不传历史）
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data resources/data/chat_test_100.json \\
         --num 10 \\
         --scene "安逸花外呼" \\
         --context-window 5
 
     # 并行提取（4 线程并发调用 LLM，适合批量对话）
-    python examples/build_kb.py \\
+    python examples/step1_build_kb.py \\
         --data resources/data/chat_test_100.json \\
         --num 20 \\
         --scene "安逸花外呼" \\
@@ -262,12 +262,12 @@ def main() -> None:
     # ── 日志设置 ──
     # 无论是否指定 --verbose，都初始化日志系统以显示 INFO 级别的进度信息。
     # --verbose 在此基础上开启 DEBUG 级别，额外输出 LLM 原始响应等底层细节。
-    # 日志自动保存到 log/build_kb_<timestamp>.log，同时输出到终端。
+    # 日志自动保存到 log/step1_build_kb_<timestamp>.log，同时输出到终端。
     from contextmind.infra.logger import setup_logging, LogLevel
     log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
         LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
     )
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="build_kb")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step1_build_kb")
     if args.verbose or args.log_level == "DEBUG":
         print("🔍 详细输出模式已开启 — 底层阶段日志（含 LLM 响应等 DEBUG 信息）将实时打印到终端")
         print("   同时将逐步打印每条对话的提取→合并→融合中间结果")

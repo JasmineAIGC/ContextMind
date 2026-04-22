@@ -13,7 +13,7 @@ Genie Worksheets 对话状态追踪脚本
   Step 5: AgentActs 计算   — 确定性：Ask / AskForConfirmation / Report
   Step 6: 回复生成（LLM-2）— ResponseGenerator 根据 AgentActs 生成自然语言回复
 
-追踪格式与 pytod_trace_demo.py / fnctod_trace_demo.py 对齐，每轮记录：
+追踪格式与 step3_pytod_trace.py / step3_fnctod_trace.py 对齐，每轮记录：
   - 原始对话（坐席先说，用户后说）
   - ① 语义解析结果（LLM-1 提取的字段赋值）
   - ② PolicyExecutor 状态更新（字段状态变化）
@@ -25,20 +25,20 @@ Genie Worksheets 对话状态追踪脚本
 
 用法::
 
-    python examples/genie_trace_demo.py
-    python examples/genie_trace_demo.py --seed 42
-    python examples/genie_trace_demo.py --index 5
-    python examples/genie_trace_demo.py --output /tmp/trace.md --verbose
-    python examples/genie_trace_demo.py --worksheet schema/anyihua_genie_worksheet.json
-    python examples/genie_trace_demo.py --worksheet schema/restaurant_booking_genie_worksheet.json
+    python examples/step3_genie_trace.py
+    python examples/step3_genie_trace.py --seed 42
+    python examples/step3_genie_trace.py --index 5
+    python examples/step3_genie_trace.py --output /tmp/trace.md --verbose
+    python examples/step3_genie_trace.py --worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_genie_trace.py --worksheet schema/restaurant_booking_genie_worksheet.json
 
 Worksheet 文件说明::
 
     Genie 使用预生成的 *_genie_worksheet.json 文件（或 CSV 格式）。
-    默认使用 schema/anyihua_genie_worksheet.json（由 build_schema_data.py 生成）。
+    默认使用 schema/anyihua_genie_worksheet.json（由 step2b_build_schema_data.py 生成）。
     若文件不存在，请先运行::
 
-        python examples/build_schema_data.py --genie-only
+        python examples/step2b_build_schema_data.py --genie-only
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ from contextmind.modes.genie import GenieTracker
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-# 默认 Worksheet：安逸花外呼业务（由 build_schema_data.py --genie-only 生成）
+# 默认 Worksheet：安逸花外呼业务（由 step2b_build_schema_data.py --genie-only 生成）
 _DEFAULT_WORKSHEET_PATH = _PROJECT_ROOT / "schema" / "anyihua_genie_worksheet.json"
 _AGENT_KEY = "机器人"
 _USER_KEY = "用户"
@@ -97,7 +97,7 @@ async def run_trace(
 ) -> Dict[str, Any]:
     """运行单条会话的 Genie Worksheets 追踪，返回结构化结果（含每步完整 I/O）。
 
-    追踪格式与 pytod_trace_demo.py / fnctod_trace_demo.py 对齐：每轮包含
+    追踪格式与 step3_pytod_trace.py / step3_fnctod_trace.py 对齐：每轮包含
     原始对话（坐席先说，用户后说）、六步流水线各阶段结果、
     worksheet state delta、累积状态。
 
@@ -363,7 +363,7 @@ def _escape_table_cell(text: str) -> str:
 
 
 def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为 Markdown 报告（格式与 pytod_trace_demo / fnctod_trace_demo 对齐）。
+    """将 trace 字典渲染为 Markdown 报告（格式与 step3_pytod_trace / step3_fnctod_trace 对齐）。
 
     每轮展示：
     - 原始对话（坐席先说，用户后说）
@@ -588,15 +588,15 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/genie_trace_demo.py
-  python examples/genie_trace_demo.py --seed 42 --verbose
-  python examples/genie_trace_demo.py --index 0
-  python examples/genie_trace_demo.py --worksheet schema/anyihua_genie_worksheet.json
-  python examples/genie_trace_demo.py --output /tmp/genie_trace.md --verbose
-  python examples/genie_trace_demo.py --data resources/data/chat_test_500.json --index 5
+  python examples/step3_genie_trace.py
+  python examples/step3_genie_trace.py --seed 42 --verbose
+  python examples/step3_genie_trace.py --index 0
+  python examples/step3_genie_trace.py --worksheet schema/anyihua_genie_worksheet.json
+  python examples/step3_genie_trace.py --output /tmp/genie_trace.md --verbose
+  python examples/step3_genie_trace.py --data resources/data/chat_test_500.json --index 5
 
 Worksheet 文件生成:
-  python examples/build_schema_data.py --genie-only
+  python examples/step2b_build_schema_data.py --genie-only
         """,
     )
     parser.add_argument("--seed", type=int, default=None)
@@ -623,7 +623,7 @@ Worksheet 文件生成:
         "--worksheet", dest="worksheet", type=str, default=None,
         help=(
             "Worksheet 文件路径（.json 或 .csv）。"
-            "推荐使用预生成的 *_genie_worksheet.json（由 build_schema_data.py --genie-only 生成）。"
+            "推荐使用预生成的 *_genie_worksheet.json（由 step2b_build_schema_data.py --genie-only 生成）。"
             "若不提供则默认使用 schema/anyihua_genie_worksheet.json。"
         ),
     )
@@ -634,7 +634,7 @@ Worksheet 文件生成:
     log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
         LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
     )
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="genie_trace_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_genie_trace")
 
     data_path = Path(args.data) if args.data else _DATA_PATH
     if not data_path.exists():
@@ -656,7 +656,7 @@ Worksheet 文件生成:
         else:
             print(
                 f"⚠️  默认 Worksheet 文件不存在: {worksheet_path}\n"
-                "   请先运行: python examples/build_schema_data.py --genie-only\n"
+                "   请先运行: python examples/step2b_build_schema_data.py --genie-only\n"
                 "   或通过 --worksheet 指定 Worksheet 文件路径",
                 file=sys.stderr,
             )

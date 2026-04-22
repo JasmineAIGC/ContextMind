@@ -3,12 +3,12 @@
 测试用例预生成脚本
 =================
 
-在运行 build_schema_data.py 之前，使用本脚本为每个意图（intent）预先生成
+在运行 step2b_build_schema_data.py 之前，使用本脚本为每个意图（intent）预先生成
 测试数据，保存到 ``*_test_cases.json`` 文件中。
 
 **为什么需要此步骤？**
 
-``build_schema_data.py`` 支持 4 种生成器（loop / alpha / sstar / ctree），
+``step2b_build_schema_data.py`` 支持 4 种生成器（loop / alpha / sstar / ctree），
 每种生成器在运行时都需要测试用例来验证生成的代码（Phase 2/4）。
 如果每次运行时独立生成测试用例，由于 LLM 的随机性，4 种生成器拿到的测试集
 各不相同，无法进行公平的跨方法对比评测。
@@ -16,7 +16,7 @@
 本脚本通过"先生成、后共享"的方式解决这一问题：
 
 1. **本脚本**：提前调用 LLM 为每个意图生成测试用例，保存为 ``*_test_cases.json``
-2. **build_schema_data.py**：4 种生成器均从同一份文件加载测试用例，Phase 2 不再重新生成
+2. **step2b_build_schema_data.py**：4 种生成器均从同一份文件加载测试用例，Phase 2 不再重新生成
 
 测试用例文件位于 schema 文件同目录::
 
@@ -27,29 +27,29 @@
 使用方式::
 
     # 为单个 schema 预生成测试用例
-    python examples/prebuild_test_cases.py --schema schema/foo_schema.json
+    python examples/step2a_prebuild_test_cases.py --schema schema/foo_schema.json
 
     # 为目录下所有 schema 预生成测试用例
-    python examples/prebuild_test_cases.py --data-dir schema/
+    python examples/step2a_prebuild_test_cases.py --data-dir schema/
 
     # 使用 KB 输出目录（自动获取对话上下文）
-    python examples/prebuild_test_cases.py --kb-dir output/step1_kb_output
+    python examples/step2a_prebuild_test_cases.py --kb-dir output/step1_kb_output
 
     # 强制重新生成（覆盖已存在的测试用例文件）
-    python examples/prebuild_test_cases.py --schema schema/foo_schema.json --overwrite
+    python examples/step2a_prebuild_test_cases.py --schema schema/foo_schema.json --overwrite
 
     # 指定测试用例文件输出路径
-    python examples/prebuild_test_cases.py --schema schema/foo_schema.json --output output/my_test_cases.json
+    python examples/step2a_prebuild_test_cases.py --schema schema/foo_schema.json --output output/my_test_cases.json
 
     # 指定每意图最多生成的测试用例数
-    python examples/prebuild_test_cases.py --schema schema/foo_schema.json --max-test-cases 8
+    python examples/step2a_prebuild_test_cases.py --schema schema/foo_schema.json --max-test-cases 8
 
 生成完测试用例后，再运行各生成器进行代码生成与对比评测::
 
-    python examples/build_schema_data.py --with-llm --generator loop  --schema schema/foo_schema.json --output-dir output/loop
-    python examples/build_schema_data.py --with-llm --generator alpha --schema schema/foo_schema.json --output-dir output/alpha
-    python examples/build_schema_data.py --with-llm --generator sstar --schema schema/foo_schema.json --output-dir output/sstar
-    python examples/build_schema_data.py --with-llm --generator ctree --schema schema/foo_schema.json --output-dir output/ctree
+    python examples/step2b_build_schema_data.py --with-llm --generator loop  --schema schema/foo_schema.json --output-dir output/loop
+    python examples/step2b_build_schema_data.py --with-llm --generator alpha --schema schema/foo_schema.json --output-dir output/alpha
+    python examples/step2b_build_schema_data.py --with-llm --generator sstar --schema schema/foo_schema.json --output-dir output/sstar
+    python examples/step2b_build_schema_data.py --with-llm --generator ctree --schema schema/foo_schema.json --output-dir output/ctree
 
 以上 4 条命令均会从同一个 ``*_test_cases.json`` 加载测试用例，确保评测公平。
 
@@ -381,10 +381,10 @@ def _process_dir(
     print(f"🎉 完成！新生成 {written_total} 个，跳过 {skipped_total} 个（已存在）")
     print()
     print("下一步：使用各生成器进行代码生成（测试用例将自动从缓存加载）：")
-    print(f"  python examples/build_schema_data.py --with-llm --generator loop  --data-dir {data_dir}")
-    print(f"  python examples/build_schema_data.py --with-llm --generator alpha --data-dir {data_dir}")
-    print(f"  python examples/build_schema_data.py --with-llm --generator sstar --data-dir {data_dir}")
-    print(f"  python examples/build_schema_data.py --with-llm --generator ctree --data-dir {data_dir}")
+    print(f"  python examples/step2b_build_schema_data.py --with-llm --generator loop  --data-dir {data_dir}")
+    print(f"  python examples/step2b_build_schema_data.py --with-llm --generator alpha --data-dir {data_dir}")
+    print(f"  python examples/step2b_build_schema_data.py --with-llm --generator sstar --data-dir {data_dir}")
+    print(f"  python examples/step2b_build_schema_data.py --with-llm --generator ctree --data-dir {data_dir}")
 
 
 if __name__ == "__main__":

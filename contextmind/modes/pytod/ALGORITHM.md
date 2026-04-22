@@ -237,7 +237,7 @@ return {"response", "program_text", "state", "execution"}
 
 ```bash
 # 生成 schema.json 的 companion 文件（PyTOD API 函数）
-python examples/build_schema_data.py --schema schema/xxx_schema.json
+python examples/step2b_build_schema_data.py --schema schema/xxx_schema.json
 
 # 生成后的 companion 文件
 schema/xxx_pytod_apis.py   ← 包含每个意图对应的 Python 函数

@@ -74,7 +74,7 @@ asyncio.run(chat())
 运行演示：
 
 ```bash
-python examples/context_pipeline_demo.py
+python examples/step0_pipeline_demo.py
 ```
 
 ---
@@ -116,9 +116,9 @@ builder.save(schema_dict, "output/schema.json")
 命令行方式：
 
 ```bash
-python examples/build_kb.py --demo
+python examples/step1_build_kb.py --demo
 # 或使用真实数据
-python examples/build_kb.py \
+python examples/step1_build_kb.py \
     --data resources/data/chat_test_100.json \
     --num 10 \
     --scene "安逸花外呼" \
@@ -319,15 +319,15 @@ ContextMind/
 │   └── ui/                  # UI 组件（Gradio）
 ├── output/                   # 运行时输出（默认，可通过 --output 参数修改）
 ├── examples/                 # 示例程序（按三步框架组织）
-│   ├── context_pipeline_demo.py  # 🚀 统一入口：ContextPipeline 端到端演示
-│   ├── build_kb.py              # 【第一步】知识库构建：任意数据 → schema.json
-│   ├── prebuild_test_cases.py   # 【第二步·前置】预生成测试用例（供 build_schema_data.py 使用）
-│   ├── build_schema_data.py     # 【第二步】Schema 数据生成：schema.json → API 代码/域定义
-│   ├── web_demo.py              # 【第三步】Web 界面演示（DST / FnCTOD / Evolve / PyTOD）
-│   ├── cli_demo.py              # 【第三步】命令行交互演示
-│   ├── batch_demo.py            # 【第三步】批量对话测试
-│   ├── fnctod_trace_demo.py     # 【第三步】FnCTOD 算法全链路追踪
-│   └── pytod_trace_demo.py      # 【第三步】PyTOD 算法全链路追踪
+│   ├── step0_pipeline_demo.py  # 🚀 统一入口：ContextPipeline 端到端演示
+│   ├── step1_build_kb.py              # 【第一步】知识库构建：任意数据 → schema.json
+│   ├── step2a_prebuild_test_cases.py   # 【第二步·前置】预生成测试用例（供 build_schema_data.py 使用）
+│   ├── step2b_build_schema_data.py     # 【第二步】Schema 数据生成：schema.json → API 代码/域定义
+│   ├── step3_web_demo.py              # 【第三步】Web 界面演示（DST / FnCTOD / Evolve / PyTOD）
+│   ├── step3_cli_demo.py              # 【第三步】命令行交互演示
+│   ├── step3_batch_demo.py            # 【第三步】批量对话测试
+│   ├── step3_fnctod_trace.py     # 【第三步】FnCTOD 算法全链路追踪
+│   └── step3_pytod_trace.py      # 【第三步】PyTOD 算法全链路追踪
 ├── benchmark/                # 评测框架
 ├── resources/                # 静态资源与测试数据
 └── docs/                     # 文档（[架构图](docs/reference/architecture.md) | [算法说明](docs/algorithms/) | [API 参考](docs/reference/api-reference.md)）

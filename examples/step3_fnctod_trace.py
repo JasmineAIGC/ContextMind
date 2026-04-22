@@ -5,7 +5,7 @@ FnCTOD 对话状态追踪脚本
 客服场景中的运行过程：通过 ADK 原生 Function Calling 实现
 结构化槽位提取，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
-追踪格式与 pytod_trace_demo.py 对齐，每轮记录：
+追踪格式与 step3_pytod_trace.py 对齐，每轮记录：
   - 原始对话（坐席先说，用户后说）
   - Function Call DST 结果（本轮槽位更新）
   - DM 生成回复
@@ -16,13 +16,13 @@ FnCTOD 对话状态追踪脚本
 
 用法::
 
-    python examples/fnctod_trace_demo.py
-    python examples/fnctod_trace_demo.py --seed 42
-    python examples/fnctod_trace_demo.py --index 5
-    python examples/fnctod_trace_demo.py --output /tmp/trace.md --verbose
-    python examples/fnctod_trace_demo.py --schema schema/anyihua_fnctod_domain.json
-    python examples/fnctod_trace_demo.py --schema schema/anyihua_schema.json
-    python examples/fnctod_trace_demo.py --json-mode  # vLLM 等未启用原生函数调用时使用
+    python examples/step3_fnctod_trace.py
+    python examples/step3_fnctod_trace.py --seed 42
+    python examples/step3_fnctod_trace.py --index 5
+    python examples/step3_fnctod_trace.py --output /tmp/trace.md --verbose
+    python examples/step3_fnctod_trace.py --schema schema/anyihua_fnctod_domain.json
+    python examples/step3_fnctod_trace.py --schema schema/anyihua_schema.json
+    python examples/step3_fnctod_trace.py --json-mode  # vLLM 等未启用原生函数调用时使用
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ def _load_domain_spec_from_schema_file(path: Path) -> DomainSpec:
     支持以下输入格式（按优先级排序）：
 
     1. ``*_fnctod_domain.json`` — 预生成的 companion 文件（推荐），由
-       ``python examples/build_schema_data.py`` 生成。
+       ``python examples/step2b_build_schema_data.py`` 生成。
     2. ``*_schema.json`` — 原始 SGD/KB-builder 格式；若同目录存在对应的
        ``*_fnctod_domain.json`` companion 文件则自动优先使用它。
 
@@ -111,7 +111,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
                     use_native_tools: bool = True) -> Dict[str, Any]:
     """运行单条会话的 FnCTOD 追踪，返回结构化结果（含每步完整 I/O）。
 
-    追踪格式与 pytod_trace_demo.py 对齐：每轮包含原始对话（坐席先说，用户后说）、
+    追踪格式与 step3_pytod_trace.py 对齐：每轮包含原始对话（坐席先说，用户后说）、
     Function Call DST 结果、DM 生成回复、state_delta、累积状态和 LLM 输入上下文。
 
     Args:
@@ -152,7 +152,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
     turns_results: List[Dict[str, Any]] = []
 
     # 将会话中的用户信息注入 scenario_context，让 LLM 了解用户的账户详情，
-    # 避免重复询问已知信息（如身份、额度等）。与 pytod_trace_demo.py 保持一致。
+    # 避免重复询问已知信息（如身份、额度等）。与 step3_pytod_trace.py 保持一致。
     user_info = session.get("用户信息", "")
     scenario_context = _SCENARIO_CONTEXT
     if user_info:
@@ -261,7 +261,7 @@ async def run_trace(session: Dict[str, Any], verbose: bool = False,
 
 
 def _format_messages_collapsible(messages: List[Dict[str, str]], label: str) -> List[str]:
-    """将 LLM 消息列表渲染为可折叠的 <details> HTML 块（与 pytod_trace_demo 一致）。"""
+    """将 LLM 消息列表渲染为可折叠的 <details> HTML 块（与 step3_pytod_trace 一致）。"""
     if not messages:
         return []
     lines = [
@@ -288,7 +288,7 @@ def _format_messages_collapsible(messages: List[Dict[str, str]], label: str) -> 
 
 
 def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为 Markdown 报告（格式与 pytod_trace_demo 对齐）。
+    """将 trace 字典渲染为 Markdown 报告（格式与 step3_pytod_trace 对齐）。
 
     每轮展示：
     - 原始对话（坐席先说，用户后说）
@@ -440,7 +440,7 @@ def main() -> None:
     parser.add_argument(
         "--fnctod-schema", type=str, default=None,
         dest="fnctod_schema",
-        help="FnCTOD schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 build_schema_data.py 生成）；"
+        help="FnCTOD schema 文件路径：推荐使用预生成的 *_fnctod_domain.json（由 step2b_build_schema_data.py 生成）；"
              "也接受 *_schema.json（自动寻找同目录 companion 文件）；"
              "若不提供则默认使用 schema/anyihua_fnctod_domain.json",
     )
@@ -451,7 +451,7 @@ def main() -> None:
     log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
         LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
     )
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="fnctod_trace_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_fnctod_trace")
 
     data_path = Path(args.data) if args.data else _DATA_PATH
     if not data_path.exists():
@@ -478,7 +478,7 @@ def main() -> None:
     else:
         print(
             f"⚠️  默认 Schema 文件不存在: {schema_path}\n"
-            "   请先运行: python examples/build_schema_data.py\n"
+            "   请先运行: python examples/step2b_build_schema_data.py\n"
             "   或通过 --fnctod-schema 指定 schema 文件路径",
             file=sys.stderr,
         )

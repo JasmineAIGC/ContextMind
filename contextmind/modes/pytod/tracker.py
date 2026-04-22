@@ -14,7 +14,7 @@ ADK 集成优势：
 - DM session 积累对话历史，保证回复自然、连贯
 
 PyTOD 不在算法代码内部硬编码场景 Schema 和 API 数据。所有 Schema 均通过外部文件传入：
-  1. 生成 companion 文件：``python examples/build_schema_data.py --schema schema/xxx_schema.json``
+  1. 生成 companion 文件：``python examples/step2b_build_schema_data.py --schema schema/xxx_schema.json``
   2. 传入追踪器：``AdkPyTODTracker.from_scenario(..., schema=svc, schema_path="schema/xxx_schema.json")``
 
 使用示例::
@@ -370,7 +370,7 @@ def load_pytod_api_module(schema_path: Union[str, Path]) -> Optional[Dict[str, A
 
     companion 文件由 ``SchemaDataBuilder.build_pytod_apis()`` 预生成，
     包含每个 intent 对应的真实 Python 函数定义（含 result_slots 返回值），
-    或通过 ``python examples/build_schema_data.py`` 批量生成后提交到版本控制。
+    或通过 ``python examples/step2b_build_schema_data.py`` 批量生成后提交到版本控制。
 
     Returns:
         成功时返回字典 ``{func_name: callable}``，可直接注册到 ExecutionEngine；

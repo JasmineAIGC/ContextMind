@@ -121,7 +121,7 @@
 1. 确认使用正确的路径
    ```bash
    # 正确
-   python examples/cli_demo.py --scenario chat --mode dst
+   python examples/step3_cli_demo.py --scenario chat --mode dst
    
    # 错误（旧路径）
    python interactive_demo.py
@@ -129,7 +129,7 @@
 
 2. 检查参数是否正确
    ```bash
-   python examples/cli_demo.py --help
+   python examples/step3_cli_demo.py --help
    ```
 
 3. 验证场景和模式组合
@@ -153,7 +153,7 @@
 
 2. 更改端口
    ```bash
-   # 在 web_demo.py 中修改
+   # 在 step3_web_demo.py 中修改
    demo.launch(server_port=8080)
    ```
 

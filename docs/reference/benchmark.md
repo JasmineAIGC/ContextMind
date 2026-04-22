@@ -66,7 +66,7 @@ python benchmark/runners/run_fnctod_transfertod.py --domain 酒店 --limit 10
 ### PyTOD 评测
 
 ```bash
-# 目前暂无开放数据集评测脚本，PyTOD 可通过 examples/pytod_trace_demo.py 运行单条追踪演示
+# 目前暂无开放数据集评测脚本，PyTOD 可通过 examples/step3_pytod_trace.py 运行单条追踪演示
 ```
 
 ### 辅助工具
