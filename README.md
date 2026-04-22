@@ -23,7 +23,7 @@
 - 🚀 **统一流水线** - `ContextPipeline` 灵活整合三步流程，端到端上下文工程
 - 🗄️ **通用知识库构建** - 任意对话数据集 → SGD `schema.json`（两阶段 LLM 抽取+合成）
 - 🔧 **Schema 数据生成** - 知识库 → 算法专用 schema 数据（如 PyTOD API 代码文件）
-- 🎯 **四种执行模式** - DST（状态追踪）/ FnCTOD（函数调用）/ Evolve（记忆进化）/ PyTOD（程序执行）
+- 🎯 **五种执行模式** - DST（状态追踪）/ FnCTOD（函数调用）/ PyTOD（程序执行）/ Genie（声明式策略）/ Evolve（记忆进化）
 - 🔌 **模型无关** - 适配任何 LLM API（OpenAI、Qwen、Claude 等）
 - 🧠 **智能记忆** - 自动知识提取和语义检索（Evolve 模式）
 - ⚡ **即插即用** - 可安装包，模块化设计
@@ -209,7 +209,7 @@ asyncio.run(main())
 
 ---
 
-## 四种执行模式
+## 五种执行模式
 
 ### 1. **DST 模式**（对话状态追踪）
 
@@ -242,7 +242,7 @@ result = await tracker.process_turn("我想买重疾险")
 
 ### 3. **PyTOD 模式**（可编程任务型对话）
 
-基于 Apple 研究院 [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)，将对话建模为程序执行问题。
+基于 Apple 研究院 [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（2025），将对话建模为程序执行问题。
 
 ```python
 from contextmind.modes.pytod import AdkPyTODTracker, ExecutionEngine
@@ -270,6 +270,21 @@ app = create_app_for_scenario(
 response = await app.process_turn("你好，记住我叫张三")
 ```
 
+### 5. **Genie 模式**（声明式策略）
+
+基于 Stanford [GenieWorksheets 论文（ACL 2025）](https://arxiv.org/abs/2407.05674)，将对话策略声明为 Worksheet 表单，由确定性状态机驱动，LLM 仅负责语义解析和回复生成。
+
+```python
+from contextmind.modes.genie import GenieTracker
+
+tracker = GenieTracker.from_scenario(
+    llm_client=AdkLLMClient(),
+    scenario_config=get_anyihua_scenario()
+)
+result = await tracker.process_turn("我要申请贷款")
+print(result["response"])
+```
+
 ---
 
 ## 项目结构
@@ -290,11 +305,12 @@ ContextMind/
 │   │   ├── pytod/            #   PyTOD 专用生成器（schema.json → xxx_pytod_apis.py）
 │   │   └── fnctod/           #   FnCTOD 专用生成器（stub，待实现）
 │   ├── infra/                # 基础设施（LLM 客户端、日志、嵌入向量等）
-│   ├── modes/                # ③ 四种算法执行模式（第三步）
+│   ├── modes/                # ③ 五种算法执行模式（第三步）
 │   │   ├── base.py          #   BaseTracker 协议
 │   │   ├── dst/             #   对话状态追踪（槽位提取）
 │   │   ├── fnctod/          #   函数调用式对话（ADK 原生）
 │   │   ├── evolve/          #   演化式上下文（长对话记忆）
+│   │   ├── genie/           #   声明式策略驱动对话（Worksheet 状态机）
 │   │   └── pytod/           #   可编程任务型对话（AP→EE→DM）
 │   │       ├── tracker.py   #     AdkPyTODTracker
 │   │       ├── schemas.py   #     ServiceSchema / SlotDefinition / IntentDefinition
@@ -327,9 +343,10 @@ ContextMind/
 
 ## 致谢
 
-- PyTOD 模式基于 Apple 研究院论文 ["PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback"](https://arxiv.org/pdf/2508.15456)
+- PyTOD 模式基于 Apple 研究院论文 ["PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback"](https://arxiv.org/pdf/2508.15456)（2025）
 - FnCTOD 模式基于 ACL 2024 论文 ["Large Language Models as Zero-shot Dialogue State Tracker through Function Calling"](https://arxiv.org/pdf/2402.10466)
-- Evolve 模式采用 AlphaEvolve 和 [ThetaEvolve](https://arxiv.org/pdf/2511.23473) 算法
+- Evolve 模式主要基于 [ThetaEvolve：ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) 算法
+- Genie 模式基于 Stanford ACL 2025 论文 ["Coding Reliable LLM-based Integrated Task and Knowledge Agents with GenieWorksheets"](https://arxiv.org/abs/2407.05674)
 - DST 模式实现标准对话状态追踪（Dialogue State Tracking）技术
 
 ---
