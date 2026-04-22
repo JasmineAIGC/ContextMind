@@ -81,6 +81,7 @@ def create_layout() -> tuple:
                         ("DST 模式 (槽位提取)", "dst"),
                         ("FnCTOD 模式 (函数调用)", "fnctod"),
                         ("PyTOD 模式 (程序执行)", "pytod"),
+                        ("Genie 模式 (声明式策略)", "genie"),
                         ("Evolve 模式 (记忆进化)", "evolve"),
                     ],
                     value="evolve",

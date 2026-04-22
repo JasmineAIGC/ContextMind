@@ -209,6 +209,7 @@ class UnifiedGradioDemo:
         self.fnctod_tracker = None  # For FnCTOD mode
         self.pytod_tracker = None  # For PyTOD mode
         self.genie_tracker = None  # For Genie mode
+        self._genie_prefill_done = False  # tracks whether prefill_from_context() has run
         self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
@@ -344,6 +345,7 @@ class UnifiedGradioDemo:
             scene_description=getattr(self.config, "scene_description", "") or self.config.name,
             max_history_turns=self.max_history_turns,
         )
+        self._genie_prefill_done = False
         logger.info("Genie 模式初始化完成")
 
     def _setup_evolve_app(self):
@@ -485,6 +487,33 @@ class UnifiedGradioDemo:
                     timing_breakdown.update(self.pytod_tracker.step_timings)
                     if 'PyTOD总计' in timing_breakdown and len(self.pytod_tracker.step_timings) > 0:
                         del timing_breakdown['PyTOD总计']
+
+                # 状态捕获
+                step_start = time.time()
+                self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
+
+            elif self.current_mode == "genie":
+                # Genie Worksheets 模式（声明式策略 + 六步流水线）
+                # 第一轮前：从背景信息预填已知字段（异步，仅执行一次）
+                if not self._genie_prefill_done:
+                    step_start = time.time()
+                    try:
+                        await asyncio.wait_for(
+                            self.genie_tracker.prefill_from_context(),
+                            timeout=60.0,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning("[Genie] 预填超时，将从空白状态开始")
+                    except Exception as exc:
+                        logger.warning(f"[Genie] 预填失败，将从空白状态开始: {exc}")
+                    self._genie_prefill_done = True
+                    timing_breakdown['Genie预填'] = time.time() - step_start
+
+                step_start = time.time()
+                result = await self.genie_tracker.process_turn(user_utterance=message)
+                reply = result.get("response", "")
+                timing_breakdown['Genie六步流水线'] = time.time() - step_start
 
                 # 状态捕获
                 step_start = time.time()
@@ -722,6 +751,60 @@ class UnifiedGradioDemo:
                 }
             else:
                 state_info["累积状态"] = "（暂无）"
+
+            return state_info
+
+        elif self.current_mode == "genie" and self.genie_tracker:
+            # Genie 模式：展示当前意图、Worksheet 字段状态和累积字段值
+            from contextmind.modes.genie.policy_executor import FieldStatus
+            executor = self.genie_tracker._executor
+            ws_state = executor.state
+
+            state_info = {
+                "模式": "Genie（声明式策略 Worksheets）",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "意图": executor.intent.name if executor.intent else "（未绑定）",
+                "Worksheet 完成": "✅ 是" if executor.is_complete() else "⏳ 否",
+            }
+
+            # 下一个待填必填字段
+            next_field = executor.next_required_field()
+            if next_field:
+                state_info["下一个待填字段"] = next_field.name
+
+            # 缺少的必填字段
+            missing = executor.get_missing_required()
+            if missing:
+                state_info["未填必填字段"] = [pf.name for pf in missing]
+
+            # 各字段状态（仅展示已有值的字段）
+            _STATUS_LABELS = {
+                FieldStatus.EMPTY: "空",
+                FieldStatus.FILLED: "已填",
+                FieldStatus.PENDING_CONFIRM: "待确认",
+                FieldStatus.CONFIRMED: "已确认",
+            }
+            field_status_display = {}
+            for pf in executor._policy_fields:
+                status = ws_state.field_statuses.get(pf.name, FieldStatus.EMPTY)
+                value = ws_state.field_values.get(pf.name)
+                if status != FieldStatus.EMPTY or value:
+                    label = _STATUS_LABELS.get(status, str(status))
+                    field_status_display[pf.name] = (
+                        f"{label}: {str(value)[:60]}" if value else label
+                    )
+            if field_status_display:
+                state_info["字段状态"] = field_status_display
+            else:
+                state_info["字段状态"] = "（尚无填写记录）"
+
+            # 累积 Worksheet 字段值（非空）
+            cumulative = {
+                k: (str(v)[:60] + "..." if len(str(v)) > 60 else str(v))
+                for k, v in ws_state.field_values.items()
+                if v not in (None, "", [])
+            }
+            state_info["累积状态"] = cumulative if cumulative else "（暂无）"
 
             return state_info
 
