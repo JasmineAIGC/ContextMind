@@ -283,11 +283,7 @@ class BatchDialogueTest:
             mode: "dst", "evolve", "fnctod", "pytod", 或 "genie"
         """
         self.current_mode = mode
-        
-        # 加载保险场景配置
         self.config = get_insurance_scenario()
-        
-        # 创建 LLM 客户端
         try:
             if self.llm_client is None:
                 self.llm_client = AdkLLMClient()
@@ -310,12 +306,7 @@ class BatchDialogueTest:
         logger.info(f"✅ {mode.upper()} 模式初始化完成")
     
     def _setup_dst_tracker(self):
-        """
-        初始化 DST 模式
-        
-        使用工厂方法简化初始化
-        """
-        # 使用工厂方法创建DST追踪器
+        """初始化 DST 模式"""
         self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -327,12 +318,7 @@ class BatchDialogueTest:
         logger.info("DST模式初始化完成")
     
     def _setup_fnctod_tracker(self):
-        """
-        初始化 FnCTOD 模式
-        
-        使用工厂方法简化初始化
-        """
-        # 使用工厂方法创建FnCTOD追踪器
+        """初始化 FnCTOD 模式"""
         kwargs = {"use_two_stage": True, "max_history_turns": self.max_history_turns}
         if self._fnctod_domain_spec is not None:
             kwargs["domain_spec"] = self._fnctod_domain_spec
@@ -345,11 +331,7 @@ class BatchDialogueTest:
         logger.info("FnCTOD 模式初始化完成")
 
     def _setup_pytod_tracker(self):
-        """
-        初始化 PyTOD 模式（程序执行型任务对话）
-
-        使用工厂方法简化初始化，自动注册保险场景 API。
-        """
+        """初始化 PyTOD 模式（程序执行型任务对话）"""
         kwargs = {"max_history_turns": self.max_history_turns}
         if self._pytod_schema is not None:
             kwargs["schema"] = self._pytod_schema
@@ -387,12 +369,7 @@ class BatchDialogueTest:
         logger.info("Genie 模式初始化完成")
 
     def _setup_evolve_app(self):
-        """
-        初始化 Evolve 模式
-        
-        使用工厂方法简化初始化
-        """
-        # 使用工厂方法创建应用
+        """初始化 Evolve 模式"""
         from contextmind.modes.evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.config.name,

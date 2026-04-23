@@ -6,7 +6,7 @@
 
 ```
 benchmark/
-├── algorithms/               # 算法评测器（指标数据类 + 评测器类）
+├── evaluators/               # 算法评测器（指标数据类 + 评测器类）
 │   ├── __init__.py           # 统一导出 4 个评测器
 │   ├── base.py               # BaseMetrics、BaseEvaluator 抽象基类
 │   ├── dst.py                # DST — 对话状态追踪
@@ -17,29 +17,12 @@ benchmark/
 ├── datasets/                 # 数据集适配器
 │   ├── __init__.py           # 统一导出适配器
 │   ├── base.py               # BaseDatasetAdapter 抽象基类
-│   ├── transfertod/          # TransferTOD 数据集
-│   │   ├── adapter.py        # 数据适配器（TransferTODAdapter）
-│   │   └── utils.py          # 领域意图配置加载器
-│   ├── risawoz/              # RiSAWOZ 数据集
-│   │   ├── adapter.py        # 数据适配器（RiSAWOZAdapter）
-│   │   ├── label_parser.py   # 标签解析器
-│   │   ├── nlu_adapter.py    # NLU 格式适配器
-│   │   └── sgd_converter.py  # SGD 格式转换器
+│   ├── transfertod.py        # TransferTOD 数据集适配器
+│   ├── risawoz.py            # RiSAWOZ 数据集适配器
+│   └── sgd.py                # SGD 数据集适配器
 │
-├── shared/                   # 跨算法/数据集共享组件
-│   ├── intent_evaluator.py   # 意图评测器（IntentEvaluator）
-│   ├── intent_label_loader.py # 意图标签加载器（IntentLabelLoader）
-│   └── configs/              # 意图标签 JSON 配置文件
-│
-├── runners/                  # 评测运行脚本（算法 × 数据集）
-│   ├── run_dst_transfertod.py
-│   ├── run_dst_risawoz.py
-│   └── run_fnctod_transfertod.py
-│
-└── tools/                    # 辅助工具脚本（数据预处理 / 诊断）
-    ├── convert_risawoz_to_sgd.py
-    ├── diagnose_dialogue_count.py
-    └── extract_transfertod_schemas.py
+├── run_benchmark.py          # 统一评测入口（--algorithm × --dataset）
+└── prepare_datasets.py       # 数据集下载与解析工具
 ```
 
 ## 使用方法
@@ -47,47 +30,41 @@ benchmark/
 ### DST 评测
 
 ```bash
-# TransferTOD 数据集
-python benchmark/runners/run_dst_transfertod.py
-python benchmark/runners/run_dst_transfertod.py --domain 酒店 --data-type clean --limit 10
+# RiSAWOZ 数据集（内置，开箱即用）
+python benchmark/run_benchmark.py --algorithm dst --dataset risawoz
+python benchmark/run_benchmark.py --algorithm dst --dataset risawoz --domain 景点 --split val --limit 10
 
-# RiSAWOZ 数据集
-python benchmark/runners/run_dst_risawoz.py
-python benchmark/runners/run_dst_risawoz.py --domain 景点 --split val --limit 10
+# TransferTOD 数据集（需先下载，见 benchmark/prepare_datasets.py）
+python benchmark/run_benchmark.py --algorithm dst --dataset transfertod
+python benchmark/run_benchmark.py --algorithm dst --dataset transfertod --domain 酒店 --data-type clean --limit 10
 ```
 
 ### FnCTOD 评测
 
 ```bash
-python benchmark/runners/run_fnctod_transfertod.py
-python benchmark/runners/run_fnctod_transfertod.py --domain 酒店 --limit 10
+python benchmark/run_benchmark.py --algorithm fnctod --dataset risawoz
+python benchmark/run_benchmark.py --algorithm fnctod --dataset transfertod --domain 酒店 --limit 10
 ```
 
 ### PyTOD 评测
 
 ```bash
-# 目前暂无开放数据集评测脚本，PyTOD 可通过 examples/step3_pytod_trace.py 运行单条追踪演示
+python benchmark/run_benchmark.py --algorithm pytod --dataset sgd --split test --limit 20
+# 单条追踪演示也可通过 examples/step3_pytod_trace.py 运行
 ```
 
-### 辅助工具
+### 数据集准备
 
 ```bash
-# 将 RiSAWOZ 转换为 SGD 格式
-python benchmark/tools/convert_risawoz_to_sgd.py --data-root ./data/RiSAWOZ
-
-# 诊断数据集对话数量
-python benchmark/tools/diagnose_dialogue_count.py --data-root ./data/TransferTOD
-
-# 提取 TransferTOD Schema 信息
-python benchmark/tools/extract_transfertod_schemas.py --data-root ./data/TransferTOD
+# 查看各数据集的下载说明
+python benchmark/prepare_datasets.py --help
 ```
 
 ### Python API
 
 ```python
-from benchmark.algorithms import DSTEvaluator, EvolveEvaluator
+from benchmark.evaluators import DSTEvaluator, EvolveEvaluator
 from benchmark.datasets import TransferTODAdapter
-from benchmark.shared import IntentEvaluator
 
 # DST 评测器
 ev = DSTEvaluator()
@@ -125,15 +102,15 @@ print(ev2.calculate_metrics().to_dict())
 
 ### 添加新数据集
 
-1. 在 `datasets/` 下创建新目录，继承 `BaseDatasetAdapter` 实现 `adapter.py` 和 `__init__.py`
+1. 在 `datasets/` 下创建新文件，继承 `BaseDatasetAdapter` 实现适配器
 2. 在 `datasets/__init__.py` 中导出新适配器
-3. 在 `runners/` 下创建 `run_<algorithm>_<dataset>.py`
+3. 在 `run_benchmark.py` 中注册新 `--dataset` 选项
 
 ### 添加新算法
 
-1. 在 `algorithms/` 下创建 `<algorithm>.py`，继承 `BaseEvaluator` 实现 `<Name>Metrics` + `<Name>Evaluator`
-2. 在 `algorithms/__init__.py` 中导出新评测器
-3. 在 `runners/` 下创建对应的运行脚本
+1. 在 `evaluators/` 下创建 `<algorithm>.py`，继承 `BaseEvaluator` 实现 `<Name>Metrics` + `<Name>Evaluator`
+2. 在 `evaluators/__init__.py` 中导出新评测器
+3. 在 `run_benchmark.py` 中注册新 `--algorithm` 选项
 
 
 ---
@@ -174,24 +151,15 @@ print(ev2.calculate_metrics().to_dict())
 
 ## 意图评测（IntentEvaluator）
 
-`benchmark/shared/intent_evaluator.py` 提供独立的意图评测器，可与任意算法组合使用。
-
 ```python
-from benchmark.shared import IntentEvaluator
+from benchmark.evaluators import DSTEvaluator
 
-evaluator = IntentEvaluator()
-
-# 添加预测结果
+evaluator = DSTEvaluator()
 evaluator.add_prediction(
-    predicted_intents=["查询酒店", "订房"],
-    ground_truth_intents=["查询酒店"],
+    predicted={"酒店-意图": "查询"},
+    ground_truth={"酒店-意图": "查询"},
     domain="酒店"
 )
-
-# 计算指标
 metrics = evaluator.calculate_metrics()
-print(f"Intent Accuracy: {metrics.intent_accuracy:.3f}")
-print(f"Intent F1: {metrics.intent_f1:.3f}")
+print(f"Slot F1: {metrics.slot_f1:.3f}")
 ```
-
-意图标签配置文件位于 `benchmark/shared/configs/`，按领域区分（TransferTOD 格式）。

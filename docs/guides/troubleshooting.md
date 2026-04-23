@@ -201,19 +201,14 @@
 
 **解决方案**:
 
-1. 检查提示词模板
-   ```bash
-   cat contextmind/modes/fnctod/fnctod_prompts.yaml
-   ```
-
-2. 验证 Schema 定义
+1. 验证 Schema 定义
    ```python
    from contextmind.scenarios.registry import scenario_registry
    schema = scenario_registry.get_schema("insurance")
    print(schema)
    ```
 
-3. 启用详细日志
+2. 启用详细日志
    ```python
    from contextmind.infra.logger import get_logger
    logger = get_logger(__name__)
@@ -226,25 +221,20 @@
 
 **解决方案**:
 
-1. 确认已启用记忆
+1. 确认正确初始化 EvolveEngine
    ```python
+   from contextmind.modes.evolve.core.engine import EvolveEngine
    engine = EvolveEngine(
-       enable_memory=True,  # 必须设置
-       memory_limit=50
+       app_name="my_app",
+       user_id="user_001",
+       llm_client=llm_client,
    )
    ```
 
-2. 检查记忆库
+2. 查看当前记忆
    ```python
-   # 查看当前记忆
    memories = engine.session_manager.get_all_memories()
    print(f"记忆数量: {len(memories)}")
-   ```
-
-3. 验证嵌入功能
-   ```python
-   from contextmind.infra.embedding import calculate_embedding_similarity
-   # 测试嵌入计算
    ```
 
 ---

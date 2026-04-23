@@ -204,7 +204,6 @@ def main() -> None:
         print("🔍 详细输出模式已开启")
         print()
 
-    # 初始化 LLM 客户端
     try:
         from contextmind.infra.llm_client import AdkLLMClient, LLMConfig
         llm_client = AdkLLMClient(config=LLMConfig.from_env())

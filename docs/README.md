@@ -37,20 +37,6 @@
 | [更新日志](development/changelog.md) | 版本变更历史 |
 | [Schema 数据生成器设计](development/schema_builder_design.md) | 第二步 SchemaDataBuilder 设计与五阶段流程说明 |
 
-### 研究参考（`research/`）
-
-以下为算法背景论文分析，供深入了解技术选型参考：
-
-| 文档 | 说明 |
-|------|------|
-| [AutoHarness 分析](research/autoharness_analysis.md) | 测试用例自动生成 |
-| [Context Cartography 分析](research/context_cartography_analysis.md) | 上下文映射 |
-| [DDC 分析](research/ddc_analysis.md) | 对话数据压缩 |
-| [DT-MDP-CE 分析](research/dt_mdp_ce_analysis.md) | 对话 MDP 上下文工程 |
-| [Generative Ontology 分析](research/generative_ontology_analysis.md) | 生成式本体 |
-| [Genie Worksheets 分析](research/genie_worksheets_analysis.md) | Genie 工作流 |
-| [TAU Knowledge 分析](research/tau_knowledge_analysis.md) | 任务型知识 |
-
 ---
 
 ## 🏗️ 三步核心框架
@@ -93,8 +79,7 @@ ContextMind/
     ├── algorithms/       #   算法文档（dst、fnctod、pytod、evolve）
     ├── reference/        #   技术参考（architecture、api-reference、benchmark）
     ├── datasets/         #   数据集说明
-    ├── development/      #   开发者文档（CONTRIBUTING、changelog）
-    └── research/         #   学术论文背景分析
+    └── development/      #   开发者文档（CONTRIBUTING、changelog）
 ```
 
 ---

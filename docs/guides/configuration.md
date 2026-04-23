@@ -15,12 +15,6 @@ ContextMind 支持多种 LLM 提供商，通过环境变量进行配置。
 QWEN3_API_KEY=your_qwen_api_key
 QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN3_MODEL=qwen-plus
-
-# 可选：设置超时时间（秒）
-QWEN3_TIMEOUT=60
-
-# 可选：设置最大重试次数
-QWEN3_MAX_RETRIES=3
 ```
 
 **模型选择：**
@@ -35,10 +29,6 @@ QWEN3_MAX_RETRIES=3
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-3.5-turbo
-
-# 可选配置
-OPENAI_TIMEOUT=60
-OPENAI_MAX_RETRIES=3
 ```
 
 **模型选择：**
@@ -65,25 +55,6 @@ OPENAI_MODEL=local-model
 ```bash
 # 日志级别：DEBUG, INFO, WARNING, ERROR, CRITICAL
 LOG_LEVEL=INFO
-
-# 日志文件路径
-LOG_FILE=logs/contextmind.log
-
-# 是否启用彩色日志
-LOG_COLOR=True
-```
-
-### 其他配置
-
-```bash
-# 是否启用调试模式
-DEBUG=False
-
-# 默认场景
-DEFAULT_SCENARIO=chat
-
-# 默认模式
-DEFAULT_MODE=dst
 ```
 
 ## 程序化配置
@@ -196,7 +167,7 @@ result = builder.build_pytod_apis(
 ### Evolve 模式配置
 
 ```python
-from contextmind.modes.evolve import EvolveEngine
+from contextmind.modes.evolve.core.engine import EvolveEngine
 from contextmind.infra.llm_client import AdkLLMClient
 
 llm_client = AdkLLMClient()
@@ -205,31 +176,11 @@ engine = EvolveEngine(
     app_name="my_app",
     user_id="user_001",
     llm_client=llm_client,
-    system_prompt="你是一个友好的助手",
-    
-    # 记忆配置
-    enable_memory=True,  # 启用记忆系统
-    memory_limit=50,  # 记忆库大小限制
-    
-    # 进化配置
-    enable_evolution=True,  # 启用进化学习
-    evolution_interval=10,  # 每10轮触发一次进化
-    
-    # 上下文配置
-    max_context_length=4000,  # 最大上下文长度
-    enable_compression=True,  # 启用上下文压缩
-    
-    # 检索配置
-    retrieval_top_k=5,  # 检索前5条最相关记忆
-    retrieval_threshold=0.6  # 相关性阈值
+    max_recent_events=9999,   # 会话历史保留上限
+    use_summarizer=False,     # 是否启用对话摘要器
+    extraction_method="llm",  # 知识提取方式
 )
 ```
-
-**参数说明：**
-- `enable_memory`: 是否启用长期记忆（默认：True）
-- `memory_limit`: 记忆库最大条目数（默认：50）
-- `enable_evolution`: 是否启用进化学习（默认：True）
-- `evolution_interval`: 进化触发间隔（轮数）（默认：10）
 
 ## 场景配置
 
@@ -255,7 +206,7 @@ insurance_config = get_insurance_scenario()
 ### 自定义场景
 
 ```python
-from contextmind.scenarios.config import ScenarioConfig, ScenarioType
+from contextmind.scenarios.base import ScenarioConfig, ScenarioType
 
 custom_config = ScenarioConfig(
     name="custom",
@@ -293,10 +244,8 @@ custom_config = ScenarioConfig(
 # 减少延迟：使用更快的模型（通过 .env 配置 QWEN3_MODEL=qwen-turbo）
 client = AdkLLMClient()
 
-# 减少成本
-tracker.max_history_turns = 5  # 减少历史轮数
-tracker.use_llm_summary = False  # 不使用 LLM 摘要
-engine.memory_limit = 20  # 减少记忆库大小
+# 减少上下文长度
+tracker.max_history_turns = 5
 
 # 提高质量：使用更强模型，降低随机性
 from contextmind.infra.llm_client import LLMConfig
@@ -356,8 +305,6 @@ async def safe_process(tracker, user_input):
 QWEN3_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 QWEN3_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN3_MODEL=qwen-plus
-QWEN3_TIMEOUT=60
-QWEN3_MAX_RETRIES=3
 
 # 备用 LLM（可选）
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
@@ -366,19 +313,6 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 # 日志配置
 LOG_LEVEL=INFO
-LOG_FILE=logs/contextmind.log
-LOG_COLOR=True
-
-# 应用配置
-DEBUG=False
-DEFAULT_SCENARIO=chat
-DEFAULT_MODE=dst
-
-# 性能配置（可选）
-MAX_HISTORY_TURNS=10
-MEMORY_LIMIT=50
-ENABLE_MEMORY=True
-ENABLE_EVOLUTION=True
 ```
 
 ## 环境变量优先级
@@ -455,9 +389,7 @@ asyncio.run(test_connection())
 ```bash
 # .env.development
 LOG_LEVEL=DEBUG
-DEBUG=True
 QWEN3_MODEL=qwen-turbo  # 快速模型，降低成本
-MAX_HISTORY_TURNS=5
 ```
 
 ### 生产环境
@@ -465,11 +397,7 @@ MAX_HISTORY_TURNS=5
 ```bash
 # .env.production
 LOG_LEVEL=INFO
-DEBUG=False
 QWEN3_MODEL=qwen-plus  # 平衡性能
-MAX_HISTORY_TURNS=10
-ENABLE_MEMORY=True
-ENABLE_EVOLUTION=True
 ```
 
 ### 测试环境
@@ -477,11 +405,7 @@ ENABLE_EVOLUTION=True
 ```bash
 # .env.test
 LOG_LEVEL=WARNING
-DEBUG=False
 QWEN3_MODEL=qwen-turbo
-MAX_HISTORY_TURNS=3
-ENABLE_MEMORY=False
-ENABLE_EVOLUTION=False
 ```
 
 ---

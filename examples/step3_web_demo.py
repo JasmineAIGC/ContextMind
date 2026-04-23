@@ -50,7 +50,6 @@ from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, ge
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
-# 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)
 
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -247,7 +246,6 @@ class UnifiedGradioDemo:
         self.current_scenario = scenario
         self.current_mode = mode
         
-        # 加载场景配置
         if scenario == "chat":
             self.config = get_chat_scenario()
         elif scenario == "callcenter":
@@ -259,7 +257,6 @@ class UnifiedGradioDemo:
         else:
             raise ValueError(f"未知场景: {scenario}")
         
-        # 根据模式初始化
         if mode == "dst":
             self._setup_dst_tracker()
         elif mode == "fnctod":
@@ -297,7 +294,6 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 使用工厂方法创建DST追踪器
         self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -369,7 +365,6 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 使用工厂方法创建应用
         from contextmind.modes.evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.current_scenario,
@@ -395,7 +390,6 @@ class UnifiedGradioDemo:
             if not message or not message.strip():
                 return history
             
-            # 开始计时 - 从接收输入到生成结果
             start_time = time.time()
             
             # 用于记录各步骤耗时
