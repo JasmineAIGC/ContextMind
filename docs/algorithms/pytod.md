@@ -161,9 +161,9 @@ contextmind/modes/pytod/
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
-| P0 | SGD 数据集适配（`benchmark/datasets/sgd/adapter.py`） | ⏳ 待实现 |
-| P0 | pyTOD 评测指标（`benchmark/algorithms/pytod.py`） | ⏳ 待实现 |
-| P1 | 评测脚本（`run_pytod_sgd.py`） | ⏳ 待实现 |
+| P0 | SGD 数据集适配 | ⏳ 待实现 |
+| P0 | pyTOD 评测指标（`benchmark/evaluators/pytod.py`） | ⏳ 待实现 |
+| P1 | 评测命令（`python benchmark/run_benchmark.py --algorithm pytod`） | ⏳ 待实现 |
 | P2 | 与 DST/FnCTOD 对比实验 | ⏳ 待实现 |
 
 ### 评测指标（待实现）
