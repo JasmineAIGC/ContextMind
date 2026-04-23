@@ -162,40 +162,6 @@ ThetaEvolve: 记忆演化
 输出回复 + 更新系统状态
 ```
 
-### 详细步骤说明
-
-#### 步骤1：上下文检索（AlphaEvolve）
-- 使用向量相似度检索历史对话
-- 使用关键词检索记忆库
-- 合并去重检索结果
-- 典型耗时：~0.15s
-
-#### 步骤2：上下文整合（AlphaEvolve）
-- 预处理：去除无关信息
-- 压缩：摘要长文本
-- 重排序：相关性排序
-- 典型耗时：~0.05s
-
-#### 步骤3：LLM生成
-- 使用优化后的上下文
-- 生成高质量回复
-- 典型耗时：~1.5-2.5s（占80-90%）
-
-#### 步骤4：对话更新（AlphaEvolve）
-- 添加到对话历史
-- 更新会话状态
-- 典型耗时：~0.02s
-
-#### 步骤5：知识提取（ThetaEvolve）
-- LLM提取关键知识点
-- 结构化知识表示
-- 典型耗时：~0.08s
-
-#### 步骤6-8：记忆演化（ThetaEvolve）
-- 存储、评估、优化记忆
-- 后台异步执行
-- 不影响响应速度
-
 ## 记忆系统
 
 ### Memory数据模型
@@ -290,54 +256,30 @@ class SessionState:
 ### 基础用法
 
 ```python
+import asyncio
 from contextmind.modes.evolve import create_app_for_scenario
 from contextmind.infra.llm_client import AdkLLMClient
+from contextmind.scenarios import get_chat_scenario
 
 # 创建Evolve应用
 llm_client = AdkLLMClient()
+scenario_config = get_chat_scenario()
 app = create_app_for_scenario(
     scenario_name="chat",
-    llm_client=llm_client
+    llm_client=llm_client,
+    scenario_config=scenario_config,
 )
 
 # 处理对话
-user_input = "你好，我叫张三"
-response = app.chat(user_input)
-print(response)
-# 输出：你好张三！很高兴认识你...
+async def main():
+    response = await app.process_turn("你好，我叫张三")
+    print(response)
 
-# 后续对话（会记住用户名字）
-user_input = "我喜欢打篮球"
-response = app.chat(user_input)
-print(response)
-# 输出：张三，篮球是很好的运动...
-```
+    # 后续对话（会记住用户名字）
+    response = await app.process_turn("我喜欢打篮球")
+    print(response)
 
-### 查看步骤耗时
-
-```python
-print(f"步骤耗时：{app.step_timings}")
-# 输出：
-# {
-#   '上下文检索': 0.15,
-#   '上下文整合': 0.05,
-#   'LLM生成': 1.85,
-#   '对话更新': 0.02,
-#   '知识提取': 0.08
-# }
-```
-
-### 查看记忆库
-
-```python
-# 获取所有记忆
-memories = app.engine.memory_bank.get_all_memories()
-print(f"记忆数量：{len(memories)}")
-
-# 查看最近的记忆
-recent = app.engine.memory_bank.get_recent_memories(n=5)
-for mem in recent:
-    print(f"- {mem.content} (重要性: {mem.importance})")
+asyncio.run(main())
 ```
 
 ### 自定义配置
@@ -352,7 +294,7 @@ config = MemorySystemConfig(
 app = create_app_for_scenario(
     scenario_name="chat",
     llm_client=llm_client,
-    config=config
+    scenario_config=config,
 )
 ```
 
@@ -390,30 +332,6 @@ app = create_app_for_scenario(
 - ❌ 配置相对复杂
 - ❌ 冷启动时效果一般（记忆库为空）
 
-## AlphaEvolve vs ThetaEvolve
-
-### AlphaEvolve（上下文层）
-
-- **作用域**：单次对话处理
-- **优化目标**：上下文质量
-- **主要操作**：检索、整合、压缩、重排序
-- **执行时机**：每次对话处理时
-
-### ThetaEvolve（记忆层）
-
-- **作用域**：跨对话长期记忆
-- **优化目标**：记忆库质量
-- **主要操作**：提取、存储、评估、演化
-- **执行时机**：对话后台异步
-
-### 协同工作
-
-```
-AlphaEvolve使用ThetaEvolve的记忆库 → 生成更好的上下文
-ThetaEvolve从对话中提取知识 → 优化记忆库
-形成正向循环 → 系统越用越智能
-```
-
 ## 配置和扩展
 
 ### 自定义检索策略
@@ -444,10 +362,6 @@ Evolve支持插件扩展：
 - 自定义记忆提取器
 - 自定义适应度函数
 - 自定义上下文处理组件
-
-## 总结
-
-Evolve模式是基于AlphaEvolve和ThetaEvolve算法的先进对话系统，通过智能的记忆管理和上下文优化，实现了真正智能和个性化的对话体验。它特别适合需要长期记忆、上下文理解和个性化服务的应用场景。
 
 ## 参考资料
 

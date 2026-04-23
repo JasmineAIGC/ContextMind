@@ -3,40 +3,10 @@
 
 将任意对话数据集经过两步处理，输出标准 SGD 格式 ``schema.json``：
 
-1. **发现阶段**（Discovery）：
-   使用 :class:`~contextmind.knowledge.discoverer.GenericDialogueDiscoverer` 以开放式模式
-   扫描样本对话，通过 ``langextract`` 逐轮提取知识并为每条结果附加原文溯源。
-   不依赖任何特定场景模块，可用于任意业务场景。
+1. **发现阶段**（Discovery）：使用 LLM 以开放式模式逐轮提取知识，附加原文溯源。
+2. **合成阶段**（Synthesis）：将槽位/意图计数及样本通过 LLM 合成规范化的 SGD ServiceSchema JSON。
 
-2. **合成阶段**（Synthesis）：
-   将发现阶段收集到的槽位/意图计数及样本，调用 LLM 第二次，
-   输出规范化的 SGD ServiceSchema JSON。
-
-输出的 ``schema.json`` 格式为标准 SGD ServiceSchema，
-可直接传入 :class:`~contextmind.modes.pytod.AdkPyTODTracker` 使用。
-
-**模块独立性**：本模块不依赖 ``contextmind.modes`` 或
-``contextmind.scenarios`` 等其他子模块，仅依赖 ``contextmind.infra``
-（基础设施）和 ``langextract``（知识溯源）。
-
-典型用法::
-
-    import json
-    from pathlib import Path
-    from contextmind.knowledge import KnowledgeBaseBuilder
-
-    dialogues = json.loads(Path("my_dialogues.json").read_text())
-
-    builder = KnowledgeBaseBuilder(
-        scene_name="银行贷款外呼",
-        scene_description="银行客服主动致电老客户推介个人贷款产品",
-    )
-    schema_dict = builder.build(dialogues[:20])   # 用前 20 条做发现
-    builder.save(schema_dict, Path("output/schema.json"))
-
-    # Phase 1 → Phase 2 桥接（在调用方完成，不在 kb 模块内）：
-    from contextmind.modes.pytod.schemas import ServiceSchema
-    service_schema = ServiceSchema.from_dict(schema_dict)
+输出的 ``schema.json`` 可直接传入 :class:`~contextmind.modes.pytod.AdkPyTODTracker` 使用。
 """
 
 from __future__ import annotations
@@ -166,9 +136,7 @@ class KnowledgeBaseBuilder:
         self.last_slot_counter: Counter = Counter()
         self.last_intent_counter: Counter = Counter()
         self.last_fact_counter: Counter = Counter()
-        # 最近一次 build_dataset() 发现阶段的逐轮原始 DiscoveryItem 列表。
-        # 结构：List[ List[ (turn_idx, speaker, utterance, [DiscoveryItem, ...]) ] ]
-        # 每项对应一条对话，可通过 save_dataset() 写入 discovery_raw.json。
+        # 发现阶段逐轮原始 DiscoveryItem 列表，可通过 save_dataset() 写入 discovery_raw.json
         self.last_discovery_turns: List[Any] = []
 
     # ------------------------------------------------------------------

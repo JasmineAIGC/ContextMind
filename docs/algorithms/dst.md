@@ -107,7 +107,7 @@ class DSTMetrics:
 ### `DSTEvaluator` 评测器
 
 ```python
-from benchmark.algorithms.dst import DSTEvaluator
+from benchmark.evaluators import DSTEvaluator
 
 evaluator = DSTEvaluator()
 

@@ -108,20 +108,6 @@ FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.
 
 ## Schema 定义
 
-### 从 TransferTOD 数据集提取 Schema
-
-```bash
-# 提取所有域的 Schema
-python benchmark/extract_transfertod_schemas.py \
-    --data-root ./data/TransferTOD \
-    --output benchmark/configs/transfertod_schemas.json
-
-# 诊断缺失的域
-python benchmark/extract_transfertod_schemas.py \
-    --data-root ./data/TransferTOD \
-    --diagnostics
-```
-
 ### Schema 格式
 
 ```python
@@ -195,7 +181,7 @@ class FnCTODMetrics:
 ### `FnCTODEvaluator` 评测器
 
 ```python
-from benchmark.algorithms.fnctod import FnCTODEvaluator
+from benchmark.evaluators import FnCTODEvaluator
 
 evaluator = FnCTODEvaluator()
 

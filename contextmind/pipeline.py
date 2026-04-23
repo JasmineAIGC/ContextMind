@@ -20,62 +20,7 @@ ContextPipeline — 通用上下文工程流水线
 - ``"evolve"``：**不需要** schema.json。演化式上下文优化（会话历史 + 长期记忆检索）。
 
 ``ContextPipeline`` 灵活整合三步流程，用户无需了解底层算法细节。
-
-典型用法
---------
-
-**端到端：从原始对话数据到上下文提取**::
-
-    import asyncio
-    from contextmind.pipeline import ContextPipeline
-    from contextmind.infra.llm_client import AdkLLMClient
-
-    pipeline = ContextPipeline(llm_client=AdkLLMClient())
-
-    # Phase 1: 从原始对话构建知识库
-    pipeline.build_kb(
-        dialogues=my_dialogues,
-        scene_name="银行贷款外呼",
-        scene_description="银行客服主动致电老客户推介个人贷款产品",
-    )
-
-    # Phase 2: 处理对话轮次，提取上下文
-    async def chat():
-        result = await pipeline.process_turn("我想查询我的贷款额度")
-        print(result["response"])      # 生成的回复
-        print(result["context"])       # 提取的上下文（槽位、意图等）
-        print(result["program_text"])  # PyTOD 程序（可选，仅 pytod 模式）
-
-    asyncio.run(chat())
-
-**从已保存的 schema.json 加载**::
-
-    pipeline = ContextPipeline(llm_client=AdkLLMClient())
-    pipeline.load_kb("output/schema.json")
-
-    result = await pipeline.process_turn("我是李明，想了解贷款利率")
-
-**注册自定义 API 函数（PyTOD 专用）**::
-
-    pipeline = ContextPipeline(llm_client=AdkLLMClient())
-    pipeline.load_kb("output/schema.json")
-
-    @pipeline.register_api("query_loan_info")
-    def query_loan_info(customer_name: str) -> dict:
-        return {"credit_limit": 50000, "interest_rate": 0.12}
-
-    result = await pipeline.process_turn("查询一下我的额度")
-
-**不需要 schema 的模式（DST / Evolve）**::
-
-    # DST：直接初始化，无需 build_kb/load_kb
-    pipeline = ContextPipeline(llm_client=AdkLLMClient(), mode="dst")
-    result = await pipeline.process_turn("我想了解贷款利率")
-
-    # Evolve：上下文优化，基于会话历史和长期记忆
-    pipeline = ContextPipeline(llm_client=AdkLLMClient(), mode="evolve",
-                               scene_name="银行贷款外呼")
-    result = await pipeline.process_turn("我想了解贷款利率")
+典型用法见 ``examples/`` 目录。
 """
 
 from __future__ import annotations
@@ -213,11 +158,9 @@ class ContextPipeline:
         self.tracker: Optional[Any] = None
         self._engine: Optional[Any] = None
         self._kb_builder: Optional[KnowledgeBaseBuilder] = None
-        # schema.json 路径（load_kb() 时设置），用于自动加载同目录下的
-        # companion *_pytod_apis.py 预生成函数文件
+        # schema.json 路径（load_kb() 时设置），用于自动加载同目录下的 *_pytod_apis.py
         self._schema_path: Optional[Path] = None
 
-        # 用于记录最近一次 build_kb() 的统计摘要
         self.last_build_summary: Dict[str, Any] = {}
 
     # ------------------------------------------------------------------
@@ -394,7 +337,6 @@ class ContextPipeline:
                 "提示：若使用 mode='dst' 或 mode='evolve'，可直接调用 process_turn() 无需 schema。"
             )
 
-        # 延迟初始化追踪器（当 llm_client 在 set_schema 时还不可用的情况）
         if self.tracker is None:
             self._init_tracker()
 

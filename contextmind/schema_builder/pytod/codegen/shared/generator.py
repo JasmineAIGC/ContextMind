@@ -1,20 +1,8 @@
 """
 基于 LLM 的 PyTOD API 代码生成器（功能二：意图代码生成）。
 
-:class:`PyTODApiCodeGenerator` 负责功能二「意图代码生成」的 LLM 调用层，
-专注于代码的生成与修复：
-
-- **Phase 3** (:meth:`~PyTODApiCodeGenerator.generate_function_body`)：
-  可选带 few-shot 测试用例的单函数体生成。
-- **Phase 4** (:meth:`~PyTODApiCodeGenerator.repair_function`)：
-  迭代修复：根据失败详情重新生成函数体。
-
-测试用例生成（Phase 2）已迁移至
-:class:`~contextmind.schema_builder.pytod.testcase.generator.TestCaseGenerator`。
-LLM 输出清洗辅助函数已迁移至 :mod:`~contextmind.schema_builder.pytod.codegen.shared.cleaner`。
-KB 上下文数据加载（由 TestCaseGenerator 管理）位于
-:mod:`~contextmind.schema_builder.pytod.testcase.kb_loader`。
-本模块为向后兼容保留对 :func:`clean_llm_function_body` 和 :func:`clean_llm_module` 的再导出。
+负责函数体生成（含可选 few-shot 测试用例）与迭代修复，
+向后兼容保留对 :func:`clean_llm_function_body` 和 :func:`clean_llm_module` 的再导出。
 """
 
 from __future__ import annotations

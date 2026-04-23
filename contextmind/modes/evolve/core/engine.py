@@ -36,12 +36,7 @@ logger = get_logger(__name__)
 
 class EvolveEngine:
     """
-    进化引擎，专注于上下文优化。
-
-    自动利用 Google ADK 基础设施：
-    - InMemorySessionService：管理多轮对话会话生命周期
-    - InMemoryMemoryService：跨会话语义记忆检索
-    两个服务在调用方未显式传入时自动创建，无需手动初始化。
+    进化引擎，负责上下文优化。
 
     核心接口：optimize()、update()、handle_response()、extract_knowledge()。
     """

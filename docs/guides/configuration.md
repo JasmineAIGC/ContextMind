@@ -119,7 +119,6 @@ config = get_insurance_scenario()
 tracker = FnCTODTracker.from_scenario(
     llm_client=llm_client,
     scenario_config=config,
-    use_two_stage=True  # 启用两阶段处理
 )
 
 # 配置历史管理
@@ -127,7 +126,7 @@ tracker.max_history_turns = 10
 ```
 
 **参数说明：**
-- `use_two_stage`: 是否使用两阶段处理（先选择domain，再调用函数）
+- `max_history_turns`: 保留的完整对话轮数（默认：10）
 
 ### SchemaDataBuilder 配置（第二步，PyTOD 可选）
 

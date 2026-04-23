@@ -94,7 +94,7 @@
 
 1. 检查 `scenarios.yaml` 文件
    ```bash
-   cat contextmind/config/scenarios.yaml
+   cat contextmind/scenarios/scenarios.yaml
    ```
 
 2. 验证场景名称拼写

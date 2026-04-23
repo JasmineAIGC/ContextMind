@@ -149,10 +149,11 @@ PyTOD 核心算法已在 `contextmind/modes/pytod/` 目录下完整实现：
 contextmind/modes/pytod/
 ├── __init__.py           # 模块入口，导出所有公共接口
 ├── tracker.py            # AdkPyTODTracker — 主追踪器（三步流程协调）
-├── prompt_builder.py     # PyTODPromptBuilder — 动作解析器和对话管理器 prompt 构建
+├── prompts.py            # PyTODPromptBuilder — 动作解析器和对话管理器 prompt 构建
 ├── execution_engine.py   # ExecutionEngine — 安全解析并执行程序语句
-├── schema.py             # ServiceSchema / IntentDefinition / SlotDefinition
-└── validator.py          # ActionValidator — 动作合法性校验
+├── registry.py           # 意图注册表
+├── schemas.py            # ServiceSchema / IntentDefinition / SlotDefinition
+└── tracker.py            # AdkPyTODTracker — 主追踪器
 ```
 
 ### 待完成（评测集成）

@@ -1,8 +1,7 @@
 """
 对话状态追踪器（Dialogue State Tracker）
 
-基于 ACL 2023 论文的增强实现，使用 Google ADK LlmAgent + InMemoryRunner
-进行 LLM 驱动的槽位提取，支持：
+零样本槽位提取，使用 Google ADK LlmAgent + InMemoryRunner 进行 LLM 驱动的槽位提取，支持：
 - ADK 原生 Session 管理（历史由 InMemoryRunner 自动维护）
 - 动态槽位提取
 - 多意图追踪
@@ -46,7 +45,6 @@ class DialogueTurn:
     user_utterance: str
     predicted_state: Dict[str, str] = field(default_factory=dict)
     turn_updates: Dict[str, str] = field(default_factory=dict)
-    # 保留原始 LLM 响应，供调试和离线分析使用；状态追踪本身不依赖此字段。
     raw_llm_response: Optional[str] = None
 
 
