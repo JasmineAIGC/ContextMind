@@ -63,11 +63,7 @@ _DISCOVERY_CLASS_ORDER: Dict[str, int] = {"intent": 0, "slot_value": 1, "fact": 
 
 
 def _print_schema_brief(prefix: str, schema_dict: Dict[str, Any]) -> None:
-    """将 schema 的槽位和意图名称以简洁格式打印到终端。
-
-    用于在提取→合并→融合的增量流程中，在每个关键阶段打印中间结果，
-    让用户能够实时看到 schema 内容的变化。
-    """
+    """将 schema 的槽位和意图名称以简洁格式打印到终端。"""
     slots = schema_dict.get("slots", [])
     intents = schema_dict.get("intents", [])
     slot_names = [s.get("name", "?") for s in slots]
@@ -88,21 +84,7 @@ def _format_dialogue_snippets(
     max_dialogues: int = 3,
     max_chars_per_dlg: int = 500,
 ) -> str:
-    """将少量归一化对话格式化为可读文本片段，供 polish prompt 使用。
-
-    参数
-    ----
-    normalized_dialogues:
-        normalize_dialogues() 返回的对话列表（内部标准格式）。
-    max_dialogues:
-        最多取用的对话条数。
-    max_chars_per_dlg:
-        每条对话的最大字符数（超出时截断）。
-
-    返回
-    ----
-    格式化的多条对话文本，每条以「【对话 N】」为标题。
-    """
+    """将少量归一化对话格式化为可读文本片段，供 polish prompt 使用。"""
     snippets: List[str] = []
     for i, dlg in enumerate(normalized_dialogues[:max_dialogues], 1):
         lines: List[str] = []
@@ -156,33 +138,9 @@ class KnowledgeBaseBuilder:
     """
     通用知识库构建器：任意对话数据 → SGD ``schema.json``。
 
-    参数
-    ----
-    scene_name:
-        业务场景的中文名称（如 ``"银行贷款外呼"``），用于 LLM 提示词。
-    scene_description:
-        场景简短描述（一句话），可为空；留空则使用 ``scene_name``。
-    llm_client:
-        :class:`~contextmind.infra.llm_client.AdkLLMClient` 实例；
-        若为 ``None``，从 ``.env`` 自动加载。
-    discovery_sample:
-        发现阶段最多使用的对话条数（默认 20）。
-        数量越多、发现越全面，但 LLM 调用次数也越多。
-    context_window:
-        langextract 逐轮提取时的历史轮次窗口大小（默认 3）。
-        传入 ``additional_context`` 的历史轮次数；0 = 不传历史上下文。
-    workers:
-        发现阶段并行工作线程数（默认 1，即串行）。
-        ``build_dataset`` 会使用 ``ThreadPoolExecutor`` 并发执行各对话的
-        ``extract_per_turn`` LLM 调用，可显著缩短大批量对话的总耗时。
-        受限于 LLM API 的并发速率限制，建议不超过 8。
-
-    属性
-    ----
-    last_slot_counter:
-        最近一次 :meth:`build` 发现阶段产生的槽位计数器（供调试）。
-    last_intent_counter:
-        最近一次 :meth:`build` 发现阶段产生的意图计数器（供调试）。
+    discovery_sample: 发现阶段最多使用的对话条数（默认 20）。
+    context_window: langextract 逐轮提取时的历史轮次窗口大小（默认 3；0 = 不传历史）。
+    workers: 并发线程数（默认 1；受 LLM API 速率限制，建议不超过 8）。
     """
 
     def __init__(
@@ -221,31 +179,10 @@ class KnowledgeBaseBuilder:
         self,
         dialogues: List[Any],
     ) -> Dict[str, Any]:
-        """
-        对输入对话执行完整的两阶段知识库构建流程。
+        """从对话列表执行两阶段知识库构建，返回单服务 SGD schema dict。
 
-        参数
-        ----
-        dialogues:
-            对话列表，每项可为以下任一格式：
-
-            - ``str``：平铺文本（换行分隔，每行含说话人前缀）
-            - ``List[str]``：每项为一轮话语
-            - ``dict``（chat_test 格式，含 ``对话历史``）
-            - ``dict``（SGD 格式，含 ``turns``）
-
-        返回
-        ----
-        SGD 格式的 **单服务** schema dict（不带顶层列表包裹）::
-
-            {
-              "service_name": "...",
-              "description": "...",
-              "slots": [...],
-              "intents": [...]
-            }
-
-        将其包入列表 ``[schema_dict]`` 即可写入标准 ``schema.json``。
+        dialogues 支持多种格式（str、List[str]、chat_test dict、SGD dict）。
+        返回值包裹进列表 ``[schema_dict]`` 可直接写入标准 schema.json。
         """
         logger.info(
             f"[KnowledgeBaseBuilder] 场景: {self.scene_name!r}，"
@@ -269,17 +206,7 @@ class KnowledgeBaseBuilder:
         schema_dict: Dict[str, Any],
         path: Union[str, Path],
     ) -> None:
-        """
-        将 schema dict 包入列表并写入标准 SGD ``schema.json`` 文件。
-
-        参数
-        ----
-        schema_dict:
-            :meth:`build` 返回的单服务 schema dict。
-        path:
-            输出文件路径（如 ``"output/schema.json"``）。
-            父目录不存在时自动创建。
-        """
+        """将 schema dict 包入列表并写入标准 SGD schema.json，父目录不存在时自动创建。"""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
@@ -292,27 +219,10 @@ class KnowledgeBaseBuilder:
         self,
         dialogues: List[Any],
     ) -> Dict[str, Any]:
-        """
-        构建完整的 SGD 格式数据集：``schema.json`` + ``dialogues_*.json``。
+        """构建完整的 SGD 数据集：schema + SGD 格式标注对话。
 
-        与 :meth:`build` 相比，此方法额外生成 SGD 格式的标注对话文件，
-        将输入对话转换为含 ``turns / frames / state`` 的 SGD 标注结构。
-
-        参数
-        ----
-        dialogues:
-            对话列表，格式同 :meth:`build`。
-
-        返回
-        ----
-        ::
-
-            {
-              "schema": schema_dict,            # 单服务 schema（同 build() 返回值）
-              "dialogues": [sgd_dlg, ...],      # SGD 格式标注对话列表
-            }
-
-        使用 :meth:`save_dataset` 将结果写入磁盘。
+        返回 ``{"schema": schema_dict, "dialogues": [sgd_dlg, ...]}``，
+        使用 :meth:`save_dataset` 写入磁盘。
         """
         logger.info(
             f"[KnowledgeBaseBuilder] 数据集构建：场景 {self.scene_name!r}，"

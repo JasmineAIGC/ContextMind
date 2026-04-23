@@ -2,41 +2,14 @@
 通用对话发现器（GenericDialogueDiscoverer）
 
 从单条对话中开放式发现槽位（slot_value）和意图（intent）。
-通过 ``langextract`` 为每条提取结果附加字符级**溯源信息**（provenance），
-指向知识来源的原始轮次话语位置。
-
-当 ``langextract`` 未安装时，自动降级为纯 LLM 提取模式（``provenance=None``）。
-
-依赖关系
---------
-本模块是 ``contextmind.knowledge`` 的子模块，**仅依赖**：
-
-- ``contextmind.infra.llm_client``（项目基础设施，非业务场景模块）
-- ``contextmind.infra.logger``（同上）
-- ``langextract``（知识溯源，可选依赖；未安装时自动降级）
-
-不依赖 ``contextmind.modes.*`` 或 ``contextmind.scenarios.*`` 等其他子模块。
-
-基本用法（有 langextract）::
-
-    from contextmind.knowledge.discoverer import GenericDialogueDiscoverer
-    from contextmind.infra.llm_client import AdkLLMClient
-
-    discoverer = GenericDialogueDiscoverer(
-        llm_client=AdkLLMClient(),
-        scene_name="银行贷款外呼",
-    )
-    items = discoverer.extract({"对话历史": [{"机器人": "你好", "用户": "你好"}]})
-    for item in items:
-        print(f"[{item.extraction_class}] {item.label}: {item.value}")
-        if item.provenance:
-            print(f"  溯源: {item.provenance}")
+通过 ``langextract`` 为每条提取结果附加字符级溯源（provenance），
+指向知识来源的原始话语位置。langextract 未安装时自动降级为纯 LLM 提取模式。
 
 溯源字段格式
 -----------
 - 溯源成功：``「原文片段」[第N轮(说话人) 位置 start:end]``
 - 溯源失败：``「原文片段」[第N轮(说话人) 溯源失败]``
-- 降级模式：``None``（langextract 未安装）
+- 降级模式：``None``
 """
 
 from __future__ import annotations
@@ -86,22 +59,8 @@ except ImportError:  # pragma: no cover
 class DiscoveryItem:
     """单条开放式发现结果项，含可选的原文溯源信息。
 
-    属性
-    ----
-    extraction_class:
-        ``"slot_value"``、``"intent"`` 或 ``"fact"``。
-    label:
-        槽位/意图名称（英文小写下划线）。
-    value:
-        提取的值（槽位的具体值，或意图的中文描述）。
-    provenance:
-        原文溯源字符串；仅在 ``langextract`` 可用时填充。格式：
-
-        - 溯源成功：``「原文片段」[第N轮(说话人) 位置 start:end]``
-        - 溯源失败：``「原文片段」[第N轮(说话人) 溯源失败]``
-        - 降级模式：``None``
-    extraction_text:
-        langextract 返回的逐字原文片段；用于在 SGD 对话中定位字符区间。
+    extraction_class: ``"slot_value"``、``"intent"`` 或 ``"fact"``
+    provenance: 溯源字符串，仅在 langextract 可用时填充
     """
 
     extraction_class: str
@@ -117,10 +76,7 @@ class DiscoveryItem:
 
 
 def _strip_code_fences(text: str) -> str:
-    """从 LLM 输出中提取代码块内容（如 ```yaml ... ``` 或 ```json ... ```）。
-
-    若文本包含代码围栏，则返回围栏内的内容；否则原样返回。
-    """
+    """提取 LLM 输出中 ``` 代码围栏内的内容，无围栏时原样返回。"""
     m = re.search(r"```(?:yaml|json)?\s*([\s\S]+?)\s*```", text)
     if m:
         return m.group(1).strip()
@@ -128,31 +84,14 @@ def _strip_code_fences(text: str) -> str:
 
 
 def _sanitize_infer_yaml(text: str) -> str:
-    """清洗 LLM 返回的 YAML/JSON 文本，过滤非法条目，并返回 JSON 字符串。
+    """清洗 LLM 返回的 YAML/JSON 文本，过滤非法条目，返回带 ``extractions`` 包装键的 JSON 字符串。
 
-    LLM 输出可能有两种格式：
+    支持三种格式：
+    - 格式 A：``{"extraction_class": ..., "extraction_text": ..., "attributes": {...}}``
+    - 格式 B：``{"intent": ..., "intent_attributes": {...}}``（langextract 原生）
+    - 格式 C：``{"extractions": [{...}, ...]}``（已含包装键）
 
-    **格式 A**（按本模块 prompt 描述的格式）：
-      ``{"extraction_class": "intent", "extraction_text": "...", "attributes": {...}}``
-
-    **格式 B**（langextract 原生格式，由示例引导）：
-      ``{"intent": "...", "intent_attributes": {...}}``
-
-    两种格式均做如下清洗：
-    - 格式 A：``extraction_text`` 非 str/int/float 的条目（如 null、dict）→ 过滤掉；
-      ``attributes`` 字段重命名为 ``{extraction_class}_attributes``（符合 langextract 规范）
-    - 格式 B：非 ``_attributes`` 后缀键的值若为 dict/None → 过滤该条目（避免
-      ``ERROR:absl:Extraction text must be a string, integer, or float``）
-
-    返回包含 ``extractions`` 包装键的 JSON 字符串以匹配 langextract ``FormatType.JSON``
-    要求（``format_handler`` 默认 ``use_wrapper=True, wrapper_key='extractions'``）。
-    解析失败时返回空包装对象，防止含非法值的内容传入 langextract。
-
-    **格式 C**（LLM 跟随 langextract 内置示例输出，已含包装键）：
-      ``{"extractions": [{...}, ...]}``
-
-    格式 C 直接提取 ``extractions`` 字段进行清洗后再次包装，避免因
-    ``isinstance(parsed, list)`` 判断失败而错误地返回空结果。
+    非法 extraction_text（非 str/int/float）和非法属性值均被过滤；解析失败返回空包装对象。
     """
     _EMPTY = '{"extractions": []}'
     try:
@@ -237,16 +176,7 @@ def _sanitize_infer_yaml(text: str) -> str:
 
 
 class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
-    """将 :class:`~contextmind.infra.llm_client.AdkLLMClient` 适配为
-    langextract ``BaseLanguageModel`` 接口。
-
-    通过此适配器，可将现有的 ADK/OpenAI 兼容 LLM 端点无缝接入
-    ``lx.extract()`` 的完整提取管道（Annotator → Resolver → WordAligner
-    → ``char_interval``），而无需切换到 Gemini 内置模型。
-
-    参数:
-        client: 已初始化的 :class:`~contextmind.infra.llm_client.AdkLLMClient` 实例
-    """
+    """将 AdkLLMClient 适配为 langextract BaseLanguageModel 接口。"""
 
     def __init__(self, client: AdkLLMClient) -> None:
         super().__init__()
@@ -257,18 +187,7 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
         batch_prompts: Sequence[str],
         **kwargs: Any,
     ) -> Iterator[Sequence[Any]]:
-        """实现 langextract ``BaseLanguageModel.infer()`` 接口。
-
-        逐条处理 ``batch_prompts``，调用 ``AdkLLMClient.generate()`` 获取响应，
-        并包装为 ``ScoredOutput(score=1.0, output=text)``。
-
-        参数:
-            batch_prompts: 待推理的 prompt 列表
-            **kwargs:      预留参数（当前忽略）
-
-        Yields:
-            每个 prompt 对应一个 ``[ScoredOutput]`` 列表
-        """
+        """实现 langextract BaseLanguageModel.infer() 接口，逐条调用 LLM 并包装为 ScoredOutput。"""
         if not _LANGEXTRACT_AVAILABLE:  # pragma: no cover
             raise RuntimeError("langextract 未安装，无法使用 AdkLLMClientAdapter")
         for prompt in batch_prompts:

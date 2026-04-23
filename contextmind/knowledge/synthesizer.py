@@ -242,12 +242,7 @@ def _fill_schema_defaults(
     schema_dict: Dict[str, Any],
     scene_name: str = "",
 ) -> Dict[str, Any]:
-    """确保 schema dict 中所有必需字段都有值，缺失时填充默认值并记录警告。
-
-    LLM 可能省略某些字段（如 ``description``、``is_categorical``、
-    ``result_slots`` 等），此函数在解析后统一补全，避免下游模块
-    因 KeyError / AttributeError 崩溃。
-    """
+    """补全 LLM 可能省略的 schema 字段，避免下游 KeyError / AttributeError。"""
     missing: List[str] = []
 
     # ── 顶层字段 ──────────────────────────────────────────────────────
@@ -295,15 +290,7 @@ def _fill_schema_defaults(
 
 
 def _merge_service_list(items: List[Any]) -> Optional[Dict[str, Any]]:
-    """将列表中所有 dict 元素合并为一个 schema dict。
-
-    slots 和 intents 按 ``name`` 字段去重合并（后出现的覆盖先出现的），
-    其余顶层字段取第一个非空元素的值。
-
-    用于以下两种场景：
-    1. LLM 将 schema 拆分为多个服务对象返回时的合并（在 ``_try_parse_json`` 中调用）。
-    2. 多批次合成结果的合并（在 ``SchemaSynthesizer.synthesize`` 中调用）。
-    """
+    """将列表中所有 dict 元素合并为一个 schema dict（slots/intents 按 name 去重，后覆盖前）。"""
     dicts = [item for item in items if isinstance(item, dict)]
     if not dicts:
         return None
@@ -325,12 +312,7 @@ def _merge_service_list(items: List[Any]) -> Optional[Dict[str, Any]]:
 
 
 def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
-    """尝试从 LLM 响应中解析 JSON，支持 markdown 代码块包裹。
-
-    若 LLM 将 schema 包裹在数组中（如 ``[{...}]``），将数组中所有 dict 元素合并为
-    一个 schema dict：slots 和 intents 列表跨所有元素合并，其余字段取第一个元素的值。
-    这能正确处理 LLM 将 100+ 个意图拆分到多个服务对象中的情况。
-    """
+    """尝试从 LLM 响应中解析 JSON，支持 markdown 代码块包裹和数组形式的多服务合并。"""
 
     def _unwrap(obj: Any) -> Optional[Dict[str, Any]]:
         """若 obj 是 dict 则直接返回；若是非空 list 则合并所有 dict 元素。"""
@@ -374,15 +356,7 @@ def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
 
 
 class SchemaSynthesizer:
-    """
-    将开放式发现结果合成为干净的 SGD ServiceSchema。
-
-    参数
-    ----
-    llm_client:
-        :class:`contextmind.infra.llm_client.AdkLLMClient` 实例；
-        若为 None，则从 ``.env`` 自动加载。
-    """
+    """将开放式发现结果合成为干净的 SGD ServiceSchema。"""
 
     def __init__(self, llm_client: Optional[AdkLLMClient] = None) -> None:
         if llm_client is None:
@@ -400,16 +374,7 @@ class SchemaSynthesizer:
     # ------------------------------------------------------------------
 
     def _chat_sync(self, messages: List[Dict[str, Any]]) -> str:
-        """以同步方式调用 LLM 的 chat_async（复用 generate 的 asyncio 模式）。
-
-        与 ``AdkLLMClient.generate()`` 保持一致：
-        - 若调用方已有运行中的 event loop（如 Jupyter / async 上下文），
-          在独立线程中以 ``asyncio.run()`` 执行，避免嵌套 loop 报错。
-        - 否则，通过全局共享事件循环（``_get_shared_loop()``）执行，
-          确保 litellm 内部的 LoggingWorker 等后台任务始终在同一个不关闭的
-          loop 中运行，彻底消除 ``asyncio.run()`` 关闭 loop 时产生的
-          ``Task was destroyed but it is pending!`` 错误。
-        """
+        """同步调用 LLM chat_async，兼容运行中的 event loop（Jupyter / async 上下文）。"""
         import asyncio
         import concurrent.futures
         from contextmind.infra.llm_client import _get_shared_loop
@@ -447,18 +412,10 @@ class SchemaSynthesizer:
         fact_sample_descs: Dict[str, List[str]],
         batch_label: str = "",
     ) -> Tuple[Dict[str, Any], int]:
-        """单批次 LLM 合成调用，支持渐进式缩减重试。
+        """单批次 LLM 合成调用；超出上下文限制时自动减半重试直至最低 10 条。
 
-        当输入条目数超出模型上下文窗口时，自动将每类最大条目数减半后重试，
-        直到成功或降至最低下限 10。
-
-        Args:
-            batch_label: 批次标识（如 "批次 1/3"），用于日志显示；空串时不显示批次信息。
-
-        Returns:
-            ``(schema_dict, effective_max_items)``：合成结果与本次实际展示给 LLM 的
-            每类最大条目数。当 ``effective_max_items < len(intent_counter)`` 时，
-            说明部分意图未被展示，调用方应用剩余意图再次调用本方法。
+        返回 ``(schema_dict, effective_max_items)``；effective_max_items < len(intent_counter)
+        时表示部分意图未展示，调用方需用剩余意图再次调用。
         """
         max_items = 200
         response: Optional[str] = None

@@ -454,10 +454,9 @@ class BatchDialogueTest:
                 continue
             if line.startswith('#'):
                 continue
-            
-            # 解析销售员发言
+
+            # 解析销售员/客户发言
             if line.startswith('销售员：') or line.startswith('销售员:'):
-                # 如果之前有完整的对话轮次，保存
                 if current_user and current_system:
                     turns.append({
                         'system_utterance': ' '.join(current_system),
@@ -465,28 +464,21 @@ class BatchDialogueTest:
                     })
                     current_system = []
                     current_user = []
-                
-                # 使用辅助函数提取销售员内容
                 content = self._extract_content_after_colon(line, '销售员')
                 if content:
                     current_system = [content]
-            
-            # 解析客户发言
+
             elif line.startswith('客户：') or line.startswith('客户:'):
-                # 使用辅助函数提取客户内容
                 content = self._extract_content_after_colon(line, '客户')
                 if content:
                     if current_user:
-                        # 同一轮中多条客户发言，合并
-                        current_user.append(content)
+                        current_user.append(content)  # 同一轮多条客户发言合并
                     else:
                         current_user = [content]
-            
-            # 其他内容（可能是续行）
+
             else:
-                # 不处理无法识别的行
-                pass
-        
+                pass  # 忽略无法识别的行
+
         # 保存最后一轮
         if current_user and current_system:
             turns.append({
@@ -509,19 +501,17 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         results = []
-        result_text = ""  # 初始化结果文本
-        
+        result_text = ""
+
         for i, turn in enumerate(turns):
             system_utterance = turn.get('system_utterance', '')
             user_utterance = turn.get('user_utterance', '')
-            
-            # 处理这一轮对话 - 复用 gradio_demo.py 的流程
+
             state = await self.tracker.process_turn(
                 system_utterance=system_utterance,
                 user_utterance=user_utterance
             )
-            
-            # 记录结果
+
             turn_result = {
                 'turn_id': i + 1,
                 'system_utterance': system_utterance[:50] + '...' if len(system_utterance) > 50 else system_utterance,
@@ -529,8 +519,7 @@ class BatchDialogueTest:
                 'extracted_state': state
             }
             results.append(turn_result)
-            
-            # 累积格式化输出
+
             result_text += f"\n{'='*50}\n"
             result_text += f"轮次 {i + 1}\n"
             result_text += f"{'='*50}\n"
@@ -538,16 +527,11 @@ class BatchDialogueTest:
             result_text += f"客户: {user_utterance}\n"
             result_text += f"\n提取状态:\n"
             for key, value in state.items():
-                if value:  # 只显示非空值
+                if value:
                     result_text += f"  {key}: {value}\n"
-        
-        # 获取最终状态 - 使用最后一轮的状态
-        if results:
-            final_state = results[-1].copy()
-        else:
-            final_state = {}
-        
-        # 生成汇总
+
+        final_state = results[-1].copy() if results else {}
+
         summary = f"\n{'='*50}\n"
         summary += f"📊 测试总结 (DST 模式)\n"
         summary += f"{'='*50}\n"
@@ -556,14 +540,13 @@ class BatchDialogueTest:
         for key, value in final_state.items():
             if value:
                 summary += f"  {key}: {value}\n"
-        
-        # 保存到历史
+
         self.results_history.append({
             'mode': 'dst',
             'turns': len(turns),
             'final_state': final_state
         })
-        
+
         return result_text + summary, final_state
     
     async def process_dialogue_fnctod(self, turns: List[Dict]) -> Tuple[str, Dict]:

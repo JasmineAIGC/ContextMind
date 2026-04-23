@@ -51,14 +51,9 @@ class DialogueTurn:
 
 
 class DialogueStateTracker:
-    """
-    对话状态追踪器（优化版 - 减少LLM调用）
-    
-    实现完整的零样本对话状态追踪系统，符合ACL 2023论文规范。
-    支持动态槽位提取、智能历史管理、多意图追踪。
-    """
-    
-    def __init__(self, 
+    """对话状态追踪器：零样本槽位提取，支持动态槽位、历史管理和多意图追踪。"""
+
+    def __init__(self,
                  llm_client=None,
                  prompt_manager: Optional[PromptManager] = None,
                  domain: str = "general",
@@ -66,18 +61,6 @@ class DialogueStateTracker:
                  enable_history_summary: bool = True,
                  enable_dynamic_slots: bool = True,
                  use_llm_summary: bool = False):
-        """
-        初始化对话状态追踪器
-        
-        参数:
-            llm_client: LLM客户端实例
-            prompt_manager: 可选的提示词管理器
-            domain: 对话领域
-            max_history_turns: 完整保留的最近对话轮数（默认10）
-            enable_history_summary: 是否启用历史摘要（默认True）
-            enable_dynamic_slots: 是否启用动态槽位（默认True）
-            use_llm_summary: 是否使用LLM生成摘要（默认False，使用模板摘要）
-        """
         self.llm_client = llm_client
         self.prompt_manager = prompt_manager or PromptManager(
             domain=domain, 
@@ -152,19 +135,7 @@ class DialogueStateTracker:
                      max_history_turns: int = 10,
                      enable_history_summary: bool = True,
                      use_llm_summary: bool = False):
-        """
-        从场景配置创建DialogueStateTracker实例的工厂方法
-        
-        参数:
-            llm_client: LLM客户端实例
-            scenario_config: 场景配置对象（ScenarioConfig）
-            max_history_turns: 完整保留的最近对话轮数（默认10）
-            enable_history_summary: 是否启用历史摘要（默认True）
-            use_llm_summary: 是否使用LLM生成摘要（默认False）
-            
-        返回:
-            DialogueStateTracker实例
-        """
+        """从场景配置创建 DialogueStateTracker 实例的工厂方法。"""
         pm = PromptManager(
             domain=scenario_config.name,
             enable_dynamic_slots=scenario_config.enable_dynamic_slots,
@@ -206,16 +177,7 @@ class DialogueStateTracker:
         logger.info("对话状态已重置")
 
     def set_domain(self, domain: str) -> None:
-        """更新对话领域，使用新的领域特定提示词重建 ADK Agent。
-
-        当批量评测多个领域对话时，每个对话开始前调用此方法，
-        确保 LLM 使用正确的槽位格式（如 RiSAWOZ 的 "领域-槽位名" 格式）。
-
-        应在 ``reset()`` 之后调用。
-
-        Args:
-            domain: 新的对话领域名称（如 "旅游景点"、"酒店"、"餐厅"）。
-        """
+        """更新对话领域，重建 ADK Agent 以使用新的系统指令。应在 reset() 之后调用。"""
         self.prompt_manager.domain = domain
         new_instruction = self.prompt_manager.get_system_instruction()
         # 更新 fallback 消息列表中的系统指令
@@ -292,23 +254,9 @@ class DialogueStateTracker:
                           user_utterance: str,
                           system_utterance: str = "",
                           **kwargs) -> Dict[str, str]:
-        """
-        处理单轮对话（增强版 - 智能历史管理 + 意图追踪）
+        """处理单轮对话：历史准备 → LLM 槽位提取 → 状态更新 → 历史管理。
 
-        执行步骤：
-        1. 准备历史对话（智能摘要或完整历史）
-        2. 调用LLM提取槽位更新
-        3. 解析响应
-        4. 更新状态和意图
-        5. 管理历史（必要时触发摘要）
-
-        参数:
-            user_utterance: 用户的话语（必需）
-            system_utterance: 系统的话语（可选，默认空字符串）
-            **kwargs: 保留扩展参数
-
-        返回:
-            更新后的累积对话状态
+        返回更新后的累积对话状态。
         """
         self.step_timings = {}
         

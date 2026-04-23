@@ -394,39 +394,30 @@ class UnifiedGradioDemo:
             
             # 用于记录各步骤耗时
             timing_breakdown = {}
-            
-            # 处理对话
+
             if self.current_mode == "dst":
-                # DST模式
-                # 获取上一轮系统回复
-                # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
-                # 安全地获取上一轮的assistant回复内容
-                # 如果没有历史记录，使用欢迎消息作为默认值
+                # 获取上一轮系统回复（history 格式: [{user}, {assistant}, ...]）
                 default_system_utterance = self._get_welcome_message()
                 system_utterance = next(
                     (msg.get('content', default_system_utterance) for msg in reversed(history) if msg.get('role') == 'assistant'),
                     default_system_utterance
                 )
-                
-                # 确保system_utterance是字符串类型（防止list等其他类型）
+
+                # 统一为字符串类型
                 if not isinstance(system_utterance, str):
                     if isinstance(system_utterance, list):
-                        # 如果是列表，提取第一个元素或转换为字符串
                         system_utterance = str(system_utterance[0]) if system_utterance else default_system_utterance
                     else:
-                        # 其他类型转换为字符串
                         system_utterance = str(system_utterance) if system_utterance else default_system_utterance
-                
-                # 移除耗时标记，避免影响DST提取和历史累积
+
+                # 移除耗时标记，避免影响 DST 提取
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
 
-                # 步骤1: 槽位提取（process_turn）
-                # 步骤2: 回复生成（包含历史上下文，与槽位提取并行执行节省延迟）
-                # 注意：回复生成使用对话历史而非槽位提取结果，因此可并行
+                # 槽位提取与回复生成并行执行（回复生成只用对话历史，不依赖提取结果）
                 system_prompt = self.config.system_prompt
 
-                # 构建包含历史的回复消息列表（修复：之前版本缺失历史上下文）
+                # 构建含历史的回复消息列表
                 reply_messages: list = [{"role": "system", "content": system_prompt}]
                 timing_tag_re = re.compile(r'\n\n<small style=.*?</small>', re.DOTALL)
                 for hist_msg in history[-self.max_history_turns * 2:]:
@@ -457,7 +448,6 @@ class UnifiedGradioDemo:
                 timing_breakdown['状态捕获'] = time.time() - step_start
                 
             elif self.current_mode == "fnctod":
-                # FnCTOD模式
                 step_start = time.time()
                 result = await self.fnctod_tracker.process_turn(
                     user_utterance=message,
@@ -466,38 +456,33 @@ class UnifiedGradioDemo:
                 reply = result.get("response", "")
                 timing_breakdown['函数调用处理'] = time.time() - step_start
 
-                # 收集FnCTOD内部的详细步骤耗时
                 if hasattr(self.fnctod_tracker, 'step_timings'):
                     timing_breakdown.update(self.fnctod_tracker.step_timings)
                     if '函数调用处理' in timing_breakdown and len(self.fnctod_tracker.step_timings) > 0:
                         del timing_breakdown['函数调用处理']
 
-                # 状态捕获
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
 
             elif self.current_mode == "pytod":
-                # PyTOD模式（论文三步流程：动作解析器 → 执行引擎 → 对话管理器）
+                # PyTOD 三步流程：动作解析器（AP）→ 执行引擎（EE）→ 对话管理器（DM）
                 step_start = time.time()
                 result = await self.pytod_tracker.process_turn(user_utterance=message)
                 reply = result.get("response", "")
                 timing_breakdown['PyTOD总计'] = time.time() - step_start
 
-                # 收集 PyTODTracker 内部各步骤（AP/EE/DM）耗时
                 if hasattr(self.pytod_tracker, 'step_timings') and self.pytod_tracker.step_timings:
                     timing_breakdown.update(self.pytod_tracker.step_timings)
                     if 'PyTOD总计' in timing_breakdown and len(self.pytod_tracker.step_timings) > 0:
                         del timing_breakdown['PyTOD总计']
 
-                # 状态捕获
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
 
             elif self.current_mode == "genie":
-                # Genie Worksheets 模式（声明式策略 + 六步流水线）
-                # 第一轮前：从背景信息预填已知字段（异步，仅执行一次）
+                # 第一轮前从背景信息预填已知字段（仅执行一次）
                 if not self._genie_prefill_done:
                     step_start = time.time()
                     try:
@@ -517,13 +502,12 @@ class UnifiedGradioDemo:
                 reply = result.get("response", "")
                 timing_breakdown['Genie六步流水线'] = time.time() - step_start
 
-                # 状态捕获
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
 
             else:
-                # Evolve模式
+                # Evolve 模式
                 step_start = time.time()
                 reply = await self.app.process_turn(message)
                 timing_breakdown['对话处理'] = time.time() - step_start
@@ -531,30 +515,20 @@ class UnifiedGradioDemo:
                 # 收集Evolve内部的详细步骤耗时
                 if hasattr(self.app, 'step_timings'):
                     timing_breakdown.update(self.app.step_timings)
-                    # 移除重复的'对话处理'（使用Evolve内部的详细步骤）
                     if '对话处理' in timing_breakdown and len(self.app.step_timings) > 0:
                         del timing_breakdown['对话处理']
-                
-                # 状态捕获
-                # Evolve模式：process_turn是原子操作，包含了上下文构建和回复生成
-                # 这里捕获的是内部用于生成回复的上下文状态
-                # 注意：Evolve的状态是从记忆库和上下文中构建的
+
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
-            
-            # 计算总耗时（从接收输入到生成结果）
+
             elapsed_time = time.time() - start_time
-            
-            # 添加总计到timing_breakdown
             timing_breakdown['总计'] = elapsed_time
-            
-            # 构建详细的耗时信息显示（单行格式）
+
             if timing_breakdown and len(timing_breakdown) > 1:
-                # 单行显示，用 | 分隔各步骤
                 timing_parts = []
                 total_time = timing_breakdown.get('总计', elapsed_time)
-                
+
                 for key, value in timing_breakdown.items():
                     if key != '总计':
                         timing_parts.append(f"{key}{value:.2f}s")

@@ -92,15 +92,9 @@ logger = get_logger(__name__)
 
 
 def _service_schema_to_genie_schema(service_schema: Any) -> Any:
-    """将 pytod ServiceSchema 转换为 GenieSchema（pipeline 层桥接函数）。
+    """将 pytod ServiceSchema 映射为 GenieSchema。
 
-    pipeline 是唯一被允许同时感知 pytod schema 和 genie schema 的位置，
-    此函数负责在两者之间做结构映射，保持 genie_worksheets 模块与 pytod 的完全隔离。
-
-    注意：``IntentDefinition.policy_fields`` 可能包含原始 ``dict``（通过
-    ``from_dict`` 路径加载）或 ``PolicyField`` 对象（WorksheetLoader 路径）。
-    此处统一转换为 ``PolicyField`` 对象，避免 ``PolicyExecutor`` 访问
-    ``pf.required`` 时抛出 ``AttributeError``。
+    policy_fields 统一转换为 PolicyField 对象，避免 raw dict 导致 AttributeError。
     """
     from contextmind.schema_builder.genie_worksheets.models import PolicyField
     from contextmind.schema_builder.genie_worksheets.schema_types import (
@@ -144,15 +138,7 @@ def _service_schema_to_genie_schema(service_schema: Any) -> Any:
 
 
 class _EvolveTrackerAdapter:
-    """将 EvolveEngine 适配为与 BaseTracker 兼容的 process_turn / get_current_state / reset 接口。
-
-    Evolve 的核心功能是上下文优化（会话历史 + 长期记忆检索），与 PyTOD/DST 的意图-槽位
-    提取范式不同。本适配器将 ``optimize() + update()`` 组合封装为统一的 ``process_turn()``：
-
-    - ``response``   : 最近 N 条上下文项拼接而成的可读文本（供调用方参考上下文）
-    - ``state``      : 本轮检索到的上下文统计（session 条数、记忆条数）
-    - ``turn_updates``: 同 state
-    """
+    """将 EvolveEngine 适配为与 BaseTracker 兼容的 process_turn / get_current_state / reset 接口。"""
 
     def __init__(self, engine: Any) -> None:
         self._engine = engine
@@ -163,10 +149,8 @@ class _EvolveTrackerAdapter:
     ) -> Dict[str, Any]:
         ctx_result = await self._engine.optimize(user_utterance)
         items = ctx_result.items or []
-        # 最多取前 5 条上下文项拼成可读摘要
         response_parts = [item.content for item in items[:5]]
         response = "\n".join(response_parts) if response_parts else "(暂无历史上下文)"
-        # 记录本轮对话到会话历史
         await self._engine.update(user_utterance, response)
         self._state = {
             "session_history_count": ctx_result.metadata.get("session_history_count", 0),
@@ -201,36 +185,7 @@ class ContextPipeline:
     通用上下文工程流水线。
 
     将知识库构建（Phase 1）和对话上下文提取（Phase 2）统一为一个简洁接口。
-
-    参数
-    ----
-    llm_client:
-        LLM 客户端实例（如 ``AdkLLMClient``）；为 None 时从 ``.env`` 自动加载。
-    mode:
-        执行模式（四选一）：
-
-        - ``"pytod"``（默认）：PyTOD AP→EE→DM 三步流程，适合任务型对话。**需要 schema。**
-        - ``"fnctod"``：ADK 原生函数调用对话状态追踪。**需要 schema。**
-        - ``"dst"``：对话状态追踪，纯槽位提取，无 API 调用。**schema 可选。**
-        - ``"evolve"``：演化式上下文优化（会话记忆 + 长期记忆检索）。**不需要 schema。**
-
-    scene_name:
-        业务场景名称（如 ``"银行贷款外呼"``）；用于 KB 构建和 prompt 注入。
-    scene_description:
-        场景简短描述（一句话）；为空时使用 ``scene_name``。
-    discovery_sample:
-        Phase 1 发现阶段最多使用的对话条数（默认 20）。
-    max_history_turns:
-        Phase 2 执行时保留的最近历史轮次数（默认 10）。
-
-    属性
-    ----
-    schema:
-        当前加载的 :class:`~contextmind.modes.pytod.schemas.ServiceSchema`；
-        可通过 :meth:`load_kb` 或 :meth:`build_kb` 设置。
-    tracker:
-        当前使用的对话追踪器（``AdkPyTODTracker`` 或 ``DialogueStateTracker``）；
-        调用 :meth:`build_kb` / :meth:`load_kb` 后自动初始化。
+    mode 可选：``"pytod"``（默认）、``"fnctod"``、``"dst"``、``"evolve"``、``"genie"``。
     """
 
     def __init__(
@@ -276,27 +231,9 @@ class ContextPipeline:
         scene_description: Optional[str] = None,
         save_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
-        """
-        Phase 1：从原始对话数据构建知识库（SGD schema）。
+        """从原始对话数据构建知识库（SGD schema），并初始化追踪器。
 
-        自动完成对话归一化、LLM 发现、LLM 合成三个子步骤，并将生成的
-        ``ServiceSchema`` 设置到 :attr:`schema`，同时初始化 Phase 2 追踪器。
-
-        参数
-        ----
-        dialogues:
-            对话列表，支持四种输入格式（见 :mod:`contextmind.kb.normalizer`）。
-        scene_name:
-            覆盖实例初始化时的 ``scene_name``（可选）。
-        scene_description:
-            覆盖实例初始化时的 ``scene_description``（可选）。
-        save_path:
-            若指定，则将 schema.json 写入此路径（可选）。
-
-        返回
-        ----
-        SGD 格式的 schema dict（与 :meth:`~contextmind.kb.KnowledgeBaseBuilder.build`
-        返回值相同）。
+        返回 SGD 格式的 schema dict；save_path 指定时同时写入文件。
         """
         if scene_name:
             self.scene_name = scene_name
@@ -350,10 +287,7 @@ class ContextPipeline:
         scene_description: Optional[str] = None,
         save_path: Optional[Union[str, Path]] = None,
     ) -> Dict[str, Any]:
-        """Phase 1 的异步版本（在线程池中运行，不阻塞事件循环）。
-
-        参数与返回值同 :meth:`build_kb`。
-        """
+        """build_kb 的异步版本（在线程池中运行，不阻塞事件循环）。"""
         import asyncio
 
         loop = asyncio.get_event_loop()
@@ -368,24 +302,10 @@ class ContextPipeline:
         merge: bool = False,
         worksheet_path: Optional[Union[str, Path]] = None,
     ) -> None:
-        """
-        Phase 1 → Phase 2 桥接：从磁盘加载已保存的 ``schema.json``。
+        """从磁盘加载 schema.json，自动初始化追踪器。
 
-        自动初始化 Phase 2 追踪器，可立即调用 :meth:`process_turn`。
-
-        参数
-        ----
-        schema_path:
-            由 :meth:`build_kb` 或
-            :meth:`~contextmind.kb.KnowledgeBaseBuilder.save` 生成的
-            ``schema.json`` 文件路径。
-        merge:
-            若为 ``True`` 且已有 :attr:`schema`，则将文件中的 schema **合并**到
-            现有 schema（同名槽位/意图以文件中的定义为准，新增项追加）；
-            若为 ``False``（默认），则完全替换现有 schema。
-        worksheet_path:
-            （Genie 模式专用）Worksheet 文件路径（CSV 或 JSON）；
-            指定后将覆盖构造函数中的 ``worksheet_path``。
+        merge=True 时将文件中的 schema 合并到现有 schema，否则完全替换。
+        worksheet_path 仅 Genie 模式使用。
         """
         new_schema = KnowledgeBaseBuilder.load_schema(schema_path)
         if merge and self.schema is not None:
@@ -403,21 +323,9 @@ class ContextPipeline:
         )
 
     def set_schema(self, schema: Any, merge: bool = False) -> None:
-        """
-        直接设置 ``ServiceSchema`` 实例（无需从文件加载）。
+        """直接设置 ServiceSchema 实例（接受 ServiceSchema 对象或 dict）。
 
-        适用于已有 :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 对象的场景。
-
-        参数
-        ----
-        schema:
-            :class:`~contextmind.modes.pytod.schemas.ServiceSchema` 实例，
-            或可通过 :func:`~contextmind.modes.pytod.schemas.load_schema_from_dict`
-            转换的字典。
-        merge:
-            若为 ``True`` 且已有 :attr:`schema`，则将传入 schema **合并**到
-            现有 schema（同名槽位/意图以传入值为准，新增项追加）；
-            若为 ``False``（默认），则完全替换现有 schema。
+        merge=True 时合并到现有 schema，否则完全替换。
         """
         from contextmind.modes.pytod.schemas import ServiceSchema
 
@@ -442,24 +350,9 @@ class ContextPipeline:
     # ------------------------------------------------------------------
 
     def register_api(self, name: Optional[str] = None) -> Callable:
-        """
-        注册业务 API 函数（装饰器）。
+        """注册业务 API 函数（装饰器，仅 pytod 模式）。
 
-        注册后的函数在 Phase 2 执行时由 ExecutionEngine 调用，
-        将业务数据注入对话上下文。
-
-        参数
-        ----
-        name:
-            API 函数名称；为 None 时使用被装饰函数的 ``__name__``。
-
-        返回
-        ----
-        装饰器函数。
-
-        示例
-        ----
-        ::
+        示例::
 
             @pipeline.register_api("query_account")
             def query_account(customer_name: str) -> dict:
@@ -487,45 +380,12 @@ class ContextPipeline:
         user_utterance: str,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        """处理单轮用户输入，提取有效上下文。
+
+        返回字典包含 ``response``、``context``（本轮状态）、``cumulative_context``（全量状态）。
+        PyTOD 模式额外返回 ``program_text`` 和 ``execution``。
         """
-        Phase 2：处理单轮用户输入，提取有效上下文。
-
-        在对话历史和知识库约束下，使用 LLM 提取本轮上下文信息（槽位、意图、
-        状态等），并生成系统回复。
-
-        参数
-        ----
-        user_utterance:
-            用户本轮输入文本。
-        **kwargs:
-            传递给底层追踪器的额外参数。
-
-        返回
-        ----
-        字典，至少包含以下键：
-
-        ``"response"``
-            系统生成的自然语言回复。
-        ``"context"``
-            本轮提取的结构化上下文（槽位值、意图等）。
-        ``"cumulative_context"``
-            截至本轮的累积上下文（全量状态）。
-
-        PyTOD 模式额外返回：
-
-        ``"program_text"``
-            AP 生成的 PyTOD 程序。
-        ``"execution"``
-            ExecutionEngine 执行结果。
-
-        异常
-        ----
-        RuntimeError
-            若未通过 :meth:`build_kb` 或 :meth:`load_kb` 设置 schema，
-            或 LLM 未配置。
-        """
-        # DST 和 Evolve 不需要 schema；PyTOD 和 FnCTOD 需要 schema；
-        # Genie 可用 worksheet_path 替代 schema，此处仅在两者均缺失时报错
+        # dst/evolve 不需要 schema；genie 可用 worksheet_path 替代 schema
         _schema_optional = self.mode in ("dst", "evolve")
         _genie_ok = self.mode == "genie" and self._worksheet_path is not None
         if self.schema is None and not _schema_optional and not _genie_ok:
@@ -545,19 +405,13 @@ class ContextPipeline:
 
         raw = await self.tracker.process_turn(user_utterance, **kwargs)
 
-        # 标准化返回格式，增加通用 context 字段
         result: Dict[str, Any] = dict(raw)
         result["context"] = raw.get("state", raw.get("turn_updates", {}))
         result["cumulative_context"] = self.tracker.get_current_state()
         return result
 
     def get_context(self) -> Dict[str, Any]:
-        """
-        返回截至当前的累积上下文（完整对话状态）。
-
-        Returns:
-            包含所有已提取槽位/字段的字典。若未初始化则返回空字典。
-        """
+        """返回截至当前的累积上下文（全量对话状态），未初始化时返回空字典。"""
         if self.tracker is None:
             return {}
         return self.tracker.get_current_state()
