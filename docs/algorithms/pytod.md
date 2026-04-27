@@ -2,11 +2,11 @@
 
 ## 概述
 
-**PyTOD**（Task-Oriented Dialogue as Dataflow Synthesis，数据流合成驱动的任务型对话）已在 ContextMind 中完整实现。该方法将任务型对话建模为**数据流程序合成**问题：每一轮对话由动作解析器（AP）生成可执行的 Python-like 程序，执行引擎（EE）真实调用 API，对话管理器（DM）基于执行结果生成回复。
+**PyTOD**（Programmable Task-Oriented Dialogue，可编程任务型对话）已在 ContextMind 中完整实现。它由 Apple 研究院提出，将任务型对话建模为**程序执行**问题：动作解析器（AP）生成可执行的 Python-like 程序语句，执行引擎（EE）真实调用注册 API，对话管理器（DM）基于执行结果生成自然语言回复。
 
 - **实现状态**: ✅ 已实现
-- **论文**: [Task-Oriented Dialogue as Dataflow Synthesis](https://arxiv.org/abs/2009.11423)（TACL 2020 / NAACL 2021）
-- **官方源码**: https://github.com/microsoft/task_oriented_dialogue_as_dataflow_synthesis
+- **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025）
+- **官方源码**: https://github.com/apple/ml-pytod
 - **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/datasets.md)
 
 ### 三步框架依赖
@@ -23,7 +23,7 @@ PyTOD 是唯一可以完整利用三步框架的算法：第一步生成 Schema�
 
 ## 核心思想
 
-PyTOD 将任务型对话建模为**数据流程序合成**（Dataflow Synthesis）：每一轮对话产生一个可执行的 Python-like 程序，程序执行结果驱动回复生成。
+PyTOD 的创新在于引入了**执行反馈（Execution Feedback）**机制：LLM 不再直接生成自然语言回复，而是先生成可执行的程序语句，由执行引擎真实调用 API，再将执行结果注入回复生成：
 
 ```
 用户: "帮我查一下账户余额"
@@ -36,7 +36,7 @@ x1 = {"balance": "¥8,230.00", "status": "正常"}
 "您的账户余额为 ¥8,230.00，账户状态正常。"
 ```
 
-**核心优势**：跨轮次变量引用（`x2 = query_loan(user_id=x1.user_id)`）使对话管理器能精确传达 API 执行结果，大幅减少幻觉。
+**核心优势**：真实 API 调用结果替代 LLM 幻觉；跨轮次变量引用（`x2 = query_loan(user_id=x1.user_id)`）使上下文精确传递，大幅提升事实准确性。
 
 ---
 
@@ -172,7 +172,8 @@ response = await tracker.process_turn("我要预订一家餐厅")
 
 ## 参考资料
 
-- [PyTOD 论文：Task-Oriented Dialogue as Dataflow Synthesis](https://arxiv.org/abs/2009.11423)（TACL 2020）
+- [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025）
+- [官方源码：apple/ml-pytod](https://github.com/apple/ml-pytod)
 - [SGD 数据集文档](../datasets/datasets.md)
 - [SGD 原始论文](https://arxiv.org/abs/1909.05855)
 - [DST 算法文档](dst.md)

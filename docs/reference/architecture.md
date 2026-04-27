@@ -1,6 +1,6 @@
 # ContextMind 架构图
 
-> **版本**：0.3.0 | **最后更新**：2026-04-01
+> **版本**：0.3.0 | **最后更新**：2026-04-27
 
 本文档从四个视角描述 ContextMind 框架架构：整体框架、端到端数据流、PyTOD 算法细节、Evolve 记忆系统。
 
@@ -43,6 +43,7 @@ flowchart TD
         DS[DST\n槽位追踪]
         FN[FnCTOD\n函数调用]
         EV[Evolve\n记忆进化]
+        GE[Genie\nWorksheet 状态机]
     end
 
     OUT([结构化上下文输出])
@@ -93,8 +94,8 @@ flowchart TD
 | `modes/fnctod/tracker.py` | `FnCTODTracker` | ADK 原生函数调用式对话状态追踪 |
 | `modes/fnctod/function_manager.py` | `FunctionManager` | Schema 槽位 → ADK FunctionTool 转换 |
 | `modes/evolve/core/engine.py` | `EvolveEngine` | 演化式上下文优化引擎（AlphaEvolve + ThetaEvolve） |
+| `modes/genie/tracker.py` | `GenieTracker` | 六步 Worksheet 流程协调器（确定性 PolicyExecutor + 双 LLM） |
 | `scenarios/registry.py` | `ScenarioRegistry` | YAML 驱动的场景配置注册与查询 |
-| `ui/components.py` | — | Gradio UI 布局与事件绑定 |
 
 ---
 
@@ -256,18 +257,20 @@ flowchart TD
 | **FnCTOD** | 可选 | 不需要 | ✅ 必须 |
 | **PyTOD** | 可选 | 可选 | ✅ 必须 |
 | **Evolve** | 不需要 | 不需要 | ✅ 必须 |
+| **Genie** | 可选 | 不需要 | ✅ 必须 |
 
 ### 技术特性
 
-| 维度 | DST | FnCTOD | PyTOD | Evolve |
-|------|-----|--------|-------|--------|
-| **输出类型** | 槽位状态 JSON | 函数调用 XML | 可执行程序 | 上下文列表 |
-| **真实 API 调用** | ❌ | ❌ | ✅ | ❌ |
-| **执行反馈** | ❌ | ❌ | ✅ | ❌ |
-| **长期记忆** | ❌ | ❌ | ❌ | ✅ |
-| **每轮 LLM 调用** | 1 次 | 1 次 | 2 次（AP + DM） | 1 次+ |
-| **实现复杂度** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **适用场景** | 通用槽位提取 | 标准函数调用 | 任务型精确对话 | 开放域长对话 |
+| 维度 | DST | FnCTOD | PyTOD | Evolve | Genie |
+|------|-----|--------|-------|--------|-------|
+| **输出类型** | 槽位状态 JSON | 函数调用 XML | 可执行程序 | 上下文列表 | Worksheet 状态 |
+| **真实 API 调用** | ❌ | ❌ | ✅ | ❌ | ✅（on_success） |
+| **执行反馈** | ❌ | ❌ | ✅ | ❌ | ❌ |
+| **长期记忆** | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **策略控制** | LLM | LLM | LLM | LLM | 确定性状态机 |
+| **每轮 LLM 调用** | 1 次 | 1 次 | 2 次（AP + DM） | 1 次+ | 2 次（解析 + 生成） |
+| **实现复杂度** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **适用场景** | 通用槽位提取 | 标准函数调用 | 任务型精确对话 | 开放域长对话 | 规则化业务流程 |
 
 ---
 
@@ -317,11 +320,17 @@ contextmind/                    # 主包
 │   │   ├── tracker.py
 │   │   ├── function_manager.py
 │   │   └── schemas.py
-│   └── evolve/                 # Evolve：演化式上下文优化
+│   ├── evolve/                 # Evolve：演化式上下文优化
 │       ├── core/               # EvolveEngine + 数据模型 + 配置
 │       ├── memory/             # MemoryBank / Extractor / Retriever / fitness
 │       ├── pipeline/           # 5 步上下文处理流水线
 │       └── evolution/          # EvolutionaryUpdater + FeedbackCollector
+│   └── genie/                  # Genie：声明式策略驱动对话
+│       ├── tracker.py          # GenieTracker（六步 Worksheet 流程）
+│       ├── policy_executor.py  # PolicyExecutor（确定性状态机）
+│       ├── semantic_parser.py  # SemanticParser（LLM-1 字段提取）
+│       ├── agent_acts.py       # AgentActs 数据模型
+│       └── prompts/            # LLM 提示词模板
 │
 ├── scenarios/                  # 场景注册与配置
 │   ├── registry.py             # ScenarioRegistry（YAML 驱动）
@@ -334,4 +343,4 @@ contextmind/                    # 主包
 
 ---
 
-**最后更新**：2026-04-01 | **版本**：0.3.0
+| `ui/components.py` | — | Gradio UI 布局与事件绑定 |

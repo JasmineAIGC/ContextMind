@@ -16,7 +16,7 @@
 |------|------|---------|------|------|
 | DST | ✅ 已实现 | 第三步（第一步可选） | 对话状态追踪（通用技术，无单一论文） | [算法说明](algorithms/dst.md) |
 | FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024） | [算法说明](algorithms/fnctod.md) |
-| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [Task-Oriented Dialogue as Dataflow Synthesis](https://arxiv.org/abs/2009.11423)（TACL 2020） | [算法说明](algorithms/pytod.md) |
+| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025） | [算法说明](algorithms/pytod.md) |
 | Evolve | ✅ 已实现 | 仅第三步 | [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) | [算法说明](algorithms/evolve.md) |
 | Genie | ✅ 已实现 | 第三步（第一步可选） | [Unleashing the Potential of Large Language Models through Genie Worksheets](https://arxiv.org/abs/2407.05674)（2024） | [算法说明](algorithms/genie.md) |
 | PyTOD 代码生成 | ✅ 已实现 | 第二步（可选） | Loop / ACIA / S\* / CodeTree | [生成策略说明](algorithms/pytod-codegen.md) |
@@ -70,7 +70,7 @@ ContextMind/
 │   ├── pipeline.py       # ContextPipeline（推荐入口）
 │   ├── knowledge/        # ① KnowledgeBaseBuilder（第一步）
 │   ├── schema_builder/   # ② SchemaDataBuilder（第二步，API代码生成）
-│   ├── modes/            # ③ DST / FnCTOD / PyTOD / Evolve 追踪器（第三步）
+│   ├── modes/            # ③ DST / FnCTOD / PyTOD / Evolve / Genie 追踪器（第三步）
 │   ├── infra/            # AdkLLMClient、配置
 │   └── scenarios/        # 场景注册与配置
 ├── benchmark/            # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
@@ -95,4 +95,4 @@ ContextMind/
 
 ---
 
-**最后更新**: 2026-04-22 | **版本**: 0.3.0
+**最后更新**: 2026-04-27 | **版本**: 0.3.0

@@ -91,6 +91,7 @@ python examples/step0_pipeline_demo.py
 | **FnCTOD** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
 | **PyTOD** | ✅ 可选 | ✅ 可选 | ✅ 必须 |
 | **Evolve** | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
+| **Genie** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
 
 ### 第一步：建立知识库
 

@@ -35,6 +35,19 @@
 ## [未发布]
 
 ### 新增
+- **Genie 执行模式**（`contextmind/modes/genie/`）：声明式策略驱动对话，基于 Stanford ACL 2025 论文 [GenieWorksheets](https://arxiv.org/abs/2407.05674)；确定性 PolicyExecutor（Worksheet 状态机）+ 双 LLM（语义解析 + 回复生成）
+- **`docs/research/` 16 篇研究分析文档**：上下文工程领域最新论文调研（ACE、ALARA、AutoHarness、CE-Multiagent、Context Cartography、DDC、DT-MDP-CE、Generative Ontology、Genie Worksheets、HYVE、Meta CE、Practitioner Methodology、Structured CE、TAU Knowledge、Terminal Coding Agents、Tokalator）
+
+### 变更
+- **`docs/algorithms/pytod.md`**：明确标注论文为 Apple 研究院 PyTOD 2025，恢复"可编程任务型对话"定名；技术架构说明（AP→EE→DM、变量绑定、say()/hint()、BM25 意图检索、AST 安全执行）同步更新
+- **`docs/PROJECT_SUMMARY.md`**：添加 Genie 执行模式，章节标题"四种"→"五种"，架构图中加入 Genie，依赖关系图中加入 `genie/` 模块
+- **`docs/reference/architecture.md`**：在整体框架图、模块说明表、算法对比表、目录结构中全面补充 Genie 模式
+- **`docs/README.md`** / **`README.md`**：算法步骤依赖矩阵补充 Genie 行，modes/ 说明中补充 Genie
+- **`requirements.txt`**：新增 `google-genai` 依赖（DST/FnCTOD/PyTOD 追踪器均使用 `google.genai.types`）；注释更新（langextract 说明更新，sentence-transformers 注释更清晰）
+
+---
+
+## [0.3.0] - 2026-03-30
 - **三步框架文档**: 全面更新所有 docs/ 文档，将框架从「两步」升级为「三步」：
   ① 任意数据集→知识库（`contextmind.knowledge`）、
   ② 知识库→算法专用 Schema 数据生成（`contextmind.schema_builder`）、
@@ -146,4 +159,4 @@
 
 ---
 
-**最后更新**: 2026-02-10
+**最后更新**: 2026-04-27

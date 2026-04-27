@@ -83,11 +83,11 @@ contextmind/
 - **论文**：[ThetaEvolve](https://arxiv.org/pdf/2511.23473)
 - 动态知识提取 + 语义记忆检索，无需预构建知识库
 
-### PyTOD — 数据流合成任务型对话
+### PyTOD — 可编程任务型对话
 - **文件**：`contextmind/modes/pytod/`
-- **论文**：[Task-Oriented Dialogue as Dataflow Synthesis](https://arxiv.org/abs/2009.11423)（TACL 2020）
+- **论文**：[PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025）
 - 三组件架构：Action Parser → Execution Engine → Dialogue Manager
-- LLM 输出 Python 数据流程序，ExecutionEngine 执行真实业务 API
+- LLM 输出 Python 程序语句，ExecutionEngine 安全执行真实业务 API，执行结果注入 DM 回复
 
 ### Genie — 声明式策略驱动对话
 - **文件**：`contextmind/modes/genie/`
