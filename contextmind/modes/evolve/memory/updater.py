@@ -28,9 +28,7 @@ class SimpleUpdater(BaseUpdater):
     STORAGE_THRESHOLD_EVENT = 0.75  # 0.70 → 0.75
     STORAGE_MIN_LENGTH = 5  # 3 → 5 最小字符数
     
-    # 80% 合并阈值防止语义不同的事实被错误合并。
-    # 92% 去重阈值足够严格，仅捕获近乎逐字重复的内容，
-    # 避免较低阈值导致记忆池停滞不更新。
+    # 80% 合并阈值；92% 去重阈值（仅捕获近乎逐字重复）
     SIMILARITY_THRESHOLD_FOR_MERGE = 0.80  # 提高到80%，避免误判不同事实为相似（修复记忆库不增长问题）
     EXACT_DUPLICATE_THRESHOLD = 0.92  # 提高到92%，更精确地识别完全重复项
     

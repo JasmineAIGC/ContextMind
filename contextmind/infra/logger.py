@@ -87,8 +87,7 @@ class Logger:
 
     def debug(self, message: str):
         """记录 DEBUG 级别日志（仅在 DEBUG 模式下输出）。"""
-        # 同时检查全局级别和实例级别，允许单个 logger 独立提升为 DEBUG，
-        # 而不影响应用中其他 logger 的级别。
+        # 同时检查全局级别和实例级别，支持单个 logger 独立提升为 DEBUG。
         if self._global_level == LogLevel.DEBUG or self.level == LogLevel.DEBUG:
             self._logger.debug(f"[{self.name}] {message}")
     

@@ -171,9 +171,7 @@ class SchemaDataBuilder:
         if p:
             written.append(p)
 
-        # 当 output_dir 与 schema 所在目录不同时，将 schema.json 复制到 output_dir。
-        # 这样 pytod_trace_demo.py 等工具在无 --schema 参数时也能自动发现 schema 文件，
-        # 无需用户额外指定路径。
+        # 当 output_dir 与 schema 所在目录不同时，将 schema.json 复制到 output_dir，方便工具自动发现。
         if self.output_dir is not None and self.output_dir.resolve() != schema_path.parent.resolve():
             dest = self.output_dir / schema_path.name
             if not dest.exists() or self.overwrite:
@@ -316,8 +314,7 @@ class SchemaDataBuilder:
         Returns:
             写入成功时返回文件路径，否则返回 None。
         """
-        # 如果初始化时提供了 llm_client（或其他 LLM 相关参数），
-        # 根据 generator 参数委托给对应的构建器。
+        # 若提供了 llm_client，根据 generator 参数委托给对应的构建器。
         if self.llm_client is not None:
             if self.generator == "alpha":
                 from contextmind.schema_builder.pytod.codegen.alpha.builder import build_pytod_apis_alpha as _build

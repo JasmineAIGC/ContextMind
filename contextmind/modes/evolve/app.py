@@ -241,7 +241,6 @@ class EvolveApplication:
         self.step_timings["对话更新"] = time.time() - t
 
         # 步骤 5：知识提取（后台异步执行，不阻塞回复返回）
-        # 知识提取涉及额外的 LLM 调用（~10-15s），在回复已生成后在后台运行。
         async def _bg_extract() -> None:
             try:
                 await self.evolve_engine.extract_knowledge(auto_store=True)

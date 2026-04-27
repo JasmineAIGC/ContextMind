@@ -724,8 +724,7 @@ class SchemaSynthesizer:
         n_slots_after = len(refined.get("slots", []))
         n_intents_after = len(refined.get("intents", []))
 
-        # 精炼的目标就是合并同义项（减少冗余），所以精炼后条目数减少是正常且期望的行为。
-        # 仅在精炼结果为空（LLM 返回了空列表）时才视为错误并回退到原始 schema。
+        # 精炼后条目数减少是正常的（合并同义项）；仅在结果为空时回退到原始 schema。
         if n_slots_after == 0 and n_slots > 0:
             logger.warning(
                 f"[SchemaSynthesizer] 精炼后槽位列表为空（原有 {n_slots} 个），"

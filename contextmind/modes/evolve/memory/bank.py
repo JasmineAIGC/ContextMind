@@ -53,8 +53,7 @@ class MemoryBank:
     提供长期记忆的存储、检索和管理功能
     """
     
-    # 偏好类知识需要比事实/事件更高的置信度，因为错误的偏好会悄然影响每次后续交互，
-    # 而且没有明显的纠正信号；相比之下，错误事实更容易在对话中被发现并修正。
+    # 偏好类知识需要更高的置信度（误判偏好的影响比误判事实更难察觉）
     STORAGE_THRESHOLD_PREFERENCE = 0.75
     STORAGE_THRESHOLD_FACT = 0.70
     STORAGE_THRESHOLD_EVENT = 0.70
@@ -369,10 +368,7 @@ class MemoryBank:
         logger.info(f"[MemoryBank] 当前记忆库总计: {len(self._local_cache)} 条记忆")
         logger.info("")
 
-        # ADK InMemoryMemoryService 存储：
-        # 通过 EvolveEngine._persist_session_to_memory() 在每轮会话结束后
-        # 将完整 ADK Session 索引到 memory_service，使跨会话搜索覆盖本轮内容。
-        # 此处无需重复存储。
+        # ADK InMemoryMemoryService 存储：由 EvolveEngine._persist_session_to_memory() 统一同步，此处无需重复存储。
         if self.memory_service:
             logger.debug("[MemoryBank] ADK Memory Service 已配置，会话级记忆由 EvolveEngine 统一同步")
     

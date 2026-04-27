@@ -409,7 +409,6 @@ class KnowledgeBaseBuilder:
             n_completed: int = 0
 
             # 专用合并线程：接收提取结果，串行执行合成（LLM 调用）和 schema 融合。
-            # 使用 None 作为哨兵值通知线程退出。
             merge_task_queue: queue.Queue = queue.Queue()
 
             def _merge_worker() -> None:
@@ -604,8 +603,6 @@ class KnowledgeBaseBuilder:
         total_turns = sum(len(d.get("turns", [])) for d in sgd_dialogues)
 
         # 写入 discovery_raw.json（以知识为主体的提取结果，含 langextract 溯源信息）
-        # 格式：按 extraction_class（intent/slot_value/fact）和 label 聚合，每条知识附带
-        # 来源对话、轮次、说话人、话语及 provenance 溯源字符串。
         if self.last_discovery_turns:
             # 按 (extraction_class, label) 聚合所有出现记录
             knowledge_index: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
@@ -663,10 +660,8 @@ class KnowledgeBaseBuilder:
             "dialogue_files": len(dialogue_files),
             "services": [service_name],
             "converted_at": datetime.datetime.now().isoformat(timespec="seconds"),
-            # 最终 schema 中的槽位和意图数量（经过精炼/深度精炼后的结果，与 schema.json 一致）
             "schema_slot_count": len(final_schema_slots),
             "schema_intent_count": len(final_schema_intents),
-            # 发现阶段原始提取的不同标签数量（提取-合并前的 raw 数据，通常多于最终 schema 数量）
             "raw_discovery_slot_count": len(self.last_slot_counter),
             "raw_discovery_intent_count": len(self.last_intent_counter),
             "raw_discovery_fact_count": len(self.last_fact_counter),
@@ -836,9 +831,9 @@ class KnowledgeBaseBuilder:
         )
         synthesizer = SchemaSynthesizer(llm_client=self._get_llm())
 
-        # 逐条对话增量融合（替代原先收集 schema_parts 后一次性批量合并的方式）
-        accumulated_schema: Optional[Dict[str, Any]] = None  # 历史累积 schema
-        n_merged: int = 0  # 已融合进 accumulated_schema 的对话数
+        # 逐条对话增量融合
+        accumulated_schema: Optional[Dict[str, Any]] = None
+        n_merged: int = 0
         global_slot_counter: Counter = Counter()
         global_intent_counter: Counter = Counter()
         global_slot_samples: Dict[str, List[str]] = {}
@@ -879,7 +874,6 @@ class KnowledgeBaseBuilder:
 
             global_slot_counter.update(local_slot_counter)
             global_intent_counter.update(local_intent_counter)
-            # 跨对话累积槽位/意图样本值，供后续深度精炼使用
             for label, vals in local_slot_samples.items():
                 existing = global_slot_samples.setdefault(label, [])
                 for v in vals:
@@ -928,7 +922,6 @@ class KnowledgeBaseBuilder:
                         new_merged = _merge_service_list([accumulated_schema, schema_part])
                         if new_merged is not None:
                             new_merged = _fill_schema_defaults(new_merged, scene_name=self.scene_name)
-                            # 安全保障：融合只能增长不能缩减
                             if (len(new_merged.get("slots", [])) < prev_n_slots or
                                     len(new_merged.get("intents", [])) < prev_n_intents):
                                 logger.warning(
@@ -975,7 +968,6 @@ class KnowledgeBaseBuilder:
                 scene_name=self.scene_name,
             )
         elif n_merged >= 2:
-            # 精炼：消除跨对话产生的相似/重复槽位和意图
             pre_slots = len(accumulated_schema.get("slots", []))
             pre_intents = len(accumulated_schema.get("intents", []))
             print(f"  精炼前: {pre_slots} 个槽位，{pre_intents} 个意图")

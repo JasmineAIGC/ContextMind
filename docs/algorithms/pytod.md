@@ -179,57 +179,6 @@ contextmind/modes/pytod/
 
 ---
 
-## 参考实现
-
-pyTOD 官方源码的核心文件结构：
-
-```
-ml-pytod/src/pytod/
-├── simulation/              # API 模拟环境
-│   ├── api_driver.py        # SGD 事务型 API 模拟
-│   ├── database.py          # 数据库模拟（mongoquery）
-│   └── services/            # 具体服务实现
-│       ├── hotels.py
-│       ├── restaurants.py
-│       └── ...
-├── execution/               # 执行引擎
-│   └── execute_instructions.py
-├── interpreter/             # SGD → PyTOD 程序转换
-├── parser/                  # 程序解析器（pydantic 验证）
-├── prompting/               # text-to-text 格式转换
-└── evaluation/              # DSTC8 评估代码
-```
-
-### 快速体验官方实现
-
-```bash
-# 克隆官方源码
-git clone https://github.com/apple/ml-pytod.git
-cd ml-pytod
-
-# 安装依赖
-pipenv install
-
-# 下载 SGD 数据集
-chmod +x scripts/fetch_data.sh && bash scripts/fetch_data.sh
-
-# 初始化 pyTOD 环境（构建数据库、API 模拟等）
-chmod +x scripts/pytod_setup.sh && bash scripts/pytod_setup.sh
-
-# 转换 SGD 对话为 pyTOD 格式
-pipenv run python scripts/create_pytod_dialogues.py \
-    filters=v0.6.1 version=v0.9.1 interpreter=v0.5 \
-    split=train --config-name=v3
-
-# 查看示例对话
-pipenv run display_pytod split=dev ids="['1_00000']" version=v0.9.1
-
-# 在测试集上评测
-pipenv run python scripts/evaluate_pytod.py split=dev version=v0.9.1
-```
-
----
-
 ## 快速使用
 
 ### 完整三步流程（推荐）
@@ -292,19 +241,6 @@ schema = load_schema_from_dict({...})  # 加载 JSON schema
 tracker = AdkPyTODTracker(llm_client=AdkLLMClient(), schema=schema)
 response = await tracker.process_turn("我要预订一家餐厅")
 ```
-
----
-
-## 开发计划
-
-### ContextMind 中的 pyTOD 评测集成优先级
-
-| 阶段 | 内容 | 优先级 | 状态 |
-|------|------|--------|------|
-| P0 | SGD 数据集适配（`SGDAdapter`） | 高 | ⏳ 待实现 |
-| P0 | pyTOD 评测指标实现（`PyTODEvaluator`） | 高 | ⏳ 待实现 |
-| P1 | 微调数据生成 | 低 | ⏳ 待实现 |
-| P2 | 与 DST/FnCTOD 对比实验 | 低 | ⏳ 待实现 |
 
 ---
 

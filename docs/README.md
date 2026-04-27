@@ -18,6 +18,7 @@
 | FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024） | [算法说明](algorithms/fnctod.md) |
 | PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456) | [算法说明](algorithms/pytod.md) |
 | Evolve | ✅ 已实现 | 仅第三步 | [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) | [算法说明](algorithms/evolve.md) |
+| Genie | ✅ 已实现 | 第三步（第一步可选） | [Genie: Generative Conversations from Worksheets](https://arxiv.org/abs/2404.02879) | [算法说明](algorithms/genie.md) |
 | PyTOD 代码生成 | ✅ 已实现 | 第二步（可选） | Loop / ACIA / S\* / CodeTree | [生成策略说明](algorithms/pytod-codegen.md) |
 
 ### 技术参考（`reference/`）
@@ -57,6 +58,7 @@ ContextMind 的整体设计围绕三个核心步骤，不同算法对各步骤�
 | **FnCTOD** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
 | **PyTOD** | ✅ 可选 | ✅ 可选 | ✅ 必须 |
 | **Evolve** | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
+| **Genie** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
 
 ---
 

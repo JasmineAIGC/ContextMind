@@ -414,9 +414,7 @@ class FnCTODTracker:
             except Exception as exc:
                 exc_str = str(exc)
                 if "tool choice" in exc_str.lower() or "tool_choice" in exc_str.lower():
-                    # 后端不支持 tool_choice="auto"，永久切换到 JSON 提示词备用方案。
-                    # 这是预期的探测行为（vLLM 未启用 --enable-auto-tool-choice），
-                    # 使用 debug 级别避免误导性警告输出。
+                    # 后端不支持 tool_choice="auto"，永久切换到 JSON 备用方案（预期探测行为）。
                     logger.debug(
                         f"[turn {self.turn_count}] 后端不支持原生函数调用 "
                         f"(tool_choice)，已切换到 JSON 提示词备用模式: {exc}"

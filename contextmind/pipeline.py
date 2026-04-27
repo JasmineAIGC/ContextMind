@@ -6,11 +6,11 @@ ContextPipeline — 通用上下文工程流水线
 三步框架
 --------
 1. **建立知识库**（Phase 1）：针对任意对话数据集，通过 LLM 自动发现槽位和意图，
-   合成标准 SGD 格式 ``schema.json``。统一使用 ``examples/step1_build_kb.py``。
+   合成标准 SGD 格式 ``schema.json``。
 2. **Schema 数据生成**（Phase 2，可选）：将 schema.json 转换为算法专用数据
-   （如 PyTOD 的 API 代码文件）。DST / FnCTOD / Evolve 不需要此步骤。
+   （如 PyTOD 的 API 代码文件）。DST / FnCTOD / Evolve / Genie 不需要此步骤。
 3. **算法执行**（Phase 3）：基于 SGD 知识库，在对话中提取有效的上下文，提升对话质量。
-   支持四种算法：DST、FnCTOD、PyTOD、Evolve。
+   支持五种算法：DST、FnCTOD、PyTOD、Evolve、Genie。
 
 算法与 schema.json 的关系
 --------------------------
@@ -18,6 +18,7 @@ ContextPipeline — 通用上下文工程流水线
 - ``"fnctod"``：**需要** schema.json。ADK 原生函数调用，自动将 schema 槽位转为 FunctionTool。
 - ``"dst"``：**可选** schema.json。对话状态追踪，纯槽位提取，无 API 调用。
 - ``"evolve"``：**不需要** schema.json。演化式上下文优化（会话历史 + 长期记忆检索）。
+- ``"genie"``：**可选** schema.json 或 worksheet_path。Genie Worksheets 策略驱动对话。
 
 ``ContextPipeline`` 灵活整合三步流程，用户无需了解底层算法细节。
 典型用法见 ``examples/`` 目录。
@@ -66,7 +67,6 @@ def _service_schema_to_genie_schema(service_schema: Any) -> Any:
             optional_slots=list(i.optional_slots),
             result_slots=list(i.result_slots),
             is_transactional=i.is_transactional,
-            # 统一转换为 PolicyField 对象（修复 raw dict AttributeError Bug）
             policy_fields=[
                 pf if isinstance(pf, PolicyField) else PolicyField.from_dict(pf)
                 for pf in i.policy_fields
@@ -454,9 +454,7 @@ class ContextPipeline:
             from contextmind.modes.pytod.tracker import load_pytod_api_module
 
             engine = self._get_engine()
-            # 优先注册预定义的场景 API（如 callcenter、insurance 等），
-            # 使得 schema.json 意图名与预置函数名匹配时可直接调用真实实现。
-            # 已通过 register_api() 手动注册的函数不会被覆盖（engine.registry 已有）。
+            # 注册预定义场景 API（如 callcenter、insurance 等）
             _scene_key = get_scenario_key(self.scene_name)
             if _scene_key and _scene_key in SCENARIO_API_REGISTRY:
                 SCENARIO_API_REGISTRY[_scene_key](engine)
@@ -464,8 +462,7 @@ class ContextPipeline:
                     f"[ContextPipeline] 已为场景 '{self.scene_name}' 注册预置 API: "
                     f"{engine.list_functions()}"
                 )
-            # 尝试从与 schema.json 同目录的 companion *_pytod_apis.py 加载预生成函数。
-            # 预生成函数含真实业务逻辑，优先级高于存根；已注册的函数不会被覆盖。
+            # 从 schema.json 同目录的 *_pytod_apis.py 加载预生成函数
             if self._schema_path is not None:
                 api_funcs = load_pytod_api_module(self._schema_path)
                 if api_funcs:
@@ -475,7 +472,6 @@ class ContextPipeline:
                     logger.info(
                         f"[ContextPipeline] 已从 companion 文件加载 {len(api_funcs)} 个预生成 API 函数"
                     )
-            # 为 schema 中尚未注册的意图自动生成存根，确保 AP 程序可执行
             self._register_schema_stubs(engine)
             self.tracker = AdkPyTODTracker(
                 llm_client=self._get_llm(),
@@ -493,7 +489,6 @@ class ContextPipeline:
             from contextmind.modes.fnctod.tracker import FnCTODTracker
             from contextmind.modes.fnctod.function_manager import FunctionManager
 
-            # 将 ServiceSchema 转换为 FunctionManager（槽位 → 函数参数）
             fm = FunctionManager()
             slots_dict = {s.name: s.description for s in self.schema.slots}
             categorical = {
@@ -588,7 +583,6 @@ class ContextPipeline:
                     f"[ContextPipeline] Genie 模式：从 Worksheet 加载 schema: {ws_path.name}"
                 )
             elif self.schema is not None:
-                # 将 pytod ServiceSchema 转换为 GenieSchema（pipeline 层桥接，保持模块边界）
                 genie_schema = _service_schema_to_genie_schema(self.schema)
             else:
                 raise RuntimeError(
@@ -639,7 +633,7 @@ class ContextPipeline:
 
             result_slots: List[str] = list(intent.result_slots)
 
-            # 使用闭包捕获 result_slots，避免循环变量绑定问题
+            # 使用闭包捕获 result_slots
             def _make_stub(slots: List[str]) -> Callable:
                 def _stub(**kwargs: Any) -> Dict[str, Any]:
                     return {s: "" for s in slots}

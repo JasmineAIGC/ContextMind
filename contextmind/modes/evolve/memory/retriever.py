@@ -95,7 +95,7 @@ class SemanticSearchRetriever(BaseRetriever):
                     if isinstance(item.timestamp, datetime):
                         days_ago = (datetime.now() - item.timestamp).days
                         if days_ago <= self.config.recency_days_threshold:
-                            # 线性衰减：记忆越新提升越多，到达阈值边界时提升归零。
+                            # 线性衰减：记忆越新提升越多。
                             recency_boost = self.config.recency_weight * (
                                 1 - days_ago / self.config.recency_days_threshold
                             )
@@ -148,7 +148,7 @@ class SemanticSearchRetriever(BaseRetriever):
         still outrank it. For partial overlaps, Jaccard over character sets is
         linearly scaled into [base_score, 0.9] to preserve relative ordering.
         """
-        # 直接子串包含是强相关证据；评分为 0.9 而非 1.0，为向量检索保留超越空间。
+        # 直接子串包含是强相关证据；评分 0.9 为向量检索保留超越空间。
         if query_lower in content_lower or content_lower in query_lower:
             return 0.9
         

@@ -94,8 +94,7 @@ class _TreeNode:
         self.target_case = target_case
         self.children: List["_TreeNode"] = []
         self.visits: int = 0
-        # 扩展失败标志：当对该节点的扩展尝试未产生任何子节点时置为 True，
-        # 防止 UCB 选择器反复选取同一节点重复发送相同提示给 LLM
+        # 扩展失败标志：扩展尝试未产生任何子节点时置为 True，防止 UCB 反复选取同一节点。
         self.exhausted: bool = False
 
     def ucb_score(self, parent_visits: int, c: float = _UCB_C) -> float:

@@ -74,8 +74,7 @@ class PromptManager:
         else:
             self.max_context_length = max_context_length
         
-        # 槽位列表仅作为提示，动态模式下 LLM 不受此列表约束，
-        # 因此过滤功能默认关闭，需显式启用。
+        # 槽位列表仅作为提示，动态模式下过滤功能默认关闭，需显式启用。
         self.ontology_slots: Dict[str, str] = {}
         self.categorical_constraints: Dict[str, List[str]] = {}
         

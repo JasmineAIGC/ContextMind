@@ -101,7 +101,6 @@ def _sanitize_infer_yaml(text: str) -> str:
         if not content.strip():
             return _EMPTY
         parsed = yaml.safe_load(content)
-        # 格式 C：LLM 跟随 langextract 内置示例，已包含 "extractions" 包装键
         if isinstance(parsed, dict) and "extractions" in parsed:
             raw_items = parsed["extractions"]
             items = raw_items if isinstance(raw_items, list) else []
@@ -113,7 +112,6 @@ def _sanitize_infer_yaml(text: str) -> str:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            # 格式 A：含 "extraction_class" 和 "extraction_text" 键
             if "extraction_class" in item and "extraction_text" in item:
                 ec = item.get("extraction_class")
                 et = item.get("extraction_text")
@@ -134,18 +132,15 @@ def _sanitize_infer_yaml(text: str) -> str:
                         f"[AdkLLMClientAdapter] 过滤格式A条目（extraction_text为空）: {item!r}"
                     )
                     continue
-                # 转换为 langextract 原生格式 B
                 converted: Dict[str, Any] = {ec: et}
                 if isinstance(attrs, dict) and attrs:
                     converted[f"{ec}_attributes"] = attrs
                 cleaned.append(converted)
             else:
-                # 格式 B：以提取类名为键，提取文本为值
                 filtered: Dict[str, Any] = {}
                 has_valid = False
                 for k, v in item.items():
                     if k.endswith("_attributes"):
-                        # 属性字段：值必须是 dict 或 None
                         if isinstance(v, (dict, type(None))):
                             filtered[k] = v
                         else:
@@ -154,7 +149,6 @@ def _sanitize_infer_yaml(text: str) -> str:
                                 f"（类型={type(v).__name__}）: key={k!r}"
                             )
                     else:
-                        # 提取文本字段：值必须是 str/int/float 且非空
                         if isinstance(v, (str, int, float)) and (
                             not isinstance(v, str) or v.strip()
                         ):
@@ -169,7 +163,6 @@ def _sanitize_infer_yaml(text: str) -> str:
                     cleaned.append(filtered)
         if not cleaned:
             return _EMPTY
-        # 用 extractions 包装键返回，满足 langextract format_handler 要求
         return json.dumps({"extractions": cleaned}, ensure_ascii=False)
     except Exception:
         return _EMPTY
@@ -194,13 +187,9 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
             try:
                 _reasoning, text = self._client.generate(prompt)
                 if not text.strip():
-                    # 空响应返回合法空结果，避免 langextract 内部 JSON 解析异常
                     logger.debug("[AdkLLMClientAdapter] LLM 返回空响应，本轮无提取结果")
                     yield [ScoredOutput(score=0.0, output='{"extractions": []}')]
                 else:
-                    # 过滤掉 extraction_text 为 None/null/非字符串的条目，
-                    # 防止 langextract resolver 因类型校验失败而抛出 ValueError
-                    # 并触发 ERROR:absl:Extraction text must be a string... 错误日志。
                     sanitized = _sanitize_infer_yaml(text)
                     yield [ScoredOutput(score=1.0, output=sanitized)]
             except Exception as exc:
@@ -333,22 +322,8 @@ def _build_langextract_prompt(scene_name: str) -> str:
 def _build_langextract_examples() -> List[Any]:
     """构建 langextract 逐轮提取所需的 few-shot 示例（``ExampleData`` 列表）。
 
-    ``lx.extract()`` 要求至少一个 ``ExampleData`` 对象，每个示例中的
-    ``extraction_text`` 必须是 ``text`` 的精确子串（verbatim）。
-
-    重要约束：
-    - 每个 ``ExampleData`` 只放一条提取项，避免 langextract 在同一短文本中
-      同时对齐多个子串时出现对齐失败（``FAILED to align``）告警。
-    - 所有示例的 ``extraction_text`` 与 ``text`` 完全相同，彻底消除子串搜索
-      导致的对齐失败告警——这些静态 few-shot 示例绝不应在日志中产生告警。
-
-    此处提供四条通用中文**用户话语**示例，覆盖三种提取类别：
-    - ``intent``：用户表达的业务意图（如抱怨利率、拒绝方案、询问月供）
-    - ``slot_value``：用户话语中的具体业务字段值（如分期期数）
-    - ``fact``：用户话语中重要的业务陈述
-
-    示例均来自用户侧，与实际提取场景（仅对用户轮次提取）匹配，
-    避免 langextract 因 few-shot 与输入类型不一致而产生偏差。
+    每个示例只含一条提取项，且 ``extraction_text`` 与 ``text`` 完全相同，
+    避免 langextract 子串对齐失败告警。覆盖 intent、slot_value、fact 三类。
     """
     if not _LANGEXTRACT_AVAILABLE:
         return []

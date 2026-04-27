@@ -368,11 +368,13 @@ git push origin docs/update-api-reference
 ```
 ContextMind/
 ├── contextmind/          # 主包
-│   ├── modes/           # 三种模式实现
-│   ├── infra/           # 基础设施
-│   ├── config/          # 配置管理
-│   ├── scenarios/       # 场景定义
-│   └── apps/            # 应用实现
+│   ├── pipeline.py      # ContextPipeline（推荐入口）
+│   ├── modes/           # DST / FnCTOD / PyTOD / Evolve / Genie 追踪器
+│   ├── infra/           # AdkLLMClient、配置
+│   ├── knowledge/       # KnowledgeBaseBuilder（第一步）
+│   ├── schema_builder/  # SchemaDataBuilder（第二步）
+│   ├── scenarios/       # 场景注册与配置
+│   └── ui/              # UI 组件
 ├── examples/            # 示例程序
 ├── tests/               # 测试代码
 ├── docs/                # 文档

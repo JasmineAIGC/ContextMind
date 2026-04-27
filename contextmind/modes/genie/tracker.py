@@ -340,8 +340,6 @@ class GenieTracker:
         # ------------------------------------------------------------------
         # Step 1: 意图路由（每轮动态，对齐 Genie 论文 Figure 2 Step 1）
         # 对齐 Genie 论文 Figure 2 Step 1：Intent Routing。
-        # 使用 LLM 根据用户话语和对话历史，从 schema 中选择最合适的意图。
-        # 当意图发生变化时，PolicyExecutor 切换到新意图（保留已有跨意图字段值）。
         # 仅当 schema 中存在多个意图时才调用 LLM 路由（单意图时跳过以节省开销）。
         # ------------------------------------------------------------------
         if len(self._schema.intents) > 1:
@@ -352,9 +350,7 @@ class GenieTracker:
 
         # ------------------------------------------------------------------
         # Step 2: 语义解析（LLM-1）— 始终运行，提取字段赋值
-        # 对齐 Genie 论文 Figure 2 Step 2：SUQLReActParser（此处无 DB，
-        # 直接输出 JSON 字段赋值，功能等同）。
-        # 无论是否有待确认字段，语义解析始终执行。
+        # 对齐 Genie 论文 Figure 2 Step 2：SUQLReActParser（此处直接输出 JSON 字段赋值）。
         # ------------------------------------------------------------------
         extracted: Dict[str, Any] = {}
         parse_errors: List[str] = []
