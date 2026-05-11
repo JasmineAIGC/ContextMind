@@ -1,9 +1,5 @@
 # ContextMind 上下文优化框架概述
 
-> **版本**：v0.3.0  
-> **面向读者**：技术负责人 / 项目评审  
-> **摘要**：本文档系统介绍 ContextMind 上下文优化框架——它解决的核心问题、整体处理流程、数据结构化方法及各算法的组合方式，便于快速全面了解该框架的工作。
-
 ---
 
 ## 一、核心问题：上下文优化要解决什么？
@@ -16,7 +12,7 @@
 | **LLM 幻觉** | 当 LLM 需要给出业务数据（账户余额、审批状态等）时，可能凭空捏造 |
 | **策略失控** | 纯提示词驱动的对话难以保证业务流程的严格执行，LLM 可能偏离预设策略 |
 
-**ContextMind 的核心使命**：将对话过程中产生的上下文信息**结构化提取、精准传递、持久记忆**，同时通过可编程/声明式机制保证业务策略可靠执行。
+**ContextMind 的核心目标**：将对话过程中产生的上下文信息**结构化提取、精准传递、持久记忆**，同时通过可编程/声明式等机制保证业务利用到精准的上下文信息。
 
 ---
 
@@ -55,16 +51,6 @@ ContextMind 围绕"**三步框架**"设计，将上下文优化拆解为知识�
         │
         ▼
 结构化上下文输出（槽位值、意图、程序执行结果、对话状态）
-```
-
-### 统一入口：ContextPipeline（3 行代码端到端）
-
-```python
-pipeline = ContextPipeline(llm_client=AdkLLMClient())
-pipeline.build_kb(dialogues=my_dialogues, scene_name="银行贷款外呼")  # 第一步
-result = await pipeline.process_turn("我想查询贷款额度")              # 第三步
-print(result["context"])           # 本轮提取的槽位/意图
-print(result["cumulative_context"]) # 全量累积上下文
 ```
 
 ---
@@ -247,13 +233,13 @@ Worksheet 声明（CSV 表格）：
 
 ---
 
-## 五、我做的最核心的工作
+## 五、我做的工作
 
 ### 5.1 构建了完整的三步上下文工程框架
 
 从零设计并实现了"**知识库构建 → Schema 数据生成 → 算法执行**"三步式框架，通过 `ContextPipeline` 将其统一为可复用的工程体系。对于任意业务场景（银行外呼、保险咨询、电商客服等），只需提供原始对话数据，即可完成端到端的上下文优化接入。
 
-### 5.2 实现了五种互补的上下文提取算法
+### 5.2 实现了五种上下文提取算法
 
 五种算法覆盖从轻量到精密的全谱系场景需求：
 
@@ -267,7 +253,7 @@ Worksheet 声明（CSV 表格）：
 
 ### 5.3 实现了 LLM 驱动的自动知识库构建
 
-**GenericDialogueDiscoverer + SchemaSynthesizer** 两阶段流水线，将任意格式的原始对话数据自动转化为标准化 `schema.json`，无需人工标注，大幅降低上下文优化的接入成本。
+**GenericDialogueDiscoverer + SchemaSynthesizer** 两阶段流水线，将任意格式的原始对话数据自动转化为标准化 `schema.json`，降低上下文优化的接入成本。
 
 ### 5.4 实现了 PyTOD API 代码自动生成（四种策略）
 
@@ -275,7 +261,7 @@ Worksheet 声明（CSV 表格）：
 
 ---
 
-## 六、算法步骤依赖矩阵（速查）
+## 六、算法步骤依赖矩阵
 
 | 算法 | 第一步：建立知识库 | 第二步：Schema 数据生成 | 第三步：算法执行 |
 |------|:-----------------:|:---------------------:|:--------------:|
@@ -286,11 +272,3 @@ Worksheet 声明（CSV 表格）：
 | **Genie** | 可选 | ❌ 不需要 | ✅ 必须 |
 
 ---
-
-## 七、技术参考
-
-- **PyTOD**：[Apple Research, 2025](https://arxiv.org/pdf/2508.15456) — 可编程任务型对话
-- **FnCTOD**：[ACL 2024](https://arxiv.org/pdf/2402.10466) — 函数调用式零样本 DST
-- **Genie**：[Stanford, ACL 2025](https://arxiv.org/abs/2407.05674) — 声明式策略驱动对话
-- **Evolve**：[ThetaEvolve](https://arxiv.org/pdf/2511.23473) — 演化式上下文优化
-- **SGD Schema 标准**：[Google, 2019](https://arxiv.org/abs/1909.05855) — 跨域对话 Schema 规范
