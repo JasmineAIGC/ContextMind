@@ -4,16 +4,16 @@ Genie Worksheets 对话状态追踪脚本
 展示 Genie Worksheets 算法（stanford-oval/genie-worksheets，ACL 2024）在
 业务场景中的完整六步流水线运行过程，并将全链路 I/O 写入 Markdown 报告和 JSON 文件。
 
-六步流水线（每轮）
+六步流水线（每轮，对齐 Genie 论文 Figure 2）
 ------------------
-  Step 1: 确认流检查       — 检测 PENDING_CONFIRM 字段，处理 yes/no 用户意图
-  Step 2: 语义解析（LLM-1）— 从用户话语中提取字段赋值（SemanticParser）
-  Step 3: Worksheet 状态更新 — PolicyExecutor.fill_batch() 推进字段状态
+  Step 1: 意图路由         — 确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）
+  Step 2: 语义解析（LLM-1）— 从用户话语提取字段赋值（始终运行，含确认场景）
+  Step 3: Worksheet 状态更新 — 处理确认/拒绝 + fill_batch() 推进字段状态
   Step 4: on_success dispatch — 触发字段关联的 API 回调（ReportAgentAct）
   Step 5: AgentActs 计算   — 确定性：Ask / AskForConfirmation / Report
   Step 6: 回复生成（LLM-2）— ResponseGenerator 根据 AgentActs 生成自然语言回复
 
-追踪格式与 pytod_trace_demo.py / fnctod_trace_demo.py 对齐，每轮记录：
+追踪格式与 step3_pytod_trace.py / step3_fnctod_trace.py 对齐，每轮记录：
   - 原始对话（坐席先说，用户后说）
   - ① 语义解析结果（LLM-1 提取的字段赋值）
   - ② PolicyExecutor 状态更新（字段状态变化）
@@ -25,20 +25,20 @@ Genie Worksheets 对话状态追踪脚本
 
 用法::
 
-    python examples/genie_trace_demo.py
-    python examples/genie_trace_demo.py --seed 42
-    python examples/genie_trace_demo.py --index 5
-    python examples/genie_trace_demo.py --output /tmp/trace.md --verbose
-    python examples/genie_trace_demo.py --worksheet schema/anyihua_genie_worksheet.json
-    python examples/genie_trace_demo.py --worksheet schema/restaurant_booking_genie_worksheet.json
+    python examples/step3_genie_trace.py
+    python examples/step3_genie_trace.py --seed 42
+    python examples/step3_genie_trace.py --index 5
+    python examples/step3_genie_trace.py --output /tmp/trace.md --verbose
+    python examples/step3_genie_trace.py --worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_genie_trace.py --worksheet schema/restaurant_booking_genie_worksheet.json
 
 Worksheet 文件说明::
 
     Genie 使用预生成的 *_genie_worksheet.json 文件（或 CSV 格式）。
-    默认使用 schema/anyihua_genie_worksheet.json（由 build_schema_data.py 生成）。
+    默认使用 schema/anyihua_genie_worksheet.json（由 step2b_build_schema_data.py 生成）。
     若文件不存在，请先运行::
 
-        python examples/build_schema_data.py --genie-only
+        python examples/step2b_build_schema_data.py --genie-only
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ from contextmind.modes.genie import GenieTracker
 from contextmind.scenarios import get_anyihua_scenario
 
 _DATA_PATH = _PROJECT_ROOT / "resources" / "data" / "chat_test_100.json"
-# 默认 Worksheet：安逸花外呼业务（由 build_schema_data.py --genie-only 生成）
+# 默认 Worksheet：安逸花外呼业务（由 step2b_build_schema_data.py --genie-only 生成）
 _DEFAULT_WORKSHEET_PATH = _PROJECT_ROOT / "schema" / "anyihua_genie_worksheet.json"
 _AGENT_KEY = "机器人"
 _USER_KEY = "用户"
@@ -97,7 +97,7 @@ async def run_trace(
 ) -> Dict[str, Any]:
     """运行单条会话的 Genie Worksheets 追踪，返回结构化结果（含每步完整 I/O）。
 
-    追踪格式与 pytod_trace_demo.py / fnctod_trace_demo.py 对齐：每轮包含
+    追踪格式与 step3_pytod_trace.py / step3_fnctod_trace.py 对齐：每轮包含
     原始对话（坐席先说，用户后说）、六步流水线各阶段结果、
     worksheet state delta、累积状态。
 
@@ -237,6 +237,8 @@ async def run_trace(
             next_field: Optional[str] = result.get("next_field")
             missing_required: List[str] = result.get("missing_required", [])
             errors: List[str] = result.get("errors", [])
+            # per-turn intent (dynamic routing may have changed it from previous turn)
+            turn_intent: str = result.get("intent_name", intent_name)
 
             # state_delta：本轮新填入的字段（与上轮累积状态对比）
             state_delta = {
@@ -253,7 +255,8 @@ async def run_trace(
                 "user": utt,
                 "preceding_agent": preceding_agent,   # 坐席在本轮用户发言前说的话
                 "original_agent": following_agent,    # 坐席对本轮用户的实际回应（对比基准）
-                # Step 1: 确认流
+                # Step 1: 意图路由 + 确认流
+                "intent_name": turn_intent,
                 "confirmed_fields": confirmed_fields,
                 "rejected_fields": rejected_fields,
                 # Step 2: 语义解析（LLM-1）
@@ -354,8 +357,13 @@ def _format_messages_collapsible(messages: List[Dict[str, str]], label: str) -> 
     return lines
 
 
+def _escape_table_cell(text: str) -> str:
+    """将文本中的竖线和换行转义，使其可以安全嵌入 Markdown 表格单元。"""
+    return text.replace("|", "\\|").replace("\n", "<br>")
+
+
 def _render_markdown(trace: Dict[str, Any]) -> str:
-    """将 trace 字典渲染为 Markdown 报告（格式与 pytod_trace_demo / fnctod_trace_demo 对齐）。
+    """将 trace 字典渲染为 Markdown 报告（格式与 step3_pytod_trace / step3_fnctod_trace 对齐）。
 
     每轮展示：
     - 原始对话（坐席先说，用户后说）
@@ -409,9 +417,9 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         "",
         "| 步骤 | 组件 | 说明 |",
         "|---|---|---|",
-        "| Step 1 | 确认流检查 | 检测 PENDING_CONFIRM 字段，处理 yes/no |",
-        "| Step 2 | SemanticParser（LLM-1）| 从用户话语提取字段赋值 |",
-        "| Step 3 | PolicyExecutor | fill_batch() 推进字段状态 |",
+        "| Step 1 | 意图路由 | 确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）|",
+        "| Step 2 | SemanticParser（LLM-1）| 从用户话语提取字段赋值（始终运行，含确认场景）|",
+        "| Step 3 | Worksheet 状态更新 | 处理确认/拒绝 + fill_batch() 推进字段状态 |",
         "| Step 4 | on_success dispatch | 触发字段关联 API 回调 |",
         "| Step 5 | AgentActs 计算 | 确定性：Ask / AskForConfirmation / Report |",
         "| Step 6 | ResponseGenerator（LLM-2）| 根据 AgentActs 生成自然语言回复 |",
@@ -436,21 +444,9 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         lines.append(f"{_USER_ICON} **用户**: {t['user']}")
         lines.append("")
 
-        # Step 1: 确认流
-        confirmed = t.get("confirmed_fields", [])
-        rejected = t.get("rejected_fields", [])
-        if confirmed or rejected:
-            confirm_parts = []
-            if confirmed:
-                confirm_parts.append(f"✅ 已确认: {', '.join(f'`{f}`' for f in confirmed)}")
-            if rejected:
-                confirm_parts.append(f"❌ 已拒绝: {', '.join(f'`{f}`' for f in rejected)}")
-            lines += [
-                f"**Step 1 — 确认流**: {' | '.join(confirm_parts)}",
-                "",
-            ]
-        else:
-            lines += ["**Step 1 — 确认流**: （无待确认字段）", ""]
+        # Step 1: 意图路由（来自 turn_record 的 intent_name，即本轮路由结果）
+        turn_intent_name = t.get("intent_name", intent_name)
+        lines += [f"**Step 1 — 意图路由**: `{turn_intent_name}`" if turn_intent_name else "**Step 1 — 意图路由**: （未知）", ""]
 
         # Step 2: 语义解析（LLM-1）
         extracted = t.get("extracted_fields", {})
@@ -468,25 +464,31 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
         if parse_errors:
             lines += [f"⚠️ 校验错误: {'; '.join(parse_errors)}", ""]
 
-        # Step 3: PolicyExecutor 字段状态
+        # Step 3: Worksheet 状态更新（含确认/拒绝处理 + fill_batch）
+        confirmed = t.get("confirmed_fields", [])
+        rejected = t.get("rejected_fields", [])
         field_statuses = t.get("field_statuses", {})
+        _STATUS_LABELS = {
+            "empty": "空",
+            "filled": "已填",
+            "pending_confirm": "待确认",
+            "confirmed": "已确认",
+        }
+        step3_parts: List[str] = []
+        if confirmed:
+            step3_parts.append(f"✅ 已确认: {', '.join(f'`{f}`' for f in confirmed)}")
+        if rejected:
+            step3_parts.append(f"❌ 已拒绝: {', '.join(f'`{f}`' for f in rejected)}")
         if field_statuses:
-            _STATUS_LABELS = {
-                "empty": "空",
-                "filled": "已填",
-                "pending_confirm": "待确认",
-                "confirmed": "已确认",
-            }
             status_parts = [
                 f"`{k}`: {_STATUS_LABELS.get(v, v)}"
                 for k, v in field_statuses.items()
             ]
-            lines += [
-                f"**Step 3 — Worksheet 状态**: {' | '.join(status_parts)}",
-                "",
-            ]
+            step3_parts.append(" | ".join(status_parts))
+        if step3_parts:
+            lines += [f"**Step 3 — Worksheet 状态更新**: {' | '.join(step3_parts)}", ""]
         else:
-            lines += ["**Step 3 — Worksheet 状态**: （无状态变化）", ""]
+            lines += ["**Step 3 — Worksheet 状态更新**: （无状态变化）", ""]
 
         # Step 4: on_success dispatch
         dispatched = t.get("dispatched_apis", [])
@@ -519,11 +521,10 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
 
         # Step 6: DM 生成回复（LLM-2）
         new_response = t.get("response") or "(空)"
-        lines += [
-            "**Step 6 — DM 生成回复（LLM-2）**:",
-            f"> {new_response}",
-            "",
-        ]
+        lines.append("**Step 6 — DM 生成回复（LLM-2）**:")
+        for _resp_line in new_response.splitlines():
+            lines.append(f"> {_resp_line}" if _resp_line.strip() else ">")
+        lines.append("")
 
         # 回复对比（仅当存在原始机器人回复时）
         if orig_agent:
@@ -532,8 +533,8 @@ def _render_markdown(trace: Dict[str, Any]) -> str:
                 "",
                 "| | 回复 |",
                 "|---|---|",
-                f"| {_AGENT_ICON} 原始机器人 | {orig_agent} |",
-                f"| {_AGENT_ICON} DM 生成 | {new_response} |",
+                f"| {_AGENT_ICON} 原始机器人 | {_escape_table_cell(orig_agent)} |",
+                f"| {_AGENT_ICON} DM 生成 | {_escape_table_cell(new_response)} |",
                 "",
             ]
 
@@ -587,15 +588,15 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/genie_trace_demo.py
-  python examples/genie_trace_demo.py --seed 42 --verbose
-  python examples/genie_trace_demo.py --index 0
-  python examples/genie_trace_demo.py --worksheet schema/anyihua_genie_worksheet.json
-  python examples/genie_trace_demo.py --output /tmp/genie_trace.md --verbose
-  python examples/genie_trace_demo.py --data resources/data/chat_test_500.json --index 5
+  python examples/step3_genie_trace.py
+  python examples/step3_genie_trace.py --seed 42 --verbose
+  python examples/step3_genie_trace.py --index 0
+  python examples/step3_genie_trace.py --worksheet schema/anyihua_genie_worksheet.json
+  python examples/step3_genie_trace.py --output /tmp/genie_trace.md --verbose
+  python examples/step3_genie_trace.py --data resources/data/chat_test_500.json --index 5
 
 Worksheet 文件生成:
-  python examples/build_schema_data.py --genie-only
+  python examples/step2b_build_schema_data.py --genie-only
         """,
     )
     parser.add_argument("--seed", type=int, default=None)
@@ -622,7 +623,7 @@ Worksheet 文件生成:
         "--worksheet", dest="worksheet", type=str, default=None,
         help=(
             "Worksheet 文件路径（.json 或 .csv）。"
-            "推荐使用预生成的 *_genie_worksheet.json（由 build_schema_data.py --genie-only 生成）。"
+            "推荐使用预生成的 *_genie_worksheet.json（由 step2b_build_schema_data.py --genie-only 生成）。"
             "若不提供则默认使用 schema/anyihua_genie_worksheet.json。"
         ),
     )
@@ -633,7 +634,7 @@ Worksheet 文件生成:
     log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
         LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
     )
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="genie_trace_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_genie_trace")
 
     data_path = Path(args.data) if args.data else _DATA_PATH
     if not data_path.exists():
@@ -655,7 +656,7 @@ Worksheet 文件生成:
         else:
             print(
                 f"⚠️  默认 Worksheet 文件不存在: {worksheet_path}\n"
-                "   请先运行: python examples/build_schema_data.py --genie-only\n"
+                "   请先运行: python examples/step2b_build_schema_data.py --genie-only\n"
                 "   或通过 --worksheet 指定 Worksheet 文件路径",
                 file=sys.stderr,
             )

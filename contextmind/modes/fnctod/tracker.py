@@ -161,14 +161,11 @@ class FnCTODTracker:
         self._session_id: Optional[str] = None
         self.last_turn_updates: Dict[str, Any] = {}
 
-        # Fallback client used when the backend does not support tool_choice="auto"
-        # (e.g. vLLM started without --enable-auto-tool-choice).
+        # 备用客户端（后端不支持 tool_choice="auto" 时使用）
         self._llm_client = AdkLLMClient(config=self._llm_config)
-        # True  → try ADK native function calling first
-        # False → permanently use JSON-prompt fallback (set after first tool_choice error,
-        #          or when caller explicitly passes use_native_tools=False)
+        # True → 优先使用 ADK 原生函数调用；False → 固定使用 JSON 备用方案
         self._use_native_tools: bool = use_native_tools
-        # Cached fallback system prompt (built lazily on first use)
+        # 备用系统提示词（首次使用时延迟构建）
         self._fallback_system_prompt: Optional[str] = None
 
         logger.info(
@@ -195,15 +192,12 @@ class FnCTODTracker:
         config: Any = kwargs.pop("config", None)
         if config is None and hasattr(llm_client, "_config"):
             config = llm_client._config
-        # 过滤掉本类构造函数不认识的参数，保持接口宽容
+        # 过滤掉本类构造函数不认识的参数
         kwargs.pop("use_two_stage", None)
         kwargs.pop("max_history_turns", None)
-        # use_native_tools: 允许调用方显式禁用原生函数调用（适用于 vLLM 未启用 --enable-auto-tool-choice）
         use_native_tools: bool = kwargs.pop("use_native_tools", True)
-        # 业务场景背景（可选，注入到系统指令中让 LLM 了解对话场景）
         scenario_context = kwargs.pop("scenario_context", "")
-        # 若调用方未显式传入 scenario_context，且也未传入 system_instruction，
-        # 则使用场景配置自带的 system_prompt 作为背景，确保机器人身份与场景匹配。
+        # 若未显式传入 scenario_context 且未传入 system_instruction，使用场景的 system_prompt 作为背景
         if (
             not scenario_context
             and "system_instruction" not in kwargs
@@ -211,7 +205,6 @@ class FnCTODTracker:
             and scenario_config.system_prompt
         ):
             scenario_context = scenario_config.system_prompt
-        # 外部 DomainSpec（来自 --schema 参数），FnCTOD 不再内置场景 Schema
         domain_spec = kwargs.pop("domain_spec", None)
         fm = FunctionManager()
         if domain_spec is not None:
@@ -421,9 +414,7 @@ class FnCTODTracker:
             except Exception as exc:
                 exc_str = str(exc)
                 if "tool choice" in exc_str.lower() or "tool_choice" in exc_str.lower():
-                    # 后端不支持 tool_choice="auto"，永久切换到 JSON 提示词备用方案。
-                    # 这是预期的探测行为（vLLM 未启用 --enable-auto-tool-choice），
-                    # 使用 debug 级别避免误导性警告输出。
+                    # 后端不支持 tool_choice="auto"，永久切换到 JSON 备用方案（预期探测行为）。
                     logger.debug(
                         f"[turn {self.turn_count}] 后端不支持原生函数调用 "
                         f"(tool_choice)，已切换到 JSON 提示词备用模式: {exc}"

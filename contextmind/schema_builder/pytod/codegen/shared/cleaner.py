@@ -118,10 +118,7 @@ def clean_llm_function_body(raw: str, func_name: str, param_str: str) -> Optiona
             body_lines = lines[body_start:body_end]
             raw = textwrap.dedent("\n".join(body_lines))
     else:
-        # 无 def 行 —— LLM 直接输出函数体。
-        # 修复 LLM 常见 quirk：第一个语句行缺少前导缩进，其余行均有 4 空格缩进。
-        # 若检测到该模式，将第一行补齐到其余行的最小缩进级别，
-        # 使后续 textwrap.dedent 能正确归一化所有行。
+        # 无 def 行 —— LLM 直接输出函数体；修复第一行缺失缩进的问题。
         raw = _fix_body_first_line_indent(raw)
 
     # 4. 规范化缩进 → 重新缩进为 4 空格

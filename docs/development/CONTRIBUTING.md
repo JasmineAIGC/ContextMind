@@ -36,7 +36,7 @@ cd ContextMind
 
 3. 添加上游仓库
 ```bash
-git remote add upstream https://github.com/Jasmine66Bloom/ContextMind.git
+git remote add upstream https://github.com/JasmineAIGC/ContextMind.git
 ```
 
 4. 创建开发分支
@@ -368,11 +368,13 @@ git push origin docs/update-api-reference
 ```
 ContextMind/
 ├── contextmind/          # 主包
-│   ├── modes/           # 三种模式实现
-│   ├── infra/           # 基础设施
-│   ├── config/          # 配置管理
-│   ├── scenarios/       # 场景定义
-│   └── apps/            # 应用实现
+│   ├── pipeline.py      # ContextPipeline（推荐入口）
+│   ├── modes/           # DST / FnCTOD / PyTOD / Evolve / Genie 追踪器
+│   ├── infra/           # AdkLLMClient、配置
+│   ├── knowledge/       # KnowledgeBaseBuilder（第一步）
+│   ├── schema_builder/  # SchemaDataBuilder（第二步）
+│   ├── scenarios/       # 场景注册与配置
+│   └── ui/              # UI 组件
 ├── examples/            # 示例程序
 ├── tests/               # 测试代码
 ├── docs/                # 文档

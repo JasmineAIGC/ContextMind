@@ -106,8 +106,7 @@ class IntentDefinition:
         else:
             optional_slots = list(raw_optional)
         raw_pf = data.get("policy_fields", [])
-        # policy_fields 存储原始 dict；genie_worksheets 层负责将其转换为策略对象，
-        # 此处不依赖 genie_worksheets 子包。
+        # policy_fields 存储原始 dict，由 genie_worksheets 层负责转换。
         policy_fields: List[Any] = list(raw_pf) if raw_pf else []
         return cls(
             name=data["name"],
@@ -226,8 +225,7 @@ class ServiceSchema:
         slots = [SlotDefinition.from_dict(s) for s in data.get("slots", [])]
         intents = [IntentDefinition.from_dict(i) for i in data.get("intents", [])]
 
-        # 从意图定义而非槽位定义中推导 is_required，
-        # 因为 PyTOD JSON schema 将必填槽位存储在意图下。
+        # 从意图定义推导 is_required（PyTOD JSON schema 将必填槽位存储在意图下）。
         required_set: Set[str] = set()
         for intent in intents:
             required_set.update(intent.required_slots)

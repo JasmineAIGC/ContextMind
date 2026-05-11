@@ -2,7 +2,7 @@
 PyTOD 场景 API 注册表
 
 PyTOD 不再在算法代码内部硬编码场景 API 实现。所有场景 API 均通过外部文件传入：
-  1. 生成 companion 文件：``python examples/build_schema_data.py --schema schema/xxx_schema.json``
+  1. 生成 companion 文件：``python examples/step2b_build_schema_data.py --schema schema/xxx_schema.json``
   2. 传入追踪器：``AdkPyTODTracker.from_scenario(..., schema=svc, schema_path="schema/xxx_schema.json")``
 
 ``SCENARIO_API_REGISTRY`` 保留为空字典，``get_scenario_key`` 保留以维持接口兼容性。

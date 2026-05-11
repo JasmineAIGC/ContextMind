@@ -4,6 +4,8 @@
 > **参考论文**：*Coding Reliable LLM-based Integrated Task and Knowledge Agents with GenieWorksheets* (ACL 2025, [arXiv:2407.05674](https://arxiv.org/abs/2407.05674))  
 > **参考仓库**：[stanford-oval/genie-worksheets](https://github.com/stanford-oval/genie-worksheets)
 
+> **实现状态**（更新于 2026-04-27）：✅ **Phase 2（GenieTracker 执行模式）已完整实现**，详见 `contextmind/modes/genie/`。Phase 1（WorksheetLoader 格式转换）已随 Phase 2 一同实现。Phase 3（SUQL 知识库集成）为可选项，暂未实现。
+
 ---
 
 ## 目录

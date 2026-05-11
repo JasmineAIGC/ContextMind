@@ -1,7 +1,7 @@
 """
 PyTOD schema 构建流程各阶段的 LLM 提示词常量。
 
-每对提示词（system + user 模板）对应 plan.md 5 阶段流水线的一个阶段：
+每对提示词（system + user 模板）对应 5 阶段生成流水线的一个阶段：
 
 - :data:`MODULE_GEN_SYSTEM` / :data:`MODULE_GEN_USER_TEMPLATE`：
   全模块生成（一次 LLM 调用 → 所有意图函数）。

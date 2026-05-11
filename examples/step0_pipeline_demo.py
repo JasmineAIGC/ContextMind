@@ -1,21 +1,21 @@
 """
-ContextPipeline 演示脚本（context_pipeline_demo.py）
+ContextPipeline 演示脚本（step0_pipeline_demo.py）
 
 展示 ContextMind 统一上下文工程流水线（ContextPipeline）的完整用法（三步框架）：
 
     第一步（Phase 1）：建立知识库 — 任意对话数据 → SGD schema.json
-                       统一使用 examples/build_kb.py
+                       统一使用 examples/step1_build_kb.py
     第二步（Phase 2）：Schema 数据生成 — schema.json → 算法专用数据（PyTOD 可选）
     第三步（Phase 3）：算法执行 — 基于 SGD 知识库，使用 5 种算法提取有效上下文
 
 三步框架
 --------
-Phase 1（build_kb.py）输出：
+Phase 1（step1_build_kb.py）输出：
     schema.json         服务 schema（槽位 + 意图）
     dialogues_001.json  SGD 格式标注对话
     discovery_raw.json  逐轮原始提取结果
 
-Phase 2（build_schema_data.py，可选）：
+Phase 2（step2b_build_schema_data.py，可选）：
     xxx_pytod_apis.py   PyTOD API 代码文件（仅 PyTOD 需要）
 
 Phase 3（本脚本）支持五种算法：
@@ -38,38 +38,38 @@ Phase 3（本脚本）支持五种算法：
 --------
 
     # 端到端演示（Phase 1 + Phase 3，默认 pytod 模式）：
-    python examples/context_pipeline_demo.py
+    python examples/step0_pipeline_demo.py
 
     # 仅测试知识库构建：
-    python examples/context_pipeline_demo.py --demo-kb
+    python examples/step0_pipeline_demo.py --demo-kb
 
     # 从已有 schema.json 加载并演示对话（pytod 模式）：
-    python examples/context_pipeline_demo.py --demo-exec --schema data/kb_output/schema.json
+    python examples/step0_pipeline_demo.py --demo-exec --schema output/kb_output/schema.json
 
     # 使用 fnctod 模式（需要 schema）：
-    python examples/context_pipeline_demo.py --demo-exec --schema data/kb_output/schema.json --mode fnctod
+    python examples/step0_pipeline_demo.py --demo-exec --schema output/kb_output/schema.json --mode fnctod
 
     # 使用 dst 模式（schema 可选，不指定 schema 也可直接运行）：
-    python examples/context_pipeline_demo.py --demo-exec --mode dst
+    python examples/step0_pipeline_demo.py --demo-exec --mode dst
 
     # 使用 evolve 模式（不需要 schema）：
-    python examples/context_pipeline_demo.py --demo-exec --mode evolve
+    python examples/step0_pipeline_demo.py --demo-exec --mode evolve
 
     # 使用 genie 模式（通过 Worksheet JSON 驱动，不需要 schema.json）：
-    python examples/context_pipeline_demo.py --demo-exec --mode genie \\
+    python examples/step0_pipeline_demo.py --demo-exec --mode genie \\
         --genie-worksheet schema/my_service_worksheet.json
 
     # 使用 genie 模式（通过已有 schema.json 驱动，自动转换为 GenieSchema）：
-    python examples/context_pipeline_demo.py --demo-exec --mode genie \\
-        --schema data/kb_output/schema.json
+    python examples/step0_pipeline_demo.py --demo-exec --mode genie \\
+        --schema output/kb_output/schema.json
 
     # 使用 genie 模式并指定目标意图名称：
-    python examples/context_pipeline_demo.py --demo-exec --mode genie \\
+    python examples/step0_pipeline_demo.py --demo-exec --mode genie \\
         --genie-worksheet schema/my_service_worksheet.json \\
         --genie-intent search_restaurant
 
     # 指定场景和数据文件：
-    python examples/context_pipeline_demo.py \\
+    python examples/step0_pipeline_demo.py \\
         --data resources/data/chat_test_100.json \\
         --num 5 \\
         --scene "安逸花外呼" \\
@@ -150,7 +150,7 @@ _DEMO_DIALOGUES: List[Any] = [
     },
 ]
 
-# 演示对话轮次（Phase 2 演示时使用）
+# 演示对话轮次（Phase 3 演示时使用）
 # 每条为 (系统发起语, 用户回复语) 二元组，体现客服场景的正确对话结构：
 #   系统发起 → 用户回答 → 意图预测 + 语言回复
 _DEMO_TURNS = [
@@ -228,14 +228,14 @@ def demo_phase1(
 
 
 # ------------------------------------------------------------------
-# Phase 2 演示
+# Phase 3 演示
 # ------------------------------------------------------------------
 
 
-async def demo_phase2(pipeline: ContextPipeline, turns: List[Any]) -> None:
-    """演示 Phase 2：对话上下文提取。"""
+async def demo_phase3(pipeline: ContextPipeline, turns: List[Any]) -> None:
+    """演示 Phase 3：对话上下文提取。"""
     print("\n" + "─" * 65)
-    print("▶ Phase 2：对话上下文提取（基于 SGD 知识库，逐轮提取有效上下文）")
+    print("▶ Phase 3：对话上下文提取（基于 SGD 知识库，逐轮提取有效上下文）")
     print(f"  模式: {pipeline.mode.upper()}")
     _mode_desc = {
         "pytod":  "PyTOD AP→EE→DM 三步流程（需要 schema）",
@@ -329,7 +329,7 @@ def main() -> None:
     parser.add_argument("--mode", type=str, default="pytod",
                         choices=["pytod", "fnctod", "dst", "evolve", "genie"],
                         help=(
-                            "Phase 2 执行模式（默认 pytod）：\n"
+                            "Phase 3 执行模式（默认 pytod）：\n"
                             "  pytod   — PyTOD 三步流程，需要 schema\n"
                             "  fnctod  — ADK 原生函数调用，需要 schema\n"
                             "  dst     — 对话状态追踪，schema 可选\n"
@@ -337,15 +337,15 @@ def main() -> None:
                             "  genie   — Genie Worksheets 声明式策略，需要 schema 或 --genie-worksheet"
                         ))
     parser.add_argument("--schema", type=str, default=None,
-                        help="已有 schema.json 路径（跳过 Phase 1，直接运行 Phase 2）")
+                        help="已有 schema.json 路径（跳过 Phase 1，直接运行 Phase 3）")
     parser.add_argument("--genie-worksheet", type=str, default=None,
                         dest="genie_worksheet",
                         help="Genie 模式专用：Worksheet 文件路径（.csv 或 .json），"
                              "与 --mode genie 配合使用")
     parser.add_argument("--genie-intent", type=str, default=None,
                         help="Genie 模式专用：指定目标意图名称（默认使用第一个含 policy_fields 的意图）")
-    parser.add_argument("--output", type=str, default="data/kb_output/schema.json",
-                        help="Phase 1 schema.json 输出路径（默认 data/kb_output/schema.json）；父目录不存在时自动创建")
+    parser.add_argument("--output", type=str, default="output/kb_output/schema.json",
+                        help="Phase 1 schema.json 输出路径（默认 output/kb_output/schema.json）；父目录不存在时自动创建")
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -353,17 +353,17 @@ def main() -> None:
         help="日志级别（默认 INFO）",
     )
     phase_group = parser.add_mutually_exclusive_group()
-    phase_group.add_argument("--demo-kb", action="store_true", help="仅演示 Phase 1（知识库构建），跳过 Phase 2")
-    phase_group.add_argument("--demo-exec", action="store_true", help="仅演示 Phase 2（对话执行），跳过 Phase 1")
+    phase_group.add_argument("--demo-kb", action="store_true", help="仅演示 Phase 1（知识库构建），跳过 Phase 3")
+    phase_group.add_argument("--demo-exec", action="store_true", help="仅演示 Phase 3（对话执行），跳过 Phase 1")
     args = parser.parse_args()
 
     # ── 日志设置 ──
     log_level = LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="context_pipeline_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step0_pipeline_demo")
 
     print("=" * 65)
     print("  ContextMind — 上下文工程流水线演示")
-    print("  ContextPipeline: Phase 1（建立知识库）+ Phase 2（执行）")
+    print("  ContextPipeline: Phase 1（建立知识库）+ Phase 3（执行）")
     print("=" * 65)
 
     # ── 加载对话（Phase 1 需要）──
@@ -395,7 +395,7 @@ def main() -> None:
     except Exception:
         llm_client = None
         llm_available = False
-        print("⚠️  LLM 未配置，Phase 2 执行将跳过实际 LLM 调用")
+        print("⚠️  LLM 未配置，Phase 3 执行将跳过实际 LLM 调用")
 
     pipeline = ContextPipeline(
         llm_client=llm_client,
@@ -422,7 +422,7 @@ def main() -> None:
             else:
                 demo_phase1(pipeline, dialogues, args.output)
 
-    # ── Phase 2 ──
+    # ── Phase 3 ──
     if not args.demo_kb:
         if pipeline.schema is None and args.schema:
             pipeline.load_kb(args.schema)
@@ -432,13 +432,13 @@ def main() -> None:
         _schema_optional = args.mode in ("dst", "evolve")
         _genie_ok = args.mode == "genie" and args.genie_worksheet is not None
         if pipeline.schema is None and not _schema_optional and not _genie_ok:
-            print("\n[提示] Phase 2 需要先完成 Phase 1 或通过 --schema 加载已有 schema。")
-            print("       若 LLM 未配置，可使用 --schema data/kb_output/schema.json 运行演示。")
+            print("\n[提示] Phase 3 需要先完成 Phase 1 或通过 --schema 加载已有 schema。")
+            print("       若 LLM 未配置，可使用 --schema output/kb_output/schema.json 运行演示。")
             if args.mode == "genie":
                 print("       Genie 模式也可通过 --genie-worksheet 直接提供 Worksheet 文件。")
             print(f"       提示：使用 --mode dst 或 --mode evolve 可无需 schema 直接运行。")
         else:
-            asyncio.run(demo_phase2(pipeline, _DEMO_TURNS))
+            asyncio.run(demo_phase3(pipeline, _DEMO_TURNS))
 
     print("\n" + "=" * 65)
     print("  演示结束")

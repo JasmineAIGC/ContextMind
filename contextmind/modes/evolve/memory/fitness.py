@@ -111,8 +111,7 @@ class MemoryFitness:
         if total_feedback == 0:
             return 0.5  # 无反馈时返回中性分数
         
-        # 纠正的惩罚力度小于完全负向反馈（-0.5 vs -1.0），因为纠正说明
-        # 该记忆至少被引用过（有一定价值），而纯负向反馈表示完全无用或有误导性。
+        # 纠正惩罚力度(-0.5)小于纯负向反馈(-1.0)：纠正说明该记忆至少被引用过。
         score = (
             self.positive_feedback_count * 1.0 -
             self.negative_feedback_count * 1.0 -
@@ -219,8 +218,7 @@ class MemoryFitness:
         Args:
             score: 贡献度评分 0-1
         """
-        # 指数移动平均（α=0.3）：近期贡献权重更大，
-        # 但不完全丢弃历史数据，以避免在噪声信号上产生震荡。
+        # 指数移动平均（α=0.3）：近期权重更大，同时保留历史数据以避免震荡。
         alpha = 0.3
         self.contribution_score = (
             alpha * score + (1 - alpha) * self.contribution_score

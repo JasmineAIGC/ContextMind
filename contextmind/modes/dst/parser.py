@@ -216,8 +216,7 @@ class DSTResponseParser:
         """
         filtered = {k: v for k, v in updates.items() if k != 'intent'}
         
-        # 将 LLM 产生的近义词或非标准槽位名映射为规范名称，
-        # 然后再执行本体过滤。
+        # 将 LLM 近义词/非标准槽位名映射为规范名称，再执行本体过滤。
         if self.ontology_slots:
             mapped_updates = {}
             for slot, value in filtered.items():

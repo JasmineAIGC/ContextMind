@@ -23,10 +23,10 @@ AlphaCodium 风格 PyTOD API 代码合成器（ACIA）。
 使用方式（命令行）::
 
     # 使用 ACIA 生成器
-    python examples/build_schema_data.py --with-llm --generator alpha
+    python examples/step2b_build_schema_data.py --with-llm --generator alpha
 
     # 与其他选项组合
-    python examples/build_schema_data.py --with-llm --generator alpha \\
+    python examples/step2b_build_schema_data.py --with-llm --generator alpha \\
         --kb-dir output/kb_output --max-iterations 5 --verbose
 """
 

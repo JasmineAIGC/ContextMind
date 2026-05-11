@@ -6,14 +6,14 @@ ContextMind Web界面Demo
 支持五种模式：DST对话状态追踪、Evolve记忆进化、FnCTOD函数调用、PyTOD程序执行、Genie声明式策略
 
 使用方式:
-    python examples/web_demo.py
-    python examples/web_demo.py --log-level DEBUG --port 8080
-    python examples/web_demo.py --max-history-turns 20 --share
-    python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-    python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-    python examples/web_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-    python examples/web_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
-    python examples/web_demo.py --schema schema/anyihua_schema.json
+    python examples/step3_web_demo.py
+    python examples/step3_web_demo.py --log-level DEBUG --port 8080
+    python examples/step3_web_demo.py --max-history-turns 20 --share
+    python examples/step3_web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+    python examples/step3_web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/step3_web_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/step3_web_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_web_demo.py --schema schema/anyihua_schema.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
@@ -22,7 +22,7 @@ Schema 说明:
            可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
     Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
            也接受 --schema schema/xxx_schema.json（自动推导或在线转换）
-           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
+           Worksheet 由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -50,10 +50,12 @@ from contextmind.scenarios import get_chat_scenario, get_callcenter_scenario, ge
 from contextmind.ui.components import create_gradio_ui, CUSTOM_CSS
 from contextmind.infra.logger import get_logger, setup_logging, LogLevel
 
-# 使用统一的logger from utils/logger.py
 logger = get_logger(__name__)
 
 _PROJECT_ROOT = Path(__file__).parent.parent
+
+# Genie 预填超时（秒）：首轮对话前从背景信息批量提取已知字段值
+_GENIE_PREFILL_TIMEOUT_SECONDS = 60.0
 
 
 def _load_fnctod_schema(json_path: str):
@@ -209,6 +211,7 @@ class UnifiedGradioDemo:
         self.fnctod_tracker = None  # For FnCTOD mode
         self.pytod_tracker = None  # For PyTOD mode
         self.genie_tracker = None  # For Genie mode
+        self._genie_prefill_done = False  # tracks whether prefill_from_context() has run
         self.max_history_turns = max_history_turns
         self.app = None
         self.initialized = False
@@ -230,7 +233,7 @@ class UnifiedGradioDemo:
         self._schema_json_path: Optional[str] = schema_json_path
         if genie_worksheet_path or schema_json_path:
             try:
-                from examples.batch_demo import _load_genie_schema
+                from examples.step3_batch_demo import _load_genie_schema
                 self._genie_schema = _load_genie_schema(genie_worksheet_path, schema_json_path)
                 if self._genie_schema is not None:
                     logger.info(f"已加载 Genie Schema: {self._genie_schema.service_name}")
@@ -243,7 +246,6 @@ class UnifiedGradioDemo:
         self.current_scenario = scenario
         self.current_mode = mode
         
-        # 加载场景配置
         if scenario == "chat":
             self.config = get_chat_scenario()
         elif scenario == "callcenter":
@@ -255,7 +257,6 @@ class UnifiedGradioDemo:
         else:
             raise ValueError(f"未知场景: {scenario}")
         
-        # 根据模式初始化
         if mode == "dst":
             self._setup_dst_tracker()
         elif mode == "fnctod":
@@ -293,11 +294,10 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 使用工厂方法创建DST追踪器
         self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
-            max_history_turns=10,
+            max_history_turns=self.max_history_turns,
             enable_history_summary=True,
             use_llm_summary=False
         )
@@ -333,7 +333,7 @@ class UnifiedGradioDemo:
             raise ValueError(
                 "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
                 "可通过以下命令预生成 Worksheet：\n"
-                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+                "  python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>"
             )
         if self.llm_client is None:
             self.llm_client = AdkLLMClient()
@@ -341,9 +341,15 @@ class UnifiedGradioDemo:
         self.genie_tracker = GenieTracker(
             llm_client=self.llm_client,
             schema=self._genie_schema,
-            scene_description=getattr(self.config, "scene_description", "") or self.config.name,
+            scene_description=(
+                getattr(self.config, "scene_description", "")
+                or self.config.system_prompt
+                or self.config.description
+                or self.config.name
+            ),
             max_history_turns=self.max_history_turns,
         )
+        self._genie_prefill_done = False
         logger.info("Genie 模式初始化完成")
 
     def _setup_evolve_app(self):
@@ -359,7 +365,6 @@ class UnifiedGradioDemo:
             logger.error(error_msg)
             raise RuntimeError(error_msg)
         
-        # 使用工厂方法创建应用
         from contextmind.modes.evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.current_scenario,
@@ -385,44 +390,34 @@ class UnifiedGradioDemo:
             if not message or not message.strip():
                 return history
             
-            # 开始计时 - 从接收输入到生成结果
             start_time = time.time()
             
             # 用于记录各步骤耗时
             timing_breakdown = {}
-            
-            # 处理对话
+
             if self.current_mode == "dst":
-                # DST模式
-                # 获取上一轮系统回复
-                # history格式: [{user_msg}, {assistant_msg}, {user_msg}, {assistant_msg}, ...]
-                # 安全地获取上一轮的assistant回复内容
-                # 如果没有历史记录，使用欢迎消息作为默认值
+                # 获取上一轮系统回复（history 格式: [{user}, {assistant}, ...]）
                 default_system_utterance = self._get_welcome_message()
                 system_utterance = next(
                     (msg.get('content', default_system_utterance) for msg in reversed(history) if msg.get('role') == 'assistant'),
                     default_system_utterance
                 )
-                
-                # 确保system_utterance是字符串类型（防止list等其他类型）
+
+                # 统一为字符串类型
                 if not isinstance(system_utterance, str):
                     if isinstance(system_utterance, list):
-                        # 如果是列表，提取第一个元素或转换为字符串
                         system_utterance = str(system_utterance[0]) if system_utterance else default_system_utterance
                     else:
-                        # 其他类型转换为字符串
                         system_utterance = str(system_utterance) if system_utterance else default_system_utterance
-                
-                # 移除耗时标记，避免影响DST提取和历史累积
+
+                # 移除耗时标记，避免影响 DST 提取
                 # 格式: "\n\n<small style='color: #888;'>⏱️ 生成耗时: X.XX秒</small>"
                 system_utterance = re.sub(r'\n\n<small style=.*?生成耗时:.*?</small>', '', system_utterance)
 
-                # 步骤1: 槽位提取（process_turn）
-                # 步骤2: 回复生成（包含历史上下文，与槽位提取并行执行节省延迟）
-                # 注意：回复生成使用对话历史而非槽位提取结果，因此可并行
+                # 槽位提取与回复生成并行执行（回复生成只用对话历史，不依赖提取结果）
                 system_prompt = self.config.system_prompt
 
-                # 构建包含历史的回复消息列表（修复：之前版本缺失历史上下文）
+                # 构建含历史的回复消息列表
                 reply_messages: list = [{"role": "system", "content": system_prompt}]
                 timing_tag_re = re.compile(r'\n\n<small style=.*?</small>', re.DOTALL)
                 for hist_msg in history[-self.max_history_turns * 2:]:
@@ -453,7 +448,6 @@ class UnifiedGradioDemo:
                 timing_breakdown['状态捕获'] = time.time() - step_start
                 
             elif self.current_mode == "fnctod":
-                # FnCTOD模式
                 step_start = time.time()
                 result = await self.fnctod_tracker.process_turn(
                     user_utterance=message,
@@ -462,37 +456,58 @@ class UnifiedGradioDemo:
                 reply = result.get("response", "")
                 timing_breakdown['函数调用处理'] = time.time() - step_start
 
-                # 收集FnCTOD内部的详细步骤耗时
                 if hasattr(self.fnctod_tracker, 'step_timings'):
                     timing_breakdown.update(self.fnctod_tracker.step_timings)
                     if '函数调用处理' in timing_breakdown and len(self.fnctod_tracker.step_timings) > 0:
                         del timing_breakdown['函数调用处理']
 
-                # 状态捕获
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
 
             elif self.current_mode == "pytod":
-                # PyTOD模式（论文三步流程：动作解析器 → 执行引擎 → 对话管理器）
+                # PyTOD 三步流程：动作解析器（AP）→ 执行引擎（EE）→ 对话管理器（DM）
                 step_start = time.time()
                 result = await self.pytod_tracker.process_turn(user_utterance=message)
                 reply = result.get("response", "")
                 timing_breakdown['PyTOD总计'] = time.time() - step_start
 
-                # 收集 PyTODTracker 内部各步骤（AP/EE/DM）耗时
                 if hasattr(self.pytod_tracker, 'step_timings') and self.pytod_tracker.step_timings:
                     timing_breakdown.update(self.pytod_tracker.step_timings)
                     if 'PyTOD总计' in timing_breakdown and len(self.pytod_tracker.step_timings) > 0:
                         del timing_breakdown['PyTOD总计']
 
-                # 状态捕获
+                step_start = time.time()
+                self._capture_post_user_state()
+                timing_breakdown['状态捕获'] = time.time() - step_start
+
+            elif self.current_mode == "genie":
+                # 第一轮前从背景信息预填已知字段（仅执行一次）
+                if not self._genie_prefill_done:
+                    step_start = time.time()
+                    try:
+                        await asyncio.wait_for(
+                            self.genie_tracker.prefill_from_context(),
+                            timeout=_GENIE_PREFILL_TIMEOUT_SECONDS,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning("[Genie] 预填超时，将从空白状态开始")
+                    except Exception as exc:
+                        logger.warning(f"[Genie] 预填失败，将从空白状态开始: {exc}")
+                    self._genie_prefill_done = True
+                    timing_breakdown['Genie预填'] = time.time() - step_start
+
+                step_start = time.time()
+                result = await self.genie_tracker.process_turn(user_utterance=message)
+                reply = result.get("response", "")
+                timing_breakdown['Genie六步流水线'] = time.time() - step_start
+
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
 
             else:
-                # Evolve模式
+                # Evolve 模式
                 step_start = time.time()
                 reply = await self.app.process_turn(message)
                 timing_breakdown['对话处理'] = time.time() - step_start
@@ -500,30 +515,20 @@ class UnifiedGradioDemo:
                 # 收集Evolve内部的详细步骤耗时
                 if hasattr(self.app, 'step_timings'):
                     timing_breakdown.update(self.app.step_timings)
-                    # 移除重复的'对话处理'（使用Evolve内部的详细步骤）
                     if '对话处理' in timing_breakdown and len(self.app.step_timings) > 0:
                         del timing_breakdown['对话处理']
-                
-                # 状态捕获
-                # Evolve模式：process_turn是原子操作，包含了上下文构建和回复生成
-                # 这里捕获的是内部用于生成回复的上下文状态
-                # 注意：Evolve的状态是从记忆库和上下文中构建的
+
                 step_start = time.time()
                 self._capture_post_user_state()
                 timing_breakdown['状态捕获'] = time.time() - step_start
-            
-            # 计算总耗时（从接收输入到生成结果）
+
             elapsed_time = time.time() - start_time
-            
-            # 添加总计到timing_breakdown
             timing_breakdown['总计'] = elapsed_time
-            
-            # 构建详细的耗时信息显示（单行格式）
+
             if timing_breakdown and len(timing_breakdown) > 1:
-                # 单行显示，用 | 分隔各步骤
                 timing_parts = []
                 total_time = timing_breakdown.get('总计', elapsed_time)
-                
+
                 for key, value in timing_breakdown.items():
                     if key != '总计':
                         timing_parts.append(f"{key}{value:.2f}s")
@@ -725,6 +730,60 @@ class UnifiedGradioDemo:
 
             return state_info
 
+        elif self.current_mode == "genie" and self.genie_tracker:
+            # Genie 模式：展示当前意图、Worksheet 字段状态和累积字段值
+            from contextmind.modes.genie.policy_executor import FieldStatus
+            executor = self.genie_tracker._executor
+            ws_state = executor.state
+
+            state_info = {
+                "模式": "Genie（声明式策略 Worksheets）",
+                "场景": self._get_scenario_name(self.current_scenario),
+                "意图": executor.intent.name if executor.intent else "（未绑定）",
+                "Worksheet 完成": "✅ 是" if executor.is_complete() else "⏳ 否",
+            }
+
+            # 下一个待填必填字段
+            next_field = executor.next_required_field()
+            if next_field:
+                state_info["下一个待填字段"] = next_field.name
+
+            # 缺少的必填字段
+            missing = executor.get_missing_required()
+            if missing:
+                state_info["未填必填字段"] = [pf.name for pf in missing]
+
+            # 各字段状态（仅展示已有值的字段）
+            _STATUS_LABELS = {
+                FieldStatus.EMPTY: "空",
+                FieldStatus.FILLED: "已填",
+                FieldStatus.PENDING_CONFIRM: "待确认",
+                FieldStatus.CONFIRMED: "已确认",
+            }
+            field_status_display = {}
+            for pf in executor._policy_fields:
+                status = ws_state.field_statuses.get(pf.name, FieldStatus.EMPTY)
+                value = ws_state.field_values.get(pf.name)
+                if status != FieldStatus.EMPTY or value:
+                    label = _STATUS_LABELS.get(status, str(status))
+                    field_status_display[pf.name] = (
+                        f"{label}: {str(value)[:60]}" if value else label
+                    )
+            if field_status_display:
+                state_info["字段状态"] = field_status_display
+            else:
+                state_info["字段状态"] = "（尚无填写记录）"
+
+            # 累积 Worksheet 字段值（非空）
+            cumulative = {
+                k: (str(v)[:60] + "..." if len(str(v)) > 60 else str(v))
+                for k, v in ws_state.field_values.items()
+                if v not in (None, "", [])
+            }
+            state_info["累积状态"] = cumulative if cumulative else "（暂无）"
+
+            return state_info
+
         elif self.current_mode == "evolve" and self.app:
             # Evolve模式：显示当前上下文和记忆库信息
             engine = self.app.evolve_engine
@@ -883,12 +942,12 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/web_demo.py
-  python examples/web_demo.py --log-level DEBUG
-  python examples/web_demo.py --port 8080 --share
-  python examples/web_demo.py --max-history-turns 20 --log-level INFO
-  python examples/web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-  python examples/web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/step3_web_demo.py
+  python examples/step3_web_demo.py --log-level DEBUG
+  python examples/step3_web_demo.py --port 8080 --share
+  python examples/step3_web_demo.py --max-history-turns 20 --log-level INFO
+  python examples/step3_web_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+  python examples/step3_web_demo.py --pytod-apis schema/anyihua_pytod_apis.py
         """
     )
     
@@ -925,7 +984,7 @@ def parse_args():
         default=None,
         metavar='PATH',
         help='FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json '
-             '（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
+             '（可通过 step2b_build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
     )
 
     parser.add_argument(
@@ -958,7 +1017,7 @@ def parse_args():
         metavar='PATH',
         help=(
             'Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。'
-            '由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
+            '由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
             '若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。'
         ),
     )
@@ -973,7 +1032,7 @@ def main():
     
     # 使用setup_logging配置日志系统
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="web_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_web_demo")
     
     logger.info("[__main__] 启动 ContextMind Gradio Demo")
     logger.info(f"参数配置: 日志级别={args.log_level}, 最大历史轮数={args.max_history_turns}, 端口={args.port}, 分享={args.share}")

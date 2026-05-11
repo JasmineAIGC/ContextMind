@@ -74,8 +74,7 @@ class PromptManager:
         else:
             self.max_context_length = max_context_length
         
-        # 槽位列表仅作为提示，动态模式下 LLM 不受此列表约束，
-        # 因此过滤功能默认关闭，需显式启用。
+        # 槽位列表仅作为提示，动态模式下过滤功能默认关闭，需显式启用。
         self.ontology_slots: Dict[str, str] = {}
         self.categorical_constraints: Dict[str, List[str]] = {}
         
@@ -351,10 +350,10 @@ class PromptManager:
 {"intent": "询问身份", "问题类型": "身份确认"}
 
 **正确示例2（询问产品）：**
-{"intent": "咨询产品", "产品类型": "保险", "具体需求": "癌症保险"}
+{"intent": "咨询产品", "产品类型": "电子产品", "具体需求": "笔记本电脑"}
 
 **正确示例3（表达兴趣）：**
-{"intent": "表达兴趣", "感兴趣程度": "中等", "关注点": "价格和保障范围"}
+{"intent": "表达兴趣", "感兴趣程度": "中等", "关注点": "价格和功能"}
 
 **错误示例（不要这样）：**
 ❌ "好的，我来提取信息：{"intent": "询问"}"

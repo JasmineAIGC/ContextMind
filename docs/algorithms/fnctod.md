@@ -5,8 +5,8 @@
 **FnCTOD**（Function-Calling for Task-Oriented Dialogue，任务型对话函数调用）是 ContextMind 中已实现的第二个基准评测算法。该算法将对话理解建模为**函数调用**问题：每个对话领域定义为一个函数，槽位定义为函数参数，LLM 根据对话上下文填充参数。
 
 - **实现状态**: ✅ 已实现
-- **核心代码**: `benchmark/algorithms/fnctod.py`
-- **评测脚本**: `benchmark/run_fnctod_transfertod.py`
+- **核心代码**: `benchmark/evaluators/fnctod.py`
+- **评测脚本**: `benchmark/run_benchmark.py --algorithm fnctod`
 - **支持数据集**: TransferTOD
 - **论文**: [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024）
 
@@ -108,20 +108,6 @@ FnCTOD 使用与 DST 相同的评测指标体系（详见 [`metrics-explanation.
 
 ## Schema 定义
 
-### 从 TransferTOD 数据集提取 Schema
-
-```bash
-# 提取所有域的 Schema
-python benchmark/extract_transfertod_schemas.py \
-    --data-root ./data/TransferTOD \
-    --output benchmark/configs/transfertod_schemas.json
-
-# 诊断缺失的域
-python benchmark/extract_transfertod_schemas.py \
-    --data-root ./data/TransferTOD \
-    --diagnostics
-```
-
 ### Schema 格式
 
 ```python
@@ -195,7 +181,7 @@ class FnCTODMetrics:
 ### `FnCTODEvaluator` 评测器
 
 ```python
-from benchmark.algorithms.fnctod import FnCTODEvaluator
+from benchmark.evaluators import FnCTODEvaluator
 
 evaluator = FnCTODEvaluator()
 
@@ -215,17 +201,14 @@ print(f"Joint Accuracy: {metrics.joint_accuracy:.2%}")
 ## 运行评测
 
 ```bash
-# 评测所有领域（clean 数据，推荐）
-python benchmark/run_fnctod_transfertod.py --data-type clean
+# 评测所有领域（TransferTOD，推荐）
+python benchmark/run_benchmark.py --algorithm fnctod --dataset transfertod
 
-# 评测特定领域
-python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 100
-
-# 使用噪声数据（鲁棒性测试）
-python benchmark/run_fnctod_transfertod.py --data-type noise
+# 评测特定领域，限制数量
+python benchmark/run_benchmark.py --algorithm fnctod --dataset transfertod --domain 酒店 --limit 100
 
 # 详细输出（逐对话打印）
-python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 10 --verbose
+python benchmark/run_benchmark.py --algorithm fnctod --dataset transfertod --domain 酒店 --limit 10 --verbose
 ```
 
 ---
@@ -262,10 +245,9 @@ python benchmark/run_fnctod_transfertod.py --domain 酒店 --limit 10 --verbose
 
 | 文件 | 说明 |
 |------|------|
-| `benchmark/algorithms/fnctod.py` | FnCTOD 评测核心逻辑 |
-| `benchmark/run_fnctod_transfertod.py` | FnCTOD on TransferTOD 评测入口 |
-| `benchmark/extract_transfertod_schemas.py` | Schema 自动提取工具 |
-| `benchmark/datasets/transfertod/adapter.py` | TransferTOD 数据适配器 |
+| `benchmark/evaluators/fnctod.py` | FnCTOD 评测核心逻辑 |
+| `benchmark/run_benchmark.py` | 统一评测入口（--algorithm fnctod --dataset ...） |
+| `benchmark/datasets/transfertod.py` | TransferTOD 数据适配器 |
 | `contextmind/modes/fnctod/` | FnCTOD 模式完整实现 |
 
 ## 参考资料

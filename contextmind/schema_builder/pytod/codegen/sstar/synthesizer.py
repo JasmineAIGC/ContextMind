@@ -518,8 +518,7 @@ class SStarSynthesizer:
         best_validation = validation
         total_iterations = 0
 
-        # probe_code/probe_validation 始终追踪最新一次修复尝试的结果（即使未改善也继续前进），
-        # 每轮修复从不同的失败状态出发，避免重复相同提示导致 LLM 输出不变。
+        # probe_code/probe_validation：追踪最新修复尝试；每轮从不同失败状态出发。
         probe_code = func_code
         probe_validation = validation
 

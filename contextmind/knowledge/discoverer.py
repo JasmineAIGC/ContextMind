@@ -2,41 +2,14 @@
 通用对话发现器（GenericDialogueDiscoverer）
 
 从单条对话中开放式发现槽位（slot_value）和意图（intent）。
-通过 ``langextract`` 为每条提取结果附加字符级**溯源信息**（provenance），
-指向知识来源的原始轮次话语位置。
-
-当 ``langextract`` 未安装时，自动降级为纯 LLM 提取模式（``provenance=None``）。
-
-依赖关系
---------
-本模块是 ``contextmind.knowledge`` 的子模块，**仅依赖**：
-
-- ``contextmind.infra.llm_client``（项目基础设施，非业务场景模块）
-- ``contextmind.infra.logger``（同上）
-- ``langextract``（知识溯源，可选依赖；未安装时自动降级）
-
-不依赖 ``contextmind.modes.*`` 或 ``contextmind.scenarios.*`` 等其他子模块。
-
-基本用法（有 langextract）::
-
-    from contextmind.knowledge.discoverer import GenericDialogueDiscoverer
-    from contextmind.infra.llm_client import AdkLLMClient
-
-    discoverer = GenericDialogueDiscoverer(
-        llm_client=AdkLLMClient(),
-        scene_name="银行贷款外呼",
-    )
-    items = discoverer.extract({"对话历史": [{"机器人": "你好", "用户": "你好"}]})
-    for item in items:
-        print(f"[{item.extraction_class}] {item.label}: {item.value}")
-        if item.provenance:
-            print(f"  溯源: {item.provenance}")
+通过 ``langextract`` 为每条提取结果附加字符级溯源（provenance），
+指向知识来源的原始话语位置。langextract 未安装时自动降级为纯 LLM 提取模式。
 
 溯源字段格式
 -----------
 - 溯源成功：``「原文片段」[第N轮(说话人) 位置 start:end]``
 - 溯源失败：``「原文片段」[第N轮(说话人) 溯源失败]``
-- 降级模式：``None``（langextract 未安装）
+- 降级模式：``None``
 """
 
 from __future__ import annotations
@@ -86,22 +59,8 @@ except ImportError:  # pragma: no cover
 class DiscoveryItem:
     """单条开放式发现结果项，含可选的原文溯源信息。
 
-    属性
-    ----
-    extraction_class:
-        ``"slot_value"``、``"intent"`` 或 ``"fact"``。
-    label:
-        槽位/意图名称（英文小写下划线）。
-    value:
-        提取的值（槽位的具体值，或意图的中文描述）。
-    provenance:
-        原文溯源字符串；仅在 ``langextract`` 可用时填充。格式：
-
-        - 溯源成功：``「原文片段」[第N轮(说话人) 位置 start:end]``
-        - 溯源失败：``「原文片段」[第N轮(说话人) 溯源失败]``
-        - 降级模式：``None``
-    extraction_text:
-        langextract 返回的逐字原文片段；用于在 SGD 对话中定位字符区间。
+    extraction_class: ``"slot_value"``、``"intent"`` 或 ``"fact"``
+    provenance: 溯源字符串，仅在 langextract 可用时填充
     """
 
     extraction_class: str
@@ -117,10 +76,7 @@ class DiscoveryItem:
 
 
 def _strip_code_fences(text: str) -> str:
-    """从 LLM 输出中提取代码块内容（如 ```yaml ... ``` 或 ```json ... ```）。
-
-    若文本包含代码围栏，则返回围栏内的内容；否则原样返回。
-    """
+    """提取 LLM 输出中 ``` 代码围栏内的内容，无围栏时原样返回。"""
     m = re.search(r"```(?:yaml|json)?\s*([\s\S]+?)\s*```", text)
     if m:
         return m.group(1).strip()
@@ -128,31 +84,14 @@ def _strip_code_fences(text: str) -> str:
 
 
 def _sanitize_infer_yaml(text: str) -> str:
-    """清洗 LLM 返回的 YAML/JSON 文本，过滤非法条目，并返回 JSON 字符串。
+    """清洗 LLM 返回的 YAML/JSON 文本，过滤非法条目，返回带 ``extractions`` 包装键的 JSON 字符串。
 
-    LLM 输出可能有两种格式：
+    支持三种格式：
+    - 格式 A：``{"extraction_class": ..., "extraction_text": ..., "attributes": {...}}``
+    - 格式 B：``{"intent": ..., "intent_attributes": {...}}``（langextract 原生）
+    - 格式 C：``{"extractions": [{...}, ...]}``（已含包装键）
 
-    **格式 A**（按本模块 prompt 描述的格式）：
-      ``{"extraction_class": "intent", "extraction_text": "...", "attributes": {...}}``
-
-    **格式 B**（langextract 原生格式，由示例引导）：
-      ``{"intent": "...", "intent_attributes": {...}}``
-
-    两种格式均做如下清洗：
-    - 格式 A：``extraction_text`` 非 str/int/float 的条目（如 null、dict）→ 过滤掉；
-      ``attributes`` 字段重命名为 ``{extraction_class}_attributes``（符合 langextract 规范）
-    - 格式 B：非 ``_attributes`` 后缀键的值若为 dict/None → 过滤该条目（避免
-      ``ERROR:absl:Extraction text must be a string, integer, or float``）
-
-    返回包含 ``extractions`` 包装键的 JSON 字符串以匹配 langextract ``FormatType.JSON``
-    要求（``format_handler`` 默认 ``use_wrapper=True, wrapper_key='extractions'``）。
-    解析失败时返回空包装对象，防止含非法值的内容传入 langextract。
-
-    **格式 C**（LLM 跟随 langextract 内置示例输出，已含包装键）：
-      ``{"extractions": [{...}, ...]}``
-
-    格式 C 直接提取 ``extractions`` 字段进行清洗后再次包装，避免因
-    ``isinstance(parsed, list)`` 判断失败而错误地返回空结果。
+    非法 extraction_text（非 str/int/float）和非法属性值均被过滤；解析失败返回空包装对象。
     """
     _EMPTY = '{"extractions": []}'
     try:
@@ -162,7 +101,6 @@ def _sanitize_infer_yaml(text: str) -> str:
         if not content.strip():
             return _EMPTY
         parsed = yaml.safe_load(content)
-        # 格式 C：LLM 跟随 langextract 内置示例，已包含 "extractions" 包装键
         if isinstance(parsed, dict) and "extractions" in parsed:
             raw_items = parsed["extractions"]
             items = raw_items if isinstance(raw_items, list) else []
@@ -174,7 +112,6 @@ def _sanitize_infer_yaml(text: str) -> str:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            # 格式 A：含 "extraction_class" 和 "extraction_text" 键
             if "extraction_class" in item and "extraction_text" in item:
                 ec = item.get("extraction_class")
                 et = item.get("extraction_text")
@@ -195,18 +132,15 @@ def _sanitize_infer_yaml(text: str) -> str:
                         f"[AdkLLMClientAdapter] 过滤格式A条目（extraction_text为空）: {item!r}"
                     )
                     continue
-                # 转换为 langextract 原生格式 B
                 converted: Dict[str, Any] = {ec: et}
                 if isinstance(attrs, dict) and attrs:
                     converted[f"{ec}_attributes"] = attrs
                 cleaned.append(converted)
             else:
-                # 格式 B：以提取类名为键，提取文本为值
                 filtered: Dict[str, Any] = {}
                 has_valid = False
                 for k, v in item.items():
                     if k.endswith("_attributes"):
-                        # 属性字段：值必须是 dict 或 None
                         if isinstance(v, (dict, type(None))):
                             filtered[k] = v
                         else:
@@ -215,7 +149,6 @@ def _sanitize_infer_yaml(text: str) -> str:
                                 f"（类型={type(v).__name__}）: key={k!r}"
                             )
                     else:
-                        # 提取文本字段：值必须是 str/int/float 且非空
                         if isinstance(v, (str, int, float)) and (
                             not isinstance(v, str) or v.strip()
                         ):
@@ -230,23 +163,13 @@ def _sanitize_infer_yaml(text: str) -> str:
                     cleaned.append(filtered)
         if not cleaned:
             return _EMPTY
-        # 用 extractions 包装键返回，满足 langextract format_handler 要求
         return json.dumps({"extractions": cleaned}, ensure_ascii=False)
     except Exception:
         return _EMPTY
 
 
 class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
-    """将 :class:`~contextmind.infra.llm_client.AdkLLMClient` 适配为
-    langextract ``BaseLanguageModel`` 接口。
-
-    通过此适配器，可将现有的 ADK/OpenAI 兼容 LLM 端点无缝接入
-    ``lx.extract()`` 的完整提取管道（Annotator → Resolver → WordAligner
-    → ``char_interval``），而无需切换到 Gemini 内置模型。
-
-    参数:
-        client: 已初始化的 :class:`~contextmind.infra.llm_client.AdkLLMClient` 实例
-    """
+    """将 AdkLLMClient 适配为 langextract BaseLanguageModel 接口。"""
 
     def __init__(self, client: AdkLLMClient) -> None:
         super().__init__()
@@ -257,31 +180,16 @@ class AdkLLMClientAdapter(BaseLanguageModel):  # type: ignore[misc]
         batch_prompts: Sequence[str],
         **kwargs: Any,
     ) -> Iterator[Sequence[Any]]:
-        """实现 langextract ``BaseLanguageModel.infer()`` 接口。
-
-        逐条处理 ``batch_prompts``，调用 ``AdkLLMClient.generate()`` 获取响应，
-        并包装为 ``ScoredOutput(score=1.0, output=text)``。
-
-        参数:
-            batch_prompts: 待推理的 prompt 列表
-            **kwargs:      预留参数（当前忽略）
-
-        Yields:
-            每个 prompt 对应一个 ``[ScoredOutput]`` 列表
-        """
+        """实现 langextract BaseLanguageModel.infer() 接口，逐条调用 LLM 并包装为 ScoredOutput。"""
         if not _LANGEXTRACT_AVAILABLE:  # pragma: no cover
             raise RuntimeError("langextract 未安装，无法使用 AdkLLMClientAdapter")
         for prompt in batch_prompts:
             try:
                 _reasoning, text = self._client.generate(prompt)
                 if not text.strip():
-                    # 空响应返回合法空结果，避免 langextract 内部 JSON 解析异常
                     logger.debug("[AdkLLMClientAdapter] LLM 返回空响应，本轮无提取结果")
                     yield [ScoredOutput(score=0.0, output='{"extractions": []}')]
                 else:
-                    # 过滤掉 extraction_text 为 None/null/非字符串的条目，
-                    # 防止 langextract resolver 因类型校验失败而抛出 ValueError
-                    # 并触发 ERROR:absl:Extraction text must be a string... 错误日志。
                     sanitized = _sanitize_infer_yaml(text)
                     yield [ScoredOutput(score=1.0, output=sanitized)]
             except Exception as exc:
@@ -414,22 +322,8 @@ def _build_langextract_prompt(scene_name: str) -> str:
 def _build_langextract_examples() -> List[Any]:
     """构建 langextract 逐轮提取所需的 few-shot 示例（``ExampleData`` 列表）。
 
-    ``lx.extract()`` 要求至少一个 ``ExampleData`` 对象，每个示例中的
-    ``extraction_text`` 必须是 ``text`` 的精确子串（verbatim）。
-
-    重要约束：
-    - 每个 ``ExampleData`` 只放一条提取项，避免 langextract 在同一短文本中
-      同时对齐多个子串时出现对齐失败（``FAILED to align``）告警。
-    - 所有示例的 ``extraction_text`` 与 ``text`` 完全相同，彻底消除子串搜索
-      导致的对齐失败告警——这些静态 few-shot 示例绝不应在日志中产生告警。
-
-    此处提供四条通用中文**用户话语**示例，覆盖三种提取类别：
-    - ``intent``：用户表达的业务意图（如抱怨利率、拒绝方案、询问月供）
-    - ``slot_value``：用户话语中的具体业务字段值（如分期期数）
-    - ``fact``：用户话语中重要的业务陈述
-
-    示例均来自用户侧，与实际提取场景（仅对用户轮次提取）匹配，
-    避免 langextract 因 few-shot 与输入类型不一致而产生偏差。
+    每个示例只含一条提取项，且 ``extraction_text`` 与 ``text`` 完全相同，
+    避免 langextract 子串对齐失败告警。覆盖 intent、slot_value、fact 三类。
     """
     if not _LANGEXTRACT_AVAILABLE:
         return []

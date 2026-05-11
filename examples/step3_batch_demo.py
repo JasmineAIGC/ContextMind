@@ -10,13 +10,13 @@ ContextMind 批量对话测试Demo
 - 支持一次性输入和分批多次输入
 
 使用方式:
-    python examples/batch_demo.py
-    python examples/batch_demo.py --port 7861
-    python examples/batch_demo.py --log-level DEBUG
-    python examples/batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-    python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-    python examples/batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-    python examples/batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+    python examples/step3_batch_demo.py
+    python examples/step3_batch_demo.py --port 7861
+    python examples/step3_batch_demo.py --log-level DEBUG
+    python examples/step3_batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+    python examples/step3_batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/step3_batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+    python examples/step3_batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
 
 Schema 说明:
     FnCTOD 使用预生成的 companion JSON 文件（--fnctod-schema schema/xxx_fnctod_domain.json）
@@ -25,7 +25,7 @@ Schema 说明:
            可选：通过 --schema 显式指定 schema.json（当自动推导路径不正确时使用）
     Genie  使用预生成的 Worksheet JSON 文件（--genie-worksheet schema/xxx_genie_worksheet.json）
            也接受原始 schema（--schema schema/xxx_schema.json），自动在同目录寻找 Worksheet 文件
-           Worksheet 由 build_schema_data.py 自动从 schema.json 生成，无需人工编写
+           Worksheet 由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写
 """
 
 import sys
@@ -69,7 +69,7 @@ def _load_fnctod_schema(json_path: str):
     支持两种输入：
 
     1. ``*_fnctod_domain.json`` — 预生成的 companion 文件（推荐，由
-       ``python examples/build_schema_data.py`` 生成）。
+       ``python examples/step2b_build_schema_data.py`` 生成）。
     2. ``*_schema.json`` — 原始 schema 文件；若同目录存在对应的
        ``*_fnctod_domain.json`` 则自动优先使用它，否则在线构建。
 
@@ -283,11 +283,7 @@ class BatchDialogueTest:
             mode: "dst", "evolve", "fnctod", "pytod", 或 "genie"
         """
         self.current_mode = mode
-        
-        # 加载保险场景配置
         self.config = get_insurance_scenario()
-        
-        # 创建 LLM 客户端
         try:
             if self.llm_client is None:
                 self.llm_client = AdkLLMClient()
@@ -310,12 +306,7 @@ class BatchDialogueTest:
         logger.info(f"✅ {mode.upper()} 模式初始化完成")
     
     def _setup_dst_tracker(self):
-        """
-        初始化 DST 模式
-        
-        使用工厂方法简化初始化
-        """
-        # 使用工厂方法创建DST追踪器
+        """初始化 DST 模式"""
         self.tracker = DialogueStateTracker.from_scenario(
             llm_client=self.llm_client,
             scenario_config=self.config,
@@ -327,12 +318,7 @@ class BatchDialogueTest:
         logger.info("DST模式初始化完成")
     
     def _setup_fnctod_tracker(self):
-        """
-        初始化 FnCTOD 模式
-        
-        使用工厂方法简化初始化
-        """
-        # 使用工厂方法创建FnCTOD追踪器
+        """初始化 FnCTOD 模式"""
         kwargs = {"use_two_stage": True, "max_history_turns": self.max_history_turns}
         if self._fnctod_domain_spec is not None:
             kwargs["domain_spec"] = self._fnctod_domain_spec
@@ -345,11 +331,7 @@ class BatchDialogueTest:
         logger.info("FnCTOD 模式初始化完成")
 
     def _setup_pytod_tracker(self):
-        """
-        初始化 PyTOD 模式（程序执行型任务对话）
-
-        使用工厂方法简化初始化，自动注册保险场景 API。
-        """
+        """初始化 PyTOD 模式（程序执行型任务对话）"""
         kwargs = {"max_history_turns": self.max_history_turns}
         if self._pytod_schema is not None:
             kwargs["schema"] = self._pytod_schema
@@ -375,7 +357,7 @@ class BatchDialogueTest:
             raise ValueError(
                 "Genie 模式需要 --genie-worksheet 或 --schema 参数。\n"
                 "可通过以下命令预生成 Worksheet：\n"
-                "  python examples/build_schema_data.py --genie-only --schema <schema.json>"
+                "  python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>"
             )
         from contextmind.modes.genie.tracker import GenieTracker
         self.genie_tracker = GenieTracker(
@@ -387,12 +369,7 @@ class BatchDialogueTest:
         logger.info("Genie 模式初始化完成")
 
     def _setup_evolve_app(self):
-        """
-        初始化 Evolve 模式
-        
-        使用工厂方法简化初始化
-        """
-        # 使用工厂方法创建应用
+        """初始化 Evolve 模式"""
         from contextmind.modes.evolve import create_app_for_scenario
         self.app = create_app_for_scenario(
             scenario_name=self.config.name,
@@ -477,10 +454,9 @@ class BatchDialogueTest:
                 continue
             if line.startswith('#'):
                 continue
-            
-            # 解析销售员发言
+
+            # 解析销售员/客户发言
             if line.startswith('销售员：') or line.startswith('销售员:'):
-                # 如果之前有完整的对话轮次，保存
                 if current_user and current_system:
                     turns.append({
                         'system_utterance': ' '.join(current_system),
@@ -488,28 +464,21 @@ class BatchDialogueTest:
                     })
                     current_system = []
                     current_user = []
-                
-                # 使用辅助函数提取销售员内容
                 content = self._extract_content_after_colon(line, '销售员')
                 if content:
                     current_system = [content]
-            
-            # 解析客户发言
+
             elif line.startswith('客户：') or line.startswith('客户:'):
-                # 使用辅助函数提取客户内容
                 content = self._extract_content_after_colon(line, '客户')
                 if content:
                     if current_user:
-                        # 同一轮中多条客户发言，合并
-                        current_user.append(content)
+                        current_user.append(content)  # 同一轮多条客户发言合并
                     else:
                         current_user = [content]
-            
-            # 其他内容（可能是续行）
+
             else:
-                # 不处理无法识别的行
-                pass
-        
+                pass  # 忽略无法识别的行
+
         # 保存最后一轮
         if current_user and current_system:
             turns.append({
@@ -532,19 +501,17 @@ class BatchDialogueTest:
             (处理结果文本, 最终状态)
         """
         results = []
-        result_text = ""  # 初始化结果文本
-        
+        result_text = ""
+
         for i, turn in enumerate(turns):
             system_utterance = turn.get('system_utterance', '')
             user_utterance = turn.get('user_utterance', '')
-            
-            # 处理这一轮对话 - 复用 gradio_demo.py 的流程
+
             state = await self.tracker.process_turn(
                 system_utterance=system_utterance,
                 user_utterance=user_utterance
             )
-            
-            # 记录结果
+
             turn_result = {
                 'turn_id': i + 1,
                 'system_utterance': system_utterance[:50] + '...' if len(system_utterance) > 50 else system_utterance,
@@ -552,8 +519,7 @@ class BatchDialogueTest:
                 'extracted_state': state
             }
             results.append(turn_result)
-            
-            # 累积格式化输出
+
             result_text += f"\n{'='*50}\n"
             result_text += f"轮次 {i + 1}\n"
             result_text += f"{'='*50}\n"
@@ -561,16 +527,11 @@ class BatchDialogueTest:
             result_text += f"客户: {user_utterance}\n"
             result_text += f"\n提取状态:\n"
             for key, value in state.items():
-                if value:  # 只显示非空值
+                if value:
                     result_text += f"  {key}: {value}\n"
-        
-        # 获取最终状态 - 使用最后一轮的状态
-        if results:
-            final_state = results[-1].copy()
-        else:
-            final_state = {}
-        
-        # 生成汇总
+
+        final_state = results[-1].copy() if results else {}
+
         summary = f"\n{'='*50}\n"
         summary += f"📊 测试总结 (DST 模式)\n"
         summary += f"{'='*50}\n"
@@ -579,14 +540,13 @@ class BatchDialogueTest:
         for key, value in final_state.items():
             if value:
                 summary += f"  {key}: {value}\n"
-        
-        # 保存到历史
+
         self.results_history.append({
             'mode': 'dst',
             'turns': len(turns),
             'final_state': final_state
         })
-        
+
         return result_text + summary, final_state
     
     async def process_dialogue_fnctod(self, turns: List[Dict]) -> Tuple[str, Dict]:
@@ -767,7 +727,7 @@ class BatchDialogueTest:
             return (
                 "❌ 未加载 Genie Schema。请通过 --genie-worksheet 或 --schema 参数提供 Worksheet 文件。\n"
                 "   可通过以下命令预生成：\n"
-                "   python examples/build_schema_data.py --genie-only --schema <schema.json>",
+                "   python examples/step2b_build_schema_data.py --genie-only --schema <schema.json>",
                 {},
             )
 
@@ -1131,12 +1091,12 @@ def create_test_ui():
             gr.Markdown("""
 ### 功能说明
 
-这是一个批量对话测试界面，与 `web_demo.py` 的主要区别：
+这是一个批量对话测试界面，与 `step3_web_demo.py` 的主要区别：
 
 1. **直接输入对话内容**：不是实时交互，而是直接粘贴完整对话
 2. **支持单轮/多轮**：可以输入一轮或多轮对话
 3. **支持多次输入**：可以多次运行测试，状态会累积
-4. **复用计算流程**：完全复用 `web_demo.py` 中的 DST 和 Evolve 计算逻辑
+4. **复用计算流程**：完全复用 `step3_web_demo.py` 中的 DST 和 Evolve 计算逻辑
 
 ### 对话格式
 
@@ -1189,13 +1149,13 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/batch_demo.py
-  python examples/batch_demo.py --port 7861 --log-level DEBUG
-  python examples/batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
-  python examples/batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-  python examples/batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
-  python examples/batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
-  python examples/batch_demo.py --schema schema/anyihua_schema.json
+  python examples/step3_batch_demo.py
+  python examples/step3_batch_demo.py --port 7861 --log-level DEBUG
+  python examples/step3_batch_demo.py --fnctod-schema schema/anyihua_fnctod_domain.json
+  python examples/step3_batch_demo.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/step3_batch_demo.py --pytod-apis output/step2/schema_pytod_apis.py --schema output/step1/schema.json
+  python examples/step3_batch_demo.py --genie-worksheet schema/anyihua_genie_worksheet.json
+  python examples/step3_batch_demo.py --schema schema/anyihua_schema.json
         """,
     )
     parser.add_argument('--port', type=int, default=7861, help='端口号')
@@ -1204,7 +1164,7 @@ def parse_args():
     parser.add_argument(
         '--fnctod-schema', type=str, default=None, metavar='PATH',
         help='FnCTOD 模式的 schema 文件路径：推荐使用预生成的 *_fnctod_domain.json '
-             '（可通过 build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
+             '（可通过 step2b_build_schema_data.py 生成）；也接受 *_schema.json（自动寻找 companion 文件）',
     )
     parser.add_argument(
         '--pytod-apis', type=str, default=None, metavar='PATH',
@@ -1223,7 +1183,7 @@ def parse_args():
         '--genie-worksheet', type=str, default=None, metavar='PATH',
         help=(
             'Genie 模式的 Worksheet JSON 文件路径（*_genie_worksheet.json）。'
-            '由 build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
+            '由 step2b_build_schema_data.py 自动从 schema.json 生成，无需人工编写。'
             '若不指定，则通过 --schema 指定的 schema.json 自动推导或在线转换。'
         ),
     )
@@ -1237,7 +1197,7 @@ def main():
     
     # 设置日志
     log_level = LogLevel.DEBUG if args.log_level == "DEBUG" else LogLevel.INFO
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="batch_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_batch_demo")
 
     if args.fnctod_schema:
         _BATCH_FNCTOD_SCHEMA_PATH = args.fnctod_schema

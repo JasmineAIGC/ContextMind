@@ -2,18 +2,19 @@
 
 # 核心依赖
 google-adk
-litellm           # ADK LiteLlm 后端，用于接入本地 vLLM/OpenAI 兼容端点
+google-genai          # ADK 内部使用的 genai 类型（Content / Part 等）
+litellm               # ADK LiteLlm 后端，用于接入本地 vLLM/OpenAI 兼容端点
 openai
 python-dotenv
 PyYAML>=6.0.0
 
 # 知识库构建 · langextract 溯源
-# 用于安逸花外呼数据 → SGD 转换时的 ExampleData / Extraction / WordAligner
-# 注意：不使用其内置 Gemini 模型；所有 LLM 调用通过 .env 配置的 SimpleLLMClient。
+# 用于原始对话数据 → SGD schema 转换时的 ExampleData / Extraction / WordAligner
+# 注意：不使用其内置 Gemini 模型；所有 LLM 调用通过 .env 配置的 AdkLLMClient。
 langextract>=1.1.1
 
-# Embedding 依赖（可选）
-# 如果使用本地 embedding 模型（如 bge-large-zh-v1.5），请安装：
+# Embedding 依赖（Evolve 模式语义检索 / 本地 embedding 模型）
+# 若使用本地 embedding 模型（如 bge-large-zh-v1.5），取消注释：
 # sentence-transformers>=2.0.0
 
 # UI 演示依赖

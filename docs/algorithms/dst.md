@@ -5,8 +5,8 @@
 **DST**（Dialogue State Tracking，对话状态追踪）是 ContextMind 中已实现的第一个基准评测算法。DST 是对话系统中的核心技术，旨在从多轮对话历史中持续追踪用户的意图和需求（即槽位-值对）。该算法通过提示词工程驱动大语言模型（LLM），从多轮对话中逐轮提取槽位-值对，构建累积的对话状态。
 
 - **实现状态**: ✅ 已实现
-- **核心代码**: `benchmark/algorithms/dst.py`
-- **评测脚本**: `benchmark/run_dst_transfertod.py`、`benchmark/run_dst_risawoz.py`
+- **核心代码**: `benchmark/evaluators/dst.py`
+- **评测脚本**: `benchmark/run_benchmark.py --algorithm dst`
 - **支持数据集**: TransferTOD、RiSAWOZ
 - **技术概念**: DST（Dialogue State Tracking）是任务型对话中的基础技术，不对应单一论文，而是业界广泛使用的对话状态追踪方法论
 
@@ -32,15 +32,6 @@ DST 算法的本质是**零样本提示词槽位提取**（Zero-shot Prompt-base
 2. **处理**：构建包含槽位定义的提示词，调用 LLM 提取 JSON 格式的槽位-值对
 3. **累积**：将本轮新提取的槽位与历史状态合并（新值覆盖旧值）
 4. **输出**：更新后的完整对话状态（所有轮次的累积槽位集合）
-
-### 与传统 DST 的对比
-
-| 对比项 | 传统 DST | ContextMind DST |
-|--------|---------|----------------|
-| 训练方式 | 有监督训练 | 零样本（无需训练） |
-| 槽位定义 | 模型内部学习 | 提示词中明确定义 |
-| 灵活性 | 固定领域 | 动态槽位 |
-| 资源需求 | 大量标注数据 | 仅需 LLM API |
 
 ---
 
@@ -107,7 +98,7 @@ class DSTMetrics:
 ### `DSTEvaluator` 评测器
 
 ```python
-from benchmark.algorithms.dst import DSTEvaluator
+from benchmark.evaluators import DSTEvaluator
 
 evaluator = DSTEvaluator()
 
@@ -131,26 +122,26 @@ print(metrics.to_dict())
 
 ```bash
 # 评测所有领域（clean 数据，推荐）
-python benchmark/run_dst_transfertod.py --data-type clean
+python benchmark/run_benchmark.py --algorithm dst --dataset transfertod --data-type clean
 
 # 评测特定领域，限制数量
-python benchmark/run_dst_transfertod.py --domain 酒店 --limit 100
+python benchmark/run_benchmark.py --algorithm dst --dataset transfertod --domain 酒店 --limit 100
 
 # 使用噪声数据评测（鲁棒性测试）
-python benchmark/run_dst_transfertod.py --data-type noise
+python benchmark/run_benchmark.py --algorithm dst --dataset transfertod --data-type noise
 ```
 
 ### 在 RiSAWOZ 数据集上评测
 
 ```bash
 # 评测验证集
-python benchmark/run_dst_risawoz.py --data-root ./data/RiSAWOZ
+python benchmark/run_benchmark.py --algorithm dst --dataset risawoz
 
 # 评测特定领域
-python benchmark/run_dst_risawoz.py --domain 景点 --split val --limit 50
+python benchmark/run_benchmark.py --algorithm dst --dataset risawoz --domain 景点 --split val --limit 50
 
 # 详细输出
-python benchmark/run_dst_risawoz.py --domain 酒店 --verbose
+python benchmark/run_benchmark.py --algorithm dst --dataset risawoz --domain 酒店 --verbose
 ```
 
 ---
@@ -187,11 +178,10 @@ python benchmark/run_dst_risawoz.py --domain 酒店 --verbose
 
 | 文件 | 说明 |
 |------|------|
-| `benchmark/algorithms/dst.py` | DST 评测核心逻辑（DSTMetrics、DSTEvaluator） |
-| `benchmark/run_dst_transfertod.py` | DST on TransferTOD 评测入口 |
-| `benchmark/run_dst_risawoz.py` | DST on RiSAWOZ 评测入口 |
-| `benchmark/datasets/transfertod/adapter.py` | TransferTOD 数据适配器 |
-| `benchmark/datasets/risawoz/adapter.py` | RiSAWOZ 数据适配器 |
+| `benchmark/evaluators/dst.py` | DST 评测核心逻辑（DSTMetrics、DSTEvaluator） |
+| `benchmark/run_benchmark.py` | 统一评测入口（--algorithm dst --dataset ...） |
+| `benchmark/datasets/transfertod.py` | TransferTOD 数据适配器 |
+| `benchmark/datasets/risawoz.py` | RiSAWOZ 数据适配器 |
 | `contextmind/modes/dst/` | DST 模式实现（DialogueStateTracker 等） |
 
 ## 参考资料

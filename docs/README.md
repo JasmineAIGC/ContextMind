@@ -16,8 +16,10 @@
 |------|------|---------|------|------|
 | DST | ✅ 已实现 | 第三步（第一步可选） | 对话状态追踪（通用技术，无单一论文） | [算法说明](algorithms/dst.md) |
 | FnCTOD | ✅ 已实现 | 第三步（第一步可选） | [Large Language Models as Zero-shot Dialogue State Tracker through Function Calling](https://arxiv.org/pdf/2402.10466)（ACL 2024） | [算法说明](algorithms/fnctod.md) |
-| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456) | [算法说明](algorithms/pytod.md) |
+| PyTOD | ✅ 已实现 | 第三步（第一、二步可选） | [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025） | [算法说明](algorithms/pytod.md) |
 | Evolve | ✅ 已实现 | 仅第三步 | [ThetaEvolve: Test-time Learning on Open Problems](https://arxiv.org/pdf/2511.23473) | [算法说明](algorithms/evolve.md) |
+| Genie | ✅ 已实现 | 第三步（第一步可选） | [Unleashing the Potential of Large Language Models through Genie Worksheets](https://arxiv.org/abs/2407.05674)（2024） | [算法说明](algorithms/genie.md) |
+| PyTOD 代码生成 | ✅ 已实现 | 第二步（可选） | Loop / ACIA / S\* / CodeTree | [生成策略说明](algorithms/pytod-codegen.md) |
 
 ### 技术参考（`reference/`）
 
@@ -34,20 +36,7 @@
 |------|------|
 | [贡献指南](development/CONTRIBUTING.md) | 如何参与贡献 |
 | [更新日志](development/changelog.md) | 版本变更历史 |
-
-### 研究参考（`research/`）
-
-以下为算法背景论文分析，供深入了解技术选型参考：
-
-| 文档 | 说明 |
-|------|------|
-| [AutoHarness 分析](research/autoharness_analysis.md) | 测试用例自动生成 |
-| [Context Cartography 分析](research/context_cartography_analysis.md) | 上下文映射 |
-| [DDC 分析](research/ddc_analysis.md) | 对话数据压缩 |
-| [DT-MDP-CE 分析](research/dt_mdp_ce_analysis.md) | 对话 MDP 上下文工程 |
-| [Generative Ontology 分析](research/generative_ontology_analysis.md) | 生成式本体 |
-| [Genie Worksheets 分析](research/genie_worksheets_analysis.md) | Genie 工作流 |
-| [TAU Knowledge 分析](research/tau_knowledge_analysis.md) | 任务型知识 |
+| [Schema 数据生成器设计](development/schema_builder_design.md) | 第二步 SchemaDataBuilder 设计与五阶段流程说明 |
 
 ---
 
@@ -69,6 +58,7 @@ ContextMind 的整体设计围绕三个核心步骤，不同算法对各步骤�
 | **FnCTOD** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
 | **PyTOD** | ✅ 可选 | ✅ 可选 | ✅ 必须 |
 | **Evolve** | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
+| **Genie** | ✅ 可选 | ❌ 不需要 | ✅ 必须 |
 
 ---
 
@@ -80,7 +70,7 @@ ContextMind/
 │   ├── pipeline.py       # ContextPipeline（推荐入口）
 │   ├── knowledge/        # ① KnowledgeBaseBuilder（第一步）
 │   ├── schema_builder/   # ② SchemaDataBuilder（第二步，API代码生成）
-│   ├── modes/            # ③ DST / FnCTOD / PyTOD / Evolve 追踪器（第三步）
+│   ├── modes/            # ③ DST / FnCTOD / PyTOD / Evolve / Genie 追踪器（第三步）
 │   ├── infra/            # AdkLLMClient、配置
 │   └── scenarios/        # 场景注册与配置
 ├── benchmark/            # 评测框架（DST / FnCTOD / RiSAWOZ / TransferTOD）
@@ -91,8 +81,7 @@ ContextMind/
     ├── algorithms/       #   算法文档（dst、fnctod、pytod、evolve）
     ├── reference/        #   技术参考（architecture、api-reference、benchmark）
     ├── datasets/         #   数据集说明
-    ├── development/      #   开发者文档（CONTRIBUTING、changelog）
-    └── research/         #   学术论文背景分析
+    └── development/      #   开发者文档（CONTRIBUTING、changelog）
 ```
 
 ---
@@ -106,4 +95,4 @@ ContextMind/
 
 ---
 
-**最后更新**: 2026-03-31 | **版本**: 0.3.0
+**最后更新**: 2026-04-27 | **版本**: 0.3.0

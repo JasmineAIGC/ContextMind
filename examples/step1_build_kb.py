@@ -1,105 +1,20 @@
 """
-通用知识库构建脚本（build_kb.py）
+step1_build_kb.py — 通用知识库构建（第一步）
 
-ContextMind 框架的**统一知识库提取入口**，支持任意对话数据集、对话数据
-或人工制定的示例对话，一键生成完整的 SGD 格式知识库。
+从任意对话数据 → SGD schema.json，供第二/三步使用。
+支持多种输入格式（chat_test、SGD turns、文本列表等），自动归一化。
 
-核心思路
---------
-1. 提供任意对话数据（可以是安逸花外呼、银行贷款、电商客服等任意场景）
-2. 支持多种输入来源，统一经 ``contextmind.knowledge.normalizer`` 归一化：
-   - chat_test_100.json 格式（含 ``对话历史`` 字段）
-   - chat_test_500.json 嵌套格式（含 ``label`` + ``query`` 字段，自动展平）
-   - SGD 格式（含 ``turns`` 字段）
-   - 简单文本列表（``["agent: ...", "user: ..."]``）
-   - 平铺文本（``"机器人：...\\n用户：..."``）
-   - 支持同时加载多个文件并合并
-3. KnowledgeBaseBuilder 自动完成：
-   - 对话格式归一化（统一归一化器，不遗漏任何格式）
-   - 发现阶段：LLM + langextract 逐轮提取槽位和意图，附加字符级溯源；
-     对所有传入对话逐一处理，确保知识提取不遗漏
-   - 合成阶段：LLM 将发现结果整理为规范 SGD ServiceSchema
-   - 转换阶段：将输入对话转换为带注释的 SGD 对话文件
-4. 输出完整 SGD 数据集，可直接供 PyTOD 等执行算法使用
+用法:
+    python examples/step1_build_kb.py --data resources/data/chat_test_100.json --num 5 --scene "安逸花外呼"
+    python examples/step1_build_kb.py --data file1.json file2.json --num 20 --scene "银行贷款外呼"
+    python examples/step1_build_kb.py --demo
+    python examples/step1_build_kb.py --data ... --workers 4 --verbose
 
-输出文件
---------
-    output_dir/
-        schema.json             服务 schema（槽位 + 意图）
-        dialogues_001.json      SGD 格式标注对话
-        discovery_raw.json      逐轮原始提取结果（含 langextract 字符级溯源）
-        conversion_summary.json 转换摘要
-
-两步走
-------
-    第一步（本 Demo）：建立知识库 → SGD 数据集（schema + 对话）
-    第二步（pytod_trace_demo.py）：执行 → 使用 schema.json 驱动对话
-
-运行示例
---------
-    # 使用安逸花外呼数据（快速测试，仅用前 5 条对话）
-    python examples/build_kb.py \\
-        --data resources/data/chat_test_100.json \\
-        --num 5 \\
-        --scene "安逸花外呼" \\
-        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
-
-    # 同时加载两个文件（chat_test_100.json + chat_test_500.json），合并后取前 20 条
-    python examples/build_kb.py \\
-        --data resources/data/chat_test_100.json resources/data/chat_test_500.json \\
-        --num 20 \\
-        --scene "安逸花外呼" \\
-        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
-
-    # 使用全部 100 条对话（完整提取，LLM 调用较多）
-    python examples/build_kb.py \\
-        --data resources/data/chat_test_100.json \\
-        --scene "安逸花外呼" \\
-        --scene-desc "安逸花/马上消费金融外呼促活服务，核实身份→告知额度→解答疑问→引导借款"
-
-    # 使用任意 JSON 文件（SGD turns 格式）
-    python examples/build_kb.py \\
-        --data my_dialogues.json \\
-        --num 10 \\
-        --scene "银行贷款外呼" \\
-        --scene-desc "银行客服主动致电老客户推介个人贷款产品" \\
-        --output-dir data/bank_loan_kb
-
-    # 直接传入内嵌演示对话（无需外部文件）
-    python examples/build_kb.py --demo
-
-    # 开启详细输出（打印每个阶段的底层日志，便于调试）
-    python examples/build_kb.py \\
-        --data resources/data/chat_test_100.json \\
-        --num 5 \\
-        --scene "安逸花外呼" \\
-        --verbose
-
-    # 调整历史上下文窗口大小（默认 3 轮，0 = 不传历史）
-    python examples/build_kb.py \\
-        --data resources/data/chat_test_100.json \\
-        --num 10 \\
-        --scene "安逸花外呼" \\
-        --context-window 5
-
-    # 并行提取（4 线程并发调用 LLM，适合批量对话）
-    python examples/build_kb.py \\
-        --data resources/data/chat_test_100.json \\
-        --num 20 \\
-        --scene "安逸花外呼" \\
-        --workers 4
-
-参数说明
---------
-    --data              输入对话 JSON 文件路径，可指定多个（空格分隔）；格式自动识别
-    --num               使用对话条数（0 = 全部，默认 10）
-    --scene             业务场景名称（默认 "对话场景"）
-    --scene-desc        场景描述（可选）
-    --output            SGD 数据集输出目录（默认 output/kb_output）
-    --context-window    langextract 逐轮提取时的历史轮次窗口大小（默认 3，0 = 不传历史上下文）
-    --workers           发现阶段并行线程数（默认 1，即串行；建议 2–8）
-    --demo              使用内嵌演示对话（无需 --data）
-    --verbose / -v      开启详细输出，将底层阶段日志实时打印到终端
+输出目录（默认 output/kb_output/）:
+    schema.json             服务 schema（槽位 + 意图）
+    dialogues_001.json      SGD 格式标注对话
+    discovery_raw.json      逐轮原始提取结果
+    conversion_summary.json 转换摘要
 """
 
 from __future__ import annotations
@@ -124,8 +39,7 @@ logger = get_logger(__name__)
 # ------------------------------------------------------------------
 
 _DEMO_DIALOGUES: List[Any] = [
-    # 格式 1：平铺文本（换行分隔）
-    # 对话以用户最后一句话结尾，不含机器人后续的告别语
+    # 格式 1：平铺文本
     (
         "机器人：你好，请问是李先生吗？\n"
         "用户：是的，我是李明。\n"
@@ -139,7 +53,6 @@ _DEMO_DIALOGUES: List[Any] = [
         "用户：好吧，我再想想。"
     ),
     # 格式 2：列表格式（agent:/user: 前缀）
-    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     [
         "agent: 您好，请问是王女士吗？",
         "user: 是的，我是王丽。",
@@ -151,7 +64,6 @@ _DEMO_DIALOGUES: List[Any] = [
         "user: 感觉还可以，我考虑一下。",
     ],
     # 格式 3：dict（chat_test 格式，含 "对话历史"）
-    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     {
         "session_id": "demo_003",
         "对话历史": [
@@ -161,7 +73,6 @@ _DEMO_DIALOGUES: List[Any] = [
         ],
     },
     # 格式 4：dict（SGD turns 格式）
-    # 对话以用户最后一句话结尾，不含机器人后续的告别语
     {
         "dialogue_id": "demo_004",
         "services": ["BankLoan"],
@@ -225,32 +136,19 @@ def main() -> None:
         type=int,
         default=3,
         metavar="N",
-        help=(
-            "langextract 逐轮提取时的历史轮次窗口大小（默认 3，0 = 不传历史上下文）。"
-            "窗口越大，提取越精准，但 LLM 输入 token 也相应增加。"
-        ),
+        help="langextract 逐轮提取时的历史轮次窗口大小（默认 3，0 = 不传历史上下文）",
     )
     parser.add_argument(
         "--workers",
         type=int,
         default=1,
         metavar="N",
-        help=(
-            "发现阶段并行线程数（默认 1，即串行）。"
-            "使用 ThreadPoolExecutor 并发执行各对话的 LLM 提取调用，"
-            "可显著缩短大批量对话的总耗时。受限于 LLM API 并发速率，"
-            "建议设置为 2–8。"
-        ),
+        help="发现阶段并行线程数（默认 1；建议 2–8）",
     )
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help=(
-            "开启详细进度输出。启用后将把底层阶段日志（每条对话的发现进度、"
-            "LLM 调用结果、schema 合并过程等）实时打印到终端，同时逐步打印"
-            "每条对话的合并（合成）和融合（累积）中间结果，方便调试和监控。"
-            "不指定时仅显示摘要信息。"
-        ),
+        help="开启详细输出，将底层阶段日志实时打印到终端",
     )
     args = parser.parse_args()
 
@@ -260,14 +158,11 @@ def main() -> None:
     print("=" * 70)
 
     # ── 日志设置 ──
-    # 无论是否指定 --verbose，都初始化日志系统以显示 INFO 级别的进度信息。
-    # --verbose 在此基础上开启 DEBUG 级别，额外输出 LLM 原始响应等底层细节。
-    # 日志自动保存到 log/build_kb_<timestamp>.log，同时输出到终端。
     from contextmind.infra.logger import setup_logging, LogLevel
     log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
         LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
     )
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="build_kb")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step1_build_kb")
     if args.verbose or args.log_level == "DEBUG":
         print("🔍 详细输出模式已开启 — 底层阶段日志（含 LLM 响应等 DEBUG 信息）将实时打印到终端")
         print("   同时将逐步打印每条对话的提取→合并→融合中间结果")

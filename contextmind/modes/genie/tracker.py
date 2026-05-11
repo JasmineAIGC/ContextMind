@@ -4,11 +4,11 @@ GenieTracker — Genie Worksheets 驱动的对话追踪器
 实现 BaseTracker 协议，将 Genie 的 Worksheet 声明式策略执行嵌入
 ContextMind 框架，作为第五种执行模式（mode="genie"）。
 
-执行流程（每轮）
------------------
-1. PolicyExecutor 确认流检查                ← 检测 PENDING_CONFIRM 字段，处理 yes/no
-2. SemanticParser(LLM-1)                   ← 从用户话语提取字段赋值
-3. PolicyExecutor.fill_batch()             ← 更新 Worksheet 状态
+执行流程（每轮，对齐 Genie 论文 Figure 2）
+------------------------------------------
+1. 意图路由                                 ← 确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）
+2. SemanticParser(LLM-1)                   ← 从用户话语提取字段赋值（始终运行）
+3. Worksheet 状态更新                       ← 处理确认/拒绝 + fill_batch() 推进字段状态
 4. on_success dispatch                     ← 触发字段关联的 API 回调
 5. AgentActs 计算                          ← 确定性：Ask/Confirm/Report
 6. ResponseGenerator(LLM-2)               ← 根据 AgentActs + 状态生成自然语言回复
@@ -60,22 +60,27 @@ logger = logging.getLogger(__name__)
 # 回复生成器提示词
 # ---------------------------------------------------------------------------
 
-_RESPONSE_SYSTEM = """你是一个任务型对话的助手（对话管理器）。
-根据对话历史、当前 Worksheet 填写状态、本轮动作指令（Agent Actions），
-生成一条自然、友好的中文回复。
+_RESPONSE_SYSTEM = """你是一个任务型对话助手。
+根据业务场景描述、对话历史、当前 Worksheet 填写状态和本轮动作指令（Agent Actions），
+生成一条自然、符合业务场景的中文回复。
 
 ## 回复要求
 - 严格按照 Agent Actions 列表的顺序逐条 verbalize（不要遗漏任何一条）
 - AskField：自然地引导用户提供指定字段的值（枚举字段请列出可选值）
 - AskForFieldConfirmation：重述字段值，以 yes/no 方式请求用户确认
 - Report：报告 API 调用结果，如无数据则明确说明
-- 语气友好、专业，不要冗长解释
+- 回复简洁精准，通常 1-2 句话，不超过 80 字
+- 对用户的问题给出有实质内容的直接答复，不要用空泛承诺敷衍
+- 语气友好、专业，风格与业务场景保持一致
 - 直接输出回复文本，不要任何前缀或格式标记
 """
 
 _RESPONSE_USER_TEMPLATE = """\
 ## 业务场景
 {scene_description}
+
+## 当前活跃意图
+{current_intent}
 
 ## Worksheet 当前状态
 {worksheet_status}
@@ -93,6 +98,31 @@ _RESPONSE_USER_TEMPLATE = """\
 {extracted_fields}
 
 请生成回复："""
+
+# ---------------------------------------------------------------------------
+# 意图路由提示词（Step 1，每轮动态选择最合适意图）
+# ---------------------------------------------------------------------------
+
+_INTENT_ROUTING_SYSTEM = """你是一个意图路由器，负责根据用户话语和对话历史，从可用意图列表中选择当前最合适的意图。
+只输出所选意图的英文名称（与列表完全一致），不要任何其他内容。"""
+
+_INTENT_ROUTING_USER_TEMPLATE = """\
+## 业务场景
+{scene_description}
+
+## 可用意图列表
+{intent_list}
+
+## 当前活跃意图
+{current_intent}
+
+## 对话历史（最近 {history_turns} 轮）
+{history}
+
+## 用户最新话语
+{user_utterance}
+
+请选择最合适的意图名称："""
 
 # 确认意图识别提示词（用于 yes/no 检测）
 _CONFIRM_SYSTEM = """你是一个意图分类器。判断用户话语是否是对前一条问题的"确认（是）"或"拒绝（否）"回答。
@@ -279,10 +309,10 @@ class GenieTracker:
     ) -> Dict[str, Any]:
         """处理单轮用户输入，推进 Worksheet 填写状态。
 
-        完整步骤：
-        1. 确认流检查：检测 PENDING_CONFIRM 字段，解析用户的 yes/no 意图
-        2. SemanticParser(LLM-1) 提取字段赋值
-        3. PolicyExecutor.fill_batch() 更新 Worksheet 状态
+        完整步骤（对齐 Genie 论文 Figure 2）：
+        1. 意图路由：确定活跃 Worksheet / Intent（PolicyExecutor 初始化时绑定）
+        2. SemanticParser(LLM-1)：始终运行，提取字段赋值
+        3. Worksheet 状态更新：处理确认/拒绝 + fill_batch() 推进字段状态
         4. on_success dispatch：触发字段关联的 API 回调
         5. AgentActs 计算（确定性）
         6. ResponseGenerator(LLM-2) 生成自然语言回复
@@ -308,8 +338,39 @@ class GenieTracker:
         dispatched_apis: List[str] = []
 
         # ------------------------------------------------------------------
-        # Step 1: 确认流检查（PENDING_CONFIRM 字段的 yes/no 处理）
+        # Step 1: 意图路由（每轮动态，对齐 Genie 论文 Figure 2 Step 1）
+        # 对齐 Genie 论文 Figure 2 Step 1：Intent Routing。
+        # 仅当 schema 中存在多个意图时才调用 LLM 路由（单意图时跳过以节省开销）。
         # ------------------------------------------------------------------
+        if len(self._schema.intents) > 1:
+            routed_intent = await self._route_intent(user_utterance)
+            if routed_intent and routed_intent != (self._executor.intent.name if self._executor.intent else ""):
+                self._executor.switch_intent(routed_intent)
+        intent_name = self._executor.intent.name if self._executor.intent else ""
+
+        # ------------------------------------------------------------------
+        # Step 2: 语义解析（LLM-1）— 始终运行，提取字段赋值
+        # 对齐 Genie 论文 Figure 2 Step 2：SUQLReActParser（此处直接输出 JSON 字段赋值）。
+        # ------------------------------------------------------------------
+        extracted: Dict[str, Any] = {}
+        parse_errors: List[str] = []
+        try:
+            extracted = await self._semantic_parser.parse(
+                user_utterance,
+                self._executor,
+                history=self._history,
+                scene_description=self._scene_description,
+            )
+        except Exception as exc:
+            logger.error(f"[GenieTracker] 语义解析失败: {exc}")
+
+        # ------------------------------------------------------------------
+        # Step 3: Worksheet 状态更新
+        # 对齐 Genie 论文 Figure 2 Step 3+4：SUQL Execution + Worksheet Update。
+        # 3a — 处理待确认字段（检测用户 yes/no 意图）
+        # 3b — 应用语义解析提取的字段值
+        # ------------------------------------------------------------------
+        # 3a: 若上一轮产生了待确认字段，检测本轮用户话语是确认还是拒绝
         pending_confirm = self._executor.get_pending_confirm_fields()
         if pending_confirm:
             pf_to_confirm = pending_confirm[0]  # 每轮处理一个确认
@@ -323,27 +384,9 @@ class GenieTracker:
                 rejected_fields.append(pf_to_confirm.name)
                 logger.debug(f"[GenieTracker] 用户拒绝字段: {pf_to_confirm.name!r}")
 
-        # ------------------------------------------------------------------
-        # Step 2: 语义解析（LLM-1）— 只在没有待确认字段时正常提取
-        # ------------------------------------------------------------------
-        extracted: Dict[str, Any] = {}
-        parse_errors: List[str] = []
-        if not pending_confirm:
-            try:
-                extracted = await self._semantic_parser.parse(
-                    user_utterance,
-                    self._executor,
-                    history=self._history,
-                    scene_description=self._scene_description,
-                )
-            except Exception as exc:
-                logger.error(f"[GenieTracker] 语义解析失败: {exc}")
-
-            # ------------------------------------------------------------------
-            # Step 3: 更新 Worksheet 状态
-            # ------------------------------------------------------------------
-            if extracted:
-                parse_errors = self._executor.fill_batch(extracted)
+        # 3b: 将语义解析结果写入 Worksheet
+        if extracted:
+            parse_errors = self._executor.fill_batch(extracted)
 
         # ------------------------------------------------------------------
         # Step 4: on_success dispatch（触发字段关联 API 回调）
@@ -377,9 +420,9 @@ class GenieTracker:
 
         # ------------------------------------------------------------------
         # Step 5: AgentActs 计算（确定性，无 LLM）
+        # 对齐 Genie 论文 Figure 2 Step 5：Agent Action Computation。
+        # intent_name 已在 Step 1 中设置。
         # ------------------------------------------------------------------
-        intent_name = self._executor.intent.name if self._executor.intent else ""
-
         # 检查新出现的 PENDING_CONFIRM 字段（本轮刚被填写 + confirm=True）
         new_pending = self._executor.get_pending_confirm_fields()
         for pf in new_pending:
@@ -401,7 +444,9 @@ class GenieTracker:
         # ------------------------------------------------------------------
         # Step 6: 回复生成（LLM-2）
         # ------------------------------------------------------------------
-        response = await self._generate_response(user_utterance, extracted, agent_acts)
+        response = await self._generate_response(
+            user_utterance, extracted, agent_acts, intent_name=intent_name
+        )
 
         # 更新历史
         self._history.append({"role": "user", "content": user_utterance})
@@ -424,6 +469,7 @@ class GenieTracker:
             "confirmed_fields": confirmed_fields,
             "rejected_fields": rejected_fields,
             "dispatched_apis": dispatched_apis,
+            "intent_name": intent_name,
             # 兼容 BaseTracker 通用字段
             "state": state.field_values,
             "turn_updates": extracted,
@@ -467,10 +513,21 @@ class GenieTracker:
         user_utterance: str,
         extracted: Dict[str, Any],
         agent_acts: Optional[AgentActs] = None,
+        intent_name: str = "",
     ) -> str:
         """调用 LLM-2 生成自然语言回复。"""
         state = self._executor.state
         next_field = self._executor.next_required_field()
+
+        # 当前意图描述
+        intent_obj = self._executor.intent
+        if intent_obj:
+            current_intent_text = (
+                f"{intent_obj.name}"
+                + (f"（{intent_obj.description}）" if intent_obj.description else "")
+            )
+        else:
+            current_intent_text = intent_name or "（未知）"
 
         # Worksheet 状态摘要
         status_lines: List[str] = []
@@ -497,7 +554,12 @@ class GenieTracker:
                 for i, line in enumerate(agent_acts.to_prompt_lines())
             )
         elif self._executor.is_complete():
-            agent_actions_text = "  Worksheet 已完成，总结并确认所有已填信息。"
+            agent_actions_text = (
+                "  Worksheet 已完成。请根据业务场景描述和对话历史，"
+                "直接回应用户刚才说的内容（提问、质疑、情绪等），"
+                "给出具体、有实质内容的答复。"
+                "禁止使用[我们已记录][后续有专人联系][加急核实][请放心我们会处理]等空泛承诺措辞。"
+            )
         else:
             agent_actions_text = "  （无明确动作，根据状态自然引导对话）"
 
@@ -518,6 +580,7 @@ class GenieTracker:
 
         user_prompt = _RESPONSE_USER_TEMPLATE.format(
             scene_description=self._scene_description or "通用任务型对话",
+            current_intent=current_intent_text,
             worksheet_status=worksheet_status,
             agent_actions=agent_actions_text,
             history_turns=self._max_history_turns,
@@ -550,6 +613,82 @@ class GenieTracker:
             if next_field:
                 return f"请问您能提供{next_field.description or next_field.name}吗？"
             return "好的，请问还有什么需要确认的信息吗？"
+
+    async def _route_intent(self, user_utterance: str) -> str:
+        """使用 LLM 为当前用户话语选择最合适的意图（Step 1 动态路由）。
+
+        从 schema 中所有意图里选择与当前话语最匹配的意图名称。
+        若 LLM 调用失败或返回无效意图名称，则保持当前意图不变。
+
+        Returns:
+            选中的意图名称（英文，与 schema 中一致）；失败时返回当前意图名称。
+        """
+        current_intent_name = self._executor.intent.name if self._executor.intent else ""
+        if not self._schema.intents:
+            return current_intent_name
+
+        # 构建意图列表文本
+        intent_lines: List[str] = []
+        for intent in self._schema.intents:
+            line = f"  - {intent.name}"
+            if intent.description:
+                line += f"：{intent.description}"
+            intent_lines.append(line)
+        intent_list_text = "\n".join(intent_lines)
+
+        # 对话历史（最近几轮）
+        recent = self._history[-self._max_history_turns * 2:]
+        hist_lines = []
+        for turn in recent:
+            role = "用户" if turn.get("role") == "user" else "助手"
+            hist_lines.append(f"{role}：{turn.get('content', '')}")
+        hist_text = "\n".join(hist_lines) or "（无历史）"
+
+        user_prompt = _INTENT_ROUTING_USER_TEMPLATE.format(
+            scene_description=self._scene_description or "通用任务型对话",
+            intent_list=intent_list_text,
+            current_intent=current_intent_name,
+            history_turns=self._max_history_turns,
+            history=hist_text,
+            user_utterance=user_utterance,
+        )
+
+        try:
+            if hasattr(self._llm, "chat"):
+                raw = str(await self._llm.chat(
+                    system_prompt=_INTENT_ROUTING_SYSTEM,
+                    user_message=user_prompt,
+                ))
+            else:
+                messages = [
+                    {"role": "system", "content": _INTENT_ROUTING_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ]
+                if hasattr(self._llm, "chat_async"):
+                    raw = str(await self._llm.chat_async(messages))
+                elif hasattr(self._llm, "generate_async"):
+                    raw = str(await self._llm.generate_async(user_prompt))
+                else:
+                    import asyncio
+                    raw = str(await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: self._llm.generate(user_prompt)
+                    ))
+
+            routed = raw.strip()
+            # 验证返回的意图名称在 schema 中存在；
+            # 先检查整个返回值，再尝试第一个词（兼容 LLM 多余输出）
+            valid_names = {intent.name for intent in self._schema.intents}
+            if routed not in valid_names:
+                first_token = routed.split()[0] if routed else ""
+                routed = first_token if first_token in valid_names else ""
+            if routed in valid_names:
+                logger.info(f"[GenieTracker] 意图路由: {current_intent_name!r} → {routed!r}")
+                return routed
+            logger.warning(f"[GenieTracker] 意图路由返回未知意图 {routed!r}，保持当前意图")
+        except Exception as exc:
+            logger.error(f"[GenieTracker] 意图路由失败: {exc}")
+
+        return current_intent_name
 
     async def _detect_confirm_intent(self, user_utterance: str) -> bool:
         """判断用户话语是否表示确认（YES），否则为拒绝（NO）。

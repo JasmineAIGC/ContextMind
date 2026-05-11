@@ -1,141 +1,81 @@
-# pyTOD 算法文档
+# PyTOD 算法文档
 
 ## 概述
 
-**pyTOD**（Programmable Task-Oriented Dialogue，可编程任务型对话）已在 ContextMind 中完整实现。它由 Apple 研究院提出，将任务型对话建模为**程序执行**问题：对话管理器生成可执行的程序语句，由执行引擎实际调用 API 并返回执行反馈。
+**PyTOD**（Programmable Task-Oriented Dialogue，可编程任务型对话）已在 ContextMind 中完整实现。它由 Apple 研究院提出，将任务型对话建模为**程序执行**问题：动作解析器（AP）生成可执行的 Python-like 程序语句，执行引擎（EE）真实调用注册 API，对话管理器（DM）基于执行结果生成自然语言回复。
 
 - **实现状态**: ✅ 已实现
+- **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025）
 - **官方源码**: https://github.com/apple/ml-pytod
-- **论文**: [PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)
 - **使用数据集**: SGD（Schema-Guided Dialogue），详见 [`docs/datasets/sgd.md`](../datasets/datasets.md)
 
 ### 三步框架依赖
 
 | 步骤 | 是否需要 | 说明 |
 |------|:-------:|------|
-| **① 建立知识库** | ✅ 可选 | 可从原始对话自动生成 `schema.json`，也可使用预定义 SGD Schema |
+| **① 建立知识库** | ✅ 可选 | 可从原始对话自动生成 `schema.json`，也可手写 Schema |
 | **② Schema 数据生成** | ✅ 可选 | 将 `schema.json` 自动生成 PyTOD API 代码文件（`xxx_pytod_apis.py`） |
-| **③ 算法执行（PyTOD）** | ✅ 必须 | AP→EE→DM 三步程序执行流程 |
+| **③ 算法执行（PyTOD）** | ✅ 必须 | AP→EE→DM 三步数据流程序执行流程 |
 
-PyTOD 是唯一可以完整利用三步框架的算法：第一步生成 Schema，第二步自动生成 API 实现代码，第三步驱动程序执行型对话。当然也可以跳过前两步，直接手写 API 进入第三步。
+PyTOD 是唯一可以完整利用三步框架的算法：第一步生成 Schema，第二步自动生成 API 实现代码，第三步驱动程序执行型对话。也可以跳过前两步，直接手写 API 进入第三步。
 
 ---
 
 ## 核心思想
 
-pyTOD 的创新在于引入了**执行反馈（Execution Feedback）**机制：
+PyTOD 的创新在于引入了**执行反馈（Execution Feedback）**机制：LLM 不再直接生成自然语言回复，而是先生成可执行的程序语句，由执行引擎真实调用 API，再将执行结果注入回复生成：
 
 ```
-传统 TOD 流程：
-  用户输入 → LLM 生成系统回复 → 输出
-
-pyTOD 流程：
-  用户输入
-    ↓
-  动作解析器（Action Parser）
-    → 生成程序语句（如：hotels_1_search_hotel(city='San Jose')）
-    ↓
-  执行引擎（Execution Engine）
-    → 实际调用 API / 数据库查询
-    → 返回执行结果（如：[{"name": "Sino", "rating": 4.5}]）
-    ↓
-  对话管理器（Dialogue Manager）
-    → 基于执行结果生成系统回复
-    ↓
-  系统输出
+用户: "帮我查一下账户余额"
+↓ AP（动作解析器）
+x1 = query_balance(account_id="ACC-001")
+say(x1.balance)
+↓ EE（执行引擎）
+x1 = {"balance": "¥8,230.00", "status": "正常"}
+↓ DM（对话管理器）
+"您的账户余额为 ¥8,230.00，账户状态正常。"
 ```
 
-**核心优势**：真实的 API 调用结果替代 LLM 幻觉，大幅提升事实准确性。
-
----
-
-## 与 DST / FnCTOD 的对比
-
-| 维度 | DST | FnCTOD | pyTOD |
-|------|-----|--------|-------|
-| **对话范式** | 槽位填充 | 函数调用格式 | 程序执行 |
-| **输出类型** | 对话状态（JSON） | 函数调用（XML） | 可执行程序语句 |
-| **API 集成** | ❌ 无 | ❌ 无 | ✅ 真实 API 调用 |
-| **执行反馈** | ❌ 无 | ❌ 无 | ✅ 真实执行结果 |
-| **数据集** | TransferTOD、RiSAWOZ | TransferTOD | SGD |
-| **实现复杂度** | ⭐⭐ 简单 | ⭐⭐⭐ 中等 | ⭐⭐⭐⭐⭐ 复杂 |
-| **准确性** | 中 | 高 | 最高（有执行验证） |
+**核心优势**：真实 API 调用结果替代 LLM 幻觉；跨轮次变量引用（`x2 = query_loan(user_id=x1.user_id)`）使上下文精确传递，大幅提升事实准确性。
 
 ---
 
 ## 算法架构
 
-pyTOD 包含以下核心组件（来自官方源码）：
-
 ### 1. 动作解析器（Action Parser）
 
-将用户输入解析为结构化程序语句：
+AP 是核心 LLM 组件，输入对话历史 + ServiceSchema（函数签名 + 描述）+ 已计算变量（Dataflow Context），输出 PyTOD 程序：
 
+```python
+x1 = verify_identity(user_name="张三", phone="138xxxx5678")
+x2 = query_account(user_id=x1.user_id)     # 引用上一轮变量
+say(x2.balance, x2.due_date)               # 指定 DM 要传达的内容
 ```
-用户输入：
-  "I want to make a restaurant reservation for 2 people at half past 11 in the morning."
 
-动作解析器输出（PyTOD 程序）：
-  x1 restaurants_2_reserve_restaurant(time='half past 11 in the morning', number_of_seats=2)
-  x2 Hint('request value: restaurant_name')
-  x3 Hint('request value: location')
-  x4 say(x2, x3)
-```
+**关键语句类型**：
+
+| 语句 | 含义 |
+|------|------|
+| `xN = func(...)` | 调用 API，绑定结果 |
+| `say(xN.field)` | 告诉 DM 要传达的内容 |
+| `hint(msg)` | 向 DM 提供补充说明 |
+| `confirm(xN.field, val)` | 请求用户确认某个值 |
+| `xN.slot = val` | 槽位赋值 |
+
+当 Schema 包含大量 API 时，AP 使用**多信号 BM25 意图检索**（top-K，默认 5），仅将最相关的意图注入 prompt，节省 Token。
 
 ### 2. 执行引擎（Execution Engine）
 
-执行程序语句，调用真实 API/数据库：
+EE 是**无 LLM 的确定性组件**，通过正则 + AST 解析程序文本并安全执行（不使用 `eval()`）：
+- 解析 `xN = func(kwargs)` 语句，查 registry 调用已注册的 API 函数
+- 管理变量绑定表 `{x1: {...}, x2: {...}}`
+- 收集 `say()`、`hint()` 内容传给 DM
+- 支持模糊函数名匹配（`difflib`，cutoff=0.6）
+- 对无法解析的语句降级为存根执行，保证流程不中断
 
-```
-输入：x1 restaurants_2_reserve_restaurant(location='San Jose', restaurant_name='Sino')
+### 3. 对话管理器（Dialogue Manager）
 
-执行过程：
-  1. 查询数据库（mongoquery 模拟）
-  2. 验证 API 参数
-  3. 执行事务（预订确认）
-  4. 返回执行结果
-
-输出：
-  - phone_number: '408-247-8880'
-  - address: '377 Santana Row #1000'
-  - has_vegetarian_options: True
-```
-
-### 3. 模拟环境（Simulation）
-
-基于 SGD 数据集实现的 API 模拟：
-
-- **SearchCommand**：搜索类 API（如 `FindHotels`、`FindRestaurants`）
-- **ConfirmedCommand**：事务类 API（如 `BookHotel`、`BuyTickets`）
-- **Database**：基于 `mongoquery` 的内存数据库模拟
-- **Policy Graph**：SGD 策略图，指导系统行为
-
-### 4. 提示词模块（Prompting）
-
-将结构化程序转换为 text-to-text 格式，用于 LLM 微调：
-
-```
-输入（source）：
-  [HISTORY] user: I want to book a hotel...
-  [CURRENT] user: In San Jose, please.
-
-输出（target）：
-  x1.location = 'San Jose'
-  x6 Hint('ask the user to confirm: date')
-  x7 say(x6)
-```
-
----
-
-## SGD 数据集集成
-
-pyTOD 使用 SGD（Schema-Guided Dialogue）数据集，详细说明见 [SGD 数据集文档](../datasets/datasets.md)。
-
-关键特性：
-- 20 个服务，16 个领域
-- 16,000+ 标注对话（train/dev/test）
-- 每个对话包含 API Schema、对话状态、服务调用记录
-- pyTOD 在此基础上增加了可执行 API 模拟
+DM 接收对话历史、AP 程序文本、EE 执行结果，生成自然语言回复，**优先传达 `say()` 指定的内容**。
 
 ---
 
@@ -149,84 +89,19 @@ PyTOD 核心算法已在 `contextmind/modes/pytod/` 目录下完整实现：
 contextmind/modes/pytod/
 ├── __init__.py           # 模块入口，导出所有公共接口
 ├── tracker.py            # AdkPyTODTracker — 主追踪器（三步流程协调）
-├── prompt_builder.py     # PyTODPromptBuilder — 动作解析器和对话管理器 prompt 构建
-├── execution_engine.py   # ExecutionEngine — 安全解析并执行程序语句
-├── schema.py             # ServiceSchema / IntentDefinition / SlotDefinition
-└── validator.py          # ActionValidator — 动作合法性校验
+├── prompts.py            # PyTODPromptBuilder — AP 和 DM 提示词构建
+├── execution_engine.py   # ExecutionEngine — 解析并执行 PyTOD 程序语句
+├── registry.py           # 意图注册表
+└── schemas.py            # ServiceSchema / IntentDefinition / SlotDefinition
 ```
 
 ### 待完成（评测集成）
 
-基准评测所需组件尚未实现：
-
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| P0 | SGD 数据集适配（`benchmark/datasets/sgd/adapter.py`） | ⏳ 待实现 |
-| P0 | pyTOD 评测指标（`benchmark/algorithms/pytod.py`） | ⏳ 待实现 |
-| P1 | 评测脚本（`run_pytod_sgd.py`） | ⏳ 待实现 |
-| P2 | 与 DST/FnCTOD 对比实验 | ⏳ 待实现 |
-
-### 评测指标（待实现）
-
-除标准 DST 指标外，pyTOD 还将引入：
-
-| 指标 | 说明 |
+| 内容 | 状态 |
 |------|------|
-| **动作准确率**（Action Accuracy） | 预测动作序列与标注一致的比例 |
-| **API 调用成功率** | 成功调用 API 并获得有效结果的比例 |
-| **端到端任务完成率** | 整个任务（包括 API 调用）完成的比例 |
-| **执行反馈准确率** | 基于执行结果生成正确系统回复的比例 |
-
----
-
-## 参考实现
-
-pyTOD 官方源码的核心文件结构：
-
-```
-ml-pytod/src/pytod/
-├── simulation/              # API 模拟环境
-│   ├── api_driver.py        # SGD 事务型 API 模拟
-│   ├── database.py          # 数据库模拟（mongoquery）
-│   └── services/            # 具体服务实现
-│       ├── hotels.py
-│       ├── restaurants.py
-│       └── ...
-├── execution/               # 执行引擎
-│   └── execute_instructions.py
-├── interpreter/             # SGD → PyTOD 程序转换
-├── parser/                  # 程序解析器（pydantic 验证）
-├── prompting/               # text-to-text 格式转换
-└── evaluation/              # DSTC8 评估代码
-```
-
-### 快速体验官方实现
-
-```bash
-# 克隆官方源码
-git clone https://github.com/apple/ml-pytod.git
-cd ml-pytod
-
-# 安装依赖
-pipenv install
-
-# 下载 SGD 数据集
-chmod +x scripts/fetch_data.sh && bash scripts/fetch_data.sh
-
-# 初始化 pyTOD 环境（构建数据库、API 模拟等）
-chmod +x scripts/pytod_setup.sh && bash scripts/pytod_setup.sh
-
-# 转换 SGD 对话为 pyTOD 格式
-pipenv run python scripts/create_pytod_dialogues.py \
-    filters=v0.6.1 version=v0.9.1 interpreter=v0.5 \
-    split=train --config-name=v3
-
-# 查看示例对话
-pipenv run display_pytod split=dev ids="['1_00000']" version=v0.9.1
-
-# 在测试集上评测
-pipenv run python scripts/evaluate_pytod.py split=dev version=v0.9.1
-```
+| SGD 数据集适配（`benchmark/datasets/sgd.py`） | ⏳ 待实现 |
+| PyTOD 评测指标（`benchmark/evaluators/pytod.py`） | ⏳ 待实现 |
+| 评测命令（`--algorithm pytod`） | ⏳ 待实现 |
 
 ---
 
@@ -295,23 +170,10 @@ response = await tracker.process_turn("我要预订一家餐厅")
 
 ---
 
-## 开发计划
-
-### ContextMind 中的 pyTOD 评测集成优先级
-
-| 阶段 | 内容 | 优先级 | 状态 |
-|------|------|--------|------|
-| P0 | SGD 数据集适配（`SGDAdapter`） | 高 | ⏳ 待实现 |
-| P0 | pyTOD 评测指标实现（`PyTODEvaluator`） | 高 | ⏳ 待实现 |
-| P1 | 微调数据生成 | 低 | ⏳ 待实现 |
-| P2 | 与 DST/FnCTOD 对比实验 | 低 | ⏳ 待实现 |
-
----
-
 ## 参考资料
 
-- [pyTOD 官方 GitHub](https://github.com/apple/ml-pytod)
-- [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)
+- [PyTOD 论文：PyTOD: Programmable Task-Oriented Dialogue with Execution Feedback](https://arxiv.org/pdf/2508.15456)（Apple 研究院，2025）
+- [官方源码：apple/ml-pytod](https://github.com/apple/ml-pytod)
 - [SGD 数据集文档](../datasets/datasets.md)
 - [SGD 原始论文](https://arxiv.org/abs/1909.05855)
 - [DST 算法文档](dst.md)

@@ -7,12 +7,12 @@ PyTOD 对话追踪脚本
 
 用法::
 
-    python examples/pytod_trace_demo.py
-    python examples/pytod_trace_demo.py --seed 42
-    python examples/pytod_trace_demo.py --index 5
-    python examples/pytod_trace_demo.py --output /tmp/trace.md --verbose
-    python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-    python examples/pytod_trace_demo.py \\
+    python examples/step3_pytod_trace.py
+    python examples/step3_pytod_trace.py --seed 42
+    python examples/step3_pytod_trace.py --index 5
+    python examples/step3_pytod_trace.py --output /tmp/trace.md --verbose
+    python examples/step3_pytod_trace.py --pytod-apis schema/anyihua_pytod_apis.py
+    python examples/step3_pytod_trace.py \\
         --pytod-apis output/step2_schema_output/loop/schema_pytod_apis.py \\
         --schema output/step1_kb_output/schema.json
 
@@ -519,16 +519,16 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  python examples/pytod_trace_demo.py
-  python examples/pytod_trace_demo.py --seed 42 --verbose
-  python examples/pytod_trace_demo.py --pytod-apis schema/anyihua_pytod_apis.py
-  python examples/pytod_trace_demo.py \\
+  python examples/step3_pytod_trace.py
+  python examples/step3_pytod_trace.py --seed 42 --verbose
+  python examples/step3_pytod_trace.py --pytod-apis schema/anyihua_pytod_apis.py
+  python examples/step3_pytod_trace.py \\
       --pytod-apis output/step2_schema_output-0409/loop/schema_pytod_apis.py \\
       --schema output/step1_kb_output/schema.json \\
       --index 0 --compact-schema --top-k 10
-  python examples/pytod_trace_demo.py --top-k 3       # AP 每轮只展示最相关的 3 个 API
-  python examples/pytod_trace_demo.py --top-k 0       # 展示全部 API（关闭 top-K 过滤）
-  python examples/pytod_trace_demo.py --data resources/data/chat_test_500.json --index 5
+  python examples/step3_pytod_trace.py --top-k 3       # AP 每轮只展示最相关的 3 个 API
+  python examples/step3_pytod_trace.py --top-k 0       # 展示全部 API（关闭 top-K 过滤）
+  python examples/step3_pytod_trace.py --data resources/data/chat_test_500.json --index 5
         """,
     )
     parser.add_argument("--seed", type=int, default=None)
@@ -576,7 +576,7 @@ def main() -> None:
     log_level = LogLevel.DEBUG if args.verbose or args.log_level == "DEBUG" else (
         LogLevel[args.log_level] if hasattr(LogLevel, args.log_level) else LogLevel.INFO
     )
-    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="pytod_trace_demo")
+    setup_logging(level=log_level, save_to_file=True, log_dir="log", log_name="step3_pytod_trace")
 
     data_path = Path(args.data) if args.data else _DATA_PATH
     if not data_path.exists():
@@ -621,7 +621,7 @@ def main() -> None:
     else:
         print(
             f"⚠️  默认 PyTOD APIs 文件不存在: {apis_path}\n"
-            "   请先运行: python examples/build_schema_data.py\n"
+            "   请先运行: python examples/step2b_build_schema_data.py\n"
             "   或通过 --pytod-apis 指定 *_pytod_apis.py 文件路径",
             file=sys.stderr,
         )

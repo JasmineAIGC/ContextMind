@@ -36,12 +36,7 @@ logger = get_logger(__name__)
 
 class EvolveEngine:
     """
-    进化引擎，专注于上下文优化。
-
-    自动利用 Google ADK 基础设施：
-    - InMemorySessionService：管理多轮对话会话生命周期
-    - InMemoryMemoryService：跨会话语义记忆检索
-    两个服务在调用方未显式传入时自动创建，无需手动初始化。
+    进化引擎，负责上下文优化。
 
     核心接口：optimize()、update()、handle_response()、extract_knowledge()。
     """
@@ -76,12 +71,6 @@ class EvolveEngine:
         self.llm_client = llm_client
         self.extraction_method = extraction_method
 
-        # ------------------------------------------------------------------ #
-        # ADK 服务自动初始化
-        # 当调用方未传入 session_service / memory_service 时，
-        # 自动创建 ADK InMemorySessionService / InMemoryMemoryService，
-        # 使框架原生利用 ADK 的会话和记忆基础设施。
-        # ------------------------------------------------------------------ #
         if session_service is None:
             session_service = InMemorySessionService()
             logger.info("[EvolveEngine] ✅ ADK InMemorySessionService 已自动创建")
@@ -175,16 +164,13 @@ class EvolveEngine:
         Returns:
             ContextResult 对象，包含优化后的上下文
         """
-        logger.info("")
         logger.info("=" * 100)
         logger.info(f"[EvolveEngine] ========== 开始上下文优化 ==========")
         logger.info(f"[EvolveEngine] 📝 用户输入: '{user_input[:60]}{'...' if len(user_input) > 60 else ''}'")
         logger.info("=" * 100)
-        logger.info("")
         
         processed_input = await self.preprocessor.process(user_input)
         logger.info(f"[EvolveEngine] ✓ 预处理完成")
-        logger.info("")
         
         logger.info(f"[EvolveEngine] 🔍 步骤 2/5: 召回相关上下文")
         
@@ -202,7 +188,6 @@ class EvolveEngine:
             logger.info(f"[EvolveEngine]   - 长期记忆: {len(long_term_memory)} 条知识")
         
         logger.info(f"[EvolveEngine] ✓ 召回完成 - 共检索到 {len(recent_history) + len(long_term_memory)} 条上下文")
-        logger.info("")
         
         logger.info(f"[EvolveEngine] 📦 步骤 3/5: 构建上下文")
         
@@ -219,7 +204,6 @@ class EvolveEngine:
         all_items.extend(long_term_memory)
         
         logger.info(f"[EvolveEngine] ✓ 上下文构建完成 - {len(all_items)} 条上下文项")
-        logger.info("")
         
         logger.info(f"[EvolveEngine] 🗜️  步骤 4/5: 上下文压缩")
         is_compressed = False
@@ -230,7 +214,6 @@ class EvolveEngine:
             logger.info(f"[EvolveEngine] ✓ 压缩完成")
         else:
             logger.info(f"[EvolveEngine]   - 上下文项数量适中({len(all_items)}条)，无需压缩")
-        logger.info("")
         
         logger.info(f"[EvolveEngine] ✅ 步骤 5/5: 生成最终上下文结果")
         compressed_result = ContextResult(
@@ -242,19 +225,14 @@ class EvolveEngine:
                 "long_term_memory_count": len(long_term_memory),
             }
         )
-        logger.info("")
-        
-        logger.info("-" * 100)
         logger.info(
             f"[EvolveEngine] 🎯 上下文优化完成 - "
             f"共 {len(compressed_result.items)} 条上下文项 "
             f"(会话: {compressed_result.metadata.get('session_history_count', 0)}, "
             f"记忆: {compressed_result.metadata.get('long_term_memory_count', 0)})"
         )
-        
         logger.info("-" * 100)
         logger.info(f"[EvolveEngine] ========== 上下文优化结束 ==========")
-        logger.info("")
 
         # 保存本轮 optimize 结果，供 UI 状态面板读取
         self.last_context_result = compressed_result
@@ -284,9 +262,7 @@ class EvolveEngine:
             role=MessageRole.ASSISTANT,
             content=assistant_response
         )
-        
         logger.info("[EvolveEngine] ✓ 会话历史更新完成")
-        logger.info("")
     
     async def handle_response(
         self,
@@ -322,8 +298,6 @@ class EvolveEngine:
 
         # ------------------------------------------------------------------ #
         # ADK 会话持久化到记忆服务
-        # 每轮对话完成后，将当前 ADK 会话追加到 InMemoryMemoryService，
-        # 使后续轮次的 search_memory() 能跨会话搜索到历史对话内容。
         # ------------------------------------------------------------------ #
         await self._persist_session_to_memory()
 
@@ -362,14 +336,12 @@ class EvolveEngine:
         Returns:
             提取的知识列表
         """
-        logger.info("")
         logger.info("=" * 100)
         logger.info("[EvolveEngine] ========== 🧠 开始知识提取 ==========")
         
         if not self.extractor:
             logger.warning("[EvolveEngine] ⚠️  知识提取器未初始化（需要llm_client）")
             logger.info("=" * 100)
-            logger.info("")
             return []
         
         messages = await self.session_manager.get_recent_history()
@@ -377,36 +349,29 @@ class EvolveEngine:
         if not messages:
             logger.info("[EvolveEngine] ⚠️  没有对话历史可供提取知识")
             logger.info("=" * 100)
-            logger.info("")
             return []
         
         logger.info(f"[EvolveEngine] 📖 从 {len(messages)} 条对话中提取知识...")
         logger.info("=" * 100)
-        logger.info("")
         
         knowledge = await self.extractor.extract(messages)
         
         if not knowledge:
-            logger.info("")
             logger.info("-" * 100)
             logger.info("[EvolveEngine] ℹ️  未提取到任何有效知识")
             logger.info("-" * 100)
-            logger.info("")
             return []
         
-        logger.info("")
         logger.info("-" * 100)
         logger.info(f"[EvolveEngine] ✓ 知识提取完成 - 共提取 {len(knowledge)} 条知识")
         
         if auto_store:
-            logger.info("")
             logger.info(f"[EvolveEngine] 📥 入库: 存储知识到长期记忆...")
             await self.memory_bank.store(knowledge)
             logger.info(f"[EvolveEngine] ✓ 知识入库完成")
         
         logger.info("-" * 100)
         logger.info(f"[EvolveEngine] ========== 知识提取结束 ==========")
-        logger.info("")
         
         return knowledge
     
@@ -417,17 +382,14 @@ class EvolveEngine:
         Returns:
             对话摘要文本
         """
-        logger.info("")
         logger.info("=" * 100)
         logger.info("[Summary] ========== 开始生成对话摘要 ==========")
         logger.info("=" * 100)
-        logger.info("")
         
         messages = await self.session_manager.get_recent_history()
         
         if not messages:
             logger.info("[Summary] 无对话历史，无法生成摘要")
-            logger.info("")
             return "暂无对话历史"
         
         summary_parts = []
@@ -461,10 +423,8 @@ class EvolveEngine:
         
         logger.info("[Summary] ✓ 摘要生成完成:")
         logger.info(summary)
-        logger.info("")
         logger.info("-" * 100)
         logger.info("[Summary] ========== 对话摘要结束 ==========")
-        logger.info("")
         
         return summary
     

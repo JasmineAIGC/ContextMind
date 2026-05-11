@@ -31,8 +31,7 @@ class RuleBasedExtractor(BaseExtractor):
     
     @property
     def confidence_preference_negative(self) -> float:
-        # 负向偏好在自然语言中更难精确表达，歧义性更高，
-        # 因此置信度降低 10% 作为惩罚。
+        # 负向偏好歧义性更高，置信度降低 10% 作为惩罚。
         return self.config.preference_confidence * 0.9
     
     @property
@@ -391,8 +390,7 @@ class LLMBasedExtractor(BaseExtractor):
                             logger.debug(f"[LLMBasedExtractor] 跳过内容过短: {content}")
                             continue
                         
-                        # 拒绝 [0.72, 1.0] 范围外的分数：低于 0.72 表示
-                        # 不确定性太高，缺乏可操作性；高于 1.0 表示 LLM 校准错误。
+                        # 拒绝 [0.72, 1.0] 范围外的分数（低于 0.72 不确定性太高；高于 1.0 表示校准错误）。
                         if confidence < 0.72 or confidence > 1.0:
                             logger.debug(f"[LLMBasedExtractor] 跳过不合理置信度: {confidence}")
                             continue
